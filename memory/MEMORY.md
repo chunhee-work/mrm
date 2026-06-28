@@ -1,0 +1,4 @@
+- [Language preference](language-preference.md) — reply in Mandarin Chinese by default
+- [Use repo skills](use-repo-skills.md) — always use pdf-reading + brainstorming skills
+- [Motor claim adjuster workflow](motor-claim-adjuster-workflow.md) — read claim PDFs, key into Merimen e-Claims
+- [Claim extraction output format](claim-extraction-output-format.md) — copy boxes, per-page fields, policy-date matching, I-SEARCH wins on number conflict
