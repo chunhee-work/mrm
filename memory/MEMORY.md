@@ -2,3 +2,7 @@
 - [Use repo skills](use-repo-skills.md) — always use pdf-reading + brainstorming skills
 - [Motor claim adjuster workflow](motor-claim-adjuster-workflow.md) — read claim PDFs, key into Merimen e-Claims
 - [Claim extraction output format](claim-extraction-output-format.md) — copy boxes, per-page fields, policy-date matching, I-SEARCH wins on number conflict
+- [Car part item names](car-part-item-names.md) — reference of car-part item names from Merimen damage-report studies
+- [HTML report viewer](html-report-viewer.md) — show case photos via HTML opened in Chrome (panel cant render images)
+- [Merimen claim subfolder fields](merimen-claim-subfolder-fields.md) — which PDF field maps to which Edit Claim Subfolder textbox (TP claim)
+- [Merimen adjuster report fields](merimen-adjuster-report-fields.md) — full Edit Adjuster Report (dsp_estmain) field map: header, loss, insured/driver, claimant, vehicle, condition, tyres, estimates, narratives

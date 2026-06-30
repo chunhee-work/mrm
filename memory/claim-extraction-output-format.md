@@ -21,7 +21,7 @@ When reading a claim PDF and presenting its data back to the user (Way #1 of the
 - Consistent emoji per plate: other party (TCM9889) = 🚗, our customer (BKH9821) = 🚙.
 
 **Per-page extraction template (sections 1–8 of a full bundle):**
-1. JPJ Sijil Pemilikan Kenderaan: JPJ Log Book No (the code in the TOP-RIGHT corner of the cert, e.g. RKJ5UWAC — differs per file), car plate, No ID, Name, Address, No Chassis, No Engine, Keupayaan Enjin → copyable; Status Asal / Kelas Kegunaan / Jenis Badan+Tahun / Tarikh Pendaftaran → display-only.
+1. JPJ Sijil Pemilikan Kenderaan: JPJ Log Book No (the code in the TOP-RIGHT corner of the cert, e.g. <JPJ_LOGBOOK> — differs per file), car plate, No ID, Name, Address, No Chassis, No Engine, Keupayaan Enjin → copyable; Status Asal / Kelas Kegunaan / Jenis Badan+Tahun / Tarikh Pendaftaran → display-only.
 2–3. Insurance schedule (our customer): show which insurer (display); E-Cover Note No. + Policy No. → copyable.
 4. Police investigation (Keputusan Penyiasatan Kes): No. Report Polis + separate date/time (copyable), Tempat Kejadian, Tarikh & Masa Kejadian + separate date/time (copyable). The Tarikh Kejadian = the accident date used for policy-date matching.
 5. Police report (other party): big title = car plate they drove; then Butir Pengadu — Nama, No. K/P, Alamat Tinggal, No. Tel.
