@@ -14,6 +14,17 @@ After clicking **Create Motor Claim** in Merimen e-Claims, the first form is **"
 - **Top "Insurer" + entire "INSURANCE CLAIM ISSUED AGAINST" block + "Vehicle Reg. No. (Handling Insurer)" = the AT-FAULT OTHER party** (e.g. TCM9889 / Takaful Ikhlas) — the party we claim against.
 - **"Claimant's Insurance Company" / "Claimant's Policy/Cover Note No." = our customer's OWN insurer** (e.g. Allianz). Filled because our customer also has comprehensive cover.
 
+**Create form (dsp_clmreg) field names + block roles (confirmed live 2026-07-02, CBT3040 case):** The initial "Create MOTOR Claim" form (fuseaction=dsp_clmreg) uses these `name`s, and its blocks map as:
+- **Insurer** = `ddlbInsurer` (at-fault insurer, locked after save) + **Branch** = `ddlbINSCOID` (e.g. HQ — also cannot be changed).
+- **Claim Type** `_CLMTYPECTRL`; **Date of Loss** `sleACCDATE` + **Time** `sleACCTIME`.
+- **Claimant** (= OUR client): `sleCLMnm`, `sleCLMID1` (NRIC), `sleREGNO` (reg), `sleCHANO` (chassis), workshop `ddlbREPCOIDTEXT`/`ddlbREPCOID`, `sleINITIALEST_DD`, damage `ddlbDAMTYPE`, loss desc `mleLossDesc`.
+- **ISSUED AGAINST** (at-fault policy): `slePOLNO` (+ `chkCOVERNOTE` tick if cover note), `ddlbPOLCOVER`, `ddlbNEWPOL` = **ALWAYS "Yes"** (fixed rule, user 2026-07-02), `slePOLFROM`/`slePOLTO`.
+- **Insured** block (`sleInm`, `sleIID1`) = the AT-FAULT party (the insurer's insured).
+- **Third Party / claimant-insurance block**: `sleTPnm` (Third Party's Name) = OUR client; `sleTPID1` = our client NRIC; **`sleTPREGNO` = "Vehicle Reg. No. (Handling Insurer)" = the AT-FAULT plate** (vehicle insured by handling insurer — NOT the claimant plate; corrected 2026-07-02); `ddlb3INSCOID` = "Claimant's Insurance Company" = our client's own insurer; `sleTPPOLNO` = "Claimant's Policy" = our client's policy. **Tick the `TPOWN` checkbox** ("claimant's vehicle insured with own comprehensive policy" — user rule: always tick). Do NOT confuse `TPOWN` with `_subclmtype1` (`cbxSUBCLMTYPE`, a Claim-Type sub-option). NOTE labels are DYNAMIC — only correct after Claim Type = TP is chosen.
+- **Vehicle Model** = `ddlbMan` + `ddlbModel` (match variant+transmission+period to reg date), for the CLAIMANT vehicle.
+- The at-fault VEHICLE reg (Handling Insurer) is entered LATER in the Edit Claim Subfolder step, not on this create form.
+- To set dependent dropdowns via JS you must dispatch `change` events (insurer→branch/coverage, claimtype→damagetype, manufacturer→model).
+
 ## Block 1 — CLAIM SUBFOLDER
 | Merimen field | Source | BKH9821 value |
 |---|---|---|
@@ -26,7 +37,7 @@ After clicking **Create Motor Claim** in Merimen e-Claims, the first form is **"
 | Vehicle Reg. No. (Claimant) | our customer plate | BKH9821 |
 | Chassis No (Claimant) | JPJ cert No. Chassis | <CHASSIS> |
 | Workshop/Repairer | workshop (Lookup) | Bengkel Kereta Sinar Gemilang (HQ) |
-| Initial Estimation (RM) | rough estimate; CANNOT change after notification | 10,000 - 12,500 |
+| Initial Estimation (RM) | **FIXED default (user rule 2026-07-02): ALWAYS select the `10,000 - 12,500` band, every case.** CANNOT change after notification | 10,000 - 12,500 |
 | Settlement Type | fixed | CLAIMS |
 
 ## Block 2 — INSURANCE CLAIM ISSUED AGAINST (= the at-fault party's policy)

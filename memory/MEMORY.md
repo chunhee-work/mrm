@@ -6,3 +6,7 @@
 - [HTML report viewer](html-report-viewer.md) — show case photos via HTML opened in Chrome (panel cant render images)
 - [Merimen claim subfolder fields](merimen-claim-subfolder-fields.md) — which PDF field maps to which Edit Claim Subfolder textbox (TP claim)
 - [Merimen adjuster report fields](merimen-adjuster-report-fields.md) — full Edit Adjuster Report (dsp_estmain) field map: header, loss, insured/driver, claimant, vehicle, condition, tyres, estimates, narratives
+- [Workshop from desktop folder](workshop-from-desktop-folder.md) — Desktop folder name = which workshop to pick in Merimen
+- [Merimen create case procedure](merimen-create-case-procedure.md) — fast end-to-end steps to create a TP claim + fixed defaults (Branch HQ, Est 10k-12.5k, New Policy Yes)
+- [Merimen session warning](merimen-session-warning.md) — always click "Continue Session" on the expiry popup
+- [Merimen manager/adjuster](merimen-manager-adjuster.md) — fixed Manager=<MANAGER_NAME>, Adjuster=<ADJUSTER_NAME> on Adjuster Claim Reference
