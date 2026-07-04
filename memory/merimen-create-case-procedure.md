@@ -13,7 +13,16 @@ Fast end-to-end procedure to create a Third-Party (TP) motor claim in Merimen e-
 - **"create case"** (+ plate) → do the FULL A-Z Merimen entry: Create Motor Claim subfolder → (Manager/Adjuster on Adjuster Claim Reference) → Edit Adjuster Report → Save & Adjust Estimates. Drive it all via chrome-control on the user's already-open Chrome.
 - **"send me data"** (+ a PDF) → do NOT touch Merimen; just read the PDF and present the extracted claim data back (copy-box format per [[claim-extraction-output-format]]).
 
-**WORKSHOP is now the user's job (2026-07-02):** The user will create the Merimen page(s) first and **select the Workshop themselves**; Claude just accesses Chrome and fills everything else. So Claude no longer needs to drive the workshop Lookup popup — skip step 4 below unless the user asks.
+**WORKSHOP — Claude selects it via the Lookup popup (user rule 2026-07-04, latest).** Supersedes the earlier "user pre-selects the workshop." Claude opens the **Lookup...** popup with a real osascript gesture then drives it (see step 4 + [[macos-native-dialog-automation]]). Along with **Police Station Browse** and **document Upload**, these 3 native-dialog steps are now Claude's job — do them all, don't ask the user.
+
+## FULL A-Z BATCH WORKFLOW (user rule 2026-07-04) — Claude now creates the case pages himself
+When the user says do the Desktop cases (batch), the end-to-end flow is:
+1. **Count the cases** on the Desktop (folders under `~/Desktop/extreme/*` and `~/Desktop/sinar/*`, or wherever the case folders are). The number of cases = number of create-pages to open.
+2. **User logs into merimen.com.my** himself (Claude never types credentials) → gives Claude an authenticated session.
+3. **Read ALL the case data UP FRONT** (every case's PDF(s) + photos → extract names/NRIC/policy/vehicle/accident + odo/colour/damage-zone) BEFORE touching Merimen — so the entry runs fast with no mid-flow reading.
+4. **Open one "Create Motor Claim" tab per case.** The user's manual method (replicate it): **right-click "Claims Home" → "Open in tab" → in the new tab click "Create Motor Claim".** Automation options: `open_url` a new tab to the Create-Motor-Claim link (`fusebox=MTRclaim&fuseaction=dsp_clmreg`) grabbed from Claims Home; or osascript Cmd-click the "Claims Home" link (real gesture → new tab) then click "Create MOTOR Claim". Open N such tabs.
+5. **For each tab, run the full A-Z** (steps below): fill Create form (incl. **workshop via Lookup**, step 4) → Next (Enter Details) → Manager/Adjuster → Edit Adjuster Rpt → fill report (incl. **Police Station via Browse**) → Save & Adjust Estimates → Next (Save & Edit Estimates) → discounts P=10/S=0 → Labour 30×4 → Save → Narratives (5, WITHOUT PREJUDICE in the Market-Value/530 slot) → Save → **upload the source PDF(s)** (compress <3 MB first) → output the **Google-Sheet row** (STEP 8).
+All 3 native-dialog steps (Lookup, Browse, Upload) are Claude's job via osascript ([[macos-native-dialog-automation]]).
 
 ## 0. Locate + read the case
 - User names a plate (e.g. CBT3040). Find its folder on Desktop: `~/Desktop/<workshop>/<PLATE>/` — the **parent folder = workshop** ([[workshop-from-desktop-folder]]). Read the PDF `<PLATE> <workshop>.pdf` with the Read tool (PDFs render directly; no pdftotext needed).
@@ -42,7 +51,7 @@ Field names + values (see [[merimen-claim-subfolder-fields]] for full map). For 
 - **Field labels are DYNAMIC**: several labels only show their final wording AFTER Claim Type = TP is selected (e.g. `sleTPREGNO` reads "Vehicle Reg. No. (TP)" before, "Vehicle Reg. No. (Handling Insurer)" after). Always set Claim Type first, THEN re-read labels before mapping — don't trust pre-TP labels.
 - Vehicle Model (claimant vehicle): `ddlbMan` (dispatch change) then `ddlbModel` = match variant + transmission (A/M) + period bracket to the reg date.
 
-## 4. Workshop — USER handles it (2026-07-02): the user pre-selects the workshop themselves; Claude skips this. (Legacy method below, only if user asks.)
+## 4. Workshop — CLAUDE does it via the Lookup popup (user rule 2026-07-04, latest — reverses the earlier "user pre-selects"). Open the **Lookup...** popup with a real osascript gesture ([[macos-native-dialog-automation]]), then drive the popup tab (set the KEYWORD box to the workshop name from the Desktop folder, click Search, click the matching result row) — details below.
 - Claude can't open the Lookup popup (popup-blocked) → ask user to click **Lookup...** once. Then drive the popup tab (title "Find..."/"Company List"): set its `input[type=text]` KEYWORD = workshop name (Desktop folder, e.g. "extreme auto") → click **Search** → click the result `<td>` containing the workshop name. That sets `ddlbREPCOIDTEXT`+`ddlbREPCOID` on the form and closes the popup. Then **re-set `ddlbDAMTYPE`="Collision"** (selection re-render can clear it). See [[workshop-from-desktop-folder]].
 
 ## 5. Review + save
@@ -71,6 +80,27 @@ Throughout the whole A-Z flow, whenever a Merimen alert/warning modal pops up (i
 
 ## Next (Enter Details) → immediately click OK (user rule 2026-07-02)
 Right after clicking **"Next (Enter Details)"**, an insurer API warning modal may pop up (e.g. Zurich `ZURICH_API_INFO_CTXFRAME` "Policy not found!"). **IGNORE the warning content — immediately click its "OK" button** (an `input[type=button]` with onclick `JSVCVarNameGet('..._API_INFO').clickButton('OK')`); the case creation then proceeds regardless. So keep using the normal I-SEARCH policy number (the API "not found" message does NOT mean the number is wrong — just OK past it). Do this fast — the flow can time the session out; watch for the Continue Session popup ([[merimen-session-warning]]).
+
+## STEP 7.5 — Upload the source documents into Merimen (user rule 2026-07-04)
+Upload the case's source PDFs into the claim's Documents (do this once the case exists — from the Claim Subfolder page):
+1. Click **"Documents"** (button/tab on the Claim Subfolder page).
+2. On the **Claim Documents** page → click **"Upload Documents"**.
+3. In the "Upload Documentation" popup → click **"Add files..."** (opens a native file picker) → select the case PDF file(s).
+4. For each file, **specify the Document Name**:
+   - If the source is **split into separate files**, name each per the standard labels (matches [[workshop-from-desktop-folder]]): **RC** (Sijil / our client's ownership cert), **INS** (our customer's own insurance), **P.REPORT** (police report), **JPJ SEARCH** (对方保单 / at-fault insurance).
+   - If it's just **ONE combined file**, name it **"DOC"** (user rule 2026-07-04).
+   Then click **"Start upload"**, and when done click **"Close"**.
+- **HARD LIMIT: Merimen rejects any file over 3 MB.** So compress each source PDF to **under 3 MB first** (see [[workshop-from-desktop-folder]] compress rule — `compress_pdf.py`). This is the reason for the <3 MB compression target.
+- "Add files..." opens a NATIVE OS file dialog. execute_javascript alone can't drive it, but **Claude CAN now fully automate it via osascript** (Accessibility granted) — see [[macos-native-dialog-automation]] for the verified recipe (focus #FilesID → real Space keypress opens the panel → Cmd+Shift+G + type path + Return → fill FDESC + Start upload + Close). Compress to <3 MB first.
+
+## STEP 8 — After finishing each case, output a Google-Sheet row (user rule 2026-07-04)
+Once a case is done, give the user a TAB-separated row to paste into his Google Sheet, in this exact column order:
+`<DATE>` <TAB> `<PLATE>` <TAB> `<WORKSHOP>` <TAB> `D`
+- **DATE** = the day we DO the case, `dd/mm/yyyy` (e.g. 04/07/2026).
+- **PLATE** = our client's vehicle reg (e.g. VFA1371).
+- **WORKSHOP** = the sheet's short name: **`SINAR GEMILANG`** for the `sinar` folder, **`EXTREME AUTO`** for the `extreme` folder.
+- Last column = literal **`D`**.
+Output all the batch's cases as consecutive rows (one per line) so they paste straight into the sheet.
 
 ## Fixed defaults (never vary): Branch = HQ · Initial Estimation = 10,000 - 12,500 · New Policy? = Yes · Damage Type = Collision · TP Injury = No.
 

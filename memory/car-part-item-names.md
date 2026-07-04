@@ -72,4 +72,58 @@ Apply the same canonical ordering to all equivalents: "Driveshaft Front RH" → 
 
 **Accessories / commercial:** Kangaroo Bar Front (front tubular bull bar — seen on the HINO lorry BLJ892). **Truck/cab-over parts (from BLJ892):** Front Panel (cab front), Front Pillar (cab A-pillar), Front Pillar Moulding RH, Door Front Tread Plate RH, Steering Control Arm LH/RH (steering drag link/pitman), Floor Panel (cab floor).
 
+## STUDY 2026-07-04 — our own 16 submitted-case reports (fusebox=SVCdoc dsp_reports, Autoris HQ)
+Studied the photo-report item captions of all 16 cases we built (CBT3040, CCX3911, CDN5619, CFG3362, WLW551, WUG466, WUN7241, JUV7234, TBK95, TBW8887, TCL730, VAS763, VFA1371, WC8313L, WC8911N). The report viewer captions each uploaded photo `<n>/<total>: <Item Name>` — these ARE the authoritative Merimen part names. This study CONFIRMED the master list above and adds the items/rules below.
+
+**Confirmed conventions:**
+- Every report opens with the same identification shots: Front View Right/Left, Rear View Right/Left, Interior View (or Road Tax), Odometer Reading, Chassis Number, Engine Compartment.
+- **Hatchback ⇒ "Tailgate"** (+ Tailgate Hinge/Lock/Striker/Support Strut LH/RH, Tailgate Aperture Weatherstrip, Tailgate Badge). **Sedan ⇒ "Boot Lid"** (+ Boot Lid Hinge/Lock/Striker LH/RH, Boot Lid Aperture Weatherstrip, Boot Lid Badge).
+- **Badge format = `<Part> Badge (<MODEL/BRAND>)`**: e.g. Tailgate Badge (MYVI), Tailgate Badge (VIVA), Tailgate Badge (VALVE MATIC), Boot Lid Badge (CIVIC), Grille Front Badge (PERODUA), Grille Front Badge (PROTON).
+- LH/RH always at the END. Sensors can carry Outer/Inner: `Rear Bumper Sensor Outer LH`, `Rear Bumper Sensor Inner LH`.
+
+**New items added by this study:** Front Bumper Finisher RH; Front Bumper Bracket LH/RH; Front Crossmember; Cooling Fan Motor Cover; Horn Cover; Windscreen Washer Tank; A/C Pipe Fender Inner RH; Headlamp Panel LH; Rear Bumper Spoiler (LH); Rear Bumper Sensor Outer/Inner LH/RH; Rear Bumper RH; Rear Lower Extractor RH; Rear Extractor Vent; Rear Mudflap RH; Rear Tyre RH; Rear Suspension View RH/LH; Rear Wheelhouse RH; Rear Panel Upper Section LH; Runningboard Tread Plate RH; Boot Lid Striker; Spare Wheel Carrier.
+
+## USER'S GOOGLE SLIDES PART-NAME NOTES (studied 2026-07-04) — 5 decks: Front, Side, Undercarriage, Interior/Notice, Lori
+The user keeps Google Slides decks of captioned part photos (`<n>/<total>: <Part Name>`, aggregated from many Autoris case reports) as his authoritative part-name reference. Extracted via export/pdf → PyMuPDF render → read (captions are baked into images; not text-extractable).
+
+### FRONT deck (engine bay + front end) — vocabulary
+- **Engine / mechanical:** Oil Filter, Engine Oil Dipstick, Alternator, Starter Motor, Oxygen Sensor, Cylinder Head Cover, Exhaust Manifold, Exhaust Manifold Cover, Engine Mounting RH, Engine Moulding LH, Cowl Panel Grille, Transmission ECU, Gear Selector Lever, Wiring Front Auto Gearbox, Front Wiring Assembly, ABS Control Module, Brake ABS Modulator, Ambient Sensor.
+- **Cooling / A-C / power steering:** A/C Condenser, A/C Compressor, A/C Pipe Inner Fender LH/RH, A/C Pipe Discharge Hose, A/C Discharge Hose, A/C Suction Hose, Air Conditioning Hose, Air Conditioning Evaporator Cover, Radiator Hose, Radiator Bracket, Radiator Expansion Tank, Radiator Air Deflector (RH), Cooling Fan Cover, Cooling Fan Motor LH, Cooling Fan Viscous Unit, PAS Return Hose, PAS Container, Pas Oil Cooler, Oil Cooler Gearbox, Transmission Oil Cooler (+ Hose).
+- **Air intake:** Air Filter Cover, Air Filter Outlet Pipe, Air Filter Pick Up Hose, Air Pipe Inner Fender LH.
+- **Electrical:** Fuse Box, Relay Box Cover, Battery Tray, Battery Positive Cable, Battery Retaining Clamp, Headlamp Bulb.
+- **Front panel / bumper / grille:** Front Panel (comes as **"Assembly"** OR **"Separate (PERODUA)"** pieces), Front Panel Lower, Front Panel Support Panel LH/RH, Front Panel Upper Cover, Front Bumper, Front Bumper Cover, Front Bumper Spoiler, Front Bumper Fixings Cover, Front Bumper Shock Absorber (Upper), Front Bumper Reinforcement (Lower), Front Bumper Fog Lamp Chrome Moulding LH, Bumper Front Fog Lamp Bezel LH, Front Grille Moulding, Front Grille Backing, Grille Front Moulding Lower/Upper, Grille Panel/Headlamp Mask.
+- **Lamps:** Headlamp LH, Headlamp Assy LH/RH, Headlamp Bezel LH/RH, Headlamp Lower Bracket RH, Headlamp Mounting Bracket Lower RH, Lamp Daytime Running LH, Front Indicator Lamp RH.
+- **Bonnet:** Bonnet Lock, Bonnet Latch Stud Plate, Bonnet Safety Release Lever, Bonnet Insulation, Bonnet Finisher.
+- **Fender / structure:** Fender LH, Fender Inner LH, Fender Inner Bracket LH, Fender Liner LH, Front Wheelhouse LH/RH, Front Pillar Outer LH (note: **"no need select — only repair or renew"**), Front Pillar Outer Trim LH.
+- **Washer / misc:** Windscreen Washer Tank, Windscreen Washer Pump, Roof Windscreen, Door Front LH, Front Panel Upper Cover.
+
+### SIDE deck (doors / pillars / sills) — vocabulary
+- **Front door:** Door Front Lock LH, Door Front Handle Outer Release Front LH, Door Window Regulator Front LH, Front Door Hinge Upper LH, Front Door Visor RH, Door Glass Front Window LH, Front Door Weatherstrip Outer RH, Door Check Strap Front RH, Front Door Run Felt LH, Front Door Mirror Inner Trim RH, Door Mirror.
+- **Rear door:** Door Rear LH, Door Rear Lock / Striker, Door Rear Striker LH, Door Rear Aperture Weatherstrip LH, Rear Door Hinge Upper / Lower, Rear Door Trimboard, Door Rear Chrome Moulding LH, Rear Door Tread Plate LH, Moulding Door Frame Outer Rear LH.
+- **Sliding door (van/MPV):** Sliding Door LH Upper Roller, Sliding Door LH Rear Roller, Sliding Door LH Lower Roller.
+- **Pillar / sill / side:** Front Pillar Outer LH, Front Pillar Outer Trim LH, Front Pillar Inner Trim LH, Side Step LH, Runningboard Panel Tread Plate Rear LH, Rear Mudflap RH, Fender LH, Fender Liner LH, Cowl Panel Grille, Dashboard Panel.
+- **KEY DISTINCTION (user note):** **Runningboard Spoiler** = plastic, has a raised protrusion (有凸起) and a black-rubber seal running along the skirting/spoiler; **Runningboard Panel** = metal, flat (平整). The black rubber seal on the skirting is how you tell it's the SPOILER (plastic), not the metal PANEL.
+
+### UNDERCARRIAGE deck (suspension / drivetrain / underside) — vocabulary
+- **Front suspension/steering:** Front Shock Absorber LH, Front Strut Damper, Suspension Knuckle, Ball Joint, Lower Control Arm, Hub/Bearing Assembly, Stub Axle, Outer Tie Rod, Knuckle Clamp Bolt, Steering Tie Rod RH, Front Stabilizer Bar, Front Stabilizer Bar Link Rod LH, Front Suspension Arm Bracket RH, Front Suspension Crossmember, Front Suspension Cross Member Bracket.
+- **Rear suspension:** Rear Suspension Lower Arm RH, Rear Suspension Lower RH, Trailing Arm Rear RH (**"Rear Only"**), Rear Trailing Arm RH, Rear Stabiliser Bar Link Rod RH, Suspension Spring Rear Leaf RH, Rear Wheel Rim RH.
+- **Brakes:** Brake Caliper Front LH, Brake Disc Cover LH.
+- **Drivetrain / underside:** Undercarriage View, Transmission Assy, Propeller Shaft Rear, Engine Mounting Front, Engine Support Member, Engine Oil Sump, Transmission Oil Sump, Radiator Hose, Oil Filter, Spare Wheel Carrier. (Drivetrain terms: transaxle, transfer case, front/rear drive axle, drive shaft, rear differential.)
+- **KEY NOTE (user):** **Rear Crossmember** = the straight metal member UNDER the boot floor that supports the boot floor (not a suspension arm). "Front stabilizer bar link rod" is the small link at the front suspension connecting the stabilizer bar.
+
+### INTERIOR / NOTICE deck (cabin / airbags / HVAC) — vocabulary
+- **Seats:** Front Seat Back RH, Seat Cushion Rear, Headrest Assembly Third Row LH.
+- **Airbags:** Driver Side Airbag (RH), Passenger Side Airbag, Front Curtain Air Bag RH.
+- **Dashboard / console / trim:** Dashboard Panel, Center Console (Centre Console), Front Panel Wiring, Keyless Entry Buzzer, Heater Control Assy, Rooflining, Centre Pillar Inner Lower Trim LH.
+- **HVAC:** A/C Blower, A/C Evaporator.
+- **Misc:** Mudflap (sold as a FRONT AND REAR 4PCS set — left/right front + left/right rear), Rear Mudflap RH.
+
+### LORI (LORRY / TRUCK) deck — vocabulary + reference prices
+- **Cargo body — Wooden Carrier (open lorry):** Wooden Carrier Rear Door, Wooden Carrier Rear Support (also "…Stainless Steel"), Wooden Carrier Step Panel, Wooden Carrier Back Door, Rear Wooden Carrier Floor Support, Rear Wooden Carrier Front Steel Door Lock RH.
+- **Cargo body — Bonded Box (box lorry):** Bonded Box Rear RH Pillar, Bonded Box Rear RH Lower Reinforcement, Bonded Box Rear Door Opener Rod, Bonded Box Lower Reinforcement.
+- **Truck front / cab:** Kangaroo Bar Front (often "Kangaroo Bar Front & Bumper Front Cover"), Bumper Front Cover, Bumper Front Bracket LH, Bumper Front Fog Lamp Support LH, Bumper Front Lower Grille, Bumper Front Number Plate Holder, Bumper Front Reinforcement Panel, Fog Lamp Front LH/RH, Front Panel Inner LH, Front Panel Radiator Support LH/RH, Front Chassis Member, Headlamp Inner RH, Grille Front, Grille Badge, Grille Front Moulding (Badge support), Front Cabin Torsion Bar, Bonnet Weatherstrip (Front), Turbo Intercooler.
+- **Truck mechanical / suspension:** Axle Case Rear, Leaf Spring Rear RH, Steering Box, Steering Control Arm RH.
+- **Interior / rear:** Dashboard, Door Lock, Seat Belt Reel Front RH/LH, Rear Panel, Rear Mudflap, Rear Reflector.
+- **USER'S LORRY REFERENCE PRICES (RM):** Rear Panel 2600 · Rear Mudflap 280 · Rear Reflector 300 · Grille Front 985 · Door Lock 415 · Dashboard 1985 · Wooden Carrier Rear Door 1200 · Wooden Carrier Rear Support Stainless Steel 600 · Wooden Carrier Step Panel 450.
+
 Related: [[motor-claim-adjuster-workflow]], [[claim-extraction-output-format]], [[html-report-viewer]].

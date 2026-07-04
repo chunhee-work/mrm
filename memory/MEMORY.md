@@ -10,3 +10,4 @@
 - [Merimen create case procedure](merimen-create-case-procedure.md) — fast end-to-end steps to create a TP claim + fixed defaults (Branch HQ, Est 10k-12.5k, New Policy Yes)
 - [Merimen session warning](merimen-session-warning.md) — always click "Continue Session" on the expiry popup
 - [Merimen manager/adjuster](merimen-manager-adjuster.md) — fixed Manager=<MANAGER_NAME>, Adjuster=<ADJUSTER_NAME> on Adjuster Claim Reference
+- [macOS native dialog automation](macos-native-dialog-automation.md) — osascript drives file-picker/Lookup/Browse (Accessibility granted); working upload recipe

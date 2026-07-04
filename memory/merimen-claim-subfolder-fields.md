@@ -63,6 +63,8 @@ After clicking **Create Motor Claim** in Merimen e-Claims, the first form is **"
 
 Notes: vehicle make/model registration valid 3 days (changing later = RM12 charge). Models highlighted green have parts data — prefer those. "Next (Save & Return)" advances.
 
+**MODEL MATCH = use the JPJ cert's MODEL CODE, not the chassis prefix** (user correction 2026-07-04, VFA1371): the JPJ Sijil line "Buatan/Nama Model" gives an exact code like "TOYOTA / WISH **DBA-ZGE20G**" — pick the Merimen `ddlbModel` option carrying that same code (e.g. "WISH MPV 1.8 DBA-ZGE20G (A)"). Do NOT infer from the chassis-number prefix (VFA1371's chassis was ZGE25-... but the registered model was DBA-ZGE20G — an agent wrongly picked the ZGE25G variant). Chassis prefix ≠ model code, especially on reconditioned imports.
+
 **Policy number note (confirmed 2026-06-30):** at-fault TCM9889 may appear as <AT_FAULT_POLICY_ALT> (earlier doc) or <AT_FAULT_POLICY> (I-SEARCH / form). User confirmed BOTH are valid/work for this case.
 
 Related: [[motor-claim-adjuster-workflow]], [[claim-extraction-output-format]], [[car-part-item-names]].
