@@ -1,6 +1,7 @@
 - [Language preference](language-preference.md) — reply in Mandarin Chinese by default
 - [Use repo skills](use-repo-skills.md) — always use pdf-reading + brainstorming skills
 - [Motor claim adjuster workflow](motor-claim-adjuster-workflow.md) — read claim PDFs, key into Merimen e-Claims
+- ⭐ [Merimen A-Z progress](merimen-az-progress.md) — the complete ordered A-Z checklist (create→report→estimate→narrative→upload) with every required field + the parallel-tabs rule; READ before every case
 - [Claim extraction output format](claim-extraction-output-format.md) — copy boxes, per-page fields, policy-date matching, I-SEARCH wins on number conflict
 - [Car part item names](car-part-item-names.md) — reference of car-part item names from Merimen damage-report studies
 - [HTML report viewer](html-report-viewer.md) — show case photos via HTML opened in Chrome (panel cant render images)
