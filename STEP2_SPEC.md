@@ -17,7 +17,7 @@ already‑selected parts:
 
 1. **Damage Condition** for every part row (PDC field).
 2. **Miscellaneous** service prices (MMI field) — only the rows we price.
-3. **Paint Consumables** = fixed **500.00**.
+3. **Paintwork Materials** popup: Manufacturer = Other / "anything", consumables unticked (§6).
 
 Then it **Saves** and **verifies** every part row got a condition.
 
@@ -106,8 +106,8 @@ misc prices** (user rule).
 
 | # | If misc name matches | Price (RM) |
 |---|---|---|
-| 1 | `paintwork material.*water` \| `water.*paintwork` (Water-based) | *null — skip* |
-| 2 | `paintwork material` (Solvent, OR a single "Paintwork Materials" line) | **500.00** |
+| 1 | `paintwork` (any paintwork line) | *null — skip (paint handled in §6)* |
+| 2 | *(retired: Solvent 500 rule)* | — |
 | 3 | `car-o-liner` \| `frame aligner` \| `aligner bench` \| `frame bench` | **400.00** |
 | 4 | `electrical` | **35.00** |
 | 5 | `underseal` | **60.00** |
@@ -125,16 +125,17 @@ misc prices** (user rule).
 
 ---
 
-## 6. Paint Consumables (fixed)
+## 6. Paintwork Materials (NEW method — user screen recording 2026-10-07; replaces the old RM500 rule)
 
-- Tick the checkbox **`MPWCB1`** (fires its onclick which un‑readonly's the price box).
-- Force the price box **`MPWCV1`** editable (`readOnly=false`) and set value **`500.00`**; dispatch `input`+`change`.
+Do this FIRST (its confirm dialog resets unsaved values), then reload and do sections 4–5:
+1. Miscellaneous tab → **Paintwork Materials** row → click **Edit** (`PWEdit(0,0)`).
+2. In the "Paintwork Materials" popup: **Paint Manufacturer** (`#slePNTMAN`) = **Other** (value `-1`); type **`anything`** in the text box beside it (`#sleMANCUSTOM`).
+3. Leave Paint Base / Type / Range blank, **Paint Consumables (`#slePNTCONSUM`) UNTICKED**, no panels ticked.
+4. **Submit** → confirmation "Unsaved values will be reset. Confirm to proceed?" → **OK**.
+5. Row now shows "Paint Manufacturer: anything", price stays 0.00 → click **Save**.
 
-Paint Consumables is always **500.00** for these cases.
-
-**⚠️ Two paint templates:** (A) the separate **`MPWCB1`/`MPWCV1`** checkbox+price above; (B) templates with **no MPWCB1** — instead a Miscellaneous line named **"Paintwork material (Solvent)"** or a single **"Paintwork Materials"** line — priced via the Misc rules (#2 → 500.00), while a **"Paintwork material (Water-based)"** line stays blank (#1 → skip). So on a "no MPWCB1" page, confirm paint 500 landed on the Solvent / single Paintwork-Materials Misc line instead.
-
----
+No RM500 anywhere for paint: the old `MPWCB1`/`MPWCV1` = 500 and the misc "Paintwork material (Solvent)" = 500 rules are **retired**; misc rows containing "paintwork" are skipped.
+Reference implementation: `pwset.mjs` (`paintStep(page)`), called by `estfill.mjs`.
 
 ## 7. Save & verify flow
 
@@ -145,7 +146,7 @@ Paint Consumables is always **500.00** for these cases.
 5. Accept any confirmation: loop up to 3× clicking a visible **OK** button.
 6. Re‑navigate to the same URL and **verify**: count PART rows where `PDC<i>` is non‑empty
    (`filled`) vs empty, and read back `MPWCB1.checked` + `MPWCV1.value`.
-   - **Success = `empty == 0`** (every named part row has a condition) **and** Paint chk=true, val=500.00.
+   - **Success = `empty == 0`** (every named part row has a condition) **and** PaintMan shows `anything` (custom), consumables 0.
 
 Auto‑accept JS dialogs throughout (`page.on('dialog', d => d.accept())`).
 
@@ -155,8 +156,8 @@ Auto‑accept JS dialogs throughout (`page.on('dialog', d => d.accept())`).
 
 Console line per case, e.g.:
 ```
-<PLATE> set PDC=41 MISC=11 PAINT[MPWCB1=true MPWCV1=500.00]
-<PLATE> VERIFY PDC filled=41 empty=0 | PaintConsum chk=true val=500.00
+<PLATE> set PDC=41 MISC=10 PAINTSTEP[man=anything]
+<PLATE> VERIFY PDC filled=41 empty=0 | PaintMan=anything custom=anything consum=0
 ```
 Case is **done** when `filled == set` and `empty == 0`.
 
