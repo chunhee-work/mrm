@@ -12,5 +12,6 @@
 - [Merimen session warning](merimen-session-warning.md) — always click "Continue Session" on the expiry popup
 - [Merimen manager/adjuster](merimen-manager-adjuster.md) — fixed Manager=<MANAGER_NAME>, Adjuster=<ADJUSTER_NAME> on Adjuster Claim Reference
 - [macOS native dialog automation](macos-native-dialog-automation.md) — osascript drives file-picker/Lookup/Browse (Accessibility granted); working upload recipe
-- ⭐ [Estimate companion parts](estimate-companion-parts-rule.md) — Bumper→Clips x15, Grille→Clips x9, Bonnet→Hinge x2, Sensor/Bracket x2 LH&RH, Boot lid→Hinge/Strut/Rear plate, Crossmember→Wheel Hub, Door→8 items
+- ⭐ [Estimate companion parts](estimate-companion-parts-rule.md) — MUST: Fender→Liner, Bonnet→Hinge, Bumper→Sensor+Bracket LH&RH, Quarter→Liner, Boot lid/Tailgate→Lock+Striker+Hinge+Aperture WS; Bumper→Clips x15, Grille→Clips x9, Bonnet→Hinge x2, Sensor/Bracket x2 LH&RH, Boot lid→Hinge/Strut/Rear plate, Crossmember→Wheel Hub, Door→8 items
 - ⭐ [STEP 2 paint popup method](step2-paint-popup-method.md) — step 2 = select parts + cond + misc + paint (Other/"anything" popup; Solvent line 500)
+- ⭐ [Labour N/R selection](labour-n-r-selection.md) — Labour tab: left=N (New: replaced part + R&R jobs), right=R (Repair: adjacent/inner panels); rules from 217 cases; tools/labourfill.mjs
