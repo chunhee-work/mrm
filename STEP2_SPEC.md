@@ -106,8 +106,9 @@ misc prices** (user rule).
 
 | # | If misc name matches | Price (RM) |
 |---|---|---|
-| 1 | `paintwork` (any paintwork line) | *null — skip (paint handled in §6)* |
-| 2 | *(retired: Solvent 500 rule)* | — |
+| 1 | `paintwork material.*water` | *null — skip* |
+| 2 | `paintwork material.*solvent` | **500.00** |
+| 2b | generic `Paintwork Materials` row (popup) | **500.00** (skipped if a Solvent line exists) |
 | 3 | `car-o-liner` \| `frame aligner` \| `aligner bench` \| `frame bench` | **400.00** |
 | 4 | `electrical` | **35.00** |
 | 5 | `underseal` | **60.00** |
@@ -121,6 +122,7 @@ misc prices** (user rule).
 | 13 | `\btyre\b` | **350.00** |
 | 14 | `air.?cond` \| `r134` | **150.00** |
 | 15 | `fogging` | **45.00** |
+| 15b | `radiator coolant` | **35.00** |
 | 16 | *(no match)* | *null — skip* |
 
 ---
@@ -132,9 +134,9 @@ Do this FIRST (its confirm dialog resets unsaved values), then reload and do sec
 2. In the "Paintwork Materials" popup: **Paint Manufacturer** (`#slePNTMAN`) = **Other** (value `-1`); type **`anything`** in the text box beside it (`#sleMANCUSTOM`).
 3. Leave Paint Base / Type / Range blank, **Paint Consumables (`#slePNTCONSUM`) UNTICKED**, no panels ticked.
 4. **Submit** → confirmation "Unsaved values will be reset. Confirm to proceed?" → **OK**.
-5. Row now shows "Paint Manufacturer: anything", price stays 0.00 → click **Save**.
+5. Row now shows "Paint Manufacturer: anything" → set the **Paintwork Materials Price (RM/unit) = 500.00** (user rule 2026-10-11: 500, not 0) → click **Save**.
 
-No RM500 anywhere for paint: the old `MPWCB1`/`MPWCV1` = 500 and the misc "Paintwork material (Solvent)" = 500 rules are **retired**; misc rows containing "paintwork" are skipped.
+Paint = **RM500 once**: the Paintwork Materials row = 500; if the template instead has "Paintwork material (Solvent)" / "(Water-based)" lines → Solvent = 500, Water-based = 0, generic row skipped. The old `MPWCB1` checkbox method is retired.
 Reference implementation: `pwset.mjs` (`paintStep(page)`), called by `estfill.mjs`.
 
 ## 7. Save & verify flow
