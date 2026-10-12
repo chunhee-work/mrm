@@ -27,7 +27,8 @@ def load(i, aug):
         a = np.clip(a * random.uniform(0.8, 1.2) + random.uniform(-0.08, 0.08), 0, 1)
     return ((a - mean) / std).transpose(2, 0, 1)
 
-bb = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
+_HUB = os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main")
+bb = torch.hub.load(_HUB, "dinov2_vitb14", source="local") if os.path.isdir(_HUB) else torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
 for p in bb.parameters(): p.requires_grad = False
 for blk in bb.blocks[-UNFREEZE:]:
     for p in blk.parameters(): p.requires_grad = True

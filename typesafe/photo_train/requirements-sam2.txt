@@ -1,0 +1,5 @@
+# Python 3.11 (.venv_sam2) — SAM 2.1 shape cutter (SAM 2 needs Python >= 3.10)
+torch
+torchvision
+opencv-python-headless
+git+https://github.com/facebookresearch/sam2.git
