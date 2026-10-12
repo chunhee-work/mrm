@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Fine-tune DINOv2 ViT-B/14 (last N blocks + head) on Merimen photo names. No horizontal flip (LH/RH matters)."""
+import json, os, random, sys, time
+import numpy as np, torch, torch.nn as nn
+from PIL import Image
+HERE = os.path.dirname(os.path.abspath(__file__))
+EPOCHS = int(sys.argv[1]) if len(sys.argv) > 1 else 6
+UNFREEZE = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+TAG = sys.argv[3] if len(sys.argv) > 3 else "ft"
+dev = "mps"
+paths = open(os.path.join(HERE, os.environ.get("PATHS_FILE", "feats.bin.paths"))).read().split("\n")
+meta = [l.split("\t") for l in open(os.path.join(HERE, os.environ.get("META_FILE", "meta.tsv"))).read().split("\n") if l]
+ALL = os.environ.get("ALL_CASES") == "1"
+tr = [i for i, m in enumerate(meta) if m[3] == "train" or (ALL and m[3] == "test" and m[0])]
+te = [i for i, m in enumerate(meta) if m[3] == "test" and m[0]]
+labels = sorted({meta[i][0] for i in tr}); L = {k: j for j, k in enumerate(labels)}
+mean = np.array([0.485, 0.456, 0.406], np.float32); std = np.array([0.229, 0.224, 0.225], np.float32)
+
+def load(i, aug):
+    im = Image.open(os.path.join(HERE, paths[i])).convert("RGB")
+    if aug:
+        w, h = im.size; s = random.uniform(0.75, 1.0)
+        cw, ch = int(w * s), int(h * s); x, y = random.randint(0, w - cw), random.randint(0, h - ch)
+        im = im.crop((x, y, x + cw, y + ch))
+    a = np.asarray(im.resize((224, 224), Image.BICUBIC), np.float32) / 255
+    if aug:
+        a = np.clip(a * random.uniform(0.8, 1.2) + random.uniform(-0.08, 0.08), 0, 1)
+    return ((a - mean) / std).transpose(2, 0, 1)
+
+bb = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
+for p in bb.parameters(): p.requires_grad = False
+for blk in bb.blocks[-UNFREEZE:]:
+    for p in blk.parameters(): p.requires_grad = True
+for p in bb.norm.parameters(): p.requires_grad = True
+head = nn.Linear(768, len(labels))
+model = nn.Sequential(bb, head)
+INIT = os.environ.get("INIT")
+if INIT:
+    ck = torch.load(os.path.join(HERE, INIT), map_location="cpu")
+    st = ck["state"]; old = {k: j for j, k in enumerate(ck["labels"])}
+    bb.load_state_dict({k[2:]: v for k, v in st.items() if k.startswith("0.")})
+    with torch.no_grad():
+        for k, j in L.items():
+            if k in old:
+                head.weight[j] = st["1.weight"][old[k]]; head.bias[j] = st["1.bias"][old[k]]
+    print("init from", INIT, "shared labels", sum(k in old for k in L), "/", len(L), flush=True)
+model = model.to(dev)
+opt = torch.optim.AdamW([{"params": [p for p in bb.parameters() if p.requires_grad], "lr": 2e-5},
+                         {"params": head.parameters(), "lr": 1e-3}], weight_decay=0.05)
+steps = EPOCHS * (len(tr) // 32); sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=[2e-5, 1e-3], total_steps=steps)
+lossf = nn.CrossEntropyLoss(label_smoothing=0.1)
+
+def evaluate(write=False):
+    model.eval(); ok = t3 = 0; out = []
+    with torch.no_grad():
+        for k in range(0, len(te), 64):
+            ids = te[k:k + 64]
+            pr = torch.softmax(model(torch.from_numpy(np.stack([load(i, False) for i in ids])).to(dev)), 1).cpu().numpy()
+            for i, p in zip(ids, pr):
+                o = np.argsort(-p)[:5]; lab = meta[i][0]
+                ok += labels[o[0]] == lab; t3 += lab in [labels[j] for j in o[:3]]
+                out.append({"i": i, "label": lab, "cid": meta[i][1], "seq": meta[i][2], "top": [[labels[j], "%.3f" % p[j]] for j in o]})
+    if write:
+        with open(os.path.join(HERE, "pred_%s.jsonl" % TAG), "w") as f:
+            for o in out: f.write(json.dumps(o) + "\n")
+    model.train(); return ok / len(te), t3 / len(te)
+
+t0 = time.time(); best, best_ep = 0, 0
+for ep in range(EPOCHS):
+    random.shuffle(tr)
+    for k in range(0, len(tr) - 31, 32):
+        ids = tr[k:k + 32]
+        x = torch.from_numpy(np.stack([load(i, True) for i in ids])).to(dev)
+        y = torch.tensor([L[meta[i][0]] for i in ids]).to(dev)
+        loss = lossf(model(x), y); opt.zero_grad(); loss.backward(); opt.step(); sched.step()
+        if k % 3200 == 0: print("ep", ep, k, "loss %.3f" % loss.item(), int(time.time() - t0), "s", flush=True)
+    if ALL:
+        torch.save({"state": model.state_dict(), "labels": labels}, os.path.join(HERE, "models", "dinov2_b_%s.pt" % TAG))
+        print("EPOCH", ep, "saved (all cases, no test set)", int(time.time() - t0), "s", flush=True); continue
+    a1, a3 = evaluate()
+    print("EPOCH", ep, "test top1 %.1f%% top3 %.1f%%" % (100 * a1, 100 * a3), int(time.time() - t0), "s", flush=True)
+    if a1 > best:
+        best, best_ep = a1, ep + 1; torch.save({"state": model.state_dict(), "labels": labels}, os.path.join(HERE, "models", "dinov2_b_%s.pt" % TAG)); evaluate(write=True)
+print("best top1 %.1f%% at epoch %d" % (100 * best, best_ep) if not ALL else "best final saved")

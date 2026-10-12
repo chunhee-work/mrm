@@ -1,4 +1,6 @@
 - [Language preference](language-preference.md) — reply in Mandarin Chinese by default
+- ⭐ [PERODUA front panel rule](perodua-front-panel-rule.md) — Perodua never "Front Panel Assembly": use Front Panel Upper / Fender Inner / Front Crossmember / Front Panel Lower
+- ⭐ [Lorry Front Chassis Member](lorry-front-chassis-member.md) — lorry models: "Front Chassis Member" with no LH/RH
 - [Use repo skills](use-repo-skills.md) — always use pdf-reading + brainstorming skills
 - [Motor claim adjuster workflow](motor-claim-adjuster-workflow.md) — read claim PDFs, key into Merimen e-Claims
 - ⭐ [Merimen A-Z progress](merimen-az-progress.md) — the complete ordered A-Z checklist (create→report→estimate→narrative→upload) with every required field + the parallel-tabs rule; READ before every case
@@ -11,7 +13,24 @@
 - [Merimen create case procedure](merimen-create-case-procedure.md) — fast end-to-end steps to create a TP claim + fixed defaults (Branch HQ, Est 10k-12.5k, New Policy Yes)
 - [Merimen session warning](merimen-session-warning.md) — always click "Continue Session" on the expiry popup
 - [Merimen manager/adjuster](merimen-manager-adjuster.md) — fixed Manager=<MANAGER_NAME>, Adjuster=<ADJUSTER_NAME> on Adjuster Claim Reference
-- [macOS native dialog automation](macos-native-dialog-automation.md) — osascript drives file-picker/Lookup/Browse (Accessibility granted); working upload recipe
+- [macOS native dialog automation](macos-native-dialog-automation.md) — osascript file-picker recipe; PLUS picker-less base64 upload (run_upload.py) that works without Accessibility
 - ⭐ [Estimate companion parts](estimate-companion-parts-rule.md) — MUST: Fender→Liner, Bonnet→Hinge, Bumper→Sensor+Bracket LH&RH, Quarter→Liner, Boot lid/Tailgate→Lock+Striker+Hinge+Aperture WS; Bumper→Clips x15, Grille→Clips x9, Bonnet→Hinge x2, Sensor/Bracket x2 LH&RH, Boot lid→Hinge/Strut/Rear plate, Crossmember→Wheel Hub, Door→8 items
 - ⭐ [STEP 2 paint popup method](step2-paint-popup-method.md) — step 2 = select parts + cond + misc + paint (Other/"anything" popup; Solvent line 500)
 - ⭐ [Labour N/R selection](labour-n-r-selection.md) — Labour tab: left=N (New: replaced part + R&R jobs), right=R (Repair: adjacent/inner panels); rules from 217 cases; tools/labourfill.mjs
+- [Merimen data-conflict rules](merimen-data-conflict-rules.md) — docs beat filenames; always fill claimant policy; use actual cover type; RC-vs-policy mismatch = either is fine
+- ⭐ [Batch autonomy rule](batch-autonomy-rule.md) — one instruction = the FULL A-Z per case (create→report→discounts→narratives→upload), in parallel tabs; blocked cases set aside, never stop after create
+- [Missing photo-data rules](merimen-missing-photo-data-rules.md) — no photos = pass the case; odo unreadable = 0; colour = whatever the photo shows
+- [Merimen session timeout workflow](merimen-session-timeout-workflow.md) — save every stage immediately; session dies ~15min; per-insurer field gotchas
+- [Batch completion report format](batch-completion-report-format.md) — the status table (车牌/Case ID/Report/折扣工时/Narratives/Betterment) to send when a batch is done
+- [Merimen workshop -> account map](merimen-workshop-account-map.md) — Sinar/Extreme/Lee Kean Hin = Autoris (TC0607); Autoflex = Ampang Newvest (NVISSAC)
+- [Document upload naming](merimen-document-upload-naming.md) — uploads are mandatory; name files DOC / RC / INS / P.REPORT / JPJ SEARCH, FTYPE=Other
+- ⭐ [Claimant insurance (INS) fields](merimen-claimant-insurance-fields.md) — Claimant's Insurance Co + Policy + TPOWN tick are mandatory whenever the bundle has an INS doc
+- ⭐ [Model variant trim match](merimen-model-variant-trim-match.md) — pick ddlbModel by TRIM: Executive=Executive, Perodua AV=Advanced
+- ⭐ [STEP 2 = estimate detail fill](merimen-step2-estimate-detail-fill.md) — "do step 2" means PDC damage conditions + MMI misc prices + Paintwork 500 via Edit→Other/"anything" retrieval on dsp_details, then Save & verify; case total must be ≥ RM6,000 (minimum)
+- [Pending case line format](merimen-pending-case-line-format.md) — blocked cases get one copy line: `<PLATE> pending <missing item>`
+- [Sheet workshop names](merimen-sheet-workshop-names.md) — sheet column uses EXTREME AUTO / SINAR GEMILANG / LEE KEAN HIN
+- ⭐ [Pink required fields](merimen-pink-required-fields.md) — find rgb(242,204,204) boxes after every save; Inspection Date=today, Repair=25 days, Location Type=City Road, Occupation=OTHERS
+- [Photo naming: describe then Jev](photo-naming-two-step-jev.md) — Jev is text-only; Claude describes photo, Jev picks name from fixed list
+- [WhatsApp intake via Zernio (ON HOLD)](whatsapp-zernio-intake-onhold.md) — Business number required; user will ping to resume
+- [Photo centre crosshair rule](photo-center-crosshair-rule.md) — the named item is the part at the image centre (vertical+horizontal midlines)
+- ⭐ [Photo confirm workflow](photo-confirm-workflow.md) — after training: Step 1+2 per case; photos <80% conf → user's quick-confirm page; answers saved & learned

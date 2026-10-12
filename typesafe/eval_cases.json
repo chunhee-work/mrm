@@ -1,0 +1,64 @@
+{
+  "_note": "Ground truth captured from the 2026-08/09 batches. 'regex_picked' is what the old pick_model_by_year() chose; 'expected' is what was actually correct (several were corrected by hand in Merimen). Candidate lists are the real ddlbModel option texts read off the page.",
+  "cases": [
+    {
+      "plate": "CEF9989", "rc_line": "PERODUA / BEZZA - 1300 AV (A) ADV", "insurance_line": "PERODUA BEZZA 1300 AV (A) ADV",
+      "reg_date": "21/06/2023", "chassis": "PM2B301S003330310", "cc": 1329,
+      "expected": "Bezza 2020 On 4 Dr Sal 1.3 AV 94Bhp (A) [01/20-]",
+      "regex_picked": "Bezza 2016 On 4 Dr Sal 1.3 Advance 94Bhp (A) [05/17-12/19]",
+      "candidates": ["Bezza 2016 On 4 Dr Sal 1 GXtra 67Bhp (A) [04/18-12/19]","Bezza 2016 On 4 Dr Sal 1 Standard G 67Bhp (A) [05/17-03/18]","Bezza 2016 On 4 Dr Sal 1.3 Advance 94Bhp (A) [05/17-12/19]","Bezza 2016 On 4 Dr Sal 1.3 Advance 94Bhp (A) [07/16-05/17]","Bezza 2016 On 4 Dr Sal 1.3 Premium X 94Bhp (A) [05/17-12/19]","Bezza 2020 On 4 Dr Sal 1 G (A) 67Bhp (A) [01/20-]","Bezza 2020 On 4 Dr Sal 1.3 AV 94Bhp (A) [01/20-]","Bezza 2020 On 4 Dr Sal 1.3 X 94Bhp (A) [01/20-]","BEZZA 4 DR SAL 1.3 AV (A) [20-]","BEZZA 4 DR SAL 1.3 X (A) [20-]"]
+    },
+    {
+      "plate": "TDF9508", "rc_line": "PERODUA / ALZA 1500 H (CVT)", "insurance_line": "PERODUA ALZA 1500 H MY22 W150 D27A (A)",
+      "reg_date": "29/04/2026", "chassis": "PM2AA1AB00M161319", "cc": 1496,
+      "expected": "Alza 2022 On MPV 1.5 1.5 H 105Bhp [07/22-]",
+      "regex_picked": "Alza 2022 On MPV 1.5 1.5 AV 105Bhp [07/22-]",
+      "candidates": ["Alza 2022 On MPV 1.5 1.5 AV 105Bhp [07/22-]","Alza 2022 On MPV 1.5 1.5 H 105Bhp [07/22-]","Alza 2022 On MPV 1.5 1.5 X 105Bhp [07/22-]"]
+    },
+    {
+      "plate": "WB7772C", "rc_line": "HONDA / CR-V 2.0L i-VTEC (A)", "insurance_line": "HONDA CR-V MY2013 4D WAGON 5 SP AUTOMATIC CKD",
+      "reg_date": "10/02/2015", "chassis": "PMHRM1830GD710525", "cc": 1997,
+      "expected": "CR-V 2015 To 2017 5 Dr SUV 2 2WD i-VTEC 153Bhp (A) [02/15-06/17]",
+      "regex_picked": "CR-V 2017 To 2020 5 Dr SUV 2 2.0 2WD 153Bhp [07/17-11/20]",
+      "candidates": ["CR-V 2007 To 2013 5 Dr SUV 2 i-VTEC 148Bhp (A) [03/10-02/13]","CR-V 2013 To 2015 5 Dr SUV 2 i-VTEC 153Bhp (A) [03/13-01/15]","CR-V 2015 To 2017 5 Dr SUV 2 2WD i-VTEC 153Bhp (A) [02/15-06/17]","CR-V 2015 To 2017 5 Dr SUV 2 4WD i-VTEC 153Bhp (A) [02/15-06/17]","CR-V 2015 To 2017 5 Dr SUV 2.4 4WD i-VTEC 187Bhp (A) [02/15-06/17]","CR-V 2017 To 2020 5 Dr SUV 2 2.0 2WD 153Bhp [07/17-11/20]","CR-V 2020 To 2023 5 Dr SUV 1.5 1.5TC-P 2WD 190Bhp [11/20-12/23]"]
+    },
+    {
+      "plate": "PLX8810", "rc_line": "HONDA / JAZZ 1.5L S", "insurance_line": "HONDA JAZZ V MY14 GK 4D HATCHBACK 1 SP AUTOMATIC CVT",
+      "reg_date": "29/01/2015", "chassis": "PMHGK5860FD302083", "cc": 1497,
+      "expected": "Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade S) 118Bhp (A) [07/14-05/17]",
+      "regex_picked": "Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade E) 118Bhp (A) [07/14-05/17]",
+      "notes": "RC says Grade S, insurer wrote V — RC (JPJ) wins.",
+      "candidates": ["Jazz 2008 To 2014 5 Dr Hatch 1.5 i-VTEC (Grade S) 118Bhp (A) [08/12-06/14]","Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade E) 118Bhp (A) [07/14-05/17]","Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade S) 118Bhp (A) [07/14-05/17]","Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade V) 118Bhp (A) [07/14-05/17]","Jazz 2014 On 5 Dr Hatch 1.5 1.5 S 118Bhp [06/17-]","Jazz 2014 On 5 Dr Hatch 1.5 1.5 V 118Bhp [06/17-]"]
+    },
+    {
+      "plate": "RAY5265", "rc_line": "SUZUKI / SWIFT SPORT", "insurance_line": "SUZUKI SWIFT SPORT (KENDERAAN IMPORT BARU)",
+      "reg_date": "24/02/2025", "chassis": "JSAAZC33S00407438", "cc": 1373,
+      "expected": "SWIFT 5 DR HATCH 1.4 Sport (4BA-ZC33S) (A)",
+      "regex_picked": "Swift 2011 On 5 Dr Hatch 1.4 GLX 94Bhp (A) [01/13-]",
+      "notes": "Chassis prefix JSAAZC33S => ZC33S; 4BA is the 2020+ emissions code, CBA the 2017-19 one.",
+      "candidates": ["Swift 2011 On 5 Dr Hatch 1.4 GLX 94Bhp (A) [01/13-]","Swift 2011 On 5 Dr Hatch 1.6 Sport 134Bhp (A) [06/13-]","SWIFT 5 DR HATCH 1.4 GL (facelift) (A) [15-]","SWIFT 5 DR HATCH 1.4 Sport (4BA-ZC33S) (A)","SWIFT 5 DR HATCH 1.4 Sport (A)","SWIFT 5 DR HATCH 1.4 Sport (CBA-ZC33S) (A)","SWIFT 5 DR HATCH 1.4 Sport (CBA-ZC33S) (M)","SWIFT 5 DR HATCH 1.6 Sport (ZC32S) (A) [13-]"]
+    },
+    {
+      "plate": "BMC2457", "rc_line": "PERODUA MYVI 1.5 SE (AUTO)", "insurance_line": "PERODUA MYVI 1.5 SE",
+      "reg_date": "11/04/2013", "chassis": "PM2M603S002071929", "cc": 1495,
+      "expected": "Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [09/11-12/14]",
+      "regex_picked": "Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [09/11-12/14]",
+      "candidates": ["Myvi 2011 On 5 Dr Hatch 1.5 Advance (A) 102Bhp (A) [01/15-10/17]","Myvi 2011 On 5 Dr Hatch 1.5 EXTREME (A) 102Bhp (A) [09/11-12/14]","Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [01/15-10/17]","Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [09/11-12/14]","Myvi 2011 On 5 Dr Hatch 1.5 SE (M) 102Bhp (M) [09/11-12/14]","Myvi 2017 To 2020 5 Dr Hatch 1.5 Advanced 102Bhp (A) [11/17-07/20]"]
+    },
+    {
+      "plate": "WRQ8824", "rc_line": "PROTON PERSONA 1.6 MANUAL", "insurance_line": "PROTON PERSONA 1.6",
+      "reg_date": "31/07/2008", "chassis": "PL1CM8SNR9G171779", "cc": 1597,
+      "expected": "Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (M) [08/07-02/10]",
+      "regex_picked": "Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (A) [08/07-02/10]",
+      "notes": "User corrected this one by hand: Manual => pick the (M) variant.",
+      "candidates": ["Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (A) [08/07-02/10]","Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (M) [08/07-02/10]","Persona 2007 To 2016 4 Dr Sal 1.6 Medium Line 109Bhp (A) [08/07-02/10]","Persona 2007 To 2016 4 Dr Sal 1.6 High Line 109Bhp (A) [08/07-02/10]"]
+    },
+    {
+      "plate": "CDP8264", "rc_line": "PROTON/ SAGA FL 1 3 MANUAL", "insurance_line": "PROTON SAGA FLX",
+      "reg_date": "25/03/2015", "chassis": "PL1BT3SNRFB500375", "cc": 1332,
+      "expected": "Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (M) [07/14-09/16]",
+      "regex_picked": "Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (M) [07/14-09/16]",
+      "candidates": ["Saga 2008 To 2016 4 Dr Sal 1.3 B-Line 94Bhp (A) [01/08-11/10]","Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (A) [07/14-09/16]","Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (M) [07/14-09/16]","Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Standard) 94Bhp (M) [07/14-09/16]"]
+    }
+  ]
+}

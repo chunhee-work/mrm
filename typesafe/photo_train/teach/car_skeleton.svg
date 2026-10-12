@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1878" font-family="Helvetica, Arial, PingFang SC, sans-serif">
+<rect width="1500" height="1700" fill="#ffffff"/>
+<text x="750" y="50" text-anchor="middle" font-size="34" font-weight="700" fill="#1d3557">汽车骨架图 · 照片部位分区（俯视，车头朝上）</text>
+<text x="750" y="88" text-anchor="middle" font-size="19" fill="#555">先判断撞在哪个区，再只在该区的名称里选 · LH = 坐在车内朝前看的左边，RH = 右边（马来西亚驾驶座在 RH）</text>
+
+<rect x="554" y="324" width="392" height="912" rx="90" fill="none" stroke="#1d3557" stroke-width="5"/>
+<rect x="630" y="330" width="240" height="250" rx="30" fill="#f4a261" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<rect x="560" y="370" width="70" height="300" rx="20" fill="#e9c46a" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<rect x="870" y="370" width="70" height="300" rx="20" fill="#e9c46a" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<rect x="560" y="670" width="70" height="220" rx="0" fill="#8ecae6" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<rect x="870" y="670" width="70" height="220" rx="0" fill="#8ecae6" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<rect x="560" y="890" width="70" height="300" rx="20" fill="#b5e48c" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<rect x="870" y="890" width="70" height="300" rx="20" fill="#b5e48c" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<rect x="630" y="980" width="240" height="250" rx="30" fill="#52b788" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<rect x="630" y="580" width="240" height="400" rx="0" fill="#ffc8dd" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>
+<path d="M655 540 Q750.0 500 845 540 L830 600 L670 600 Z" fill="#457b9d" opacity=".75"/>
+<path d="M670 960 L830 960 L845 1015 Q750.0 1045 655 1015 Z" fill="#457b9d" opacity=".75"/>
+<rect x="526" y="450" width="28" height="130" rx="8" fill="#222"/>
+<rect x="526" y="970" width="28" height="130" rx="8" fill="#222"/>
+<rect x="946" y="450" width="28" height="130" rx="8" fill="#222"/>
+<rect x="946" y="970" width="28" height="130" rx="8" fill="#222"/>
+<path d="M560 630 l-40 -10 l0 30 z" fill="#333"/><path d="M940 630 l40 -10 l0 30 z" fill="#333"/>
+<text x="750.0" y="312" text-anchor="middle" font-size="22" font-weight="700" fill="#e63946">▲ 车头 FRONT</text>
+<text x="750.0" y="1266" text-anchor="middle" font-size="22" font-weight="700" fill="#e63946">▼ 车尾 REAR</text>
+<text x="750.0" y="785" text-anchor="middle" font-size="22" fill="#333">车内</text>
+<rect x="40" y="150" width="420" height="246" rx="10" fill="#e9c46a" fill-opacity=".25" stroke="#e9c46a" stroke-width="3"/>
+<text x="54" y="180" font-size="21" font-weight="700" fill="#1d3557">左前角 FRONT LH</text>
+<text x="56" y="208" font-size="17" fill="#222">· Fender LH</text>
+<text x="56" y="233" font-size="17" fill="#222">· Headlamp LH</text>
+<text x="56" y="258" font-size="17" fill="#222">· Front Wheel Rim LH</text>
+<text x="56" y="283" font-size="17" fill="#222">· Fender Liner LH</text>
+<text x="56" y="308" font-size="17" fill="#222">· Front Shock Absorber LH</text>
+<text x="56" y="333" font-size="17" fill="#222">· Suspension Arm Front LH</text>
+<text x="56" y="358" font-size="17" fill="#222">· Bonnet Hinge LH</text>
+<text x="56" y="383" font-size="17" fill="#222">· Front Chassis Member LH</text>
+<line x1="460" y1="273.0" x2="560" y2="520" stroke="#666" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="1040" y="150" width="420" height="246" rx="10" fill="#e9c46a" fill-opacity=".25" stroke="#e9c46a" stroke-width="3"/>
+<text x="1054" y="180" font-size="21" font-weight="700" fill="#1d3557">右前角 FRONT RH</text>
+<text x="1056" y="208" font-size="17" fill="#222">· Fender RH</text>
+<text x="1056" y="233" font-size="17" fill="#222">· Headlamp RH</text>
+<text x="1056" y="258" font-size="17" fill="#222">· Front Wheel Rim RH</text>
+<text x="1056" y="283" font-size="17" fill="#222">· Front Shock Absorber RH</text>
+<text x="1056" y="308" font-size="17" fill="#222">· Fender Liner RH</text>
+<text x="1056" y="333" font-size="17" fill="#222">· Suspension Arm Front RH</text>
+<text x="1056" y="358" font-size="17" fill="#222">· Bonnet Hinge RH</text>
+<text x="1056" y="383" font-size="17" fill="#222">· Driveshaft RH</text>
+<line x1="1040" y1="273.0" x2="940" y2="520" stroke="#666" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="40" y="560" width="420" height="246" rx="10" fill="#8ecae6" fill-opacity=".25" stroke="#8ecae6" stroke-width="3"/>
+<text x="54" y="590" font-size="21" font-weight="700" fill="#1d3557">左侧 SIDE LH</text>
+<text x="56" y="618" font-size="17" fill="#222">· Door Rear LH</text>
+<text x="56" y="643" font-size="17" fill="#222">· Door Front LH</text>
+<text x="56" y="668" font-size="17" fill="#222">· Door Mirror LH</text>
+<text x="56" y="693" font-size="17" fill="#222">· Runningboard Panel LH</text>
+<text x="56" y="718" font-size="17" fill="#222">· Front Pillar Outer LH</text>
+<text x="56" y="743" font-size="17" fill="#222">· Centre Pillar Outer LH</text>
+<text x="56" y="768" font-size="17" fill="#222">· Spoiler Runningboard Extension LH</text>
+<text x="56" y="793" font-size="17" fill="#222">· Door Rear Lock LH</text>
+<line x1="460" y1="683.0" x2="560" y2="780" stroke="#666" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="1040" y="560" width="420" height="246" rx="10" fill="#8ecae6" fill-opacity=".25" stroke="#8ecae6" stroke-width="3"/>
+<text x="1054" y="590" font-size="21" font-weight="700" fill="#1d3557">右侧 SIDE RH</text>
+<text x="1056" y="618" font-size="17" fill="#222">· Door Rear RH</text>
+<text x="1056" y="643" font-size="17" fill="#222">· Door Front RH</text>
+<text x="1056" y="668" font-size="17" fill="#222">· Runningboard Panel RH</text>
+<text x="1056" y="693" font-size="17" fill="#222">· Door Mirror RH</text>
+<text x="1056" y="718" font-size="17" fill="#222">· Centre Pillar Outer RH</text>
+<text x="1056" y="743" font-size="17" fill="#222">· Spoiler Runningboard Extension RH</text>
+<text x="1056" y="768" font-size="17" fill="#222">· Door Rear Hinge Upper RH</text>
+<text x="1056" y="793" font-size="17" fill="#222">· Door Rear Lock RH</text>
+<line x1="1040" y1="683.0" x2="940" y2="780" stroke="#666" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="40" y="970" width="420" height="246" rx="10" fill="#b5e48c" fill-opacity=".25" stroke="#b5e48c" stroke-width="3"/>
+<text x="54" y="1000" font-size="21" font-weight="700" fill="#1d3557">左后角 REAR LH</text>
+<text x="56" y="1028" font-size="17" fill="#222">· Quarter Panel LH</text>
+<text x="56" y="1053" font-size="17" fill="#222">· Rear Lamp LH</text>
+<text x="56" y="1078" font-size="17" fill="#222">· Rear Bumper Sensor LH</text>
+<text x="56" y="1103" font-size="17" fill="#222">· Tailgate Support Strut LH</text>
+<text x="56" y="1128" font-size="17" fill="#222">· Rear Chassis Member LH</text>
+<text x="56" y="1153" font-size="17" fill="#222">· Boot Lid Hinge LH</text>
+<text x="56" y="1178" font-size="17" fill="#222">· Rear Lamp Panel LH</text>
+<text x="56" y="1203" font-size="17" fill="#222">· Rear Bumper Bracket LH</text>
+<line x1="460" y1="1093.0" x2="560" y2="1040" stroke="#666" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="1040" y="970" width="420" height="246" rx="10" fill="#b5e48c" fill-opacity=".25" stroke="#b5e48c" stroke-width="3"/>
+<text x="1054" y="1000" font-size="21" font-weight="700" fill="#1d3557">右后角 REAR RH</text>
+<text x="1056" y="1028" font-size="17" fill="#222">· Quarter Panel RH</text>
+<text x="1056" y="1053" font-size="17" fill="#222">· Rear Lamp RH</text>
+<text x="1056" y="1078" font-size="17" fill="#222">· Rear Bumper Sensor RH</text>
+<text x="1056" y="1103" font-size="17" fill="#222">· Tailgate Support Strut RH</text>
+<text x="1056" y="1128" font-size="17" fill="#222">· Rear Chassis Member RH</text>
+<text x="1056" y="1153" font-size="17" fill="#222">· Rear Wheel Rim RH</text>
+<text x="1056" y="1178" font-size="17" fill="#222">· Boot Lid Hinge RH</text>
+<text x="1056" y="1203" font-size="17" fill="#222">· Rear Bumper Bracket RH</text>
+<line x1="1040" y1="1093.0" x2="940" y2="1040" stroke="#666" stroke-width="1.5" stroke-dasharray="5 4"/>
+<line x1="750.0" y1="455" x2="750.0" y2="455"/>
+<rect x="300" y="1290" width="900" height="171" rx="10" fill="#52b788" fill-opacity=".25" stroke="#52b788" stroke-width="3"/>
+<text x="314" y="1320" font-size="21" font-weight="700" fill="#1d3557">后部 REAR</text>
+<text x="316.0" y="1348" font-size="17" fill="#222">· Rear Panel</text>
+<text x="766.0" y="1348" font-size="17" fill="#222">· Rear Bumper</text>
+<text x="316.0" y="1373" font-size="17" fill="#222">· Tailgate</text>
+<text x="766.0" y="1373" font-size="17" fill="#222">· Boot Floor</text>
+<text x="316.0" y="1398" font-size="17" fill="#222">· Boot Lid</text>
+<text x="766.0" y="1398" font-size="17" fill="#222">· Rear Panel Inner Trim</text>
+<text x="316.0" y="1423" font-size="17" fill="#222">· Spare Wheel Cover Board</text>
+<text x="766.0" y="1423" font-size="17" fill="#222">· Rear Bumper Reinforcement</text>
+<text x="316.0" y="1448" font-size="17" fill="#222">· Rear Number Plate</text>
+<text x="766.0" y="1448" font-size="17" fill="#222">· Tailgate Lock</text>
+<rect x="300" y="1477" width="900" height="171" rx="10" fill="#f4a261" fill-opacity=".25" stroke="#f4a261" stroke-width="3"/>
+<text x="314" y="1507" font-size="21" font-weight="700" fill="#1d3557">前部 FRONT</text>
+<text x="316.0" y="1535" font-size="17" fill="#222">· Front Bumper</text>
+<text x="766.0" y="1535" font-size="17" fill="#222">· Bonnet</text>
+<text x="316.0" y="1560" font-size="17" fill="#222">· Front Panel Assembly</text>
+<text x="766.0" y="1560" font-size="17" fill="#222">· Front Bumper Reinforcement</text>
+<text x="316.0" y="1585" font-size="17" fill="#222">· A/C Condenser</text>
+<text x="766.0" y="1585" font-size="17" fill="#222">· Front Panel Upper</text>
+<text x="316.0" y="1610" font-size="17" fill="#222">· Radiator</text>
+<text x="766.0" y="1610" font-size="17" fill="#222">· Grille Front</text>
+<text x="316.0" y="1635" font-size="17" fill="#222">· Front Number Plate</text>
+<text x="766.0" y="1635" font-size="17" fill="#222">· Front Bumper Spoiler</text>
+<rect x="40" y="1668" width="450" height="171" rx="10" fill="#cdb4db" fill-opacity=".25" stroke="#cdb4db" stroke-width="3"/>
+<text x="54" y="1698" font-size="21" font-weight="700" fill="#1d3557">识别照 ID</text>
+<text x="56" y="1726" font-size="17" fill="#222">· Rear View Left</text>
+<text x="56" y="1751" font-size="17" fill="#222">· Rear View Right</text>
+<text x="56" y="1776" font-size="17" fill="#222">· Engine Compartment</text>
+<text x="56" y="1801" font-size="17" fill="#222">· Front View Right</text>
+<text x="56" y="1826" font-size="17" fill="#222">· Front View Left</text>
+<rect x="520" y="1668" width="450" height="171" rx="10" fill="#adb5bd" fill-opacity=".25" stroke="#adb5bd" stroke-width="3"/>
+<text x="534" y="1698" font-size="21" font-weight="700" fill="#1d3557">车底 UNDERBODY</text>
+<text x="536" y="1726" font-size="17" fill="#222">· Rear Suspension Crossmember</text>
+<text x="536" y="1751" font-size="17" fill="#222">· Exhaust Silencer</text>
+<text x="536" y="1776" font-size="17" fill="#222">· Exhaust Silencer Rear</text>
+<text x="536" y="1801" font-size="17" fill="#222">· Front Crossmember</text>
+<text x="536" y="1826" font-size="17" fill="#222">· Exhaust Tailpipe</text>
+<rect x="1000" y="1668" width="450" height="96" rx="10" fill="#ffc8dd" fill-opacity=".25" stroke="#ffc8dd" stroke-width="3"/>
+<text x="1014" y="1698" font-size="21" font-weight="700" fill="#1d3557">车内 INTERIOR</text>
+<text x="1016" y="1726" font-size="17" fill="#222">· DASHBOARD</text>
+<text x="1016" y="1751" font-size="17" fill="#222">· Keyless Entry Buzzer</text>
+</svg>

@@ -98,7 +98,8 @@ Once a case is done, give the user a TAB-separated row to paste into his Google 
 `<DATE>` <TAB> `<PLATE>` <TAB> `<WORKSHOP>` <TAB> `D`
 - **DATE** = the day we DO the case, `dd/mm/yyyy` (e.g. 04/07/2026).
 - **PLATE** = our client's vehicle reg (e.g. VFA1371).
-- **WORKSHOP** = the sheet's short name: **`SINAR GEMILANG`** for the `sinar` folder, **`EXTREME AUTO`** for the `extreme` folder.
+- **WORKSHOP** = the sheet's short name, derived from the WORKSHOP NAME (user confirmed 2026-08-29 with a pasted sample: `25/08/2026<TAB>CDG420<TAB>SINAR GEMILANG<TAB>D`): **`SINAR GEMILANG`** for the `sinar` folder, **`EXTREME AUTO`** for `extreme`, **`LEE KEAN HIN`** for the `LKH` folder (workshop = Lee Kean Hin Car Body Repairs Sdn Bhd). All-caps, no Sdn Bhd / branch suffix.
+- Every case done on the same day shares the SAME date; rows are grouped by workshop.
 - Last column = literal **`D`**.
 Output all the batch's cases as consecutive rows (one per line) so they paste straight into the sheet.
 

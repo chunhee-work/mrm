@@ -1,0 +1,26 @@
+.DS_Store
+.env
+*.key
+__pycache__/
+*.pyc
+# local-only (credentials, machine settings)
+.claude/
+typesafe/driver.py
+# photo model: data, weights, envs, PII lists, logs (code only goes to git)
+typesafe/photo_train/data/
+typesafe/photo_train/models/
+typesafe/photo_train/.venv*/
+typesafe/photo_train/*.json
+typesafe/photo_train/*.jsonl
+typesafe/photo_train/*.tsv
+typesafe/photo_train/*.txt
+typesafe/photo_train/*.log
+typesafe/photo_train/*.bin*
+typesafe/photo_train/*.npy
+typesafe/photo_train/extract
+typesafe/photo_train/knn
+typesafe/photo_train/predict
+typesafe/photo_train/softmax
+typesafe/photo_train/*.err
+typesafe/photo_train/train
+typesafe/photo_train/train2
