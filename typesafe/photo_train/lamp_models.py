@@ -21,7 +21,11 @@ for k, cid in enumerate(todo, 1):
             time.sleep(20); continue
         t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h)).replace("&nbsp;", " ")
         m = re.search(r"Vehicle Model:?\s*(.+?)(?:\s{2,}|\[|$)", t)
-        res[cid] = m.group(1).strip()[:120] if m else ""
+        if not m or not m.group(1).strip():   # no model on page = session problem, not "no vehicle": don't record, retry later
+            bad = globals().get("bad", 0) + 1; globals()["bad"] = bad; print(cid, "no model text", flush=True)
+            if bad >= 30: print("STOP: 30 pages without Vehicle Model (session?)", flush=True); break
+            continue
+        globals()["bad"] = 0; res[cid] = m.group(1).strip()[:120]
     except Exception as e:
         print(cid, "ERR", str(e)[:100], flush=True); time.sleep(5)
     if k % 50 == 0:

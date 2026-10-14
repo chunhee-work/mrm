@@ -25,3 +25,6 @@ typesafe/photo_train/*.err
 typesafe/photo_train/train
 typesafe/photo_train/train2
 !typesafe/photo_train/requirements*.txt
+typesafe/photo_train/sam3_src/
+
+*.npy.part

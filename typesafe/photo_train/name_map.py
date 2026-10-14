@@ -8,7 +8,7 @@ from build_dataset import label
 
 OFF = [l.strip() for l in open(os.path.join(HERE, "official_names.txt")) if l.strip()]
 VOCAB = sorted({w for n in OFF for w in re.findall(r"[a-z/]+", n.lower())} | {"rear", "front", "lh", "rh", "cover"})
-PHRASE = [(r"\bdoo\b", "door"), (r"^runningboard (lh|rh)$", r"runningboard panel \1"), (r"\b(\w+ \w+) \1\b", r"\1"), (r"\bwheel rim alloy (front|rear)\b", r"\1 wheel rim"), (r"\bdriveshaft front\b", "driveshaft"),
+PHRASE = [(r"\bdoo\b", "door"), (r"\bfoglamp\b", "fog lamp"), (r"^runningboard (lh|rh)$", r"runningboard panel \1"), (r"\b(\w+ \w+) \1\b", r"\1"), (r"\bwheel rim alloy (front|rear)\b", r"\1 wheel rim"), (r"\bdriveshaft front\b", "driveshaft"),
           (r"\bquarter panel liner rear\b", "quarter liner"), (r"\bshock absorber (front|rear)\b", r"\1 shock absorber"), (r"^absorber (front|rear)\b", r"\1 shock absorber"), (r"\b(rear )?end panel\b", "rear panel"), (r"\bquarter panel outer\b", "quarter panel"), (r"^(outer|inner) lamp (rear )?(lh|rh)\b", r"rear lamp \1 \3"), (r"\bfender front\b", "fender"), (r"\bair conditioning condenser\b", "a/c condenser"), (r"\bair cond\b", "a/c"),
           (r"\bwheel house\b", "wheelhouse"), (r"\btrim board\b", "trimboard"), (r"\brunning board\b", "runningboard"),
           (r"\bstabilizer\b", "stabiliser"), (r"\bcenter\b", "centre"), (r"\bassembly\b", "assy")]
@@ -21,8 +21,21 @@ SYN_FULL = {"inspection disc": "Road Tax", "odometer": "Odometer Reading", "road
 MERGE = [(r"^Front Pillar Outer (LH|RH)$", r"Front Pillar \1"), (r"^Washer Tank Screen$", "Windscreen Washer Tank"), (r"^Front Panel$", "Front Panel Assembly"), (r"^Rear End Panel$", "Rear Panel"), (r"^Quarter Panel Outer (LH|RH)$", r"Quarter Panel \1")]
 # user-confirmed same part, matched on the raw caption (catches typos not in the official list)
 RAW_MERGE = [(r"^rear end panel$", "Rear Panel"),  # user: never use "Rear End Panel"
+             (r"^(front |frt )?engine (compartment|room|bay)( view| photo)?$", "Engine Compartment"),  # user: Engine Compartment View = Engine Compartment
              (r"^(?=.*washer)(?=.*tank)(?!.*(pump|pipe|cap|motor|hose|bracket))[a-z ]*(\[with pump\])?$", "Windscreen Washer Tank"),
              (r"^(?=.*\bmirror\b)(?=.*\bdoor\b|.*side mirror)(?!.*(glass|cover|lamp|signal|motor|cap|interior|switch|at door))(?=.*\b(?P<s>lh|rh)\b).*$", r"Door Mirror \g<s>")]
+
+
+def regulator(raw):
+    """user: Door Rear Window Regulator RH = Door Window Regulator Rear RH -> always Door Window Regulator Front/Rear LH/RH"""
+    t = re.sub(r"[^a-z ]", " ", raw.lower())
+    if not re.search(r"\bregulator\b", t) or re.search(r"motor|switch|handle|clip|bracket|cable|&|\band\b", t): return None
+    if not re.search(r"\b(window|glass|door)\b", t): return None
+    m = re.search(r"\b([lr])h([fr])\b", t)
+    side = (m.group(1) if m else (re.search(r"\b([lr])h\b", t) or [None, None])[1])
+    pos = (m.group(2) if m else ("f" if re.search(r"\b(front|frt|fr)\b", t) else "r" if re.search(r"\b(rear|rr)\b", t) else None))
+    if not side or not pos: return None
+    return "Door Window Regulator %s %sH" % ("Front" if pos == "f" else "Rear", side.upper())
 
 
 def fix_tokens(s):
@@ -65,7 +78,7 @@ VIEW = {("front", "os"): "Front View Right", ("front", "ns"): "Front View Left",
 
 def propose(raw):
     low = re.sub(r"\s+", " ", raw.lower()).strip()
-    if re.search(r"&|\band\b|\s\bn\b\s", low) or sum(len(x.split()) >= 2 for x in low.split(",")) >= 2:
+    if re.search(r"&|\band\b|\s\bn\b\s", low) or sum(len(x.split()) >= 2 for x in re.sub(r"\[.*?\]|\(.*?\)", "", low).split(",")) >= 2:
         return "", "multi-item caption (excluded)"   # user: never '&' — 1 image = 1 item name
     if re.fullmatch(r"[\d\s.#-]+", low):
         return "", "generic caption (excluded)"   # bare numbers like "24", "47"
@@ -81,6 +94,7 @@ def propose(raw):
         return VIEW[(a, b)], "view wording"
     if low2.replace(" ", "") in ("roadtax", "roadtaxdisc"):
         return "Road Tax", "user synonym"
+    low2 = re.sub(r"\bfoglamp\b", "fog lamp", low2)
     low2 = re.sub(r"^fog lamp front (lh|rh)$", r"fog lamp \1", low2.strip())
     n = norm(low2)
     if n in SYN_FULL:
@@ -114,6 +128,8 @@ if __name__ == "__main__":
         for a, b in RAW_MERGE:
             mm = re.match(a, re.sub(r"\s+", " ", raw.lower()).strip())
             if mm: off, how = mm.expand(b).replace(" lh", " LH").replace(" rh", " RH"), "user synonym"
+        rg = regulator(raw)
+        if rg: off, how = rg, "user synonym"
         for a, b in MERGE: off = re.sub(a, b, off)
         rows.append((raw, c, off, how))
     with open(os.path.join(HERE, "name_map.tsv"), "w") as f:

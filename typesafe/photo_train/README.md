@@ -28,6 +28,7 @@ predict_case.py      新案件逐张命名（看车型、前后照片），输�
 - `lamp_models.py` — 查每个案件的车型（Vehicle Model），给 Perodua / Lorry 规则用 → `lamp_models.json`
 - `fetch_fullres.py` — 只读取原图（最大 1280 px），给标注台用
 - `sam_segments.py` — SAM 2.1 自动把照片切成零件形状，标注台里点一下就能选
+- `motor.py` — 找出摩托车案件（不训练、不标注）→ `motor_cases.json`
 - `shrink.py` — 把已下载照片缩到 256 px 省空间
 
 ---
@@ -40,7 +41,10 @@ predict_case.py      新案件逐张命名（看车型、前后照片），输�
 | **SAM 2.1 large**（Meta） | 把照片自动切成一块块零件形状（标注台用） | ~900 MB | `models/sam2/sam2.1_hiera_large.pt` |
 | SAM 3（可选，以后） | 打字找零件，例如输入 "bumper" 自动圈出来 | ~3.4 GB（约 8.5 亿参数） | 需在 Hugging Face 申请：https://huggingface.co/facebook/sam3 |
 
-当前最好的模型：`models/dinov2_b_big4.pt`（测试 top-1 约 75%，top-3 约 90%；把握 ≥ 60% 的照片约 93% 正确）。
+当前最好的模型（批次 10，两段）：
+- `models/dinov2_b_big10a.pt` — 第 1 段：单张照片 + 位置题（车头/车尾/侧面/底盘、LH/RH、Front/Rear）+ 左右翻转（LH↔RH 互换）。单独用 top-1 74.7%。
+- `models/seq_big10.pt` — 第 2 段：同一案件前后各 4 张一起看（远景告诉近拍在哪里）。**合起来 top-1 79.1%，top-3 91.3%；把握 ≥ 60% 的照片 92% 正确**。
+`predict_case.py` 自动使用 seq 模型（`SEQ=0` 关掉）。
 
 ---
 
@@ -78,12 +82,17 @@ DEADLINE=... python3 harvest.py all_cases.json >> harvest_all.log
 
 # 训练一轮
 python3 name_map.py
-MIN=20 CAP=1000 STRONG_CAP=300 python3 build_big.py
-PATHS_FILE=big_paths.txt META_FILE=big_meta.tsv INIT=models/dinov2_b_big4.pt \
+MIN=20 CAP=1000 STRONG_CAP=1000 python3 build_big.py
+PATHS_FILE=big_paths.txt META_FILE=big_meta.tsv INIT=models/dinov2_b_big10a.pt \
   .venv/bin/python finetune.py 3 4 big7          # 3 轮，解冻最后 4 层，名字 big7
 
-# 认一个案件的照片（照片按拍摄顺序）
-VEHICLE="PERODUA Myvi ..." .venv/bin/python predict_case.py models/dinov2_b_big4.pt data/<案件>/*.jpg
+# 批次 10 第 2 段：先算全部照片特征，再训练「整组照片」模型
+.venv/bin/python finetune2.py 3 4 big10a                     # 第 1 段（位置题 + 左右翻转）
+.venv/bin/python seqctx.py extract models/dinov2_b_big10a.pt big10a
+.venv/bin/python seqctx.py train   models/dinov2_b_big10a.pt big10a big10
+
+# 认一个案件的照片（照片按拍摄顺序，整个案件一起给）
+VEHICLE="PERODUA Myvi ..." .venv/bin/python predict_case.py models/dinov2_b_big10a.pt data/<案件>/*.jpg
 
 # 标注台：原图 + 自动切形状
 python3 fetch_fullres.py tasks.json full/
@@ -98,7 +107,7 @@ python3 fetch_fullres.py tasks.json full/
 - DINOv2 ViT-B/14 + 一层线性分类头；训练最后 4 层，AdamW + OneCycle，label smoothing 0.1，不做左右翻转（会搞乱 LH/RH），Mac MPS GPU。
 - `INIT=` 从上一个最好的模型接着练（复制共同名称的分类权重）。
 - 固定 44 个测试案件做比较；新模型要比旧的好才替换。
-- **重点练弱项**：测试 ≥ 90% 的零件写在 `strong_labels.txt`，每个只留 300 张、下载时也跳过；其他每个最多 1000 张。
+- **重点练弱项**：测试 ≥ 90% 的零件写在 `strong_labels.txt`，下载时跳过（训练不限量：限 300 张会忘记，big7 教训）；其他每个最多 1000 张。
 - 名称至少 20 张照片才训练（`MIN=20`），太少的先靠人工标注。
 
 **预测（predict_case.py）**

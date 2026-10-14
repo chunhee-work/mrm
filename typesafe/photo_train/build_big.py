@@ -33,6 +33,9 @@ def make_fix(r, l):
     if "PERODUA" in v: return None if l == "Front Panel Assembly" else l   # which split piece is unknown -> drop
     return "Front Panel Assembly" if SPLIT_RX.match(l) else l
 labs = [make_fix(r, l) for r, l in zip(rows, labs)]
+# user 2026-10-14: motorcycle cases are not taken (motor.py -> motor_cases.json)
+MOTOR = set(json.load(open(os.path.join(HERE, "motor_cases.json")))) if os.path.exists(os.path.join(HERE, "motor_cases.json")) else set()
+labs = [None if r["cid"] in MOTOR else l for r, l in zip(rows, labs)]
 cnt = collections.Counter(l for r, l in zip(rows, labs) if l and r["cid"] not in test)
 keep = {k for k, v in cnt.items() if v >= MIN}
 pool = collections.defaultdict(list)

@@ -1,6 +1,7 @@
 - [Language preference](language-preference.md) — reply in Mandarin Chinese by default
 - ⭐ [PERODUA front panel rule](perodua-front-panel-rule.md) — Perodua never "Front Panel Assembly": use Front Panel Upper / Fender Inner / Front Crossmember / Front Panel Lower
 - ⭐ [Lorry Front Chassis Member](lorry-front-chassis-member.md) — lorry models: "Front Chassis Member" with no LH/RH
+- ⭐ [WhatsApp 下载 trigger](whatsapp-download-trigger.md) — "下载/download" = save newest FILE from chong +60 17-620 4606 to ~/Downloads; read macfleet/DOWNLOAD.md first; only that number
 - [Use repo skills](use-repo-skills.md) — always use pdf-reading + brainstorming skills
 - [Motor claim adjuster workflow](motor-claim-adjuster-workflow.md) — read claim PDFs, key into Merimen e-Claims
 - ⭐ [Merimen A-Z progress](merimen-az-progress.md) — the complete ordered A-Z checklist (create→report→estimate→narrative→upload) with every required field + the parallel-tabs rule; READ before every case
