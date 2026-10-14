@@ -41,10 +41,12 @@ predict_case.py      新案件逐张命名（看车型、前后照片），输�
 | **SAM 2.1 large**（Meta） | 把照片自动切成一块块零件形状（标注台用） | ~900 MB | `models/sam2/sam2.1_hiera_large.pt` |
 | SAM 3（可选，以后） | 打字找零件，例如输入 "bumper" 自动圈出来 | ~3.4 GB（约 8.5 亿参数） | 需在 Hugging Face 申请：https://huggingface.co/facebook/sam3 |
 
-当前最好的模型（批次 10，两段）：
-- `models/dinov2_b_big10a.pt` — 第 1 段：单张照片 + 位置题（车头/车尾/侧面/底盘、LH/RH、Front/Rear）+ 左右翻转（LH↔RH 互换）。单独用 top-1 74.7%。
-- `models/seq_big10.pt` — 第 2 段：同一案件前后各 4 张一起看（远景告诉近拍在哪里）。**合起来 top-1 79.1%，top-3 91.3%；把握 ≥ 60% 的照片 92% 正确**。
-`predict_case.py` 自动使用 seq 模型（`SEQ=0` 关掉）。
+当前最好的模型（批次 10）：
+- `models/dinov2_b_big10a.pt` — 第 1 段：单张照片 + 位置题（车头/车尾/侧面/底盘、LH/RH、Front/Rear）+ 左右翻转（LH↔RH 互换）。
+- `models/seq_best.pt` — 第 2 段：同一案件前后各 4 张一起看（远景告诉近拍在哪里）。
+- `models/seq_best_crop.pt` — 同上，再加「十字线放大图」（照片中间一半放大）。
+- 两个第 2 段模型平均：**top-1 81.4%**（3330 张测试照片）。
+`predict_case.py` 自动使用两个 seq 模型（`SEQ=0` 关掉）。改名称规则或加标注后，只要重训第 2 段（`seqctx.py train`，约 30 分钟），不用重训 DINOv2。
 
 ---
 

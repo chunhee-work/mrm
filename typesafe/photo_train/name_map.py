@@ -18,10 +18,11 @@ SYN_FULL = {"inspection disc": "Road Tax", "odometer": "Odometer Reading", "road
 
 
 # user-confirmed same part: collapse to one training name
-MERGE = [(r"^Front Pillar Outer (LH|RH)$", r"Front Pillar \1"), (r"^Washer Tank Screen$", "Windscreen Washer Tank"), (r"^Front Panel$", "Front Panel Assembly"), (r"^Rear End Panel$", "Rear Panel"), (r"^Quarter Panel Outer (LH|RH)$", r"Quarter Panel \1")]
+MERGE = [(r"^Front Pillar Outer (LH|RH)$", r"Front Pillar \1"), (r"^Washer Tank Screen$", "Windscreen Washer Tank"), (r"^Front Panel$", "Front Panel Assembly"), (r"^Rear End Panel$", "Rear Panel"), (r"^Quarter Panel Outer (LH|RH)$", r"Quarter Panel \1"), (r"^Door Lower Moulding (LH|RH)$", r"Door Rear Lower Moulding \1"), (r"^Front Wheel (LH|RH)$", r"Front Wheel Rim \1"), (r"^Boot Lid Striker$", "Tailgate Striker")]
 # user-confirmed same part, matched on the raw caption (catches typos not in the official list)
 RAW_MERGE = [(r"^rear end panel$", "Rear Panel"),  # user: never use "Rear End Panel"
-             (r"^(front |frt )?engine (compartment|room|bay)( view| photo)?$", "Engine Compartment"),  # user: Engine Compartment View = Engine Compartment
+             (r"^(front |frt )?engine (compartment|room|bay)( view| photo)?$", "Engine Compartment"),
+             (r"^((1st|2nd|3rd) supple-|reinspection before spray-|trailer )?(chassis|chasis) ?(no\.?|number)$", "Chassis Number"),  # user: CHASSIS NO = Chassis Number  # user: Engine Compartment View = Engine Compartment
              (r"^(?=.*washer)(?=.*tank)(?!.*(pump|pipe|cap|motor|hose|bracket))[a-z ]*(\[with pump\])?$", "Windscreen Washer Tank"),
              (r"^(?=.*\bmirror\b)(?=.*\bdoor\b|.*side mirror)(?!.*(glass|cover|lamp|signal|motor|cap|interior|switch|at door))(?=.*\b(?P<s>lh|rh)\b).*$", r"Door Mirror \g<s>")]
 
@@ -120,7 +121,7 @@ def propose(raw):
 if __name__ == "__main__":
     cnt = collections.Counter()
     for l in open(os.path.join(HERE, "index.jsonl")):
-        try: cnt[json.loads(l)["name"]] += 1
+        try: cnt[re.sub(r"\s*[\t\r\n]+\s*", " ", json.loads(l)["name"]).strip()] += 1   # tabs inside captions broke name_map.tsv (Rear Panel -> "60")
         except ValueError: pass
     rows = []
     for raw, c in cnt.most_common():

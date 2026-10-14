@@ -10,22 +10,30 @@ from PIL import Image
 ck = torch.load(sys.argv[1], map_location="cpu"); labels = ck["labels"]
 bb = torch.hub.load(os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main"), "dinov2_vitb14", source="local", pretrained=False); model = nn.Sequential(bb, nn.Linear(768, len(labels)))
 model.load_state_dict(ck["state"]); dev = "mps" if torch.backends.mps.is_available() else "cpu"; model.to(dev).eval()
-SEQ = os.environ.get("SEQ", os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "seq_big10.pt"))
-SEQ = SEQ if SEQ and SEQ != "0" and os.path.exists(SEQ) else None   # SEQ=0 -> single-photo model only
-if SEQ:
-    sk = torch.load(SEQ, map_location="cpu"); labels = sk["labels"]; WIN = sk["win"]
-    class Ctx(nn.Module):
-        def __init__(s):
-            super().__init__()
-            s.base = nn.Linear(768, len(labels)); s.inp = nn.Linear(768, 384); s.pos = nn.Parameter(torch.zeros(2 * WIN + 1, 384))
-            s.enc = nn.TransformerEncoder(nn.TransformerEncoderLayer(384, 6, 1024, 0.1, batch_first=True, norm_first=True), 2)
-            s.out = nn.Linear(384, len(labels))
-        def forward(s, x, m):
-            return s.base(x[:, WIN]) + s.out(s.enc(s.inp(x) + s.pos, src_key_padding_mask=m)[:, WIN])
-    ctx = Ctx(); ctx.load_state_dict(sk["ctx"]); ctx.to(dev).eval()
+# group models (batch 10): SEQ = comma list; default = seq_best.pt (whole photos) + seq_best_crop.pt (whole + crosshair zoom), averaged
+_M = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+SEQ = os.environ.get("SEQ", ",".join(os.path.join(_M, f) for f in ("seq_best.pt", "seq_best_crop.pt")))
+SEQ = [p for p in SEQ.split(",") if p and p != "0" and os.path.exists(p)]   # SEQ=0 -> single-photo model only
+class Ctx(nn.Module):
+    def __init__(s, n, win, dim):
+        super().__init__(); s.win = win
+        s.base = nn.Linear(768, n); s.inp = nn.Linear(dim, 384); s.pos = nn.Parameter(torch.zeros(2 * win + 1, 384))
+        s.enc = nn.TransformerEncoder(nn.TransformerEncoderLayer(384, 6, 1024, 0.1, batch_first=True, norm_first=True), 2)
+        s.out = nn.Linear(384, n)
+    def forward(s, x, m):
+        return s.base(x[:, s.win, :768]) + s.out(s.enc(s.inp(x) + s.pos, src_key_padding_mask=m)[:, s.win])
+CTX = []
+for p in SEQ:
+    sk = torch.load(p, map_location="cpu"); c = Ctx(len(sk["labels"]), sk["win"], sk.get("dim", 768))
+    c.load_state_dict(sk["ctx"]); CTX.append((c.to(dev).eval(), sk["labels"], sk.get("crop", 0)))
+if CTX:
+    labels = sorted({n for _, ls, _ in CTX for n in ls}); _LI = {n: k for k, n in enumerate(labels)}
 mean = np.array([0.485, 0.456, 0.406], np.float32); std = np.array([0.229, 0.224, 0.225], np.float32)
-def load(p):
-    a = np.asarray(Image.open(p).convert("RGB").resize((224, 224), Image.BICUBIC), np.float32) / 255
+def load(p, crop=0):
+    im = Image.open(p).convert("RGB")
+    if crop:
+        w, h = im.size; cw, ch = w * crop, h * crop; im = im.crop((int((w - cw) / 2), int((h - ch) / 2), int((w + cw) / 2), int((h + ch) / 2)))
+    a = np.asarray(im.resize((224, 224), Image.BICUBIC), np.float32) / 255
     return ((a - mean) / std).transpose(2, 0, 1)
 SPLIT = [k for k, n in enumerate(labels) if re.match(r"^(Front Panel Upper|Fender Inner (LH|RH)|Front Crossmember|Front Panel Lower)$", n)]
 ASSY = [k for k, n in enumerate(labels) if n == "Front Panel Assembly"]
@@ -51,11 +59,17 @@ def fix_make(p):
     p = _fm2(p); p[MULTI] = 0; return p / p.sum()
 files = sys.argv[2:]; P = []
 with torch.no_grad():
-    if SEQ:
-        F = torch.cat([bb(torch.from_numpy(np.stack([load(f) for f in files[i:i + 32]])).to(dev)) for i in range(0, len(files), 32)])
-        n = len(files); idx = [[min(max(i + d, 0), n - 1) for d in range(-WIN, WIN + 1)] for i in range(n)]
-        msk = torch.tensor([[not (0 <= i + d < n) for d in range(-WIN, WIN + 1)] for i in range(n)]).to(dev)
-        P = [fix_make(p) for p in torch.softmax(ctx(F[torch.tensor(idx).to(dev)], msk), 1).cpu().numpy()]
+    if CTX:
+        feats = lambda crop: torch.cat([bb(torch.from_numpy(np.stack([load(f, crop) for f in files[i:i + 32]])).to(dev)) for i in range(0, len(files), 32)])
+        F = feats(0); FC = feats(0.5) if any(cr for _, _, cr in CTX) else None
+        n = len(files); acc = np.zeros((n, len(labels)), np.float32)
+        for c, ls, cr in CTX:
+            x = torch.cat([F, FC], 1) if cr else F
+            idx = torch.tensor([[min(max(i + d, 0), n - 1) for d in range(-c.win, c.win + 1)] for i in range(n)]).to(dev)
+            msk = torch.tensor([[not (0 <= i + d < n) for d in range(-c.win, c.win + 1)] for i in range(n)]).to(dev)
+            pr = torch.softmax(c(x[idx], msk), 1).cpu().numpy(); cols = [_LI[l] for l in ls]
+            acc[:, cols] += pr / len(CTX)
+        P = [fix_make(p) for p in acc]
     else:
         for i in range(0, len(files), 32):
             x = torch.from_numpy(np.stack([load(f) for f in files[i:i + 32]])).to(dev)
@@ -84,7 +98,7 @@ for i, (a, c) in enumerate(_AREAS):
         q = P[i] * keep; P[i] = q / q.sum() if q.sum() > 0 else P[i]
 for i, f in enumerate(files):
     s = P[i].copy()
-    for j in ((i - 1, i + 1) if not SEQ else ()):
+    for j in ((i - 1, i + 1) if not CTX else ()):
         if 0 <= j < len(files): s += 0.5 * P[j]
     s /= s.sum(); o = np.argsort(-s)[:3]
     raw = float(P[i][o[0]]) if int(np.argmax(P[i])) == int(o[0]) else 0.0

@@ -10,6 +10,7 @@ OVERRIDE = {("21915115", 37): "Front Panel", ("21915115", 38): "Front Bumper Rei
             ("21915115", 39): "Front Bumper Reinforcement", ("21915115", 40): "Front Bumper Reinforcement"}
 M = {r["raw"]: r for r in csv.DictReader(open(os.path.join(HERE, "name_map.tsv")), delimiter="\t")}
 def clean(raw):
+    raw = re.sub(r"\s*[\t\r\n]+\s*", " ", raw).strip()   # same normalisation as name_map.py
     r = M.get(raw)
     if r is None: return label(raw)
     if r["method"].startswith(("generic", "multi-item")): return None
@@ -36,6 +37,13 @@ labs = [make_fix(r, l) for r, l in zip(rows, labs)]
 # user 2026-10-14: motorcycle cases are not taken (motor.py -> motor_cases.json)
 MOTOR = set(json.load(open(os.path.join(HERE, "motor_cases.json")))) if os.path.exists(os.path.join(HERE, "motor_cases.json")) else set()
 labs = [None if r["cid"] in MOTOR else l for r, l in zip(rows, labs)]
+# same name written with different spaces/case (BOOTLID, Bootlid, Boot Lid) -> the most common spelling
+_sq = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
+_best = {}
+for l, n in collections.Counter(l for l in labs if l).most_common():
+    _best.setdefault(_sq(l), l)
+labs = [_best[_sq(l)] if l else l for l in labs]
+labs = [None if l and re.fullmatch(r"[\d\s./-]+", l) else l for l in labs]   # number-only is never a part name
 cnt = collections.Counter(l for r, l in zip(rows, labs) if l and r["cid"] not in test)
 keep = {k for k, v in cnt.items() if v >= MIN}
 pool = collections.defaultdict(list)
