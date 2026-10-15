@@ -46,7 +46,8 @@ predict_case.py      新案件逐张命名（看车型、前后照片），输�
 - `models/seq_best.pt` — 第 2 段：同一案件前后各 4 张一起看（远景告诉近拍在哪里）。
 - `models/seq_best_crop.pt` — 同上，再加「十字线放大图」（照片中间一半放大）。
 - 两个第 2 段模型平均：**top-1 81.4%**（3330 张测试照片）。
-`predict_case.py` 自动使用两个 seq 模型（`SEQ=0` 关掉）。改名称规则或加标注后，只要重训第 2 段（`seqctx.py train`，约 30 分钟），不用重训 DINOv2。
+`predict_case.py` 自动使用两个 seq 模型（`SEQ=0` 关掉）。
+没把握（< 60%）的照片会再问 TypeSafe Jev 图片模型（jev-preview，在我们的前 5 个名称里选），70% 我们 + 30% Jev（测试：没把握的照片 53.5% → 59.0%；每张约 $0.00005；`JEV=0` 关掉；API 出错就只用我们的）。需要 Keychain 里的 TYPESAFE_API_KEY。改名称规则或加标注后，只要重训第 2 段（`seqctx.py train`，约 30 分钟），不用重训 DINOv2。
 
 ---
 

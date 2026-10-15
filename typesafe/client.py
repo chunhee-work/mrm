@@ -48,18 +48,20 @@ def _key():
     return k
 
 
-def ask(state, questions, model=None, timeout=60, retries=3):
+def ask(state, questions, model=None, timeout=60, retries=3, assets=None, images=False):
     """One request, many questions. Independent questions MUST be batched here —
     they run in parallel and are far cheaper than separate calls."""
     body = json.dumps({
         "state": state,
         "model": model or MODEL,
         "questions": questions,
+        **({"assets": assets} if assets else {}),
     }).encode()
     req = urllib.request.Request(
         ENDPOINT, data=body,
         headers={"Authorization": "Bearer " + _key(),
-                 "Content-Type": "application/json"},
+                 "Content-Type": "application/json",
+                 **({"TypeSafe-Danger-Zone-Images": "true"} if images else {})},
         method="POST")
     last = None
     for attempt in range(retries):

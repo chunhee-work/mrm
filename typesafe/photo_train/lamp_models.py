@@ -23,9 +23,10 @@ for k, cid in enumerate(todo, 1):
         m = re.search(r"Vehicle Model:?\s*(.+?)(?:\s{2,}|\[|$)", t)
         if not m or not m.group(1).strip():   # no model on page = session problem, not "no vehicle": don't record, retry later
             bad = globals().get("bad", 0) + 1; globals()["bad"] = bad; print(cid, "no model text", flush=True)
-            if bad >= 30: print("STOP: 30 pages without Vehicle Model (session?)", flush=True); break
+            if bad >= 3: print("STOP: 3 pages without Vehicle Model (session?)", flush=True); break
             continue
         globals()["bad"] = 0; res[cid] = m.group(1).strip()[:120]
+        time.sleep(2)   # gentle pace: Merimen logged out after ~550 fast requests (2026-10-15)
     except Exception as e:
         print(cid, "ERR", str(e)[:100], flush=True); time.sleep(5)
     if k % 50 == 0:

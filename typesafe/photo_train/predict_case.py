@@ -2,6 +2,7 @@
 """Name every photo of a case with the fine-tuned DINOv2 model.
   .venv/bin/python predict_case.py <ckpt> <img1> <img2> ...   (images in shooting order)
 Prints JSON lines: {file, top:[[name,prob]x3], conf, sure}  (sure = conf >= 0.60, after neighbour smoothing).
+JEV=0 env: no TypeSafe second opinion for unsure photos (default on).
 SEQ=<models/seq_*.pt> env (batch 10): look at +-4 photos of the case together (whole photo group -> where on the car); then no extra smoothing.
 VEHICLE=<vehicle model> env: PERODUA never gets "Front Panel Assembly" (split pieces instead); other makes never get the split pieces."""
 import json, os, re, sys, collections
@@ -96,10 +97,40 @@ for i, (a, c) in enumerate(_AREAS):
     if c >= 0.50:
         keep = np.array([("ID" in z) or (not z) or (a in z) for z in _LZ], np.float32)
         q = P[i] * keep; P[i] = q / q.sum() if q.sum() > 0 else P[i]
+# second opinion (user 2026-10-15): for unsure photos (< 60%) ask TypeSafe Jev (image model) to pick among our top-5,
+# then mix 70% ours + 30% Jev (test: 53.5% -> 59.0% on unsure photos). JEV=0 turns it off; any API error = keep ours.
+S = []
 for i, f in enumerate(files):
     s = P[i].copy()
     for j in ((i - 1, i + 1) if not CTX else ()):
         if 0 <= j < len(files): s += 0.5 * P[j]
-    s /= s.sum(); o = np.argsort(-s)[:3]
+    S.append(s / s.sum())
+JEV = {}
+def _jev(i):
+    import base64, io, uuid
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))); import client
+    top = [labels[k] for k in np.argsort(-S[i])[:5]]
+    im = Image.open(files[i]).convert("RGB")
+    while im.width * im.height < 78400 or min(im.size) < 256: im = im.resize((im.width * 2, im.height * 2), Image.BICUBIC)
+    im.thumbnail((1568, 1568)); b = io.BytesIO(); im.save(b, "JPEG", quality=92); ref = str(uuid.uuid4())
+    q = {"part": {"type": "choice", "criteria": {n: n for n in top}, "instructions": "This is a car insurance damage photo. Which car part is at the CENTRE of `photo` (the part the photographer aimed at)? LH = left-hand side of the car, RH = right-hand side (from the driver's seat)."}}
+    r = client.ask({"photo": ref}, q, model=os.environ.get("JEV_MODEL", "jev-preview"), images=True,
+                   assets={ref: {"type": "image", "format": "jpg", "data_base64": base64.b64encode(b.getvalue()).decode()}})
+    return r["answers"]["part"].get("probabilities") or {}
+unsure = [i for i in range(len(files)) if S[i].max() < 0.60]
+if os.environ.get("JEV", "1") != "0" and unsure:
+    from concurrent.futures import ThreadPoolExecutor
+    def _safe(i):
+        try: return i, _jev(i)
+        except Exception as e: print("jev skipped:", str(e)[:120], file=sys.stderr); return i, None
+    with ThreadPoolExecutor(4) as ex:
+        for i, pr in ex.map(_safe, unsure):
+            if pr: JEV[i] = pr
+for i, f in enumerate(files):
+    s = S[i]
+    if i in JEV:
+        o5 = np.argsort(-s)[:5]; mass = float(s[o5].sum()); s = s.copy()
+        for k in o5: s[k] = mass * (0.7 * s[k] / mass + 0.3 * float(JEV[i].get(labels[k], 0)))
+    o = np.argsort(-s)[:3]
     raw = float(P[i][o[0]]) if int(np.argmax(P[i])) == int(o[0]) else 0.0
-    print(json.dumps({"file": f, "top": [[labels[k], round(float(s[k]), 3)] for k in o], "conf": round(max(float(s[o[0]]), raw), 3), "sure": bool(max(float(s[o[0]]), raw) >= 0.60), "area": _AREAS[i][0], "area_conf": round(float(_AREAS[i][1]), 2)}, ensure_ascii=False))
+    print(json.dumps({"file": f, "top": [[labels[k], round(float(s[k]), 3)] for k in o], "conf": round(max(float(s[o[0]]), raw), 3), "sure": bool(max(float(s[o[0]]), raw) >= 0.60), "area": _AREAS[i][0], "area_conf": round(float(_AREAS[i][1]), 2), "jev": i in JEV}, ensure_ascii=False))
