@@ -23,7 +23,7 @@ print(len(c-set(res)))")
     if [ "$todo" -gt 0 ]; then
       echo "lookup todo $todo"; python3 lamp_models.py > lamp_models.log 2>&1; tail -1 lamp_models.log
     else
-      echo "harvest"; DEADLINE=$(( $(date +%s) + 3*3600 )) python3 harvest.py all_cases.json >> harvest_all.log 2>&1; tail -1 harvest_all.log
+      echo "harvest"; DEADLINE=$(( $(date +%s) + 24*3600 )) python3 harvest.py all_cases.json >> harvest_all.log 2>&1; tail -1 harvest_all.log
     fi
     NOW=$(python3 -c "import json;print(len(json.load(open('lamp_models.json'))))")
     if [ $((NOW - LAST)) -ge 300 ]; then

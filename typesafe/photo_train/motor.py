@@ -13,6 +13,6 @@ def main():
         if MOTOR.search(r.get("name", "")): n[r["cid"]] += 1
     m = {c for c, k in n.items() if k >= 2}
     V = json.load(open(os.path.join(HERE, "lamp_models.json"))) if os.path.exists(os.path.join(HERE, "lamp_models.json")) else {}
-    m |= {c for c, v in V.items() if MODEL.search(v)}
+    m |= {c for c, v in V.items() if v != "-" and MODEL.search(v)}
     json.dump(sorted(m), open(os.path.join(HERE, "motor_cases.json"), "w")); print("motor cases", len(m))
 if __name__ == "__main__": main()

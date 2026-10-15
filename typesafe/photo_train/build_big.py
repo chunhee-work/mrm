@@ -26,6 +26,7 @@ for _f in ("claude_corrections.json", "user_corrections.json"):
 labs = [UC.get("%s:%d" % (r["cid"], r["seq"])) or OVERRIDE.get((r["cid"], r["seq"]), clean(r["name"])) for r in rows]
 # PERODUA front panel rule (user): Perodua never "Front Panel Assembly"; other makes never the split pieces
 VEH = json.load(open(os.path.join(HERE, "lamp_models.json"))) if os.path.exists(os.path.join(HERE, "lamp_models.json")) else {}
+VEH = {k: v for k, v in VEH.items() if v and v != "-"}   # "-" = case not readable (Invalid Case Status) = unknown
 SPLIT_RX = re.compile(r"^(Front Panel Upper|Fender Inner (LH|RH)|Front Crossmember|Front Panel Lower)$")
 def make_fix(r, l):
     v = VEH.get(r["cid"], "").upper()

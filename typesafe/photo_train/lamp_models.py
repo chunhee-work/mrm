@@ -16,7 +16,11 @@ tab = [x for x in d.tabs() if x["id"] not in before][0]["id"]
 todo = sorted(c for c in cids if c not in res); print("cases", len(cids), "todo", len(todo), flush=True)
 for k, cid in enumerate(todo, 1):
     try:
-        h = d.js(tab, '(function(){var x=new XMLHttpRequest();x.open("GET","/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=%s&tpins=0&%s",false);x.send();var t=x.responseText;var i=t.indexOf("Vehicle Model");return i<0?("NOMODEL"+t.length):t.slice(i,i+400);})()' % (cid, d.sess()))
+        h = d.js(tab, '(function(){var x=new XMLHttpRequest();x.open("GET","/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=%s&tpins=0&%s",false);x.send();var t=x.responseText;if(t.indexOf("Invalid Case Status")>=0)return "INVALIDCASE";if(t.indexOf("Session not matched")>=0||t.indexOf("sleUserName")>=0)return "NOSESSION";var i=t.indexOf("Vehicle Model");return i<0?("NOMODEL"+t.length):t.slice(i,i+400);})()' % (cid, d.sess()))
+        if h == "INVALIDCASE":   # case closed/locked for this account: no vehicle to read, don't retry (not a session problem)
+            res[cid] = "-"; continue
+        if h == "NOSESSION":
+            print("STOP: Merimen session ended (logged out)", flush=True); break
         if h.startswith("NOMODEL") and int(h[7:] or 0) < 3000:
             time.sleep(20); continue
         t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h)).replace("&nbsp;", " ")
