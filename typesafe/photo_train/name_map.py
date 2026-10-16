@@ -155,6 +155,7 @@ if __name__ == "__main__":
         rg = regulator(raw)
         if rg: off, how = rg, "user synonym"
         for a, b in MERGE: off = re.sub(a, b, off)
+        if re.match(r"^(Tailgate|Boot Lid) Hinge$", off or ""): off, how = "", "needs LH/RH (excluded)"   # user: never "Tailgate Hinge" without a side
         rows.append((raw, c, off, how))
     with open(os.path.join(HERE, "name_map.tsv"), "w") as f:
         f.write("raw\tphotos\tofficial\tmethod\n")
