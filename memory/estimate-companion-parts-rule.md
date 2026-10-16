@@ -35,3 +35,5 @@ Also fill a price for every row (reference prices; flag estimates) and run step 
 - **Quarter Panel** (LH/RH) → **Quarter Panel Liner** (LH & RH per user wording — same side as the quarter panel; both if both quarters)
 - **Boot Lid** → **Boot Lid Lock + Boot Lid Striker + Boot Lid Hinge + Boot Lid Aperture Weatherstrip** (+ Rear Number Plate misc)
 - **Tailgate** → same set: **Tailgate Lock + Striker + Hinge + Aperture Weatherstrip** (+ Tailgate Support Strut LH&RH + Rear Number Plate)
+
+- 2026-10-16 (user): **Bumper Spoiler → also select the Bumper.** Whenever Front/Rear Bumper Spoiler is selected in Select Parts (Step 2), the matching Front/Rear Bumper must be selected too.

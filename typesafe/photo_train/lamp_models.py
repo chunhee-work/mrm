@@ -25,7 +25,9 @@ for k, cid in enumerate(todo, 1):
             time.sleep(20); continue
         t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h)).replace("&nbsp;", " ")
         m = re.search(r"Vehicle Model:?\s*(.+?)(?:\s{2,}|\[|$)", t)
-        if not m or not m.group(1).strip():   # no model on page = session problem, not "no vehicle": don't record, retry later
+        if not m or not m.group(1).strip():   # logged in (checked above) but the page has no model -> unknown, don't retry forever
+            res[cid] = "-"; continue
+        if False:
             bad = globals().get("bad", 0) + 1; globals()["bad"] = bad; print(cid, "no model text", flush=True)
             if bad >= 3: print("STOP: 3 pages without Vehicle Model (session?)", flush=True); break
             continue
