@@ -22,6 +22,7 @@ MERGE = [(r"^Front Pillar Outer (LH|RH)$", r"Front Pillar \1"), (r"^Washer Tank 
 # user-confirmed same part, matched on the raw caption (catches typos not in the official list)
 RAW_MERGE = [(r"^rear end panel$", "Rear Panel"),  # user: never use "Rear End Panel"
              (r"^(front |frt )?engine (compartment|room|bay)( view| photo)?$", "Engine Compartment"),
+             (r"^spare (wheel|tyre|tire) (cover )?board$", "Spare Wheel Cover Board"),   # user: never "SPARE WHEEL BOARD"
              (r"^engine ?view$", "Engine Compartment"), (r"^(frt|front) general view$", "Front View"), (r"^(rear|rr) general view$", "Rear View"),   # same photo types under old spellings
              (r"^tail ?lamp (?P<s>lh|ns)$", "Rear Lamp LH"), (r"^tail ?lamp (?P<s>rh|os)$", "Rear Lamp RH"),   # user: never "TAIL LAMP LH"; NS = nearside = LH, OS = offside = RH
              (r"^tail ?lamp panel (lh|ns)$", "Rear Lamp Panel LH"), (r"^tail ?lamp panel (rh|os)$", "Rear Lamp Panel RH"),
@@ -40,6 +41,20 @@ def regulator(raw):
     pos = (m.group(2) if m else ("f" if re.search(r"\b(front|frt|fr)\b", t) else "r" if re.search(r"\b(rear|rr)\b", t) else None))
     if not side or not pos: return None
     return "Door Window Regulator %s %sH" % ("Front" if pos == "f" else "Rear", side.upper())
+
+
+def quarter_panel(raw):
+    """user 2026-10-16: every quarter-panel name starts with "Quarter Panel" (Rear RH Quater Panel Inner Shield -> Quarter Panel Inner Shield RH)."""
+    t = re.sub(r"\s+", " ", raw.strip())
+    m = re.match(r"^(?:rear |rr )?(lh|rh) (?:quater|quarter) (?:panel|pnl)(?: (.*))?$", t, re.I) or \
+        re.match(r"^(?:quater|quarter) pnl (.*?)(?: (lh|rh))?$", t, re.I)
+    if not m: return None
+    if m.re.pattern.startswith("^(?:rear"):
+        side, rest = m.group(1).upper(), (m.group(2) or "").strip()
+    else:
+        rest, side = m.group(1).strip(), (m.group(2) or "").upper()
+    rest = " ".join(w if w.isupper() and len(w) <= 3 else w.capitalize() for w in rest.split())
+    return re.sub(r"\s+", " ", "Quarter Panel %s %s" % (rest, side)).strip()
 
 
 def fix_tokens(s):
@@ -82,7 +97,9 @@ VIEW = {("front", "os"): "Front View Right", ("front", "ns"): "Front View Left",
 
 def propose(raw):
     low = re.sub(r"\s+", " ", raw.lower()).strip()
-    if re.search(r"&|\band\b|\s\bn\b\s", low) or sum(len(x.split()) >= 2 for x in re.sub(r"\[.*?\]|\(.*?\)", "", low).split(",")) >= 2:
+    _parts = [x.strip() for x in re.sub(r"\[.*?\]|\(.*?\)", "", low).split(",")]
+    _POS = r"^(lh|rh|ns|os|front|frt|rear|rr|lower|upper|inner|outer|centre|center|left|right|lhf|lhr|rhf|rhr)( (lh|rh))?$"
+    if re.search(r"&|\band\b|\s\bn\b\s", low) or sum(bool(re.search(r"[a-z]{4}", x)) and not re.match(_POS, x) for x in _parts) >= 2:   # e.g. "BOOTFLOOR, RR PANEL"
         return "", "multi-item caption (excluded)"   # user: never '&' — 1 image = 1 item name
     if re.fullmatch(r"[\d\s.#-]+", low):
         return "", "generic caption (excluded)"   # bare numbers like "24", "47"
@@ -132,6 +149,8 @@ if __name__ == "__main__":
         for a, b in RAW_MERGE:
             mm = re.match(a, re.sub(r"\s+", " ", raw.lower()).strip())
             if mm: off, how = mm.expand(b).replace(" lh", " LH").replace(" rh", " RH"), "user synonym"
+        qp = quarter_panel(raw)
+        if qp: off, how = qp, "user rule: Quarter Panel first"
         rg = regulator(raw)
         if rg: off, how = rg, "user synonym"
         for a, b in MERGE: off = re.sub(a, b, off)
