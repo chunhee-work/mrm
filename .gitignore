@@ -28,3 +28,5 @@ typesafe/photo_train/train2
 typesafe/photo_train/sam3_src/
 
 *.npy.part
+
+typesafe/photo_train/user_photos/

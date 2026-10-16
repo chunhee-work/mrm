@@ -57,7 +57,24 @@ def fix_make(p):
 MULTI = [k for k, n in enumerate(labels) if "&" in n or re.search(r"\band\b", n, re.I)]   # user: never '&' (1 image = 1 item)
 _fm2 = fix_make
 def fix_make(p):
-    p = _fm2(p); p[MULTI] = 0; return p / p.sum()
+    global _PV
+    p = _fm2(p); p[MULTI] = 0
+    if _PV is None: _PV = _prior_vec() if True else None; _PV = _PV if _PV is not None else False
+    if _PV is not False: p = p * _PV
+    return p / p.sum()
+# user idea 2026-10-16: which car model has which parts -> soft prior from vehicle_priors.json (build_priors.py).
+# body type when the vehicle string names it (Sal/Hatch/SUV…), else make+model family. Test: 81.4% -> 81.6%.
+_PR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vehicle_priors.json")
+def _prior_vec():
+    v = os.environ.get("VEHICLE", "")
+    if not v or not os.path.exists(_PR) or os.environ.get("PRIOR") == "0": return None
+    import build_priors as bp
+    pr = json.load(open(_PR)); G = pr["global"]; GT = sum(G.values())
+    b = bp.body(v); T, beta = (pr["body"].get(b), .25) if b in pr["body"] else (pr["family"].get(bp.family(v)), .1)
+    if not T: return None
+    TT = sum(T.values())
+    return np.array([(((T.get(n, 0) + 1) / TT) / ((G.get(n, 0) + 1) / GT)) ** beta for n in labels], np.float32)
+_PV = None
 files = sys.argv[2:]; P = []
 with torch.no_grad():
     if CTX:

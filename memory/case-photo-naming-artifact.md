@@ -1,0 +1,16 @@
+---
+name: case-photo-naming-artifact
+description: "⭐ Every new case: name its workshop photos with our model and put them in the 照片命名台 artifact for the user to review/change"
+metadata:
+  type: feedback
+---
+
+User rule (2026-10-16, "moving forward will be this workflow for all case"): for every case (e.g. from the WhatsApp download zip `<workshop>/<PLATE>/*.JPG`), name the photos in file order with `photo_train/predict_case.py models/dinov2_b_big10a.pt <photos>` (VEHICLE= model from the JPJ cert), apply the opening rule (1–4 = Front View Right/Left, Rear View Right/Left; 5 = Interior View if windscreen shot, Road Tax if paper), and add the case as a tab in the ONE artifact **照片命名台** https://claude.ai/artifact/K6yLWFN8XChRKRVHUFcUBR (scratchpad sinar/report/tpl.html + cases.json → fb438.html; photos/<PLATE>/NN.jpg, ≤255 files per publish).
+
+The page: Merimen photo-report layout ("n/N: Name"), % chip, orange frame = unsure (<60%), big clickable name box (datalist of all names), "Paste" button top-right (click then ⌘V), one-line "其他可能" alternatives, 还原. Saves to db collection `names` (doc `<PLATE>-NN`: case, n, src, model, name).
+
+**Order (user 2026-10-16):** the folder order is sometimes wrong — `photo_train/case_report.py` moves the identification shots to the front only when Odometer/Chassis are not in the first 10 photos (corner views are often misnamed, so a near-start ID block means the order is fine). The user can drag photos to reorder in the page (names follow the photo); saved in db `orders/<PLATE>` {order:[original n…]}. **Missing photos (user 2026-10-16 "take note"):** a case can lack some opening shots (fewer than 4 corner views, no Interior View/Road Tax, no Engine…). Never force the 4 corner names onto damage photos: the corner views = the photos before the first ID shot; with fewer than 4, use the model's own view guess and mark them unsure for the user. List what is missing as `<PLATE> pending <photo> photo` ([[merimen-pending-case-line-format]]). **When uploading photos to Merimen, follow this artifact EXACTLY: its order (orders doc, else page order) and its names (names docs, else model name).**
+
+**Learning loop (user 2026-10-16 "i will teach u"):** every change the user makes in the artifact (name or order) is a lesson. After each review: list the changes, study the photos to work out the rule behind each one, write the rule into [[photo-center-crosshair-rule]], and ASK the user whenever the reason is not clear — always SEND THE PHOTO itself with the question (SendUserFile, photo_train/user_photos/<PLATE>/NN_*.jpg; user 2026-10-16 "send me back for image"), not just the number; never guess silently. Feed the final names into training.
+
+**How to apply:** when the user says done for a case, read `names`, write every photo's final name to photo_train/user_photo_names.jsonl (+ copy photos to user_photos/<PLATE>/) for training, and turn each change into a rule in [[photo-center-crosshair-rule]]; ask the user when a change's reason is unclear. Step 1 (Merimen create) runs alongside: [[merimen-az-progress]]; missing documents → one line `<PLATE> pending <item>` ([[merimen-pending-case-line-format]]).
