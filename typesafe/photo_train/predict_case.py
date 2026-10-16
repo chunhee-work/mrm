@@ -54,6 +54,27 @@ def fix_make(p):
     p = _fm(p)
     if LORRY and CHS and CH1: p[CH1[0]] += p[CHS].sum(); p[CHS] = 0
     return p
+# user 2026-10-16: Boot Lid and Tailgate never appear on the same car: 4-door saloon = Boot Lid…, 5-door / hatch / MPV / SUV
+# = Tailgate…  Move each name's probability to its counterpart (Tailgate Hinge LH <-> Boot Lid Hinge LH). Striker is shared
+# (user merged Boot Lid Striker into Tailgate Striker).
+_V = os.environ.get("VEHICLE", "")
+_DOORS = "boot" if re.search(r"\b4 ?D(r|oor)?\b|\bsal(oon)?\b|\bsedan\b", _V, re.I) else \
+         "tail" if re.search(r"\b[35] ?D(r|oor)?\b|\bhatch|\bMPV\b|\bSUV\b|\bwagon\b", _V, re.I) else None
+_LI0 = {n: k for k, n in enumerate(labels)}
+_SWAP = []
+for k, n in enumerate(labels):
+    if "Striker" in n: continue
+    if _DOORS == "boot" and n.startswith("Tailgate"): c = "Boot Lid" + n[len("Tailgate"):]
+    elif _DOORS == "tail" and re.match(r"^Boot ?Lid", n): c = re.sub(r"^Boot ?Lid", "Tailgate", n)
+    else: continue
+    _SWAP.append((k, _LI0.get(c)))
+_fm1 = fix_make
+def fix_make(p):
+    p = _fm1(p)
+    for k, c in _SWAP:
+        if c is not None: p[c] += p[k]
+        p[k] = 0
+    return p
 MULTI = [k for k, n in enumerate(labels) if "&" in n or re.search(r"\band\b", n, re.I)]   # user: never '&' (1 image = 1 item)
 _fm2 = fix_make
 def fix_make(p):
