@@ -22,7 +22,7 @@ MERGE = [(r"^Front Pillar Outer (LH|RH)$", r"Front Pillar \1"), (r"^Washer Tank 
 # user-confirmed same part, matched on the raw caption (catches typos not in the official list)
 RAW_MERGE = [(r"^rear end panel$", "Rear Panel"),  # user: never use "Rear End Panel"
              (r"^(front |frt )?engine (compartment|room|bay)( view| photo)?$", "Engine Compartment"),
-             (r"^engine ?view$", "Engine Compartment"), (r"^(frt|front) general view$", "Front View"),   # same photo types under old spellings
+             (r"^engine ?view$", "Engine Compartment"), (r"^(frt|front) general view$", "Front View"), (r"^(rear|rr) general view$", "Rear View"),   # same photo types under old spellings
              (r"^tail ?lamp (?P<s>lh|ns)$", "Rear Lamp LH"), (r"^tail ?lamp (?P<s>rh|os)$", "Rear Lamp RH"),   # user: never "TAIL LAMP LH"; NS = nearside = LH, OS = offside = RH
              (r"^tail ?lamp panel (lh|ns)$", "Rear Lamp Panel LH"), (r"^tail ?lamp panel (rh|os)$", "Rear Lamp Panel RH"),
              (r"^((1st|2nd|3rd) supple-|reinspection before spray-|trailer )?(chassis|chasis) ?(no\.?|number)$", "Chassis Number"),  # user: CHASSIS NO = Chassis Number  # user: Engine Compartment View = Engine Compartment
