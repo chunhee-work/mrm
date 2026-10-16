@@ -67,7 +67,7 @@ def fix_make(p):
 _PR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vehicle_priors.json")
 def _prior_vec():
     v = os.environ.get("VEHICLE", "")
-    if not v or not os.path.exists(_PR) or os.environ.get("PRIOR") == "0": return None
+    if not v or not os.path.exists(_PR) or os.environ.get("PRIOR") != "1": return None   # user 2026-10-16: do not use (off unless PRIOR=1)
     import build_priors as bp
     pr = json.load(open(_PR)); G = pr["global"]; GT = sum(G.values())
     b = bp.body(v); T, beta = (pr["body"].get(b), .25) if b in pr["body"] else (pr["family"].get(bp.family(v)), .1)

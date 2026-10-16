@@ -122,3 +122,6 @@ Related: [[merimen-az-progress]], [[merimen-create-case-procedure]], [[car-part-
 - Row counts seen: 25–65 parts, 6–10 misc rows per case; `skipped` (unnamed rows) was 0 throughout.
 
 **⭐ USER RULE (2026-10-11, corrected): every case's estimate total must NOT be LOWER than RM 6,000 (minimum RM6,000).** The user first wrote "must not be over 6k", then corrected to "cannot down than 6k" when asked. When selecting parts / filling prices in step 2, make sure the case total is at least RM6,000; if the justified parts/prices come out below RM6,000, flag the case to the user rather than inventing items.
+
+
+**Sensors (user 2026-10-16):** **bumper parking sensors** — a bumper has 4 or 6 sensors. 4 sensors = Inner + Outer (each LH/RH); 6 sensors = Inner + Outer + Centre (each LH/RH). Same for front and rear. Name the photo by position: Rear/Front Bumper Sensor Inner/Outer/Centre LH/RH (count the sensor holes in the wide bumper shot to know 4 vs 6). In the Step 2 estimate, also write the position (Inner / Outer / Centre + LH/RH) in the part row COMMENT.
