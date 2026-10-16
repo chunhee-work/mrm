@@ -18,7 +18,7 @@ SYN_FULL = {"inspection disc": "Road Tax", "odometer": "Odometer Reading", "road
 
 
 # user-confirmed same part: collapse to one training name
-MERGE = [(r"^Front Pillar Outer (LH|RH)$", r"Front Pillar \1"), (r"^Washer Tank Screen$", "Windscreen Washer Tank"), (r"^Front Panel$", "Front Panel Assembly"), (r"^Rear End Panel$", "Rear Panel"), (r"^Quarter Panel Outer (LH|RH)$", r"Quarter Panel \1"), (r"^Door Lower Moulding (LH|RH)$", r"Door Rear Lower Moulding \1"), (r"^Front Wheel (LH|RH)$", r"Front Wheel Rim \1"), (r"^Boot Lid Striker$", "Tailgate Striker")]
+MERGE = [(r"^Front Pillar Outer (LH|RH)$", r"Front Pillar \1"), (r"^Washer Tank Screen$", "Windscreen Washer Tank"), (r"^Front Panel$", "Front Panel Assembly"), (r"^Rear End Panel$", "Rear Panel"), (r"^Quarter Panel Outer (LH|RH)$", r"Quarter Panel \1"), (r"^Door Lower Moulding (LH|RH)$", r"Door Rear Lower Moulding \1"), (r"^Front Wheel (LH|RH)$", r"Front Wheel Rim \1")]
 # user-confirmed same part, matched on the raw caption (catches typos not in the official list)
 RAW_MERGE = [(r"^rear end panel$", "Rear Panel"),  # user: never use "Rear End Panel"
              (r"^(front |frt )?engine (compartment|room|bay)( view| photo)?$", "Engine Compartment"),

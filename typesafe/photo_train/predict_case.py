@@ -55,15 +55,16 @@ def fix_make(p):
     if LORRY and CHS and CH1: p[CH1[0]] += p[CHS].sum(); p[CHS] = 0
     return p
 # user 2026-10-16: Boot Lid and Tailgate never appear on the same car: 4-door saloon = Boot Lid…, 5-door / hatch / MPV / SUV
-# = Tailgate…  Move each name's probability to its counterpart (Tailgate Hinge LH <-> Boot Lid Hinge LH). Striker is shared
-# (user merged Boot Lid Striker into Tailgate Striker).
+# = Tailgate…  Move each name's probability to its counterpart (Tailgate Hinge LH <-> Boot Lid Hinge LH). Striker follows
+# the doors too (user 2026-10-16); while the model only knows "Tailgate Striker", rename it for 4-door cars.
 _V = os.environ.get("VEHICLE", "")
 _DOORS = "boot" if re.search(r"\b4 ?D(r|oor)?\b|\bsal(oon)?\b|\bsedan\b", _V, re.I) else \
          "tail" if re.search(r"\b[35] ?D(r|oor)?\b|\bhatch|\bMPV\b|\bSUV\b|\bwagon\b", _V, re.I) else None
 _LI0 = {n: k for k, n in enumerate(labels)}
 _SWAP = []
+if _DOORS == "boot" and "Boot Lid Striker" not in _LI0 and "Tailgate Striker" in _LI0:
+    labels = list(labels); labels[_LI0["Tailgate Striker"]] = "Boot Lid Striker"; _LI0 = {n: k for k, n in enumerate(labels)}
 for k, n in enumerate(labels):
-    if "Striker" in n: continue
     if _DOORS == "boot" and n.startswith("Tailgate"): c = "Boot Lid" + n[len("Tailgate"):]
     elif _DOORS == "tail" and re.match(r"^Boot ?Lid", n): c = re.sub(r"^Boot ?Lid", "Tailgate", n)
     else: continue
