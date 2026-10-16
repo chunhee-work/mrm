@@ -125,3 +125,11 @@ Related: [[merimen-az-progress]], [[merimen-create-case-procedure]], [[car-part-
 
 
 **Sensors (user 2026-10-16):** **bumper parking sensors** — the name depends on how many sensors THIS car has (count the holes in the wide bumper shot): 2 sensors = just Sensor LH/RH (no Inner/Outer); 4 sensors = Inner + Outer (each LH/RH); 6 sensors = Inner + Outer + Centre (each LH/RH). Same for front and rear. Name the photo by position: Rear/Front Bumper Sensor Inner/Outer/Centre LH/RH (count the sensor holes in the wide bumper shot to know 4 vs 6). In the Step 2 estimate (user confirmed): select the Merimen part "Rear/Front Bumper Sensor LH/RH" and write the position (Inner / Outer / Centre) in that row's COMMENT (not needed for a 2-sensor car).
+
+
+**User corrections 2026-10-17 (FB438):** Fender Signal Lamp Front RH = **Cracked**; Bumper Front Side Retainer RH = **Bracket cracked**; Grille Front = **Cut** (not Broken). Manual rows move after a save — always set conditions by row NAME, never by remembered row number.
+
+**Select Parts via CDP (MDP5464, 2026-10-17):**
+- After Save on dsp_selection Merimen may show an in-page **Thatcham Advisory** modal ("Thatcham require you to also select…"). Nothing is saved until **Apply & Submit** is clicked. ~/mrm-bot/tickall.mjs clicks it. Keep the R&R items Thatcham adds.
+- Ticking a Labour **N** box whose label is a part (e.g. "Bonnet", "Door Mirror RH (tts)") also adds that PART. Only tick N for parts that are actually damaged. Filter labour_rules output to the impact area and side: a Quarter Panel rule pulls in rear items (Boot Floor, Rear Panel, Fuel Tank…).
+- Front Panel side-member photos ("Headlamp Panel RH" on a Saga) = covered by Front Panel; the chrome strip under the headlamp = Bumper Front Moulding RH.
