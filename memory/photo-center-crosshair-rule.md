@@ -104,7 +104,7 @@ User (2026-10-11): cannot confirm per model, but agrees with the logic. So: (1) 
   - Quarter Panel Liner LH/RH; Boot Lid (+ Lock / Hinge LH/RH / Emblem)
   - **Boot Lid Aperture Weatherstrip**, **Tailgate Aperture Weatherstrip**; Tailgate Emblem; Spoiler Rear [bootlid]
   - Rear Axle; Rear Seat Back; Spare Wheel Retainer; Rear Number Plate Lamp (LH/RH); Parcel Shelf Rear; Front View (not Front Full View)
-- **Rear bumper brackets:** only "Rear Bumper Bracket Side LH/RH" and "Rear Bumper Bracket Upper LH/RH". Retainer/Guide = Upper. Generic names (Rear Bumper Bracket RH, Bumper Rear Retainer RH, Mounting Bracket, [support]) are pending the user's look at the sample photos.
+- **Rear bumper brackets:** only "Rear Bumper Bracket Side LH/RH" and "Rear Bumper Bracket Upper LH/RH". Retainer/Guide = Upper. Decided from the sample photos: plain Rear Bumper Bracket LH/RH = Side (cars with no upper bracket show only this name); Bumper Rear Retainer = Upper; Bumper Rear Mounting Bracket = Side; Bumper Bracket Rear [support] = Side.
 - **Front bumper brackets:** Bumper Front Bracket Support / Side Retainer / Retainer-Guide / Bracket Front [side] = Front Bumper Bracket LH/RH. [upper] = Bumper Front Bracket Support Upper LH/RH.
 - **Rear Bumper:** Bumper Rear Cover LH/RH and Bumper Rear LH [cover] = Rear Bumper. But Rear Bumper LH/RH stay separate: some cars have side pieces.
 - **Door Front Outer Weatherstrip = Door Front Weatherstrip** (below the window). **Door Front Aperture Weatherstrip is a different item** (on the door frame), even though they look alike. The user will circle examples.

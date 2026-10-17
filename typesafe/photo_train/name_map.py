@@ -235,6 +235,11 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^(Bumper Rear Retainer/Guide|BUMPER REAR RETAINER GUIDE) (LH|RH)$", r"Rear Bumper Bracket Upper \2"),
     (r"^Bumper Rear Retainer (LH|RH) \[side( Support)?\]$", r"Rear Bumper Bracket Side \1"),
     (r"^(Bumper Rear Bracket|Bumper Rear Retainer|BUMPER REAR RETAINER GUIDE)$", None),        # 2: no side -> drop
+    # user 2026-10-17 (after sample photos): plain Rear Bumper Bracket = Side (cars without an upper show just this name)
+    (r"^Rear Bumper Bracket (LH|RH)$", r"Rear Bumper Bracket Side \1"),
+    (r"^Bumper Rear Retainer (LH|RH)$", r"Rear Bumper Bracket Upper \1"),
+    (r"^Bumper Rear Mounting Bracket (LH|RH)$", r"Rear Bumper Bracket Side \1"),
+    (r"^Bumper Bracket Rear (LH|RH) \[support\]$", r"Rear Bumper Bracket Side \1"),
     # 3/4: front bumper brackets
     (r"^(Bumper Front Bracket Support|Bumper Front Side Retainer|Bumper Front Retainer/Guide) (LH|RH)( \[side\])?$", r"Front Bumper Bracket \2"),
     (r"^Bumper Bracket Front (LH|RH) \[side\]$", r"Front Bumper Bracket \1"),
