@@ -199,13 +199,74 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Lamp Assembly Rear Outer$", "Lamp Assembly Rear"),                            # 21 same
     (r"^Bodyside (Rear )?Assembly (LH|RH)$", r"Bodyside \1\2"),                       # A-group
     (r"^Air Filter Assembly$", "Air Filter Assy"),
+    # round 2 (user 2026-10-17)
+    (r"^Rear (Tailgate( Lock| Weatherstrip)?)$", r"\1"), (r"^Rear (LH|RH) Tailgate Hinge$", r"Tailgate Hinge \1"),
+    (r"^Front (Bonnet( Lock)?)$", r"\1"), (r"^Front (LH|RH) Bonnet Hinge$", r"Bonnet Hinge \1"),
+    (r"^Front (LH|RH) Fender$", r"Fender \1"), (r"^Front (LH|RH) Headlamp$", r"Headlamp \1"), (r"^Front (LH|RH) Driveshaft$", r"Driveshaft \1"),
+    (r"^Steering Tie Rod( End)? Front (LH|RH)$", r"Steering Tie Rod\1 \2"),
+    (r"^Grille Front Badge$", "Grille Badge"), (r"^Rear Trailing Arm (LH|RH)$", r"Trailing Arm \1"),
+    (r"^Front Windscreen Glass$", "Front Windscreen"), (r"^Spare Wheel Cover$", "Spare Wheel Cover Board"),
+    (r"^Rear Panel Inner \[assembly\]$", "Rear Panel Inner"), (r"^PHOTO DAMAGES PART$", "DAMAGES PART"),
+    (r"^DOOR (LH|RH)$", None),                                                        # a: no front/rear -> drop
+    (r"^Chassis Member Rear Section Rear (LH|RH)$", r"Rear Chassis Member \1"),      # b
+    (r"^Chassis Member Front (LH|RH) Front Section$", r"Front Chassis Member \1"),   # c
+    (r"^Chassis Member (LH|RH)$", None),                                              # d: drop
+    (r"^Boot Floor Rear$", "Boot Floor"),                                             # e
+    (r"^Exhaust Silencer Rear$", "Exhaust Silencer"),                                 # f
+    (r"^Rear Floor Panel$", "Floor Panel"),                                           # g (user chose Floor Panel)
+    (r"^SUSPENSION LOWER ARM (LH|RH)$", None),                                        # h: drop
+    (r"^GRILLE MOULDING$", "Grille Front Moulding"),                                  # i
+    (r"^NUMBER PLATE HOLDER$", "Number Plate Holder Rear"),                           # j
+    (r"^Exhaust Pipe$", "Rear Exhaust Pipe"), (r"^Exhaust Mounting$", "Exhaust Rear Mounting"),   # k
+    (r"^(Bodyside Rear|BODYSIDE SECTION) (LH|RH)$", r"Bodyside \2"),                 # l
+    (r"^CHASSIS FRAME ASSY$", "Chassis Assembly"),                                    # m
+    (r"^Bumper Rear Section (LH|RH)$", r"Rear Bumper \1"),                           # n
+    (r"^Badge Front$", "Badge"),                                                      # o
+    (r"^Rear Panel (LH|RH)$", None),                                                  # p: wrong name -> drop (Rear Lamp Panel LH/RH is right)
+    # round 3 (user 2026-10-17)
+    (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"^(Quarter Liner|QUARTER PANEL LINER) (LH|RH)$", r"Quarter Panel Liner \2"),
+    (r"^Rear Bootlid$", "Boot Lid"), (r"^Rear Bootlid (Lock|Weatherstrip|Emblem)$", r"Boot Lid \1"), (r"^Rear (LH|RH) Bootlid Hinge$", r"Boot Lid Hinge \1"),
+    (r"^BOOTLID EMBLEM$", "Boot Lid Emblem"), (r"^(TAILGATE EMBLEM|Rear Tailgate Emblem)$", "Tailgate Emblem"),
+    (r"^BOOTLID SPOILER$", "Spoiler Rear [bootlid]"), (r"^Front Panel Upper Panel Cover$", "Front Panel Upper Cover"),
+    (r"^Fender (Liner|Signal Lamp) Front (LH|RH)$", r"Fender \1 \2"),
+    (r"^Axle Assy Rear$", "Rear Axle"), (r"^Seat Back Assy Rear$", "Rear Seat Back"), (r"^EXHAUST SILENCER ASSY$", "Exhaust Silencer"),
+    (r"^(Bumper Rear Retainer Reinforcement (LH|RH)) \[side( Support)?\]$", r"\1"),
+    # 1: rear bumper brackets = only "Rear Bumper Bracket Side LH/RH" and "Rear Bumper Bracket Upper LH/RH"; Retainer/Guide = Upper
+    (r"^(Bumper Rear Retainer/Guide|BUMPER REAR RETAINER GUIDE) (LH|RH)$", r"Rear Bumper Bracket Upper \2"),
+    (r"^Bumper Rear Retainer (LH|RH) \[side( Support)?\]$", r"Rear Bumper Bracket Side \1"),
+    (r"^(Bumper Rear Bracket|Bumper Rear Retainer|BUMPER REAR RETAINER GUIDE)$", None),        # 2: no side -> drop
+    # 3/4: front bumper brackets
+    (r"^(Bumper Front Bracket Support|Bumper Front Side Retainer|Bumper Front Retainer/Guide) (LH|RH)( \[side\])?$", r"Front Bumper Bracket \2"),
+    (r"^Bumper Bracket Front (LH|RH) \[side\]$", r"Front Bumper Bracket \1"),
+    (r"^Bumper Bracket Front (LH|RH) \[upper\]$", r"Bumper Front Bracket Support Upper \1"),
+    (r"^Bumper Front Retainer$", "Bumper Front Bracket"),
+    (r"^Tailgate Weatherstrip$", "Tailgate Aperture Weatherstrip"),                   # 5
+    (r"^Boot Lid Weatherstrip$", "Boot Lid Aperture Weatherstrip"),                   # 6
+    (r"^Front Full View$", "Front View"),                                             # 8
+    (r"^(Headlamp|Rear Lamp) Body (LH|RH)$", r"\1 \2"),                              # 9
+    (r"^Bumper Rear Cover (LH|RH)$", "Rear Bumper"), (r"^Bumper Rear (LH|RH) \[cover\]$", "Rear Bumper"),   # 10 (Rear Bumper LH/RH stay: separate pieces on some cars)
+    (r"^Spare Wheel Bracket$", "Spare Wheel Retainer"),                               # 11
+    (r"^(Sensor|SENSOR REAR) (LH|RH)$", None),                                        # 12
+    (r"^Kangaroo Bar$", None),                                                        # 13
+    (r"^Number Plate Lamp( LH| RH)?$", r"Rear Number Plate Lamp\1"),                 # 14
+    (r"^Reflector (Rear )?(LH|RH)$", None),                                           # 15: only Rear Bumper Reflector Rear LH/RH
+    (r"^Engine Splash Shield Front$", "Engine Splash Shield"), (r"^Engine Lower Splash Shield \[front\]$", "Engine Lower Splash Shield"),   # 16
+    (r"^Quarter Pillar Rear (LH|RH)$", r"Quarter Pillar \1"),                        # 17
+    (r"^Parcel Shelf$", "Parcel Shelf Rear"),                                         # 18
+    (r"^(DAMAGES PART|DAMAGES PHOTO|DAMAGE PART PHOTO|PHOTO PART DAMAGES|PHOTO DAMAGES PART|DAMAGE PART)$", None),   # 19 not item names
+    (r"^Rear Damage View$", None),                                                    # 20
 ]
 # kept DIFFERENT by the user: Rear Lamp RH vs Rear Lamp Outer RH (2); Rear Bumper Sensor RH vs ...Outer RH (4);
 # Front Panel Upper vs Front Panel Upper Cover (7: the cover is the plastic on top of the upper panel)
 
 def final(l):
-    if not l: return l
-    for a, b in FINAL:
-        if re.match(a, l):
-            return None if b is None else re.sub(a, b, l)
+    for _ in range(5):          # chains: Rear Bootlid Weatherstrip -> Boot Lid Weatherstrip -> Boot Lid Aperture Weatherstrip
+        if not l: return l
+        for a, b in FINAL:
+            if re.match(a, l):
+                n = None if b is None else re.sub(a, b, l); break
+        else:
+            return l
+        if n == l: return l
+        l = n
     return l

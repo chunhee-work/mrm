@@ -90,3 +90,21 @@ User (2026-10-11): cannot confirm per model, but agrees with the logic. So: (1) 
   - Rear Bumper Sensor RH ≠ Rear Bumper Sensor Outer RH
   - Front Panel Upper ≠ Front Panel Upper Cover (the cover = the plastic on top of the upper panel)
 - Same words in a different order / case / abbreviation (FRT, RR, ASSY) / bracket position = one name (most common spelling).
+
+## Duplicate-name review rounds 2–3 (user 2026-10-17) — all coded in name_map.FINAL
+- **Drop names with no position or side:** DOOR LH/RH, Chassis Member LH/RH, SUSPENSION LOWER ARM LH/RH, Kangaroo Bar (no front/rear), Sensor LH / SENSOR REAR LH, Reflector (Rear) LH/RH (only "Rear Bumper Reflector Rear LH/RH"), no-side Bumper Rear Bracket/Retainer, Rear Panel LH/RH (wrong → Rear Lamp Panel).
+- **Drop non-item labels:** DAMAGES PART / DAMAGES PHOTO / DAMAGE PART PHOTO etc., Rear Damage View (only Rear View).
+- **Drop a needless "Front"/"Rear":** Tailgate, Bonnet (+Lock/Hinge), Fender, Headlamp, Driveshaft, Steering Tie Rod (End), Trailing Arm, Engine Splash Shield, Fender Liner, Fender Signal Lamp, Quarter Pillar.
+- **Use this name:**
+  - Rear/Front Chassis Member LH/RH (not Chassis Member … Section)
+  - Boot Floor; Exhaust Silencer; **Floor Panel** (not Rear Floor Panel)
+  - Grille Front Moulding; Number Plate Holder Rear; Rear Exhaust Pipe; Exhaust Rear Mounting
+  - Bodyside LH/RH (merge Bodyside Rear / Section); Chassis Assembly; Rear Bumper LH/RH (not Bumper Rear Section); Badge
+  - Rear Lamp LH/RH (not Taillamp / Body); Headlamp LH/RH (not Body)
+  - Quarter Panel Liner LH/RH; Boot Lid (+ Lock / Hinge LH/RH / Emblem)
+  - **Boot Lid Aperture Weatherstrip**, **Tailgate Aperture Weatherstrip**; Tailgate Emblem; Spoiler Rear [bootlid]
+  - Rear Axle; Rear Seat Back; Spare Wheel Retainer; Rear Number Plate Lamp (LH/RH); Parcel Shelf Rear; Front View (not Front Full View)
+- **Rear bumper brackets:** only "Rear Bumper Bracket Side LH/RH" and "Rear Bumper Bracket Upper LH/RH". Retainer/Guide = Upper. Generic names (Rear Bumper Bracket RH, Bumper Rear Retainer RH, Mounting Bracket, [support]) are pending the user's look at the sample photos.
+- **Front bumper brackets:** Bumper Front Bracket Support / Side Retainer / Retainer-Guide / Bracket Front [side] = Front Bumper Bracket LH/RH. [upper] = Bumper Front Bracket Support Upper LH/RH.
+- **Rear Bumper:** Bumper Rear Cover LH/RH and Bumper Rear LH [cover] = Rear Bumper. But Rear Bumper LH/RH stay separate: some cars have side pieces.
+- **Door Front Outer Weatherstrip = Door Front Weatherstrip** (below the window). **Door Front Aperture Weatherstrip is a different item** (on the door frame), even though they look alike. The user will circle examples.
