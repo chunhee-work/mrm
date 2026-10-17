@@ -45,6 +45,7 @@ User (2026-10-17, after the sinar batch): "moving forward will use this workflow
    - Labour per [[labour-reference-sinar-batch]], filtered to the impact area and side.
    - Tick with `tickall.mjs <cid> <ext> sess tick.json` ({CP:[values],N:[labels],R:[labels]}). It clicks Thatcham "Apply & Submit".
    - Verify with `selstate.mjs`. Remove wrong ticks with `untick.mjs`.
+   - **Save my own choice** (user 2026-10-17: "next time remember what u choose with the labour, i will add in"). Right after ticking and Merimen's auto/Thatcham adds, snapshot it: `node selstate.mjs <cid> <ext> session_base.txt > ~/mrm-bot/state/sel_<PLATE>_mine.json`. Do the same after labourfill (misc). Also copy it into memory file labour-diff-log.md.
    - Then `gonext.mjs` → dsp_details.
 8. **Estimate details:**
    - `labourfill.mjs <cid> <ext> sess AUT apply` (misc)
@@ -60,6 +61,7 @@ User (2026-10-17, after the sinar batch): "moving forward will use this workflow
 11. **Google Sheet:** paste `<date> <PLATE> <WORKSHOP> D` rows into Cari Makan ([[google-sheet-cari-makan-paste]]).
 
 ## End of batch
+- **Labour learning:** when the user has reviewed a case (or at the start of the next batch), re-read `selstate.mjs` and diff it against `sel_<PLATE>_mine.json`. Every label the user ADDED or REMOVED becomes a rule (part / impact → label) in [[labour-reference-sinar-batch]] / [[estimate-select-parts-rules-2026-10-17]]. Log the diff in labour-diff-log.md.
 - Re-read every case (rows/selstate/chkorder) → completion table + manual-price list + pending copy lines.
 - Push notification.
 - Commit and push memory changes.

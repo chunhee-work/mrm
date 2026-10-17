@@ -41,3 +41,4 @@
 - [Cari Makan sheet paste](google-sheet-cari-makan-paste.md) — after a batch, append the sheet rows to the Cari Makan Google Sheet myself
 - [Select-parts rules 2026-10-17](estimate-select-parts-rules-2026-10-17.md) — every artifact item in, qty button, sensor comment, bumper clips, door full set + mirror, quarter liner, Door Back labour
 - [Labour reference, sinar batch](labour-reference-sinar-batch.md) — user-approved final parts/labour/misc ticks for 5 cases: the answer key for labour
+- [Labour diff log](labour-diff-log.md) — my labour ticks vs user's final per case; snapshot sel_<PLATE>_mine.json after Step 2 and diff later
