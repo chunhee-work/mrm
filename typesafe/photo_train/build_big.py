@@ -44,6 +44,13 @@ _best = {}
 for l, n in collections.Counter(l for l in labs if l).most_common():
     _best.setdefault(_sq(l), l)
 labs = [_best[_sq(l)] if l else l for l in labs]
+# user 2026-10-17: duplicate-name review -> name_map.final() decisions + same words in any order = one name
+from name_map import final, order_key
+labs = [final(l) for l in labs]
+_best = {}
+for l, n in collections.Counter(l for l in labs if l).most_common():
+    _best.setdefault(order_key(l), l)
+labs = [_best[order_key(l)] if l else l for l in labs]
 labs = [None if l and re.fullmatch(r"[\d\s./-]+", l) else l for l in labs]
 labs = [None if l and re.fullmatch(r"(Tailgate|Boot Lid) Hinge", l) else l for l in labs]   # user: hinge always needs LH/RH   # number-only is never a part name
 cnt = collections.Counter(l for r, l in zip(rows, labs) if l and r["cid"] not in test)

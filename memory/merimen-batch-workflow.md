@@ -48,7 +48,7 @@ Order set by the user 2026-10-17: read → create → artifact → report → ra
    - Go through every photo: what each one shows decides which parts, companions, quantities and labour to add, not just the name text.
    - Dump the catalogue with `selcat2.mjs` and match with typesafe/partmatch.py.
    - Apply ALL rules in [[estimate-select-parts-rules-2026-10-17]] and [[estimate-companion-parts-rule]]: every named item in; Bumper → Bumper Clips 15; full door set + mirror for front doors; Quarter Outer → Liner; Shock Absorber → Suspension Crossmember; sensors qty + comment.
-   - Labour per [[labour-reference-sinar-batch]], filtered to the impact area and side.
+   - Labour per tools/damage_to_ticks.md (damaged part → N/R/Misc %, 217 cases; the user's how_to_choose_labour.zip) + [[labour-reference-sinar-batch]], filtered to the impact area and side.
    - Tick with `tickall.mjs <cid> <ext> sess tick.json` ({CP:[values],N:[labels],R:[labels]}). It clicks Thatcham "Apply & Submit".
    - Verify with `selstate.mjs`. Remove wrong ticks with `untick.mjs`.
    - **Save my own choice** (user 2026-10-17: "next time remember what u choose with the labour, i will add in"). Right after ticking and Merimen's auto/Thatcham adds, snapshot it: `node selstate.mjs <cid> <ext> session_base.txt > ~/mrm-bot/state/sel_<PLATE>_mine.json`. Do the same after labourfill (misc). Also copy it into memory file labour-diff-log.md.

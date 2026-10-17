@@ -63,3 +63,30 @@ User (2026-10-11): cannot confirm per model, but agrees with the logic. So: (1) 
 - 2026-10-12 (user): **decide the shooting area first, then only use that area's part names.** The whole photo (+2 photos before it) is scored FRONT / REAR / SIDE / UNDER (views count: Front View → FRONT, Engine Compartment → FRONT …); shape names are limited to that area (e.g. a rear shot never gets Headlamp / Door Mirror / Front Suspension). Implemented in photo_train/zones.py (name → area; Quarter Panel = REAR+SIDE, Fender = FRONT+SIDE, doors/mirrors/pillars = SIDE) + name_segs.py; task docs carry `area`, shown in the tool next to the car model.
 - 2026-10-12 (user): area rule also for the WHOLE-photo answer, but **one case can be damaged on several sides** → predict_case.py decides the area per photo from its own group (itself + 2 before + 2 after, weighted), NOT per case. If that local area is ≥ 50% sure, names from other areas are removed (views/documents always allowed); if unclear (turning between sides) no filter. Output now has "area"/"area_conf". Labeling tool shows "AI 拍摄位置：车头/车尾/侧面 · LH/RH/中间 (%)" from artifact doc meta/area (photo_train/area_side.py).
 - 2026-10-12 (user): "FOGLAMP LH" = **Front Bumper Fog Lamp LH** (RH same). name_map: "foglamp" → "fog lamp" → Front Bumper Fog Lamp LH/RH. Bracket notes with commas (e.g. "[Assy,at Bumper Rr.]") no longer count as multi-item.
+
+## Duplicate-name review (user 2026-10-17) — coded in name_map.FINAL + order_key (build_big.py)
+- **Same:**
+  - Rear Panel Outer = Rear Panel
+  - [outer] Lamp Assembly Rear (tts) = Lamp Assembly Rear (tts)
+  - Bumper Front Reinforcement Panel = Front Bumper Reinforcement
+  - Runningboard Panel Outer = Runningboard Panel
+  - Centre Pillar = Centre Pillar Outer
+  - DASHBOARD VIEW / Dashboard Panel = DASHBOARD
+  - Bumper Bracket Rear [side - Outer] = Rear Bumper Bracket Side
+  - Quarter Inner Trim = Quarter Panel Inner Trim
+  - Runningboard Panel Extension = Runningboard Extension
+  - Door Front Outer Weatherstrip = Door Front Weatherstrip
+  - Lamp Assembly Rear Outer = Lamp Assembly Rear
+- **Use this name:**
+  - Tyre Size (not Size Of The Tyre)
+  - Front View (not FRT PANEL VIEW)
+  - Front/Rear Suspension View LH/RH (not Suspension Front/Rear)
+  - Rear/Front Tyre LH/RH (not Tyre View …)
+  - Runningboard Spoiler LH/RH (not Spoiler Runningboard Panel)
+  - Bumper Rear Lower Cover (not BUMPER REAR LOWER)
+- **Never use:** Rear End View, Rear End Assembly (dropped).
+- **Different, keep both:**
+  - Rear Lamp RH ≠ Rear Lamp Outer RH
+  - Rear Bumper Sensor RH ≠ Rear Bumper Sensor Outer RH
+  - Front Panel Upper ≠ Front Panel Upper Cover (the cover = the plastic on top of the upper panel)
+- Same words in a different order / case / abbreviation (FRT, RR, ASSY) / bracket position = one name (most common spelling).

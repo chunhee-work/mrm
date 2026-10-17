@@ -165,3 +165,47 @@ if __name__ == "__main__":
     for raw, c, off, how in rows:
         by[how] += c
     print("distinct captions", len(rows)); print({k: v for k, v in by.items()})
+
+
+# ---- user decisions 2026-10-17 (duplicate-name review). Applied to FINAL labels in build_big.py ----
+_ABBR = {"frt": "front", "fr": "front", "rr": "rear", "assy": "assembly"}
+def order_key(l):
+    """Same words in any order / case / abbreviation / bracket position = one name (A-group, user OK'd)."""
+    return " ".join(sorted(_ABBR.get(w, w) for w in re.findall(r"[a-z0-9]+", l.lower())))
+
+FINAL = [  # (regex on the final label, replacement; None = never use / drop)
+    (r"^Rear Panel Outer$", "Rear Panel"),                                            # 1 same
+    (r"^\[outer\] (Lamp Assembly Rear (LH|RH) \(tts\))$", r"\1"),                     # 3 same
+    (r"^(Lamp Assembly Rear (LH|RH) \(tts\)) \[outer\]$", r"\1"),
+    (r"^Bumper Front Reinforcement Panel$", "Front Bumper Reinforcement"),            # 5 same
+    (r"^Bumper Rear Reinforcement Panel$", "Rear Bumper Reinforcement"),
+    (r"^Size Of The Tyre$", "Tyre Size"),                                             # 6
+    (r"^Runningboard Panel Outer (LH|RH)$", r"Runningboard Panel \1"),                # 8 same
+    (r"^Centre Pillar (LH|RH)$", r"Centre Pillar Outer \1"),                          # 9 same
+    (r"^(DASHBOARD VIEW|Dashboard Panel)$", "DASHBOARD"),                             # 10 same
+    (r"^FRT PANEL VIEW$", "Front View"),                                              # 11
+    (r"^Suspension Front (LH|RH)$", r"Front Suspension View \1"),                     # 12
+    (r"^Suspension Rear (LH|RH)$", r"Rear Suspension View \1"),
+    (r"^(Tyre View|View Tyre) Rear (LH|RH)$", r"Rear Tyre \2"),                       # 13
+    (r"^(Tyre View|View Tyre) Front (LH|RH)$", r"Front Tyre \2"),
+    (r"^Spoiler Runningboard Panel (LH|RH)$", r"Runningboard Spoiler \1"),            # 14
+    (r"^(LH|RH) Runningboard Panel Spoiler$", r"Runningboard Spoiler \1"),
+    (r"^Rear End (View|Assembly)$", None),                                            # 15 never use
+    (r"^Bumper Bracket Rear (LH|RH) \[side - Outer\]$", r"Rear Bumper Bracket Side \1"),  # 16 same
+    (r"^Quarter Inner Trim (LH|RH)$", r"Quarter Panel Inner Trim \1"),                # 17 same
+    (r"^Runningboard Panel Extension (LH|RH)$", r"Runningboard Extension \1"),        # 18 same
+    (r"^Door (Front|Rear) Outer Weatherstrip (LH|RH)$", r"Door \1 Weatherstrip \2"),  # 19 same
+    (r"^(BUMPER REAR LOWER|BUMPER RR LOWER COVER)$", "Bumper Rear Lower Cover"),      # 20
+    (r"^Lamp Assembly Rear Outer$", "Lamp Assembly Rear"),                            # 21 same
+    (r"^Bodyside (Rear )?Assembly (LH|RH)$", r"Bodyside \1\2"),                       # A-group
+    (r"^Air Filter Assembly$", "Air Filter Assy"),
+]
+# kept DIFFERENT by the user: Rear Lamp RH vs Rear Lamp Outer RH (2); Rear Bumper Sensor RH vs ...Outer RH (4);
+# Front Panel Upper vs Front Panel Upper Cover (7: the cover is the plastic on top of the upper panel)
+
+def final(l):
+    if not l: return l
+    for a, b in FINAL:
+        if re.match(a, l):
+            return None if b is None else re.sub(a, b, l)
+    return l
