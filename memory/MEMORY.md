@@ -1,5 +1,6 @@
 - [Language preference](language-preference.md) — reply in Mandarin Chinese by default
 - ⭐ [PERODUA front panel rule](perodua-front-panel-rule.md) — Perodua never "Front Panel Assembly": use Front Panel Upper / Fender Inner / Front Crossmember / Front Panel Lower
+- ⭐⭐ [Merimen batch workflow](merimen-batch-workflow.md) — THE workflow: every case 0→100% (create→report→rates→narratives→Step 2→DOC+photo upload→sheet→notify); only a missing doc stops a case (send copy line, continue); never ask
 - ⭐ [Case workflow order](case-workflow-order.md) — Step 1 create → artifact as soon as model confirmed → user edits → Step 2 = Select Parts + Labour
 - ⭐ [Case photo naming artifact](case-photo-naming-artifact.md) — every case: model names photos → 照片命名台 tab for user review; learn from changes
 - ⭐ [Lorry Front Chassis Member](lorry-front-chassis-member.md) — lorry models: "Front Chassis Member" with no LH/RH

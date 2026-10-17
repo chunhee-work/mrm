@@ -42,6 +42,10 @@ This generalises the "no photos → pass the case" rule in [[merimen-missing-pho
 
 ## 2026-10-16 (re-stated, with the photo-artifact workflow): "moving forward no need to stop and ask me — start 0–100% to the end; the only thing that can stop you is a missing DOC."
 Run Step 1 (create + adjuster report + estimate setup + narratives + upload) → photo artifact as soon as the model is chosen ([[case-workflow-order]]) → Step 2 after the user finishes the artifact, without check-ins. Missing documents → `<PLATE> pending <doc>` line ([[merimen-pending-case-line-format]]) and keep going with the other cases. Never show "confirm before save" tables any more.
-Merimen (2026-10-16): build NO URLs with CFID/CFTOKEN — Merimen logs the session out ("suspected intrusion"). Navigate only by clicking links/buttons inside the logged-in tab (search box SRCH + "Go" → case link → page links).
+Merimen (2026-10-16, still true for the USER'S normal Chrome): build NO URLs with CFID/CFTOKEN there — Merimen logs the session out ("suspected intrusion"). Navigate only by clicking links/buttons inside the logged-in tab (search box SRCH + "Go" → case link → page links).
 
 2026-10-16 (user): **"when i said do then means all, not just 1"** — an instruction covers EVERY case in the batch; never finish one case and report back.
+
+
+## 2026-10-17 — final form: [[merimen-batch-workflow]]
+Do it all 1→100%. The ONLY stop is a missing document: send the copy line, proceed with the others, never ask. Automation goes through the 9222 Chrome scripts (session_base URLs OK there). Send a push notification when the batch is done.
