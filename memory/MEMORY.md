@@ -37,3 +37,6 @@
 - [WhatsApp intake via Zernio (ON HOLD)](whatsapp-zernio-intake-onhold.md) — Business number required; user will ping to resume
 - [Photo centre crosshair rule](photo-center-crosshair-rule.md) — the named item is the part at the image centre (vertical+horizontal midlines)
 - ⭐ [Photo confirm workflow](photo-confirm-workflow.md) — after training: Step 1+2 per case; photos <80% conf → user's quick-confirm page; answers saved & learned
+- [Cari Makan sheet paste](google-sheet-cari-makan-paste.md) — after a batch, append the sheet rows to the Cari Makan Google Sheet myself
+- [Select-parts rules 2026-10-17](estimate-select-parts-rules-2026-10-17.md) — every artifact item in, qty button, sensor comment, bumper clips, door full set + mirror, quarter liner, Door Back labour
+- [Labour reference, sinar batch](labour-reference-sinar-batch.md) — user-approved final parts/labour/misc ticks for 5 cases: the answer key for labour
