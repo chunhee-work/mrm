@@ -150,13 +150,9 @@ Case data (names, NRIC, addresses) stays in `~/mrm-bot/*_s2.json` and `report_si
 4. **Unanswered question:** which case "PERODUA MYVI 2017 TO 2020 5 DOOR HAT 1.5 Advanced" (misc missed) refers to.
    Or should TCP4539's model change?
 5. **Batch-2 totals** were not re-checked after the user's own fixes. The user said "No need to".
-6. **Photo-model retrain is running** (`typesafe/photo_train/retrain_names.sh`, log `after_harvest.log`). It
-   retrains the two photo-group models on the merged names.
-   - When the log prints `AFTER_HARVEST_DONE`, compare the two `best top1` lines with the current models (step3.log):
-     - `seq_best.pt` 81.0%, `seq_best_crop.pt` 80.8% (ensemble 81.4%);
-     - new: `models/seq_seqn.pt`, `models/seq_seqnc.pt`.
-   - Copy a new model over `seq_best*.pt` only if it is better, and keep the old file until the next batch confirms
-     it.
+6. **Photo-model retrain finished (2026-10-21 01:41).** The new models on the merged names scored lower:
+   `seq_seqn.pt` 80.4% and `seq_seqnc.pt` 80.2%, against the current `seq_best.pt` 81.0% and `seq_best_crop.pt` 80.8%.
+   So the current models stay. The new files are kept in `models/` but are not used.
 7. **Merimen session:** it was logged out at the end of 2026-10-20. Ask for relogin before any Merimen work.
 8. **Legacy code:** `typesafe/click_nav.py`, `report_click.py`, `step2_click.py`, `step2_cases.py`,
    `finish_parts.py` and `manual_parts.py` are the older AppleScript path (`driver.py`, the user's normal Chrome,
