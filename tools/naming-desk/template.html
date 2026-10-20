@@ -1,0 +1,150 @@
+<title>照片命名台</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#f3f5f8;--surface:#ffffff;--raised:#f8fafc;--ink:#0f1720;--mut:#5b6776;--line:#dfe4ea;--acc:#4f5bd5;--accInk:#ffffff;--warn:#b45309;--ed:#0e7490;--edbg:#dcf1f6;--jev:#86369e;--jevbg:#f3e6f7;--shadow:0 1px 2px rgba(15,23,32,.06),0 4px 14px rgba(15,23,32,.05)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--warn:#fbbf24;--ed:#22d3ee;--edbg:#0b2a31;--jev:#e3a6f5;--jevbg:#2c1834;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--warn:#fbbf24;--ed:#22d3ee;--edbg:#0b2a31;--jev:#e3a6f5;--jevbg:#2c1834;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans","Noto Sans SC","PingFang SC",sans-serif}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.top .in{max-width:1240px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.brand{font-weight:700;font-size:15px;letter-spacing:.02em}
+.tabs{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:thin}
+.tab{flex:none;min-height:40px;display:flex;align-items:center;gap:8px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s}
+.tab:hover{border-color:var(--acc)}
+.tab .p{font:600 14px "IBM Plex Mono",monospace}
+.tab .c{font-size:12px;color:var(--mut)}
+.tab .edc{font:700 12px "IBM Plex Mono","Noto Sans SC",monospace;padding:3px 9px;border-radius:999px;background:var(--ed);color:var(--bg);box-shadow:0 0 0 2px var(--surface)}
+.tab[aria-current="true"]{background:var(--acc);border-color:var(--acc);color:var(--accInk)}.tab[aria-current="true"] .c{color:inherit;opacity:.85}
+.seg{display:flex;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
+.seg button{min-height:34px;padding:0 14px;border:0;border-radius:999px;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:var(--mut)}
+.seg button[aria-pressed="true"]{background:var(--acc);color:var(--accInk)}
+main{max-width:1240px;margin:0 auto;padding:20px 16px 72px;display:flex;flex-direction:column;gap:16px}
+.head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end}
+@media (max-width:760px){.head{grid-template-columns:1fr}}
+.plate{font:700 30px/1.1 "IBM Plex Mono",monospace;letter-spacing:.02em;margin:0}
+.veh{color:var(--mut);margin-top:6px}
+.kpis{display:flex;gap:10px;flex-wrap:wrap}
+.kpi{min-width:104px;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.kpi .k{font-size:12px;color:var(--mut);letter-spacing:.04em}.kpi .v{font:700 22px "IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.kpi.warn .v{color:var(--warn)}.kpi.ed .v{color:var(--ed)}
+.legend{font-size:13px;color:var(--mut)}.legend summary{cursor:pointer;width:max-content;min-height:28px}
+.legend .row{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:8px;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:16px}
+.card{position:relative;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.card.warn{border-color:var(--warn)}.card.edited{border-color:var(--ed)}
+.card.warn::before,.card.edited::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--warn);z-index:1}.card.edited::before{background:var(--ed)}
+.ph{position:relative;aspect-ratio:4/3;background:var(--raised)}
+.ph img{display:block;width:100%;height:100%;object-fit:cover;-webkit-user-drag:none;user-select:none}
+.ph{cursor:grab}.card.dragging{opacity:.4}.card.over{outline:3px dashed var(--acc);outline-offset:-3px}
+.grip{position:absolute;bottom:10px;left:12px;font:600 12px "Noto Sans SC",sans-serif;padding:4px 9px;border-radius:999px;background:rgba(10,14,20,.75);color:#fff}
+.ov{position:absolute;top:10px;display:flex;gap:6px}.ov.l{left:12px}.ov.r{right:10px}
+.badge{font:600 12px "IBM Plex Mono","Noto Sans SC",monospace;padding:4px 9px;border-radius:999px;background:rgba(10,14,20,.75);color:#fff}
+.badge.ok{background:#15803d}.badge.low{background:#b45309}.badge.rule{background:#4f5bd5}
+.body{padding:12px 12px 12px 16px;display:flex;flex-direction:column;gap:10px}
+.namerow{display:flex;gap:8px;align-items:stretch}
+.nm{flex:1;min-width:0;min-height:48px;text-align:left;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--raised);font-weight:700;font-size:16px;cursor:text;word-break:break-word;transition:border-color .15s,background .15s}
+.nm:hover{border-color:var(--acc);background:var(--surface)}
+.nmin{flex:1;min-width:0;min-height:48px;font:700 16px "IBM Plex Sans","Noto Sans SC",sans-serif;padding:10px 14px;border:2px solid var(--acc);border-radius:10px;background:var(--surface);color:var(--ink)}
+.paste{flex:none;min-width:68px;min-height:48px;border-radius:10px;border:1px solid var(--acc);background:transparent;color:var(--acc);font-weight:600;cursor:pointer;transition:background .15s}
+.paste.rst{min-height:40px;min-width:68px;padding:0 14px}
+.paste:hover{background:var(--raised)}
+.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:24px}
+.chip{font:600 12px "IBM Plex Mono","Noto Sans SC",monospace;padding:3px 9px;border-radius:999px;border:0}
+.jev{color:var(--jev);background:var(--jevbg)}.ed{color:var(--ed);background:var(--edbg)}
+button.chip{cursor:pointer;min-height:28px}
+.src{margin-left:auto;font:500 12px "IBM Plex Mono",monospace;color:var(--mut)}
+.alts{display:flex;flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;gap:6px;align-items:center;font-size:13px;color:var(--mut);padding-bottom:2px}
+.alts span{flex:none}.alts button{flex:none;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--raised);cursor:pointer;font-size:13px}
+.alts button:hover{border-color:var(--acc)}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:var(--shadow);z-index:9}
+.empty{padding:40px;text-align:center;color:var(--mut);border:1px dashed var(--line);border-radius:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<header class="top"><div class="in">
+ <span class="brand">照片命名台</span>
+ <nav class="tabs" id="tabs" aria-label="案件"></nav>
+ <div class="seg" role="group" aria-label="筛选"><button id="fAll" aria-pressed="true">全部</button><button id="fLow" aria-pressed="false">要确认</button><button id="fEd" aria-pressed="false">已改</button></div>
+</div></header>
+<main>
+ <section class="head">
+  <div><h1 class="plate" id="plate"></h1><div class="veh" id="veh"></div></div>
+  <div class="kpis" id="kpis"></div>
+ </section>
+ <details class="legend"><summary>图例与用法</summary><div class="row">
+  <span><span class="badge ok">95%</span> 模型有把握</span><span><span class="badge low">40%</span> 没把握（橙色边）</span><span><span class="badge rule">固定</span> 开头 4 个角度 + Interior View</span><span><span class="chip jev">TypeSafe</span> 问过第二意见</span><span><span class="chip ed">已改</span> 你改过（蓝色边）</span>
+  <span>拖照片可以调整顺序，名称会跟着照片走。</span><span>点名称框就能改：从清单选一个就马上保存，打字的话停手 1 秒自动保存（Esc 取消）。按一下 Paste 就换成你最后复制的名称（在这个页面里复制的一定可以；从别的 App 复制的，浏览器不让读时会改成输入框，再按 ⌘V）。</span></div></details>
+ <datalist id="names"></datalist>
+ <section class="grid" id="grid"></section>
+</main>
+<div class="toast" id="toast" hidden></div>
+<script>
+const DATA=__DATA__;const NAMES=__NAMES__;const CASES=Object.keys(DATA.rows);
+const q=s=>document.querySelector(s);let ALL={},EDIT={},ORD={},db=null,filter="all",CASE=CASES[0],ROWS=DATA.rows[CASE],dragN=null;
+const order=c=>{const base=DATA.rows[c].map(r=>r.n);const o=(ORD[c]||[]).filter(n=>base.includes(n));return o.concat(base.filter(n=>!o.includes(n)))};
+const byN=c=>{const m={};DATA.rows[c].forEach(r=>m[r.n]=r);return m};
+try{const h=location.hash.slice(1);if(DATA.rows[h]){CASE=h;ROWS=DATA.rows[h]}}catch(e){}
+const NSET=new Set(NAMES);const dl=q("#names");NAMES.forEach(n=>{const o=document.createElement("option");o.value=n;dl.append(o)});
+const low=r=>r.how==="model"&&r.conf<0.6;
+const cur=r=>EDIT[r.n]?EDIT[r.n].name:r.name;
+let tt;function toast(m){const t=q("#toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>{t.hidden=true},2600)}
+function tap(b,fn){let done=0;b.addEventListener("pointerdown",ev=>{if(ev.button!==0)return;ev.preventDefault();done=Date.now();fn()});b.addEventListener("click",()=>{if(Date.now()-done>600)fn()})}
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function tabs(){const t=q("#tabs");t.innerHTML="";CASES.forEach(c=>{const b=el("button","tab");b.append(el("span","p",c));const n=ALL[c]?Object.keys(ALL[c]).length:0;b.append(el("span","c",DATA.rows[c].length+" 张"));if(n)b.append(el("span","edc","已改 "+n));b.setAttribute("aria-current",String(c===CASE));
+ b.onclick=()=>{CASE=c;ROWS=DATA.rows[c];EDIT=ALL[c]||{};try{history.replaceState(null,"","#"+c)}catch(e){}tabs();render();window.scrollTo({top:0})};t.append(b)})}
+function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar";
+ const k=q("#kpis");k.innerHTML="";[["照片",ROWS.length,""],["要确认",ROWS.filter(low).length,"warn"],["你已改",Object.keys(EDIT).length,"ed"]].forEach(([a,b,c])=>{const d=el("div","kpi "+c);d.append(el("div","k",a),el("div","v",b));k.append(d)})}
+const PIC={};function render(){if(!PIC[CASE]){const c=CASE;fetch("pics/"+c+".json").then(x=>x.json()).then(j=>{PIC[c]=j;if(CASE===c)render()}).catch(()=>{});}head();const g=q("#grid");g.innerHTML="";const N=ROWS.length;let shown=0;const M=byN(CASE);const OO=order(CASE);
+ OO.forEach((nn,pos)=>{const r=M[nn];const e=EDIT[r.n];if(filter==="low"&&!low(r))return;if(filter==="ed"&&!e)return;shown++;
+  const f=el("figure","card"+(e?" edited":low(r)?" warn":""));f.id="p"+r.n;
+  const ph=el("div","ph");const img=el("img");img.src=(PIC[CASE]&&PIC[CASE][r.n])||"";img.alt=cur(r);img.loading="lazy";ph.append(img);
+  const ol=el("div","ov l");ol.append(el("span","badge",(pos+1)+"/"+N));ph.append(ol);if(filter==="all"){ph.append(el("span","grip","⠿ 拖动排序"));ph.draggable=true;
+   ph.addEventListener("dragstart",ev=>{dragN=r.n;f.classList.add("dragging");try{ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",String(r.n))}catch(x){}});
+   ph.addEventListener("dragend",()=>{dragN=null;f.classList.remove("dragging");document.querySelectorAll(".over").forEach(x=>x.classList.remove("over"))});
+   f.addEventListener("dragover",ev=>{if(dragN==null||dragN===r.n)return;ev.preventDefault();f.classList.add("over")});
+   f.addEventListener("dragleave",()=>f.classList.remove("over"));
+   f.addEventListener("drop",ev=>{ev.preventDefault();f.classList.remove("over");if(dragN==null||dragN===r.n)return;const o=order(CASE).filter(x=>x!==dragN);const i=o.indexOf(r.n);const from=order(CASE).indexOf(dragN);o.splice(from<order(CASE).indexOf(r.n)?i+1:i,0,dragN);saveOrder(o)})}
+  const or=el("div","ov r");or.append(r.how==="rule"?el("span","badge rule","固定"):el("span","badge "+(r.conf<0.6?"low":"ok"),Math.round(r.conf*100)+"%"));ph.append(or);
+  const bd=el("figcaption","body");const nr=el("div","namerow");
+  const nm=el("button","nm",cur(r));nm.title="点一下改名称";nm.onclick=()=>edit(r,f);
+  const cb=el("button","paste","Copy");cb.title="复制这个名称";tap(cb,()=>copyName(cur(r)));const pb=el("button","paste","Paste");pb.title="粘贴你复制的名称";tap(pb,()=>pasteNow(r,f));nr.append(nm,cb,pb);bd.append(nr);
+  const m=el("div","meta");if(r.jev&&r.how!=="rule")m.append(el("span","chip jev","TypeSafe"));
+  if(e){m.append(el("span","chip ed","已改 · 原："+r.name));const u=el("button","paste rst","还原");tap(u,()=>save(r,null));m.append(u)}
+  m.append(el("span","src",r.src));bd.append(m);
+  const opts=[r.name,...(r.how==="rule"?[]:r.alts)].filter(x=>x!==cur(r));
+  if(opts.length&&(low(r)||e)){const a=el("div","alts");a.append(el("span",null,"其他可能"));opts.forEach(x=>{const b=el("button",null,x);tap(b,()=>save(r,x===r.name?null:x));a.append(b)});bd.append(a)}
+  f.append(ph,bd);g.append(f)});
+ if(!shown)g.append(el("div","empty",filter==="ed"?"这个案件还没有改过的照片。":"这个案件没有要确认的照片。"))}
+function edit(r,f,paste){const nm=f.querySelector(".nm");if(!nm)return;const inp=el("input","nmin");inp.setAttribute("list","names");inp.value=paste?"":cur(r);if(paste)inp.placeholder="按 ⌘V（或 Ctrl+V）粘贴";inp.id="in-"+CASE+"-"+r.n;inp.setAttribute("aria-label","照片 "+r.n+" 的名称");
+ nm.replaceWith(inp);inp.focus();inp.select();let done=false;
+ const fin=ok=>{if(done)return;done=true;const v=inp.value.replace(/\s+/g," ").trim();if(ok&&v&&v!==cur(r))save(r,v===r.name?null:v);else render()};
+ inp.addEventListener("paste",ev=>{const tx=(ev.clipboardData&&ev.clipboardData.getData("text")||"").replace(/\s+/g," ").trim();if(!tx)return;ev.preventDefault();inp.value=tx;fin(true)});
+ inp.onkeydown=ev=>{if(ev.key==="Enter"){ev.preventDefault();fin(true)}else if(ev.key==="Escape"){ev.preventDefault();fin(false)}};inp.onblur=()=>fin(true);
+ // save without Enter: a name picked from the list saves at once; typed text saves 1.2 s after the last key
+ let tm;inp.addEventListener("input",ev=>{clearTimeout(tm);const v=inp.value.replace(/\s+/g," ").trim();if(!v)return;if(NSET.has(v)&&(!ev.inputType||ev.inputType==="insertReplacementText")){fin(true);return}tm=setTimeout(()=>fin(true),1200)})}
+let CLIP="";
+async function copyName(n){CLIP=n;let ok=false;try{await navigator.clipboard.writeText(n);ok=true}catch(e){}toast(ok?("已复制："+n):("已复制（只在这个页面里能 Paste）："+n))}
+document.addEventListener("copy",()=>{try{const s=String(window.getSelection()||"").replace(/\s+/g," ").trim();if(s)CLIP=s}catch(e){}});
+async function pasteNow(r,f){let tx="";
+ try{if(navigator.clipboard&&navigator.clipboard.readText)tx=(await navigator.clipboard.readText()||"").replace(/\s+/g," ").trim()}catch(e){}
+ if(!tx)tx=CLIP;
+ if(tx){if(tx!==cur(r))save(r,tx===r.name?null:tx);else toast("名称一样，没有改动");return}
+ edit(r,f,true)}
+async function saveOrder(o){const c=CASE;const prev=ORD[c];ORD[c]=o;render();
+ if(!db){toast("这个视图不能保存（请在 claude.ai 登录后打开）。");return}
+ try{await db.collection("orders").doc(c).set({case:c,order:o,at:Date.now()});toast("顺序已保存")}
+ catch(e){ORD[c]=prev;render();toast("顺序保存失败（"+(e&&e.code||"未知")+"），请再试一次。")}}
+async function save(r,name){const c=CASE,id=c+"-"+String(r.n).padStart(2,"0");const prev=EDIT[r.n];
+ if(name)EDIT[r.n]={name};else delete EDIT[r.n];ALL[c]=EDIT;render();tabs();
+ if(!db){toast("这个视图不能保存（请在 claude.ai 登录后打开）。");return}
+ try{const d=db.collection("names").doc(id);if(name)await d.set({case:c,n:r.n,src:r.src,model:r.name,name:name,at:Date.now()});else await d.delete();
+  toast(name?("已保存：第 "+r.n+" 张 → "+name):("已还原第 "+r.n+" 张"))}
+ catch(e){if(prev)EDIT[r.n]=prev;else delete EDIT[r.n];render();toast("保存失败（"+(e&&e.code||"未知")+"），请再试一次。")}}
+[["fAll","all"],["fLow","low"],["fEd","ed"]].forEach(([id,v])=>{q("#"+id).onclick=()=>{filter=v;["fAll","fLow","fEd"].forEach(x=>q("#"+x).setAttribute("aria-pressed",String(x===id)));render()}});
+tabs();render();
+(async()=>{if(!window.claude||!window.claude.use)return;db=await window.claude.use("db");if(!db)return;
+ db.collection("orders").onSnapshot(s=>{ORD={};s.docs.forEach(d=>{const x=d.data();if(x&&x.case&&Array.isArray(x.order))ORD[x.case]=x.order});render()},()=>{});
+ db.collection("names").onSnapshot(s=>{ALL={};s.docs.forEach(d=>{const x=d.data();if(!x||!x.case)return;(ALL[x.case]=ALL[x.case]||{})[x.n]={name:x.name}});EDIT=ALL[CASE]||{};tabs();render()},()=>{})})();
+</script>

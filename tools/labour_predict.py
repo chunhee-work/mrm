@@ -1,7 +1,7 @@
 # usage: python3 labour_predict.py <ACC AUT|NV|RW> <parts.json (list of part labels)> -> prints JSON {N,R,M,neighbours}
 import json,re,sys,collections
 acc=sys.argv[1];P=set(re.sub(r"^\S+\s+\[.*?\]\s*","",p).split(" (")[0].strip() for p in json.load(open(sys.argv[2])))
-V=json.load(open("/Users/chunhee/mrm-bot/labour_all.json"))
+V=json.load(open(__import__("os").path.expanduser("~/mrm-bot/labour_all.json")))
 EXC=sys.argv[3] if len(sys.argv)>3 else ""
 pool=[x for x in V if x["acc"]==acc and x.get("cid")!=EXC] or V
 if len(pool)<10: pool=V

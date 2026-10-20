@@ -13,7 +13,7 @@ if(!parts.length){await page.goto(`https://www.merimen.com.my/claims/index.cfm?f
  parts=await page.evaluate(()=>{const n=+(document.querySelector('[name=PROWCNT]')||{}).value||0;const o=[];for(let i=1;i<=n;i++){const td=document.getElementById('PTDS'+i)||document.getElementById('PDS'+i);if(!td)continue;o.push((td.tagName==='INPUT'?td.value:td.childNodes[0].textContent).trim());}return o;});
  await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_selection&caseid=${CID}&extid=${EXT}&${SESS}`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(5000);}
 writeFileSync('/tmp/lf_parts.json',JSON.stringify(parts));
-const pred=JSON.parse(execSync(`python3 /Users/chunhee/mrm-bot/labour_predict.py ${ACC} /tmp/lf_parts.json ${CID}`).toString());
+const pred=JSON.parse(execSync(`python3 ${process.env.HOME}/mrm-bot/labour_predict.py ${ACC} /tmp/lf_parts.json ${CID}`).toString());
 const avail=new Set(cur.labels),availM=new Set(cur.misc);
 const N=pred.N.filter(a=>avail.has(a)),R=pred.R.filter(a=>avail.has(a)),M=pred.M.filter(a=>availM.has(a));
 console.log(`parts=${parts.length} existingLabourTicks=${cur.haveLab} existingMisc=${cur.haveMisc} neighbours=${pred.neighbours.join(',')}`);

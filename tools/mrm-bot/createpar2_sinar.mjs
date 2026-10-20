@@ -89,7 +89,7 @@ async function createOne(ctx,PLATE){
     for(let i=0;i<4;i++){const ok=await page.evaluate(()=>{const t=[...document.querySelectorAll('input,button')].find(e=>((e.value||e.innerText||'').trim()==='OK')&&e.offsetParent!==null);if(t){t.click();return true;}return false;});if(!ok)break;await page.waitForTimeout(1500);}
     cid=await page.evaluate(()=>{var m=location.href.match(/caseid=(\d+)/i)||document.body.innerHTML.match(/caseid=(\d+)/i);return m?m[1]:'?';});
   }
-  if(/clmreg/.test(page.url())){await page.screenshot({path:'/Users/chunhee/mrm-bot/creg_'+PLATE+'.png',fullPage:true}).catch(()=>{});log.push('MSG='+JSON.stringify(await page.evaluate(()=>{var o=[];document.querySelectorAll('*').forEach(e=>{var t=(e.childNodes[0]&&e.childNodes[0].nodeValue||'').trim();if(t&&/should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t)&&e.offsetParent!==null&&t.length<160)o.push(t);});return [...new Set(o)].slice(0,6);})));}
+  if(/clmreg/.test(page.url())){await page.screenshot({path:process.env.HOME+'/mrm-bot/creg_'+PLATE+'.png',fullPage:true}).catch(()=>{});log.push('MSG='+JSON.stringify(await page.evaluate(()=>{var o=[];document.querySelectorAll('*').forEach(e=>{var t=(e.childNodes[0]&&e.childNodes[0].nodeValue||'').trim();if(t&&/should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t)&&e.offsetParent!==null&&t.length<160)o.push(t);});return [...new Set(o)].slice(0,6);})));}
   const res=PLATE+': '+log.join(' ')+' => '+((page.url().match(/fuseaction=([a-z_]+)/i)||[])[1])+' caseid='+cid+(dialogs.length?' D='+JSON.stringify(dialogs.slice(0,3)):'');
   await page.close(); return res;
  }catch(e){await page.close().catch(()=>{});return PLATE+': ERR '+e.message.slice(0,50);}

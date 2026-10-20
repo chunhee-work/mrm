@@ -2,6 +2,8 @@
 
 Reply in **Simplified Chinese**. Merimen part/field names stay in English.
 
+**New agent or new machine:** read `TUTORIAL.md` (setup + every step with commands) and `HANDOVER.md` (context + open items) once. Start every session with `bash tools/mrm-bot/doctor.sh`. Memory lives in the repo folder `memory/` (index `memory/MEMORY.md`): write new memories there and commit them. Script reference: `tools/mrm-bot/README.md`.
+
 ## The rule that matters most
 The step playbooks in `playbook/` hold ALL of the user's rules, one file per step. **Before doing a step, Read its playbook file in full, even if you think you remember it.** Long sessions get compressed and rules are lost. Every past mistake came from skipping this.
 
@@ -30,7 +32,7 @@ The only stop: a missing document → send `<PLATE> pending <doc>` and continue 
 Ask (with the photo) only when the reason for a change is unclear.
 
 ## Never
-- Log in with a password, or print/commit any credential (the handoff file, `typesafe/driver.py`).
+- Log in with a password, or print/commit any credential (the handoff file, `typesafe/driver.py`). Never run `relogin*.mjs` / `login.mjs` yourself: the user runs `cd ~/mrm-bot && node relogin.mjs`. Never print or commit `~/mrm-bot/session_base.txt`.
 - Build Merimen URLs for dsp_docmanage / act_docinfo, or fetch files of other accounts' cases. Both log the session out.
 - Close the automation Chrome window (port 9222). keepalive.mjs must be running.
 - Pipe a script that saves into `| head`.

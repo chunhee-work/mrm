@@ -1,5 +1,9 @@
 # Merimen TP Claim — STEP 2 Spec (Estimate Detail Fill)
 
+> **Outdated (2026-10-20).** The agent now selects the parts itself, from the photos. The current rules are in
+> `playbook/07-select-parts-and-labour.md` and `playbook/08-estimate-details.md`; where this file disagrees, the
+> playbook wins. Keep this file only as a description of `estfill.mjs` internals.
+
 > Handoff spec for another AI/automation agent. Describes exactly what "step 2" does after the
 > user has selected the damaged parts in a Merimen third‑party (TP) motor claim estimate.
 > Reference implementation: `estfill.mjs` (Playwright over Chrome CDP 9222). This document is

@@ -30,3 +30,25 @@ typesafe/photo_train/sam3_src/
 *.npy.part
 
 typesafe/photo_train/user_photos/
+
+# mrm-bot: live session, local-only login and case data never go to git
+tools/mrm-bot/session_base.txt
+tools/mrm-bot/relogin.mjs
+tools/mrm-bot/relogin_*.mjs
+tools/mrm-bot/login.mjs
+tools/mrm-bot/node_modules/
+tools/mrm-bot/package-lock.json
+tools/mrm-bot/state/
+tools/mrm-bot/s2/
+tools/mrm-bot/up/
+tools/mrm-bot/*.png
+tools/mrm-bot/*.log
+tools/mrm-bot/*.bak
+tools/mrm-bot/cases_*.json
+tools/mrm-bot/report_*.json
+tools/mrm-bot/uploads_*.json
+tools/mrm-bot/extmap_*.json
+tools/mrm-bot/photoplan.json
+# batch data with personal details (local only)
+typesafe/cases10.py
+typesafe/rdata10.py
