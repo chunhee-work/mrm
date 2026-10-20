@@ -32,13 +32,30 @@ for r in rows:
     n = r['name']
     if re.search(SKIP, n): continue
     if n not in names: names.append(n)
+key = lambda l: re.sub(r"\s*\([A-Z0-9-]+\)$", "", re.sub(r"^\S+\s+\[.*?\]\s*", "", l)).strip()
 pick, missing, why = collections.OrderedDict(), [], {}
 def add(val, lab, reason):
     if val not in pick: pick[val] = lab; why[val] = reason
-def find(q, reason, allow_sideless=True):
+GRP = {("Front","LH"):"30",("Front","RH"):"110",("Rear","LH"):"60",("Rear","RH"):"80"}
+def pref_group(name):
+    """Merimen part groups: 10 Front Panel, 20 Bonnet&Engine, 30/110 Front Fender&Susp LH/RH, 40/100 Front Door LH/RH,
+    50/90 Rear Door LH/RH, 60/80 Rear Quarter&Susp LH/RH, 70 Rear Panel, 75 Rear Compartment, 130 Undercarriage."""
+    n = name
+    if re.search(r"Rear Lamp|Lamp Assembly Rear|Rear Bumper|Bumper Rear|Tailgate|Boot Lid|Rear Panel", n): return "70"
+    if re.search(r"Front Bumper|Bumper Front|Grille|Headlamp(?! Panel)|Fog Lamp|Number Plate Front", n): return "10"
+    pos = "Front" if re.search(r"\bFront\b", n) else "Rear" if re.search(r"\bRear\b", n) else None
+    side = (re.findall(r"\b(LH|RH)\b", n) or [None])[-1]
+    return GRP.get((pos, side))
+def find(q, reason, allow_sideless=True, photo=None):
     m = pm.best(q, cat, allow_sideless)
-    if m: add(m[0], m[1], reason); return m
-    return None
+    ex = [(v, l) for v, l in cat if key(l).lower() == q.lower()]      # exact name wins (Door Mirror RH, not Door Mirror Cover RH)
+    if ex: m = (ex[0][0], ex[0][1], 9)
+    if not m: return None
+    g = pref_group(photo or q)
+    if g and m[0].split('@')[0] != g:      # same part text exists in the photo's own group -> use that one
+        alt = [(v, l) for v, l in cat if v.split('@')[0] == g and key(l) == key(m[1])]
+        if alt: m = (alt[0][0], alt[0][1], m[2])
+    add(m[0], m[1], reason); return m
 key = lambda l: re.sub(r"\s*\([A-Z0-9-]+\)$", "", re.sub(r"^\S+\s+\[.*?\]\s*", "", l)).strip()
 sensors = collections.Counter()
 for n in names:
@@ -48,14 +65,18 @@ for n in names:
         s = re.findall(r"\b(LH|RH)\b", n); sensors[q] += 0
         for x in s: sensors[(q, x)] = 1
         continue
-    if not find(q, "photo: " + n): missing.append(n)
+    if not find(q, "photo: " + n, photo=n): missing.append(n)
 labels = {key(l) for l in pick.values()}
 txt = " | ".join(labels)
 # companions
 def comp(cond, q, reason):
     if cond and not any(re.search(q.replace(' ', '.*'), key(l), re.I) for l in pick.values()):
         if not find(q, "companion: " + reason): missing.append(q + "  (companion: " + reason + ")")
-comp(re.search(r"Bumper (Front|Rear) Cover|Spoiler Bumper", txt), "Bumper Clips", "bumper -> clips x15")
+for pos, g in (("Front", "10"), ("Rear", "70")):
+    if re.search(rf"Bumper {pos} Cover|Spoiler Bumper {pos}|Bumper {pos} Spoiler", txt) or any(re.match(rf"({pos} Bumper|Bumper {pos})", n) for n in names):
+        c = [(v, l) for v, l in cat if v.split('@')[0] == g and re.search(r"Bumper Clips|^\S+ \[.*\] Clips", l)]
+        if c: add(c[0][0], c[0][1], f"{pos.lower()} bumper -> clips x15 (QTY=15)")
+        else: missing.append(f"Bumper Clips  ({pos.lower()} bumper, manual 15 x 10.00)")
 comp(re.search(r"Spoiler Bumper Rear|Bumper Rear Spoiler", txt), "Bumper Rear Cover", "bumper spoiler -> bumper")
 comp(re.search(r"Spoiler Bumper Front|Bumper Front Spoiler", txt), "Bumper Front Cover", "bumper spoiler -> bumper")
 comp(re.search(r"^Grille|\| Grille", txt), "Grille Clips", "grille -> clips")
@@ -66,9 +87,20 @@ for s in ("LH", "RH"):
     comp(re.search(r"Quarter Panel( Outer)? " + s, txt), "Quarter Panel Liner Rear " + s, "quarter -> liner")
     comp(re.search(r"Shock Absorber Front " + s, txt), "Suspension Crossmember Front", "front shock -> crossmember")
     comp(re.search(r"Shock Absorber Rear " + s, txt), "Suspension Crossmember Rear", "rear shock -> crossmember")
+for s_ in ("LH", "RH"):
+    for ax, g in (("Front", "110" if s_ == "RH" else "30"), ("Rear", "80" if s_ == "RH" else "60")):
+        if re.search(rf"Suspension Crossmember {ax}|Shock Absorber {ax} {s_}", txt) and re.search(rf"\b{s_}\b", txt):
+            if re.search(rf"Shock Absorber {ax} {s_}", txt):
+                for q in ("Wheel Centre", f"Wheel Hub {ax} {s_}"):
+                    c = [(v, l) for v, l in cat if v.split('@')[0] == g and re.search(q.replace(' ', '.*'), l)]
+                    if c: add(c[0][0], c[0][1], f"crossmember -> {q}")
+if CAT.get('make', '').upper().startswith('PERODUA') or re.search(r"Perodua", sys.argv[1], re.I):
+    comp(re.search(r"Headlamp Panel", txt), "Front Panel Upper", "perodua headlamp panel -> front panel upper")
 for lid in ("Boot Lid", "Tailgate"):
     if re.search(r"(^|\| )" + lid + r"( \||$)", txt):
         for x in ("Lock", "Striker", "Hinge LH", "Hinge RH", "Aperture Weatherstrip"): comp(True, lid + " " + x, lid + " -> " + x)
+        for v, l in list(pick.items()):
+            if re.fullmatch(lid + " Hinge", key(l)): why[v] += "  QTY=2 COMMENT=Rear LH & Rear RH"
         if lid == "Tailgate": comp(True, "Tailgate Support Strut LH", "tailgate -> strut"); comp(True, "Tailgate Support Strut RH", "tailgate -> strut")
 # doors: full set (user 2026-10-17)
 DOORKW = ["Check Strap", "Glass Weatherstrip Outer", "Lock", "Aperture Weatherstrip", "Hinge Lower", "Hinge Upper", "Striker", "Trim Board Finisher", "Window Regulator", "Weather Sheeting"]
