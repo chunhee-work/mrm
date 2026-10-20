@@ -59,7 +59,7 @@ Order set by the user 2026-10-17 (+ step 12 on 2026-10-20): read → create → 
    - Manual parts with `addparts.mjs <cid> <ext> sess add.json save` ([group,name,price,qty,comment]; price from tools/merimen-part-prices-data.md, same model first)
    - `fillempty.mjs`
    - `setcmt.mjs` (sensor/hinge comments)
-   - Check qty with `rows.mjs`.
+   - Check qty with `rows.mjs`; fix with `setqty.mjs <cid> <ext> sess '{"Bumper Clips":"15","Bumper Rear Sensor":"2"}'` (catalogue clips come in at qty 1).
 11. **Google Sheet:** paste `<date> <PLATE> <WORKSHOP> D` rows into Cari Makan ([[google-sheet-cari-makan-paste]]).
 12. **Car-model report** (user 2026-10-20, last step of every case/batch): send a table with one row per case: plate | RC (geran / Sijil Pemilikan Kenderaan) details: make / model, cc, year, fuel/transmission as printed | the Merimen model variant chosen (full string, e.g. "PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-11/25]") | why that variant if the RC is not exact (trim, year range, auto/manual from photos). Read the chosen variant back from Merimen ("Vehicle Model:" on dsp_details), not from memory.
 
