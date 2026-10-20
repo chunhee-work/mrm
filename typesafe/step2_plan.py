@@ -9,7 +9,7 @@ CAT = json.load(open(sys.argv[1])); rows = json.load(open(sys.argv[2])); impact 
 cat = [(v, l) for v, l, _ in CAT['cat']]; labs = [l for l, _ in CAT['labs']]
 RULES = json.load(open(__import__('os').path.join(__import__('os').path.dirname(__file__), '..', 'tools', 'labour_rules.json')))
 SKIP = r"^(Front|Rear) View( Right| Left)?$|^(Interior|General|Side) View|^Side View|Odometer|Chassis Number$|Engine Compartment|Road Tax|Tyre Size|Suspension View|DASHBOARD"
-SYN = {"Front Number Plate": "Number Plate Front", "Rear Number Plate": "Number Plate Rear", "Number Plate Holder Front": "Number Plate Front Holder",
+SYN = {"Front Pillar LH": "Front Pillar Outer LH", "Front Pillar RH": "Front Pillar Outer RH","Front Number Plate": "Number Plate Front", "Rear Number Plate": "Number Plate Rear", "Number Plate Holder Front": "Number Plate Front Holder",
        "Front Panel Radiator Support RH": "Front Panel", "Fender Inner RH": "Fender Front Inner RH", "Fender Inner LH": "Fender Front Inner LH",
        "Front Stabiliser Bar": "Stabiliser Bar Front", "Front Indicator Lamp RH": "Fender Signal Lamp Front RH", "Windscreen Washer Tank": "Windscreen Washer Tank",
        "Rear LH Chassis Frame": "Chassis Member Rear LH", "TAIL LAMP LH": "Rear Lamp LH", "Boot Lid Weathestrip": "Boot Lid Aperture Weatherstrip",
@@ -78,6 +78,12 @@ for pos, g in (("Front", "10"), ("Rear", "70")):
         if c: add(c[0][0], c[0][1], f"{pos.lower()} bumper -> clips x15 (QTY=15)")
         else: missing.append(f"Bumper Clips  ({pos.lower()} bumper, manual 15 x 10.00)")
 comp(re.search(r"Spoiler Bumper Rear|Bumper Rear Spoiler", txt), "Bumper Rear Cover", "bumper spoiler -> bumper")
+for pos in ("Front", "Rear"):     # user 2026-10-20: bumper -> ALWAYS sensors + brackets LH & RH
+    if re.search(rf"Bumper {pos} Cover", " | ".join(key(l) for l in pick.values())):
+        for x in ("Sensor", "Retainer LH", "Retainer RH"):
+            q = f"Bumper {pos} {x}"
+            if not any(re.search(q.replace(' ', '.*'), key(l)) for l in pick.values()):
+                if not find(q, f"{pos.lower()} bumper -> {x.lower()}", photo=f"{pos} Bumper"): missing.append(q + f"  (companion: {pos.lower()} bumper)")
 comp(re.search(r"Spoiler Bumper Front|Bumper Front Spoiler", txt), "Bumper Front Cover", "bumper spoiler -> bumper")
 comp(re.search(r"^Grille|\| Grille", txt), "Grille Clips", "grille -> clips")
 if re.search(r"(^|\| )Bonnet( |$|\|)", txt + " "):
@@ -103,7 +109,7 @@ for lid in ("Boot Lid", "Tailgate"):
             if re.fullmatch(lid + " Hinge", key(l)): why[v] += "  QTY=2 COMMENT=Rear LH & Rear RH"
         if lid == "Tailgate": comp(True, "Tailgate Support Strut LH", "tailgate -> strut"); comp(True, "Tailgate Support Strut RH", "tailgate -> strut")
 # doors: full set (user 2026-10-17)
-DOORKW = ["Check Strap", "Glass Weatherstrip Outer", "Lock", "Aperture Weatherstrip", "Hinge Lower", "Hinge Upper", "Striker", "Trim Board Finisher", "Window Regulator", "Weather Sheeting"]
+DOORKW = ["Check Strap", "Glass Weatherstrip Outer", "Lock", "Aperture Weatherstrip", "Hinge Lower", "Hinge Upper", "Striker", "Trim Board Finisher", "Trim Board", "Window Regulator", "Regulator Motor", "Handle Outer Release", "Weather Sheeting"]   # user 2026-10-20: old list incl. Regulator Motor + Handle Outer Release still required
 for pos in ("Front", "Rear"):
     for s in ("LH", "RH"):
         if re.search(rf"Door {pos} {s}", txt):

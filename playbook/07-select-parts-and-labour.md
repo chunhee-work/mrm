@@ -30,6 +30,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Don't go hunting for the other side in an unrelated group (Boot Lid Hinge LH under 100 Front Door RH is wrong). [estimate-companion-parts-rule]
 - PERODUA: never Front Panel Assembly → Front Panel Upper / Fender Inner LH/RH / Front Crossmember / Front Panel Lower. Other makes: Front Panel Assembly. [perodua-front-panel-rule] [mistakes-log-sinar-batch2]
 - LORRY: "Front Chassis Member" with no side. [lorry-front-chassis-member]
+- **Front Pillar Outer** (LH/RH) seen in the photos → select it as a part (user 2026-10-20).
 - "Bumper Rear Shock Absorber" is a bumper part, not suspension. [estimate-select-parts-rules-2026-10-17]
 
 ## Group codes (value prefix `NN@`)
@@ -51,7 +52,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 ## Companion parts (add automatically from the main part list)
 - **Bumper Clips** for EVERY bumper in the photos: front bumper → front clips, rear bumper (incl. a rear bumper spoiler) → rear clips, both → both. Take the clips item from that bumper's own group (10@ front, 70@ rear); qty 15. Group has none → manual row "Bumper Clips" 15 × 10.00 (was: "search the catalogue for clip/fastener items"). Never an interior "Clips" item. [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
 - **Bumper Spoiler** (front/rear) → also the matching Bumper. [estimate-companion-parts-rule]
-- **Bumper** → Bumper Sensor LH & RH + Bumper Bracket LH & RH (MUST-CHOOSE list, 2026-10-10). [estimate-companion-parts-rule]
+- **Bumper → ALWAYS Bumper Sensor LH & RH + Bumper Bracket LH & RH**, front or rear to match the bumper (confirmed (user 2026-10-20)). [estimate-companion-parts-rule]
 - **Grille** → Grille Clips, qty 9. [estimate-companion-parts-rule]
 - **Bonnet** → Bonnet Hinge LH + RH (separate items → tick both; else one row qty 2, comment "Front LH & Front RH"). [estimate-companion-parts-rule]
 - **Fender** LH/RH → Fender Liner, same side. [estimate-companion-parts-rule]
@@ -60,7 +61,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - **Tailgate** (hatch/MPV) → Tailgate Lock + Striker + Hinge + Aperture Weatherstrip + Tailgate Support Strut LH & RH (separate items → both; else qty 2 "LH & RH") + Rear Number Plate. [estimate-companion-parts-rule]
 - **Boot Lid / Tailgate Hinge**: only one side or a side-less item in the catalogue → that one row, qty 2, Comment "Rear LH & Rear RH" (was: comment "LH & RH"). [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
 - **Door replaced** → select ALL of that door's items. Saga 2022 Door Rear RH set: Door Check Strap Rear RH, Door Glass Weatherstrip Outer Rear RH, Door Lock Rear RH, Door Rear Aperture Weatherstrip, Door Rear Hinge Lower RH, Door Rear Hinge Upper RH, Door Rear RH, Door Striker, Door Trim Board Finisher Rear RH, Door Window Regulator Rear RH, Weather Sheeting Door. Same idea for Door Front. [estimate-select-parts-rules-2026-10-17]
-- Older door list (2026-10-10, qty 1 each): Hinge, Lock, Striker, Trimboard, Weatherstrip Sheeting, Regulator Motor, Aperture Weatherstrip, Handle Outer Release — add any of these the catalogue has for that door. [estimate-companion-parts-rule]
+- Also part of every door set (user 2026-10-20): Hinge, Lock, Striker, Trimboard, Weatherstrip Sheeting, **Regulator Motor**, Aperture Weatherstrip, **Handle Outer Release** (qty 1 each). Add each one the catalogue has for that door; if one is missing, add a manual row. [estimate-companion-parts-rule]
 - Door hinge as one manual row: qty 2, comment "Upper LH & Lower LH" / "Upper RH & Lower RH". [estimate-companion-parts-rule]
 - **Door Front** → also Door Mirror (same side). **Door Rear only → no mirror.** [estimate-select-parts-rules-2026-10-17]
 - **Shock Absorber Front → Suspension Crossmember Front; Shock Absorber Rear → Suspension Crossmember Rear** (same axle). [estimate-select-parts-rules-2026-10-17]

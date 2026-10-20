@@ -55,7 +55,7 @@ Field names + values (see [[merimen-claim-subfolder-fields]] for full map). For 
 - Claude can't open the Lookup popup (popup-blocked) → ask user to click **Lookup...** once. Then drive the popup tab (title "Find..."/"Company List"): set its `input[type=text]` KEYWORD = workshop name (Desktop folder, e.g. "extreme auto") → click **Search** → click the result `<td>` containing the workshop name. That sets `ddlbREPCOIDTEXT`+`ddlbREPCOID` on the form and closes the popup. Then **re-set `ddlbDAMTYPE`="Collision"** (selection re-render can clear it). See [[workshop-from-desktop-folder]].
 
 ## 5. Review + save
-- Read back all fields, show the user a compact table for verification, then click **"Next (Enter Details)"** only after the user confirms (or let them click). Saving creates the case; Insurer + Branch cannot be changed afterward, and Initial Estimation can't change after notification.
+- Read back all fields, then click **"Next (Enter Details)"** yourself — no confirmation table (old 'wait for user confirm' rule deleted by the user 2026-10-20). Saving creates the case; Insurer + Branch cannot be changed afterward, and Initial Estimation can't change after notification.
 
 ## 6. Adjuster Claim Reference → Edit Adjuster Report → Estimates (rest of A-Z)
 - After save → claim header: set Manager/Adjuster on the Adjuster Claim Reference (click OK on the CHARGEADJ prompt) → Next (Save & Return).

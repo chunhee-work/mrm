@@ -21,7 +21,7 @@ Side mapping: INSURED / Insured Driver = the AT-FAULT party; CLAIMANT = OUR clie
 - `sleINSPECT` Inspection/Investigation Date = today. [merimen-pink-required-fields]
 - `sleNUM_REPDAYS` Est. Duration of Repair = 25. [merimen-pink-required-fields]
 - `ddlbLocClaim` Acc/Loss Location Type = City Road (select by text). [merimen-pink-required-fields]
-- Occupation: set dropdown `ddlbIOCC`/`ddlbDOCC`/`ddlbCLMOCC` (+ `ddlbCMDOCC`) by TEXT AND the text box `sleIOCC`/`sleDOCC`/`sleCLMOCC` = "OTHERS" in the SAME submit (dropdown alone still fails "Insured Occupation should be specified"). Most insurers: "Unemployed" (350); Etiqa General Takaful: "Others" (800); some forms "430=Others: -". After a good save the text boxes read back empty but not pink = fine. [merimen-pink-required-fields] [merimen-session-timeout-workflow] [merimen-adjuster-report-fields]
+- Occupation: set dropdown `ddlbIOCC`/`ddlbDOCC`/`ddlbCLMOCC` (+ `ddlbCMDOCC`) by TEXT AND the text box `sleIOCC`/`sleDOCC`/`sleCLMOCC` = "OTHERS" in the SAME submit (dropdown alone still fails "Insured Occupation should be specified"). Most insurers: "Unemployed" (350); Etiqa General Takaful: "Others" (800); some forms "430=Others: -". After a good save the text boxes read back empty but not pink = fine. [merimen-pink-required-fields] [merimen-session-timeout-workflow] [merimen-adjuster-report-fields] Both \"Unemployed\" and \"Others\" are fine, so use whichever option this insurer's dropdown has (user 2026-10-20).
 - Option values differ per insurer: always select by option TEXT, never a remembered numeric value (e.g. Head to Side = 18 most, 20019 Etiqa Takaful). [merimen-pink-required-fields]
 - Naming a separate claimant-driver makes the whole CMD block required: `ddlbCMDMARITAL`, `sleCMDAddr1`, `ddlbCMDState`, `ddlbCMDCity`, `sleCMDPostCode`, `ddlbCMDOCC`, `sleCMDDRVEXP` (fill like the insured-driver block). [merimen-pink-required-fields]
 - `sleTINTBRAND` (Tint Film Model) and `mleDATEALTERREASON` can never be saved from the client → they stay pink; flag, don't retry. [merimen-pink-required-fields]
@@ -34,9 +34,9 @@ Side mapping: INSURED / Insured Driver = the AT-FAULT party; CLAIMANT = OUR clie
 
 ## Claim loss / police
 - Police fields come from OUR client's police report: `slePoliceRef` with NO spaces (e.g. `TRAFIKKUANTAN/008375/26`), `slePOLICERPTDT` date, `slePOLICERPTTM` time band. [merimen-adjuster-report-fields]
-- Police Station `vaCDPOLICESTATION`: Claude fills it via the "Browse..." popup (real gesture): click the STATE, then the station matching the town in the report no. (e.g. TRAFIKPEKAN → "BP Pekan"); that sets station name AND PIAM IPD Code together (was: "leave blank, user fills it" and "TYPE it, e.g. TRAFIK DUNGUN"). [merimen-adjuster-report-fields] [macos-native-dialog-automation] [merimen-az-progress]
+- Police Station `vaCDPOLICESTATION`: Claude chooses it (user 2026-10-20): Claude fills it via the "Browse..." popup (real gesture): click the STATE, then the station matching the town in the report no. (e.g. TRAFIKPEKAN → "BP Pekan"); that sets station name AND PIAM IPD Code together (was: "leave blank, user fills it" and "TYPE it, e.g. TRAFIK DUNGUN"). [merimen-adjuster-report-fields] [macos-native-dialog-automation] [merimen-az-progress]
 - If the popup can't be opened, type a placeholder "IPD <town>" so the save isn't blocked (Liberty hard-blocks an empty station) and flag it. [merimen-adjuster-report-fields]
-- PIAM IPD Code `slePOLICEDCODE` can't be typed (opaque codes PHG01…, TRG01…): set via the Browse popup or leave it and flag (was: "pick any random option"). [merimen-pink-required-fields]
+- PIAM IPD Code `slePOLICEDCODE`: Claude chooses it via the Browse popup (user 2026-10-20); can't be typed (opaque codes PHG01…, TRG01…): set via the Browse popup or leave it and flag (was: "pick any random option"). [merimen-pink-required-fields]
 - `ddlbFault` Party At Fault = Third Party. [merimen-adjuster-report-fields]
 - `ddlbDAMTYPE` = Collision; `ddlbLossDesc` list fills only after the damage type changes. [merimen-pink-required-fields]
 - `ddlbCollType` Collision With = Private Vehicle ("Motor Cycle" when the TP is a motorcycle). [merimen-adjuster-report-fields] [merimen-batch-workflow]
@@ -80,6 +80,6 @@ Side mapping: INSURED / Insured Driver = the AT-FAULT party; CLAIMANT = OUR clie
 - Court Details No; TP Solicitor blank; HP block blank. [merimen-adjuster-report-fields]
 
 ## Information for calculating estimates
-- `cbxTL` Total Loss = Yes only for TOTAL LOSS cases (folder `(TOTALOST)`), otherwise No (was: "ALWAYS No", 2026-07-02). JSON `TL`; narrpar then adds narrative 550. [merimen-az-progress] [workshop-from-desktop-folder]
+- `cbxTL` Total Loss = **Yes when the folder/file says TOTAL LOSS / TOTALOST**, otherwise No (user 2026-10-20). JSON `TL`; narrpar adds narrative 550.
 - Labour Calculations `ddlbLABTYPE` (required): click the `rbLABTYPE` radio first (the list is empty until then), then pick the THATCHAM type matching the body (5-door → "…5 DR HATCH", 4-door → "…4 DR"/SALOON, MPV → MPV option). [merimen-adjuster-report-fields] [merimen-session-timeout-workflow]
 - Paint Type `ddlbPATYPEID` = Solid (also empty until `rbLABTYPE` is clicked); Liability = 100 (auto). [merimen-az-progress] [merimen-session-timeout-workflow]
