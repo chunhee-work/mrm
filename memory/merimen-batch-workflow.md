@@ -63,6 +63,12 @@ Order set by the user 2026-10-17 (+ step 12 on 2026-10-20): read → create → 
 11. **Google Sheet:** paste `<date> <PLATE> <WORKSHOP> D` rows into Cari Makan ([[google-sheet-cari-makan-paste]]).
 12. **Car-model report** (user 2026-10-20, last step of every case/batch): send a table with one row per case: plate | RC (geran / Sijil Pemilikan Kenderaan) details: make / model, cc, year, fuel/transmission as printed | the Merimen model variant chosen (full string, e.g. "PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-11/25]") | why that variant if the RC is not exact (trim, year range, auto/manual from photos). Read the chosen variant back from Merimen ("Vehicle Model:" on dsp_details), not from memory. **Mark ⚠️ on any row whose Merimen model has no parts/price data** (not highlighted green in the Model dropdown: option class clsMTRModelLevel0; green = clsMTRModelLevel1), user 2026-10-20. Prefer a green variant when one fits the RC.
 
+## After the user reviews the 照片命名台 (re-sync)
+- Read db `names` and diff with the uploaded names.
+- Relabel the changed photos with `relabel_ui.mjs`, then verify with `chkorder.mjs`.
+- Fix parts to match the new names: `untick.mjs` / `tickall.mjs` on dsp_selection, `delrow.mjs <cid> <ext> sess "Name|Name"` for manual rows, then `gonext.mjs` → `addparts.mjs` → `fillempty.mjs`.
+- Record every change and its reason in [[photo-center-crosshair-rule]] + `name_map.FINAL`; ask the user with the photo when the reason is unclear.
+
 ## End of batch
 - **Labour learning:** when the user has reviewed a case (or at the start of the next batch), re-read `selstate.mjs` and diff it against `sel_<PLATE>_mine.json`. Every label the user ADDED or REMOVED becomes a rule (part / impact → label) in [[labour-reference-sinar-batch]] / [[estimate-select-parts-rules-2026-10-17]]. Log the diff in labour-diff-log.md.
 - Re-read every case (rows/selstate/chkorder) → completion table + manual-price list + pending copy lines.
