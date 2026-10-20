@@ -141,9 +141,10 @@ Case data (names, NRIC, addresses) stays in `~/mrm-bot/*_s2.json` and `report_si
    ```
    Then update `~/mrm-bot/photoplan.json` (BRS8642 entries 48 and 49) and run `chkorder.mjs BRS8642 22068189 9752204`.
    The parts already include both the front and the rear Wheel Rim RH.
-2. **22 batch-2 captions** are the user's own spellings, which the newer naming rules write differently: Quarter Liner
-   → Quarter Panel Liner (7), Rear Bumper Bracket LH/RH → Rear Bumper Bracket Side LH/RH (12), Centre Pillar LH →
-   Centre Pillar Outer LH (3). The user accepted the batch, so leave these unless asked.
+2. **15 batch-2 captions** are the user's own spellings, which the naming rules write differently: Rear Bumper
+   Bracket LH/RH → Rear Bumper Bracket Side LH/RH (12), Centre Pillar LH → Centre Pillar Outer LH (3). The user
+   accepted the batch, so leave these unless asked. (Quarter Liner is the correct name: user 2026-10-20, "use Quarter
+   Liner, do not use Quarter Panel Liner".)
 3. **"this is the correct price, u key in wrong"**: the user's image or number never arrived. Ask which case and
    part when it comes up.
 4. **Unanswered question:** which case "PERODUA MYVI 2017 TO 2020 5 DOOR HAT 1.5 Advanced" (misc missed) refers to.

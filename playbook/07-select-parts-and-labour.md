@@ -56,7 +56,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - **Grille** → Grille Clips, qty 9. [estimate-companion-parts-rule]
 - **Bonnet** → Bonnet Hinge LH + RH (separate items → tick both; else one row qty 2, comment "Front LH & Front RH"). [estimate-companion-parts-rule]
 - **Fender** LH/RH → Fender Liner, same side. [estimate-companion-parts-rule]
-- **Quarter Panel (Outer)** LH/RH → Quarter Panel Liner, same side (both if both quarters). [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
+- **Quarter Panel (Outer)** LH/RH → the quarter liner, same side (both if both quarters). Tick the catalogue item as Merimen writes it (e.g. "Quarter Panel Liner Rear LH"); a manual row is named **Quarter Liner LH/RH**, never "Quarter Panel Liner" (user 2026-10-20). [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
 - **Boot Lid** (sedan) → Boot Lid Lock + Boot Lid Striker + Boot Lid Hinge + Boot Lid Aperture Weatherstrip + Rear Number Plate (misc "Number plate, rear" if that misc row exists, else a part). NO Support Strut on a boot lid. [estimate-companion-parts-rule]
 - **Tailgate** (hatch/MPV) → Tailgate Lock + Striker + Hinge + Aperture Weatherstrip + Tailgate Support Strut LH & RH (separate items → both; else qty 2 "LH & RH") + Rear Number Plate. [estimate-companion-parts-rule]
 - **Boot Lid / Tailgate Hinge**: only one side or a side-less item in the catalogue → that one row, qty 2, Comment "Rear LH & Rear RH" (was: comment "LH & RH"). [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]

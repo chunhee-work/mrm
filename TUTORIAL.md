@@ -1,7 +1,8 @@
 # MRM hand-over tutorial: set up and run a batch, step by step
 
-For the next agent taking over this work. Read it once from top to bottom. After that, work from `CLAUDE.md` (it loads
-automatically) and read the `playbook/` file for each step before you do that step.
+For the next agent taking over this work, or for setting up a new machine. Read it once from top to bottom. After that,
+do NOT re-read it for case work: work from `CLAUDE.md` (it loads automatically) and read the `playbook/` file for each
+step before you do that step.
 
 **Reading order**
 1. This file: setup, the daily start, and how to run every step (commands).

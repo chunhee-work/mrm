@@ -224,7 +224,7 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Badge Front$", "Badge"),                                                      # o
     (r"^Rear Panel (LH|RH)$", None),                                                  # p: wrong name -> drop (Rear Lamp Panel LH/RH is right)
     # round 3 (user 2026-10-17)
-    (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"^(Quarter Liner|QUARTER PANEL LINER) (LH|RH)$", r"Quarter Panel Liner \2"),
+    (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"^(?:Quarter Panel Liner(?: Rear)?(?: Part)?|QUARTER PANEL LINER(?: REAR)?|QUARTER LINER(?: REAR)?|Quarter [Ll]iner Rear|Quarter liner)( LH| RH)?$", r"Quarter Liner\1"),  # user 2026-10-20: Quarter Liner, never Quarter Panel Liner
     (r"^Rear Bootlid$", "Boot Lid"), (r"^Rear Bootlid (Lock|Weatherstrip|Emblem)$", r"Boot Lid \1"), (r"^Rear (LH|RH) Bootlid Hinge$", r"Boot Lid Hinge \1"),
     (r"^BOOTLID EMBLEM$", "Boot Lid Emblem"), (r"^(TAILGATE EMBLEM|Rear Tailgate Emblem)$", "Tailgate Emblem"),
     (r"^BOOTLID SPOILER$", "Spoiler Rear [bootlid]"), (r"^Front Panel Upper Panel Cover$", "Front Panel Upper Cover"),

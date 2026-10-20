@@ -69,9 +69,9 @@ for n in names:
 labels = {key(l) for l in pick.values()}
 txt = " | ".join(labels)
 # companions
-def comp(cond, q, reason):
+def comp(cond, q, reason, manual=None):
     if cond and not any(re.search(q.replace(' ', '.*'), key(l), re.I) for l in pick.values()):
-        if not find(q, "companion: " + reason): missing.append(q + "  (companion: " + reason + ")")
+        if not find(q, "companion: " + reason): missing.append((manual or q) + "  (companion: " + reason + ")")
 for pos, g in (("Front", "10"), ("Rear", "70")):
     if re.search(rf"Bumper {pos} Cover|Spoiler Bumper {pos}|Bumper {pos} Spoiler", txt) or any(re.match(rf"({pos} Bumper|Bumper {pos})", n) for n in names):
         c = [(v, l) for v, l in cat if v.split('@')[0] == g and re.search(r"Bumper Clips|^\S+ \[.*\] Clips", l)]
@@ -90,7 +90,7 @@ if re.search(r"(^|\| )Bonnet( |$|\|)", txt + " "):
     comp(True, "Bonnet Hinge LH", "bonnet -> hinge"); comp(True, "Bonnet Hinge RH", "bonnet -> hinge")
 for s in ("LH", "RH"):
     comp(re.search(r"Fender Front " + s, txt), "Fender Front Liner " + s, "fender -> liner")
-    comp(re.search(r"Quarter Panel( Outer)? " + s, txt), "Quarter Panel Liner Rear " + s, "quarter -> liner")
+    comp(re.search(r"Quarter Panel( Outer)? " + s, txt), "Quarter Panel Liner Rear " + s, "quarter -> liner", manual="Quarter Liner " + s)
     comp(re.search(r"Shock Absorber Front " + s, txt), "Suspension Crossmember Front", "front shock -> crossmember")
     comp(re.search(r"Shock Absorber Rear " + s, txt), "Suspension Crossmember Rear", "rear shock -> crossmember")
 for s_ in ("LH", "RH"):

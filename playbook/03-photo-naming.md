@@ -84,7 +84,8 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 ## Part rules — side
 - Front door = the door next to the front wheel (handle just behind the front wheel / mirror); the rear door ends where the rear wheel arch starts; outer handle release at the rear of the door tells front vs rear. [photo-center-crosshair-rule]
 - Panel round the rear wheel arch, behind the rear-door line = Quarter Panel LH/RH, not Door Rear. [photo-center-crosshair-rule]
-- Every quarter name starts with "Quarter Panel" (Quarter Pnl / Quater → Quarter Panel; Quarter Panel Outer = Quarter Panel; Rear LH Quarter Panel → Quarter Panel LH; Quarter Inner Trim → Quarter Panel Inner Trim; Quarter Liner → Quarter Panel Liner LH/RH). [photo-center-crosshair-rule]
+- Every quarter name starts with "Quarter Panel" (Quarter Pnl / Quater → Quarter Panel; Quarter Panel Outer = Quarter Panel; Rear LH Quarter Panel → Quarter Panel LH; Quarter Inner Trim → Quarter Panel Inner Trim). [photo-center-crosshair-rule]
+- Exception: the liner is **Quarter Liner LH/RH**, never "Quarter Panel Liner" (Quarter Panel Liner / Quarter Panel Liner Rear → Quarter Liner) (user 2026-10-20). [photo-center-crosshair-rule]
 - Door Mirror LH/RH for every door/side-mirror caption; Mirror Glass, Base Capping, cover, signal lamp stay separate. [photo-center-crosshair-rule]
 - Door Window Regulator Front/Rear LH/RH for every regulator caption; Regulator Motor/switch/handle stay separate. [photo-center-crosshair-rule]
 - Door hinges: Door Front/Rear Hinge Upper/Lower LH/RH (Rear LH Door Hinge → Door Rear Hinge Upper LH). [photo-center-crosshair-rule]

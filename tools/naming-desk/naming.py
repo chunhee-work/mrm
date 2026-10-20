@@ -42,8 +42,11 @@ def build(out, meta_file):
     rows = {p: rows_of(out, p) for p in meta}
     names = set(json.load(open(os.path.join(HERE, "names.json"), encoding="utf-8")))
     for rs in rows.values():
-        for r in rs:
-            names.add(r["name"]); names.update(r.get("alts", []))
+        for r in rs:  # the page only offers names the naming rules allow (merged spelling, banned names dropped)
+            r["name"] = norm(r["name"]) or r["name"]
+            r["alts"] = list(dict.fromkeys(n for n in map(norm, r.get("alts", [])) if n))
+            names.add(r["name"]); names.update(r["alts"])
+    names = {n for n in map(norm, names) if n}
     js = lambda o: json.dumps(o, ensure_ascii=False).replace("</", "<\\/")
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = tpl.replace("__DATA__", js({"meta": meta, "rows": rows})).replace("__NAMES__", js(sorted(names)))

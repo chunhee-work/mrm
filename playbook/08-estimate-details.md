@@ -40,7 +40,7 @@
 - Price source: `tools/merimen-part-prices-data.md` (`tools/price_lookup.py`), SAME MODEL first. [merimen-batch-workflow] [mistakes-log-sinar-batch2]
 - Never trust a median of 2–3 rows (wrong before: Wheel Arch Moulding 1937, Retainer Centre 933.50, Spare Wheel Well 2675). Flag any price with fewer than 5 reference rows in the report. [mistakes-log-sinar-batch2]
 - A price the user gives wins: Lamp Daytime Running (Myvi) 384.23; Bumper Front Fog Lamp LH (FB438) 763.00. [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17]
-- Bumper Clips manual row: qty 15 × 10.00. Quarter Panel Liner (Nissan, WWH2330): 325.00 each (Nissan median). [estimate-select-parts-rules-2026-10-17]
+- Bumper Clips manual row: qty 15 × 10.00. Quarter Liner LH/RH manual row (Nissan, WWH2330): 325.00 each (Nissan median); the row name is Quarter Liner, never Quarter Panel Liner (user 2026-10-20). [estimate-select-parts-rules-2026-10-17]
 - Lorry reference prices (user): Rear Panel 2600 · Rear Mudflap 280 · Rear Reflector 300 · Grille Front 985 · Door Lock 415 · Dashboard 1985 · Wooden Carrier Rear Door 1200 · Wooden Carrier Rear Support Stainless Steel 600 · Wooden Carrier Step Panel 450. [car-part-item-names]
 - Manual rows also need the sensor/hinge comments and qty 2 rules from 07. [estimate-select-parts-rules-2026-10-17]
 - List every manual price in the end-of-batch manual-price list (09). [merimen-batch-workflow]
