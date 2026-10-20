@@ -260,6 +260,15 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Parcel Shelf$", "Parcel Shelf Rear"),                                         # 18
     (r"^(DAMAGES PART|DAMAGES PHOTO|DAMAGE PART PHOTO|PHOTO PART DAMAGES|PHOTO DAMAGES PART|DAMAGE PART)$", None),   # 19 not item names
     (r"^Rear Damage View$", None),                                                    # 20
+    # user 2026-10-20 (sinar batch 2 review)
+    (r"^(GENERAL VIEW|General View)$", None),                                         # never General View: use Front/Rear/Side View
+    (r"^(SIDE VIEW|Side view)$", "Side View"),
+    (r"^Spoiler Runningboard Extension( Front)? (LH|RH)$", r"Runningboard Spoiler \2"),
+    (r"^(Front|Rear) (LH|RH) Door Hinge$", r"Door \1 Hinge Upper \2"),
+    (r"^Front Panel Radiator Support (LH|RH)$", r"Headlamp Panel \1"),
+    (r"^Rear (LH|RH) (Quarter|Quater) Panel$", r"Quarter Panel \1"), (r"^Quater Panel (LH|RH)$", r"Quarter Panel \1"),
+    (r"^TAIL ?LAMP (LH|RH)$", None),   # user 2026-10-20: never TAIL LAMP; per car = Rear Lamp (one-piece) or Rear Lamp Outer (split inner/outer lamps)
+    (r"^Rear (LH|RH) Chassis Frame$", r"Rear Chassis Member \1"),
 ]
 # kept DIFFERENT by the user: Rear Lamp RH vs Rear Lamp Outer RH (2); Rear Bumper Sensor RH vs ...Outer RH (4);
 # Front Panel Upper vs Front Panel Upper Cover (7: the cover is the plastic on top of the upper panel)

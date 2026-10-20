@@ -112,3 +112,21 @@ User (2026-10-11): cannot confirm per model, but agrees with the logic. So: (1) 
   - **Door Front Aperture Weatherstrip LH/RH**: the rubber seal round the door opening (body/door frame). Photos usually show fingers pulling it out.
   - 2 of 4 old "Door Front Weatherstrip LH" photos were really the **Door Front LH** panel (wrong labels, corrected in user_corrections.json).
   - Same for rear doors.
+
+## User review sinar batch 2 (2026-10-20)
+- **Never "General View"**: use Front View, Rear View or Side View.
+- Spoiler Runningboard Extension = **Runningboard Spoiler LH/RH**.
+- Rear/Front LH/RH Door Hinge = **Door Rear/Front Hinge Upper LH/RH**.
+- Front Panel Radiator Support = **Headlamp Panel** (LH/RH).
+- Rear LH/RH Quarter Panel = **Quarter Panel LH/RH**. Rear LH/RH Chassis Frame = **Rear Chassis Member LH/RH**.
+- **Never TAIL LAMP.** Choose by car: a one-piece lamp = **Rear Lamp LH/RH**. Lamps split into a body part and a boot-lid part (e.g. Civic FD) = **Rear Lamp Outer LH/RH** (+ Rear Lamp Inner).
+- Corrections this batch (zoom target is what counts):
+  - close-ups of the bumper under a tailgate are **Rear Bumper**, not Tailgate;
+  - the spare-wheel bracket on an MPV tailgate (Avanza) is **Tailgate Spare Wheel Carrier**;
+  - overview shots of the front are **Front View**, not Bonnet / Front Panel Upper / Front Chassis Member;
+  - the lamp strip in the front bumper (Myvi) is **Lamp Daytime Running RH**, not a sensor or bracket;
+  - the boot-floor corner well is **Spare Wheel Well**, not Boot Side Trim;
+  - the arch under the rear quarter, seen from inside the boot, is **Rear Wheelhouse LH**, not Boot Floor;
+  - the stabiliser **link rod** (thin vertical rod) is "Front Stabiliser Bar Link Rod RH", not the stabiliser bar;
+  - Centre Pillar vs **Front Pillar**: pillar between windscreen and front door = Front Pillar.
+- TCP4539: also select **Fender Front Inner Wheel House RH** in Select Parts. Lamp Daytime Running (Myvi) manual price **384.23** (user).

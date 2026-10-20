@@ -15,10 +15,13 @@ User 2026-10-20: "I need to avoid this situation happen. As I said must click co
    - fetching dsp_getfile for docids of other accounts' cases (old harvest photos);
    - calling JSVCopenWinPost(act_docinfo … action=DEL) to revoke a photo.
 
+5. **Opening dsp_docmanage (Relabel/Reorder) by building its URL** (coid=45667, docclassid=2) logged the session out at once (2026-10-20). Normal page URLs (dsp_details, dsp_estmain, dsp_selection, dsp_docview, dsp_docupload) are fine.
+
 **Rules:**
 - Always run `~/mrm-bot/keepalive.mjs` in the background (`nohup node keepalive.mjs >> keepalive.log &`). It clicks Continue Session in every Merimen tab of the 9222 Chrome every 15 s. Check it with `ps aux | grep keepalive.mjs` at the start of every batch and after each relogin.
 - Keep one Merimen tab open (dsp_home) in the automation Chrome, and never close its window.
 - **Close leftover tabs** (user 2026-10-20): scripts that fail, and some like labourfill/estfill, leave Merimen tabs open (16 at one point). After each batch step and at the end, close every page in the 9222 Chrome except one Merimen tab.
+- Never build URLs for dsp_docmanage / act_docinfo. Relabel photos only through the docview page's own "Relabel/Reorder" control (UI click), or ask the user.
 - Do not fetch files of cases outside the current account, and leave revoke/delete calls to the end of a batch (or ask the user to do them in the UI).
 - After any logout: one line asking the user to run `cd ~/mrm-bot && node relogin.mjs`, then continue.
 

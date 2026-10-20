@@ -16,7 +16,14 @@ def key(f):
     return (int(m.group(1)) if m else 10 ** 9, int((re.search(r"\((\d+)\)", b) or [0, 0])[1]), b)
 
 
+from name_map import final as _final
+
+
 def name_of(p):
+    """best model name after the user's naming rules (name_map.final); names the user banned fall to the next guess"""
+    for t in p["top"]:
+        n = _final(FIX.get(t[0], t[0]))
+        if n: return n
     return FIX.get(p["top"][0][0], p["top"][0][0])
 
 
@@ -68,7 +75,7 @@ def main(case_dir, plate, vehicle, out):
         im = Image.open(p["file"]).convert("RGB"); im.thumbnail((900, 900))
         fn = "photos/%s/%02d.jpg" % (plate, k); im.save(os.path.join(out, fn), quality=82)
         rows.append(dict(n=k, name=name, conf=p["conf"] if how != "check" else min(p["conf"], .5), how=how if how != "check" else "model",
-                         jev=p.get("jev", False), alts=[FIX.get(t[0], t[0]) for t in p["top"][1:3]], src=os.path.basename(p["file"]), img=fn))
+                         jev=p.get("jev", False), alts=[a for a in (_final(FIX.get(t[0], t[0])) for t in p["top"][1:4]) if a and a != name][:2], src=os.path.basename(p["file"]), img=fn))
     have = {r["name"] for r in rows[:12]}
     missing = [n for n in OPEN + ["Odometer Reading", "Chassis Number", "Engine Compartment"] if n not in have]
     if not ({"Interior View", "Road Tax"} & have): missing.insert(4, "Interior View / Road Tax")
