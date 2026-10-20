@@ -42,7 +42,7 @@ async function reportOne(ctx,PLATE){
   if(D.lossSelect)await page.evaluate((v)=>{var s=document.querySelector('[name=mleLossDesc]');if(s&&s.tagName==='SELECT'){var o=[...s.options].find(x=>new RegExp(v,'i').test(x.text));if(o){s.value=o.value;s.dispatchEvent(new Event('change',{bubbles:true}));if(s.onchange)s.onchange();}}},D.lossSelect);
   await T('sleAccPlace',D.accPlace);await SV('ddlbLocClaim','City Road');
   // INSURED
-  await T('sleInm',D.insured.name);if(D.insured.idType==='Passport'){await T('sleIID1',D.insured.nric);await passID('sleIID1');}else{await T('sleIID1',fmtIC(D.insured.nric));}
+  if(D.isCompanyInsured){/* company insured: keep Company + Co Reg No carried from create */}else{await T('sleInm',D.insured.name);}if(D.isCompanyInsured){}else if(D.insured.idType==='Passport'){await T('sleIID1',D.insured.nric);await passID('sleIID1');}else{await T('sleIID1',fmtIC(D.insured.nric));}
   if(D.insured.dob)await T('sleIDOB',D.insured.dob);if(D.insured.gender)await SVexact('sleIGender',D.insured.gender);
   await T('sleIAddr1',D.insured.addr);await SV('ddlbIMARITAL','Unknown');await T('sleIOCC','OTHERS');await SV('ddlbIOCC','Others|Unemployed');
   await T('sleITIN','NA');await T('sleISSTRegNo','NA');await radio('sleISSTRegOpt','No');await T('sleIEMAIL','NOEMAIL@GMAIL.COM');

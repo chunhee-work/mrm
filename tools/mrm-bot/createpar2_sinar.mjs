@@ -42,8 +42,9 @@ async function createOne(ctx,PLATE){
   if(D.atfault.isCoverNote){await page.evaluate(()=>{var c=document.querySelector('input[name=siISCOVERNOTE]');if(c&&!c.checked)c.click();});}
   await T('slePOLFROM',D.atfault.from); await T('slePOLTO',D.atfault.to); await SVval('ddlbNEWPOL','1');
   var insId=D.atfault.ownerNric||D.atfault.driverNric, insName=D.atfault.ownerNric?D.atfault.ownerName:D.atfault.driverName;
+  if(D.atfault.ownerIsCompany){await page.evaluate(()=>{var r=document.querySelector('input[name=sleInmsel][value="1"]');if(r)r.click();var c=document.querySelector('input[name=sleIID1cel][value="1"]');if(c){c.checked=true;c.click();c.dispatchEvent(new Event('change',{bubbles:true}));}});await page.waitForTimeout(400);await T('sleInm',insName);await T('sleIID1',insId);}else{
   await T('sleInm',insName); var isPass=/[A-Za-z]/.test(insId); await T('sleIID1',isPass?insId:fmtIC(insId));
-  if(isPass){await page.evaluate(()=>{var r=document.querySelector('input[name=sleIID1sel][value="3"]');if(r){r.checked=true;r.click();r.dispatchEvent(new Event('change',{bubbles:true}));}});}
+  if(isPass){await page.evaluate(()=>{var r=document.querySelector('input[name=sleIID1sel][value="3"]');if(r){r.checked=true;r.click();r.dispatchEvent(new Event('change',{bubbles:true}));}});}}
   await T('sleIPhone1',(D.client.phone||'').replace(/[^0-9]/g,''));
   if(D.client.isCompany){await page.evaluate(()=>{var r=document.querySelector('input[name=sleTPnmsel][value="1"]');if(r)r.click();var c=document.querySelector('input[name=sleTPID1cel][value="1"]');if(c){c.checked=true;c.click();c.dispatchEvent(new Event('change',{bubbles:true}));}});await T('sleTPnm',D.client.name);await T('sleTPID1',D.client.nric);}
   else{await T('sleTPnm',D.client.name);await T('sleTPID1',fmtIC(D.client.nric));}
@@ -88,6 +89,7 @@ async function createOne(ctx,PLATE){
     for(let i=0;i<4;i++){const ok=await page.evaluate(()=>{const t=[...document.querySelectorAll('input,button')].find(e=>((e.value||e.innerText||'').trim()==='OK')&&e.offsetParent!==null);if(t){t.click();return true;}return false;});if(!ok)break;await page.waitForTimeout(1500);}
     cid=await page.evaluate(()=>{var m=location.href.match(/caseid=(\d+)/i)||document.body.innerHTML.match(/caseid=(\d+)/i);return m?m[1]:'?';});
   }
+  if(/clmreg/.test(page.url())){await page.screenshot({path:'/Users/chunhee/mrm-bot/creg_'+PLATE+'.png',fullPage:true}).catch(()=>{});log.push('MSG='+JSON.stringify(await page.evaluate(()=>{var o=[];document.querySelectorAll('*').forEach(e=>{var t=(e.childNodes[0]&&e.childNodes[0].nodeValue||'').trim();if(t&&/should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t)&&e.offsetParent!==null&&t.length<160)o.push(t);});return [...new Set(o)].slice(0,6);})));}
   const res=PLATE+': '+log.join(' ')+' => '+((page.url().match(/fuseaction=([a-z_]+)/i)||[])[1])+' caseid='+cid+(dialogs.length?' D='+JSON.stringify(dialogs.slice(0,3)):'');
   await page.close(); return res;
  }catch(e){await page.close().catch(()=>{});return PLATE+': ERR '+e.message.slice(0,50);}
