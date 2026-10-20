@@ -23,7 +23,7 @@ User (2026-10-17, after the sinar batch): "moving forward will use this workflow
   - Never build CFID URLs in the user's normal Chrome.
 
 ## Per case, in order (run cases in parallel where scripts allow)
-Order set by the user 2026-10-17: read → create → artifact → report → rates → narratives → DOC upload → photo upload → Step 2 parts/labour (from the photos) → estimate details → sheet.
+Order set by the user 2026-10-17 (+ step 12 on 2026-10-20): read → create → artifact → report → rates → narratives → DOC upload → photo upload → Step 2 parts/labour (from the photos) → estimate details → sheet → car-model report (RC vs Merimen variant).
 1. **Read the bundle** (PDF pages → images), extract the case data, and pick the Merimen model variant ([[merimen-az-progress]], [[merimen-create-case-procedure]]).
    - Doc missing → copy line, skip the case, move on.
 2. **Create:** `createpar2_sinar.mjs` with a cases JSON (insCOID, polcover, client, veh.modelValue, atfault, workshop). It also sets Manager/Adjuster.
@@ -61,6 +61,7 @@ Order set by the user 2026-10-17: read → create → artifact → report → ra
    - `setcmt.mjs` (sensor/hinge comments)
    - Check qty with `rows.mjs`.
 11. **Google Sheet:** paste `<date> <PLATE> <WORKSHOP> D` rows into Cari Makan ([[google-sheet-cari-makan-paste]]).
+12. **Car-model report** (user 2026-10-20, last step of every case/batch): send a table with one row per case: plate | RC (geran / Sijil Pemilikan Kenderaan) details: make / model, cc, year, fuel/transmission as printed | the Merimen model variant chosen (full string, e.g. "PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-11/25]") | why that variant if the RC is not exact (trim, year range, auto/manual from photos). Read the chosen variant back from Merimen ("Vehicle Model:" on dsp_details), not from memory.
 
 ## End of batch
 - **Labour learning:** when the user has reviewed a case (or at the start of the next batch), re-read `selstate.mjs` and diff it against `sel_<PLATE>_mine.json`. Every label the user ADDED or REMOVED becomes a rule (part / impact → label) in [[labour-reference-sinar-batch]] / [[estimate-select-parts-rules-2026-10-17]]. Log the diff in labour-diff-log.md.
