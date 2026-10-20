@@ -194,7 +194,7 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Bumper Bracket Rear (LH|RH) \[side - Outer\]$", r"Rear Bumper Bracket Side \1"),  # 16 same
     (r"^Quarter Inner Trim (LH|RH)$", r"Quarter Panel Inner Trim \1"),                # 17 same
     (r"^Runningboard Panel Extension (LH|RH)$", r"Runningboard Extension \1"),        # 18 same
-    (r"^Door (Front|Rear) Outer Weatherstrip (LH|RH)$", r"Door \1 Weatherstrip \2"),  # 19 same
+    (r"^Door (Front|Rear) Weatherstrip (LH|RH)$", r"Door \1 Outer Weatherstrip \2"),  # 19 same; user labelled them "Outer" in 部位标注台 2026-10-20
     (r"^(BUMPER REAR LOWER|BUMPER RR LOWER COVER)$", "Bumper Rear Lower Cover"),      # 20
     (r"^Lamp Assembly Rear Outer$", "Lamp Assembly Rear"),                            # 21 same
     (r"^Bodyside (Rear )?Assembly (LH|RH)$", r"Bodyside \1\2"),                       # A-group

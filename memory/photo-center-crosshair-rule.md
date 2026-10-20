@@ -107,4 +107,8 @@ User (2026-10-11): cannot confirm per model, but agrees with the logic. So: (1) 
 - **Rear bumper brackets:** only "Rear Bumper Bracket Side LH/RH" and "Rear Bumper Bracket Upper LH/RH". Retainer/Guide = Upper. Decided from the sample photos: plain Rear Bumper Bracket LH/RH = Side (cars with no upper bracket show only this name); Bumper Rear Retainer = Upper; Bumper Rear Mounting Bracket = Side; Bumper Bracket Rear [support] = Side.
 - **Front bumper brackets:** Bumper Front Bracket Support / Side Retainer / Retainer-Guide / Bracket Front [side] = Front Bumper Bracket LH/RH. [upper] = Bumper Front Bracket Support Upper LH/RH.
 - **Rear Bumper:** Bumper Rear Cover LH/RH and Bumper Rear LH [cover] = Rear Bumper. But Rear Bumper LH/RH stay separate: some cars have side pieces.
-- **Door Front Outer Weatherstrip = Door Front Weatherstrip** (below the window). **Door Front Aperture Weatherstrip is a different item** (on the door frame), even though they look alike. The user will circle examples.
+- **Door weatherstrips (user circled 12 photos in 部位标注台, 2026-10-20):**
+  - **Door Front Outer Weatherstrip LH/RH**: the black plastic/rubber strip along the bottom of the window glass, on the outside. "Door Front Weatherstrip" merges into this name.
+  - **Door Front Aperture Weatherstrip LH/RH**: the rubber seal round the door opening (body/door frame). Photos usually show fingers pulling it out.
+  - 2 of 4 old "Door Front Weatherstrip LH" photos were really the **Door Front LH** panel (wrong labels, corrected in user_corrections.json).
+  - Same for rear doors.
