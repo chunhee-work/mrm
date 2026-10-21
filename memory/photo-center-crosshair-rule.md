@@ -101,7 +101,7 @@ User (2026-10-11): cannot confirm per model, but agrees with the logic. So: (1) 
   - Grille Front Moulding; Number Plate Holder Rear; Rear Exhaust Pipe; Exhaust Rear Mounting
   - Bodyside LH/RH (merge Bodyside Rear / Section); Chassis Assembly; Rear Bumper LH/RH (not Bumper Rear Section); Badge
   - Rear Lamp LH/RH (not Taillamp / Body); Headlamp LH/RH (not Body)
-  - **Boot Extractor Vent** (= Extractor Lower Vent; never LH/RH, user 2026-10-21); **Quarter Liner LH/RH** (never Quarter Panel Liner, user 2026-10-20); Boot Lid (+ Lock / Hinge LH/RH / Emblem)
+  - REAR RADAR LH/RH = **Rear Bumper Sensor LH/RH** (never Rear Radar, user 2026-10-21); **Boot Extractor Vent** (= Extractor Lower Vent; never LH/RH, user 2026-10-21); **Quarter Liner LH/RH** (never Quarter Panel Liner, user 2026-10-20); Boot Lid (+ Lock / Hinge LH/RH / Emblem)
   - **Boot Lid Aperture Weatherstrip**, **Tailgate Aperture Weatherstrip**; Tailgate Emblem; Spoiler Rear [bootlid]
   - Rear Axle; Rear Seat Back; Spare Wheel Retainer; Rear Number Plate Lamp (LH/RH); Parcel Shelf Rear; Front View (not Front Full View)
 - **Rear bumper brackets:** only "Rear Bumper Bracket Side LH/RH" and "Rear Bumper Bracket Upper LH/RH". Retainer/Guide = Upper. Decided from the sample photos: plain Rear Bumper Bracket LH/RH = Side (cars with no upper bracket show only this name); Bumper Rear Retainer = Upper; Bumper Rear Mounting Bracket = Side; Bumper Bracket Rear [support] = Side.
