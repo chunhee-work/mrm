@@ -51,6 +51,7 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - `typesafe/photo_train/merimen_keepalive.py` only watches the user's normal Chrome (AppleScript), not the 9222 Chrome. [merimen-logout-causes]
 - Never build URLs for dsp_docmanage (Relabel/Reorder) or act_docinfo: it logs the session out at once ("suspected intrusion"). [merimen-logout-causes]
 - Never fetch dsp_getfile for docids of other accounts' cases. [merimen-logout-causes]
+- This includes the photo-model training photos (`typesafe/photo_train/data/<cid>/`, the company-wide harvest): `fetchfull.mjs` on those docids failed on every photo and logged the session out (2026-10-21, 293-photo rare batch). For labelling batches use the local photos, never re-download them from Merimen. [mistakes-log-sinar-batch2]
 - Never call `JSVCopenWinPost(act_docinfo … action=DEL)` from a CDP page; leave revokes/deletes to the end of the batch or ask the user to do them in the UI. [merimen-logout-causes] [case-photo-naming-artifact]
 - Session dies after ~15 min idle: save each stage immediately per tab; never fill many forms then save. [merimen-session-timeout-workflow]
 - A page with ~5 inputs is the login page: that tab's unsaved work is gone. [merimen-session-timeout-workflow]

@@ -27,7 +27,7 @@ session from `session_base.txt` (written by the user's `relogin.mjs`).
 | `node getext_one.mjs <cid> <sess>` | Prints the extid of one case (from the worklist). |
 | `node listphotos.mjs <cid> <ext>` | Lists the case's documents/photos (`docid caption`). |
 | `node cmts.mjs <cid> <ext> <sess>` | Shows comment fields of Sensor/Hinge rows on dsp_details. |
-| `node fetchfull.mjs <tasks.json> <outdir>` | Photo-labeller helper: downloads photos (max 1280 px) by docid. **Only docids of cases of the logged-in account**: other accounts' docids log the session out. |
+| `node fetchfull.mjs <tasks.json> <outdir>` | Photo-labeller helper: downloads photos (max 1280 px) by docid. **Only docids of cases of the logged-in account**: other accounts' docids log the session out. Never use it on the training photos in `typesafe/photo_train/data/` (company-wide harvest): it failed and logged out on 2026-10-21. |
 
 ## Step 2 · create the case (`playbook/02-create-case.md`)
 

@@ -48,6 +48,7 @@ User 2026-10-20: "for all my feedback and the things u do wrong pls learn from l
     - keep the automation Chrome window open;
     - close leftover tabs;
     - the user logging in on their own Chrome kicks the automation session out.
+12b. **2026-10-21:** ran `fetchfull.mjs` on 293 harvested training photos (other accounts' cases) to get full-res images for the 部位标注台: every fetch failed and the session logged out. Never fetch harvested docids; use the local photos.
 13. **Names:**
     - always run name_map.final(): never General View or TAIL LAMP, and the other merges in [[photo-center-crosshair-rule]];
     - when two spellings are merged, keep the USER's spelling: I merged Quarter Liner into "Quarter Panel Liner"; the user wants **Quarter Liner LH/RH** (2026-10-20). Catalogue items keep Merimen's own text;
