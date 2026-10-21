@@ -28,6 +28,7 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 
 ## Language
 - Reply in Simplified Chinese, always, including long status reports, tables and summaries. [language-preference]
+- Even when the user writes in English: still reply in Simplified Chinese (user 2026-10-21, said twice).
 - Keep Merimen field/part names, code, file paths, commands and product names in English. [language-preference]
 - Exception: copy-box label lines in "send me data" output are English/Malay only. [claim-extraction-output-format]
 

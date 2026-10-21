@@ -1,6 +1,6 @@
 # MRM — Merimen motor-claim work (read this first, every session)
 
-Reply in **Simplified Chinese**. Merimen part/field names stay in English.
+Reply in **Simplified Chinese**, ALWAYS, even when the user writes in English. Merimen part/field names stay in English.
 
 **Doing cases: do NOT read `TUTORIAL.md` or `HANDOVER.md`.** They are only for setting up a new machine or handing the work to a new agent. For cases, read only the playbook file for each step (table below). Quick check before Merimen work: `bash tools/mrm-bot/doctor.sh`. Memory lives in the repo folder `memory/` (index `memory/MEMORY.md`): write new memories there and commit them. Script arguments, when needed: `tools/mrm-bot/README.md`.
 
