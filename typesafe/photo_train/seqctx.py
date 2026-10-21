@@ -80,7 +80,23 @@ net = Ctx()
 with torch.no_grad():   # stage-1 head as the starting point
     for k, j in L.items():
         if k in old: net.base.weight[j] = ck["state"]["1.weight"][old[k]]; net.base.bias[j] = ck["state"]["1.bias"][old[k]]
+INIT_SEQ = os.environ.get("INIT_SEQ")   # warm start from an earlier group model (rows copied by label name)
+if INIT_SEQ:
+    ck2 = torch.load(os.path.join(HERE, INIT_SEQ), map_location="cpu"); st = ck2["ctx"]; o2 = {k: j for j, k in enumerate(ck2["labels"])}
+    with torch.no_grad():
+        for n, p in net.named_parameters():
+            if n.startswith(("base.", "out.")):
+                for k, j in L.items():
+                    if k in o2: p[j] = st[n][o2[k]]
+            elif n in st and st[n].shape == p.shape: p.copy_(st[n])
+    print("warm start from", INIT_SEQ, "labels shared", sum(k in o2 for k in L), "/", len(L), flush=True)
 net = net.to(dev)
+RARE = int(os.environ.get("RARE", "0"))   # oversample labels with fewer than RARE train photos up to ~RARE
+cnt = collections.Counter(meta[i][0] for i in tr)
+rare_labels = {k for k, c in cnt.items() if c < RARE}
+if RARE:
+    tr = tr + [i for i in tr if meta[i][0] in rare_labels for _ in range(max(0, -(-RARE // cnt[meta[i][0]]) - 1))]
+    print("rare labels (<%d train photos):" % RARE, len(rare_labels), "train rows now", len(tr), flush=True)
 EP = int(os.environ.get("EPOCHS", "6")); B = 256
 opt = torch.optim.AdamW([{"params": net.base.parameters(), "lr": 1e-4}, {"params": [p for n, p in net.named_parameters() if not n.startswith("base.")], "lr": 5e-4}], weight_decay=0.05)
 sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=[1e-4, 5e-4], total_steps=EP * (len(tr) // B))
@@ -105,6 +121,9 @@ def evaluate(write=False):
     if write:
         with open(os.path.join(HERE, "pred_%s.jsonl" % TAG), "w") as f:
             for o in out: f.write(json.dumps(o) + "\n")
+    if RARE:
+        rr = [o for o in out if o["label"] in rare_labels]
+        if rr: print("  rare items: %d test photos, top1 %.1f%%" % (len(rr), 100 * sum(o["top"][0][0] == o["label"] for o in rr) / len(rr)), flush=True)
     net.train(); return ok / len(te), t3 / len(te)
 
 a1, a3 = evaluate(); print("start (stage-1 head only) top1 %.1f%% top3 %.1f%%" % (100 * a1, 100 * a3), flush=True)

@@ -150,9 +150,17 @@ Case data (names, NRIC, addresses) stays in `~/mrm-bot/*_s2.json` and `report_si
 4. **Unanswered question:** which case "PERODUA MYVI 2017 TO 2020 5 DOOR HAT 1.5 Advanced" (misc missed) refers to.
    Or should TCP4539's model change?
 5. **Batch-2 totals** were not re-checked after the user's own fixes. The user said "No need to".
-6. **Photo-model retrain finished (2026-10-21 01:41).** The new models on the merged names scored lower:
-   `seq_seqn.pt` 80.4% and `seq_seqnc.pt` 80.2%, against the current `seq_best.pt` 81.0% and `seq_best_crop.pt` 80.8%.
-   So the current models stay. The new files are kept in `models/` but are not used.
+6. **Photo model: rare-item (冷门) training done (2026-10-21).** `typesafe/photo_train/train_rare.sh` warm-starts
+   the previous best group models and oversamples labels with fewer than 100 training photos (`RARE`, `INIT_SEQ` in
+   `seqctx.py`). All scores below are on the same 3,327 test photos:
+   - Group model: 78.6% (old) → **80.8%** (new).
+   - Crosshair model: 78.3% (old) → **80.7%** (new).
+   - The 57 rare-item test photos: 21% → 25–35%.
+
+   The new models are now `models/seq_best.pt` / `seq_best_crop.pt`. The old ones are kept as
+   `seq_best*_prev20261015.pt`; delete them after the next batch confirms the names. Test on SK64A: 66/73 photos match
+   the user's final names, the same as the old model.
+   Rare items still need labels from the user (部位标注台), not more raw photos.
 7. **Merimen session:** it was logged out at the end of 2026-10-20. Ask for relogin before any Merimen work.
 8. **Legacy code:** `typesafe/click_nav.py`, `report_click.py`, `step2_click.py`, `step2_cases.py`,
    `finish_parts.py` and `manual_parts.py` are the older AppleScript path (`driver.py`, the user's normal Chrome,
