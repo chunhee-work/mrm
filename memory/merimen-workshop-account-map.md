@@ -12,6 +12,9 @@ Rule (user, 2026-08-29): **the Merimen account to log in with depends on the WOR
 |---|---|---|
 | Sinar Gemilang · Extreme · Lee Kean Hin | **Autoris Adjusters Sdn Bhd (HQ)** | `TC0607` |
 | Autoflex | **Ampang Newvest** | `NVISSAC` |
+| Shen Wah Auto Services Sdn Bhd | **Rawang** | `YUSTRI` |
+
+Login commands (the USER runs them): TC0607 `cd ~/mrm-bot && node relogin.mjs` · NVISSAC `cd ~/mrm-bot && node relogin_nv.mjs` · YUSTRI `cd ~/mrm-bot && node relogin_rw.mjs` (user 2026-10-21).
 
 Passwords are deliberately NOT written here — this repo is on a GitHub remote, and the existing memory redacts login details the same way (`<LOGIN — local only, redacted from repo>`). Ask the user for the password of whichever account the batch needs, per session.
 

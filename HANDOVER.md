@@ -48,6 +48,7 @@ empty condition, paint 500, quantities, comments) ✓ · total ≥ RM6,000 ✓ �
   |---|---|---|
   | Sinar Gemilang · Extreme · Lee Kean Hin | Autoris Adjusters Sdn Bhd (HQ) | TC0607 |
   | Autoflex | Ampang Newvest | NVISSAC |
+  | Shen Wah Auto Services Sdn Bhd | Rawang | YUSTRI |
 
   Passwords are never written anywhere in the repo. The user logs in (`node relogin.mjs`).
 - **Manager / Adjuster** on every case are fixed. The scripts default to the right names; never override them.
