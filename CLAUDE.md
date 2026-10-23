@@ -12,11 +12,12 @@ The step playbooks in `playbook/` hold ALL of the user's rules, one file per ste
 | start any batch / anything with Merimen, WhatsApp, Google Sheet, git | `playbook/00-start-and-rules.md` |
 | read a case's PDF bundle | `playbook/01-read-documents.md` |
 | create a case in Merimen | `playbook/02-create-case.md` |
-| name photos / publish or re-read the 照片命名台 | `playbook/03-photo-naming.md` |
+| name photos / publish or re-read the 照片命名台 | `playbook/03-photo-naming.md` **and** `playbook/10-car-models.md` (this model's rare items + names) |
 | fill the Adjuster Report | `playbook/04-adjuster-report.md` |
 | set discounts/labour rates, write narratives | `playbook/05-rates-and-narratives.md` |
 | upload documents or photos, relabel photos | `playbook/06-upload-docs-and-photos.md` |
-| **Select Parts + Labour (Step 2)** | `playbook/07-select-parts-and-labour.md` **and** `memory/mistakes-log-sinar-batch2.md` |
+| **Select Parts + Labour (Step 2)** | `playbook/07-select-parts-and-labour.md`, `memory/mistakes-log-sinar-batch2.md` **and** `playbook/10-car-models.md` |
+| finish any case | add what you learned about that model to `playbook/10-car-models.md` |
 | estimate details (conditions, misc, paint, manual parts, qty, comments) | `playbook/08-estimate-details.md` |
 | finish a batch: report tables, car-model report, sheet, re-sync after review | `playbook/09-finish-and-report.md` |
 

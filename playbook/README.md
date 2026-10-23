@@ -13,6 +13,7 @@ One checklist per workflow step, consolidated from `mrm/memory/` (newest rule wi
 | [06-upload-docs-and-photos.md](06-upload-docs-and-photos.md) | Uploading PDFs (DOC/RC/INS/P.REPORT/JPJ SEARCH, FTYPE Other, compression) and photos (one shot, maxno=250, types, originals), chkorder, relabel_ui, duplicates. |
 | [07-select-parts-and-labour.md](07-select-parts-and-labour.md) | **Before every Step 2.** Every-item rule, exact name/side/group, group codes, qty + comments, all companion parts, sensors, Thatcham, Labour N/R bundles, misc by impact, snapshot of my choice. |
 | [08-estimate-details.md](08-estimate-details.md) | On dsp_details: labourfill/estfill/addparts/fillempty/setcmt/setqty/delrow, damage-condition table + corrections, misc prices, paint popup, manual pricing, RM6,000 minimum. |
+| [10-car-models.md](10-car-models.md) | Per car model: rare (冷门) items, Inner/Outer layouts, the catalogue's name for each photo name, items missing from the catalogue. Read at photo naming and Select Parts; add to it after every case. |
 | [09-finish-and-report.md](09-finish-and-report.md) | End of batch: re-check, sheet rows, push notification, completion table, step-12 car-model report (⚠️), re-sync after user review, labour-diff learning, commit/push. |
 
 Also read `mrm/memory/mistakes-log-sinar-batch2.md` before Step 2 if it has entries newer than this playbook.
