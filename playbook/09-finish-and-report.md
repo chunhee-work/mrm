@@ -29,6 +29,16 @@
 - ⭐ Include the RC **Registration Date** ("Tarikh Pendaftaran" on the RC; data field `jpjReg`) as its own column. Write every RC field label in English, never the Malay word (user, 2026-10-23).
 - ⭐ **Every date in any report to the user is highlighted as 📅 + inline code** (📅 `25/02/2019`); bold alone is not visible enough. The date range inside a Merimen model name is highlighted too: pull it out of the brackets as 📅 `04/14-02/17` (user, 2026-10-23).
 - ⭐ When the Merimen variant matches the RC exactly, the reason column says **✅ 完全对得上** (user, 2026-10-23).
+- ⭐⭐ **Exact table format (user approved 2026-10-23), columns in this order:**
+
+  | 车牌 | Registration Date | RC 资料 | Merimen 选的车型 | 车型年份范围 | 选择理由 |
+  |---|---|---|---|---|---|
+  | BMN7769 | 📅 `28/03/2014` | TOYOTA COROLLA ALTIS 1.8E (A) · 1798cc · Petrol Auto | TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 E (ZRE172R-GEXEKE) 137Bhp (A) | 📅 `01/14-11/16` | ✅ 完全对得上 |
+  | KCM8604 | 📅 `06/07/2009` | PROTON PERSONA 1.6 AUTOMATIK · 1597cc · Petrol Auto | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (A) | 📅 `08/07-02/10` | RC 没写等级，选了 Base Line |
+
+  - RC 资料 = RC model as printed · cc · fuel + transmission (· body if it differs from Merimen).
+  - Merimen 选的车型 = the variant read back with `vmodel.mjs`, WITHOUT the [..] date range (that goes in 车型年份范围).
+  - Add ⚠️ in 选择理由 when the model has no price data (white option).
 - Table, one row per case: plate | RC details as printed (make/model, cc, year, fuel/transmission) | Merimen model variant chosen (full string, e.g. "PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-11/25]") | why that variant if the RC is not exact (trim, year range, A/M from photos). [merimen-batch-workflow]
 - Read the variant back from Merimen ("Vehicle Model:" on dsp_details), not from memory. [merimen-batch-workflow]
 - Mark ⚠️ on every row whose Merimen model has no parts/price data (white option `clsMTRModelLevel0`, not green `clsMTRModelLevel1`) and say why no green one fitted. [car-model-report-warning]
