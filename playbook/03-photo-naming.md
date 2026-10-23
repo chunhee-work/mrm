@@ -86,6 +86,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Panel round the rear wheel arch, behind the rear-door line = Quarter Panel LH/RH, not Door Rear. [photo-center-crosshair-rule]
 - Every quarter name starts with "Quarter Panel" (Quarter Pnl / Quater → Quarter Panel; Quarter Panel Outer = Quarter Panel; Rear LH Quarter Panel → Quarter Panel LH; Quarter Inner Trim → Quarter Panel Inner Trim). [photo-center-crosshair-rule]
 - Rear lower diffuser piece on models whose catalogue has no spoiler item (e.g. CCQ6119 Toyota Vios 2023 To 2026, NGC102): photo name **Rear Bumper Spoiler** (user 2026-10-23); in Select Parts it is the catalogue item "Bumper Rear Lower Cover". [photo-center-crosshair-rule]
+- REAR RADAR DISTANCE SENSOR LH/RH = **Blind Sport ECU LH/RH** (user's spelling; there is a left and a right one) (user 2026-10-23). Plain "REAR RADAR LH/RH" stays Rear Bumper Sensor. [photo-center-crosshair-rule]
 - Never "RR PANEL TRIM" → **Rear Panel Inner Trim**; never "RR BUMPER AFTER DISMANTLE" → name the part at the crosshair (user 2026-10-23). [photo-center-crosshair-rule]
 - Front LH/RH Bumper Lamp = **Front Bumper Fog Lamp LH/RH** (user 2026-10-21). Spoiler Runningboard Extension LH/RH (any case) = **Runningboard Spoiler LH/RH**, never the Extension name (user 2026-10-21). [photo-center-crosshair-rule]
 - Never "REAR RADAR LH/RH": it is **Rear Bumper Sensor LH/RH** (user 2026-10-21). [photo-center-crosshair-rule]

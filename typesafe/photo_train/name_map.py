@@ -224,7 +224,8 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Badge Front$", "Badge"),                                                      # o
     (r"^Rear Panel (LH|RH)$", None),                                                  # p: wrong name -> drop (Rear Lamp Panel LH/RH is right)
     # round 3 (user 2026-10-17)
-    (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"(?i)^(rr|rear) panel trim$", "Rear Panel Inner Trim"),  # user 2026-10-23: never "RR PANEL TRIM"
+    (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"(?i)^rear radar distance sensor( LH| RH)?$", lambda m: "Blind Sport ECU" + (m.group(1) or "").upper()),  # user 2026-10-23: = Blind Sport ECU, LH and RH
+    (r"(?i)^(rr|rear) panel trim$", "Rear Panel Inner Trim"),  # user 2026-10-23: never "RR PANEL TRIM"
     (r"(?i)^rr bumper after dismantle$", None),  # user 2026-10-23: never use; name the part at the crosshair
     (r"(?i)^spoiler runningboard (?:extension|panel) (LH|RH)$", r"Runningboard Spoiler \1"),  # user 2026-10-21
     (r"(?i)^front (LH|RH) bumper lamp$", r"Front Bumper Fog Lamp \1"),  # user 2026-10-21: same item
