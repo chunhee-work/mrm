@@ -24,7 +24,7 @@
 - Below the table, keep it short: what went wrong and how it was handled, per-case anomalies/assumptions (zeroed odometer, passed case, no claimant INS, placeholder police station…), what remains. [batch-completion-report-format] [merimen-missing-photo-data-rules] [merimen-claimant-insurance-fields]
 - Then: manual-price list (part, price, source model, number of reference rows; flag < 5 rows), the sheet rows, and all pending copy lines `<PLATE> pending <item>`. [merimen-batch-workflow] [mistakes-log-sinar-batch2] [merimen-pending-case-line-format]
 
-## Car-model report (step 12, last step of every case/batch)
+## Car-model report (end of Phase A: right after the photo upload, before `照片命名台 ready`; user 2026-10-24)
 - ⭐⭐ **MUST be sent to the user in the batch-completion message, every batch, never skipped** (user, 2026-10-23: batch 3 forgot it). Read the variants with `node vmodel.mjs <ids.txt>` (ids.txt lines: `PLATE caseid extid`; prints "Vehicle Model:" per case), green/white from the model dropdown options. [batch-completion-report-format]
 - ⭐ Include the RC **Registration Date** ("Tarikh Pendaftaran" on the RC; data field `jpjReg`) as its own column. Write every RC field label in English, never the Malay word (user, 2026-10-23).
 - ⭐ **Every date in any report to the user is highlighted as 📅 + inline code** (📅 `25/02/2019`); bold alone is not visible enough. The date range inside a Merimen model name is highlighted too: pull it out of the brackets as 📅 `04/14-02/17` (user, 2026-10-23).

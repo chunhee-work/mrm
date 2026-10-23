@@ -1,6 +1,6 @@
 # Merimen TP-claim playbook — index
 
-One checklist per workflow step, consolidated from `mrm/memory/` (newest rule wins; "(was: …)" marks old rules). Each bullet ends with its source memory in [brackets]. Order of a case: **Phase A** read → create → photo artifact → report → rates → narratives → DOC upload → photo upload → `照片命名台 ready` and WAIT for the user's done; **Phase B** relabel to the user's names → Step 2 parts/labour/misc → estimate details → sheet → car-model report (user 2026-10-23).
+One checklist per workflow step, consolidated from `mrm/memory/` (newest rule wins; "(was: …)" marks old rules). Each bullet ends with its source memory in [brackets]. Order of a case: **Phase A** read → create → photo artifact → report → rates → narratives → DOC upload → photo upload → car-model report → `照片命名台 ready` and WAIT for the user's done; **Phase B** relabel to the user's names → Step 2 parts/labour/misc → estimate details → sheet (user 2026-10-24).
 
 | File | Read it when |
 |---|---|
