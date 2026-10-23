@@ -227,7 +227,8 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"(?i)^door glass (front|rear) window (LH|RH)$", lambda m: "Door " + m.group(1).capitalize() + " Window " + m.group(2).upper()),  # user 2026-10-23
     (r"(?i)^rear radar distance sensor( LH| RH)?$", lambda m: "Blind Sport ECU" + (m.group(1) or "").upper()),  # user 2026-10-23: = Blind Sport ECU, LH and RH
     (r"(?i)^(rr|rear) panel trim$", "Rear Panel Inner Trim"),  # user 2026-10-23: never "RR PANEL TRIM"
-    (r"(?i)^rr bumper after dismantle$", None),  # user 2026-10-23: never use; name the part at the crosshair
+    (r"(?i)^rr bumper after dismantle$", None),
+    (r"(?i)^rear panel,? ?boot ?floor$", None),  # user 2026-10-23: never use; name the one part at the crosshair  # user 2026-10-23: never use; name the part at the crosshair
     (r"(?i)^spoiler runningboard (?:extension|panel) (LH|RH)$", r"Runningboard Spoiler \1"),  # user 2026-10-21
     (r"(?i)^front (LH|RH) bumper lamp$", r"Front Bumper Fog Lamp \1"),  # user 2026-10-21: same item
     (r"^(?:REAR RADAR|Rear Radar|Rear radar)( LH| RH)?$", r"Rear Bumper Sensor\1"),  # user 2026-10-21: never "Rear Radar"
