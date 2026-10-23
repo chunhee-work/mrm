@@ -32,6 +32,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - PERODUA: never Front Panel Assembly → Front Panel Upper / Fender Inner LH/RH / Front Crossmember / Front Panel Lower. Other makes: Front Panel Assembly. [perodua-front-panel-rule] [mistakes-log-sinar-batch2]
 - LORRY: "Front Chassis Member" with no side. [lorry-front-chassis-member]
 - **Front Pillar Outer** (LH/RH) seen in the photos → select it as a part (user 2026-10-20).
+- **Rear Bumper Spoiler = Bumper Rear Lower Cover** when the catalogue has no spoiler item (Vios 2023 To 2026 / CCQ6119; user 2026-10-23). step2_plan.py maps it automatically.
 - "Bumper Rear Shock Absorber" is a bumper part, not suspension. [estimate-select-parts-rules-2026-10-17]
 
 ## Group codes (value prefix `NN@`)

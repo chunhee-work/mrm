@@ -32,6 +32,9 @@ for r in rows:
     n = r['name']
     if re.search(SKIP, n): continue
     if n not in names: names.append(n)
+# user 2026-10-23: when the catalogue has no rear bumper spoiler item (e.g. Vios 2023 NGC102), "Rear Bumper Spoiler" = Bumper Rear Lower Cover
+if not any(re.search(r"Spoiler Bumper Rear|Bumper Rear Spoiler", l, re.I) for _, l in cat):
+    SYN["Rear Bumper Spoiler"] = "Bumper Rear Lower Cover"
 key = lambda l: re.sub(r"\s*\([A-Z0-9-]+\)$", "", re.sub(r"^\S+\s+\[.*?\]\s*", "", l)).strip()
 pick, missing, why = collections.OrderedDict(), [], {}
 def add(val, lab, reason):
