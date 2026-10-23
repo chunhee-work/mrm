@@ -15,7 +15,7 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 
 ## The only stop: a missing document
 - Missing doc → immediately send one copy line, set the case aside, carry on with every other case; finish it when the doc arrives. [merimen-batch-workflow]
-- Copy-line format: `<PLATE> pending <exact missing item>`, e.g. `BMC2457 pending RAY2427 JPJ Search`. [merimen-pending-case-line-format]
+- Copy-line format: `<PLATE> pending <missing item>`, short, e.g. `VCD3926 pending police report` (user 2026-10-23: no extra detail in the line), and send the whole case folder (zip) with it. [merimen-pending-case-line-format]
 - Missing photos use the same form: `<PLATE> pending <photo> photo`. [case-photo-naming-artifact]
 - One line per blocked case; repeat all of them together at the end of the batch report so the user can paste them to the workshop. [merimen-pending-case-line-format]
 - Never fabricate values to push a blocked case through. [batch-autonomy-rule]
