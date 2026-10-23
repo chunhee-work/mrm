@@ -27,7 +27,7 @@
 ## Car-model report (step 12, last step of every case/batch)
 - ⭐⭐ **MUST be sent to the user in the batch-completion message, every batch, never skipped** (user, 2026-10-23: batch 3 forgot it). Read the variants with `node vmodel.mjs <ids.txt>` (ids.txt lines: `PLATE caseid extid`; prints "Vehicle Model:" per case), green/white from the model dropdown options. [batch-completion-report-format]
 - ⭐ Include the RC **Registration Date** ("Tarikh Pendaftaran" on the RC; data field `jpjReg`) as its own column. Write every RC field label in English, never the Malay word (user, 2026-10-23).
-- ⭐ **Every date in any report to the user is highlighted as 📅 + inline code** (📅 `25/02/2019`); bold alone is not visible enough. Only real dates get it, not the year ranges inside Merimen model names (user, 2026-10-23).
+- ⭐ **Every date in any report to the user is highlighted as 📅 + inline code** (📅 `25/02/2019`); bold alone is not visible enough. The date range inside a Merimen model name is highlighted too: pull it out of the brackets as 📅 `04/14-02/17` (user, 2026-10-23).
 - Table, one row per case: plate | RC details as printed (make/model, cc, year, fuel/transmission) | Merimen model variant chosen (full string, e.g. "PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-11/25]") | why that variant if the RC is not exact (trim, year range, A/M from photos). [merimen-batch-workflow]
 - Read the variant back from Merimen ("Vehicle Model:" on dsp_details), not from memory. [merimen-batch-workflow]
 - Mark ⚠️ on every row whose Merimen model has no parts/price data (white option `clsMTRModelLevel0`, not green `clsMTRModelLevel1`) and say why no green one fitted. [car-model-report-warning]
