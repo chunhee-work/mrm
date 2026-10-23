@@ -8,7 +8,7 @@ import partmatch as pm
 CAT = json.load(open(sys.argv[1])); rows = json.load(open(sys.argv[2])); impact = sys.argv[3]
 cat = [(v, l) for v, l, _ in CAT['cat']]; labs = [l for l, _ in CAT['labs']]
 RULES = json.load(open(__import__('os').path.join(__import__('os').path.dirname(__file__), '..', 'tools', 'labour_rules.json')))
-SKIP = r"^(Front|Rear) View( Right| Left)?$|^(Interior|General|Side) View|^Side View|Odometer|Chassis Number$|Engine Compartment|Road Tax|Tyre Size|Suspension View|DASHBOARD"
+SKIP = r"^(Front|Rear) View( Right| Left)?$|^(Interior|General|Side) View|^Side View|Odometer|Chassis Number$|Engine Compartment|Road Tax|Tyre Size|Suspension View|DASHBOARD|Dashboard"
 SYN = {"Front Pillar LH": "Front Pillar Outer LH", "Front Pillar RH": "Front Pillar Outer RH","Front Number Plate": "Number Plate Front", "Rear Number Plate": "Number Plate Rear", "Number Plate Holder Front": "Number Plate Front Holder",
        "Front Panel Radiator Support RH": "Front Panel", "Fender Inner RH": "Fender Front Inner RH", "Fender Inner LH": "Fender Front Inner LH",
        "Front Stabiliser Bar": "Stabiliser Bar Front", "Front Indicator Lamp RH": "Fender Signal Lamp Front RH", "Windscreen Washer Tank": "Windscreen Washer Tank",

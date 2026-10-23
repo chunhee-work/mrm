@@ -25,6 +25,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - The upload follows the artifact EXACTLY: order from `orders` (else page order), names from `names` (else model name). [case-photo-naming-artifact]
 
 ## Core naming principles
+- ⭐ **Capitals (user 2026-10-23):** never write a name in ALL CAPITALS. Every word starts with one capital, the rest small: QUARTER PILLAR LH → **Quarter Pillar LH**, SPARE WHEEL FOAM → Spare Wheel Foam. Only LH, RH and real abbreviations (A/C, ECU, ABS, SRS, LED, MPV, 4WD) stay capital. `name_map.final()` applies this to every name; the ALL-CAPS spellings quoted in this playbook are only the wrong forms to replace.
 - The named item = the part under the image centre (crosshair of the vertical + horizontal midlines); edge content is context only. [photo-center-crosshair-rule]
 - A hand/finger holding, lifting or pointing at a part → that part is the name; overrides the crosshair. [photo-center-crosshair-rule]
 - Every new item starts with a zoom-out shot; a close-up belongs to the part of the zoom-out before it. Same angle, closer = same part, even if another part looks central; a new part starts when angle/position changes. [photo-center-crosshair-rule]
@@ -45,7 +46,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Never "General View" → Front View, Rear View or Side View. REAR/RR GENERAL VIEW = Rear View; FRT/FRONT GENERAL VIEW, FRT PANEL VIEW, Front Full View = Front View. [photo-center-crosshair-rule]
 - Overview shots of the whole front (incl. bumper removed) = Front View, not Bonnet / Front Panel Upper / Front Chassis Member / Front Bumper Reinforcement / Washer Tank. Far shot of the quarter = Side View RH/LH. [photo-center-crosshair-rule] [photo-naming-two-step-jev]
 - Never Rear End View, Rear Damage View, Rear End Assembly, DAMAGES PART / DAMAGES PHOTO / DAMAGE PART PHOTO. [photo-center-crosshair-rule]
-- Engine Compartment (not Engine Compartment View / engine bay / ENGINEVIEW); DASHBOARD (= DASHBOARD VIEW / Dashboard Panel); Chassis Number (= CHASSIS NO / 1ST SUPPLE-CHASSIS NO); Tyre Size (not Size Of The Tyre); Front/Rear Suspension View LH/RH; Rear/Front Tyre LH/RH (not Tyre View). [photo-center-crosshair-rule]
+- Engine Compartment (not Engine Compartment View / engine bay / ENGINEVIEW); Dashboard (= DASHBOARD VIEW / Dashboard Panel); Chassis Number (= CHASSIS NO / 1ST SUPPLE-CHASSIS NO); Tyre Size (not Size Of The Tyre); Front/Rear Suspension View LH/RH; Rear/Front Tyre LH/RH (not Tyre View). [photo-center-crosshair-rule]
 
 ## Model-dependent names
 - PERODUA (Myvi, Axia, Bezza, Alza, Aruz, Ativa, Viva, Kancil…): NEVER Front Panel Assembly → Front Panel Upper / Fender Inner LH/RH / Front Crossmember / Front Panel Lower (whichever is at the crosshair). Every other make → Front Panel Assembly. [perodua-front-panel-rule]

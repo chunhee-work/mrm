@@ -182,7 +182,7 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Size Of The Tyre$", "Tyre Size"),                                             # 6
     (r"^Runningboard Panel Outer (LH|RH)$", r"Runningboard Panel \1"),                # 8 same
     (r"^Centre Pillar (LH|RH)$", r"Centre Pillar Outer \1"),                          # 9 same
-    (r"^(DASHBOARD VIEW|Dashboard Panel)$", "DASHBOARD"),                             # 10 same
+    (r"^(DASHBOARD VIEW|Dashboard Panel|DASHBOARD)$", "Dashboard"),                             # 10 same
     (r"^FRT PANEL VIEW$", "Front View"),                                              # 11
     (r"^Suspension Front (LH|RH)$", r"Front Suspension View \1"),                     # 12
     (r"^Suspension Rear (LH|RH)$", r"Rear Suspension View \1"),
@@ -225,6 +225,7 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Rear Panel (LH|RH)$", None),                                                  # p: wrong name -> drop (Rear Lamp Panel LH/RH is right)
     # round 3 (user 2026-10-17)
     (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"(?i)^badge (boot ?lid|tail ?gate) \[(.+)\]$", lambda m: ("Boot Lid" if "boot" in m.group(1).lower() else "Tailgate") + " Badge (" + m.group(2) + ")"),  # user 2026-10-23 format
+    (r"(?i)^boot ?floor$", "Boot Floor"),
     (r"(?i)^number plate (frt|front) holder$|^(frt|front) number plate holder$|^number plate holder front$", "Number Plate Front Holder"),  # user 2026-10-23
     (r"(?i)^tail ?gate moulding$", "Tailgate Finisher"),  # user 2026-10-23: same item
     (r"(?i)^spare wheel foam$", "Spare Wheel Foam"),  # user 2026-10-23: this exact format
@@ -287,7 +288,23 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
 # kept DIFFERENT by the user: Rear Lamp RH vs Rear Lamp Outer RH (2); Rear Bumper Sensor RH vs ...Outer RH (4);
 # Front Panel Upper vs Front Panel Upper Cover (7: the cover is the plastic on top of the upper panel)
 
+KEEP_UP = {"LH", "RH", "ECU", "A/C", "ABS", "SRS", "LED", "CVT", "MPV", "SUV", "4WD", "2WD", "DRL"}
+
+
+def title_caps(l):
+    """user 2026-10-23: never ALL CAPITALS; every word starts with one capital (QUARTER PILLAR LH -> Quarter Pillar LH)"""
+    if not l or re.search(r"[a-z]", l): return l
+    return " ".join(w if w in KEEP_UP else "-".join(p[:1] + p[1:].lower() for p in w.split("-")) for w in l.split(" "))
+
+
 def final(l):
+    r = _final_rules(l)
+    if r is None: return None
+    r = title_caps(r)
+    return r if r == l or _final_rules(r) == r else (_final_rules(r) or None)
+
+
+def _final_rules(l):
     for _ in range(5):          # chains: Rear Bootlid Weatherstrip -> Boot Lid Weatherstrip -> Boot Lid Aperture Weatherstrip
         if not l: return l
         for a, b in FINAL:
