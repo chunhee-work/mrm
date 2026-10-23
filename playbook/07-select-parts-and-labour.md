@@ -17,6 +17,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Catalogue accounts (Autoris/Newvest, MRC): tick in the catalogue, add manual rows for misses; no-catalogue accounts (Rawang): everything via `addparts.mjs`. Qty field `PBT<row>`, row comment `PCM<row>`. [step2-paint-popup-method] [estimate-companion-parts-rule]
 
 ## Rule 1 — every photographed item goes in
+- ⭐⭐ **(user 2026-10-23, MUST): every item that has a photo is selected in Select Parts, NO MATTER whether it looks broken or not.** Never drop a photographed item because it "looks intact", "damage not clear" or "probably no sensor". The photo name decides; if you think the name is wrong, the user fixes the name in the 照片命名台 — you still select the named item. After ticking, run the photo-vs-selection check (every non-view photo name must match a selected catalogue item or a manual row) and fix every gap before reporting. [mistakes-log-sinar-batch2]
 - Every item named in the artifact / seen in the photos must be in the estimate. A catalogue miss becomes a MANUAL row (08), never a drop. [estimate-select-parts-rules-2026-10-17] [mistakes-log-sinar-batch2]
 - Missed before: BRS8642 front + rear Wheel Rim RH, Runningboard Spoiler RH, Door Mirror RH; VDD414 Spare Wheel Well; FB438 Bumper Front Fog Lamp LH (user added at 763.00). [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17]
 - Case note: TCP4539 also needed Fender Front Inner Wheel House RH. [photo-center-crosshair-rule]
