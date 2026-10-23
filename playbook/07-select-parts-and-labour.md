@@ -120,16 +120,6 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - **Rear hit, MPV tailgate (SK64A Avanza)**: R Quarter Inner Reinforcement LH + RH, Quarter Panel LH + RH, Rear Panel Inner (+ Centre, LH), Rear Panel Outer, Spoiler Rear. [labour-diff-log]
 - **Rear hit, sedan (WQF8918 Civic)**: also the opposite side's Chassis Member Rear Section Rear and Quarter Panel Inner Striker Reinforcement Panel. [labour-diff-log]
 
-### Labour lessons, batch 3 (2026-10-23, user review of 14 cases). The user kept almost all of my N/R; only these changed.
-- **A part replaced = N on its labour, never R.** If I add a part after the labour was ticked, switch its labour from R to N at the same time (CBL8902 Kenari: Quarter Panel RH part added → user moved Quarter Panel RH from R to N). [labour-diff-log]
-- **Each replaced part brings its fitting labour (N):** [labour-diff-log]
-  - Door Rear replaced → N Door Rear + **Door Glass Rear <side> R&R** (BPA5858 Jazz).
-  - Windscreen Front / Rear part → N Windscreen Front / Rear (KCM8604 Persona).
-  - Rooflining part → N **Dashboard Panel R&R** (KCM8604).
-  - Front Pillar Outer part → N Front Pillar Outer + **Bodyside Section Front** same side (KCM8604).
-- KCM8604 (LH side hit): user unticked Misc **Number plate, rear**: no rear-end damage → no rear number plate. [labour-diff-log]
-- Automated in `typesafe/step2_plan.py` (replaced part → fitting N; R minus N).
-
 ## Misc ticks (Select Parts → Misc)
 - Side hit (BRS8642, TCB8444, WYN5733 final): Electrical, Car-O-Liner, Other items, Road test, Road wheel alignment, Road wheel balancing, Underseal materials. No number plate. [labour-diff-log]
 - Misc must match the impact: side hit → side misc, never the front set ("Number plate, front") (WYN5733 Alza side hit got front misc). Check misc on every case. [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17]
