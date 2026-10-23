@@ -98,6 +98,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Door hinges: Door Front/Rear Hinge Upper/Lower LH/RH (Rear LH Door Hinge → Door Rear Hinge Upper LH). [photo-center-crosshair-rule]
 - Door weatherstrips: Door Front Outer Weatherstrip LH/RH = black strip along the bottom of the window, outside (Door Front Weatherstrip merges here); Door Front Aperture Weatherstrip LH/RH = rubber seal round the door opening (often pulled out by fingers). Same for rear doors. [photo-center-crosshair-rule]
 - Door Lower Moulding LH/RH → Door Rear Lower Moulding LH/RH. [photo-center-crosshair-rule]
+- Never "Tailgate Strut": always the full name **Tailgate Support Strut LH/RH** (user 2026-10-23).
 - Door Glass Front Window LH/RH = **Door Front Window LH/RH** (photo name; same for Rear) (user 2026-10-23). Merimen's labour label "Door Glass Front Window" stays as Merimen writes it.
 - New name (user 2026-10-23): **Door Front Run Felt LH** (the rubber channel the window glass runs in); same pattern for Door Front/Rear Run Felt LH/RH. Not sure → ask the user with the photo.
 - Front Pillar = pillar between windscreen and front door (= Front Pillar Outer; Outer Trim / Inner stay separate); Centre Pillar = Centre Pillar Outer. [photo-center-crosshair-rule]
