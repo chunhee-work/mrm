@@ -29,6 +29,7 @@ User 2026-10-20: "for all my feedback and the things u do wrong pls learn from l
 6. **Labour N ticks pull in parts.** Ticking N for an undamaged panel (Bonnet, Quarter Panel, Lamp RH, Crossmember Front…) adds that part. Snapshot after ticking and untick any part that is not in the photos.
 7. **Misc must match the impact.** Side hit → no front set (no "Number plate, front"). WYN5733 got the front misc for a side hit.
 
+8c. **2026-10-23 NDG4731:** the car had Rear Lamp Inner/Outer and Rear Bumper Sensor Inner/Outer, but photos were still named plain "Rear Lamp LH" / "Rear Bumper Sensor LH". User: when the car has Inner & Outer, always write Inner/Outer for lamps and sensors.
 8b. **2026-10-23 (14-case batch):** the review dropped photographed items it judged undamaged or misnamed (CBL8902 Fog Lamp LH, BMN7769 bumper brackets + A/C hose, BPA5858 Door Rear LH, TAW339/NDG4731 badges, KCM8604 windscreens/pillar, WVH6628 fog lamp/arm/tread plate…). User: "all those got image one, no matter broken or not, need to select in select part." Run the photo-vs-selection check on every case.
 
 ## Prices
