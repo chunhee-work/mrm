@@ -85,6 +85,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Front door = the door next to the front wheel (handle just behind the front wheel / mirror); the rear door ends where the rear wheel arch starts; outer handle release at the rear of the door tells front vs rear. [photo-center-crosshair-rule]
 - Panel round the rear wheel arch, behind the rear-door line = Quarter Panel LH/RH, not Door Rear. [photo-center-crosshair-rule]
 - Every quarter name starts with "Quarter Panel" (Quarter Pnl / Quater → Quarter Panel; Quarter Panel Outer = Quarter Panel; Rear LH Quarter Panel → Quarter Panel LH; Quarter Inner Trim → Quarter Panel Inner Trim). [photo-center-crosshair-rule]
+- Never "RR PANEL TRIM" → **Rear Panel Inner Trim**; never "RR BUMPER AFTER DISMANTLE" → name the part at the crosshair (user 2026-10-23). [photo-center-crosshair-rule]
 - Front LH/RH Bumper Lamp = **Front Bumper Fog Lamp LH/RH** (user 2026-10-21). Spoiler Runningboard Extension LH/RH (any case) = **Runningboard Spoiler LH/RH**, never the Extension name (user 2026-10-21). [photo-center-crosshair-rule]
 - Never "REAR RADAR LH/RH": it is **Rear Bumper Sensor LH/RH** (user 2026-10-21). [photo-center-crosshair-rule]
 - **Boot Extractor Vent** = Extractor Lower Vent = Boot Extractor Vent LH/RH: one name, never LH or RH (user 2026-10-21). [photo-center-crosshair-rule]
