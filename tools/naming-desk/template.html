@@ -122,8 +122,8 @@ function edit(r,f,paste){const nm=f.querySelector(".nm");if(!nm)return;const inp
  const fin=ok=>{if(done)return;done=true;const v=inp.value.replace(/\s+/g," ").trim();if(ok&&v&&v!==cur(r))save(r,v===r.name?null:v);else render()};
  inp.addEventListener("paste",ev=>{const tx=(ev.clipboardData&&ev.clipboardData.getData("text")||"").replace(/\s+/g," ").trim();if(!tx)return;ev.preventDefault();inp.value=tx;fin(true)});
  inp.onkeydown=ev=>{if(ev.key==="Enter"){ev.preventDefault();fin(true)}else if(ev.key==="Escape"){ev.preventDefault();fin(false)}};inp.onblur=()=>fin(true);
- // save without Enter: a name picked from the list saves at once; typed text saves 1.2 s after the last key
- let tm;inp.addEventListener("input",ev=>{clearTimeout(tm);const v=inp.value.replace(/\s+/g," ").trim();if(!v)return;if(NSET.has(v)&&(!ev.inputType||ev.inputType==="insertReplacementText")){fin(true);return}tm=setTimeout(()=>fin(true),1200)})}
+ // save without Enter: a name picked from the list saves at once; typed text saves 3 s after the last key (user 2026-10-23)
+ let tm;inp.addEventListener("input",ev=>{clearTimeout(tm);const v=inp.value.replace(/\s+/g," ").trim();if(!v)return;if(NSET.has(v)&&(!ev.inputType||ev.inputType==="insertReplacementText")){fin(true);return}tm=setTimeout(()=>fin(true),3000)})}
 let CLIP="";
 async function copyName(n){CLIP=n;let ok=false;try{await navigator.clipboard.writeText(n);ok=true}catch(e){}toast(ok?("已复制："+n):("已复制（只在这个页面里能 Paste）："+n))}
 document.addEventListener("copy",()=>{try{const s=String(window.getSelection()||"").replace(/\s+/g," ").trim();if(s)CLIP=s}catch(e){}});
