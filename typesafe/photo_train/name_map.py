@@ -224,7 +224,8 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Badge Front$", "Badge"),                                                      # o
     (r"^Rear Panel (LH|RH)$", None),                                                  # p: wrong name -> drop (Rear Lamp Panel LH/RH is right)
     # round 3 (user 2026-10-17)
-    (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"(?i)^spare wheel foam$", "Spare Wheel Foam"),  # user 2026-10-23: this exact format
+    (r"^Rear (LH|RH) Taillamp$", r"Rear Lamp \1"), (r"(?i)^tail ?gate moulding$", "Tailgate Finisher"),  # user 2026-10-23: same item
+    (r"(?i)^spare wheel foam$", "Spare Wheel Foam"),  # user 2026-10-23: this exact format
     (r"(?i)^tail ?gate strut( LH| RH)?$", lambda m: "Tailgate Support Strut" + (m.group(1) or "").upper()),  # user 2026-10-23: full name
     (r"(?i)^door glass (front|rear) window (LH|RH)$", lambda m: "Door " + m.group(1).capitalize() + " Window " + m.group(2).upper()),  # user 2026-10-23
     (r"(?i)^rear radar distance sensor( LH| RH)?$", lambda m: "Blind Sport ECU" + (m.group(1) or "").upper()),  # user 2026-10-23: = Blind Sport ECU, LH and RH
