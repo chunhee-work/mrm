@@ -35,7 +35,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Photo **Door Front/Rear Window LH/RH** = catalogue **Door Glass Front/Rear Window LH/RH** as a PART (not only R labour). KCM8604 missed both (user 2026-10-23).
 - Photo **Rear Bumper Spoiler** on a car whose catalogue has one side-less "Spoiler Bumper Rear" (Corolla Altis BMN7769) → that item, qty 1, no comment (user 2026-10-23).
 - **Front Pillar Outer** (LH/RH) seen in the photos → select it as a part (user 2026-10-20).
-- **Blind Sport ECU LH/RH** (photo REAR RADAR DISTANCE SENSOR): select both LH and RH; no catalogue item on Vios → manual rows (user 2026-10-23).
+- **Blind Sport ECU LH/RH** (photo REAR RADAR DISTANCE SENSOR): select ONLY the side that has a photo — only LH photographed → LH only, never add RH (user 2026-10-23, CCQ6119; was: "both LH and RH"). No catalogue item on Vios → manual row.
 - **Rear Bumper Spoiler = Bumper Rear Lower Cover** when the catalogue has no spoiler item (Vios 2023 To 2026 / CCQ6119; user 2026-10-23). step2_plan.py maps it automatically.
 - "Bumper Rear Shock Absorber" is a bumper part, not suspension. [estimate-select-parts-rules-2026-10-17]
 
@@ -44,6 +44,10 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - 45, 95, 120, 140: not described in memory — read the group title in the `selcat2` dump before using. [typesafe/step2_plan.py]
 
 ## Quantity + comments
+- ⭐⭐ **Same catalogue item needed twice collapses to ONE row (user 2026-10-23).** Merimen keeps one copy when the same catalogue item is ticked in two groups (e.g. `Bumper Clips [FRT/RR]` under Front Panel and Rear Panel, `Door Striker [All Doors]` under Front Door and Rear Door). After Select Parts, open the parts page (dsp_details) and add a MANUAL row for every missing copy, same price, with a comment saying which one ("Front Bumper", "Front RH"…), and comment the catalogue row too ("Rear RH"). Check every case with 2 bumpers or 2+ doors: Bumper Clips, Door Striker, Door Check Strap, Door Outer Release Handle, Weather Sheeting, shared hinges. CBL8902 missed front Bumper Clips + front-door Striker / Check Strap / Handle.
+- ⭐⭐ **Every qty-2 row gets a comment, always** (user 2026-10-23): front pair "Front LH & Front RH", rear pair "Rear LH & Rear RH" (Front Bumper Sensor ×2, Front Bumper Bracket ×2…).
+- ⭐⭐ **Every door hinge row whose NAME does not already say Upper/Lower + LH/RH gets a comment "Upper RH" / "Lower LH"** (e.g. `Door Hinge [Upr. RH,Lwr. LH]` used on the RH front door upper → "Upper RH") (user 2026-10-23).
+- `setcmt.mjs` matches the row's display name; for two rows with the same name use `"<name>#1"` / `"<name>#2"` (page order).
 - Qty = the blue number button at the row's left (click to change 1 → 2). Check qty on every case ("u missed all"). [estimate-select-parts-rules-2026-10-17]
 - Catalogue clips come in at qty 1 → fix to 15 in 08 with `setqty.mjs`. [merimen-batch-workflow]
 - Paired items as ONE row (qty 2 + comment) only when the catalogue has a single side-less/one-side item or it is a manual row. If the catalogue has separate LH/RH (or Upper/Lower) items, tick each, no comment. [estimate-companion-parts-rule]
@@ -74,6 +78,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
   - **Front corner:** Shock Absorber, Suspension Spring, Steering Tie Rod, Suspension Lower Arm, Suspension Crossmember, Knuckle Arm, Driveshaft, Stabiliser Bar Front Link.
   - **Rear corner:** Shock Absorber, Suspension Spring, Suspension Lower Arm, Suspension Crossmember (rear has no Tie Rod, Knuckle Arm, Driveshaft or Stabiliser Link).
   - Same axle and same side as the photographed item (Front LH photo → the Front LH set). Catalogue names differ (Wishbone Lower = Suspension Lower Arm; Suspension Arm Front = lower arm). Not in the catalogue → manual row with a price. step2_plan.py adds the set automatically.
+  - **Suspension Crossmember Front/Rear is its own item: "Subframe Front" is NOT the crossmember.** Catalogue has no "Suspension Crossmember" → manual row "Suspension Crossmember Front" / "Rear" (user 2026-10-23, CBL8902 Kenari).
 - **Shock Absorber Front → Suspension Crossmember Front; Shock Absorber Rear → Suspension Crossmember Rear** (same axle). [estimate-select-parts-rules-2026-10-17]
 - **Rear suspension** — any of Rear Shock Absorber LH/RH, Rear Suspension Spring, Rear Suspension Upper Arm, Rear Suspension Lower Arm → Rear Suspension Crossmember. [estimate-companion-parts-rule]
 - **Suspension Crossmember → Wheel Centre + Wheel Hub** (same side and axle). Rear crossmember → Rear Wheel Hub, qty 1, in the rear quarter & susp. group of the damaged side. [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]

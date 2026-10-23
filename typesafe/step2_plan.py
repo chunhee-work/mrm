@@ -105,7 +105,7 @@ for s_ in ("LH", "RH"):
                     if c: add(c[0][0], c[0][1], f"crossmember -> {q}")
 # user 2026-10-23 SUSPENSION SET: any one of these photographed on a corner -> select ALL of that corner's set
 SUSP = {"Front": [("Shock Absorber", r"Shock Absorber Front|Front Shock Absorber"), ("Suspension Spring", r"Suspension Spring Front|Coil Spring Front|Spring Front"), ("Steering Tie Rod", r"Tie Rod"),
-                  ("Suspension Lower Arm", r"Lower Arm|Wishbone Lower|Suspension Arm Front"), ("Suspension Crossmember", r"Suspension Crossmember( Front)?|Sub ?frame( Front)?"),
+                  ("Suspension Lower Arm", r"Lower Arm|Wishbone Lower|Suspension Arm Front"), ("Suspension Crossmember", r"Suspension Crossmember( Front)?"),
                   ("Knuckle Arm", r"Knuckle"), ("Driveshaft", r"Drive ?shaft"), ("Stabiliser Bar Front Link", r"Stabili[sz]er.*(Link|Rod)")],
         "Rear": [("Shock Absorber", r"Shock Absorber Rear|Rear Shock Absorber"), ("Suspension Spring", r"Suspension Spring Rear|Coil Spring Rear|Spring Rear"), ("Suspension Lower Arm", r"Lower Arm Rear|Rear.*Lower Arm|Suspension Arm Rear"),
                  ("Suspension Crossmember", r"Suspension Crossmember Rear|Rear Suspension Crossmember|Crossmember Rear")]}
