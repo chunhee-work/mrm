@@ -103,6 +103,30 @@ for s_ in ("LH", "RH"):
                 for q in ("Wheel Centre", f"Wheel Hub {ax} {s_}"):
                     c = [(v, l) for v, l in cat if v.split('@')[0] == g and re.search(q.replace(' ', '.*'), l)]
                     if c: add(c[0][0], c[0][1], f"crossmember -> {q}")
+# user 2026-10-23 SUSPENSION SET: any one of these photographed on a corner -> select ALL of that corner's set
+SUSP = {"Front": [("Shock Absorber", r"Shock Absorber Front|Front Shock Absorber"), ("Steering Tie Rod", r"Tie Rod"),
+                  ("Suspension Lower Arm", r"Lower Arm|Wishbone Lower|Suspension Arm Front"), ("Suspension Crossmember", r"Suspension Crossmember( Front)?|Sub ?frame( Front)?"),
+                  ("Knuckle Arm", r"Knuckle"), ("Driveshaft", r"Drive ?shaft"), ("Stabiliser Bar Front Link", r"Stabili[sz]er.*(Link|Rod)")],
+        "Rear": [("Shock Absorber", r"Shock Absorber Rear|Rear Shock Absorber"), ("Suspension Lower Arm", r"Lower Arm Rear|Rear.*Lower Arm|Suspension Arm Rear"),
+                 ("Suspension Crossmember", r"Suspension Crossmember Rear|Rear Suspension Crossmember|Crossmember Rear")]}
+TRIG = r"Shock Absorber|Tie Rod|Lower Arm|Wishbone|Suspension Arm|Suspension Crossmember|Knuckle|Drive ?shaft|Stabili[sz]er.*(Link|Rod)"
+corners, sideless = set(), set()
+for n in names:
+    if re.search(TRIG, n, re.I):
+        ax = "Rear" if re.search(r"\bRear\b", n) and not re.search(r"Tie Rod|Knuckle|Drive ?shaft|Link", n) else "Front"
+        sds = re.findall(r"\b(LH|RH)\b", n)
+        if sds: corners.add((ax, sds[0]))
+        else: sideless.add(ax)
+for ax in sideless:  # a side-less name only adds both sides when no sided name exists for that axle
+    if not any(a == ax for a, _ in corners): corners |= {(ax, "LH"), (ax, "RH")}
+for ax, sd in sorted(corners):
+    grp = {("Front", "LH"): "30", ("Front", "RH"): "110", ("Rear", "LH"): "60", ("Rear", "RH"): "80"}[(ax, sd)]
+    other = "RH" if sd == "LH" else "LH"
+    for item, rx in SUSP[ax]:
+        c = [(v, l) for v, l in cat if v.split('@')[0] in (grp, "130", "20") and re.search(rx, l, re.I) and not re.search(rf"\b{other}\b", l)]
+        if any(re.search(rx, key(l), re.I) and not re.search(rf"\b{other}\b", l) for l in pick.values()): continue
+        if c: add(c[0][0], c[0][1], f"suspension set {ax} {sd} -> {item}")
+        else: missing.append(f"{item} {ax} {sd}  (suspension set, manual)")
 if CAT.get('make', '').upper().startswith('PERODUA') or re.search(r"Perodua", sys.argv[1], re.I):
     comp(re.search(r"Headlamp Panel", txt), "Front Panel Upper", "perodua headlamp panel -> front panel upper")
 for lid in ("Boot Lid", "Tailgate"):

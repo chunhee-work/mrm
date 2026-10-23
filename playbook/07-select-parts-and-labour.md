@@ -67,6 +67,10 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Also part of every door set (user 2026-10-20): Hinge, Lock, Striker, Trimboard, Weatherstrip Sheeting, **Regulator Motor**, Aperture Weatherstrip, **Handle Outer Release** (qty 1 each). Add each one the catalogue has for that door; if one is missing, add a manual row. [estimate-companion-parts-rule]
 - Door hinge as one manual row: qty 2, comment "Upper LH & Lower LH" / "Upper RH & Lower RH". [estimate-companion-parts-rule]
 - **Door Front** → also Door Mirror (same side). **Door Rear only → no mirror.** [estimate-select-parts-rules-2026-10-17]
+- ⭐⭐ **SUSPENSION SET (user 2026-10-23, MUST):** if ANY ONE of these is in the photos for a corner, select ALL of that corner's set in Select Parts, front or rear, LH or RH:
+  - **Front corner:** Shock Absorber, Steering Tie Rod, Suspension Lower Arm, Suspension Crossmember, Knuckle Arm, Driveshaft, Stabiliser Bar Front Link.
+  - **Rear corner:** Shock Absorber, Suspension Lower Arm, Suspension Crossmember (rear has no Tie Rod, Knuckle Arm, Driveshaft or Stabiliser Link).
+  - Same axle and same side as the photographed item (Front LH photo → the Front LH set). Catalogue names differ (Wishbone Lower = Suspension Lower Arm; Suspension Arm Front = lower arm). Not in the catalogue → manual row with a price. step2_plan.py adds the set automatically.
 - **Shock Absorber Front → Suspension Crossmember Front; Shock Absorber Rear → Suspension Crossmember Rear** (same axle). [estimate-select-parts-rules-2026-10-17]
 - **Rear suspension** — any of Rear Shock Absorber LH/RH, Rear Suspension Spring, Rear Suspension Upper Arm, Rear Suspension Lower Arm → Rear Suspension Crossmember. [estimate-companion-parts-rule]
 - **Suspension Crossmember → Wheel Centre + Wheel Hub** (same side and axle). Rear crossmember → Rear Wheel Hub, qty 1, in the rear quarter & susp. group of the damaged side. [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
