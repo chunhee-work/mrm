@@ -173,13 +173,21 @@ for n in labels:
 for n in labels:      # replaced panel itself
     if n in labs: N.add(n)
 if any(re.match(r"(Boot Lid|Tailgate)$", n) for n in labels) and "Door Back" in labs: N.add("Door Back")
+# user batch 3 review (2026-10-24): user only ADDED labour, mostly R on inner reinforcements -> tick them when in the catalogue
+side_hit = any(re.match(r"Door (Front|Rear)", n) for n in labels)
+EXTRA_R = ([r"^Fender Front Inner (Reinforcement|Section|Side Reinforcement|Support Panel|Upper Support Panel)", r"^Front Panel Support Panel", r"^Bumper Front Reinforcement Panel", r"^Front Panel$", r"^Grille Front$"] if front else []) \
+    + ([r"^Front Pillar (Inner|Reinforcement)", r"^Centre Pillar (Inner|Reinforcement)", r"^Runningboard Panel (Reinforcement|Section Centre)", r"^Quarter Pillar Front Reinforcement", r"^Quarter Panel Inner Striker Reinforcement"] if side_hit else []) \
+    + ([r"^Quarter Panel Inner( Reinforcement (Lower|Upper))? (LH|RH)$", r"^Quarter Pillar Rear Reinforcement", r"^Quarter Panel Inner Fuel Filler Panel", r"^Chassis Member Rear (Closing|Deformation Panel)", r"^Rear Lamp Panel and Drain Channel"] if rear else [])
+for a in labs:
+    if any(re.search(x, a) for x in EXTRA_R): R.add(a)
+if any(re.match(r"Tailgate$", n) for n in labels) and "Tailgate R&R" in labs: N.add("Tailgate R&R")
 ok = lambda a: (not re.findall(r"\b(LH|RH)\b", a) or re.findall(r"\b(LH|RH)\b", a)[-1] in sides) and not (AREA_BAD and re.search(AREA_BAD, a) and not any(a.startswith(x) for x in labels))
 def fam(a):
     s = re.findall(r"\b(LH|RH)\b", a)
     if not s: return True
     w = a.split()[0]
     return any(s[-1] in l and w in l for l in labels) or a in labels
-N = {a for a in N if fam(a)}; R = {a for a in R if fam(a)}
+N = {a for a in N if fam(a)}; R = {a for a in R if fam(a) or any(re.search(x, a) for x in EXTRA_R)}  # extras: side checked by ok()
 N = sorted(a for a in N if a in labs and ok(a) and not re.match(r"^(Bonnet|Door Mirror)", a) or (a in labs and a in labels))
 R = sorted(a for a in R if a in labs and ok(a) and a not in N)
 json.dump({"CP": list(pick), "N": N, "R": R}, open(sys.argv[4], "w"))
