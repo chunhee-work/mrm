@@ -31,6 +31,8 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Don't go hunting for the other side in an unrelated group (Boot Lid Hinge LH under 100 Front Door RH is wrong). [estimate-companion-parts-rule]
 - PERODUA: never Front Panel Assembly → Front Panel Upper / Fender Inner LH/RH / Front Crossmember / Front Panel Lower. Other makes: Front Panel Assembly. [perodua-front-panel-rule] [mistakes-log-sinar-batch2]
 - LORRY: "Front Chassis Member" with no side. [lorry-front-chassis-member]
+- Photo **Door Front/Rear Window LH/RH** = catalogue **Door Glass Front/Rear Window LH/RH** as a PART (not only R labour). KCM8604 missed both (user 2026-10-23).
+- Photo **Rear Bumper Spoiler** on a car whose catalogue has one side-less "Spoiler Bumper Rear" (Corolla Altis BMN7769) → that item, qty 1, no comment (user 2026-10-23).
 - **Front Pillar Outer** (LH/RH) seen in the photos → select it as a part (user 2026-10-20).
 - **Blind Sport ECU LH/RH** (photo REAR RADAR DISTANCE SENSOR): select both LH and RH; no catalogue item on Vios → manual rows (user 2026-10-23).
 - **Rear Bumper Spoiler = Bumper Rear Lower Cover** when the catalogue has no spoiler item (Vios 2023 To 2026 / CCQ6119; user 2026-10-23). step2_plan.py maps it automatically.

@@ -40,7 +40,9 @@ function misc(name){var n=(name||'').toLowerCase();
  if(/road wheel align|alignment/.test(n))return'45.00';
  if(/balancing/.test(n))return'35.00';
  if(/number plate/.test(n))return'25.00';
- if(/windscreen sealant|glass sealant/.test(n))return'45.00';
+ if(/windscreen sealant|glass sealant/.test(n))return'120.00'; // user 2026-10-23 screenshot
+ if(/floor ?board sealant/.test(n))return'60.00'; // user 2026-10-23
+ if(/tail ?lamp sealant/.test(n))return'15.00'; // user 2026-10-23
  if(/sealant/.test(n))return'30.00';
  if(/other items/.test(n))return'35.00';
  if(/\btyre\b/.test(n))return'350.00';

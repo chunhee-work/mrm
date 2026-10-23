@@ -60,3 +60,8 @@ User 2026-10-20: "for all my feedback and the things u do wrong pls learn from l
 ## 13. Batch 3 (2026-10-23): forgot step 12, the car-model report
 - The batch report went out without the RC vs Merimen model table. The user had to ask.
 - Rule: the completion message is not finished until the car-model table (playbook 09, step 12) is in it. Use `~/mrm-bot/vmodel.mjs`.
+
+## 14. Batch 3 (2026-10-23): naming-desk edits not carried into Select Parts
+- I relabelled the photos after the user's 照片命名台 edits but did not update Select Parts. Gaps found: KCM8604 Door Glass Front/Rear Window LH, KER815 Rear Panel Upper, NDG4731 Rear Bumper Spoiler + Spare Wheel Foam, BMN7769 Spoiler qty, TCH9615 misc Number plate front, BMN7769 A/C hose (photo renamed to Engine Compartment).
+- Rule: playbook 09 re-sync; every re-sync ends with the photo-vs-selection check.
+- Misc sealant prices were wrong (45/30/30): Windscreen sealant rear 120, Floor board sealant 60, Tail lamp sealant 15 (user screenshot).

@@ -44,6 +44,7 @@
 - Mark ⚠️ on every row whose Merimen model has no parts/price data (white option `clsMTRModelLevel0`, not green `clsMTRModelLevel1`) and say why no green one fitted. [car-model-report-warning]
 
 ## Re-sync after the user reviews 照片命名台
+- ⭐⭐ **Every name the user changes MUST be carried into Select Parts, not only the photo label** (user 2026-10-23: batch 3 relabelled photos but left Select Parts unchanged). For each changed photo: new name → its part selected (catalogue or manual row); old name no longer on any photo → its part removed; view names (Engine Compartment, Rear View…) → no part. Then run the photo-vs-selection check for the whole case.
 - Read db `names` and diff against the uploaded names. [merimen-batch-workflow]
 - Relabel changed photos with `relabel_ui.mjs`, verify with `chkorder.mjs` (06). [merimen-batch-workflow]
 - Fix parts to match the new names: `untick.mjs` / `tickall.mjs` on dsp_selection; `delrow.mjs <cid> <ext> session_base.txt "Name|Name"` for manual rows; then `gonext.mjs` → `addparts.mjs` → `fillempty.mjs`. [merimen-batch-workflow]
