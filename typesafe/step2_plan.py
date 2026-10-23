@@ -173,6 +173,16 @@ for n in labels:
 for n in labels:      # replaced panel itself
     if n in labs: N.add(n)
 if any(re.match(r"(Boot Lid|Tailgate)$", n) for n in labels) and "Door Back" in labs: N.add("Door Back")
+# user batch 3: a replaced part brings its own fitting labour (N)
+for n in labels:
+    for pat, jobs in ((r"Rooflining", ["Dashboard Panel R&R"]), (r"Front Pillar Outer (LH|RH)", ["Bodyside Section Front {0}", "Front Pillar Outer {0}"]),
+                      (r"Door Rear (LH|RH)", ["Door Glass Rear {0} R&R"]), (r"Windscreen (Front|Rear)", ["Windscreen {0}"])):
+        m = re.match(pat, n)
+        if m:
+            for j in jobs:
+                j = j.format(*m.groups())
+                if j in labs: N.add(j)
+R -= N   # never N and R on one panel (CBL8902 Quarter Panel RH: replaced -> N, not R)
 ok = lambda a: (not re.findall(r"\b(LH|RH)\b", a) or re.findall(r"\b(LH|RH)\b", a)[-1] in sides) and not (AREA_BAD and re.search(AREA_BAD, a) and not any(a.startswith(x) for x in labels))
 def fam(a):
     s = re.findall(r"\b(LH|RH)\b", a)

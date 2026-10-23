@@ -48,6 +48,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Tailgate aperture seal = catalogue "Tailgate Weatherstrip". Tailgate finisher = **Tailgate Finisher** (= Tailgate Moulding).
 - Spare Wheel Foam; Boot Storagetray (manual ~155).
 - No catalogue Rear Wheel House Inner → manual (64.70, weak reference).
+- Labour (BPA5858 user review): rear door replaced → N Door Rear LH + Door Glass Rear LH R&R.
+
+
 ### City 2014 On 4 Dr Sal 1.5 E · AKF8382
 - Badges: **Boot Lid Badge (CITY)**; catalogue Emblem Boot/Tailgate [City] and [i-VTEC] are separate values.
 - Rear lamps Inner (boot lid) LH/RH + Outer LH/RH.
@@ -72,6 +75,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Door Rear Weatherstrip Outer LH (user's name).
 
 ## Perodua
+- Labour (KCM8604 user review): N Windscreen Front + Rear, Front Pillar Outer RH + Bodyside Section Front RH, Dashboard Panel R&R (rooflining replaced); LH side hit → no Misc "Number plate, rear".
+
+
 ### Bezza 2023 (rear hit, boot lid) · NEA4698
 - User's parts: Bumper Clips [FRT] ×15, Chassis Member Rear LH, Quarter Panel Inner LH, Quarter Liner (catalogue Quarter Panel Liner Rear LH), Quarter Panel Outer LH, Wheel House Inner Rear LH, Rear Lamp Panel LH, Bumper Rear Finisher LH, Bumper Rear Retainer LH/RH, Bumper Rear Sensor [White], Bumper Reflector Rear LH.
 ### Alza 2014–2018 (front hit) · TCB8444, WYN5733
@@ -86,6 +92,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Fender Front Inner Wheel House & Chassis Member LH/RH (one combined item).
 - No Rear Wheel House Inner → manual Wheel House Inner Rear LH (64.70).
 - Fog Lamp Front LH/RH exist (10@). Cowl Panel.
+- Labour (CBL8902 user review): Quarter Panel RH replaced → N, not R.
+
+
 ### Myvi 2005 On 1.3 EZ · TAW339
 - **Tailgate Support Strut LH and RH share one catalogue value** → one row, qty 2, comment "Rear LH & Rear RH".
 - Badge Tailgate [MYVI] = catalogue CT6205 Badge Tailgate.
