@@ -2,6 +2,8 @@
 
 Start as soon as the Merimen model variant is chosen; don't wait for the user's review. [case-workflow-order] [merimen-batch-workflow]
 
+⭐⭐ **The user's review of the 照片命名台 is the gate for Step 2 (user 2026-10-23).** After Phase A, tell the user `照片命名台 ready: <PLATES>` and wait. When they say done: dump db `names`, relabel every changed photo (06), update `~/mrm-bot/photoplan.json`, and only then start Select Parts / Labour / Misc from those final names. If the user edits names again later, run the two-way `tools/naming-desk/sync_check.py` (09).
+
 ## Run the model
 - Run `typesafe/photo_train/case_report.py` and add a tab for the case to the 照片命名台 artifact. [merimen-batch-workflow]
 - Model: `photo_train/predict_case.py models/dinov2_b_big10a.pt <photos in order>` with `VEHICLE=<full Merimen model variant>` (needs "4 Dr"/"Sal"/"5 Dr"/"Hatch"/"MPV" in it, not just the JPJ line). [case-photo-naming-artifact] [photo-center-crosshair-rule]

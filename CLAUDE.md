@@ -21,9 +21,11 @@ The step playbooks in `playbook/` hold ALL of the user's rules, one file per ste
 | estimate details (conditions, misc, paint, manual parts, qty, comments) | `playbook/08-estimate-details.md` |
 | finish a batch: report tables, car-model report, sheet, re-sync after review | `playbook/09-finish-and-report.md` |
 
-## Workflow (one instruction = every case, 0→100%, never stop to ask)
-1 read docs → 2 create → 3 photos into 照片命名台 → 4 Adjuster Report → 5 rates → 6 narratives → 7 upload DOC → 8 upload photos → 9 Select Parts + Labour (look at the photos) → 10 estimate details → 11 Google Sheet → 12 car-model report (RC vs Merimen model, ⚠️ when no price data).
-The only stop: a missing document → send `<PLATE> pending <doc>` and continue with the other cases. Push a notification when the batch is done.
+## Workflow (one instruction = every case; two phases — user 2026-10-23)
+**Phase A (no stopping):** 1 read docs → 2 create → 3 photos into 照片命名台 → 4 Adjuster Report → 5 rates → 6 narratives → 7 upload DOC → 8 upload photos.
+Then push a notification + one line: `照片命名台 ready: <PLATES>`. **STOP. Do NOT touch Select Parts, Labour or Miscellaneous until the user says they have finished the 照片命名台.**
+**Phase B (after the user's "done"):** re-read db `names` → relabel photos to the user's names → 9 Select Parts + Labour + Misc from the FINAL names (look at the photos) → 10 estimate details → 11 Google Sheet → 12 car-model report (playbook 09 format). Push a notification when done.
+The other stop: a missing document → send `<PLATE> pending <doc>` and continue with the other cases.
 
 ## When the user corrects something
 1. Fix it in Merimen.

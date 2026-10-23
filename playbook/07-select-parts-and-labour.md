@@ -3,6 +3,7 @@
 The most error-prone step. Read this whole file before every case. Step 2 = select the parts AND tick Labour N/R + Misc, all from the photos; then conditions/prices/paint (08). [step2-paint-popup-method] [labour-n-r-selection] [merimen-batch-workflow]
 
 ## Before you start
+- ⭐⭐ **Gate: start only after the user has said the 照片命名台 is finished** (user 2026-10-23). Build parts, labour and misc from the user's FINAL names, never from the model's first guesses. After ticking, run `tools/naming-desk/sync_check.py` and fix everything until all cases print OK.
 - Re-read the artifact's db `names`/`orders` (03): the user may have edited them. [merimen-batch-workflow]
 - Look at the PHOTOS themselves, not just the name text: what each photo shows decides parts, companions, quantities and labour ("only u got the image then u know what to choose"). [merimen-batch-workflow]
 - Re-read dsp_selection + dsp_details first; never duplicate rows/ticks the user already added; don't overwrite labour the user already ticked. [mistakes-log-sinar-batch2] [labour-n-r-selection]

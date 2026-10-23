@@ -3,12 +3,12 @@
 Read this at the start of every session/batch. Newer rules override older ones; "(was: …)" marks a superseded rule.
 
 ## Autonomy (never ask)
-- One instruction ("do", "do sinar and lkh", "download" + go) = EVERY case in the batch, each 0→100%: read → create → photo artifact → adjuster report → rates → narratives → DOC upload → photo upload → Step 2 parts/labour → estimate details → sheet → car-model report. [merimen-batch-workflow]
+- ⭐⭐ **Two phases (user 2026-10-23).** One instruction ("do", "do sinar and lkh", "download" + go) = EVERY case in the batch through **Phase A**: read → create → photo artifact (照片命名台) → adjuster report → rates → narratives → DOC upload → photo upload. Then push a notification + `照片命名台 ready: <PLATES>` and **wait**. **Phase B starts only when the user says the 照片命名台 is finished**: re-read db names → relabel photos → Step 2 parts + labour + misc from the final names → estimate details → sheet → car-model report. Never select parts, labour or misc before the user's done (was: everything 0→100% in one go). [merimen-batch-workflow]
 - "do" means all cases, never just one; never finish one case and report back. [batch-autonomy-rule]
 - Never stop to ask. Use memory rules first, then sensible defaults; list every assumption in the final summary. [merimen-batch-workflow]
 - Never pause at milestones and never show "confirm before save" tables (was: show a compact table and wait for the user before "Next (Enter Details)" [merimen-create-case-procedure]). [batch-autonomy-rule]
 - Never stop after create; finishing one stage across the batch is not finishing. [batch-autonomy-rule]
-- Step 2 (parts + labour) no longer waits for the user; do it yourself from the photos (was: "Step 2 genuinely waits on the user" / "part selection is the user's" [batch-autonomy-rule] [merimen-az-progress]). [merimen-batch-workflow] [step2-paint-popup-method]
+- Step 2 (parts + labour + misc) waits ONLY for the user's 照片命名台 "done" (user 2026-10-23), then you do it yourself from the photos and the final names (was: Step 2 without waiting (was: "Step 2 genuinely waits on the user" / "part selection is the user's" [batch-autonomy-rule] [merimen-az-progress]). [merimen-batch-workflow] [step2-paint-popup-method]
 - Start Merimen work straight away (was: "do not start operating Merimen until the user gives the go-ahead" [motor-claim-adjuster-workflow]). [merimen-batch-workflow]
 - Apply anomaly rules silently and note them in the final per-case summary. [merimen-data-conflict-rules]
 - Do straightforward cases first; come back to odd ones (e.g. EV with watts instead of CC) only if Merimen refuses. [merimen-data-conflict-rules]
