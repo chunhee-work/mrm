@@ -25,6 +25,7 @@
 - Then: manual-price list (part, price, source model, number of reference rows; flag < 5 rows), the sheet rows, and all pending copy lines `<PLATE> pending <item>`. [merimen-batch-workflow] [mistakes-log-sinar-batch2] [merimen-pending-case-line-format]
 
 ## Car-model report (step 12, last step of every case/batch)
+- ⭐⭐ **MUST be sent to the user in the batch-completion message, every batch, never skipped** (user, 2026-10-23: batch 3 forgot it). Read the variants with `node vmodel.mjs <ids.txt>` (ids.txt lines: `PLATE caseid extid`; prints "Vehicle Model:" per case), green/white from the model dropdown options. [batch-completion-report-format]
 - Table, one row per case: plate | RC details as printed (make/model, cc, year, fuel/transmission) | Merimen model variant chosen (full string, e.g. "PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-11/25]") | why that variant if the RC is not exact (trim, year range, A/M from photos). [merimen-batch-workflow]
 - Read the variant back from Merimen ("Vehicle Model:" on dsp_details), not from memory. [merimen-batch-workflow]
 - Mark ⚠️ on every row whose Merimen model has no parts/price data (white option `clsMTRModelLevel0`, not green `clsMTRModelLevel1`) and say why no green one fitted. [car-model-report-warning]
