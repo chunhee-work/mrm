@@ -29,6 +29,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Quarter Pillar LH (pickup bed pillar). Side Step LH/RH. Tread Plate Front RH = Runningboard Panel Tread Plate Front RH.
 - Wheel arch pieces: Extension Wheel Arch Front/Rear LH; Moulding Wheel Arch Rear LH [Pad].
 - Lower arm = Wishbone Lower Front LH/RH (110@/30@).
+- Labour (WVH6628, front-LH + LH side): user added N Wheel Arch Extension Front LH, Wheel Arch Rear Extension LH (the wheel arc finishers replaced); R Centre Pillar Inner LH, Centre Pillar Reinforcement LH Lower, Fender Front Inner Side Reinforcement LH, Fender Front Inner Support Panel LH, Front Panel Support Panel LH, Front Pillar Inner LH, Front Pillar Reinforcement LH, Grille Front, Quarter Pillar Front Reinforcement Panel LH + Upper LH.
+
+
 ### Avanza 1.5 G (MPV) · SK64A
 - Tailgate MPV: Tailgate Spare Wheel Carrier. Quarter Liner LH/RH.
 
@@ -48,6 +51,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Tailgate aperture seal = catalogue "Tailgate Weatherstrip". Tailgate finisher = **Tailgate Finisher** (= Tailgate Moulding).
 - Spare Wheel Foam; Boot Storagetray (manual ~155).
 - No catalogue Rear Wheel House Inner → manual (64.70, weak reference).
+- Labour (NDG4731, rear hit + rear door RH): user added N Tailgate R&R; R Chassis Member Rear Closing LH + RH, Chassis Member Rear Deformation Panel LH, Rear Lamp Panel and Drain Channel LH + RH, Chassis Member Front End Closing Reinforcement RH.
+
+
 ### City 2014 On 4 Dr Sal 1.5 E · AKF8382
 - Badges: **Boot Lid Badge (CITY)**; catalogue Emblem Boot/Tailgate [City] and [i-VTEC] are separate values.
 - Rear lamps Inner (boot lid) LH/RH + Outer LH/RH.
@@ -72,6 +78,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Door Rear Weatherstrip Outer LH (user's name).
 
 ## Perodua
+- Labour (KCM8604, LH side hit, both LH doors): user added R Fender Front Inner Reinforcement LH, Fender Front Inner Section LH, Front Pillar Reinforcement LH, Quarter Panel Inner Striker Reinforcement Panel LH.
+
+
 ### Bezza 2023 (rear hit, boot lid) · NEA4698
 - User's parts: Bumper Clips [FRT] ×15, Chassis Member Rear LH, Quarter Panel Inner LH, Quarter Liner (catalogue Quarter Panel Liner Rear LH), Quarter Panel Outer LH, Wheel House Inner Rear LH, Rear Lamp Panel LH, Bumper Rear Finisher LH, Bumper Rear Retainer LH/RH, Bumper Rear Sensor [White], Bumper Reflector Rear LH.
 ### Alza 2014–2018 (front hit) · TCB8444, WYN5733
@@ -86,6 +95,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Fender Front Inner Wheel House & Chassis Member LH/RH (one combined item).
 - No Rear Wheel House Inner → manual Wheel House Inner Rear LH (64.70).
 - Fog Lamp Front LH/RH exist (10@). Cowl Panel.
+- Labour (CBL8902, user review 2026-10-24, front-RH + side hit): user added R Bumper Front Reinforcement Panel, Front Panel, Headlamp Assembly LH (tts) (other side's headlamp), Quarter Panel Inner RH, Quarter Panel Inner Reinforcement Lower RH + Upper RH.
+
+
 ### Myvi 2005 On 1.3 EZ · TAW339
 - **Tailgate Support Strut LH and RH share one catalogue value** → one row, qty 2, comment "Rear LH & Rear RH".
 - Badge Tailgate [MYVI] = catalogue CT6205 Badge Tailgate.
@@ -95,6 +107,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Runningboard Spoiler RH: manual 290.34 (same model, 1 row).
 
 ## Mitsubishi
+- Labour (WA9150L, front-RH + door front RH): user added R Fender Front Inner Side Reinforcement Section RH, Fender Front Inner Upper Support Panel RH, Runningboard Panel Reinforcement RH (+ Centre Section, Section Rear), Runningboard Panel Section Centre RH.
+
+
 ### Lancer 2007 4 Dr 2.0 GT (rear hit, boot lid) · JNC9717
 - User's parts: Bumper Clips ×15, Chassis Member Rear LH, Lamp Assembly Rear LH/RH (tts), Quarter Liner (catalogue Quarter Panel Liner Rear Part LH), Quarter Panel Outer LH, Rear Lamp Panel LH [Housing], Boot Lid Hinge RH ×2 ("Rear LH & Rear RH"), Boot Lid Lock, Boot Lid Striker, Bumper Rear Cover, Bumper Rear Reinforcement, Rear Panel, Rear Panel Inner Trim [Black], Bumper Rear Spoiler. Bumper Rear Sensor manual row needs the comment.
 ### ASX 2010 On 2.0 2WD · JNV969
@@ -102,6 +117,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Exhaust Silencer Rear manual 2,855.60 (2 ASX rows).
 
 ## Nissan
+- Labour (JNV969, rear hit, tailgate): user added R Quarter Pillar Rear Reinforcement LH + RH.
+
+
 ### Grand Livina 2012 (rear hit, tailgate) · WWH2330
 - User's parts: Bumper Clips ×15, Chassis Member Rear Assembly LH, Lamp Assembly Rear LH/RH (tts), Quarter Panel LH, Quarter Liner LH (manual 325.00, Nissan median), Bumper Bracket Rear LH/RH [Side - at Rear Panel], Bumper Rear Cover, Bumper Rear Sensor ×2, Bumper Rear Shock Absorber, Rear Panel, Spoiler Bumper Rear [IMPUL type], Tailgate, Tailgate Aperture Weatherstrip.
 
@@ -110,3 +128,5 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Final names (user 2026-10-23): #8 = Engine Compartment (not Tailgate Striker); #55/#57 = Rear Panel Upper Section RH (no Bumper Rear Upper Cover / Wheel Arc Finisher); #91–92 = Rear Chassis Member LH.
 - 4 rear sensors; Tailgate Latch = "Tailgate Lock"; Tailgate Weatherstrip; Floor Pan [Rear Section] = Boot Floor.
 - Bumper Bracket Rear LH + RH [Side] are separate items.
+- Labour (VCD3926, rear hit): user added R Quarter Panel Inner Fuel Filler Panel.
+

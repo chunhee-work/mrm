@@ -128,6 +128,15 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - **Rear hit, MPV tailgate (SK64A Avanza)**: R Quarter Inner Reinforcement LH + RH, Quarter Panel LH + RH, Rear Panel Inner (+ Centre, LH), Rear Panel Outer, Spoiler Rear. [labour-diff-log]
 - **Rear hit, sedan (WQF8918 Civic)**: also the opposite side's Chassis Member Rear Section Rear and Quarter Panel Inner Striker Reinforcement Panel. [labour-diff-log]
 
+### Labour lessons, batch 3 (user review 2026-10-24). User removed NOTHING; only added — mostly R on the inner structure. Tick more R.
+- **Every replaced panel → R its inner reinforcements on the same side**, not just the inner panel: [labour-diff-log]
+  - Front hit: Fender Front Inner Reinforcement / Section / Side Reinforcement (Section) / Support Panel / Upper Support Panel; Front Panel Support Panel; Bumper Front Reinforcement Panel; Front Panel; the other side's Headlamp Assembly (tts); Grille Front.
+  - Side hit (doors): Front Pillar Inner + Front Pillar Reinforcement; Centre Pillar Inner + Centre Pillar Reinforcement (Lower); Runningboard Panel Reinforcement (+ Centre Section, Section Rear) + Runningboard Panel Section Centre; Quarter Pillar Front Reinforcement Panel (+ Upper); Quarter Panel Inner Striker Reinforcement Panel.
+  - Quarter / rear hit: Quarter Panel Inner + Inner Reinforcement Lower + Upper; Quarter Pillar Rear Reinforcement LH + RH; Quarter Panel Inner Fuel Filler Panel; Chassis Member Rear Closing LH + RH, Chassis Member Rear Deformation Panel; Rear Lamp Panel and Drain Channel LH + RH.
+- **Tailgate in the photos → N Tailgate R&R** (NDG4731). [labour-diff-log]
+- **Wheel arc finisher replaced → N its Wheel Arch Extension** (WVH6628 Hilux front + rear LH). [labour-diff-log]
+- Per model details: playbook 10.
+
 ## Misc ticks (Select Parts → Misc)
 - Side hit (BRS8642, TCB8444, WYN5733 final): Electrical, Car-O-Liner, Other items, Road test, Road wheel alignment, Road wheel balancing, Underseal materials. No number plate. [labour-diff-log]
 - Misc must match the impact: side hit → side misc, never the front set ("Number plate, front") (WYN5733 Alza side hit got front misc). Check misc on every case. [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17]
