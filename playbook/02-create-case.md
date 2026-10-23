@@ -34,6 +34,7 @@
 ## Workshop
 - Folder → workshop → Lookup keyword (search matches from the START of the name):
   - `extreme` → Extreme Auto Car Care (HQ), COID 72619, keyword `extreme` (row "Motor Repairer - Extreme Auto Car Care - Kuantan"). [workshop-from-desktop-folder]
+    - In cases.json set `workshopMatch: "Extreme Auto Car Care"` (plain "Extreme" picked another workshop, COID 7960, in the dry run 2026-10-23). Check `rep=72619` in the dry-run line before submit.
   - `sinar` → Bengkel Kereta Sinar Gemilang (Kemaman), COID 29709, keyword `bengkel kereta sinar`; avoid "Bengkel Kereta Sinar Jaya". [workshop-from-desktop-folder]
   - `LKH` / `LKH penang` → Lee Kean Hin Car Body Repairs Sdn Bhd (George Town), keyword `lee kean hin`, take the FIRST result. [workshop-from-desktop-folder]
 - Register the workshop through the Lookup popup; a bare hidden `ddlbREPCOID` set does NOT register (was: setting hidden COID 72619 alone worked for Extreme, 2026-07-09). Missing workshop blocks the create. [merimen-az-progress]
