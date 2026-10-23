@@ -14,7 +14,8 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Tick: `node tickall.mjs <cid> <ext> session_base.txt tick.json` with `{"CP":[catalogue values],"N":[labour labels],"R":[labour labels]}`; it saves and clicks Thatcham "Apply & Submit". Redirect output to a log, never `| head`. [merimen-batch-workflow] [mistakes-log-sinar-batch2]
 - Verify: `node selstate.mjs <cid> <ext> session_base.txt`. Remove wrong ticks: `node untick.mjs <cid> <ext> session_base.txt '<json>'`. [merimen-batch-workflow]
 - Then `node gonext.mjs <cid> <ext> session_base.txt` → dsp_details. [merimen-batch-workflow]
-- Thatcham Advisory modal ("Thatcham require you to also select…") after Save: nothing is saved until "Apply & Submit" is clicked; keep the R&R items Thatcham adds. [merimen-step2-estimate-detail-fill]
+- Thatcham Advisory modal ("Thatcham require you to also select…") after Save: nothing is saved until "Apply & Submit" is clicked; keep the R&R items Thatcham adds.
+- ⭐⭐ **PROTON SAGA and PERODUA MYVI: Thatcham auto-adds "Door Rear LH/RH" (part + labour N) whenever Quarter Panel Outer is selected** ("Door Rear LH — related to Quarter Panel Outer LH"). Unticking on dsp_selection does not stick (Apply & Submit adds it back). After Select Parts, check the parts page: a Door Rear with NO Door Rear photo → delete it on the parts page (`node delrow.mjs <cid> <ext> session_base.txt "Door Rear LH"`, sets qty 0). KER815 / TCH9615 had this (user 2026-10-24). [merimen-step2-estimate-detail-fill]
 - Catalogue accounts (Autoris/Newvest, MRC): tick in the catalogue, add manual rows for misses; no-catalogue accounts (Rawang): everything via `addparts.mjs`. Qty field `PBT<row>`, row comment `PCM<row>`. [step2-paint-popup-method] [estimate-companion-parts-rule]
 
 ## Rule 1 — every photographed item goes in

@@ -5,6 +5,7 @@ const PLATE=process.argv[2];
 const SESS=readFileSync(process.argv[3],'utf8').trim();
 const D=JSON.parse(readFileSync(process.argv[4],'utf8'))[PLATE];
 function cond(name){var n=(name||'').toLowerCase();
+ if(/roof ?lining/.test(n))return'Broken'; // user 2026-10-24
  if(/bumper.*retainer/.test(n))return'Bracket cracked';
  if(/bracket/.test(n))return'Bracket cracked';
  if(/weather sheeting|wheel hub|wheel bearing/.test(n))return'Necessary';

@@ -21,6 +21,17 @@
 - 1 `bumper.*retainer` → Bracket cracked · 2 `bracket` → Bracket cracked · 3 `weather sheeting|wheel hub|wheel bearing` → Necessary · 4 `weatherstrip|weather strip` → Cut · 5 `bumper.*sensor|sensor.*bumper` → Cut · 6 `mirror` → Broken · 7 `support strut|\bstrut\b` → Broken · 8 `windscreen|windshield` → Broken · 9 `centre guide|center guide` → Broken · 10 `spare wheel well|wheel well` → Broken · 11 `lock|striker|hinge` → Bent · 12 `lamp panel` → Bent · 13 `reinforcement` → Bent · 14 `liner` → Damage · 15 `reflector|fog lamp|lamp assembly|head ?lamp|signal lamp|tail ?lamp|\blamp\b` → Cracked · 16 `glass|window` → Cracked · 17 `sensor` → Necessary · 18 `clip|retainer|\bguide\b|nozzle|grommet|washer` → Necessary · 19 `trim|finisher|garnish|moulding|spoiler|skirt|extractor vent|\bvent\b|badge|emblem|grille|\bmask\b|valance|\bcover\b|cladding|\bflap\b|deflector` → Broken · 20 `rim|tyre|wheel` → Bent · 21 `absorber|control arm|tie rod|crossmember|drive ?shaft|stabilizer|\blink\b|knuckle` → Bent · 22 `panel|tailgate|boot ?lid|bonnet|fender|quarter|\bdoor\b|floor|wheelhouse|member|pillar|roof|firewall|apron|\bdeck\b|body side|support` → Bent · 23 `bumper` → Broken · 24 fallback → Bent. [merimen-step2-estimate-detail-fill]
 - User corrections (FB438): Fender Signal Lamp Front RH = Cracked; Bumper Front Side Retainer RH = Bracket cracked; Grille Front = **Cut** (not Broken). [merimen-step2-estimate-detail-fill]
 
+## Damage conditions — never empty (user 2026-10-24)
+- ⭐⭐ **Every part row must have a Damage Condition. Never leave one empty.** Check every case with `node emptycond.mjs ids.txt` (prints rows with an empty condition) and fill them (`fillempty.mjs`) until every case prints `[]`.
+- **Rooflining → "Broken"** (KCM8604 was left empty; estfill.mjs cond() now has it).
+
+## Row comments
+- **Badge / Emblem rows → comment = the logo name in brackets, as in the photo name**: Grille Badge → "(PROTON)", Badge Boot Lid → "(SAGA)", Emblem → "(CITY)", "(JAZZ)", "(i-VTEC)" (user 2026-10-24, TCH9615).
+- qty-2 rows always "Front LH & Front RH" / "Rear LH & Rear RH" (07), e.g. Bumper Rear Bracket Side LH ×2 → "Rear LH & Rear RH".
+
+## Manual-row groups
+- **Rear Panel Inner Trim (manual) goes in group 70 Rear Panel, NOT 75 Rear Compartment** (user 2026-10-24; AKF8382, VCD3926, TCH9615 fixed).
+
 ## Misc prices — `misc(name)`, FIRST match wins; only rows Merimen lists
 - Our own reference prices; never copy another company's misc prices; never add misc lines Merimen didn't list. [merimen-step2-estimate-detail-fill]
 - `paintwork material.*solvent` 500.00 · other `paintwork material` → skip (handled by paint) · `car-o-liner|frame aligner|aligner bench|frame bench` 400.00 · `electrical` 35.00 · `underseal` 60.00 · `road test` 30.00 · `road wheel align|alignment` 45.00 · `balancing` 35.00 · `number plate` 25.00 · `windscreen sealant|glass sealant` **120.00** · `floor board sealant` **60.00** · `tail lamp sealant` **15.00** · other `sealant` 30.00 (sealant prices from the user's screenshot 2026-10-23; fix existing cases with `node miscfix.mjs <cid> <ext> session_base.txt`, misc rows only, no paint popup) · `other items` 35.00 · `\btyre\b` 350.00 · `air.?cond|r134` 150.00 · `fogging` 45.00 · Radiator coolant 35.00 · no match → skip. [merimen-step2-estimate-detail-fill] [step2-paint-popup-method]
@@ -37,6 +48,8 @@
 
 ## Manual parts + pricing
 - Every photographed item / companion missing from the catalogue → manual row, with a price on every row. [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
+- ⭐ **Price reference lists from the user (2026-10-24): `tools/price-refs/<Brand>_<Model>_<Year>.tsv`** (group, desc, part_no, code, price; OCR of the user's PDFs, `ocr_pdf.swift` + `parse_ocr.py`). Available: Perodua Myvi 2017, Proton Saga 2016, Toyota Vios 2016. Use them FIRST for that brand/model (`grep -i "<part>" tools/price-refs/*.tsv`); a 0.00 price = no price, look further. New PDF from the user → OCR it into the same folder.
+- NDG4731 Jazz Wheel House Inner Rear at 64.70 was too cheap (user): Saga 2016 ref = 248.88, Myvi 2017 = 215.50. Never price a structural panel from a median of 2–3 cheap rows.
 - Price source: `tools/merimen-part-prices-data.md` (`tools/price_lookup.py`), SAME MODEL first. [merimen-batch-workflow] [mistakes-log-sinar-batch2]
 - Never trust a median of 2–3 rows (wrong before: Wheel Arch Moulding 1937, Retainer Centre 933.50, Spare Wheel Well 2675). Flag any price with fewer than 5 reference rows in the report. [mistakes-log-sinar-batch2]
 - A price the user gives wins: Lamp Daytime Running (Myvi) 384.23; Bumper Front Fog Lamp LH (FB438) 763.00. [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17]

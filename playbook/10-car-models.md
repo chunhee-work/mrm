@@ -52,6 +52,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Spare Wheel Foam; Boot Storagetray (manual ~155).
 - No catalogue Rear Wheel House Inner → manual (64.70, weak reference).
 - Labour (NDG4731, rear hit + rear door RH): user added N Tailgate R&R; R Chassis Member Rear Closing LH + RH, Chassis Member Rear Deformation Panel LH, Rear Lamp Panel and Drain Channel LH + RH, Chassis Member Front End Closing Reinforcement RH.
+- Wheel House Inner Rear LH/RH: manual row, not 64.70 (too cheap, user) → 248.88 (Saga ref) until a Honda price list exists.
 
 
 ### City 2014 On 4 Dr Sal 1.5 E · AKF8382
@@ -72,6 +73,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Wheel House Inner Rear RH [outer] exists in the catalogue.
 - TCH9615 final names (user 2026-10-23): front bumper photos = Front Bumper (no front/rear bumper spoiler on this car), Grille Front Badge (PROTON), Front Number Plate, Rear Wheelhouse LH, Rear Lamp Outer RH.
 - TCH9615 (2019–22) has 4 rear sensors: Outer LH/RH + Inner RH damaged. Front: Number Plate Front Holder.
+- ⭐ Thatcham auto-adds Door Rear LH/RH when Quarter Panel Outer is selected → delete Door Rear on the parts page if it has no photo (KER815, TCH9615; user 2026-10-24). Price list: tools/price-refs/Proton_Saga_2016.tsv.
+
+
 ### Persona 2007 To 2016 1.6 · KCM8604
 - Door glass run felt = catalogue **Door Glass Run Felt Front LH** (40@) / Rear LH (50@); photo name Door Front/Rear Run Felt LH.
 - Door Front/Rear Window LH (photo) = Door Glass labour/parts. Windscreen Front/Rear, Rooflining, Front Pillar Outer RH exist (120@).
@@ -103,6 +107,9 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Badge Tailgate [MYVI] = catalogue CT6205 Badge Tailgate.
 ### Myvi (2017+) · TCP4539
 - Lamp Daytime Running LH/RH (front bumper strip): user price 384.23.
+- ⭐ Same Thatcham Door Rear auto-add as Saga (user 2026-10-24) → delete on the parts page if no Door Rear photo. Price list: tools/price-refs/Perodua_Myvi_2017.tsv.
+
+
 ### Alza 2009 On 1.5 EZ · WA9150L, WYN5733
 - Runningboard Spoiler RH: manual 290.34 (same model, 1 row).
 
