@@ -8,6 +8,11 @@ catalogue does not have (manual row + price used). Newest entry wins.
 Format per model: Merimen model text · case(s) · photo name → catalogue item (or "manual").
 
 ## Toyota
+### Vios 2023 To 2026 1.5 G (side hit) · BRS8642
+- Front + Rear Wheel Rim RH (same text in two groups → both, or qty 2), Runningboard Spoiler RH, Door Mirror RH — all missed once; select every one.
+- Side hit, front + rear doors: N Door Mirror (tts); R Doorskin Front + Rear, Centre Pillar Inner/Reinforcement, Front Pillar Inner, Quarter Panel (B), Runningboard Panel Section Rear (labour-diff-log).
+### Vios 2019 1.5 G (rear hit) · VDD414
+- Spare Wheel Well: not in catalogue → manual (the user keyed it; don't duplicate). Rear Bumper Bracket Side LH/RH; Quarter Liner LH.
 ### Vios 2023 To 2026 4 Dr Sal 1.5 (NGC102) · CCQ6119
 - **Rear Bumper Spoiler** (photo name) = catalogue **Bumper Rear Lower Cover**. The catalogue has no spoiler item (user 2026-10-23).
 - **Blind Sport ECU LH + RH** (photo REAR RADAR DISTANCE SENSOR): no catalogue item → manual rows. Used 2,865.00 each (Almera reference, 1 row: confirm).
@@ -19,6 +24,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Bumper Bracket Rear LH/RH [Reinforcement] (70@ …2160 / …2190) for "Rear Bumper Bracket Side LH/RH".
 - A/C Discharge Hose = catalogue "Air Conditioning Hose [Discharge]" (20@).
 ### Hilux 2005 To 2016 Double Cab 2.5 G (A) · WVH6628
+- Final names (user 2026-10-23): Fender LH, Front Suspension Upper Arm LH, Front Stabiliser Bar Link Rod LH, Knuckle Arm, Quarter Pillar LH, Side Step LH (not Quarter Panel Inner), arch finisher (not Rear Mudflap). Lower arm photo #48 is the RH one.
 - Ladder frame: no Suspension Crossmember item. Don't add one from the shock-absorber rule.
 - Quarter Pillar LH (pickup bed pillar). Side Step LH/RH. Tread Plate Front RH = Runningboard Panel Tread Plate Front RH.
 - Wheel arch pieces: Extension Wheel Arch Front/Rear LH; Moulding Wheel Arch Rear LH [Pad].
@@ -27,6 +33,12 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Tailgate MPV: Tailgate Spare Wheel Carrier. Quarter Liner LH/RH.
 
 ## Honda
+### Civic 2016–2020 4 Dr 1.5 TC (front hit) · FB438
+- Front parts used by the user: Bumper Front Bracket Support LH, Bumper Front Finisher LH, Bumper Front Fog Lamp Finisher LH, Bumper Front Number Plate Holder, Bumper Front Reinforcement Panel, Bumper Front Side Retainer RH, Grille Badge, Grille Front Backing, Grille Front Moulding [Centre] + LH, Headlamp Assy LH/RH, Headlamp Lower Bracket LH.
+- Bumper Front Fog Lamp LH: manual 763.00 (user's price). Grille Front damage condition = Cut.
+### Civic 2007 (FD) 2.0 (rear hit) · WQF8918
+- Split rear lamps: Rear Lamp Outer LH/RH (body) + Rear Lamp Inner (boot lid). Rear Wheelhouse LH; Rear Chassis Member LH (not "Rear LH Chassis Frame").
+- Labour (user): also the opposite side's Chassis Member Rear Section Rear and Quarter Panel Inner Striker Reinforcement Panel.
 ### Jazz 2014 On 5 Dr Hatch 1.5 (GK) · NDG4731, BPA5858
 - **4 rear sensors**: Rear Bumper Sensor Inner LH/RH + Outer LH/RH → always write Inner/Outer (user 2026-10-23). Catalogue: one "Bumper Rear Sensor" row, qty = damaged count, comment lists positions.
 - **Rear lamps**: Outer LH/RH (on the body) + Inner LH/RH (on the tailgate). Inner not in the catalogue → manual (465.60 each, City reference).
@@ -42,12 +54,17 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Rear Lamp Panel LH: no catalogue part → labour only.
 
 ## Proton
+### Saga 2022 On 4 Dr 1.3 (front-RH) · MDP5464
+- Catalogue has no Bumper Clips → manual "Bumper Clips" 15 × 10.00 (user's own row).
+- Door Rear RH full set: Door Check Strap Rear RH, Door Glass Weatherstrip Outer Rear RH, Door Lock Rear RH, Door Rear Aperture Weatherstrip, Door Rear Hinge Lower/Upper RH, Door Striker, Door Trim Board Finisher Rear RH, Door Window Regulator Rear RH, Weather Sheeting Door.
+- Chrome strip under the headlamp = Bumper Front Moulding RH; "Headlamp Panel RH" photos are covered by Front Panel.
 ### Saga 2016 To 2019 / 2019 To 2022 1.3 · KER815, TCH9615
 - Badge: **Boot Lid Badge (PROTON)**.
 - **Rear Panel Upper** photos (top section of the rear panel, between the rear lamps).
 - Rear lamp panel = catalogue Quarter Panel Extension LH/RH [Rear Lamp Housing].
 - Rear Panel Inner Trim = catalogue **Rear Panel Garnish**.
 - Wheel House Inner Rear RH [outer] exists in the catalogue.
+- TCH9615 final names (user 2026-10-23): front bumper photos = Front Bumper (no front/rear bumper spoiler on this car), Grille Front Badge (PROTON), Front Number Plate, Rear Wheelhouse LH, Rear Lamp Outer RH.
 - TCH9615 (2019–22) has 4 rear sensors: Outer LH/RH + Inner RH damaged. Front: Number Plate Front Holder.
 ### Persona 2007 To 2016 1.6 · KCM8604
 - Door glass run felt = catalogue **Door Glass Run Felt Front LH** (40@) / Rear LH (50@); photo name Door Front/Rear Run Felt LH.
@@ -55,6 +72,15 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Door Rear Weatherstrip Outer LH (user's name).
 
 ## Perodua
+### Bezza 2023 (rear hit, boot lid) · NEA4698
+- User's parts: Bumper Clips [FRT] ×15, Chassis Member Rear LH, Quarter Panel Inner LH, Quarter Liner (catalogue Quarter Panel Liner Rear LH), Quarter Panel Outer LH, Wheel House Inner Rear LH, Rear Lamp Panel LH, Bumper Rear Finisher LH, Bumper Rear Retainer LH/RH, Bumper Rear Sensor [White], Bumper Reflector Rear LH.
+### Alza 2014–2018 (front hit) · TCB8444, WYN5733
+- PERODUA front: never Front Panel Assembly → Front Panel Upper / Fender Inner / Front Crossmember / Front Panel Lower. Headlamp Panel hit → also Front Panel Upper.
+- Labour (user): N Front Panel / Front Panel Upper, Bonnet Mntg Support Pnl LH + RH; R both sides: Bumper Retainer Panel Front, Chassis Member Front Front Section, End Closing, Crossmember Front, Fender Front Inner Assembly / Side Reinforcement / Support Panel, Front Panel Support Panel + Reinforcement, Headlamp Panel Mask.
+- WYN5733 was a side hit: side misc only (no "Number plate, front").
+### Myvi 2022 1.3 G (front-RH) · TCP4539
+- Also Fender Front Inner Wheel House RH; rim from the RH group (110@), not 30@ LH.
+- Labour (user): N Headlamp LH R&R; R Chassis Member Front End Closing LH + RH, Chassis Member Front LH (+ Front Section), Fender Front LH, Front Panel Radiator Support RH, Front Panel Upper.
 ### Kenari 2000 On Mini Van 1.0 EZ · CBL8902
 - Door glass run felt = catalogue **Door Glass Run Felt Front** [LHF & RHF] (one value).
 - Fender Front Inner Wheel House & Chassis Member LH/RH (one combined item).
@@ -69,11 +95,18 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Runningboard Spoiler RH: manual 290.34 (same model, 1 row).
 
 ## Mitsubishi
+### Lancer 2007 4 Dr 2.0 GT (rear hit, boot lid) · JNC9717
+- User's parts: Bumper Clips ×15, Chassis Member Rear LH, Lamp Assembly Rear LH/RH (tts), Quarter Liner (catalogue Quarter Panel Liner Rear Part LH), Quarter Panel Outer LH, Rear Lamp Panel LH [Housing], Boot Lid Hinge RH ×2 ("Rear LH & Rear RH"), Boot Lid Lock, Boot Lid Striker, Bumper Rear Cover, Bumper Rear Reinforcement, Rear Panel, Rear Panel Inner Trim [Black], Bumper Rear Spoiler. Bumper Rear Sensor manual row needs the comment.
 ### ASX 2010 On 2.0 2WD · JNV969
 - **Rear Bumper Moulding** (lower black section with reflectors): not in the catalogue → manual 288.00 (ASX "Bumper Rear Finisher" price). Catalogue "Bumper Rear Finisher/s [Cover for Fog Lamp]" is a different part.
 - Exhaust Silencer Rear manual 2,855.60 (2 ASX rows).
 
+## Nissan
+### Grand Livina 2012 (rear hit, tailgate) · WWH2330
+- User's parts: Bumper Clips ×15, Chassis Member Rear Assembly LH, Lamp Assembly Rear LH/RH (tts), Quarter Panel LH, Quarter Liner LH (manual 325.00, Nissan median), Bumper Bracket Rear LH/RH [Side - at Rear Panel], Bumper Rear Cover, Bumper Rear Sensor ×2, Bumper Rear Shock Absorber, Rear Panel, Spoiler Bumper Rear [IMPUL type], Tailgate, Tailgate Aperture Weatherstrip.
+
 ## Hyundai
 ### Grand Starex 2008 On MPV 2.5 Royale · VCD3926
+- Final names (user 2026-10-23): #8 = Engine Compartment (not Tailgate Striker); #55/#57 = Rear Panel Upper Section RH (no Bumper Rear Upper Cover / Wheel Arc Finisher); #91–92 = Rear Chassis Member LH.
 - 4 rear sensors; Tailgate Latch = "Tailgate Lock"; Tailgate Weatherstrip; Floor Pan [Rear Section] = Boot Floor.
 - Bumper Bracket Rear LH + RH [Side] are separate items.
