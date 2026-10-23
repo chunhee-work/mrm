@@ -45,6 +45,11 @@
 
 ## Re-sync after the user reviews 照片命名台
 - ⭐⭐ **Every name the user changes MUST be carried into Select Parts, not only the photo label** (user 2026-10-23: batch 3 relabelled photos but left Select Parts unchanged). For each changed photo: new name → its part selected (catalogue or manual row); old name no longer on any photo → its part removed; view names (Engine Compartment, Rear View…) → no part. Then run the photo-vs-selection check for the whole case.
+- ⭐⭐ **Both directions, checked by script, every re-sync, before telling the user it is done** (user 2026-10-23: BPA5858 Door Rear LH stayed after the photo was renamed to Quarter Panel LH):
+  1. dump db `names` (ArtifactData list → out_dir), relabel photos, update `~/mrm-bot/photoplan.json`;
+  2. `node rows.mjs <cid> <ext> session_base.txt > ~/mrm-bot/state/rows_<PLATE>_now.json` for every case;
+  3. `python3 tools/naming-desk/sync_check.py <dump>/names <PLATES…>` → every `ADD?` gets selected, every `REMOVE?` gets unticked / delrow'd (with its labour N/R); re-run until every case prints OK;
+  4. a confirmed new photo-name ↔ catalogue pair goes into `ALIAS` in sync_check.py; an item kept by a rule goes into `KEEP`.
 - Read db `names` and diff against the uploaded names. [merimen-batch-workflow]
 - Relabel changed photos with `relabel_ui.mjs`, verify with `chkorder.mjs` (06). [merimen-batch-workflow]
 - Fix parts to match the new names: `untick.mjs` / `tickall.mjs` on dsp_selection; `delrow.mjs <cid> <ext> session_base.txt "Name|Name"` for manual rows; then `gonext.mjs` → `addparts.mjs` → `fillempty.mjs`. [merimen-batch-workflow]
