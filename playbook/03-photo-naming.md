@@ -105,6 +105,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Front LH/RH Bumper Lamp = **Front Bumper Fog Lamp LH/RH** (user 2026-10-21). Spoiler Runningboard Extension LH/RH (any case) = **Runningboard Spoiler LH/RH**, never the Extension name (user 2026-10-21). [photo-center-crosshair-rule]
 - Never "REAR RADAR LH/RH": it is **Rear Bumper Sensor LH/RH** (user 2026-10-21). [photo-center-crosshair-rule]
 - **Boot Extractor Vent** = Extractor Lower Vent = Boot Extractor Vent LH/RH: one name, never LH or RH (user 2026-10-21). [photo-center-crosshair-rule]
+- ⭐ **A liner is ALWAYS black** (user 2026-10-29): Fender Liner / Quarter Liner = the black plastic shell inside the wheel arch. Anything body-coloured or painted is never a liner → name the panel (Fender, Quarter Panel, Rear Wheelhouse, Wheel Arch Extension…). A black, non-plastic steel arch seen from inside = Front/Rear Wheelhouse, not a liner.
 - Exception: the liner is **Quarter Liner LH/RH**, never "Quarter Panel Liner" (Quarter Panel Liner / Quarter Panel Liner Rear → Quarter Liner) (user 2026-10-20). [photo-center-crosshair-rule]
 - Door Mirror LH/RH for every door/side-mirror caption; Mirror Glass, Base Capping, cover, signal lamp stay separate. [photo-center-crosshair-rule]
 - Door Window Regulator Front/Rear LH/RH for every regulator caption; Regulator Motor/switch/handle stay separate. [photo-center-crosshair-rule]

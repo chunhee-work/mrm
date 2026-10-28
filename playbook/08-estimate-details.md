@@ -29,6 +29,9 @@
 - **Badge / Emblem rows → comment = the logo name in brackets, as in the photo name**: Grille Badge → "(PROTON)", Badge Boot Lid → "(SAGA)", Emblem → "(CITY)", "(JAZZ)", "(i-VTEC)" (user 2026-10-24, TCH9615).
 - qty-2 rows always "Front LH & Front RH" / "Rear LH & Rear RH" (07), e.g. Bumper Rear Bracket Side LH ×2 → "Rear LH & Rear RH".
 
+## Liners
+- Liners are always black plastic (user 2026-10-29): Fender Liner / Quarter Liner rows are never painted — no paint on them in the paint popup.
+
 ## Manual-row groups
 - **Rear Panel Inner Trim (manual) goes in group 70 Rear Panel, NOT 75 Rear Compartment** (user 2026-10-24; AKF8382, VCD3926, TCH9615 fixed).
 
