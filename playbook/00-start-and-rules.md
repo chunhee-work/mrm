@@ -14,7 +14,8 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - Do straightforward cases first; come back to odd ones (e.g. EV with watts instead of CC) only if Merimen refuses. [merimen-data-conflict-rules]
 
 ## The only stop: a missing document
-- Missing doc → immediately send one copy line, set the case aside, carry on with every other case; finish it when the doc arrives. [merimen-batch-workflow]
+- Missing doc → immediately send one copy line, set the case aside, carry on with every other case; finish it when the doc arrives.
+- ⭐ **A pending case that HAS photos still goes into the 照片命名台 in Phase A** (user 2026-10-28): run the photo model with the best model text you have (RC model, or the make/model seen in the photos) and add its tab, marked "(pending …)" on the tab, so the user can name its photos while waiting for the document. [merimen-batch-workflow]
 - Copy-line format: `<PLATE> pending <missing item>`, short, e.g. `VCD3926 pending police report` (user 2026-10-23: no extra detail in the line), and send the whole case folder (zip) with it. [merimen-pending-case-line-format]
 - ⭐ **Missing at-fault insurance → name the plate (user 2026-10-28): `<PLATE> pending <AT-FAULT PLATE> JPJ SEARCH`**, e.g. `JJL6007 pending TBH3142 JPJ SEARCH`. Chain collision → the plate of the car that directly hit our client (01).
 - Missing photos use the same form: `<PLATE> pending <photo> photo`. [case-photo-naming-artifact]
