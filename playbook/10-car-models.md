@@ -103,6 +103,8 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 
 
 ### Viva 2007 On 5 Dr Hatch · TAW8095
+- Photo "Quarter Panel LH/RH" = catalogue **Bodyside LH/RH** (60@/80@, 612.10); not the small Quarter Pnl Lower/Upper Extension. Heavy rear crush → also Rear Panel Inner [Assembly] + Rear Panel Inner Section LH/RH.
+- Viva parts are cheap: TAW8095 parts total only ~RM5,575 even with the full rear set.
 - ⭐ **Perodua Viva has NO quarter liner** (user 2026-10-29): never name a photo Quarter Liner, never add the Quarter Liner companion for a quarter panel. TAW8095 #54/55/58/59 were wrongly "Quarter Liner" (the black plastic piece behind the rear bumper corner, and the inside of the rear bumper).
 
 ### Myvi 2005 On 1.3 EZ · TAW339
@@ -140,3 +142,15 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Bumper Bracket Rear LH + RH [Side] are separate items.
 - Labour (VCD3926, rear hit): user added R Quarter Panel Inner Fuel Filler Panel.
 
+
+### Preve 2012 On 4 Dr Sal 1.6 · TBR1334
+- Rear lamps Inner (boot lid) + Outer, separate values per side; Emblem Boot/Tailgate [PREVE] (photo Tailgate Badge (PREVE)); Boot Lid Hinge: only RH value → qty 2 "Rear LH & Rear RH"; no rear bumper clips item in group 70 → manual Bumper Clips 15 × 10.00.
+
+### Mazda CX-5 2019 To 2024 2.5 · QS6559M
+- Boot floor well photos = **Spare Wheel Well** (manual, 487.00, few refs). Tailgate Hinge LH/RH share one value. Thatcham adds N: Calibrate ADAS VM Specific, Chassis Member Rear Closing Extension LH/RH, Emissions Additive Tank Bracket (+ Rear). Chassis Member Rear Assembly LH/RH have NO price (N/A) → priced 1038.40 each (all-model median).
+
+### Wira 1993 On 4 Dr Sal 1.5 GL · JJL6007
+- Rear lamps: Inner = Lamp Assembly Rear Reverse LH/RH [Inner (at Bootlid)], Outer = Lamp Assembly Rear LH/RH (tts) [outer]. Rear Lamp Mask Panel LH/RH [Inner(Short)] exists. Bootlid Finisher: no catalogue item → manual 361.23 (Saga ref). No Bumper Rear R&R / Lamp (tts) labour labels. Parts total low (~RM4,253).
+
+### Axia 2019 On 1.0 E (2026) · TDG4394
+- Bumper Bracket Front RH, Bumper Clips [FRT], Bumper Front Sensor [W09] come with NO price (N/A) → set 21.60 / 10.00 / 62.90.

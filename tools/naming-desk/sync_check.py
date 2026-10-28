@@ -38,6 +38,8 @@ ALIAS = [
     (r"Wheel Arc Finisher", "Wheel Arch"),
     (r"Rear Lamp (Outer )?(LH|RH)", "Lamp Assembly Rear"),
     (r"Door (Front|Rear) Window", "Door Glass"),
+    (r"Rear Bumper Bracket (Side|Upper)", "Bumper Bracket Rear|Bumper Rear Retainer|Bumper Retainer Rear|Bumper Rear Bracket"),
+    (r"Front Bumper Bracket", "Bumper Bracket Front|Bumper Front Bracket|Bumper Front Retainer"),
 ]
 # kept by a rule even without its own photo (playbook 07 companions / suspension set)
 KEEP = re.compile(r"Shock Absorber|Suspension Spring|Steering Tie Rod|Lower Arm|Wishbone|Crossmember|Subframe|Knuckle|Driveshaft|Stabiliser|"
@@ -67,6 +69,10 @@ def main():
         eds = [json.load(open(f)) for f in glob.glob(f"{ndir}/{p}-*.json")]
         eds = [d for d in eds if d.get("model") != d.get("name")]
         rows = [r[0] for r in json.load(open(os.path.expanduser(f"~/mrm-bot/state/rows_{p}_now.json")))]
+        try:  # misc ticks count too (Rear Number Plate -> "Number plate, rear")
+            rows += ["Rear Number Plate" if "rear" in m.lower() else "Front Number Plate" for m in json.load(open(os.path.expanduser(f"~/mrm-bot/state/sel_{p}_now.json"))).get("CM", []) if "number plate" in m.lower()]
+        except Exception:
+            pass
         out = []
         for new in sorted({d["name"] for d in eds}):
             if VIEWS.search(new):
