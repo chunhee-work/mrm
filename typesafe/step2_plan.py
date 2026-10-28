@@ -93,7 +93,7 @@ if re.search(r"(^|\| )Bonnet( |$|\|)", txt + " "):
     comp(True, "Bonnet Hinge LH", "bonnet -> hinge"); comp(True, "Bonnet Hinge RH", "bonnet -> hinge")
 for s in ("LH", "RH"):
     comp(re.search(r"Fender Front " + s, txt), "Fender Front Liner " + s, "fender -> liner")
-    if not re.search(r"Viva", sys.argv[1] + " " + CAT.get("model", ""), re.I):  # user 2026-10-29: Perodua Viva has no quarter liner
+    if not re.search(r"Viva", __import__("os").environ.get("VEHICLE", ""), re.I):  # user 2026-10-29: Perodua Viva has no quarter liner
         comp(re.search(r"Quarter Panel( Outer)? " + s, txt), "Quarter Panel Liner Rear " + s, "quarter -> liner", manual="Quarter Liner " + s)
     comp(re.search(r"Shock Absorber Front " + s, txt), "Suspension Crossmember Front", "front shock -> crossmember")
     comp(re.search(r"Shock Absorber Rear " + s, txt), "Suspension Crossmember Rear", "rear shock -> crossmember")

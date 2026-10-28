@@ -113,7 +113,7 @@ FTYPE: the 4 corner views → "4 angles of vehicle photos"; Odometer Reading; Ch
 
 ```bash
 node selcat2.mjs <cid> <ext> session_base.txt s2/cat_ABC1234.json        # catalogue: {"cat":[[value,label,checked]], "labs":[[label,checked]]}
-python3 "$MRM/typesafe/step2_plan.py" s2/cat_ABC1234.json <final_ABC1234.json> rear s2/tick_ABC1234.json s2/miss_ABC1234.json
+VEHICLE="<Merimen model text>" python3 "$MRM/typesafe/step2_plan.py" s2/cat_ABC1234.json <final_ABC1234.json> rear s2/tick_ABC1234.json s2/miss_ABC1234.json
 #   -> tick.json {"CP":[catalogue values], "N":[labour labels], "R":[labour labels]} + the items it could not match
 #   READ the plan against the photos and the playbook before ticking. It is a draft, not the answer.
 node tickall.mjs <cid> <ext> session_base.txt s2/tick_ABC1234.json > s2/tick_ABC1234.log 2>&1   # ticks, Save, Thatcham "Apply & Submit"
