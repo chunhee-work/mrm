@@ -278,6 +278,7 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     # user 2026-10-20 (sinar batch 2 review)
     (r"^(GENERAL VIEW|General View)$", None),                                         # never General View: use Front/Rear/Side View
     (r"^(SIDE VIEW|Side view)$", "Side View"),
+    (r"(?i)^rear panel view$", "Rear View"),                                          # user 2026-10-29: never Rear Panel View
     (r"^Spoiler Runningboard Extension( Front)? (LH|RH)$", r"Runningboard Spoiler \2"),
     (r"^(Front|Rear) (LH|RH) Door Hinge$", r"Door \1 Hinge Upper \2"),
     (r"^Front Panel Radiator Support (LH|RH)$", r"Headlamp Panel \1"),
