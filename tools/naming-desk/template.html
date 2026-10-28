@@ -14,6 +14,8 @@ button{font:inherit;color:inherit}
 .tabs{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:thin}
 .tab{flex:none;min-height:40px;display:flex;align-items:center;gap:8px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s}
 .tab:hover{border-color:var(--acc)}
+.tabarr{flex:none;width:40px;height:40px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font:700 18px system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tabarr:hover{border-color:var(--acc)}.tabarr:disabled{opacity:.3;cursor:default}
 .tab .p{font:600 14px "IBM Plex Mono",monospace}
 .tab .c{font-size:12px;color:var(--mut)}
 .tab .edc{font:700 12px "IBM Plex Mono","Noto Sans SC",monospace;padding:3px 9px;border-radius:999px;background:var(--ed);color:var(--bg);box-shadow:0 0 0 2px var(--surface)}
@@ -65,7 +67,9 @@ button.chip{cursor:pointer;min-height:28px}
 </style>
 <header class="top"><div class="in">
  <span class="brand">照片命名台</span>
+ <button class="tabarr" id="tabL" aria-label="上一个案件 / 向左">‹</button>
  <nav class="tabs" id="tabs" aria-label="案件"></nav>
+ <button class="tabarr" id="tabR" aria-label="下一个案件 / 向右">›</button>
  <div class="seg" role="group" aria-label="筛选"><button id="fAll" aria-pressed="true">全部</button><button id="fLow" aria-pressed="false">要确认</button><button id="fEd" aria-pressed="false">已改</button></div>
 </div></header>
 <main>
@@ -144,6 +148,11 @@ async function save(r,name){const c=CASE,id=c+"-"+String(r.n).padStart(2,"0");co
  catch(e){if(prev)EDIT[r.n]=prev;else delete EDIT[r.n];render();toast("保存失败（"+(e&&e.code||"未知")+"），请再试一次。")}}
 [["fAll","all"],["fLow","low"],["fEd","ed"]].forEach(([id,v])=>{q("#"+id).onclick=()=>{filter=v;["fAll","fLow","fEd"].forEach(x=>q("#"+x).setAttribute("aria-pressed",String(x===id)));render()}});
 tabs();render();
+(function(){const t=q("#tabs"),L=q("#tabL"),R=q("#tabR");
+ const upd=()=>{const i=CASES.indexOf(CASE);L.disabled=i<=0;R.disabled=i>=CASES.length-1};
+ const go=d=>{const i=CASES.indexOf(CASE)+d;if(i>=0&&i<CASES.length&&t.children[i])t.children[i].click()};
+ L.onclick=()=>go(-1);R.onclick=()=>go(1);
+ new MutationObserver(()=>{const a=t.querySelector('[aria-current="true"]');if(a)a.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});upd()}).observe(t,{childList:true});upd();})();
 (async()=>{if(!window.claude||!window.claude.use)return;db=await window.claude.use("db");if(!db)return;
  db.collection("orders").onSnapshot(s=>{ORD={};s.docs.forEach(d=>{const x=d.data();if(x&&x.case&&Array.isArray(x.order))ORD[x.case]=x.order});render()},()=>{});
  db.collection("names").onSnapshot(s=>{ALL={};s.docs.forEach(d=>{const x=d.data();if(!x||!x.case)return;(ALL[x.case]=ALL[x.case]||{})[x.n]={name:x.name}});EDIT=ALL[CASE]||{};tabs();render()},()=>{})})();
