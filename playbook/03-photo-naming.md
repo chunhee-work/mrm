@@ -49,7 +49,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Never "General View" → Front View, Rear View or Side View. REAR/RR GENERAL VIEW = Rear View; FRT/FRONT GENERAL VIEW, FRT PANEL VIEW, Front Full View = Front View. [photo-center-crosshair-rule]
 - Overview shots of the whole front (incl. bumper removed) = Front View, not Bonnet / Front Panel Upper / Front Chassis Member / Front Bumper Reinforcement / Washer Tank. Far shot of the quarter = Side View RH/LH. [photo-center-crosshair-rule] [photo-naming-two-step-jev]
 - Never Rear Panel View → **Rear View** (user 2026-10-29).
-- Never "Bumper Rear Absorber & Bumper Rear Absorber" → **Bumper Rear Absorber** (user 2026-10-29).
+- Never "Bumper Rear Absorber & Bumper Rear Absorber" or "Bumper Rear Absorber" → **Rear Bumper Shock Absorber** (user 2026-10-29).
 - Never Rear End View, Rear Damage View, Rear End Assembly, DAMAGES PART / DAMAGES PHOTO / DAMAGE PART PHOTO. [photo-center-crosshair-rule]
 - Engine Compartment (not Engine Compartment View / engine bay / ENGINEVIEW); Dashboard (= DASHBOARD VIEW / Dashboard Panel); Chassis Number (= CHASSIS NO / 1ST SUPPLE-CHASSIS NO); Tyre Size (not Size Of The Tyre); Front/Rear Suspension View LH/RH; Rear/Front Tyre LH/RH (not Tyre View). [photo-center-crosshair-rule]
 
