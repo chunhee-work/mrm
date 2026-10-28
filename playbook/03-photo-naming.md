@@ -72,6 +72,15 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - **Rear Panel Upper** (KER815 #113–119 were wrongly "Rear Windscreen"); **Spare Wheel Foam**; **Boot Storagetray**; **Cowl Panel**; **Front Suspension View** (no side); **Front Chassis Member RH**; **Subframe**→ the arm shown (Front Suspension Lower Arm RH); **Rear Wheel Rim LH** (not "Wheel Rim Alloy").
 - Corrections of the model to remember: corner/overview shots of the rear bumper = Rear Bumper (not Rear Lamp Panel / Sensor / Finisher); a fog-lamp-named photo that shows the headlamp = Headlamp RH; photos named Front/Rear Windscreen on a side hit were the door windows; Rear Lamp Inner vs Outer by where it sits (Inner = on the boot lid/tailgate); underside crumple behind the boot = Rear Chassis Member RH (KER815 #108–109).
 
+## Batch 4 review (user 2026-10-29) — 82 names changed in the 照片命名台
+- **Rear Bumper Spoiler → Rear Bumper** (9 photos) and Front Bumper Spoiler → Front Bumper: these cars had NO spoiler; the model calls bumper corners/lower edges "spoiler". Only use Rear/Front Bumper Spoiler when an extra add-on piece is really there.
+- **Floor Panel → Boot Floor** (8 photos): the ribbed steel floor inside the boot is Boot Floor; Floor Panel is the cabin floor. Boot floor corner arches → Rear Wheelhouse LH/RH.
+- **Boot Storagetray → Spare Wheel Well** (Mazda CX-5 QS6559M).
+- **Bootlid Finisher** = the garnish/number-plate area on the boot lid (Proton Saga TAU5446, Wira JJL6007): not Rear Number Plate Garnish, Number Plate Holder Rear or Rear Number Plate.
+- New name **Rear Lamp Mask Panel Inner / Outer (LH/RH)** = the body-colour strip panel under/between the rear lamps (Proton Wira JJL6007; reference BE6133 "Rear Lamp Mask Panel Inner RH / Outer RH"). Not Boot Lid, not Bootlid Finisher.
+- **Rear Bumper Shock Absorber** = the energy absorber behind the rear bumper (TAU5446); not "Shock Absorber Rear" (suspension) and not "Bumper Rear Absorber".
+- Tailgate Badge on Preve = **Tailgate Badge (PREVE)**.
+
 ## Part rules — front
 - Marked damage (X / finger) on the painted bumper skin under the bonnet, round the lower grille opening, or at the bumper corner beside the headlamp = Front Bumper (not Grille Front / Bonnet Finisher / Grille Front Lower / Fender). [photo-center-crosshair-rule]
 - Grille Front Moulding = one name in the middle; the end piece over a headlamp = Grille Front Moulding LH/RH. [photo-center-crosshair-rule]
