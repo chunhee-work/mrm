@@ -175,6 +175,10 @@ def order_key(l):
 
 FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^Rear Panel Outer$", "Rear Panel"),                                            # 1 same
+    (r"(?i)^\[inner[^\]]*\] Lamp Assembly Rear (LH|RH)( \(tts\))?$", r"Rear Lamp Inner \1"),   # user 2026-10-29: never "[inner] Lamp Assembly Rear LH (tts)"
+    (r"(?i)^Lamp Assembly Rear (LH|RH)( \(tts\))? \[inner[^\]]*\]$", r"Rear Lamp Inner \1"),
+    (r"(?i)^(\[outer[^\]]*\] Lamp Assembly Rear (LH|RH)( \(tts\))?|Lamp Assembly Rear (LH|RH)( \(tts\))? \[outer[^\]]*\])$", lambda m: "Rear Lamp Outer " + (m.group(2) or m.group(4))),
+    (r"(?i)^Lamp Assembly Rear (LH|RH)( \(tts\))?$", r"Rear Lamp \1"),
     (r"^\[outer\] (Lamp Assembly Rear (LH|RH) \(tts\))$", r"\1"),                     # 3 same
     (r"^(Lamp Assembly Rear (LH|RH) \(tts\)) \[outer\]$", r"\1"),
     (r"^Bumper Front Reinforcement Panel$", "Front Bumper Reinforcement"),            # 5 same
