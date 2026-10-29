@@ -104,6 +104,16 @@ for s_ in ("LH", "RH"):
                 for q in ("Wheel Centre", f"Wheel Hub {ax} {s_}"):
                     c = [(v, l) for v, l in cat if v.split('@')[0] == g and re.search(q.replace(' ', '.*'), l)]
                     if c: add(c[0][0], c[0][1], f"crossmember -> {q}")
+# user 2026-10-29: Chassis Member photo + catalogue has both an Extension and a Section item (same axle + side) -> select BOTH
+for n in names:
+    m = re.match(r"(Front|Rear) Chassis Member (LH|RH)$", n)
+    if not m: continue
+    ax, sd = m.groups()
+    ext = [(v, l) for v, l in cat if re.search(rf"Chassis Member {ax} Extension {sd}\b", l)]
+    sec = [(v, l) for v, l in cat if re.search(rf"Chassis Member {ax} .*Section.*{sd}\b|Chassis Member {ax} {sd} .*Section", l)]
+    if ext and sec:
+        for v, l in (ext[0], sec[0]):
+            if v not in pick: add(v, l, f"chassis member {ax} {sd} -> extension + section")
 # user 2026-10-23 SUSPENSION SET: any one of these photographed on a corner -> select ALL of that corner's set
 SUSP = {"Front": [("Shock Absorber", r"Shock Absorber Front|Front Shock Absorber"), ("Suspension Spring", r"Suspension Spring Front|Coil Spring Front|Spring Front"), ("Steering Tie Rod", r"Tie Rod"),
                   ("Suspension Lower Arm", r"Lower Arm|Wishbone Lower|Suspension Arm Front"), ("Suspension Crossmember", r"Suspension Crossmember( Front)?"),
