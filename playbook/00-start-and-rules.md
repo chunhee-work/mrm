@@ -64,6 +64,10 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - Photo-model harvesting can kick the user out during office hours ("Session not matched"); resume a paused harvest only after asking the user. [photo-naming-two-step-jev]
 
 ## Tabs + parallel work
+- ⭐⭐ **Speed (user 2026-10-29): any slow, per-case step runs as several agents at the same time**, the way step 1 (reading the PDFs) does: split the cases into groups of 2–3 and launch one Agent per group in ONE message.
+  - Step 1 read documents → agents write `data/<PLATE>.json` (read-only, no Merimen).
+  - Step 2 planning → agents follow `tools/step2/brief.md` (copy it into the batch folder, set <BATCH_DIR>) and write `~/mrm-bot/s2/final_plan_<P>.json`; Claude applies the plans with `BATCH_DIR=<dir> python3 tools/step2/apply_plan.py P1 P2 …`, several processes at once (one per group of cases; each script opens its own tab).
+  - Agents never touch Merimen; only Claude runs the .mjs scripts. Start the agents as soon as the inputs exist (catalogue dump + final names), not one case at a time.
 - Work cases in parallel where scripts allow: one tab per case, driven concurrently (`Promise.all(plates.map(p => doOne(ctx.newPage(), p)))`, popup handler per page). Never a disguised one-at-a-time loop. [merimen-batch-workflow] [merimen-az-progress] [batch-autonomy-rule]
 - After each batch step and at the end, close every page in the 9222 Chrome except one Merimen tab (labourfill/estfill and failed scripts leave tabs open). [merimen-logout-causes]
 
