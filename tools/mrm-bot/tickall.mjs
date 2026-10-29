@@ -5,7 +5,8 @@ await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinter
 const r=await page.evaluate((T)=>{const lab=c=>{let t='';let n=c.nextSibling;while(n&&!(n.tagName==='INPUT'||n.tagName==='BR')){t+=n.textContent||'';n=n.nextSibling;}if(!t.trim()){const s=c.closest('span,td');t=s?s.textContent:'';}return t.replace(/\s+/g,' ').trim();};
  let p=0,n=0,r=0,seen={};document.querySelectorAll('input[type=checkbox][name=CP]').forEach(c=>{if(T.CP.includes(c.value)&&!seen[c.value]){seen[c.value]=1;if(!c.checked)c.click();p++;}});
  document.querySelectorAll('input[type=checkbox][name=CL]').forEach(c=>{if(T.N.includes(lab(c))&&!c.checked){c.click();n++;}});
- document.querySelectorAll('input[type=checkbox][name=CLR]').forEach(c=>{if(T.R.includes(lab(c))&&!c.checked){c.click();r++;}});return p+'|'+n+'|'+r;},T);
+ document.querySelectorAll('input[type=checkbox][name=CLR]').forEach(c=>{if(T.R.includes(lab(c))&&!c.checked){c.click();r++;}});
+ let m=0;document.querySelectorAll('input[type=checkbox][name=CM]').forEach(c=>{if((T.CM||[]).includes(lab(c))&&!c.checked){c.click();m++;}});return p+'|'+n+'|'+r+'|'+m;},T);
 console.log('ticked',r);
 const clk=async rx=>page.evaluate((rx)=>{const t=[...document.querySelectorAll('td[onclick]')].filter(e=>/MClk/.test(e.getAttribute('onclick'))).find(e=>new RegExp(rx).test((e.value||e.textContent||'').trim()));if(t){t.click();return 1}return 0},rx);
 const ok=async()=>{for(let i=0;i<3;i++){const o=await page.evaluate(()=>{const t=[...document.querySelectorAll('input,button')].find(e=>/^OK$/.test((e.value||e.innerText||'').trim())&&e.offsetParent!==null);if(t){t.click();return true;}return false;});if(!o)break;await page.waitForTimeout(1200);}};

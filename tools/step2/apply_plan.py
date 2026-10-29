@@ -7,12 +7,11 @@ def run(*a,log=None):
     r=subprocess.run(['node',*a],capture_output=True,text=True,cwd=H); o=r.stdout+r.stderr
     if log: open(log,'w').write(o)
     return o
-for p in sys.argv[1:]:
+def one(p):
     c,e=ids[p]; ext[p]={'cid':c,'extid':e}; json.dump(ext,open(H+'/extmap_b4.json','w'))
     P=json.load(open(f'{H}/s2/final_plan_{p}.json'))
-    json.dump({'CP':P['CP'],'N':P['N'],'R':P['R']},open(f'{H}/s2/apply_{p}.json','w'))
+    json.dump({'CP':P['CP'],'N':P['N'],'R':P['R'],'CM':P.get('CM',[])},open(f'{H}/s2/apply_{p}.json','w'))   # parts + labour + misc in ONE save
     o=run('tickall.mjs',c,e,'session_base.txt',f'{H}/s2/apply_{p}.json',log=f'{H}/s2/apply_{p}.log'); print(p,'tick',[l for l in o.splitlines() if 'ticked' in l][:1])
-    if P.get('CM'): o=run('tick_label.mjs',c,e,'session_base.txt',json.dumps({'CM':P['CM']})); print('  misc',[l[:80] for l in o.splitlines() if 'ticked' in l][:1])
     open(f'{H}/state/sel_{p}_mine.json','w').write(run('selstate.mjs',c,e,'session_base.txt'))
     run('gonext.mjs',c,e,'session_base.txt')
     if P.get('manual'):
@@ -23,4 +22,9 @@ for p in sys.argv[1:]:
         json.dump(P['cmt'],open(f'{H}/s2/cmt_{p}.json','w')); o=run('setcmt.mjs',c,e,'session_base.txt',f'{H}/s2/cmt_{p}.json'); print('  cmt',[l[:200] for l in o.splitlines() if 'VERIFY' in l][:1])
     run('fillempty.mjs',c,e,'session_base.txt')
     open(f'{H}/state/rows_{p}_now.json','w').write(run('rows.mjs',c,e,'session_base.txt'))
-    run('closetabs.mjs')
+
+# several cases at once (one tab each). PAR=3 by default; lower it if Merimen gets unstable.
+from concurrent.futures import ThreadPoolExecutor
+with ThreadPoolExecutor(int(os.environ.get('PAR', '3'))) as ex:
+    list(ex.map(one, sys.argv[1:]))
+run('closetabs.mjs')

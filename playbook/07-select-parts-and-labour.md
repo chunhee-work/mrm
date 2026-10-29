@@ -3,7 +3,7 @@
 The most error-prone step. Read this whole file before every case. Step 2 = select the parts AND tick Labour N/R + Misc, all from the photos; then conditions/prices/paint (08). [step2-paint-popup-method] [labour-n-r-selection] [merimen-batch-workflow]
 
 ## Before you start
-- ⭐ **Do Step 2 in parallel** (user 2026-10-29, "step 2 quite slow"): dump all catalogues at once (`selcat2.mjs` in parallel), run `step2_plan.py` for every case, then launch planning agents (2–3 cases each, `tools/step2/brief.md`) in one message, and apply with `tools/step2/apply_plan.py` in parallel processes. See 00.
+- ⭐ **Do Step 2 in parallel** (user 2026-10-29, "step 2 quite slow"): dump all catalogues at once (`selcat2.mjs` in parallel), run `step2_plan.py` for every case, then launch planning agents (2–3 cases each, `tools/step2/brief.md`) in one message, and apply with `tools/step2/apply_plan.py` (runs PAR=3 cases at once; parts + labour + misc are ticked in ONE save per case — `tickall.mjs` now takes `CM` too). See 00.
 - ⭐⭐ **Gate: start only after the user has said the 照片命名台 is finished** (user 2026-10-23). Build parts, labour and misc from the user's FINAL names, never from the model's first guesses. After ticking, run `tools/naming-desk/sync_check.py` and fix everything until all cases print OK.
 - Re-read the artifact's db `names`/`orders` (03): the user may have edited them. [merimen-batch-workflow]
 - Look at the PHOTOS themselves, not just the name text: what each photo shows decides parts, companions, quantities and labour ("only u got the image then u know what to choose"). [merimen-batch-workflow]
