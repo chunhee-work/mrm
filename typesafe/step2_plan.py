@@ -111,9 +111,8 @@ for n in names:
     ax, sd = m.groups()
     ext = [(v, l) for v, l in cat if re.search(rf"Chassis Member {ax} Extension {sd}\b", l)]
     sec = [(v, l) for v, l in cat if re.search(rf"Chassis Member {ax} .*Section.*{sd}\b|Chassis Member {ax} {sd} .*Section", l)]
-    if ext and sec:
-        for v, l in (ext[0], sec[0]):
-            if v not in pick: add(v, l, f"chassis member {ax} {sd} -> extension + section")
+    for v, l in ext[:1] + sec[:1]:   # catalogue items only; never a manual row (user 2026-10-29)
+        if v not in pick: add(v, l, f"chassis member {ax} {sd} -> extension/section too")
 # user 2026-10-23 SUSPENSION SET: any one of these photographed on a corner -> select ALL of that corner's set
 SUSP = {"Front": [("Shock Absorber", r"Shock Absorber Front|Front Shock Absorber"), ("Suspension Spring", r"Suspension Spring Front|Coil Spring Front|Spring Front"), ("Steering Tie Rod", r"Tie Rod"),
                   ("Suspension Lower Arm", r"Lower Arm|Wishbone Lower|Suspension Arm Front"), ("Suspension Crossmember", r"Suspension Crossmember( Front)?"),
