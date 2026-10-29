@@ -70,7 +70,11 @@ Read this at the start of every session/batch. Newer rules override older ones; 
   - `checkall.py <batch_dir>` — ONE command for the end checks: empty conditions, no price, qty-2 comments, lone hinge, Thatcham Door Rear, photo↔parts sync (`<batch_dir>/db_names` → the names dump), Adj Rpt total < 6000. ~1 min for 9 cases.
   - All of them (and `tools/step2/apply_plan.py`) WAIT on a logout: print one line asking for `node relogin.mjs`, poll until the session works, then continue by themselves — no re-run.
 - **More at once:** planning/reading agents = one per case (or 2 cases each), all launched in ONE message; Merimen scripts run PAR=5 cases at once by default (lower PAR if Merimen gets unstable).
-- **Next speed-ups, agreed but not built yet (user 2026-10-29, "keep in mind"):** (3) the step-1 reading agents also pick the Merimen model variant from the dumped model list so the photo model can start at once; (4) one command that runs Phase A after reading (create → report → rates → narratives → DOC upload → photo upload → car-model report), stopping only the failed case.
+- ⭐⭐ **Phase A from the next batch on (user 2026-10-29: "下一批就正式用"):**
+  1. Download → step-1 agents (one per case or 2 each, one message) write `<batch_dir>/data/<PLATE>.json`; dump the makes with `dumpmodels_sinar.mjs` meanwhile.
+  2. `python3 tools/batch/phase_a.py <batch_dir>` — picks the model variant (`pick_model.py`; tested 22/22 on batch 3+4; anything marked UNSURE Claude checks by hand before the create), photo model in the background, create (stops if the workshop COID is wrong), report + pink check, rates + betterment, narratives, DOC upload, naming page build, photo upload + chkorder, car-model report table → `car_model_report.md`; timing → `phase_a_timing.json`.
+  3. Claude: publish the 照片命名台, write the 选择理由 column, check UNSURE models, send `照片命名台 ready` + the notification.
+  - First real run = the next batch: report the real timing and every mistake to the user.
 - **Logouts cost the most time:** while Claude is running a batch the user should look at Merimen in the automation Chrome window, not log in from their own Chrome (that kicks the session out).
 - ⭐⭐ **Speed (user 2026-10-29): any slow, per-case step runs as several agents at the same time**, the way step 1 (reading the PDFs) does: split the cases into groups of 2–3 and launch one Agent per group in ONE message.
   - Step 1 read documents → agents write `data/<PLATE>.json` (read-only, no Merimen).
