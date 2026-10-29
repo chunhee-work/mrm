@@ -64,6 +64,13 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - Photo-model harvesting can kick the user out during office hours ("Session not matched"); resume a paused harvest only after asking the user. [photo-naming-two-step-jev]
 
 ## Tabs + parallel work
+- ⭐ **Batch tools (user 2026-10-29, "faster")** — `tools/batch/`, every case at once:
+  - `photos.py model <batch_dir>` (photo model, 3 at once) · `photos.py upload <batch_dir>` (photo upload + chkorder, 5 at once).
+  - `fillprices.py <batch_dir>` (dry) / `APPLY=1 …` — fills rows Merimen shows as N/A from the other side, the user's price lists, price_lookup; flags < 5 refs.
+  - `checkall.py <batch_dir>` — ONE command for the end checks: empty conditions, no price, qty-2 comments, lone hinge, Thatcham Door Rear, photo↔parts sync (`<batch_dir>/db_names` → the names dump), Adj Rpt total < 6000. ~1 min for 9 cases.
+  - All of them (and `tools/step2/apply_plan.py`) WAIT on a logout: print one line asking for `node relogin.mjs`, poll until the session works, then continue by themselves — no re-run.
+- **More at once:** planning/reading agents = one per case (or 2 cases each), all launched in ONE message; Merimen scripts run PAR=5 cases at once by default (lower PAR if Merimen gets unstable).
+- **Logouts cost the most time:** while Claude is running a batch the user should look at Merimen in the automation Chrome window, not log in from their own Chrome (that kicks the session out).
 - ⭐⭐ **Speed (user 2026-10-29): any slow, per-case step runs as several agents at the same time**, the way step 1 (reading the PDFs) does: split the cases into groups of 2–3 and launch one Agent per group in ONE message.
   - Step 1 read documents → agents write `data/<PLATE>.json` (read-only, no Merimen).
   - Step 2 planning → agents follow `tools/step2/brief.md` (copy it into the batch folder, set <BATCH_DIR>) and write `~/mrm-bot/s2/final_plan_<P>.json`; Claude applies the plans with `BATCH_DIR=<dir> python3 tools/step2/apply_plan.py P1 P2 …`, several processes at once (one per group of cases; each script opens its own tab).

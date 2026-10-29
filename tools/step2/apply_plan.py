@@ -1,10 +1,12 @@
 """apply ~/mrm-bot/s2/final_plan_<P>.json in Merimen: tick -> misc -> snapshot -> details -> manual -> estfill -> qty/cmt -> fillempty"""
 import json,subprocess,sys,os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'batch'))
+from mrm import safe, wait_login
 B=os.environ.get("BATCH_DIR", os.path.dirname(os.path.abspath(__file__))); H=os.path.expanduser('~/mrm-bot')
 ids={l.split()[0]:l.split()[1:] for l in open(B+'/ids.txt') if l.strip()}
 ext=json.load(open(H+'/extmap_b4.json')) if os.path.exists(H+'/extmap_b4.json') else {}
 def run(*a,log=None):
-    r=subprocess.run(['node',*a],capture_output=True,text=True,cwd=H); o=r.stdout+r.stderr
+    o=safe(*a)   # waits for the user's relogin and retries if Merimen logged out
     if log: open(log,'w').write(o)
     return o
 def one(p):
@@ -23,8 +25,9 @@ def one(p):
     run('fillempty.mjs',c,e,'session_base.txt')
     open(f'{H}/state/rows_{p}_now.json','w').write(run('rows.mjs',c,e,'session_base.txt'))
 
-# several cases at once (one tab each). PAR=3 by default; lower it if Merimen gets unstable.
+# several cases at once (one tab each). PAR=5 by default; lower it if Merimen gets unstable.
 from concurrent.futures import ThreadPoolExecutor
-with ThreadPoolExecutor(int(os.environ.get('PAR', '3'))) as ex:
+wait_login()
+with ThreadPoolExecutor(int(os.environ.get('PAR', '5'))) as ex:
     list(ex.map(one, sys.argv[1:]))
 run('closetabs.mjs')
