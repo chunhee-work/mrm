@@ -67,5 +67,6 @@
 ## Save + verify
 - Set PDC + MMI + paint (fire `input` + `change`), make every `<img>` `pointer-events:none`, click the exact-text Save, accept up to 3 OK confirms, re-navigate and verify. [merimen-step2-estimate-detail-fill]
 - Done = 0 empty PDC rows AND Paintwork price 500.00. Save is idempotent; on session loss relogin and re-run. [merimen-step2-estimate-detail-fill]
+- ⭐ **The RM6,000 check uses the Adj Rpt total on the Claim Subfolder page** ("Adj Rpt RM10,668.09"), not the parts sum (user 2026-10-29). Read it with `node adjtotal.mjs ids.txt`.
 - **Every case total must be ≥ RM6,000 — never lower** (user 2026-10-20). If it comes out lower, re-check the photos for missed parts, companions, labour N/R, misc and paint, and price manual rows by the same model. Every item must still be justified by the photos. Never send a case below 6,000; if it can't be justified, flag it in the report.
 - A Total-Loss case still runs this step normally. [merimen-step2-estimate-detail-fill]

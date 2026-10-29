@@ -58,7 +58,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 ### City 2014 On 4 Dr Sal 1.5 E · AKF8382
 - Badges: **Boot Lid Badge (CITY)**; catalogue Emblem Boot/Tailgate [City] and [i-VTEC] are separate values.
 - Rear lamps Inner (boot lid) LH/RH + Outer LH/RH.
-- Rear Lamp Panel LH: no catalogue part → labour only.
+- Rear Lamp Panel LH/RH: no catalogue part → MANUAL row with a price (user 2026-10-29, TCB9624; was "labour only").
 
 ## Proton
 ### Saga 2022 On 4 Dr 1.3 (front-RH) · MDP5464
