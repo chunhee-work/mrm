@@ -17,5 +17,5 @@ async function one([pl,cid,ext]){const page=await ctx.newPage();page.on('dialog'
   res[pl]={cid,...r};}catch(e){res[pl]={cid,err:e.message.slice(0,80)};}
  await page.close().catch(()=>{});}
 const todo=C.filter(([pl])=>!res[pl]||res[pl].err);
-for(let i=0;i<todo.length;i+=3){await Promise.all(todo.slice(i,i+3).map(one));writeFileSync(OUT,JSON.stringify(res));process.stdout.write('.');}
+const PAR=+(process.env.PAR||3);for(let i=0;i<todo.length;i+=PAR){await Promise.all(todo.slice(i,i+PAR).map(one));writeFileSync(OUT,JSON.stringify(res));process.stdout.write('.');}
 const v=Object.values(res);console.log('\ndone',v.length,'errors',v.filter(x=>x.err).length,'rows',v.reduce((a,x)=>a+(x.rows||[]).length,0));await b.close();
