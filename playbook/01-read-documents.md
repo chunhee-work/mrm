@@ -2,7 +2,8 @@
 
 ## Where the case files are
 - Desktop: `~/Desktop/<workshop>/<PLATE>/` — the parent folder = the workshop; the case folder holds the PDF(s) (`<plate> <workshop>.pdf`) + numbered photos. [workshop-from-desktop-folder]
-- WhatsApp zip: `<workshop>/<PLATE>/*.JPG` (downloaded to ~/Downloads). [case-photo-naming-artifact]
+- WhatsApp zip: `<workshop>/<PLATE>/*.JPG` (downloaded to ~/Downloads).
+- ⭐ **The case PDF can sit at the TOP of the zip, next to the folder** (`LKH .zip`: `PRY826/` photos + `PRY826 adj.pdf` at the root). List with `unzip -Z1 <zip>` (full names — names contain spaces) and move every PDF into its case folder before saying a document is missing (user 2026-10-30; I wrongly reported PRY826 pending). [case-photo-naming-artifact]
 - Folder named `(TOTALOST)` / `TOTAL LOSS` (e.g. `BGF2916 (TOTALOST)`) = TOTAL LOSS case; PDF usually `<plate> DOC - total loss ….pdf`. [workshop-from-desktop-folder]
 - Count the cases first; read ALL cases' PDFs + photos up front (names, NRIC, policies, vehicle, accident, odo, colour, damage zone) before touching Merimen. [merimen-create-case-procedure]
 - If the source folder is gone, pull the uploaded PDFs back from Merimen: dsp_docview → `SVCDOCAttView(<docid>,4,'PDF')` → navigate a Chrome tab to the dsp_getfile URL for that docid (only cases of this account); move/rename from ~/Downloads at once (next download reuses the name). curl does not work (needs HttpOnly cookies). [merimen-document-upload-naming]
