@@ -1,7 +1,7 @@
 // read-only price harvest from this account's own cases: node pricegrab.mjs <ids.txt: PLATE caseid extid> <out.json>
 // per case: Vehicle Model + every part row that has a part number (catalogue price), from dsp_details. Resumable; 3 tabs at once.
 import { chromium } from 'playwright-core'; import { readFileSync, writeFileSync, existsSync } from 'fs';
-const [,,IDS,OUT]=process.argv;const SESS=readFileSync('session_base.txt','utf8').trim();
+const [,,IDS,OUT]=process.argv;const SESS=readFileSync(process.env.SESSF||'session_base.txt','utf8').trim();
 const C=readFileSync(IDS,'utf8').trim().split('\n').map(l=>l.trim().split(/\s+/)).filter(x=>x.length===3);
 const res=existsSync(OUT)?JSON.parse(readFileSync(OUT,'utf8')):{};
 const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const ctx=b.contexts()[0];
