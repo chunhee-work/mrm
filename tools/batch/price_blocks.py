@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Append pricegrab.mjs output to tools/merimen-part-prices-data.md (catalogue rows only = rows with a part number; skip cases already in the file).
   python3 price_blocks.py <grab.json> <account label>
+  RAW=1 ...     input from pricegrab2.mjs (catalogue rows use the LIST price = original catalogue price, user 2026-10-30)
   MANUAL=1 ...  also take manual rows (no part number) as references, part no "manual" — ONLY for other companies' accounts
                 (user 2026-10-30: Aman's manual prices are fine; never our own TC0607 manual rows = our guesses).
                 Cases already in the file get a separate "<PLATE> manual" block with just their manual rows."""
@@ -18,6 +19,20 @@ for pl, d in sorted(g.items(), key=lambda x: x[1].get("model", "")):
             skip += 1; continue
         only_man = True
     rows, seen = [], set()
+    if os.environ.get("RAW") == "1":   # pricegrab2.mjs rows: [desc, partno, list price (catalogue original), case price]
+        for desc, pn, lp, cp in d.get("rows", []):
+            f = lambda x: float(x.replace(",", "")) if re.match(r"^[\d,]+(\.\d+)?$", x or "") else 0.0
+            if pn and f(lp) > 0 and not only_man:
+                if (desc, pn) not in seen:
+                    seen.add((desc, pn)); rows.append(f"- {desc} | {pn} | {f(lp):,.2f}")
+            elif not pn:
+                man += 1
+                if MAN and f(cp) > 0 and desc and (desc, "manual") not in seen:
+                    seen.add((desc, "manual")); rows.append(f"- {desc} | manual | {f(cp):,.2f}")
+        if rows and d.get("model"):
+            models[d["model"]] += 1; nrows += len(rows)
+            new.append(f"## [OURS] {d['model']}  (case {pl}{' manual' if only_man else ''})\n" + "\n".join(rows) + "\n")
+        continue
     for desc, _, pr, t in d.get("rows", []):
         m = re.match(r"^(.*?) (\S+) ([\d,]+\.\d\d)(?: [A-Z]{1,3})?$", t)
         if not m:
