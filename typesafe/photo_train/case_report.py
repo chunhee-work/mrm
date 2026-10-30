@@ -37,12 +37,13 @@ def arrange(P):
     user 2026-10-16 'if u detect then u arrange'; user 2026-10-30 (PRY826): whenever the folder order is wrong (corner views
     not first, ID shots not right after them) Claude arranges it in the 照片命名台 BEFORE the user reviews — the user should
     never have to drag the opening shots. Looks at the first 16 photos only."""
-    W, WI = min(len(P), 16), min(len(P), 30)   # corner views: first 16 photos; ID shots (chassis/engine come late): first 30
+    W = WI = len(P)   # user 2026-10-30: look through ALL photos, first to last
     ids = []
     for n in ID_ORDER:
         hit = [i for i in range(WI) if name_of(P[i]) == n and P[i]["conf"] >= 0.5]
         ids += hit if n == "Engine Compartment" else hit[:1]
-    views = [i for i in range(W) if is_view(P[i]) and i not in ids][:4]
+    views = [next(i for i in range(W) if name_of(P[i]) == n) for n in OPEN if any(name_of(P[i]) == n for i in range(W))]
+    views += [i for i in range(W) if is_view(P[i]) and i not in ids and i not in views][:4 - len(views)]
     views.sort(key=lambda i: (OPEN.index(name_of(P[i])) if name_of(P[i]) in OPEN else 9, i))   # FVR, FVL, RVR, RVL (names are given by position)
     if not ids and len(views) < 4:
         return list(range(len(P))), False
