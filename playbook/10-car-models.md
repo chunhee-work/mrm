@@ -155,3 +155,6 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 
 ### Axia 2019 On 1.0 E (2026) · TDG4394
 - Bumper Bracket Front RH, Bumper Clips [FRT], Bumper Front Sensor [W09] come with NO price (N/A) → set 21.60 / 10.00 / 62.90.
+
+## MINI
+- **MINI Cooper 2021 On 3 Dr Hatch Cooper S (PRY826, LKH)** — front RH hit: the user wants **Front Panel Assembly** and **Front Chassis Member** selected in Select Parts (user 2026-10-30), even when no photo is named that way (the front panel / chassis member is behind the bumper, bracket and headlamp damage).
