@@ -53,15 +53,27 @@ def show_model(blocks, kw):
 # price tiers (user approved 2026-10-31): brands in one tier may share item prices when the model and brand have no row
 TIERS = {
     "T1 national / budget": "PERODUA PROTON INOKOM NAZA HICOM",
-    "T2 Japanese / Korean mainstream": "TOYOTA HONDA NISSAN MAZDA MITSUBISHI HYUNDAI KIA SUZUKI DAIHATSU SUBARU",
+    "T2 Japanese / Korean mainstream": "TOYOTA HONDA NISSAN MAZDA MITSUBISHI HYUNDAI KIA SUZUKI DAIHATSU SUBARU ISUZU",
     "T3 European / American mainstream": "VOLKSWAGEN FORD PEUGEOT CHEVROLET CITROEN RENAULT SSANGYONG",
     "T4 Chinese": "BYD CHERY GREAT_WALL CHANGAN JAECOO NETA DENZA MG",
     "T5 luxury": "MERCEDES-BENZ BMW LEXUS AUDI VOLVO MINI LAND_ROVER TESLA",
     "T6 super luxury": "PORSCHE BENTLEY MASERATI",
-    "T7 commercial / lorry / bus / van": "ISUZU HINO KING_LONG DONG_FENG FOTON UD YANGTSE SKS FARID LMG",
+    "T7 commercial / lorry / bus / van": "HINO KING_LONG DONG_FENG FOTON UD YANGTSE SKS FARID LMG",
     "motorcycle": "YAMAHA MODENAS SYM",
 }
 TIER_OF = {b.replace("_", " "): t for t, bs in TIERS.items() for b in bs.split()}
+# user 2026-10-31: the tier follows the VEHICLE, not only the brand — Isuzu D-Max / MU-X (normal car) = T2, an Isuzu lorry = T7;
+# any lorry / truck / bus (Mitsubishi Fuso, Toyota Dyna, Inokom Lorimas …) = T7
+COMMERCIAL = re.compile(r"\b(LORRY|TRUCK|BUS|N-?SERIES|ELF|FUSO|CANTER|DYNA|LORIMAS|NPR\w*|NKR\w*|NHR\w*|NLR\w*|NQR\w*|FRR\w*|FVR\w*|FVZ\w*|\d+(\.\d+)? ?TON)\b", re.I)
+
+# user 2026-10-31 ("yes for 2"): high-end Japanese / Korean models get their own tier between T2 and T5
+T2P = re.compile(r"\b(ALPHARD|VELLFIRE|ESTIMA|HARRIER|CAMRY|CROWN|LAND ?CRUISER|PRADO|ACCORD|ODYSSEY|LEGEND|TEANA|ELGRAND|MURANO|CX-?8|CX-?9|PALISADE|CARNIVAL|STARIA)\b", re.I)
+
+def tier_of(model):
+    if COMMERCIAL.search(model): return "T7 commercial / lorry / bus / van"
+    t = TIER_OF.get(brand_of(model))
+    if t and t.startswith("T2") and T2P.search(model): return "T2+ Japanese / Korean premium"
+    return t
 
 def brand_of(model):
     w = re.sub(r"^\[OURS[^\]]*\]\s*", "", model).upper().split()
@@ -133,9 +145,9 @@ def ref(blocks, kw, model):
     if gen: tiers.append((f"same model {f} {gen}", lambda b: fam(b["model"]).lower() == f and gen in b["model"]))
     tiers += [(f"same model {f}", lambda b: fam(b["model"]).lower() == f),
               (f"same brand {brand}", lambda b: fam(b["model"]).lower().split()[:1] == [brand])]
-    tier = TIER_OF.get(brand_of(m))
+    tier = tier_of(m)
     if tier:
-        tiers.append((f"same tier {tier}", lambda b: TIER_OF.get(brand_of(b["model"])) == tier))
+        tiers.append((f"same tier {tier}", lambda b: tier_of(b["model"]) == tier))
     tiers.append(("ALL models (no row in this tier)", lambda b: True))
     for label, pred in tiers:
         h = hits(pred)
