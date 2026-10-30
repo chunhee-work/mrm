@@ -52,6 +52,11 @@ def main():
                 key = re.sub(r"\s*\[.*$", "", x[0]).strip()
                 if not any(v for k, vs in has.items() if k == key or k.startswith(key) for v in vs):
                     probs.append(f"QTY2 NO CMT {x[0]}")
+        for ax in ("Front", "Rear"):   # user 2026-10-30: a front/rear bumper ALWAYS has its bumper brackets
+            bump = [x for x in rows if re.search(rf"Bumper {ax} Cover|{ax} Bumper$|Bumper {ax}$", x[0])]
+            brk = [x for x in rows if re.search(r"Bracket|Retainer", x[0]) and re.search(ax, x[0])]
+            if bump and not brk:
+                probs.append(f"NO {ax.upper()} BUMPER BRACKET (bumper selected, no {ax} bracket/retainer)")
         hinges = [x for x in rows if re.search(r"(Boot Lid|Tailgate) Hinge", x[0])]
         if len(hinges) == 1 and hinges[0][1] != "2":
             probs.append(f"HINGE {hinges[0][0]} qty {hinges[0][1]} (must be 2 + Rear LH & Rear RH)")

@@ -66,6 +66,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 ## Companion parts (add automatically from the main part list)
 - **Bumper Clips** for EVERY bumper in the photos: front bumper → front clips, rear bumper (incl. a rear bumper spoiler) → rear clips, both → both. Take the clips item from that bumper's own group (10@ front, 70@ rear); qty 15. Group has none → manual row "Bumper Clips" 15 × 10.00 (was: "search the catalogue for clip/fastener items"). Never an interior "Clips" item. [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
 - **Bumper Spoiler** (front/rear) → also the matching Bumper. [estimate-companion-parts-rule]
+- ⭐⭐ **Front/Rear Bumper selected → its Bumper Bracket MUST be there** (user 2026-10-30, repeated; `checkall.py` now flags a bumper without a bracket/retainer).
 - **Bumper → ALWAYS Bumper Sensor LH & RH + Bumper Bracket LH & RH**, front or rear to match the bumper (confirmed (user 2026-10-20)). [estimate-companion-parts-rule]
 - **Grille** → Grille Clips, qty 9. [estimate-companion-parts-rule]
 - **Bonnet** → Bonnet Hinge LH + RH (separate items → tick both; else one row qty 2, comment "Front LH & Front RH"). [estimate-companion-parts-rule]
