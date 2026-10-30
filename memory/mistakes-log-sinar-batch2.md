@@ -81,3 +81,7 @@ User 2026-10-20: "for all my feedback and the things u do wrong pls learn from l
 - Rule: the row name = the photo name (or a confirmed ALIAS). No exact item → manual row. SYNC `ADD?` = must fix.
 - Same review: hinge comments missing (VS3408 Door Hinge), LH/RH rows given side comments, aircon misc without Radiator/Condenser (WUE6407, PRY826), WUE6407 chassis End Plate / Front + Rear Section missed. All now in playbook 07/08 + checkall.
 - Correction (user, same day): Bonnet Latch RH IS the bonnet lock (kept, ALIAS added). A closest item is fine when it is the same part; Bumper ≠ Bumper Spoiler.
+
+## 18. Batch 5 (2026-10-30): PRY826 photo order from the 照片命名台 not uploaded
+- Phase B dumped only db `names`; `orders` (the user's drag-and-drop order) was never read, so Merimen kept the old order.
+- Rule: dump BOTH collections every time; naming.py final now stops unless `<db>/orders/.listed` exists; reorder in Merimen, then chkorder.

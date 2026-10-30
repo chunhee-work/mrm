@@ -83,6 +83,10 @@ def load_db(db):
 
 
 def final(out, db, plates):
+    # user 2026-10-30 (PRY826): the photo ORDER the user set was not uploaded because only `names` was dumped.
+    # `final` refuses to run until BOTH collections were listed: after `ArtifactData list orders` (even 0 docs) do `touch <db>/orders/.listed`.
+    if not os.path.exists(os.path.join(db, "orders", ".listed")) or not os.path.isdir(os.path.join(db, "names")):
+        sys.exit("STOP: dump BOTH db collections first: ArtifactData list `names` AND `orders` -> %s, then `touch %s/orders/.listed`" % (db, db))
     names, orders = load_db(db)
     for p in plates_in(out, plates):
         rs = rows_of(out, p)
