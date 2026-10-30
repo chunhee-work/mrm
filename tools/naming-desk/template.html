@@ -34,7 +34,8 @@ main{max-width:1240px;margin:0 auto;padding:20px 16px 72px;display:flex;flex-dir
 .kpi.warn .v{color:var(--warn)}.kpi.ed .v{color:var(--ed)}
 .legend{font-size:13px;color:var(--mut)}.legend summary{cursor:pointer;width:max-content;min-height:28px}
 .legend .row{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:8px;align-items:center}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:16px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}  /* user 2026-10-30: always 2 columns (left + right), every photo and view the same size */
+@media (max-width:560px){.grid{gap:8px}.namerow{flex-wrap:wrap}.nm{flex-basis:100%}}
 .card{position:relative;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
 .card.warn{border-color:var(--warn)}.card.edited{border-color:var(--ed)}
 .card.warn::before,.card.edited::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--warn);z-index:1}.card.edited::before{background:var(--ed)}

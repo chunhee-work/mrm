@@ -26,6 +26,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - db `names`: doc `<PLATE>-NN` {case, n, src, model, name}. db `orders/<PLATE>`: {order:[original n…]}. [case-photo-naming-artifact]
 - Re-read `names` and `orders` right before the photo upload (06) and again before Step 2 (07); learn from every edit. [merimen-batch-workflow]
 - The upload follows the artifact EXACTLY: order from `orders` (else page order), names from `names` (else model name). [case-photo-naming-artifact]
+- ⭐ **Layout: always 2 columns, left + right, every photo the same size — views and parts alike, on every screen** (user 2026-10-30). Set in `tools/naming-desk/template.html` (`.grid` = `repeat(2,minmax(0,1fr))`); never change it back to auto-fill.
 
 ## Core naming principles
 - ⭐ **Capitals (user 2026-10-23):** never write a name in ALL CAPITALS. Every word starts with one capital, the rest small: QUARTER PILLAR LH → **Quarter Pillar LH**, SPARE WHEEL FOAM → Spare Wheel Foam. Only LH, RH and real abbreviations (A/C, ECU, ABS, SRS, LED, MPV, 4WD) stay capital. `name_map.final()` applies this to every name; the ALL-CAPS spellings quoted in this playbook are only the wrong forms to replace.
