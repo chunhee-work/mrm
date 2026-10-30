@@ -283,6 +283,8 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^(GENERAL VIEW|General View)$", None),                                         # never General View: use Front/Rear/Side View
     (r"^(SIDE VIEW|Side view)$", "Side View"),
     (r"(?i)^rear panel view$", "Rear View"),
+    (r"(?i)^(front|rear) (lh|rh) (lower|upper) arm$", lambda m: f"{m.group(1).title()} Suspension {m.group(3).title()} Arm {m.group(2).upper()}"),   # user 2026-10-30: never "Front RH Lower Arm"
+    (r"(?i)^(front|rear) (lower|upper) arm (lh|rh)$", lambda m: f"{m.group(1).title()} Suspension {m.group(2).title()} Arm {m.group(3).upper()}"),
     (r"(?i)^(front |rear )?(lh|rh) (steering )?tie rod( end)?$", lambda m: "Steering Tie Rod" + (" End" if m.group(4) else "") + " " + m.group(2).upper()),   # user 2026-10-30: never "Front RH Tie Rod"
     (r"(?i)^(front |rear )?(steering )?tie rod( end)? (front |rear )?(lh|rh)$", lambda m: "Steering Tie Rod" + (" End" if m.group(3) else "") + " " + m.group(5).upper()),
     (r"(?i)^bumper rear absorber(\s*(&|and|n)\s*bumper rear absorber)?$", "Rear Bumper Shock Absorber"),   # user 2026-10-29 (typo fixed: use Rear Bumper Shock Absorber)
