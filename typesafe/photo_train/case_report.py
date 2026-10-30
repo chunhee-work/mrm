@@ -33,20 +33,22 @@ def is_view(p):
 
 
 def arrange(P):
-    """Identification block = 4 corner views, then Interior View/Road Tax, Odometer, Chassis, Engine.
-    Only touch the order when the folder is clearly not in that order (user 2026-10-16: 'if u detect then u arrange')."""
-    idx_id = {n: [i for i, p in enumerate(P) if name_of(p) == n and p["conf"] >= 0.5] for n in ID_ORDER}
-    first = [i for n in ("Odometer Reading", "Chassis Number") for i in idx_id[n][:1]]
-    if not first:
+    """Identification block = 4 corner views, then Interior View/Road Tax, Odometer, Chassis, Engine Compartment.
+    user 2026-10-16 'if u detect then u arrange'; user 2026-10-30 (PRY826): whenever the folder order is wrong (corner views
+    not first, ID shots not right after them) Claude arranges it in the 照片命名台 BEFORE the user reviews — the user should
+    never have to drag the opening shots. Looks at the first 16 photos only."""
+    W, WI = min(len(P), 16), min(len(P), 30)   # corner views: first 16 photos; ID shots (chassis/engine come late): first 30
+    ids = []
+    for n in ID_ORDER:
+        hit = [i for i in range(WI) if name_of(P[i]) == n and P[i]["conf"] >= 0.5]
+        ids += hit if n == "Engine Compartment" else hit[:1]
+    views = [i for i in range(W) if is_view(P[i]) and i not in ids][:4]
+    views.sort(key=lambda i: (OPEN.index(name_of(P[i])) if name_of(P[i]) in OPEN else 9, i))   # FVR, FVL, RVR, RVL (names are given by position)
+    if not ids and len(views) < 4:
         return list(range(len(P))), False
-    block_end = max(first)
-    if block_end <= 9:      # odometer/chassis already near the start = folder is in order (corner views are often misnamed)
-        return list(range(len(P))), False
-    ids = [idx_id[n][0] for n in ID_ORDER if idx_id[n] and idx_id[n][0] <= block_end + 3]
-    views = [i for i, p in enumerate(P) if is_view(p) and i not in ids][:4]
-    want = views + sorted(ids, key=lambda i: ID_ORDER.index(name_of(P[i])))
+    want = views + sorted(ids, key=lambda i: (ID_ORDER.index(name_of(P[i])), i))
     order = want + [i for i in range(len(P)) if i not in want]
-    return order, order[:len(want)] != list(range(len(want)))
+    return order, order != list(range(len(P)))
 
 
 def main(case_dir, plate, vehicle, out):

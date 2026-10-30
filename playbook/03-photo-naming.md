@@ -14,7 +14,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Motorcycle cases are not trained and never go into the labelling tool. [photo-center-crosshair-rule]
 
 ## Order + opening shots
-- Name in file order. `case_report.py` moves the ID shots to the front only when Odometer/Chassis are not within the first 10 photos. [case-photo-naming-artifact]
+- ⭐⭐ **When the folder order is wrong, Claude arranges it in the 照片命名台 BEFORE the user reviews** (user 2026-10-30, PRY826: the user had to drag the 4 corner views + Chassis/Odometer/Engine to the front). `case_report.py arrange()` now reorders whenever the opening block is not already first: 4 corner views (from the first 16 photos, sorted FVR, FVL, RVR, RVL) → Interior View/Road Tax → Odometer → Chassis → every Engine Compartment shot (ID shots from the first 30 photos) → the rest in file order. The upload follows that order. [case-photo-naming-artifact]
 - Opening rule: 1–4 = Front View Right, Front View Left, Rear View Right, Rear View Left; 5 = Interior View (windscreen shot) or Road Tax (paper slip/disc at the centre). Then Odometer Reading, Chassis Number, Engine Compartment. [case-photo-naming-artifact] [car-part-item-names]
 - INSPECTION DISC photo → Road Tax. [photo-center-crosshair-rule]
 - Missing opening shots: corner views = the photos before the first ID shot; fewer than 4 → use the model's own view guess, mark unsure, never force corner names onto damage photos; add `<PLATE> pending <photo> photo`. [case-photo-naming-artifact]
