@@ -4,6 +4,7 @@ Usage:
   price_lookup.py model <keyword>   # show price block(s) for matching model+year
   price_lookup.py part <keyword>    # show a part's price across all models (compare)
   price_lookup.py part <keyword> --model <kw>   # same, only models matching <kw> (e.g. "PERODUA Myvi 2017")
+  price_lookup.py ref <part> --model "<Merimen model text>"   # ONE recommended price: same model -> same brand -> all (user 2026-10-31)
   price_lookup.py brands [brand]    # brand -> model family -> number of cases (what the data covers)
   price_lookup.py models [keyword]  # list model names (optionally filtered)
   price_lookup.py                   # interactive
@@ -93,6 +94,37 @@ def list_models(blocks, kw=None):
     for n in names: print(n)
     print(f"\n{len(names)} models.")
 
+def ref(blocks, kw, model):
+    """user 2026-10-31: never mix all models. Same model (brand + model family, same year generation first) -> median;
+    no row for that model -> same brand median; only when the brand has none -> all-model median."""
+    def num(p):
+        try: return float(p.replace(",", ""))
+        except: return 0.0
+    kw = kw.lower(); m = re.sub(r"^\[OURS\]\s*", "", model or "").strip()
+    f = fam(m).lower(); brand = f.split()[0] if f else ""
+    gen = re.search(r"\b((?:19|20)\d\d)\b", m); gen = gen.group(1) if gen else None
+    AB = {"frt": "front", "fr": "front", "rr": "rear", "assy": "assembly", "l": "lh", "r": "rh"}
+    toks = lambda t: [AB.get(w, w) for w in re.findall(r"[a-z0-9]+", re.sub(r"\[[^]]*\]|\([^)]*\)", " ", t.lower()))]
+    want = toks(kw)
+    def hits(pred):
+        rows = [(num(c[-1]), c[0], b["model"]) for b in blocks if pred(b) for c in b["parts"] if num(c[-1]) > 0]
+        exact = [r for r in rows if sorted(toks(r[1])) == sorted(want)]          # same words, any order (Door Hinge Front LH = Door Front Hinge LH)
+        return exact or [r for r in rows if all(w in toks(r[1]) for w in want)]  # else: contains all the words
+    tiers = []
+    if gen: tiers.append((f"same model {f} {gen}", lambda b: fam(b["model"]).lower() == f and gen in b["model"]))
+    tiers += [(f"same model {f}", lambda b: fam(b["model"]).lower() == f),
+              (f"same brand {brand}", lambda b: fam(b["model"]).lower().split()[:1] == [brand]),
+              ("ALL models (no row for this brand)", lambda b: True)]
+    for label, pred in tiers:
+        h = hits(pred)
+        if h:
+            v = sorted(x[0] for x in h); med = v[len(v)//2]
+            print(f"REF {kw!r}: RM{med:,.2f}  <- median of {len(v)} rows, {label}" + ("   (< 5 rows: flag it)" if len(v) < 5 else ""))
+            for x in sorted(h)[:8]:
+                print(f"   RM{x[0]:>10,.2f}  {x[1][:42]:42}  [{x[2][:50]}]")
+            return med
+    print(f"REF {kw!r}: no price anywhere"); return None
+
 def brands(blocks, kw=None):
     t = {}
     for b in blocks:
@@ -126,6 +158,8 @@ def main():
         return brands(blocks, kw or None)
     if cmd == "part":
         return show_part(blocks, kw, mkw)
+    if cmd == "ref":
+        return ref(blocks, kw, mkw)
     {"model":show_model, "part":show_part}.get(cmd, lambda b,k: list_models(b, k or None) if cmd=="models" else show_part(b, " ".join(args)))(blocks, kw)
 
 if __name__ == "__main__":
