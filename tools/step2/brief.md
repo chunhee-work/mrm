@@ -16,6 +16,10 @@ Inputs per case <P> (B = <BATCH_DIR>):
 - Prices for manual rows: /Users/chunhee/Documents/VS Code/gacha-smm-playbook/mrm/tools/price-refs/*.tsv (Myvi 2017, Saga 2016, Vios 2016 — same brand/model first), then `python3 tools/price_lookup.py "<part name>"` (run from the repo folder). Note how many reference rows; flag < 5.
 
 Rules to apply that the draft often misses:
+- The row must carry the PHOTO'S NAME: tick a catalogue item only if it is the same part with the same name (Bumper Spoiler is NOT Body Kit Skirt, Bonnet Lock is NOT Bonnet Latch, Runningboard Spoiler is NOT Runningboard Panel/Side Skirt). Otherwise manual row with the photo name. Never a "closest match".
+- Front Chassis Member LH/RH → also its End Plate, Front Section, Rear Section (same side) when in the catalogue.
+- Misc Air-cond gas (Normal) / Air cond system checking / Radiator coolant ONLY when Radiator or A/C Condenser is selected.
+- Comments: name has LH/RH → no comment (door hinge = exception, always Upper/Lower + side). Name without side → comment with the side.
 - No catalogue item with the photo name -> manual row with THAT name. Never map it to a different kind of part (Moulding Fender Front RH is NOT Fender Signal Lamp Front RH; a trim is never a lamp).
 - Every non-view photo name must become a selected catalogue item or a manual row (views/ID shots: Front/Rear/Side View…, Road Tax, Odometer Reading, Chassis Number, Engine Compartment, Interior View, Dashboard → no part).
 - Companions (07): bumper → clips ×15 + sensors + brackets for THAT bumper; tailgate/boot lid set; door set; fender → liner; quarter → liner (NOT on Perodua Viva); suspension SET per corner; Grille → Grille Clips ×9; etc.

@@ -9,6 +9,7 @@ Per case it prints only problems:
   - QTY2 NO CMT  qty-2 sensor/bracket/hinge/strut rows without "LH & RH" comment
   - HINGE        a lone Boot Lid / Tailgate Hinge row that is not qty 2
   - DOOR?        Door Front/Rear LH/RH part with no photo of that door (Thatcham auto-add, Saga/Myvi)
+  - CMT NOT NEEDED / HINGE NO CMT / AIRCON MISC / CHASSIS SET   user rules 2026-10-30
   - SYNC         photo name <-> estimate row problems (tools/naming-desk/sync_check.py), if <batch_dir>/db_names exists
   - TOTAL        Adj Rpt total (Claim Subfolder page); "< 6000" is flagged
 Needs <batch_dir>/ids.txt; photo names from ~/mrm-bot/photoplan.json.
@@ -60,6 +61,31 @@ def main():
         hinges = [x for x in rows if re.search(r"(Boot Lid|Tailgate) Hinge", x[0])]
         if len(hinges) == 1 and hinges[0][1] != "2":
             probs.append(f"HINGE {hinges[0][0]} qty {hinges[0][1]} (must be 2 + Rear LH & Rear RH)")
+        # user 2026-10-30 (batch 5 review)
+        for x in rows:   # a row whose name already says LH/RH gets NO comment (door hinge Upper/Lower is the only exception)
+            key = re.sub(r"\s*\[.*$", "", x[0]).strip()
+            if re.search(r"\b(LH|RH)\b", key) and not re.search(r"Door .*Hinge", key) and any(v for v in has.get(key, [])):
+                probs.append(f"CMT NOT NEEDED {key} ({has[key]})")
+            if re.search(r"Door .*Hinge", key) and not re.search(r"Upper|Lower", key) and not any(re.search(r"Upper|Lower", v) for v in has.get(key, [])):
+                probs.append(f"HINGE NO CMT {key} (needs Upper LH & Lower LH etc.)")
+        try:
+            sel = json.load(open(os.path.join(H, "state", f"sel_{p}_now.json")))
+        except ValueError:
+            sel = {}
+        if not any(re.search(r"Radiator|Condenser", x[0]) for x in rows):   # air-cond / coolant misc only with Radiator / A/C Condenser
+            bad = [m for m in sel.get("CM", []) if re.search(r"Air.cond|Radiator coolant", m)]
+            if bad:
+                probs.append(f"AIRCON MISC without Radiator/Condenser: {bad}")
+        catf = os.path.join(H, "s2", f"cat_{p}.json")
+        if os.path.exists(catf):   # front chassis member side -> its End Plate / Front Section / Rear Section too (if in the catalogue)
+            cat = [re.sub(r"^\S+ \[[^]]*\] | \([^)]*\)$", "", x[1]) for x in json.load(open(catf))["cat"]]
+            rn = {re.sub(r"\s*\[.*$", "", x[0]).strip() for x in rows}
+            for sd in ("LH", "RH"):
+                if any(re.match(rf"Chassis Member Front.*\b{sd}\b", n) for n in rn):
+                    want = [c for c in cat if re.match(rf"Chassis Member Front (End Plate {sd}|{sd} (Front|Rear) Section)$", c)]
+                    miss = sorted({w for w in want if w not in rn})
+                    if miss:
+                        probs.append(f"CHASSIS SET missing {miss}")
         names = {x[2] for x in photos.get(p, [])}
         for x in rows:
             m = re.match(r"Door (Front|Rear) (LH|RH)$", x[0])

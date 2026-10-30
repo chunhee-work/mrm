@@ -21,6 +21,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 
 ## Rule 1 — every photographed item goes in
 - ⭐⭐ **(user 2026-10-23, MUST): every item that has a photo is selected in Select Parts, NO MATTER whether it looks broken or not.** Never drop a photographed item because it "looks intact", "damage not clear" or "probably no sensor". The photo name decides; if you think the name is wrong, the user fixes the name in the 照片命名台 — you still select the named item. After ticking, run the photo-vs-selection check (every non-view photo name must match a selected catalogue item or a manual row) and fix every gap before reporting. [mistakes-log-sinar-batch2]
+- ⭐⭐ **The estimate row must carry THE PHOTO'S NAME (user 2026-10-30, batch 5: "all item in the 照片命名台 must be choose"). Never use a 'closest' catalogue item with a different name**: Front/Rear Bumper Spoiler ≠ Body Kit [Bumper Frt/Rear Skirt]; Runningboard Spoiler LH ≠ Body Kit [Side Skirt LH] / Runningboard Panel; Bonnet Lock ≠ Bonnet Latch; Moulding Fender Front ≠ Fender Signal Lamp. Catalogue has the same name (or a confirmed ALIAS in sync_check.py) → tick it; otherwise → manual row with the photo's name. Every `SYNC ADD?` from checkall is a MISS to fix, never something to explain away.
 - Every item named in the artifact / seen in the photos must be in the estimate. A catalogue miss becomes a MANUAL row (08), never a drop. [estimate-select-parts-rules-2026-10-17] [mistakes-log-sinar-batch2]
 - Missed before: BRS8642 front + rear Wheel Rim RH, Runningboard Spoiler RH, Door Mirror RH; VDD414 Spare Wheel Well; FB438 Bumper Front Fog Lamp LH (user added at 763.00). [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17]
 - Case note: TCP4539 also needed Fender Front Inner Wheel House RH. [photo-center-crosshair-rule]
@@ -33,6 +34,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Same text in two groups and both axles hit → qty 2 (BRS8642 rims). [mistakes-log-sinar-batch2]
 - Don't go hunting for the other side in an unrelated group (Boot Lid Hinge LH under 100 Front Door RH is wrong). [estimate-companion-parts-rule]
 - PERODUA: never Front Panel Assembly → Front Panel Upper / Fender Inner LH/RH / Front Crossmember / Front Panel Lower. Other makes: Front Panel Assembly. [perodua-front-panel-rule] [mistakes-log-sinar-batch2]
+- ⭐ **Front Chassis Member on a side → also tick that side's Chassis Member Front End Plate, … Front Section and … Rear Section whenever the catalogue has them** (user 2026-10-30, WUE6407 Viva: End Plate RH + RH Front Section + RH Rear Section). checkall flags `CHASSIS SET missing`.
 - LORRY: "Front Chassis Member" with no side. [lorry-front-chassis-member]
 - Photo **Door Front/Rear Window LH/RH** = catalogue **Door Glass Front/Rear Window LH/RH** as a PART (not only R labour). KCM8604 missed both (user 2026-10-23).
 - Photo **Rear Bumper Spoiler** on a car whose catalogue has one side-less "Spoiler Bumper Rear" (Corolla Altis BMN7769) → that item, qty 1, no comment (user 2026-10-23).
@@ -150,6 +152,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Misc must match the impact: side hit → side misc, never the front set ("Number plate, front") (WYN5733 Alza side hit got front misc). Check misc on every case. [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17]
 - Rear hit: Electrical (check & diagnose), Floor board sealant, Car-O-Liner bench, Number plate rear, Other items, Tail lamp sealant, Underseal materials, Windscreen sealant rear. [labour-reference-sinar-batch]
 - Front hit: Air cond system checking, Air-cond gas (Normal), Electrical, Car-O-Liner, Number plate front, Other items, Radiator coolant, Underseal. [labour-reference-sinar-batch]
+- ⭐ **Air-cond gas (Normal), Air cond system checking and Radiator coolant ONLY when Radiator / A/C Condenser is in Select Parts** (user 2026-10-30). A front hit without Radiator/Condenser gets none of the three. checkall flags `AIRCON MISC`.
 - Suspension or wheel parts → add Road test, Road wheel alignment, Road wheel balancing. [labour-reference-sinar-batch]
 - `labourfill.mjs` (08) adds misc/labour by 5 nearest past cases; it skips labour/misc if the case already has ticks. [labour-n-r-selection]
 

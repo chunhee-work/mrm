@@ -27,6 +27,9 @@
 
 ## Row comments
 - **Badge / Emblem rows → comment = the logo name in brackets, as in the photo name**: Grille Badge → "(PROTON)", Badge Boot Lid → "(SAGA)", Emblem → "(CITY)", "(JAZZ)", "(i-VTEC)" (user 2026-10-24, TCH9615).
+- ⭐ **Row name already has LH or RH → NO comment** (user 2026-10-30: Bonnet Support Strut LH needs no "LH"; same for every LH/RH row). Only exception: door hinges.
+- **Row name without a side → comment says which one**, e.g. Stabiliser Bar Front Link Rod → "Front LH" (user 2026-10-30).
+- ⭐ **Door hinge rows ALWAYS get "Upper LH & Lower LH" / "Upper RH" / "Lower RH"… unless the name already says Upper/Lower** (user 2026-10-30, VS3408 Door Front Hinge LH qty 2 had no comment). checkall: `HINGE NO CMT`, `CMT NOT NEEDED`.
 - qty-2 rows always "Front LH & Front RH" / "Rear LH & Rear RH" (07), e.g. Bumper Rear Bracket Side LH ×2 → "Rear LH & Rear RH".
 
 ## Liners

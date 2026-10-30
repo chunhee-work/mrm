@@ -74,3 +74,9 @@ User 2026-10-20: "for all my feedback and the things u do wrong pls learn from l
 ## 16. Batch 5 (2026-10-30): PRY826 Moulding Fender Front RH mapped to Fender Signal Lamp Front RH
 - The planning agent guessed the MINI side scuttle carries the indicator and ticked the lamp. User: not the same thing.
 - Rule (07 Rule 2): no catalogue item with the photo's name -> manual row with that exact name; never swap to another kind of part.
+
+## 17. Batch 5 (2026-10-30): photo items mapped to "closest" parts instead of the photo name
+- VS3408: Front/Rear Bumper Spoiler + Runningboard Spoiler LH → Body Kit skirts; PRY826: Bonnet Lock → Bonnet Latch RH, Moulding Fender Front RH → Fender Signal Lamp. checkall SYNC printed `ADD?` for them and I explained them away as "acceptable mappings" instead of fixing.
+- Why: the planning agent is told to find a catalogue item for every photo; when the exact name is missing it picks the nearest-looking item (often to avoid a manual price) and writes it in `coverage`, so the "every photo covered" check passes on paper.
+- Rule: the row name = the photo name (or a confirmed ALIAS). No exact item → manual row. SYNC `ADD?` = must fix.
+- Same review: hinge comments missing (VS3408 Door Hinge), LH/RH rows given side comments, aircon misc without Radiator/Condenser (WUE6407, PRY826), WUE6407 chassis End Plate / Front + Rear Section missed. All now in playbook 07/08 + checkall.
