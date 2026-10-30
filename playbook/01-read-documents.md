@@ -10,7 +10,7 @@
 ## Reading the bundle
 - A case may be split across several PDFs and page order may jump: read ALL files, work out which page is which, report missing pages. [claim-extraction-output-format] [workshop-from-desktop-folder]
 - Read PDFs with the Read tool. Scans have no text layer: render pages with PyMuPDF into one contact sheet per case to find pages, then re-render the page at ~230 dpi to read numbers. [merimen-document-upload-naming]
-- Never guess a garbled/unclear word: flag it. Don't trust OCR for chassis/plate digits; zoom in. [claim-extraction-output-format] [car-part-item-names]
+- ⭐ **Unclear word or digit → zoom in and key your best reading; don't ask the user** (user 2026-10-30: "try ur best"). (was: "never guess, flag it") [claim-extraction-output-format] [car-part-item-names]
 - Full bundle pages: (1) JPJ Sijil Pemilikan Kenderaan = our client's RC; (2–3) our client's insurance schedule; (4) police investigation result (Keputusan Penyiasatan Kes); (5) other party police report; (6) our party police report; (7) sketch (Rajah Kasar) = ignore; (8) other party vehicle + insurance (I-SEARCH / JPJ SEARCH). [claim-extraction-output-format]
 - Each bundle has TWO insurances: our client's own (INS) and the at-fault party's (JPJ SEARCH). [claim-extraction-output-format] [workshop-from-desktop-folder]
 - File-label meaning: RC = our client's ownership cert; INS = our client's own insurance; P.REPORT = police report(s); JPJ SEARCH = 对方保单 = the at-fault party's insurance/I-SEARCH page. [workshop-from-desktop-folder]
@@ -21,6 +21,7 @@
 - Lock the at-fault party in two steps: (1) police Keputusan Penyiasatan names the "disalahkan" plate; (2) the at-fault insurer = the JPJ SEARCH / I-SEARCH page for THAT exact plate. The plates must match. [workshop-from-desktop-folder]
 - An insurance doc naming a different plate is misfiled from another case → ignore it; never pick by "which doc looks more complete". [workshop-from-desktop-folder]
 - JPJ SEARCH is usually the last page but NOT always: read the whole PDF and look for the second insurance-search page naming a different insurer/plate than our client. Never mark a case "no at-fault JPJ" before reading every page (BMB8496, STA8148A, VMJ6957, VNL7354 were wrongly skipped). [workshop-from-desktop-folder]
+- ⭐⭐ **Chain collision — never ask (user 2026-10-30):** claim against the car whose insurance IS in the bundle (normally the one that directly hit our client), even when the police blame a car further back. Just do it; no question to the user.
 - Chain collision: claim against the vehicle that DIRECTLY hit our client; the party whose insurance is provided in the bundle is the one (CCX3911 → WGQ4340, not the summoned WRD9621; VFA1371 → middle car TCP6855). [motor-claim-adjuster-workflow]
 - Insured = at-fault OWNER; owner unknown or owner has no NRIC → Insured = the at-fault DRIVER. [merimen-data-conflict-rules] [merimen-az-progress]
 - Insured Driver = the at-fault driver (from the at-fault police report). [merimen-adjuster-report-fields]
