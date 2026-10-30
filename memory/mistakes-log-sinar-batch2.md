@@ -66,3 +66,7 @@ User 2026-10-20: "for all my feedback and the things u do wrong pls learn from l
 - Rule: playbook 09 re-sync; every re-sync ends with the photo-vs-selection check.
 - Misc sealant prices were wrong (45/30/30): Windscreen sealant rear 120, Floor board sealant 60, Tail lamp sealant 15 (user screenshot).
 - 14b. Only the ADD direction was checked at first; old names' parts stayed: BPA5858 Door Rear LH (+N, Door Glass R&R), Bumper Rear Finisher LH/RH; KCM8604 Windscreen Front/Rear, Front Pillar Outer RH (+N); KER815 Boot Side Trim LH, Parcel Shelf Rear; NDG4731 Boot Storagetray, Spare Wheel Well, duplicate Badge; CCQ6119 Bumper Rear Moulding LH; AKF8382 Emblem i-VTEC; BMN7769 Number Plate Holder Rear, A/C Hose; WA9150L Door Lower Moulding Rear RH; CBL8902 Wheel House Inner Rear LH; TCH9615 Wheel House Inner Rear RH. Fix: tools/naming-desk/sync_check.py (both directions) is mandatory in every re-sync.
+
+## 15. Batch 6 (2026-10-30): PRY826 reported "pending documents" but the PDF was in the zip
+- `PRY826 adj.pdf` was at the zip ROOT, not inside `PRY826/`; my listing (`unzip -l | awk $4`) cut the name at the space, so I never saw it.
+- Rule: `unzip -Z1` full names, move every PDF into its case folder, only then decide a document is missing (playbook 00 + 01).
