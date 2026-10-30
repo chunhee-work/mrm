@@ -7,7 +7,7 @@
 - par(fn, items, n)     run fn(item) for many cases at once (PAR env, default 5)
 - ids(path)             {PLATE: (cid, ext)} from an ids.txt (lines: PLATE cid ext)
 """
-import subprocess, os, subprocess, sys, time
+import os, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 
 H = os.path.expanduser("~/mrm-bot")
