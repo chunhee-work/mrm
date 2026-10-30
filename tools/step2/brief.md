@@ -13,7 +13,7 @@ Inputs per case <P> (B = <BATCH_DIR>):
 - Case data (impact, vehicle): B/data/<P>.json ; Merimen model text: B/meta.json
 - Catalogue: ~/mrm-bot/s2/cat_<P>.json  {"cat":[[value,label,checked]], "labs":[[labour label, checked]]}. value prefix NN@ = group (see playbook 07 group codes).
 - Draft plan from typesafe/step2_plan.py: ~/mrm-bot/s2/tick_<P>.json, ~/mrm-bot/s2/miss_<P>.json, ~/mrm-bot/s2/plan_<P>.log  — a DRAFT, often wrong (e.g. it matched a fog lamp photo to "Fog Lamp Finisher", gave the same Bumper Clips value twice, gave only one tailgate strut side, missed items). Fix it.
-- Prices for manual rows: /Users/chunhee/Documents/VS Code/gacha-smm-playbook/mrm/tools/price-refs/*.tsv (Myvi 2017, Saga 2016, Vios 2016 — same brand/model first), then `python3 tools/price_lookup.py "<part name>"` (run from the repo folder). Note how many reference rows; flag < 5.
+- Prices for manual rows: /Users/chunhee/Documents/VS Code/gacha-smm-playbook/mrm/tools/price-refs/*.tsv (Myvi 2017, Saga 2016, Vios 2016 — same brand/model first), then `python3 tools/price_lookup.py part "<part name>" --model "<BRAND> <Model>"` (run from the repo folder; same model first, then same brand — never the all-model median). Note how many reference rows; flag < 5.
 
 Rules to apply that the draft often misses:
 - The row must carry the PHOTO'S NAME: a closest catalogue item is OK only when it is the SAME part under another name (Bonnet Lock = Bonnet Latch). Never a different kind of part (Bumper is NOT Bumper Spoiler; Bumper Spoiler is NOT Body Kit Skirt; Runningboard Spoiler is NOT Runningboard Panel/Side Skirt; a trim is never a lamp). Otherwise manual row with the photo name. Never a "closest match".
