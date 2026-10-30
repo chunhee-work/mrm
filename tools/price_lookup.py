@@ -50,8 +50,27 @@ def show_model(blocks, kw):
         print()
     if len(hits) > 12: print(f"... {len(hits)-12} more; refine the keyword.")
 
+# price tiers (user approved 2026-10-31): brands in one tier may share item prices when the model and brand have no row
+TIERS = {
+    "T1 national / budget": "PERODUA PROTON INOKOM NAZA HICOM",
+    "T2 Japanese / Korean mainstream": "TOYOTA HONDA NISSAN MAZDA MITSUBISHI HYUNDAI KIA SUZUKI DAIHATSU SUBARU",
+    "T3 European / American mainstream": "VOLKSWAGEN FORD PEUGEOT CHEVROLET CITROEN RENAULT SSANGYONG",
+    "T4 Chinese": "BYD CHERY GREAT_WALL CHANGAN JAECOO NETA DENZA MG",
+    "T5 luxury": "MERCEDES-BENZ BMW LEXUS AUDI VOLVO MINI LAND_ROVER TESLA",
+    "T6 super luxury": "PORSCHE BENTLEY MASERATI",
+    "T7 commercial / lorry / bus / van": "ISUZU HINO KING_LONG DONG_FENG FOTON UD YANGTSE SKS FARID LMG",
+    "motorcycle": "YAMAHA MODENAS SYM",
+}
+TIER_OF = {b.replace("_", " "): t for t, bs in TIERS.items() for b in bs.split()}
+
+def brand_of(model):
+    w = re.sub(r"^\[OURS[^\]]*\]\s*", "", model).upper().split()
+    if not w: return ""
+    two = " ".join(w[:2])
+    return two if two in TIER_OF else w[0]
+
 def fam(model):
-    w = re.sub(r"^\[OURS\]\s*", "", model).split()
+    w = re.sub(r"^\[OURS[^\]]*\]\s*", "", model).split()
     return " ".join(w[:3] if w and w[0] in ("LAND", "GREAT", "MERCEDES-BENZ") and len(w) > 2 and w[0] != "MERCEDES-BENZ" else w[:2])
 
 def show_part(blocks, kw, mkw=None):
@@ -100,7 +119,7 @@ def ref(blocks, kw, model):
     def num(p):
         try: return float(p.replace(",", ""))
         except: return 0.0
-    kw = kw.lower(); m = re.sub(r"^\[OURS\]\s*", "", model or "").strip()
+    kw = kw.lower(); m = re.sub(r"^\[OURS[^\]]*\]\s*", "", model or "").strip()
     f = fam(m).lower(); brand = f.split()[0] if f else ""
     gen = re.search(r"\b((?:19|20)\d\d)\b", m); gen = gen.group(1) if gen else None
     AB = {"frt": "front", "fr": "front", "rr": "rear", "assy": "assembly", "l": "lh", "r": "rh"}
@@ -113,8 +132,11 @@ def ref(blocks, kw, model):
     tiers = []
     if gen: tiers.append((f"same model {f} {gen}", lambda b: fam(b["model"]).lower() == f and gen in b["model"]))
     tiers += [(f"same model {f}", lambda b: fam(b["model"]).lower() == f),
-              (f"same brand {brand}", lambda b: fam(b["model"]).lower().split()[:1] == [brand]),
-              ("ALL models (no row for this brand)", lambda b: True)]
+              (f"same brand {brand}", lambda b: fam(b["model"]).lower().split()[:1] == [brand])]
+    tier = TIER_OF.get(brand_of(m))
+    if tier:
+        tiers.append((f"same tier {tier}", lambda b: TIER_OF.get(brand_of(b["model"])) == tier))
+    tiers.append(("ALL models (no row in this tier)", lambda b: True))
     for label, pred in tiers:
         h = hits(pred)
         if h:
