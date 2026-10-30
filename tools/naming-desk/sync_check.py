@@ -29,6 +29,7 @@ def side(s):
 
 # photo name -> catalogue wording (playbook 07 / 10). Extend when a new pair is confirmed.
 ALIAS = [
+    (r"Bonnet Lock", "Bonnet Latch|Bonnet Lock"),   # user 2026-10-30: Bonnet Latch RH IS the bonnet lock
     (r"(Boot Lid|Tailgate|Grille Front) Badge \(.*\)", "Badge|Emblem"),
     (r"Rear Panel Inner Trim", "Rear Panel Garnish|Rear Panel Inner Trim"),
     (r"(Front|Rear) Wheelhouse", "Wheel House"),

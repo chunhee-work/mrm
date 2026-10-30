@@ -16,7 +16,7 @@ Inputs per case <P> (B = <BATCH_DIR>):
 - Prices for manual rows: /Users/chunhee/Documents/VS Code/gacha-smm-playbook/mrm/tools/price-refs/*.tsv (Myvi 2017, Saga 2016, Vios 2016 — same brand/model first), then `python3 tools/price_lookup.py "<part name>"` (run from the repo folder). Note how many reference rows; flag < 5.
 
 Rules to apply that the draft often misses:
-- The row must carry the PHOTO'S NAME: tick a catalogue item only if it is the same part with the same name (Bumper Spoiler is NOT Body Kit Skirt, Bonnet Lock is NOT Bonnet Latch, Runningboard Spoiler is NOT Runningboard Panel/Side Skirt). Otherwise manual row with the photo name. Never a "closest match".
+- The row must carry the PHOTO'S NAME: a closest catalogue item is OK only when it is the SAME part under another name (Bonnet Lock = Bonnet Latch). Never a different kind of part (Bumper is NOT Bumper Spoiler; Bumper Spoiler is NOT Body Kit Skirt; Runningboard Spoiler is NOT Runningboard Panel/Side Skirt; a trim is never a lamp). Otherwise manual row with the photo name. Never a "closest match".
 - Front Chassis Member LH/RH → also its End Plate, Front Section, Rear Section (same side) when in the catalogue.
 - Misc Air-cond gas (Normal) / Air cond system checking / Radiator coolant ONLY when Radiator or A/C Condenser is selected.
 - Comments: name has LH/RH → no comment (door hinge = exception, always Upper/Lower + side). Name without side → comment with the side.
