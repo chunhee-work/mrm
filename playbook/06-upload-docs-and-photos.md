@@ -34,5 +34,6 @@ A case is not done until BOTH its documents and its photos are in Merimen; say s
 
 ## Relabel / reorder
 - Relabel ONLY with `node relabel_ui.mjs <cid> <ext> '{"<pos>":["<old name>","<new name>"]}' save` (clicks the docview "Relabel/Reorder" link; verified on 7 cases without logout). [merimen-logout-causes] [mistakes-log-sinar-batch2]
+- Reorder ONLY with `node reorder_ui.mjs <cid> <ext> <map.json> save` (same Relabel/Reorder page; sets the order boxes `SDO*`; map = `{"<current pos>":["<name now>",<new pos>]}` built from the old vs new photoplan by `src`; it refuses to save if any current name/position differs). Verified on PRY826 2026-10-30 (26 moves, chkorder mismatch 0).
 - Never build the dsp_docmanage URL by hand (immediate logout). [merimen-logout-causes]
 - Then verify with `chkorder.mjs`. [merimen-batch-workflow]
