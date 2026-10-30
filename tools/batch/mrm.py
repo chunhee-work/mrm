@@ -7,7 +7,7 @@
 - par(fn, items, n)     run fn(item) for many cases at once (PAR env, default 5)
 - ids(path)             {PLATE: (cid, ext)} from an ids.txt (lines: PLATE cid ext)
 """
-import os, subprocess, sys, time
+import subprocess, os, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 
 H = os.path.expanduser("~/mrm-bot")
@@ -28,6 +28,7 @@ def wait_login():
         return
     f = os.path.join(H, "session_base.txt")
     t0 = os.path.getmtime(f)
+    subprocess.run(["node", "ensuretab.mjs"], cwd=H, capture_output=True, timeout=120)   # user 2026-10-30: a merimen.com.my page must be open BEFORE login
     print("LOGGEDOUT: please run  cd ~/mrm-bot && node relogin.mjs   (waiting, will continue by itself)", flush=True)
     while True:
         time.sleep(10)
