@@ -43,6 +43,8 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - **Rear Bumper Spoiler = Bumper Rear Lower Cover** when the catalogue has no spoiler item (Vios 2023 To 2026 / CCQ6119; user 2026-10-23). step2_plan.py maps it automatically.
 - "Bumper Rear Shock Absorber" is a bumper part, not suspension. [estimate-select-parts-rules-2026-10-17]
 
+- ⭐ **Never map a photo to a different kind of part just because the catalogue lacks the exact item** (user 2026-10-30, PRY826): Moulding Fender Front RH ≠ Fender Signal Lamp Front RH (a trim is never a lamp). No catalogue item with the photo's name → manual row with that exact name (PRY826: Moulding Fender Front RH 454.00, group 110).
+
 ## Group codes (value prefix `NN@`)
 - 10 Front Panel (front bumper, grille, headlamps, fog lamps, front number plate) · 20 Bonnet & Engine · 30 / 110 Front Fender & Susp. LH / RH · 40 / 100 Front Door LH / RH · 50 / 90 Rear Door LH / RH · 60 / 80 Rear Quarter & Susp. LH / RH · 70 Rear Panel (rear bumper, rear lamps, boot lid/tailgate) · 75 Rear Compartment · 130 Undercarriage. [mistakes-log-sinar-batch2] [typesafe/step2_plan.py]
 - 45, 95, 120, 140: not described in memory — read the group title in the `selcat2` dump before using. [typesafe/step2_plan.py]

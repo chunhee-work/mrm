@@ -70,3 +70,7 @@ User 2026-10-20: "for all my feedback and the things u do wrong pls learn from l
 ## 15. Batch 6 (2026-10-30): PRY826 reported "pending documents" but the PDF was in the zip
 - `PRY826 adj.pdf` was at the zip ROOT, not inside `PRY826/`; my listing (`unzip -l | awk $4`) cut the name at the space, so I never saw it.
 - Rule: `unzip -Z1` full names, move every PDF into its case folder, only then decide a document is missing (playbook 00 + 01).
+
+## 16. Batch 5 (2026-10-30): PRY826 Moulding Fender Front RH mapped to Fender Signal Lamp Front RH
+- The planning agent guessed the MINI side scuttle carries the indicator and ticked the lamp. User: not the same thing.
+- Rule (07 Rule 2): no catalogue item with the photo's name -> manual row with that exact name; never swap to another kind of part.
