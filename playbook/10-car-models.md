@@ -102,7 +102,8 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Labour (CBL8902, user review 2026-10-24, front-RH + side hit): user added R Bumper Front Reinforcement Panel, Front Panel, Headlamp Assembly LH (tts) (other side's headlamp), Quarter Panel Inner RH, Quarter Panel Inner Reinforcement Lower RH + Upper RH.
 
 
-### Viva 2007 On 5 Dr Hatch · TAW8095
+### Viva 2007 On 5 Dr Hatch · TAW8095, WUE6407
+- ⭐ Enforced in code now (user repeated 2026-10-30, WUE6407 #21/22): `naming.py build` replaces any "Quarter Liner" on a Viva with the next alternative and marks it unsure (`MODEL_BANS`); `step2_plan.py` never adds the quarter-liner companion on a Viva.
 - Photo "Quarter Panel LH/RH" = catalogue **Bodyside LH/RH** (60@/80@, 612.10); not the small Quarter Pnl Lower/Upper Extension. Heavy rear crush → also Rear Panel Inner [Assembly] + Rear Panel Inner Section LH/RH.
 - Viva parts are cheap: TAW8095 parts total only ~RM5,575 even with the full rear set.
 - ⭐ **Perodua Viva has NO quarter liner** (user 2026-10-29): never name a photo Quarter Liner, never add the Quarter Liner companion for a quarter panel. TAW8095 #54/55/58/59 were wrongly "Quarter Liner" (the black plastic piece behind the rear bumper corner, and the inside of the rear bumper).

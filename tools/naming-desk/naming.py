@@ -13,11 +13,14 @@
 <cases_root> folder that holds <PLATE>/<original photo files> (the `src` of each row). The upload uses the originals.
 PHOTOPLAN=<path> overrides the photoplan.json location (default ~/mrm-bot/photoplan.json).
 """
-import base64, glob, json, os, sys
+import base64, glob, json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "typesafe", "photo_train"))
 from name_map import final as norm  # the user's naming rules; returns None for banned names (General View, TAIL LAMP…)
+
+# names a car model does NOT have (user rules, playbook 10): (model regex, name regex)
+MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner")]   # user 2026-10-29/30: Perodua Viva has no quarter liner
 
 CORNERS = {"Front View Right", "Front View Left", "Rear View Right", "Rear View Left"}
 FTYPE = {"Odometer Reading": "Odometer Reading", "Chassis Number": "Chassis Number", "Engine Compartment": "Engine view"}
@@ -41,7 +44,15 @@ def build(out, meta_file):
     meta = json.load(open(meta_file, encoding="utf-8"))
     rows = {p: rows_of(out, p) for p in meta}
     names = set(json.load(open(os.path.join(HERE, "names.json"), encoding="utf-8")))
-    for rs in rows.values():
+    for plate, rs in rows.items():
+        bans = [b for v, b in MODEL_BANS if re.search(v, meta.get(plate, ""), re.I)]
+        if bans:   # names this car model does not have -> next alternative, marked unsure; saved back so `final` agrees
+            for r in rs:
+                if any(re.search(b, r["name"]) for b in bans):
+                    alt = next((a for a in r.get("alts", []) if a and not any(re.search(b, a) for b in bans)), None)
+                    if alt:
+                        r["name"], r["conf"] = alt, min(r.get("conf", 0), 0.3)
+            json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
         for r in rs:  # the page only offers names the naming rules allow (merged spelling, banned names dropped)
             r["name"] = norm(r["name"]) or r["name"]
             r["alts"] = list(dict.fromkeys(n for n in map(norm, r.get("alts", [])) if n))
