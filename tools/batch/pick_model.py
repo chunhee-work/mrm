@@ -37,7 +37,7 @@ def score(opt, c):
     rc = re.sub(r"^[A-Z]+\s*/\s*", "", c["rcModel"].upper())          # drop "PERODUA / "
     rct = [x for x in toks(rc) if x not in STOP]
     fam = rct[0] if rct else ""
-    if fam in ("MAZDA", "TOYOTA", "HONDA", "PROTON", "PERODUA") and len(rct) > 1:
+    while fam in ("MAZDA", "TOYOTA", "HONDA", "PROTON", "PERODUA", "MINI", "BMW", "NISSAN", "MITSUBISHI") and len(rct) > 1:   # "BMW / MINI COOPER S" -> COOPER
         rct = rct[1:]; fam = rct[0]
     if not T.startswith(fam.replace("-", "-")) and fam not in T.split()[0:2]:
         return -99, ["family"]
@@ -85,6 +85,14 @@ def score(opt, c):
         y, mo = int(reg[6:]), int(reg[3:5]); s, e = br
         inside = (y, mo) >= s and (e is None or (y, mo) <= e)
         sc += 4 if inside else -5; why.append("date" if inside else "date-out")
+    # model-name generation "2001 To 2018" / "2021 On" must contain the manufacture year (RC Tahun Dibuat)
+    g = re.search(r"\b(19|20)(\d\d) (To (19|20)(\d\d)|On)\b", t)
+    if g and c.get("year"):
+        y0 = int(g.group(1) + g.group(2)); y1 = int(g.group(4) + g.group(5)) if g.group(4) else 2100; yr = int(str(c["year"])[:4])
+        if y0 <= yr <= y1:
+            sc += 2; why.append("gen")
+        else:
+            sc -= 4; why.append("gen-out")
     if opt.get("c", "").endswith("1"):
         sc += 1; why.append("green")
     return sc, why
@@ -110,7 +118,7 @@ def test():
             if not v.get("modelValue") or p not in R:
                 continue
             cases.append((p, {"make": v["make"], "rcModel": v.get("rcModel", ""), "cc": v.get("cc", ""), "transmission": v.get("transmission", ""),
-                              "body": v.get("body", ""), "jpjReg": R[p]["veh"].get("jpjReg", "")}, v["modelValue"]))
+                              "body": v.get("body", ""), "jpjReg": R[p]["veh"].get("jpjReg", ""), "year": v.get("year") or R[p]["veh"].get("manYear", "")}, v["modelValue"]))
     ok = unsure_right = wrong = 0
     for p, c, truth in cases:
         r = pick(opts, c)

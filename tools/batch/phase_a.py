@@ -48,7 +48,7 @@ def main():
         for p in plates:
             v = data[p]["case"]["veh"]; r = data[p]["report"]["veh"]
             res = pick(opts, {"make": v["make"], "rcModel": v.get("rcModel", ""), "cc": v.get("cc", ""), "transmission": v.get("transmission", ""),
-                              "body": v.get("body", ""), "jpjReg": r.get("jpjReg", "")})
+                              "body": v.get("body", ""), "jpjReg": r.get("jpjReg", ""), "year": v.get("year") or r.get("manYear", "")})
             if TEST and v.get("modelValue"):
                 ok = "same as before" if res["pick"] == v["modelValue"] else f"DIFFERENT (before {v['modelValue']})"
                 print(f"   {p}: {res['status']} {res.get('text')}  -> {ok}")
@@ -75,7 +75,14 @@ def main():
         if TEST:
             print("   TEST: no create"); return
         dry = safe("createpar2_sinar.mjs", ",".join(plates), "session_base.txt", cf, timeout=1800)
-        bad = [l for l in dry.splitlines() if "FILL" in l and not re.search(r"rep=(29709|72619)", l)]
+        WS = {"Sinar": "29709", "Extreme": "72619", "Lee Kean Hin": "70382"}
+        bad = []
+        for l in dry.splitlines():
+            if "FILL" not in l:
+                continue
+            p_ = l.split()[0]; m = re.search(r"rep=(\d+)", l); want = next((v for k, v in WS.items() if k in data.get(p_, {}).get("case", {}).get("workshopMatch", "")), None)
+            if not m or (want and m.group(1) != want):
+                bad.append(l)
         if bad:
             print("   STOP: workshop not matched ->", bad); sys.exit(1)
         out = safe("createpar2_sinar.mjs", ",".join(plates), "session_base.txt", cf, "submit", timeout=2400)
