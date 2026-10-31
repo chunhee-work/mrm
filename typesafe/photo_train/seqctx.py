@@ -60,6 +60,20 @@ te = [i for i, m in enumerate(meta) if m[3] == "test" and m[0]]
 labels = sorted({meta[i][0] for i in tr}); L = {k: j for j, k in enumerate(labels)}
 old = {k: j for j, k in enumerate(ck["labels"])}
 
+def rows_for(old_labels):
+    """new label -> rows of an older head. Same name = that row; a name renamed/merged by the current
+    name rules (name_map.final + same words any order) = average of the old rows that now mean it (WARM_MAP=0: exact only)."""
+    o = {k: j for j, k in enumerate(old_labels)}; out = {k: [o[k]] for k in L if k in o}
+    if os.environ.get("WARM_MAP", "1") == "1":
+        sys.path.insert(0, HERE); from name_map import final, order_key
+        ok = {order_key(k): k for k in L}; m = collections.defaultdict(list)
+        for k, j in o.items():
+            f = final(k) if k not in L else None
+            t = ok.get(order_key(f)) if f else None
+            if t and t not in out: m[t].append(j)
+        out.update(m)
+    return out
+
 def window(i, drop=0.0):
     c, p = where[i]; ids = case[c]; idx = []; msk = []
     for d in range(-WIN, WIN + 1):
@@ -78,18 +92,17 @@ class Ctx(nn.Module):
         return s.base(x[:, WIN, :768]) + s.out(h[:, WIN])
 net = Ctx()
 with torch.no_grad():   # stage-1 head as the starting point
-    for k, j in L.items():
-        if k in old: net.base.weight[j] = ck["state"]["1.weight"][old[k]]; net.base.bias[j] = ck["state"]["1.bias"][old[k]]
+    for k, rs in rows_for(ck["labels"]).items():
+        j = L[k]; net.base.weight[j] = ck["state"]["1.weight"][rs].mean(0); net.base.bias[j] = ck["state"]["1.bias"][rs].mean(0)
 INIT_SEQ = os.environ.get("INIT_SEQ")   # warm start from an earlier group model (rows copied by label name)
 if INIT_SEQ:
-    ck2 = torch.load(os.path.join(HERE, INIT_SEQ), map_location="cpu"); st = ck2["ctx"]; o2 = {k: j for j, k in enumerate(ck2["labels"])}
+    ck2 = torch.load(os.path.join(HERE, INIT_SEQ), map_location="cpu"); st = ck2["ctx"]; o2 = rows_for(ck2["labels"])
     with torch.no_grad():
         for n, p in net.named_parameters():
             if n.startswith(("base.", "out.")):
-                for k, j in L.items():
-                    if k in o2: p[j] = st[n][o2[k]]
+                for k, rs in o2.items(): p[L[k]] = st[n][rs].mean(0)
             elif n in st and st[n].shape == p.shape: p.copy_(st[n])
-    print("warm start from", INIT_SEQ, "labels shared", sum(k in o2 for k in L), "/", len(L), flush=True)
+    print("warm start from", INIT_SEQ, "labels shared", sum(k in ck2["labels"] for k in L), "+ renamed/merged", len(o2) - sum(k in ck2["labels"] for k in L), "/", len(L), flush=True)
 net = net.to(dev)
 RARE = int(os.environ.get("RARE", "0"))   # oversample labels with fewer than RARE train photos up to ~RARE
 cnt = collections.Counter(meta[i][0] for i in tr)
