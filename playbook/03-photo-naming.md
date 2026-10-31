@@ -88,7 +88,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 
 - **Never "Front RH Door Inner Trim"** (user 2026-10-31) → **Door Front Trimboard RH** (same for Rear / LH). Enforced in name_map + 部位标注台.
 
-- **"Extractor Lower Vent" = Boot Extractor Vent LH/RH** (user 2026-10-31) — always use Boot Extractor Vent (+ side).
+- **"Extractor Lower Vent" = Boot Extractor Vent** (user 2026-10-31) — always the name Boot Extractor Vent (no LH/RH, rule of 2026-10-21).
 
 ## Part rules — front
 - Marked damage (X / finger) on the painted bumper skin under the bonnet, round the lower grille opening, or at the bumper corner beside the headlamp = Front Bumper (not Grille Front / Bonnet Finisher / Grille Front Lower / Fender). [photo-center-crosshair-rule]
