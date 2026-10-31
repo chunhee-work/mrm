@@ -64,6 +64,9 @@ STRONG = set(open(os.path.join(HERE, "strong_labels.txt")).read().split("\n")) i
 STRONG_CAP = int(os.environ.get("STRONG_CAP", "300"))
 for l, ids in pool.items():
     rnd.shuffle(ids); chosen.update(ids[:STRONG_CAP if l in STRONG else CAP])
+# 2026-10-31: the user's own answers (部位标注台) are always trained, never dropped by the per-name cap (UC_ALWAYS=0 = old behaviour)
+if os.environ.get("UC_ALWAYS", "1") == "1":
+    chosen.update(i for l, ids in pool.items() for i in ids if "%s:%d" % (rows[i]["cid"], rows[i]["seq"]) in UC)
 with open(os.path.join(HERE, "big_paths.txt"), "w") as fp, open(os.path.join(HERE, "big_meta.tsv"), "w") as fm:
     fp.write("\n".join("data/" + r["file"] for r in rows))
     for i, (r, l) in enumerate(zip(rows, labs)):
