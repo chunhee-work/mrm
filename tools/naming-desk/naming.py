@@ -58,9 +58,6 @@ def build(out, meta_file):
             r["name"] = norm(r["name"]) or r["name"]
             if brand and r["name"].endswith("Badge (LOGO)"):   # playbook 11: a bare logo badge = the car's brand, in CAPITALS
                 r["name"] = r["name"].replace("(LOGO)", "(" + brand + ")")
-            gm = re.match(r"^(.* Badge \()(EZI|EZ|SE|AV|ADVANCE|ADVANCED|ELITE|PREMIUM|STANDARD|EXECUTIVE|G|E|S|X|GX|GXI|EXI|SXI)(\))$", r["name"])
-            if gm and len(w) > 1:   # user 2026-10-31: a grade badge (EZi on a Myvi) = the MODEL name
-                r["name"] = gm.group(1) + re.sub(r"[^A-Z0-9-]", "", w[1]) + gm.group(3)
             r["alts"] = list(dict.fromkeys(n for n in map(norm, r.get("alts", [])) if n))
             names.add(r["name"]); names.update(r["alts"])
     names = {n for n in map(norm, names) if n}
