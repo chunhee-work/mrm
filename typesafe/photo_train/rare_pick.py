@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Pick rare-item (冷门) photos for the 部位标注台: labels with few training photos where the current group model
-is wrong or unsure.  python3 rare_pick.py <out.json> [N=60] [RARE=100] [PER=2 photos per label]   (uses big_meta_n.tsv + feats_big10n*.npy)"""
+is wrong or unsure.  python3 rare_pick.py <out.json> [N=60] [RARE=100] [PER=2 photos per label]   (uses $META_FILE/$PATHS_FILE, default big_meta_n2.tsv + feats_big10n*.npy)
+  EXCLUDE=file.json  (list of "cid:seq" already in the labeller, e.g. from a task-db dump)
+  VARIETY=1          (first 1 photo per label, then a 2nd photo per label)"""
 import collections, json, os, sys, glob
 import numpy as np, torch, torch.nn as nn
 HERE = os.path.dirname(os.path.abspath(__file__)); OUT = sys.argv[1]
+UNSURE = float(os.environ.get("UNSURE", "0.6"))   # top-1 below this = unsure
 N = int(sys.argv[2]) if len(sys.argv) > 2 else 60; RARE = int(sys.argv[3]) if len(sys.argv) > 3 else 100; PER = int(sys.argv[4]) if len(sys.argv) > 4 else 2
-paths = open(os.path.join(HERE, "big_paths_n.txt")).read().split("\n")
-meta = [l.split("\t") for l in open(os.path.join(HERE, "big_meta_n.tsv")).read().split("\n") if l]
+paths = open(os.path.join(HERE, os.environ.get("PATHS_FILE", "big_paths_n2.txt"))).read().split("\n")
+meta = [l.split("\t") for l in open(os.path.join(HERE, os.environ.get("META_FILE", "big_meta_n2.tsv"))).read().split("\n") if l]
 F = np.load(os.path.join(HERE, "feats_big10n.npy"), mmap_mode="r"); FC = np.load(os.path.join(HERE, "feats_big10n_c.npy"), mmap_mode="r")
 ck = torch.load(os.path.join(HERE, "models", "seq_best_crop.pt"), map_location="cpu"); labels = ck["labels"]; WIN = ck["win"]; D = ck["dim"]
 class Ctx(nn.Module):
@@ -25,7 +28,7 @@ where = {i: (c, p) for c, ids in case.items() for p, i in enumerate(ids)}
 cnt = collections.Counter(m[0] for m in meta if m[3] == "train")
 rare = {k for k, c in cnt.items() if c < RARE}
 done = set()   # photos already in the labeller
-for f in glob.glob(os.path.join(HERE, "..", "..", "..", "..", "..", "..", "..", "private", "tmp", "nonexistent")): pass
+if os.environ.get("EXCLUDE"): done |= set(json.load(open(os.environ["EXCLUDE"])))
 if os.path.exists(os.path.join(HERE, "user_corrections.json")):
     done |= set(json.load(open(os.path.join(HERE, "user_corrections.json"))).keys())
 import re; from name_map import final as norm
@@ -46,14 +49,15 @@ with torch.no_grad():
         pr = torch.softmax(net(torch.from_numpy(x), torch.tensor([w[1] for w in ws])), 1).numpy()
         for i, p, w in zip(ids, pr, ws):
             o = np.argsort(-p)[:3]; top = [[labels[j], round(float(p[j]), 3)] for j in o]
-            if top[0][0] != meta[i][0] or top[0][1] < 0.6:
+            if top[0][0] != meta[i][0] or top[0][1] < UNSURE:
                 res.append({"i": i, "label": meta[i][0], "cid": meta[i][1], "seq": int(meta[i][2]), "path": paths[i], "top": top,
                             "nb": [paths[w[0][WIN - 1]], paths[w[0][WIN - 2]]], "nbname": [meta[w[0][WIN - 1]][0], meta[w[0][WIN - 2]][0]], "n": cnt[meta[i][0]]})
 # rarest labels first, at most 2 photos per label, wrong before unsure
 res.sort(key=lambda r: (r["n"], r["top"][0][0] == r["label"], -r["top"][0][1]))
 per, pick = collections.Counter(), []
-for r in res:
-    if per[r["label"]] < PER: pick.append(r); per[r["label"]] += 1
-    if len(pick) >= N: break
+for cap in (range(1, PER + 1) if os.environ.get("VARIETY") else [PER]):
+    for r in res:
+        if len(pick) >= N: break
+        if r not in pick and per[r["label"]] < cap: pick.append(r); per[r["label"]] += 1
 json.dump(pick, open(OUT, "w"), ensure_ascii=False, indent=0)
 print("wrong/unsure rare photos", len(res), "picked", len(pick), "labels", len(per))
