@@ -174,6 +174,28 @@ def order_key(l):
     return " ".join(sorted(_ABBR.get(w, w) for w in re.findall(r"[a-z0-9]+", l.lower())))
 
 FINAL = [  # (regex on the final label, replacement; None = never use / drop)
+    # user 2026-10-31 alignment list (questions 5-22)
+    (r"(?i)^Tailgate Tailgate$", "Tailgate"),
+    (r"(?i)^Shock Absorber (Front|Rear) (LH|RH)$", lambda m: m.group(1).title() + " Shock Absorber " + m.group(2).upper()),
+    (r"(?i)^Log Lamp Front (LH|RH)$", lambda m: "Front Bumper Fog Lamp " + m.group(1).upper()),
+    (r"(?i)^Stab(?:iliser)? Bar Link (LH|RH)$", lambda m: "Front Stabiliser Bar Link Rod " + m.group(1).upper()),
+    (r"(?i)^Stab Bar Frt$", "Front Stabiliser Bar"),
+    (r"(?i)^Bumper Frt Absorber$", "Front Bumper Shock Absorber"),
+    (r"(?i)^Number Plate Lamps$", "Number Plate Lamp"),
+    (r"(?i)^Retainer Rear (LH|RH)$", lambda m: "Bumper Rear Retainer " + m.group(1).upper()),
+    (r"(?i)^Bumper Front Retainer (LH|RH)$", lambda m: "Front Bumper Bracket " + m.group(1).upper()),
+    (r"(?i)^Wheel Arch Rear (LH|RH)$", lambda m: "Moulding Wheel Arch Rear " + m.group(1).upper()),
+    (r"(?i)^Boot Lid Weatherseal$", "Boot Lid Aperture Weatherstrip"),
+    (r"(?i)^Chassis Panel Front (LH|RH)$", lambda m: "Front Chassis Member " + m.group(1).upper()),
+    (r"(?i)^Rear Panel Upper \[(LH|RH)[^\]]*\]$", lambda m: "Rear Panel Upper Section " + m.group(1).upper()),
+    (r"(?i)^Front Panel Upper Support Panel (LH|RH)$", lambda m: "Front Panel Support Panel " + m.group(1).upper()),
+    (r"(?i)^(?:\[lower Arm\] )?Suspension Arm Front (LH|RH)(?: \[lower Arm\])?$", None if False else (lambda m: "Front Suspension Lower Arm " + m.group(1).upper()) ) if False else (r"(?i)^\[lower Arm\] Suspension Arm Front (LH|RH)$", lambda m: "Front Suspension Lower Arm " + m.group(1).upper()),
+    (r"(?i)^\[upper Arm\] Suspension Arm Front (LH|RH)$", lambda m: "Front Suspension Upper Arm " + m.group(1).upper()),
+    (r"(?i)^(?:Spoiler Bumper Rear|Bumper Rear Spoiler)(?: \[[^\]]*\])?$", "Rear Bumper Spoiler"),
+    (r"(?i)^(?:Bumper Spoiler Front|Spoiler Bumper Front)(?: \[[^\]]*\])?$", "Front Bumper Spoiler"),
+    (r"(?i)^Lock Bootlid$", "Boot Lid Lock"),
+    (r"(?i)^Chassis Rhr$", "Rear Chassis Member RH"),
+    (r"(?i)^Chassis Lhr$", "Rear Chassis Member LH"),
     (r"(?i)^(?:Rear )?Extractor (?:Lower )?Vent( (?:LH|RH))?$", "Boot Extractor Vent"),   # user 2026-10-31: Extractor Lower Vent = Boot Extractor Vent (no side, rule of 2026-10-21)
     (r"(?i)^(Front|Rear) (LH|RH) Door Inner Trim$", lambda m: "Door " + m.group(1).title() + " Trimboard " + m.group(2).upper()),   # user 2026-10-31: never "Front RH Door Inner Trim"
     (r"(?i)^Door (Front|Rear) Inner Trim (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Trimboard " + m.group(2).upper()),
@@ -335,7 +357,44 @@ def badge(l):
     return part + " Badge (" + x + ")"
 
 
+_POS = {"upper": "Upper", "upr": "Upper", "upr.": "Upper", "lower": "Lower", "lwr": "Lower", "lwr.": "Lower", "inner": "Inner", "in": "Inner",
+        "outer": "Outer", "out": "Outer", "centre": "Centre", "center": "Centre", "ctr": "Centre"}
+def strip_notes(l):
+    """user 2026-10-31 (Q1+Q2): drop [..]/(..) notes (brand, colour, repair, damage, type); a POSITION note
+    (upper/lower/inner/outer/centre, in/out) goes into the name before LH/RH. Badges are handled by badge()."""
+    if not l or not re.search(r"[\[(]", l):
+        return l
+    notes = re.findall(r"\[([^\]]*)\]|\(([^)]*)\)", l)
+    base = re.sub(r"\s*(\[[^\]]*\]|\([^)]*\))\s*", " ", l).strip()
+    if not base:
+        return l
+    pos = None
+    for a, b in notes:
+        w = (a or b).strip().lower()
+        if w in _POS:
+            pos = _POS[w]; break
+        m = re.match(r"^(upper|lower|inner|outer|centre)\b", w)
+        if m and len(w.split()) <= 2:
+            pos = _POS[m.group(1)]; break
+    if pos and pos.lower() not in base.lower():
+        m = re.match(r"^(.*?)\s+(LH|RH)$", base)
+        base = (m.group(1) + " " + pos + " " + m.group(2)) if m else base + " " + pos
+    return base
+
+_BADGE_TYPO = {"PRONTON": "PROTON", "PEORDUA": "PERODUA", "MVYI": "MYVI", "AIXA": "AXIA", "EILTE": "ELITE", "VOIS": "VIOS",
+               "ALPHARE": "ALPHARD", "INOVA": "INNOVA", "HBYBRID": "HYBRID", "HYB RID": "HYBRID", "ADVANC": "ADVANCE"}
+
 def final(l):
+    if l and re.search(r"(?i)\b(badge|emblem)\b", l):
+        b = badge(l)
+        if b:
+            m = re.match(r"^(.* Badge \()(.*)(\))$", b)
+            return (m.group(1) + _BADGE_TYPO.get(m.group(2), m.group(2)) + m.group(3)) if m else b
+    r0 = _final_rules(l)
+    if r0 is not None and r0 == l and re.search(r"[\[(]", l):
+        l2 = strip_notes(l)
+        if l2 != l:
+            return final(l2)
     if l and re.search(r"(?i)\b(badge|emblem)\b", l):
         b = badge(l)
         if b: return b

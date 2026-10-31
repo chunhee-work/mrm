@@ -90,6 +90,12 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 
 - **"Extractor Lower Vent" = Boot Extractor Vent** (user 2026-10-31) — always the name Boot Extractor Vent (no LH/RH, rule of 2026-10-21).
 
+## Naming alignment (user 2026-10-31, enforced in name_map.py)
+- [..]/(..) notes are dropped (brand, colour, repair, damage, type: Tailgate [with Spoiler] → Tailgate, Radiator [denso] → Radiator); a POSITION note goes into the name before LH/RH: Rear Lamp Panel RH [lower] → Rear Lamp Panel Lower RH; Bumper Rear Sensor LH (in)/(out) → Inner/Outer.
+- Badge text is kept as written (1.5, VVT-I, TURBO…), CAPITALS, typos fixed (PRONTON→PROTON, PEORDUA→PERODUA, MVYI→MYVI, AIXA→AXIA, EILTE→ELITE, VOIS→VIOS, ALPHARE→ALPHARD); a bare logo badge = the car's brand.
+- Tailgate Tailgate → Tailgate · Log Lamp Front LH/RH → Front Bumper Fog Lamp LH/RH · Stab Bar Link RH → Front Stabiliser Bar Link Rod RH · Stab Bar Frt → Front Stabiliser Bar · Bumper Frt Absorber → Front Bumper Shock Absorber · Number Plate Lamps → Number Plate Lamp · Retainer Rear RH → Bumper Rear Retainer RH · Bumper Front Retainer RH → Front Bumper Bracket RH · Wheel Arch Rear LH → Moulding Wheel Arch Rear LH · Boot Lid Weatherseal → Boot Lid Aperture Weatherstrip · Chassis Panel Front LH → Front Chassis Member LH · Rear Panel Upper [RH (below Rear Lamp)] → Rear Panel Upper Section RH · Front Panel Upper Support Panel LH → Front Panel Support Panel LH · Suspension Arm Front [lower/upper Arm] → Front Suspension Lower/Upper Arm · any Bumper Spoiler variant → Front/Rear Bumper Spoiler · Lock Bootlid → Boot Lid Lock · Chassis Rhr → Rear Chassis Member RH · Shock Absorber Front RH → Front Shock Absorber RH.
+- A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
+
 ## Part rules — front
 - Marked damage (X / finger) on the painted bumper skin under the bonnet, round the lower grille opening, or at the bumper corner beside the headlamp = Front Bumper (not Grille Front / Bonnet Finisher / Grille Front Lower / Fender). [photo-center-crosshair-rule]
 - Grille Front Moulding = one name in the middle; the end piece over a headlamp = Grille Front Moulding LH/RH. [photo-center-crosshair-rule]
