@@ -174,6 +174,8 @@ def order_key(l):
     return " ".join(sorted(_ABBR.get(w, w) for w in re.findall(r"[a-z0-9]+", l.lower())))
 
 FINAL = [  # (regex on the final label, replacement; None = never use / drop)
+    (r"(?i)^(Front|Rear) (LH|RH) Door Inner Trim$", lambda m: "Door " + m.group(1).title() + " Trimboard " + m.group(2).upper()),   # user 2026-10-31: never "Front RH Door Inner Trim"
+    (r"(?i)^Door (Front|Rear) Inner Trim (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Trimboard " + m.group(2).upper()),
     (r"^Rear Panel Outer$", "Rear Panel"),                                            # 1 same
     (r"(?i)^\[inner[^\]]*\] Lamp Assembly Rear (LH|RH)( \(tts\))?$", r"Rear Lamp Inner \1"),   # user 2026-10-29: never "[inner] Lamp Assembly Rear LH (tts)"
     (r"(?i)^Lamp Assembly Rear (LH|RH)( \(tts\))? \[inner[^\]]*\]$", r"Rear Lamp Inner \1"),

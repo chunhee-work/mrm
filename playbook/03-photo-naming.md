@@ -86,6 +86,8 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - **Rear Bumper Shock Absorber** = the energy absorber behind the rear bumper (TAU5446); not "Shock Absorber Rear" (suspension) and not "Bumper Rear Absorber".
 - Tailgate Badge on Preve = **Tailgate Badge (PREVE)**.
 
+- **Never "Front RH Door Inner Trim"** (user 2026-10-31) → **Door Front Trimboard RH** (same for Rear / LH). Enforced in name_map + 部位标注台.
+
 ## Part rules — front
 - Marked damage (X / finger) on the painted bumper skin under the bonnet, round the lower grille opening, or at the bumper corner beside the headlamp = Front Bumper (not Grille Front / Bonnet Finisher / Grille Front Lower / Fender). [photo-center-crosshair-rule]
 - Grille Front Moulding = one name in the middle; the end piece over a headlamp = Grille Front Moulding LH/RH. [photo-center-crosshair-rule]
