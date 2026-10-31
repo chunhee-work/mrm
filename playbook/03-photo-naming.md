@@ -98,6 +98,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - **Headlamp Mounting Bracket LH/RH = Headlamp Lower Bracket LH/RH** → always Headlamp Lower Bracket (user 2026-10-31).
 - **Door Front/Rear Lower Moulding LH/RH = Door Front/Rear Moulding LH/RH** → always Door Front Moulding RH etc. (user 2026-10-31).
 - **Never "Front LH Chassis Frame" / any "Chassis Frame" name** — removed from the name list (user 2026-10-31).
+- ⭐ **部位标注台 follows ALL naming rules** (user 2026-10-31: never show a banned/old name; merged names add up their %): after any name_map.py change or a new task batch run `python3 tools/naming-desk/label_fix.py <label.html> <task json dirs…>` and republish the page.
 - A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
 
 ## Part rules — front
