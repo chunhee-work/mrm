@@ -21,8 +21,8 @@
 "Bumper Rear Side Support RH": "Rear Bumper Bracket Side RH",
 "Bumper Rear Side Retainer LH": "Rear Bumper Bracket Side LH",
 "Bumper Rear Side Support LH": "Rear Bumper Bracket Side LH",
-"Exhaust Silencer": "Exhaust Rear Pipe",
-"Exhaust Silencer Assembly": "Exhaust Rear Pipe",
+"Exhaust Silencer": "Rear Exhaust Pipe",
+"Exhaust Silencer Assembly": "Rear Exhaust Pipe",
 "Bumper Rear Beam": "Rear Bumper Reinforcement",
 "Boot Lid Lock Set": "Boot Lid Lock",
 "Lamp Assembly Rear Inner LH": "Rear Lamp Inner LH",
@@ -41,7 +41,7 @@
 "Front Bumper Outer Fog Lamp LH": "Front Bumper Fog Lamp LH",
 "LH Runningboard Outer Spoiler": "Runningboard Spoiler LH",
 "Engine No": "Engine Number",
-"Exhaust Unit": "Exhaust Rear Pipe",
+"Exhaust Unit": "Rear Exhaust Pipe",
 "No Plate Holder Rear": "Number Plate Holder Rear",
 "Steering Tie Rod End Outer RH": "Steering Tie Rod End RH",
 "Steering Tie Rod End Outer LH": "Steering Tie Rod End LH",
@@ -1492,6 +1492,7 @@
 "Rear Chasiss Member Ns": null,
 "Panel Panel Upper Section RH": null,
 "Door Rear Hinge Upper": null,
-"Fr Bumper Upper Foam": null
+"Fr Bumper Upper Foam": null,
+"Exhaust Rear Pipe": "Rear Exhaust Pipe"
 }
 }

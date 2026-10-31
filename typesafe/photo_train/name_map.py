@@ -175,7 +175,7 @@ def order_key(l):
 
 FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     # user 2026-10-31 alignment list (questions 5-22)
-    (r"(?i)^(?:Exhaust Assembly|Exhaust Assy|Rear Exhaust Pipe|Exhaust Pipe Rear)$", "Exhaust Rear Pipe"),   # user 2026-10-31: Exhaust Assembly = Exhaust Rear Pipe
+    (r"(?i)^(?:Exhaust Assembly|Exhaust Assy|Exhaust Rear Pipe|Exhaust Pipe Rear)$", "Rear Exhaust Pipe"),   # user 2026-10-31: same part -> the most used name Rear Exhaust Pipe
     (r"(?i)^Runningboard (?:Outer Trim|Moulding|Finisher)(?: Outer)? (LH|RH)$", lambda m: "Runningboard Moulding " + m.group(1).upper()),   # user 2026-10-31: finisher on top of the Runningboard Spoiler
     (r"(?i)^Door Mirror Glass (LH|RH)$", lambda m: "Door Mirror " + m.group(1).upper()),   # user 2026-10-31
     (r"(?i)^Door Handle Outer Release(?: Lever)? (Front|Rear) (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Handle Outer Release " + m.group(2).upper()),   # user 2026-10-31
@@ -257,7 +257,7 @@ FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     (r"^SUSPENSION LOWER ARM (LH|RH)$", None),                                        # h: drop
     (r"^GRILLE MOULDING$", "Grille Front Moulding"),                                  # i
     (r"^NUMBER PLATE HOLDER$", "Number Plate Holder Rear"),                           # j
-    (r"^Exhaust Pipe$", "Exhaust Rear Pipe"), (r"^Exhaust Mounting$", "Exhaust Rear Mounting"),   # k
+    (r"^Exhaust Pipe$", "Rear Exhaust Pipe"), (r"^Exhaust Mounting$", "Exhaust Rear Mounting"),   # k
     (r"^(Bodyside Rear|BODYSIDE SECTION) (LH|RH)$", r"Bodyside \2"),                 # l
     (r"^CHASSIS FRAME ASSY$", "Chassis Assembly"),                                    # m
     (r"^Bumper Rear Section (LH|RH)$", r"Rear Bumper \1"),                           # n
