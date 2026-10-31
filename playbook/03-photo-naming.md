@@ -110,6 +110,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Bonnet Hinge = a different layer from the bonnet. [photo-center-crosshair-rule]
 
 ## Part rules — rear
+- **Bumper Rear Treadplate LH / RH** (user 2026-10-31): the step plate ON TOP of the rear bumper (black ribbed plastic/rubber, sometimes chrome), normally on 4x4 / pickups / SUVs (Hilux, D-Max, Triton, Navara, Ranger, Fortuner, Pajero…). Middle piece = Bumper Rear Treadplate Centre. Spellings Rear Bumper Tread Plate / Bumper Rear Tread Plate → Bumper Rear Treadplate.
 - Rear Bumper = the main cover; Rear Bumper Spoiler = extra piece at the LOW part (only some models); Rear Bumper Moulding = finisher strip on the UPPER part. A strip at the edge never beats the part at the centre. [photo-center-crosshair-rule]
 - Close-ups of the bumper under a tailgate = Rear Bumper, not Tailgate. [photo-center-crosshair-rule]
 - Bumper Rear Cover LH/RH / Bumper Rear LH [cover] = Rear Bumper; Rear Bumper LH/RH stays separate (some cars have side pieces); Bumper Rear Section → Rear Bumper LH/RH; BUMPER REAR LOWER → Bumper Rear Lower Cover. [photo-center-crosshair-rule]
