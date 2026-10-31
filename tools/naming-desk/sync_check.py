@@ -32,7 +32,7 @@ ALIAS = [
     (r"Bonnet Lock", "Bonnet Latch|Bonnet Lock"),
     (r"Bumper Front Moulding", "Bumper Front Finisher|Bumper Front Moulding"),   # user 2026-10-30 (PRY826)
     (r"Fender Inner Wheelhouse (LH|RH)", "Fender Front Inner Support Panel|Fender Inner Wheelhouse"),   # user 2026-10-30 (PRY826)   # user 2026-10-30: Bonnet Latch RH IS the bonnet lock
-    (r"(Boot Lid|Tailgate|Grille Front) Badge \(.*\)", "Badge|Emblem"),
+    (r"(Boot Lid|Tailgate|Grille(?: Front)?) Badge \(.*\)", "Badge|Emblem"),
     (r"Rear Panel Inner Trim", "Rear Panel Garnish|Rear Panel Inner Trim"),
     (r"(Front|Rear) Wheelhouse", "Wheel House"),
     (r"Rear Bumper Spoiler", "Bumper Rear Lower Cover|Spoiler Bumper Rear|Rear Bumper Spoiler"),

@@ -26,7 +26,7 @@
 - **Rooflining → "Broken"** (KCM8604 was left empty; estfill.mjs cond() now has it).
 
 ## Row comments
-- **Badge / Emblem rows → comment = the logo name in brackets, as in the photo name**: Grille Badge → "(PROTON)", Badge Boot Lid → "(SAGA)", Emblem → "(CITY)", "(JAZZ)", "(i-VTEC)" (user 2026-10-24, TCH9615).
+- **Badge / Emblem rows → comment = the logo name in brackets, as in the photo name**: Grille Badge → "(PROTON)", Boot Lid Badge → "(SAGA)", Tailgate Badge → "(CITY)", "(JAZZ)", "(I-VTEC)" — always CAPITALS (user 2026-10-31, playbook 11) (user 2026-10-24, TCH9615).
 - ⭐ **Row name already has LH or RH → NO comment** (user 2026-10-30: Bonnet Support Strut LH needs no "LH"; same for every LH/RH row). Only exception: door hinges.
 - **Row name without a side → comment says which one**, e.g. Stabiliser Bar Front Link Rod → "Front LH" (user 2026-10-30).
 - ⭐ **Door hinge rows ALWAYS get "Upper LH & Lower LH" / "Upper RH" / "Lower RH"… unless the name already says Upper/Lower** (user 2026-10-30, VS3408 Door Front Hinge LH qty 2 had no comment). checkall: `HINGE NO CMT`, `CMT NOT NEEDED`.

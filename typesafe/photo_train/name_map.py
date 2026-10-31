@@ -310,7 +310,32 @@ def title_caps(l):
     return " ".join(w if w in KEEP_UP else "-".join(p[:1] + p[1:].lower() for p in w.split("-")) for w in l.split(" "))
 
 
+def badge(l):
+    """user 2026-10-31 (playbook 11): only Grille Badge (X) / Boot Lid Badge (X) / Tailgate Badge (X), X ALWAYS in CAPITALS.
+    A lone letter / 'logo' in the bracket -> 'LOGO' (naming.py swaps in the case's brand)."""
+    m = re.match(r"(?i)^(?:(grille(?: front)?|front grille|bonnet)\s+(?:badge|emblem)|(?:badge|emblem)\s+(grille|front)|"
+                 r"(boot ?lid|bootlid)\s+(?:badge|emblem)|(?:badge|emblem)\s+(boot ?lid|bootlid)|"
+                 r"(tail ?gate|door back)\s+(?:badge|emblem)|(?:badge|emblem)\s+(tail ?gate)|"
+                 r"(?:badge|emblem)\s+boot/tailgate|emblem boot/tailgate|badge)\s*(?:[\[(]\s*(.*?)\s*[\])])?\s*$", l.strip())
+    if not m:
+        return None
+    g = [x for x in m.groups()[:-1] if x]
+    part = ("Grille" if g and re.match(r"(?i)grille|front|bonnet", g[0]) else "Boot Lid" if g and re.match(r"(?i)boot", g[0]) else "Tailgate" if g else None)
+    if part is None:   # "Badge [..]" / "Emblem Boot/Tailgate [..]" with no clear place: boot/tailgate words decide, else Tailgate (hatch is the common case)
+        part = "Boot Lid" if re.search(r"(?i)boot ?lid", l) else "Tailgate" if re.search(r"(?i)boot/tailgate|tailgate|emblem", l) else "Grille"
+    x = (m.group(7) or "").strip()
+    x = re.sub(r"(?i)'?\blogo\b'?|\bfrt\b|\bfront\b|\bgrille\b", " ", x)
+    x = re.sub(r"\s+", " ", x).strip()
+    if not x or re.fullmatch(r"(?i)[A-Z]|logo", x):
+        x = "LOGO"
+    x = x.strip("' ").upper()
+    return part + " Badge (" + x + ")"
+
+
 def final(l):
+    if l and re.search(r"(?i)\b(badge|emblem)\b", l):
+        b = badge(l)
+        if b: return b
     r = _final_rules(l)
     if r is None: return None
     r = title_caps(r)

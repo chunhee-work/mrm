@@ -12,7 +12,7 @@ The step playbooks in `playbook/` hold ALL of the user's rules, one file per ste
 | start any batch / anything with Merimen, WhatsApp, Google Sheet, git | `playbook/00-start-and-rules.md` |
 | read a case's PDF bundle | `playbook/01-read-documents.md` |
 | create a case in Merimen | `playbook/02-create-case.md` |
-| name photos / publish or re-read the 照片命名台 | `playbook/03-photo-naming.md` **and** `playbook/10-car-models.md` (this model's rare items + names) |
+| name photos / publish or re-read the 照片命名台 | `playbook/03-photo-naming.md` **and** `playbook/10-car-models.md` (this model's rare items + names) **and** `playbook/11-car-logos.md` (badge names) |
 | fill the Adjuster Report | `playbook/04-adjuster-report.md` |
 | set discounts/labour rates, write narratives | `playbook/05-rates-and-narratives.md` |
 | upload documents or photos, relabel photos | `playbook/06-upload-docs-and-photos.md` |

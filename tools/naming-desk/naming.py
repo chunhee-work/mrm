@@ -53,8 +53,11 @@ def build(out, meta_file):
                     if alt:
                         r["name"], r["conf"] = alt, min(r.get("conf", 0), 0.3)
             json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
+        w = meta.get(plate, "").upper().split(); brand = " ".join(w[:2]) if w[:2] in (["LAND", "ROVER"], ["GREAT", "WALL"], ["KING", "LONG"], ["DONG", "FENG"]) else (w[0] if w else "")
         for r in rs:  # the page only offers names the naming rules allow (merged spelling, banned names dropped)
             r["name"] = norm(r["name"]) or r["name"]
+            if brand and r["name"].endswith("Badge (LOGO)"):   # playbook 11: a bare logo badge = the car's brand, in CAPITALS
+                r["name"] = r["name"].replace("(LOGO)", "(" + brand + ")")
             r["alts"] = list(dict.fromkeys(n for n in map(norm, r.get("alts", [])) if n))
             names.add(r["name"]); names.update(r["alts"])
     names = {n for n in map(norm, names) if n}
