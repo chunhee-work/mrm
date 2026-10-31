@@ -102,6 +102,8 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - **Runningboard Moulding LH/RH** = the finisher/trim ON TOP of the Runningboard Spoiler (Merimen: Runningboard Outer Trim) — not the spoiler itself (user 2026-10-31).
 - Door Mirror Glass → Door Mirror · Door Handle Outer Release Lever Rear RH → Door Rear Handle Outer Release RH · Fog Lamp Rear [centre] → Fog Lamp Rear (no Centre) (user 2026-10-31).
 - **Exhaust Assembly = Rear Exhaust Pipe = Exhaust Rear Pipe** → always **Exhaust Rear Pipe** (user 2026-10-31).
+- ⭐ **名称对齐台 decisions (user 2026-10-31) live in `typesafe/photo_train/name_decisions.json`** (name → chosen name, null = never use) and are applied by name_map.final() after every other rule. Round 1: 109 groups merged, 38 never-use, all 118 undecided groups = never use (user: "others in 未决定 all don't use").
+- **Bumper sensors (user note)**: when the car model HAS Inner + Outer sensors → name them Rear/Front Bumper Sensor Inner/Outer LH/RH; when the model does not → plain Rear/Front Bumper Sensor LH/RH. Front and rear same logic.
 - A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
 
 ## Part rules — front

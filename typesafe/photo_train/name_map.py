@@ -395,7 +395,25 @@ def strip_notes(l):
 _BADGE_TYPO = {"PRONTON": "PROTON", "PEORDUA": "PERODUA", "MVYI": "MYVI", "AIXA": "AXIA", "EILTE": "ELITE", "VOIS": "VIOS",
                "ALPHARE": "ALPHARD", "INOVA": "INNOVA", "HBYBRID": "HYBRID", "HYB RID": "HYBRID", "ADVANC": "ADVANCE"}
 
+_DEC = None
+def _decisions():
+    """user decisions from the 名称对齐台 (name_decisions.json): final name -> chosen name, or None = never use."""
+    global _DEC
+    if _DEC is None:
+        try:
+            _DEC = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "name_decisions.json")))["map"]
+        except Exception:
+            _DEC = {}
+    return _DEC
+
 def final(l):
+    r = _final0(l)
+    seen = 0
+    while r is not None and r in _decisions() and seen < 5:
+        r = _decisions()[r]; seen += 1
+    return r
+
+def _final0(l):
     if l and re.search(r"(?i)\b(badge|emblem)\b", l):
         b = badge(l)
         if b:
@@ -405,7 +423,7 @@ def final(l):
     if r0 is not None and r0 == l and re.search(r"[\[(]", l):
         l2 = strip_notes(l)
         if l2 != l:
-            return final(l2)
+            return _final0(l2)
     if l and re.search(r"(?i)\b(badge|emblem)\b", l):
         b = badge(l)
         if b: return b
