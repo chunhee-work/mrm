@@ -175,6 +175,7 @@ def order_key(l):
 
 FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     # user 2026-10-31 alignment list (questions 5-22)
+    (r"(?i)^Headlamp Mounting Bracket (LH|RH)$", lambda m: "Headlamp Lower Bracket " + m.group(1).upper()),   # user 2026-10-31: same part, use Headlamp Lower Bracket
     (r"(?i)^(?:Rear Bumper|Bumper Rear) Tread ?plate(?: (LH|RH|Centre))?$", lambda m: "Bumper Rear Treadplate" + (" " + (m.group(1).upper() if m.group(1).upper() in ("LH", "RH") else "Centre") if m.group(1) else "")),   # user 2026-10-31: on top of the rear bumper, 4x4s
     (r"(?i)^Door Glass Weatherstrip Outer (Front|Rear) (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Outer Weatherstrip " + m.group(2).upper()),   # user 2026-10-31: never Door Glass Weatherstrip Outer Front LH
     (r"(?i)^Door (Front|Rear) Glass Weatherstrip Outer (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Outer Weatherstrip " + m.group(2).upper()),
