@@ -96,6 +96,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Tailgate Tailgate → Tailgate · Log Lamp Front LH/RH → Front Bumper Fog Lamp LH/RH · Stab Bar Link RH → Front Stabiliser Bar Link Rod RH · Stab Bar Frt → Front Stabiliser Bar · Bumper Frt Absorber → Front Bumper Shock Absorber · Number Plate Lamps → Number Plate Lamp · Retainer Rear RH → Bumper Rear Retainer RH · Bumper Front Retainer RH → Front Bumper Bracket RH · Wheel Arch Rear LH → Moulding Wheel Arch Rear LH · Boot Lid Weatherseal → Boot Lid Aperture Weatherstrip · Chassis Panel Front LH → Front Chassis Member LH · Rear Panel Upper [RH (below Rear Lamp)] → Rear Panel Upper Section RH · Front Panel Upper Support Panel LH → Front Panel Support Panel LH · Suspension Arm Front [lower/upper Arm] → Front Suspension Lower/Upper Arm · any Bumper Spoiler variant → Front/Rear Bumper Spoiler · Lock Bootlid → Boot Lid Lock · Chassis Rhr → Rear Chassis Member RH · Shock Absorber Front RH → Front Shock Absorber RH.
 - **Never "Door Glass Weatherstrip Outer Front LH"** → **Door Front Outer Weatherstrip LH/RH** (Rear the same) (user 2026-10-31).
 - **Headlamp Mounting Bracket LH/RH = Headlamp Lower Bracket LH/RH** → always Headlamp Lower Bracket (user 2026-10-31).
+- **Door Front/Rear Lower Moulding LH/RH = Door Front/Rear Moulding LH/RH** → always Door Front Moulding RH etc. (user 2026-10-31).
 - A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
 
 ## Part rules — front
