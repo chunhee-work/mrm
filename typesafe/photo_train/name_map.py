@@ -175,6 +175,10 @@ def order_key(l):
 
 FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     # user 2026-10-31 alignment list (questions 5-22)
+    (r"(?i)^Runningboard (?:Outer Trim|Moulding|Finisher)(?: Outer)? (LH|RH)$", lambda m: "Runningboard Moulding " + m.group(1).upper()),   # user 2026-10-31: finisher on top of the Runningboard Spoiler
+    (r"(?i)^Door Mirror Glass (LH|RH)$", lambda m: "Door Mirror " + m.group(1).upper()),   # user 2026-10-31
+    (r"(?i)^Door Handle Outer Release(?: Lever)? (Front|Rear) (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Handle Outer Release " + m.group(2).upper()),   # user 2026-10-31
+    (r"(?i)^Fog Lamp Rear(?: \[(?:centre|center)\]| Centre)$", "Fog Lamp Rear"),   # user 2026-10-31: no Centre
     (r"(?i)^(?:Front|Rear)? ?(?:LH|RH)? ?Chassis Frame(?: (?:LH|RH|Front|Rear))*$", None),   # user 2026-10-31: never use "Front LH Chassis Frame" — drop
     (r"(?i)^Door (Front|Rear) Lower Moulding (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Moulding " + m.group(2).upper()),   # user 2026-10-31: same part, use Door Front Moulding
     (r"(?i)^Headlamp Mounting Bracket (LH|RH)$", lambda m: "Headlamp Lower Bracket " + m.group(1).upper()),   # user 2026-10-31: same part, use Headlamp Lower Bracket

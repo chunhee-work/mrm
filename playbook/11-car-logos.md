@@ -11,6 +11,7 @@
   - Toyota ellipses → (TOYOTA)
   - Proton tiger → (PROTON)
 - If the badge is a written MODEL name or grade (MYVI, SAGA, VIOS, CITY, JAZZ, I-VTEC, ELITE, ECO IDLE), the bracket is that text in CAPITALS (playbook 03 and 08). Comment on the estimate row = the same bracket text.
+- **A grade badge (EZI, SE, AV, ADVANCE, ELITE, PREMIUM…) is named with the MODEL**: Tailgate Badge (EZI) on a Myvi → Tailgate Badge (MYVI) (user 2026-10-31; naming.py does it from the car model).
 - Old names that must never appear again:
   - Grille Front Badge, Badge Boot Lid, Emblem Boot/Tailgate, Badge [P]
   - lower-case brackets
