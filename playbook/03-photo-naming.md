@@ -97,6 +97,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - **Never "Door Glass Weatherstrip Outer Front LH"** → **Door Front Outer Weatherstrip LH/RH** (Rear the same) (user 2026-10-31).
 - **Headlamp Mounting Bracket LH/RH = Headlamp Lower Bracket LH/RH** → always Headlamp Lower Bracket (user 2026-10-31).
 - **Door Front/Rear Lower Moulding LH/RH = Door Front/Rear Moulding LH/RH** → always Door Front Moulding RH etc. (user 2026-10-31).
+- **Never "Front LH Chassis Frame" / any "Chassis Frame" name** — removed from the name list (user 2026-10-31).
 - A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
 
 ## Part rules — front

@@ -175,6 +175,7 @@ def order_key(l):
 
 FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     # user 2026-10-31 alignment list (questions 5-22)
+    (r"(?i)^(?:Front|Rear)? ?(?:LH|RH)? ?Chassis Frame(?: (?:LH|RH|Front|Rear))*$", None),   # user 2026-10-31: never use "Front LH Chassis Frame" — drop
     (r"(?i)^Door (Front|Rear) Lower Moulding (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Moulding " + m.group(2).upper()),   # user 2026-10-31: same part, use Door Front Moulding
     (r"(?i)^Headlamp Mounting Bracket (LH|RH)$", lambda m: "Headlamp Lower Bracket " + m.group(1).upper()),   # user 2026-10-31: same part, use Headlamp Lower Bracket
     (r"(?i)^(?:Rear Bumper|Bumper Rear) Tread ?plate(?: (LH|RH|Centre))?$", lambda m: "Bumper Rear Treadplate" + (" " + (m.group(1).upper() if m.group(1).upper() in ("LH", "RH") else "Centre") if m.group(1) else "")),   # user 2026-10-31: on top of the rear bumper, 4x4s
