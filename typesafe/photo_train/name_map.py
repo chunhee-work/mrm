@@ -175,6 +175,8 @@ def order_key(l):
 
 FINAL = [  # (regex on the final label, replacement; None = never use / drop)
     # user 2026-10-31 alignment list (questions 5-22)
+    (r"(?i)^Door Glass Weatherstrip Outer (Front|Rear) (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Outer Weatherstrip " + m.group(2).upper()),   # user 2026-10-31: never Door Glass Weatherstrip Outer Front LH
+    (r"(?i)^Door (Front|Rear) Glass Weatherstrip Outer (LH|RH)$", lambda m: "Door " + m.group(1).title() + " Outer Weatherstrip " + m.group(2).upper()),
     (r"(?i)^Tailgate Tailgate$", "Tailgate"),
     (r"(?i)^Shock Absorber (Front|Rear) (LH|RH)$", lambda m: m.group(1).title() + " Shock Absorber " + m.group(2).upper()),
     (r"(?i)^Log Lamp Front (LH|RH)$", lambda m: "Front Bumper Fog Lamp " + m.group(1).upper()),
