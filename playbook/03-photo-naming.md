@@ -101,6 +101,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - ⭐ **部位标注台 follows ALL naming rules** (user 2026-10-31: never show a banned/old name; merged names add up their %): after any name_map.py change or a new task batch run `python3 tools/naming-desk/label_fix.py <label.html> <task json dirs…>` and republish the page.
 - **Runningboard Moulding LH/RH** = the finisher/trim ON TOP of the Runningboard Spoiler (Merimen: Runningboard Outer Trim) — not the spoiler itself (user 2026-10-31).
 - Door Mirror Glass → Door Mirror · Door Handle Outer Release Lever Rear RH → Door Rear Handle Outer Release RH · Fog Lamp Rear [centre] → Fog Lamp Rear (no Centre) (user 2026-10-31).
+- **Exhaust Assembly = Rear Exhaust Pipe = Exhaust Rear Pipe** → always **Exhaust Rear Pipe** (user 2026-10-31).
 - A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
 
 ## Part rules — front
