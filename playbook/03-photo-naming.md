@@ -105,6 +105,8 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - ⭐ **General rule (user 2026-10-31): when two names are the same part, keep the name with the most photos.**
 - ⭐ **名称对齐台 decisions (user 2026-10-31) live in `typesafe/photo_train/name_decisions.json`** (name → chosen name, null = never use) and are applied by name_map.final() after every other rule. Round 1: 109 groups merged, 38 never-use, all 118 undecided groups = never use (user: "others in 未决定 all don't use").
 - **Bumper sensors (user note)**: when the car model HAS Inner + Outer sensors → name them Rear/Front Bumper Sensor Inner/Outer LH/RH; when the model does not → plain Rear/Front Bumper Sensor LH/RH. Front and rear same logic.
+- **Cowl Panel** = the steel panel; **Cowl Panel Grille** = the plastic on top of the Cowl Panel — two different parts (user 2026-10-31).
+- Rear Exhaust Pipe ≠ Exhaust Rear Mounting (different parts).
 - A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
 
 ## Part rules — front
