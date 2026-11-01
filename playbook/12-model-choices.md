@@ -1,7 +1,7 @@
 # 12 · Which Merimen model to choose for the RC (ddlbMan → ddlbModel)
 
 Read with playbook 02 "Vehicle model" before every create. **The RC always wins** (02). Built 2026-11-01 from:
-- **111 RCs read by opening each case's DOC in Merimen** (every TC0607 case we can open), set against the model chosen in that case. The table at the end lists them all; ✗ = the choice does not fit the RC (made by someone else, don't copy it).
+- **184 RCs read by opening each case's DOC in Merimen** (111 TC0607 + 73 Newvest, every case we can open), set against the model chosen in that case. The table at the end lists them all; ✗ = the choice does not fit the RC (made by someone else, don't copy it).
 - **What adjusters chose in 7,239 cases** (TC0607, Newvest, Aman Kepong; `tools/batch/model_choice_stats.json`). Aman cases cannot be opened from our account ("Invalid Case Access"), so their RCs were not read; those counts only show which spelling or variant is normal.
 
 ## Rules
@@ -69,7 +69,29 @@ Read with playbook 02 "Vehicle model" before every create. **The RC always wins*
 9. **When pick_model says UNSURE**, use the lists below to see which option adjusters normally choose. Check the RC trim word, transmission, body and bracket first.
 10. **Old-format card** ("Perakuan Pendaftaran Kenderaan") prints make and model on separate lines; read them as "MAKE / MODEL". The cc can carry "S.P" or "SP": ignore it.
 
-## All 111 RCs read → model chosen in the case
+11. **Imports and commercial vehicles: match the chassis/model code on the RC, not the name.**
+   - Mistakes seen (Newvest):
+     - Mercedes C180 with chassis WDD205 (W205) was given W203.
+     - Isuzu TFS87 (1.9 RZ4E) was given TFS55 2.8.
+     - Hino WU410R was given WU300R.
+     - A Ford Mustang built in 2016 was given the MY20 option.
+   - Mercedes W205 is the saloon and C205 is the coupe. Check the body against the photos.
+12. **More bracket mistakes (registration date outside the chosen bracket).** All seen on Newvest cases:
+
+    | RC | Registered | Was given | Should be |
+    |---|---|---|---|
+    | Vios 1.5G | 2010 | [07/12-09/13] Limited | NCP93R bracket covering 2010 |
+    | Altis 1.6E | 2002 | [02/04-02/08] | the older bracket |
+    | Mazda6 | 2013 | [07/10-02/13] | the newer GJ generation |
+    | Persona 1.6 CVT Executive | 04/2021 | bracket from 08/21 | the earlier bracket |
+    | Preve 1.6 | 2013 | [04/18-] | the earlier bracket |
+    | NV350 | 2016 | [17-] | the earlier bracket |
+
+    Iriz 1.3L CVT was given (M). Hilux 2.4G was given L-Edition.
+13. **Bundle without an RC** (invoice only, police papers only, password-protected PDF): use the insurance schedule's model, cc and year, and say so in the report. If nothing names the model, the case is pending the RC (00). The same bundle can be uploaded to two cases (WWD5547 had WA510U's documents), so check the plate on the RC.
+
+## All RCs read → model chosen in the case
+### TC0607
 | RC (Buatan / Nama Model) | cc | Made | Registered | Chosen in Merimen | |
 |---|---|---|---|---|---|
 | BMW / MINI COOPER S (3BA-XR20MW) | 1998 | 2022 | 05/05/2026 | MINI Cooper 2021 On 3 Dr Hatch 2 Cooper S 192Bhp [06/21-] | ✓ |
@@ -183,6 +205,84 @@ Read with playbook 02 "Vehicle model" before every create. **The RC always wins*
 | TOYOTA / VIOS 1.5G AT | 1496 | 2024 | 02/04/2024 | TOYOTA Vios 2023 To 2026 4 Dr Sal 1.5 1.5G (NGC102R-EEXHKE 1B) 104Bhp [03/23-01/26] | ✓ |
 | TOYOTA / WISH CBA-ZNE10G (A) | 1794 | 2004 | 23/02/2009 | TOYOTA WISH MPV 1.8 CBA-ZNE10G (A) | ✓ |
 | TOYOTA / WISH DBA-ZGE20G (A) | 1797 | 2010 | 25/07/2013 | TOYOTA WISH MPV 1.8 DBA-ZGE20G (A) | ✓ |
+
+
+### Newvest (NVISSAC) — RCs read 2026-11-01
+| RC (Buatan / Nama Model) | cc | Made | Registered | Chosen in Merimen | |
+|---|---|---|---|---|---|
+| AUDI / A4 1.8 TFSI | 1798 | 2015 | 28/03/2016 | AUDI A4 2009 To 2016 4 Dr Sal 1.8 TFSI (B8) 161Bhp (A) [04/12-08/16] | ✓ |
+| BMW / BMW 330E | 1998 | 2017 | 08/12/2017 | BMW 3-Series 2012 To 2019 4 Dr Sal 2 330e M Sport 184Bhp (A) [02/17-02/19] | ✓ |
+| BMW / X5 XDRIVE45E | 2998 | 2020 | 27/08/2020 | BMW X5 5 DR SUV 3.0 xDrive45e (G05) (A) [18-] | ✓ |
+| CAM / KINGO XMQ6552 | 2982 | 2020 | 29/09/2020 | KING LONG CAM KINGO PLUS VAN 3.0 D (XMQ6552) (M) | ✓ |
+| CHEVROLET / SONIC 1.4L AT LTZ (HB) | 1398 | 2013 | 25/07/2014 | CHEVROLET Sonic 2012 On 5 Dr Hatch 1.4 LTZ 99Bhp (A) [12/12-] | ✓ |
+| FORD / MUSTANG 2.3 (import) | 2261 | 2016 | 13/03/2020 | FORD MUSTANG 2 DR COUPE 2.3 GTDI FN MY20 (A) | ✗ |
+| FORD / RANGER 2.0L BIT WT 4WD AT | 1996 | 2019 | 20/05/2020 | FORD Ranger 2018 To 2019 4 Dr Pickup Dbl.Cab 2 Bi-Turbo WildTrak 4X4 210Bhp (A) [10/18-] | ✓ |
+| HINO / WU410R-HKMMS3 (UBS) | 4009 | 2011 | 03/08/2011 | HINO WU300R-HBMLS3 LORRY 4.0 D (M) | ✗ |
+| HONDA / BR-V 1.5L V | 1497 | 2019 | 18/03/2019 | HONDA BR-V 2017 On 5 Dr SUV 1.5 V 119Bhp [01/17-] | ✓ |
+| HONDA / CITY 1.5L RS | 1498 | 2023 | 22/11/2023 | HONDA City 2023 On 4 Dr Sal 1.5 1.5 RS 119Bhp [08/23-] | ✓ |
+| HONDA / CITY 1.5L V | 1498 | 2021 | 19/05/2021 | HONDA City 2020 To 2023 4 Dr Sal 1.5 1.5 V 119Bhp [10/20-08/23] | ✓ |
+| HONDA / CITY 1.5L V-SEN | 1498 | 2022 | 28/10/2022 | HONDA City 2021 On 4 Dr Sal 1.5 1.5 V Sensing 119Bhp [11/21-08/23] | ✓ |
+| HONDA / CITY V 1.5L I-VTEC | 1497 | 2014 | 12/09/2014 | HONDA City 2014 On 4 Dr Sal 1.5 V 118Bhp (A) [04/14-02/17] | ✓ |
+| HONDA / CIVIC 1.5 TC | 1498 | 2020 | 06/08/2020 | HONDA Civic 2020 To 2022 4 Dr Sal 1.5 TC 171Bhp [02/20-01/22] | ✓ |
+| HONDA / CIVIC 1.5 TC-P | 1498 | 2016 | 26/09/2016 | HONDA Civic 2016 To 2020 4 Dr Sal 1.5 TC-P 171Bhp [06/16-02/20] | ✓ |
+| HONDA / CIVIC 1.8L I-VTEC (A) | 1799 | 2016 | 27/12/2016 | HONDA Civic 2016 To 2020 4 Dr Sal 1.8 S 139Bhp [06/16-02/20] | ✓ |
+| HONDA / CIVIC 1.8L I-VTEC (A) | 1799 | 2009 | 05/06/2009 | HONDA Civic 2006 On 4 Dr Sal 1.8 S 138Bhp (A) [03/09-06/12] | ✓ |
+| HONDA / CR-V 1.5 TC | 1498 | 2018 | 29/08/2018 | HONDA CR-V 2017 To 2020 5 Dr SUV 1.5 1.5TC 4WD 190Bhp [07/17-11/20] | ✓ |
+| HONDA / CR-V 2.0L I-VTEC (A) | 1997 | 2015 | 21/09/2015 | HONDA CR-V 2015 To 2017 5 Dr SUV 2 2WD i-VTEC 153Bhp (A) [02/15-06/17] | ✓ |
+| HONDA / HR-V 1.8L V | 1799 | 2016 | 31/03/2016 | HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 V 140Bhp (A) [02/15-12/18] | ✓ |
+| HYUNDAI / GETZ 1.6 (A) | 1594 | 2004 | 12/11/2004 | HYUNDAI Getz 2003 On 5 Dr Hatch 1.6 GLS 104Bhp (A) [02/03-] | ✓ |
+| INOKOM CORPORATION SDN. BHD. / LORIMAS AU26 | 2607 | 2012 | 10/08/2012 | INOKOM LORIMAS LORRY 2.6 D (3.6T) AU26 (M) | ✓ |
+| ISUZU / TFS87JDR-TCPH | 1898 | 2022 | 27/07/2022 | ISUZU TFS55HP 2.8 Space Cab | ✗ |
+| LEXUS / IS300 (3BA-ASE30) (import) | 1998 | 2021 | 03/10/2024 | LEXUS IS300 4 DR SAL 2.0 F Sport (3BA-ASE30) (A) | ✓ |
+| MAZDA / MAZDA6 2.0SDN (A) | 1998 | 2013 | 03/10/2013 | MAZDA 6 2010 To 2013 4 Dr Sal 2 147Bhp (A) [07/10-02/13] | ✗ |
+| MERCEDES BENZ / C180 (import) | 1595 | 2018 | 09/08/2021 | MERCEDES-BENZ C180 4 DR SAL 1.8 W203 (A) | ✗ |
+| MERCEDES BENZ / GLC200-X253 | 1991 | 2018 | 15/02/2018 | MERCEDES-BENZ GLC 200 5 DR SUV 2.0 (X253) (A) [16-] | ✓ |
+| MERCEDES BENZ / MB C200 (W205) | 1991 | 2014 | 04/03/2015 | MERCEDES-BENZ C200 2 DR COUPE 2.0 (W205) (A) [15-] | ✗ |
+| MODENAS / KRISS MJ110 | 107 | 2020 | 28/09/2020 | MODENAS KRISS 107cc MJ110 | ✓ |
+| NISSAN / NISSAN NV350 URVAN S/LONG H/ROOF | 2488 | 2016 | 20/04/2016 | NISSAN NV350 URVAN VAN 2.5 D (Facelift) (M) [17-] | ✗ |
+| NISSAN / NISSAN X-TRAIL 2.0L CVT | 1997 | 2015 | 30/11/2015 | NISSAN X-Trail 2015 On 5 Dr SUV 2 2WD (T32) 142Bhp (A) [02/15-] | ✓ |
+| NISSAN / SERENA2.0L CVT H/STAR S-HYBRID | 1997 | 2016 | 20/10/2016 | NISSAN Serena 2011 To 2018 MPV 2 S-Hybrid Highway Star 143Bhp [11/14-04/18] | ✓ |
+| NISSAN / SYLPHY 2.0 CVTC | 1997 | 2010 | 11/06/2010 | NISSAN Sylphy 2008 On 4 Dr Sal 2 131Bhp (A) [06/08-02/12] | ✓ |
+| NISSAN / SYLPHY 2.0 CVTC | 1997 | 2013 | 04/02/2013 | NISSAN Sylphy 2008 On 4 Dr Sal 2 XV 131Bhp (A) [03/12-04/14] | ✓ |
+| PERODUA / ALZA - 1500 AV (CVT) | 1496 | 2023 | 30/10/2023 | PERODUA Alza 2022 On MPV 1.5 1.5 AV 105Bhp [07/22-] | ✓ |
+| PERODUA / ALZA - 1500 H (CVT) | 1496 | 2023 | 20/11/2023 | PERODUA Alza 2022 On MPV 1.5 1.5 H 105Bhp [07/22-] | ✓ |
+| PERODUA / AXIA - 1000 SE (CVT) | 998 | 2024 | 21/06/2024 | PERODUA Axia 2023 On 5 Dr Hatch 1 1.0 SE 67Bhp [02/23-] | ✓ |
+| PERODUA / BEZZA - 1300 AV (AUTO) | 1329 | 2016 | 21/12/2016 | PERODUA Bezza 2016 On 4 Dr Sal 1.3 Advance 94Bhp (A) [07/16-05/17] | ✓ |
+| PERODUA / BEZZA - 1300 X (AUTO) | 1329 | 2022 | 07/07/2022 | PERODUA Bezza 2020 On 4 Dr Sal 1.3 X 94Bhp (A) [01/20-] | ✓ |
+| PERODUA / MYVI - 1.3 EZ (AUTO) | 1298 | 2006 | 28/07/2006 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZ 86Bhp (A) [05/05-07/08] | ✓ |
+| PERODUA / MYVI - 1.3 EZ (AUTO) | 1298 | 2008 | 19/08/2008 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZ 86Bhp (A) [08/08-05/11] | ✓ |
+| PERODUA / MYVI - 1.3 EZI (AUTO) | 1298 | 2013 | 30/01/2013 | PERODUA Myvi 2011 On 5 Dr Hatch 1.3 EZi Premium 89Bhp (A) [06/11-12/14] | ✓ |
+| PERODUA / MYVI - 1300 G (AUTO) | 1298 | 2016 | 25/07/2016 | PERODUA Myvi 2011 On 5 Dr Hatch 1.3 G (A) 89Bhp (A) [01/15-10/17] | ✓ |
+| PERODUA / MYVI - 1300 X (AUTO) | 1329 | 2019 | 24/07/2019 | PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.3 Premium X 94Bhp (A) [11/17-07/20] | ✓ |
+| PERODUA / MYVI - 1500 SE (AUTO) | 1495 | 2016 | 16/02/2016 | PERODUA Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [01/15-10/17] | ✓ |
+| PROTON / IRIZ 1.3L CVT | 1332 | 2016 | 30/05/2016 | PROTON Iriz 2014 To 2021 5 Dr Hatch 1.3 E 94Bhp (M) [09/14-05/17] | ✗ |
+| PROTON / IRIZ 1.6 CVT EXECUTIVE | 1597 | 2021 | 03/11/2021 | PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 Executive 107Bhp [04/19-] | ✓ |
+| PROTON / IRIZ 1.6L CVT | 1597 | 2015 | 23/10/2015 | PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 E 107Bhp (A) [09/14-05/17] | ✓ |
+| PROTON / PERSONA 1.6 CVT EXECUTIVE | 1597 | 2021 | 28/04/2021 | PROTON Persona 2021 On 4 Dr Sal 1.6 Executive 107Bhp [08/21-] | ✗ |
+| PROTON / PREVE 1.6L CVT | 1561 | 2012 | 07/01/2013 | PROTON Preve 2012 On 4 Dr Sal 1.6 Executive (CVT) 138Bhp [04/18-] | ✗ |
+| PROTON / SAGA 1.3 AUTOMATIK STANDARD | 1332 | 2022 | 30/06/2022 | PROTON Saga 2022 On 4 Dr Sal 1.3 Standard 94Bhp (A) [05/22-] | ✓ |
+| PROTON / X70 1.8 TGDI PREMIUM 2WD | 1799 | 2019 | 30/05/2019 | PROTON X70 2018 On 5 Dr SUV 1.8 TGDI Premium 182Bhp (A) [12/18-] | ✓ |
+| SSANGYONG / STAVIC SV200 (A) | 1998 | 2014 | 24/11/2014 | SSANGYONG STAVIC MPV 2.0 D SV200 eXDi (A) [13-] | ✓ |
+| TOYOTA / ALPHARD (import) | 2493 | 2021 | 05/07/2023 | TOYOTA ALPHARD MPV 2.5 AGH30 (A) | ✓ |
+| TOYOTA / ALPHARD (import) | 3456 | 2015 | 24/11/2017 | TOYOTA Alphard (Grey Import) MPV 3.5 GGH30R-NFTQK (A) [01/15-01/18] | ✓ |
+| TOYOTA / ALPHARD 3BA-AGH30W (A) (import) | 2493 | 2020 | 20/07/2022 | TOYOTA ALPHARD MPV 2.5 3BA-AGH30W (A) | ✓ |
+| TOYOTA / COROLLA ALTIS 1.6E(A) | 1598 | 2002 | 23/04/2002 | TOYOTA Corolla Altis 2001 On 4 Dr Sal 1.6 E (ZZE121R-GEPNKE) 108Bhp (A) [02/04-02/08] | ✗ |
+| TOYOTA / COROLLA ALTIS 1.8G A/T | 1798 | 2023 | 25/10/2023 | TOYOTA Corolla Altis 2023 On 4 Dr Sal 1.8 G (ZRE211R-GEXEKE C2) 137Bhp [08/23-] | ✓ |
+| TOYOTA / HIACE PANEL VAN 2.5 (D) | 2494 | 2023 | 27/02/2023 | TOYOTA HIACE PANEL VAN 2.5 D Facelift (M) [15-] | ✓ |
+| TOYOTA / HILUX DOUBLE CAB 2.4G AT 4X4 | 2393 | 2018 | 06/04/2018 | TOYOTA Hilux 2018 To 2020 4 Dr Pickup Dbl.Cab 2.4 L-Edition (GUN125R-DETSHE) 148Bhp (A) [03/18-10/20] | ✗ |
+| TOYOTA / TOYOTA HIACE PANEL VAN 2.5(D) | 2494 | 2010 | 16/08/2010 | TOYOTA Hiace 2006 On Van 2.5 High Roof (KDH202R-EDMDYE) 101Bhp (M) [01/06-08/10] | ✓ |
+| TOYOTA / TOYOTA HILUX DOUBLE CAB 2.5L | 2494 | 2006 | 04/05/2006 | TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHE) 101Bhp (A) [03/05-09/08] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (AT) | 1497 | 2010 | 29/11/2010 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [04/10-06/12] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G (A) | 1496 | 2007 | 04/06/2007 | TOYOTA Vios 2003 To 2007 4 Dr Sal 1.5 G (NCP42R) 108Bhp (A) [12/05-09/07] | ? |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2009 | 07/01/2010 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G Limited (NCP93R) 108Bhp (A) [07/12-09/13] | ✗ |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2008 | 25/09/2008 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [10/07-03/10] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2014 | 23/06/2014 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP150R) 108Bhp (A) [10/13-09/16] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2012 | 03/07/2012 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [07/12-09/13] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G A/T | 1496 | 2019 | 19/06/2019 | TOYOTA Vios 2019 To 2020 4 Dr Sal 1.5 G (NSP151R-BEXGKE V3) 105Bhp [01/19-12/20] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G A/T | 1496 | 2021 | 14/09/2021 | TOYOTA Vios 2020 To 2023 4 Dr Sal 1.5 G (NSP151R-BEXGKE W3) 105Bhp [12/20-] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5J (AT) | 1497 | 2012 | 29/02/2012 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP93R) 108Bhp (A) [04/10-06/12] | ✓ |
+| TOYOTA / VELLFIRE (import) | 2493 | 2020 | 28/12/2022 | TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30W-NFXGK [01/15-] | ✓ |
+| TOYOTA / VELLFIRE DBA-ANH20W (import) | 2362? (very blurry) | 201? (last digit unreadable) | 2?/0?/201? (unreadable) | TOYOTA VELLFIRE MPV 2.4 DBA-ANH20W (A) | ✓ |
 
 ## What adjusters chose most (7,239 cases; models with 10+ cases, top 8 variants each)
 Number = cases that chose that option. Full list for every model: `tools/batch/model_choice_stats.json`. These include other adjusters' mistakes (see the ✗ rows above), so they only show which option is normal.
