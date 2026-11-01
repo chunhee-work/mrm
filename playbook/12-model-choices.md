@@ -1,8 +1,8 @@
 # 12 · Which Merimen model to choose for the RC (ddlbMan → ddlbModel)
 
 Read with playbook 02 "Vehicle model" before every create. **The RC always wins** (02). Built 2026-11-01 from:
-- **184 RCs read by opening each case's DOC in Merimen** (111 TC0607 + 73 Newvest, every case we can open), set against the model chosen in that case. The table at the end lists them all; ✗ = the choice does not fit the RC (made by someone else, don't copy it).
-- **What adjusters chose in 7,239 cases** (TC0607, Newvest, Aman Kepong; `tools/batch/model_choice_stats.json`). Aman cases cannot be opened from our account ("Invalid Case Access"), so their RCs were not read; those counts only show which spelling or variant is normal.
+- **559 RCs read by opening each case's DOC in Merimen** (111 TC0607 + 73 Newvest + 375 Aman Kepong), set against the model chosen in that case. The table at the end lists them all; ✗ = the choice does not fit the RC (made by someone else, don't copy it).
+- **What adjusters chose in 7,239 cases** (TC0607, Newvest, Aman Kepong; `tools/batch/model_choice_stats.json`). Aman cases open only from the Aman login (CHONGAIAI); the counts below show which spelling or variant is normal.
 
 ## Rules
 1. **Date bracket.** Use the RC **Tarikh Pendaftaran** to choose the generation ("YYYY On" / "YYYY To YYYY") and the `[mm/yy-mm/yy]` bracket that contains it, not the newest bracket.
@@ -89,6 +89,26 @@ Read with playbook 02 "Vehicle model" before every create. **The RC always wins*
 
     Iriz 1.3L CVT was given (M). Hilux 2.4G was given L-Edition.
 13. **Bundle without an RC** (invoice only, police papers only, password-protected PDF): use the insurance schedule's model, cc and year, and say so in the report. If nothing names the model, the case is pending the RC (00). The same bundle can be uploaded to two cases (WWD5547 had WA510U's documents), so check the plate on the RC.
+
+14. **Plain RC trim → plain Merimen option, never a special edition.** Don't choose Limited, Exclusive, Black Series, TRD Sportivo, "EZi Advanced" or "G Limited" unless the RC says it.
+    - Mistakes seen (Aman):
+      - Alza 1500 EZI was given EZi Advanced.
+      - Kelisa EZ was given EZ Limited Edition.
+      - Myvi 1.3 EZi was given EZi Exclusive Edition.
+      - Vios 1.5G was given G Limited.
+      - Vios 1.5S was given TRD Sportivo.
+15. **Engine size and drive must match the RC (cc, 2WD/4WD).**
+    - Mistakes seen:
+      - X-Trail 2.5L 4WD was given the 2.0.
+      - Myvi 1.5 SE was given the 1.3 SE.
+      - CLA 250 was given CLA 45 AMG.
+      - CR-V 2.0 with chassis RM1 (2WD) was given 4WD.
+16. **Grey imports (KENDERAAN IMPORT TERPAKAI) use the import option with the Japanese chassis code on the RC** (DBA-ANH20W, DBA-AGH30W, DBA-XG20, MXUA80-), and the bracket for the year made. Don't use the local "R" model (ANH20R, AGH30R, MXUA80R) or a newer bracket.
+    - Mistakes seen: Alphard, Vellfire, Harrier, BMW 520i.
+17. **Facelift brackets — check the exact month.**
+    - Axia 2019 On starts [09/19-]: a car registered before that is "Axia 2014 To 2019".
+    - Saga 2019 On starts [08/19-]: SAGA 1.3L CVT registered 06/2019 is the 2016–2019 Saga.
+    - Accord 2.0 made 2008 with chassis CP… is the 8th generation, not "2006 On".
 
 ## All RCs read → model chosen in the case
 ### TC0607
@@ -283,6 +303,386 @@ Read with playbook 02 "Vehicle model" before every create. **The RC always wins*
 | TOYOTA / TOYOTA VIOS 1.5J (AT) | 1497 | 2012 | 29/02/2012 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP93R) 108Bhp (A) [04/10-06/12] | ✓ |
 | TOYOTA / VELLFIRE (import) | 2493 | 2020 | 28/12/2022 | TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30W-NFXGK [01/15-] | ✓ |
 | TOYOTA / VELLFIRE DBA-ANH20W (import) | 2362? (very blurry) | 201? (last digit unreadable) | 2?/0?/201? (unreadable) | TOYOTA VELLFIRE MPV 2.4 DBA-ANH20W (A) | ✓ |
+
+
+### Aman Kepong (CHONGAIAI) — RCs read 2026-11-01 (one case per chosen variant, the 500 most used variants)
+| RC (Buatan / Nama Model) | cc | Made | Registered | Chosen in Merimen | |
+|---|---|---|---|---|---|
+| AUDI / Q5 2.0 TFSI QUATTRO | 1984 | 2014 | 11/12/2014 | AUDI Q5 2009 On 5 Dr SUV 2 TFSI Quattro 225Bhp [10/12-] | ✓ |
+| AUDI / TT FSI (A) | 1984 | 2007 | 04/11/2011 | AUDI TT 2007 On 2 Dr Coupe 2 TFSI 197Bhp (A) [06/07-04/15] | ✓ |
+| BMW / 520I DBA-XG20 (import) | 1997 | 2013 | 04/07/2018 | BMW 5-Series 2010 To 2017 4 Dr Sal 2 520i (F10) 184Bhp (A) [10/13-03/17] | ✗ |
+| BMW / 523I DBA-FP25 (A) (import) | 2497 | 2011 | 26/09/2014 | BMW 5-Series 2010 To 2017 4 Dr Sal 2.5 523i (F10) N52 204Bhp (A) [05/10-03/17] | ✓ |
+| BMW / 528I (import) | 2996 | 2011 | 01/06/2012 | BMW 5-Series 2010 To 2017 4 Dr Sal 3 528i (F10) N52B30 258Bhp (A) [10/10-09/13] | ✗ |
+| BMW / BMW 320I | 1997 | 2013 | 09/10/2013 | BMW 3-Series 2012 To 2019 4 Dr Sal 2 320i Luxury (F30) N20 184Bhp (A) [09/12-10/15] | ✓ |
+| BMW / BMW 330E | 1998 | 2017 | 19/05/2017 | BMW 3-Series 2012 To 2019 4 Dr Sal 2 330e M Sport 184Bhp (A) [02/17-02/19] | ✓ |
+| BMW / BMW 330E | 1998 | 2017 | 22/11/2017 | BMW 3-Series 2012 To 2019 4 Dr Sal 2 330e Sport 184Bhp (A) [08/16-02/19] | ✓ |
+| BMW / BMW 525I SPORTS E60 | 2497 | 2008 | 24/02/2009 | BMW 5-Series 2003 To 2010 4 Dr Sal 2.5 525i Sports (E60) N52B25 215Bhp (A) [08/07-04/10] | ✓ |
+| BMW / X3 XDRIVE30I | 1998 | 2021 | 28/10/2021 | BMW X3 2018 On 5 Dr SUV 2 xDrive30i M Sport 252Bhp (A) [09/19-] | ✓ |
+| CHERY / OMODA 5 (H) | 1498 | 2023 | 02/10/2023 | CHERY Omoda 5 2023 On 5 Dr SUV 1.5 H 156Bhp [07/23-] | ✓ |
+| FORD / FIESTA 1.6L SPORT AUTO | 1596 | 2012 | 19/07/2012 | FORD Fiesta 2010 On 5 Dr Hatch 1.6 S 118Bhp (A) [10/10-09/13] | ✓ |
+| FORD / FIESTA SPORT 1.5L | 1498 | 2013 | 05/06/2014 | FORD Fiesta 2010 On 5 Dr Hatch 1.5 Sport 110Bhp (A) [10/13-] | ✓ |
+| FORD / RANGER 2.2L XLT 4WD AT | 2198 | 2014 | 15/01/2015 | FORD Ranger 2012 To 2013 4 Dr Pickup Dbl.Cab 2.2 XLT 4X4 148Bhp (A) [06/12-09/15] | ✓ |
+| HONDA / ACCORD 2.0L I-VTEC (A) | 1997 | 2009 | 27/05/2009 | HONDA Accord 2007 On 4 Dr Sal 2 VTi 154Bhp (A) [04/08-02/11] | ✓ |
+| HONDA / ACCORD 2.0L I-VTEC (A) | 1997 | 2008 | 27/08/2008 | HONDA Accord 2007 On 4 Dr Sal 2.00 VTi AUTO 154Bhp (A) [04/08-02/11] | ✓ |
+| HONDA / ACCORD 2.0L I-VTEC (A) | 1997 | 2008 | 13/11/2008 | HONDA Accord 2006 On 4 Dr Sal 2 VTi 148Bhp (A) [07/06-03/08] | ✗ |
+| HONDA / ACCORD 2.0L VTI-L (A) | 1997 | 2016 | 15/07/2016 | HONDA Accord 2013 On 4 Dr Sal 2 VTi-L 153Bhp (A) [09/13-08/16] | ✓ |
+| HONDA / ACCORD 2.4L I-VTEC (A) | 2354 | 2011 | 18/05/2011 | HONDA Accord 2007 On 4 Dr Sal 2.4 VTi-L 178Bhp (A) [03/11-08/13] | ✓ |
+| HONDA / ACCORD 2.4L I-VTEC (A) | 2354 | 2004 | 26/10/2004 | HONDA Accord 2003 On 4 Dr Sal 2.4 VTi-L 158Bhp (A) [11/03-06/06] | ✓ |
+| HONDA / BR-V 1.5L V | 1497 | 2019 | 28/02/2019 | HONDA BR-V 2017 On 5 Dr SUV 1.5 V 119Bhp [01/17-] | ✓ |
+| HONDA / BR-V E | 1497 | 2020 | 15/10/2020 | HONDA BR-V 2020 On 5 Dr SUV 1.5 E 119Bhp [06/20-] | ✓ |
+| HONDA / BR-V V | 1497 | 2020 | 13/08/2020 | HONDA BR-V 2020 On 5 Dr SUV 1.5 V 119Bhp [06/20-] | ✓ |
+| HONDA / CITY 1.5 I-DSI (A) | 1497 | 2005 | 30/12/2005 | HONDA City 2005 On 4 Dr Sal 1.5 i-DSI 87Bhp (A) [10/05-07/07] | ✓ |
+| HONDA / CITY 1.5 I-DSI (A) | 1497 | 2008 | 24/03/2008 | HONDA City 2005 On 4 Dr Sal 1.5 i-DSI 87Bhp (A) [08/07-11/08] | ✓ |
+| HONDA / CITY 1.5 VTEC (A) | 1497 | 2006 | 15/11/2006 | HONDA City 2005 On 4 Dr Sal 1.5 VTEC 108Bhp (A) [10/05-07/07] | ✓ |
+| HONDA / CITY 1.5 VTEC (A) | 1497 | 2004 | 16/09/2004 | HONDA City 2004 To 2005 4 Dr Sal 1.5 VTEC 108Bhp (A) [07/04-09/05] | ✓ |
+| HONDA / CITY 1.5L (A) | 1497 | 2003 | 28/05/2003 | HONDA City 2003 To 2005 4 Dr Sal 1.5 i-DSI 87Bhp (A) [04/03-09/05] | ✓ |
+| HONDA / CITY 1.5L E | 1497 | 2019 | 02/05/2019 | HONDA City 2014 On 4 Dr Sal 1.5 E 118Bhp [03/17-] | ✓ |
+| HONDA / CITY 1.5L E | 1498 | 2021 | 19/03/2021 | HONDA City 2020 To 2023 4 Dr Sal 1.5 1.5 E 119Bhp [10/20-08/23] | ✓ |
+| HONDA / CITY 1.5L E | 1498 | 2021 | 11/03/2021 | HONDA City 2020 On 4 Dr Sal 1.5 1.5 E 119Bhp [10/20-] | ✓ |
+| HONDA / CITY 1.5L HYBRID | 1498 | 2024 | 31/01/2024 | HONDA City 2023 On 4 Dr Sal 1.5 1.5 e:HEV RS 97Bhp [08/23-] | ✓ |
+| HONDA / CITY 1.5L I-VTEC | 1497 | 2009 | 28/10/2009 | HONDA City 2008 On 4 Dr Sal 1.50 i-VTEC (Grade S) AUTO 118Bhp (A) [12/08-05/12] | ✓ |
+| HONDA / CITY 1.5L I-VTEC | 1497 | 2012 | 20/07/2012 | HONDA City 2008 On 4 Dr Sal 1.5 i-VTEC (Grade S) 118Bhp (A) [06/12-03/14] | ✓ |
+| HONDA / CITY 1.5L I-VTEC | 1497 | 2009 | 01/07/2009 | HONDA City 2008 On 4 Dr Sal 1.5 i-VTEC (Grade S) 118Bhp (A) [12/08-05/12] | ✓ |
+| HONDA / CITY 1.5L I-VTEC | 1497 | 2012 | 04/07/2012 | HONDA City 2008 On 4 Dr Sal 1.50 i-VTEC (Grade S) AUTO 118Bhp (A) [06/12-03/14] | ✓ |
+| HONDA / CITY 1.5L V | 1497 | 2019 | 01/01/2020 | HONDA City 2014 On 4 Dr Sal 1.50 V 118Bhp [03/17-] | ✓ |
+| HONDA / CITY 1.5L V | 1498 | 2023 | 29/12/2023 | HONDA City 2023 On 4 Dr Sal 1.5 1.5 V 119Bhp [08/23-] | ✓ |
+| HONDA / CITY 1.5L V | 1498 | 2021 | 27/04/2021 | HONDA City 2020 On 4 Dr Sal 1.50 1.5 V 119Bhp [10/20-] | ✓ |
+| HONDA / CITY 1.5L V | 1498 | 2022 | 16/03/2022 | HONDA City 2020 On 4 Dr Sal 1.5 1.5 V 119Bhp [10/20-] | ✓ |
+| HONDA / CITY E 1.5L I-VTEC | 1497 | 2013 | 30/11/2013 | HONDA City 2008 On 4 Dr Sal 1.5 i-VTEC (Grade E) 118Bhp (A) [06/12-03/14] | ✓ |
+| HONDA / CITY E 1.5L I-VTEC | 1497 | 2015 | 06/07/2015 | HONDA City 2014 On 4 Dr Sal 1.50 E AUTO 118Bhp (A) [04/14-02/17] | ✓ |
+| HONDA / CITY E 1.5L I-VTEC | 1497 | 2015 | 03/12/2015 | HONDA City 2014 On 4 Dr Sal 1.5 E 118Bhp (A) [04/14-02/17] | ✓ |
+| HONDA / CITY S 1.5L I-VTEC |  | 2015 | 19/06/2015 | HONDA City 2014 On 4 Dr Sal 1.5 S 118Bhp (A) [04/14-02/17] | ✓ |
+| HONDA / CITY V 1.5L I-VTEC | 1497 | 2014 | 22/07/2014 | HONDA City 2014 On 4 Dr Sal 1.5 V 118Bhp (A) [04/14-02/17] | ✓ |
+| HONDA / CITY V 1.5L I-VTEC | 1497 | 2014 | 28/10/2014 | HONDA City 2014 On 4 Dr Sal 1.50 V AUTO 118Bhp (A) [04/14-02/17] | ✓ |
+| HONDA / CITY V 1.5L I-VTEC | 1497 | 2017 | 04/07/2017 | HONDA City 2014 On 4 Dr Sal 1.5 V 118Bhp [03/17-] | ✓ |
+| HONDA / CIVIC 1.5 TC | 1498 | 2018 | 23/08/2018 | HONDA Civic 2016 On 4 Dr Sal 1.5 TC 171Bhp [06/16-02/20] | ✓ |
+| HONDA / CIVIC 1.5 TC-P | 1498 | 2017 | 29/05/2017 | HONDA Civic 2016 On 4 Dr Sal 1.5 TC-P 171Bhp [06/16-02/20] | ✓ |
+| HONDA / CIVIC 1.5 TC-P | 1498 | 2016 | 27/06/2016 | HONDA Civic 2016 To 2020 4 Dr Sal 1.5 TC-P 171Bhp [06/16-02/20] | ✓ |
+| HONDA / CIVIC 1.8L I-VTEC (A) | 1799 | 2006 | 28/0?/2006 | HONDA Civic 2006 On 4 Dr Sal 1.8 S 138Bhp (A) [03/06-02/09] | ✓ |
+| HONDA / CIVIC 1.8L I-VTEC (A) | 1799 | 2017 | 20/04/2017 | HONDA Civic 2016 On 4 Dr Sal 1.8 S 139Bhp [06/16-02/20] | ✓ |
+| HONDA / CIVIC 1.8L I-VTEC (A) | 1799 | 2007 | 15/01/2007 | HONDA Civic 2006 On 4 Dr Sal 1.80 S AUTO 138Bhp (A) [03/06-02/09] | ✓ |
+| HONDA / CIVIC 1.8L I-VTEC (A) | 1799 | 2011 | 10/03/2011 | HONDA Civic 2006 On 4 Dr Sal 1.8 S 138Bhp (A) [03/09-06/12] | ✓ |
+| HONDA / CIVIC 2.0L I-VTEC (A) | 1998 | 2008 | 16/01/2009 | HONDA Civic 2006 On 4 Dr Sal 2 S 153Bhp (A) [04/07-02/09] | ✓ |
+| HONDA / CIVIC 2.0L I-VTEC (A) | 1998 | 2010 | 07/09/2010 | HONDA Civic 2006 On 4 Dr Sal 2 S 153Bhp (A) [03/09-06/12] | ✓ |
+| HONDA / CR-V 1.5TC 2WD | 1498 | 2019 | 03/06/2019 | HONDA CR-V 2017 To 2020 5 Dr SUV 1.5 1.5TC 2WD 190Bhp [07/17-11/20] | ✓ |
+| HONDA / CR-V 2.0L I-VTEC (A) | 1997 | 2011 | 19/01/2011 | HONDA CR-V 2007 To 2013 5 Dr SUV 2 i-VTEC 148Bhp (A) [03/10-02/13] | ✓ |
+| HONDA / CR-V 2.0L I-VTEC (A) | 1997 | 2007 | 30/07/2007 | HONDA CR-V 2007 To 2013 5 Dr SUV 2 i-VTEC 148Bhp (A) [03/07-02/10] | ✓ |
+| HONDA / CR-V 2.0L I-VTEC (A) | 1997 | 2015 | 17/02/2015 | HONDA CR-V 2015 To 2017 5 Dr SUV 2 4WD i-VTEC 153Bhp (A) [02/15-06/17] | ✗ |
+| HONDA / CR-V 2.0L I-VTEC (A) | 1997 | 2018 | 22/01/2018 | HONDA CR-V 2017 To 2020 5 Dr SUV 2 2.0 2WD 153Bhp [07/17-11/20] | ✓ |
+| HONDA / CR-V 2.4L | 2354 | 2014 | 23/06/2014 | HONDA CR-V 2013 To 2015 5 Dr SUV 2.4 i-VTEC 187Bhp (A) [07/13-01/15] | ✓ |
+| HONDA / HONDA CIVIC 2.0S | 1997 | 2014 | 17/09/2014 | HONDA Civic 2012 On 4 Dr Sal 2 S 153Bhp (A) [11/14-05/16] | ✗ |
+| HONDA / HR-V 1.8L E | 1799 | 2020 | 10/02/2020 | HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 E 140Bhp [01/19-07/22] | ✓ |
+| HONDA / HR-V 1.8L S | 1799 | 2015 | 18/03/2015 | HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 S 140Bhp (A) [02/15-12/18] | ✓ |
+| HONDA / HR-V 1.8L V | 1799 | 2017 | 25/05/2017 | HONDA HR-V 2015 On 5 Dr SUV 1.80 V AUTO 140Bhp (A) [02/15-12/18] | ✓ |
+| HONDA / HR-V 1.8L V | 1799 | 2015 | 29/09/2015 | HONDA HR-V 2015 On 5 Dr SUV 1.8 V 140Bhp (A) [02/15-12/18] | ✓ |
+| HONDA / HR-V 1.8L V | 1799 | 2015 | 25/06/2015 | HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 V 140Bhp (A) [02/15-12/18] | ✓ |
+| HONDA / HR-V 1.8L V | 1799 | 2021 | 18/11/2021 | HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 V 140Bhp [01/19-07/22] | ✓ |
+| HONDA / INSIGHT HYBRID 1.3L (A) | 1339 | 2011 | 18/04/2011 | HONDA Insight 2010 On 5 Dr Hatch 1.3 101Bhp (A) [12/10-02/12] | ✓ |
+| HONDA / JAZZ 1.5L E | 1497 | 2015 | 22/04/2015 | HONDA Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade E) 118Bhp (A) [07/14-05/17] | ✓ |
+| HONDA / JAZZ 1.5L S | 1497 | 2014 | 15/09/2014 | HONDA Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade S) 118Bhp (A) [07/14-05/17] | ✓ |
+| HONDA / JAZZ 1.5L V | 1497 | 2015 | 25/03/2015 | HONDA Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade V) 118Bhp (A) [07/14-05/17] | ✓ |
+| HONDA / JAZZ HYBRID | 1339 | 2014 | 14/07/2014 | HONDA Jazz 2008 On 5 Dr Hatch 1.30 HYBRID AUTO 101Bhp (A) [03/12-06/14] | ✗ |
+| HONDA / JAZZ S | 1497 | 2019 | 26/07/2019 | HONDA Jazz 2014 On 5 Dr Hatch 1.5 1.5 S 118Bhp [06/17-] | ✓ |
+| INOKOM CORPORATION SDN. BHD. / ELANTRA 1.6 AUTO | 1591 | 2013 | 04/12/2013 | INOKOM Elantra 2012 On 4 Dr Sal 1.6 128Bhp (A) [04/12-02/15] | ✓ |
+| ISUZU / NPR81UKH | 4778 | 2018 | 19/11/2018 | ISUZU NPR81 LORRY 4.8 D (M) | ✓ |
+| KIA / CERATO YD | 1999 | 2016 | 06/10/2017 | KIA Cerato 2013 On 4 Dr Sal 2 L 160Bhp (A) [12/16-] | ✓ |
+| KIA / CERATO YD | 1591 | 2013 | 02/05/2014 | KIA Cerato 2013 On 4 Dr Sal 1.6 SX 128Bhp (A) [07/13-11/16] | ✓ |
+| KIA / OPTIMA TF 2.0 AT | 1998 | 2012 | 05/06/2012 | KIA Optima 2012 On 4 Dr Sal 2 K5 163Bhp (A) [01/12-12/13] | ✓ |
+| KIA / SPORTAGE (SL) 2.0 AT | 1998 | 2013 | 30/10/2013 | KIA Sportage 2010 On 5 Dr SUV 2 164Bhp (A) [06/11-02/14] | ✓ |
+| MAZDA / CX-5 2.0G 2WD HIGH | 1998 | 2023 | 02/06/2023 | MAZDA CX-5 2019 To 2024 5 Dr SUV 2 SkyActiv-G (High) 162Bhp (A) [09/19-01/24] | ✓ |
+| MAZDA / CX5 2.0L 2WD (A) | 1998 | 2013 | 17/06/2013 | MAZDA CX-5 2012 On 5 Dr SUV 2 2WD 153Bhp (A) [05/12-02/16] | ✓ |
+| MAZDA / CX5 2.0L 2WD (A) | 1998 | 2013 | 02/10/2013 | MAZDA CX-5 2012 To 2017 5 Dr SUV 2 2WD 153Bhp (A) [05/12-02/16] | ✓ |
+| MAZDA / CX5 2.5L 2WD SKYACTIV (A) | 2488 | 2015 | 24/07/2015 | MAZDA CX-5 2012 On 5 Dr SUV 2.5 2WD 184Bhp (A) [03/14-01/16] | ✓ |
+| MAZDA / MAZDA2 1.5SDN (A) | 1498 | 2011 | 13/07/2011 | MAZDA 2 2010 On 4 Dr Sal 1.5 V 103Bhp (A) [04/10-01/15] | ✓ |
+| MAZDA / MAZDA2 1.5SDN SKYACTIV (A) | 1496 | 2015 | 24/04/2015 | MAZDA 2 2015 To 2020 4 Dr Sal 1.5 SkyActiv-G 114Bhp (A) [02/15-03/16] | ✓ |
+| MERCEDES BENZ / C 200 | 1496 | 2023 | 30/05/2023 | MERCEDES-BENZ C-Class 2018 On 4 Dr Sal 1.5 C200 Avantgarde 184Bhp (A) [11/18-] | ✗ |
+| MERCEDES BENZ / C 300 | 1991 | 2020 | 18/09/2020 | MERCEDES-BENZ C-Class 2018 On 4 Dr Sal 2 C300 AMG Line 258Bhp (A) [11/18-] | ✓ |
+| MERCEDES BENZ / C200-W205A | 1991 | 2018 | 13/04/2018 | MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C200 Avantgarde (W205) 184Bhp (A) [04/15-10/18] | ✓ |
+| MERCEDES BENZ / C200-W205A | 1991 | 2018 | 31/07/2018 | MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C200 Avantgarde (W205) 184Bhp (A) [04/15-] | ✓ |
+| MERCEDES BENZ / CLA 250 SPORT 4MATIC COUPE | 1991 | 2016 | 29/09/2016 | MERCEDES-BENZ CLA-Class 2014 On 4 Dr Sal 2 CLA 45 AMG 360Bhp (A) [04/14-] | ✗ |
+| MERCEDES BENZ / E250 CGI-W212C | 1991 | 2013 | 27/02/2014 | MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 2 E250 Avantgarde (W212) 211Bhp (A) [08/13-05/16] | ✓ |
+| MERCEDES BENZ / GLA 200 | 1595 | 2016 | 12/10/2016 | MERCEDES-BENZ GLA 2014 On 5 Dr SUV 1.6 GLA 200 (X156) 156Bhp [11/14-] | ✓ |
+| MITSUBISHI / ASX 2WD | 1998 | 2016 | 16/03/2016 | MITSUBISHI ASX 2010 On 5 Dr SUV 2 2WD GL 148Bhp [09/15-] | ✓ |
+| MITSUBISHI / L200 TRITON VGT AMG AT | 2477 | 2012 | 26/04/2012 | MITSUBISHI Triton 2006 To 2015 4 Dr Pickup Dbl.Cab 2.5 VGT 176Bhp (A) [03/12-02/14] | ✓ |
+| NAZA / FORTE | 1591 | 2012 | 22/02/2012 | NAZA Forte 2009 On 4 Dr Sal 1.6 SX 124Bhp (A) [11/09-] | ✓ |
+| NISSAN / ALMERA 1.5E AT | 1498 | 2016 | 30/06/2016 | NISSAN Almera 2015 On 4 Dr Sal 1.5 E 101Bhp (A) [01/15-04/16] | ✗ |
+| NISSAN / ALMERA 1.5E AT | 1498 | 2013 | 31/05/2013 | NISSAN Almera 2012 On 4 Dr Sal 1.50 E AUTO 101Bhp (A) [10/12-12/14] | ✓ |
+| NISSAN / ALMERA 1.5E AT | 1498 | 2014 | 10/06/2014 | NISSAN Almera 2012 On 4 Dr Sal 1.5 E 101Bhp (A) [10/12-12/14] | ✓ |
+| NISSAN / ALMERA 1.5E AT | 1498 | 2016 | 21/07/2016 | NISSAN Almera 2015 On 4 Dr Sal 1.5 E 101Bhp (A) [04/16-] | ✓ |
+| NISSAN / ALMERA 1.5E AT | 1499 | 2015 | 28/05/2015 | NISSAN Almera 2015 On 4 Dr Sal 1.50 E AUTO 101Bhp (A) [01/15-04/16] | ✓ |
+| NISSAN / ALMERA 1.5L (A) | 1498 | 2018 | 31/07/2018 | NISSAN Almera 2018 On 4 Dr Sal 1.5 VL (Black Series) 101Bhp (A) [11/18-] | ✗ |
+| NISSAN / ALMERA 1.5V AT | 1498 | 2013 | 21/10/2013 | NISSAN Almera 2012 On 4 Dr Sal 1.5 V 101Bhp (A) [10/12-12/14] | ✓ |
+| NISSAN / ALMERA 1.5VL AT | 1498 | 2013 | 17/02/2014 | NISSAN Almera 2012 On 4 Dr Sal 1.5 VL 101Bhp (A) [10/12-12/14] | ✓ |
+| NISSAN / ALMERA 1.5VL AT | 1498 | 2016 | 30/01/2016 | NISSAN Almera 2015 On 4 Dr Sal 1.5 VL 101Bhp (A) [01/15-04/16] | ✓ |
+| NISSAN / GRAND LIVINA 1.6L A/T | 1598 | 2014 | 28/08/2014 | NISSAN Grand Livina 2007 On MPV 1.60 AUTO 104Bhp (A) [09/13-] | ✓ |
+| NISSAN / GRAND LIVINA 1.8L A/T | 1798 | 2008 | 22/01/2008 | NISSAN Grand Livina 2007 On MPV 1.8 124Bhp (A) [12/07-05/11] | ✓ |
+| NISSAN / LATIO 1.6L SPORTS ST-L A/T | 1598 (faint) | 2007 | 08/08/2007 | NISSAN Latio 2007 On 5 Dr Hatch 1.6 Sport ST-L 108Bhp (A) [06/07-08/11] | ✓ |
+| NISSAN / NISSAN X-TRAIL 2.0L CVT | 1997 | 2016 | 28/01/2016 | NISSAN X-Trail 2015 On 5 Dr SUV 2 2WD (T32) 142Bhp (A) [02/15-] | ✓ |
+| NISSAN / NP300 NAVARA 2.5VL AT 4WD | 2488 | 2018 | 28/05/2019 | NISSAN Navara 2017 On 4 Dr Pickup Dbl.Cab 2.5 VL Plus 187Bhp (A) [08/18-] | ✗ |
+| NISSAN / NV200 1.6L PANEL VAN | 1598 | 2013 | 17/04/2013 | NISSAN NV200 2012 On Van 1.6 108Bhp (M) [02/12-] | ✓ |
+| NISSAN / SENTRA 4DR SEDAN 1.6L SG A/T | 1597 | 2010 | 31/01/2010 | NISSAN Sentra 1995 On 4 Dr Sal 1.6 SG (N16) 116Bhp (A) [10/05-] | ✓ |
+| NISSAN / SENTRA NOR SEDAN 1.6L SG A/T | 1597 | 2006 | 05/10/2006 | NISSAN Sentra 1995 On 4 Dr Sal 1.60 SG (N16) AUTO 116Bhp (A) [10/05-] | ✓ |
+| NISSAN / SERENA 2.0L CVT HWS S-HEV | 1997 | 2019 | 09/12/2019 | NISSAN Serena 2018 To 2022 MPV 2 S-Hybrid Highway Star (C27) 148Bhp [05/18-07/22] | ✓ |
+| NISSAN / SERENA 2.0L CVT HWS S-HEV | 1997 | 2018 | 28/05/2018 | NISSAN Serena 2018 To 2022 MPV 2 S-Hybrid Premium Highway Star (C27) 148Bhp [05/18-07/22] | ? |
+| NISSAN / SYLPHY 2.0 CVTC | 1997 | 2010 | 17/09/2010 | NISSAN Sylphy 2008 On 4 Dr Sal 2 131Bhp (A) [06/08-02/12] | ✓ |
+| NISSAN / TEANA 200 XE | 1997 | 2011 | 16/11/2011 | NISSAN Teana 2007 On 4 Dr Sal 2 200XE 134Bhp (A) [11/10-02/13] | ✓ |
+| NISSAN / VANETTE VPC22EFUP | 1488 | 1999 | 31/07/1999 | NISSAN Vanette 1989 On Van 1.5 C22 82Bhp (M) [06/99-] | ✓ |
+| NISSAN / X-TRAIL 4WD 2.5L A/T | 2488 | 2013 | 19/02/2014 | NISSAN X-Trail 2010 On 5 Dr SUV 2 137Bhp (A) [04/13-01/15] | ✗ |
+| NISSAN / X-TRAIL 4WD 2.5L A/T | 2488 | 2012 | 18/12/2012 | NISSAN X-Trail 2010 On 5 Dr SUV 2 137Bhp (A) [08/10-03/13] | ✗ |
+| PERODUA / ALZA - 1500 AV (AUTO) | 1495 | 2014 | 15/12/2014 | PERODUA Alza 2009 On MPV 1.5 Advanced 103Bhp (A) [01/14-10/18] | ✓ |
+| PERODUA / ALZA - 1500 AV (CVT) | 1496 | 2023 | 27/02/2023 | PERODUA Alza 2022 On MPV 1.5 1.5 AV 105Bhp [07/22-] | ✓ |
+| PERODUA / ALZA - 1500 EZ (AUTO) | 1495 | 2014 | 21/11/2014 | PERODUA Alza 2009 On MPV 1.50 EZ AUTO 103Bhp (A) [01/14-10/18] | ✓ |
+| PERODUA / ALZA - 1500 EZ (AUTO) | 1495 | 2018 | 31/12/2018 | PERODUA Alza 2009 On MPV 1.5 Advance 102Bhp (A) [09/18-07/22] | ✗ |
+| PERODUA / ALZA - 1500 EZ (AUTO) | 1495 | 2012 | 24/05/2012 | PERODUA Alza 2009 On MPV 1.5 EZ 102Bhp (A) [11/09-12/13] | ✓ |
+| PERODUA / ALZA - 1500 EZ (AUTO) | 1495 | 2014 | 29/01/2014 | PERODUA Alza 2009 On MPV 1.5 EZ 103Bhp (A) [01/14-10/18] | ✓ |
+| PERODUA / ALZA - 1500 EZ (AUTO) | 1495 | 2013 | 29/05/2013 | PERODUA Alza 2009 On MPV 1.50 EZ AUTO 102Bhp (A) [11/09-12/13] | ✓ |
+| PERODUA / ALZA - 1500 EZI (AUTO) | 1495 | 2011 | 11/05/2011 | PERODUA Alza 2009 On MPV 1.5 EZi Advanced 102Bhp (A) [11/09-12/13] | ✗ |
+| PERODUA / ALZA - 1500 EZI (AUTO) | 1495 | 2012 | 26/06/2012 | PERODUA Alza 2009 On MPV 1.5 EZi Advanced 102Bhp (A) [11/09-06/12] | ✗ |
+| PERODUA / ALZA - 1500 EZI (AUTO) | 1495 | 2010 | 10/02/2010 | PERODUA Alza 2009 On MPV 1.50 EZi AUTO 102Bhp (A) [11/09-12/13] | ✓ |
+| PERODUA / ALZA - 1500 EZi (AUTO) | 1495 | 2012 | 14/08/2012 | PERODUA Alza 2009 On MPV 1.5 EZi 102Bhp (A) [11/09-12/13] | ✓ |
+| PERODUA / ALZA - 1500 SE (AUTO) | 1495 | 2021 | 26/04/2021 | PERODUA Alza 2009 On MPV 1.5 SE 102Bhp (A) [09/18-07/22] | ✓ |
+| PERODUA / ALZA - 1500 SE (AUTO) | 1495 | 2015 | 13/01/2016 | PERODUA Alza 2009 On MPV 1.5 SE 103Bhp (A) [01/14-10/18] | ✓ |
+| PERODUA / ALZA - 1500 SE (AUTO) | 1495 | 2014 | 09/07/2014 | PERODUA Alza 2009 On MPV 1.50 SE AUTO 103Bhp (A) [01/14-10/18] | ✓ |
+| PERODUA / ALZA - 1500 SE (MANUAL) | 1495 | 2015 | 05/02/2016 | PERODUA Alza 2009 On MPV 1.5 SE 103Bhp (M) [01/14-10/18] | ✓ |
+| PERODUA / ALZA - 1500 X (CVT) | 1496 | 2022 | 31/10/2022 | PERODUA Alza 2022 On MPV 1.5 1.5 X 105Bhp [07/22-] | ✓ |
+| PERODUA / ARUZ - 1500 AV (AUTO) | 1496 | 2019 | 24/06/2019 | PERODUA Aruz 2019 On 5 Dr SUV 1.5 1.5 AV 104Bhp (A) [01/19-] | ✓ |
+| PERODUA / ARUZ - 1500 AV (AUTO) | 1496 | 2019 | 30/10/2019 | PERODUA Aruz 2019 To 2021 5 Dr SUV 1.5 1.5 AV 104Bhp (A) [01/19-05/21] | ✓ |
+| PERODUA / ARUZ - 1500 AV (AUTO) | 1496 | 2021 | 22/10/2021 | PERODUA Aruz 2021 On 5 Dr SUV 1.5 1.5 AV 101Bhp (A) [05/21-] | ✓ |
+| PERODUA / ATIVA - 1000 TURBO AV (CVT) | 998 | 2022 | 11/02/2022 | PERODUA Ativa 2021 On 5 Dr SUV 1 1.0 AV 97Bhp [03/21-] | ✓ |
+| PERODUA / ATIVA - 1000 TURBO H (CVT) | 998 | 2022 | 28/04/2022 | PERODUA Ativa 2021 On 5 Dr SUV 1 1.0 H 97Bhp [03/21-] | ✓ |
+| PERODUA / AXIA - 1000 AV (AUTO) | 998 | 2016 | 15/06/2016 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1 Advance 67Bhp (A) [09/14-01/17] | ✓ |
+| PERODUA / AXIA - 1000 AV (AUTO) | 998 | 2017 | 27/11/2017 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1 Advance 67Bhp (A) [01/17-08/19] | ✓ |
+| PERODUA / AXIA - 1000 AV (CVT) | 998 | 2023 | 30/11/2023 | PERODUA Axia 2023 On 5 Dr Hatch 1 1.0 AV 67Bhp [02/23-] | ✓ |
+| PERODUA / AXIA - 1000 E (MANUAL) | 998 | 2022 | 30/09/2022 | PERODUA Axia 2019 On 5 Dr Hatch 1 E 67Bhp (M) [09/19-] | ✓ |
+| PERODUA / AXIA - 1000 G (AUTO) | 998 | 2022 | 28/04/2022 | PERODUA Axia 2019 On 5 Dr Hatch 1 G 67Bhp (A) [09/19-] | ✓ |
+| PERODUA / AXIA - 1000 G (AUTO) | 998 | 2016 | 07/06/2016 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1 G (A) 67Bhp (A) [09/14-01/17] | ✓ |
+| PERODUA / AXIA - 1000 G (AUTO) | 998 | 2015 | 19/03/2015 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 G (A) AUTO 67Bhp (A) [09/14-01/17] | ✓ |
+| PERODUA / AXIA - 1000 G (AUTO) | 998 | 2018 | 29/11/2018 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 G (A) AUTO 67Bhp (A) [01/17-08/19] | ✓ |
+| PERODUA / AXIA - 1000 G (AUTO) - XTRA | 998 | 2019 | 31/12/2019 | PERODUA Axia 2019 On 5 Dr Hatch 1 GXtra 67Bhp (A) [09/19-] | ✓ |
+| PERODUA / AXIA - 1000 G (AUTO) - XTRA | 998 | 2020 | 25/02/2020 | PERODUA Axia 2019 On 5 Dr Hatch 1.00 G AUTO 67Bhp (A) [09/19-] | ✗ |
+| PERODUA / AXIA - 1000 SE (AUTO) | 998 | 2019 | 22/03/2019 | PERODUA Axia 2019 On 5 Dr Hatch 1 SE 67Bhp (A) [09/19-] | ✗ |
+| PERODUA / AXIA - 1000 SE (AUTO) | 998 | 2017 | 25/01/2017 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1 SE (A) 67Bhp (A) [01/17-08/19] | ✓ |
+| PERODUA / AXIA - 1000 SE (AUTO) | 998 | 2019 | 23/01/2019 | PERODUA Axia 2019 On 5 Dr Hatch 1.00 SE AUTO 67Bhp (A) [09/19-] | ✗ |
+| PERODUA / AXIA - 1000 SE (AUTO) | 998 | 2014 | 24/12/2014 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1 SE (A) 67Bhp (A) [09/14-01/17] | ✓ |
+| PERODUA / AXIA - 1000 SE (AUTO) | 998 | 2018 | 23/10/2018 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 SE (A) AUTO 67Bhp (A) [01/17-08/19] | ✓ |
+| PERODUA / AXIA - 1000 X (CVT) | 998 | 2024 | 30/10/2024 | PERODUA Axia 2023 On 5 Dr Hatch 1 1.0 X 67Bhp [02/23-] | ✓ |
+| PERODUA / BEZZA - 1000 G (AUTO) | 998 | 2020 | 31/12/2020 | PERODUA Bezza 2020 On 4 Dr Sal 1 G (A) 67Bhp (A) [01/20-] | ✓ |
+| PERODUA / BEZZA - 1000 G (AUTO) | 998 | 2017 | 23/02/2017 | PERODUA Bezza 2016 On 4 Dr Sal 1 Standard G 67Bhp (A) [05/17-03/18] | ✗ |
+| PERODUA / BEZZA - 1000 G (AUTO) | 998 | 2018 | 17/01/2018 | PERODUA Axia 2014 To 2019 5 Dr Hatch 1 G (A) 67Bhp (A) [01/17-08/19] | ✗ |
+| PERODUA / BEZZA - 1000 G (AUTO) | 998 | 2018 | 31/10/2018 | PERODUA Bezza 2016 On 4 Dr Sal 1 GXtra 67Bhp (A) [04/18-12/19] | ✓ |
+| PERODUA / BEZZA - 1300 AV (AUTO) | 1329 | 2017 | 27/09/2017 | PERODUA Bezza 2016 On 4 Dr Sal 1.3 Advance 94Bhp (A) [05/17-12/19] | ✓ |
+| PERODUA / BEZZA - 1300 X (AUTO) | 1329 | 2021 | 22/02/2021 | PERODUA Bezza 2020 On 4 Dr Sal 1.3 X 94Bhp (A) [01/20-] | ✓ |
+| PERODUA / BEZZA - 1300 X (AUTO) | 1329 | 2019 | 17/09/2019 | PERODUA Bezza 2016 On 4 Dr Sal 1.30 Premium X AUTO 94Bhp (A) [05/17-12/19] | ✗ |
+| PERODUA / BEZZA - 1300 X (AUTO) | 1329 | 2021 | 12/11/2021 | PERODUA Bezza 2020 On 4 Dr Sal 1.30 X AUTO 94Bhp (A) [01/20-] | ✓ |
+| PERODUA / BEZZA - 1300 X (AUTO) | 1329 | 2018 | 29/03/2018 | PERODUA Bezza 2016 On 4 Dr Sal 1.3 Premium X 94Bhp (A) [05/17-12/19] | ✓ |
+| PERODUA / BEZZA - 1300 X (AUTO) | 1329 | 2016 | 27/09/2016 | PERODUA Bezza 2016 On 4 Dr Sal 1.30 Premium X AUTO 94Bhp (A) [07/16-05/17] | ✓ |
+| PERODUA / BEZZA - 1300 X (MANUAL) | 1329 | 2018 | 30/04/2018 | PERODUA Bezza 2016 On 4 Dr Sal 1.3 Premium X 94Bhp (M) [05/17-12/19] | ✓ |
+| PERODUA / KANCIL 660 EX (MANUAL) | 659 | 2002 | 02/05/2002 | PERODUA Kancil 1994 On 5 Dr Hatch 0.66 EX 660 31Bhp (M) [11/99-09/02] | ✓ |
+| PERODUA / KELISA 1.0 EZ (AUTO) | 989 | 2006 | 04/12/2006 | PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ 54Bhp (A) [10/03-] | ✓ |
+| PERODUA / KELISA 1.0 EZ (AUTO) | 989 | 2002 | 14/11/2002 | PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ 54Bhp (A) [08/01-09/03] | ✓ |
+| PERODUA / KELISA 1.0 EZ (AUTO) | 989 | 2005 | 07/07/2005 | PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ Limited Edition 54Bhp (A) [04/04-] | ✗ |
+| PERODUA / KELISA GX | 989 | 2001 | 27/09/2001 | PERODUA Kelisa 2001 On 5 Dr Hatch 1 GX 54Bhp (M) [08/01-09/03] | ✓ |
+| PERODUA / MYVI - 1.3 EZ (AUTO) | 1298 | 2012 | 27/11/2012 | PERODUA Myvi 2011 On 5 Dr Hatch 1.30 EZ Standard AUTO 89Bhp (A) [06/11-12/14] | ✓ |
+| PERODUA / MYVI - 1.3 EZ (AUTO) | 1298 | 2009 | 12/02/2010 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZ 86Bhp (A) [08/08-05/11] | ✓ |
+| PERODUA / MYVI - 1.3 EZ (AUTO) | 1298 | 2005 | 22/07/2005 | PERODUA Myvi 2005 On 5 Dr Hatch 1.30 EZ AUTO 86Bhp (A) [05/05-07/08] | ✓ |
+| PERODUA / MYVI - 1.3 EZ (AUTO) | 1298 | 2008 | 28/07/2008 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZ 86Bhp (A) [05/05-07/08] | ✓ |
+| PERODUA / MYVI - 1.3 EZI (AUTO) | 1298 | 2010 | 02/02/2010 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SE (ZHS) 86Bhp (A) [10/08-05/11] | ✗ |
+| PERODUA / MYVI - 1.3 EZI (AUTO) | 1298 | 2013 | 31/10/2013 | PERODUA Myvi 2011 On 5 Dr Hatch 1.3 SE (A) 89Bhp (A) [03/13-12/14] | ✗ |
+| PERODUA / MYVI - 1.3 EZI (AUTO) | 1298 | 2010 | 28/12/2010 | PERODUA Myvi 2005 On 5 Dr Hatch 1.30 SE (ZHS) AUTO 86Bhp (A) [10/08-05/11] | ✗ |
+| PERODUA / MYVI - 1.3 EZi (AUTO) | 1298 | 2010 | 15/10/2010 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZi Exclusive Edition 86Bhp (A) [11/09-05/11] | ✗ |
+| PERODUA / MYVI - 1.3 EZi (AUTO) | 1298 | 2009 | 20/02/2009 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZi 86Bhp (A) [08/08-05/11] | ✓ |
+| PERODUA / MYVI - 1.3 SX (MANUAL) | 1298 | 2006 | 11/08/2006 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SX 86Bhp (M) [05/05-07/08] | ✓ |
+| PERODUA / MYVI - 1.3 SX (MANUAL) | 1298 | 2011 | 21/01/2011 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SXi 86Bhp (M) [08/08-05/11] | ✓ |
+| PERODUA / MYVI - 1.3 SXI (MANUAL) | 1298 | 2008 | 29/02/2008 | PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SXi 86Bhp (M) [05/05-07/08] | ✓ |
+| PERODUA / MYVI - 1.3 SXI (MANUAL) | 1298 | 2007 | 24/01/2007 | PERODUA Myvi 2005 On 5 Dr Hatch 1.30 SXi 86Bhp (M) [05/05-07/08] | ✓ |
+| PERODUA / MYVI - 1300 G (AUTO) | 1298 | 2015 | 29/05/2015 | PERODUA Myvi 2011 On 5 Dr Hatch 1.30 G (A) AUTO 89Bhp (A) [01/15-10/17] | ✓ |
+| PERODUA / MYVI - 1300 G (AUTO) | 1329 | 2021 | 27/01/2021 | PERODUA Myvi 2020 To 2021 5 Dr Hatch 1.3 Standard G 94Bhp (A) [07/20-11/21] | ✓ |
+| PERODUA / MYVI - 1300 G (CVT) | 1329 | 2023 | 01/02/2023 | PERODUA Myvi 2021 On 5 Dr Hatch 1.3 1.3 G 94Bhp [11/21-] | ✓ |
+| PERODUA / MYVI - 1300 X (AUTO) | 1298 | 2015 | 28/09/2015 | PERODUA Myvi 2011 On 5 Dr Hatch 1.3 X (A) 89Bhp (A) [01/15-10/17] | ✓ |
+| PERODUA / MYVI - 1300 X (AUTO) | 1329 | 2019 | 22/08/2019 | PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.3 Premium X 94Bhp (A) [11/17-07/20] | ✓ |
+| PERODUA / MYVI - 1300 X (AUTO) | 1297 | 2015 | 14/12/2015 | PERODUA Myvi 2011 On 5 Dr Hatch 1.30 X (A) AUTO 89Bhp (A) [01/15-10/17] | ✓ |
+| PERODUA / MYVI - 1500 AV (AUTO) | 1496 | 2020 | 21/10/2020 | PERODUA Myvi 2020 On 5 Dr Hatch 1.50 Advance AUTO 102Bhp (A) [07/20-11/21] | ✓ |
+| PERODUA / MYVI - 1500 AV (AUTO) | 1495 | 2016 | 28/12/2016 | PERODUA Myvi 2011 On 5 Dr Hatch 1.5 Advance (A) 102Bhp (A) [01/15-10/17] | ✓ |
+| PERODUA / MYVI - 1500 AV (AUTO) | 1496 | 2020 | 26/06/2020 | PERODUA Myvi 2017 On 5 Dr Hatch 1.50 Advanced AUTO 102Bhp (A) [11/17-07/20] | ✓ |
+| PERODUA / MYVI - 1500 AV (CVT) | 1496 | 2022 | 21/10/2022 | PERODUA Myvi 2021 On 5 Dr Hatch 1.5 1.5 AV 102Bhp [11/21-] | ✓ |
+| PERODUA / MYVI - 1500 H (AUTO) | 1496 | 2021 | 30/11/2021 | PERODUA Myvi 2021 On 5 Dr Hatch 1.5 1.5 H 102Bhp [11/21-] | ✓ |
+| PERODUA / MYVI - 1500 H (AUTO) | 1496 | 2020 | 30/10/2020 | PERODUA Myvi 2020 To 2021 5 Dr Hatch 1.5 High 102Bhp (A) [07/20-11/21] | ✓ |
+| PERODUA / MYVI - 1500 H (AUTO) | 1496 | 2018 | 30/01/2018 | PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.5 High 102Bhp (A) [11/17-07/20] | ✓ |
+| PERODUA / MYVI - 1500 H (AUTO) | 1496 | 2018 | 19/11/2018 | PERODUA Myvi 2017 On 5 Dr Hatch 1.50 High AUTO 102Bhp (A) [11/17-07/20] | ✓ |
+| PERODUA / MYVI - 1500 SE (AUTO) | 1495 | 2017 | 30/10/2017 | PERODUA Myvi 2011 On 5 Dr Hatch 1.50 SE (A) AUTO 102Bhp (A) [01/15-10/17] | ✓ |
+| PERODUA / MYVI - 1500 SE (AUTO) | 1495 | 2016 | 18/01/2016 | PERODUA Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [01/15-10/17] | ✓ |
+| PERODUA / MYVI - 1500 X (CVT) | 1496 | 2025 | 20/05/2025 | PERODUA Myvi 2021 On 5 Dr Hatch 1.5 1.5 X 102Bhp [11/21-] | ✓ |
+| PERODUA / MYVI 1.5 SE (AUTO) | 1495 | 2013 | 25/07/2013 | PERODUA Myvi 2011 On 5 Dr Hatch 1.30 SE (A) AUTO 89Bhp (A) [03/13-12/14] | ✗ |
+| PERODUA / MYVI 1.5 SE (AUTO) | 1495 | 2013 | 31/12/2013 | PERODUA Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [09/11-12/14] | ✓ |
+| PERODUA / MYVI 1.5 SE (MANUAL) | 1495 | 2011 | 28/12/2011 | PERODUA Myvi 2011 On 5 Dr Hatch 1.5 SE (M) 102Bhp (M) [09/11-12/14] | ✓ |
+| PERODUA / VIVA - 1000 EZ (AUTO) | 989 | 2012 | 18/12/2012 | PERODUA Viva 2007 On 5 Dr Hatch 1 ELITE EZi 60Bhp (A) [07/09-] | ✗ |
+| PERODUA / VIVA - 1000 EZ (AUTO) | 989 | 2012 | 06/12/2012 | PERODUA Viva 2007 On 5 Dr Hatch 1 ELITE (A) 60Bhp (A) [07/09-] | ✗ |
+| PERODUA / VIVA - 1000 EZI (AUTO) | 989 | 2011 | 23/03/2012 | PERODUA Viva 2007 On 5 Dr Hatch 1 EZi 60Bhp (A) [05/07-] | ✓ |
+| PERODUA / VIVA - 660 EX (MANUAL) | 659 | 2011 | 25/10/2011 | PERODUA Viva 2007 On 5 Dr Hatch 0.66 EX 47Bhp (M) [05/07-] | ✓ |
+| PERODUA / VIVA - 850 EX (MANUAL) | 847 | 2007 | 29/06/2007 | PERODUA Viva 2007 On 5 Dr Hatch 0.85 EX 52Bhp (M) [05/07-] | ✓ |
+| PROTON / ERTIGA 1.4L AUTOMATIK | 1373 | 2018 | 25/10/2018 | PROTON Ertiga 2016 On MPV 1.4 Executive 91Bhp (A) [11/16-07/18] | ✗ |
+| PROTON / EXORA 1.6 CVT PREMIUM | 1561 | 2019 | 19/09/2019 | PROTON Exora 2009 On MPV 1.6 Premium CVT (RC) 138Bhp [05/19-08/22] | ✓ |
+| PROTON / EXORA FL 1.6L CVT | 1561 | 2013 | 18/07/2013 | PROTON Exora 2009 On MPV 1.6 Bold Premium (CFE) 138Bhp (A) [01/12-01/15] | ✗ |
+| PROTON / GEN 2 1.6 AUTOMATIK | 1597 | 2006 | 20/06/2007 | PROTON Gen-2 2004 On 5 Dr Hatch 1.6 108Bhp (A) [05/04-02/08] | ✓ |
+| PROTON / IRIZ 1.6 CVT EXECUTIVE | 1597 | 2022 | 08/08/2022 | PROTON Iriz 2021 On 5 Dr Hatch 1.6 Executive 107Bhp [08/21-] | ✓ |
+| PROTON / IRIZ 1.6L CVT | 1597 | 2014 | 10/12/2014 | PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 PREMIUM 107Bhp (A) [09/14-05/17] | ✓ |
+| PROTON / IRIZ 1.6L CVT | 1597 | 2019 | 29/07/2019 | PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 Premium 107Bhp [04/19-] | ✓ |
+| PROTON / ISWARA (old card, print too faded to read exactly) |  |  |  | PROTON Iswara 1992 On 5 Dr Hatch 1.3 S 83Bhp (M) [08/92-11/03] | ✓ |
+| PROTON / ISWARA SEDAN 1.5 MANUAL | 1468 | 2004 | 05/01/2005 | PROTON Iswara 1992 On 4 Dr Sal 1.5 S 90Bhp (M) [08/92-] | ✓ |
+| PROTON / PERSONA (rest unreadable) | 1597? | 2020 | 30/09/2020? | PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Executive 107Bhp [04/19-08/21] | ✓ |
+| PROTON / PERSONA 1.6 AUTOMATIK | 1597 | 2011 | 11/11/2011 | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Medium Line 109Bhp (A) [03/10-05/16] | ✓ |
+| PROTON / PERSONA 1.6 AUTOMATIK | 1597 | 2008 | 16/01/2008 | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 High Line 109Bhp (A) [08/07-02/10] | ✓ |
+| PROTON / PERSONA 1.6 AUTOMATIK | 1597 | 2008 | 05/01/2009 | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (A) [08/07-02/10] | ✓ |
+| PROTON / PERSONA 1.6 AUTOMATIK | 1597 | 2012 | 15/06/2012 | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 High Line 109Bhp (A) [03/10-05/16] | ✓ |
+| PROTON / PERSONA 1.6 CVT EXECUTIVE | 1597 | 2021 | 29/03/2021 | PROTON Persona 2021 On 4 Dr Sal 1.6 Executive 107Bhp [08/21-] | ✗ |
+| PROTON / PERSONA 1.6 CVT STANDARD | 1597 | 2020 | 24/09/2020 | PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Standard 107Bhp [04/19-08/21] | ✓ |
+| PROTON / PERSONA 1.6 MANUAL | 1597 | 2010 | 21/04/2010 | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (M) [03/10-05/16] | ✓ |
+| PROTON / PERSONA 1.6 MANUAL | 1597 | 2007 | 06/09/2007 | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (M) [08/07-02/10] | ✓ |
+| PROTON / PERSONA 1.6L AUTOMATIK | 1597 | 2012 | 12/11/2012 | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (A) [03/10-05/16] | ✓ |
+| PROTON / PERSONA 1.6L CVT | 1597 | 2017 | 20/11/2017 | PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Executive 107Bhp [08/16-03/19] | ✓ |
+| PROTON / PERSONA 1.6L CVT | 1597 | 2018 | 20/07/2018 | PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Premium 107Bhp [08/16-03/19] | ✓ |
+| PROTON / PERSONA 1.6L CVT | 1597 | 2016 | 17/02/2017 | PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Standard 107Bhp [08/16-03/19] | ✓ |
+| PROTON / PREVE 1.6L CVT | 1597 | 2013 | 27/03/2013 | PROTON Preve 2012 On 4 Dr Sal 1.6 Executive 108Bhp (A) [04/12-03/18] | ✓ |
+| PROTON / PREVE 1.6L CVT | 1561 | 2013 | 30/08/2013 | PROTON Preve 2012 On 4 Dr Sal 1.60 Premium (CFE) AUTO 138Bhp (A) [04/12-03/18] | ✓ |
+| PROTON / PREVE 1.6L CVT | 1561 | 2014 | 23/01/2014 | PROTON Preve 2012 On 4 Dr Sal 1.6 Executive (CVT) 138Bhp [04/18-] | ✗ |
+| PROTON / PROTON INSPIRA 1.8L CVT | 1798 | 2011 | 25/05/2011 | PROTON Inspira 2010 On 4 Dr Sal 1.8 E 140Bhp (A) [11/10-] | ✓ |
+| PROTON / PROTON INSPIRA 2.0L CVT | 1998 | 2011 | 08/02/2011 | PROTON Inspira 2010 On 4 Dr Sal 2 P 150Bhp (A) [11/10-] | ✓ |
+| PROTON / PROTON SAGA 1.3(A) | 1332 | 2008 | 16/07/2008 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 B-Line 94Bhp (A) [01/08-11/10] | ✓ |
+| PROTON / PROTON WIRA 1.5 M SE A/BACK | 1468 | 2005 | 04/02/2005 | PROTON Wira 1993 On 5 Dr Hatch 1.5 GLi Special Edition 86Bhp (M) [08/03-] | ✓ |
+| PROTON / SAGA 1.3 AT STANDARD LITE | 1332 | 2022 | 30/08/2022 | PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-] | ✓ |
+| PROTON / SAGA 1.3 AT STANDARD LITE | 1332 | 2022 | 26/10/2022 | PROTON Saga 2022 On 4 Dr Sal 1.3 Standard 94Bhp (A) [05/22-] | ✓ |
+| PROTON / SAGA 1.3 AUTOMATIK | 1332 | 2010 | 27/04/2010 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 M-Line 94Bhp (A) [01/08-11/10] | ✓ |
+| PROTON / SAGA 1.3 AUTOMATIK PREMIUM | 1332 | 2020 | 08/01/2021 | PROTON Saga 2019 On 4 Dr Sal 1.3 Premium 94Bhp (A) [08/19-] | ✓ |
+| PROTON / SAGA 1.3 AUTOMATIK PREMIUM | 1332 | 2020 | 22/06/2020 | PROTON Saga 2022 On 4 Dr Sal 1.3 Premium 94Bhp (A) [05/22-] | ✗ |
+| PROTON / SAGA 1.3 AUTOMATIK PREMIUM S | 1332 | 2022 | 30/06/2022 | PROTON Saga 2022 On 4 Dr Sal 1.3 Premium S 94Bhp (A) [05/22-] | ✓ |
+| PROTON / SAGA 1.3 AUTOMATIK STANDARD | 1332 | 2019 | 22/10/2019 | PROTON Saga 2019 On 4 Dr Sal 1.30 Standard AUTO 94Bhp (A) [08/19-] | ✓ |
+| PROTON / SAGA 1.3 AUTOMATIK STANDARD | 1332 | 2022 | 30/06/2022 | PROTON Saga 2022 On 4 Dr Sal 1.30 Standard AUTO 94Bhp (A) [05/22-] | ✓ |
+| PROTON / SAGA 1.3 AUTOMATIK STANDARD | 1332 | 2020 | 14/05/2020 | PROTON Saga 2019 On 4 Dr Sal 1.3 Standard 94Bhp (A) [08/19-] | ✓ |
+| PROTON / SAGA 1.3 MANUAL | 1332 | 2009 | 11/09/2009 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 B-Line 94Bhp (M) [01/08-11/10] | ✓ |
+| PROTON / SAGA 1.3L CVT | 1332 | 2017 | 30/08/2017 | PROTON Saga 2016 On 4 Dr Sal 1.3 Premium 94Bhp [09/16-] | ✓ |
+| PROTON / SAGA 1.3L CVT | 1332 | 2019 | 19/06/2019 | PROTON Saga 2019 On 4 Dr Sal 1.30 Premium AUTO 94Bhp (A) [08/19-] | ✗ |
+| PROTON / SAGA 1.3L CVT | 1332 | 2017 | 02/03/2017 | PROTON Saga 2016 To 2019 4 Dr Sal 1.3 Executive 94Bhp [09/16-07/19] | ✓ |
+| PROTON / SAGA FL 1.3 AUTOMATIK | 1332 | 2011 | 08/03/2011 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FL (Executive) 94Bhp (A) [12/10-04/11] | ✓ |
+| PROTON / SAGA FL 1.3 AUTOMATIK | 1332 | 2011 | 25/10/2011 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Standard) 94Bhp (A) [07/11-06/14] | ✗ |
+| PROTON / SAGA FL 1.3 AUTOMATIK | 1332 | 2011 | 18/02/2011 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FL (Standard) 94Bhp (A) [12/10-04/11] | ✓ |
+| PROTON / SAGA FL 1.3 AUTOMATIK | 1332 | 2012 | 06/07/2012 | PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FLX (Executive) AUTO 94Bhp (A) [07/11-06/14] | ✗ |
+| PROTON / SAGA FL 1.3 CVT | 1332 | 2014 | 29/01/2014 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (A) [07/11-06/14] | ✓ |
+| PROTON / SAGA FL 1.3 CVT | 1332 | 2015 | 29/07/2015 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX SV 94Bhp (A) [06/13-09/16] | ✓ |
+| PROTON / SAGA FL 1.3 MANUAL | 1332 | 2011 | 25/08/2011 | PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (M) [07/11-06/14] | ? |
+| PROTON / SAGA FL 1.6 AUTOMATIK | 1597 | 2012 | 12/01/2012 | PROTON Saga 2008 To 2016 4 Dr Sal 1.6 FL (Executive) 109Bhp (A) [05/11-09/16] | ✓ |
+| PROTON / SAGA ISWARA 1.3S | 1298 | 1999 | 18/12/1999 | PROTON Iswara 1992 On 4 Dr Sal 1.30 S 83Bhp (M) [08/92-] | ✓ |
+| PROTON / WAJA 1.6 AUTOMATIK | 1584 | 2005 | 13/09/2005 | PROTON Waja 2000 On 4 Dr Sal 1.6 (CF1) 102Bhp (A) [08/00-12/05] | ✓ |
+| PROTON / WIRA 1.50LI(A) | 1468 | 2001 | 29/12/2001 | PROTON Wira 1993 On 4 Dr Sal 1.5 GLi 86Bhp (A) [02/98-] | ✓ |
+| PROTON / WIRA 1.5GL(A) | 1468 | 2000 | 11/02/2000 | PROTON Wira 1993 On 4 Dr Sal 1.5 GL 86Bhp (A) [09/95-] | ✓ |
+| PROTON / WIRA 1.5GL(M) | 1468 | 1995 | 14/07/1995 | PROTON Wira 1993 On 4 Dr Sal 1.5 GL 86Bhp (M) [09/95-] | ✗ |
+| PROTON / WIRA AB 1.3 MET | 1298 | 2002 | 14/11/2002 | PROTON Wira 1993 On 5 Dr Hatch 1.3 GLi 81Bhp (M) [02/98-] | ✓ |
+| PROTON / WIRA AB 1.5 AT | 1468 | 2001 | 24/01/2002 | PROTON Wira 1993 On 5 Dr Hatch 1.5 GLi 86Bhp (A) [02/98-] | ✓ |
+| PROTON / X50 1.5T PREMIUM | 1477 | 2022 | 18/02/2022 | PROTON X50 2020 To 2024 5 Dr SUV 1.5 1.5T Premium 148Bhp [10/20-06/24] | ✓ |
+| PROTON / X50 1.5T PREMIUM | 1477 | 2022 | 21/11/2022 | PROTON X50 2020 To 2024 5 Dr SUV 1.5 1.5T Executive 148Bhp [10/20-06/24] | ✗ |
+| PROTON / X70 1.8 TGDI EXECUTIVE 2WD | 1799 | 2019 | 15/07/2019 | PROTON X70 2018 On 5 Dr SUV 1.8 TGDI Executive (2WD) 182Bhp (A) [12/18-] | ✓ |
+| PROTON / X70 1.8 TGDI PREMIUM 2WD | 1799 | 2019 | 21/05/2019 | PROTON X70 2018 On 5 Dr SUV 1.8 TGDI Premium 182Bhp (A) [12/18-] | ✓ |
+| PROTON / X70 1.8 TGDI PREMIUM 2WD | 1799 | 2021 | 22/10/2021 | PROTON X70 2020 On 5 Dr SUV 1.8 TGDI Premium 181Bhp [02/20-] | ✓ |
+| SUBARU / SUBARU XV2.0I | 1995 | 2015 | 08/11/2015 | SUBARU XV 2012 On 5 Dr SUV 2 2.0 STI 148Bhp [07/14-03/17] | ? |
+| SUZUKI / SWIFT 1.5L A/T | 1490 | 2008 | 20/08/2008 | SUZUKI Swift 2005 On 5 Dr Hatch 1.5 102Bhp (A) [05/06-06/11] | ✓ |
+| TOYOTA / ALPHARD (import) | 2493 | 2015 | 04/12/2020 | TOYOTA Alphard (Grey Import) MPV 2.5 AGH30R-PFXGK [01/15-] | ✓ |
+| TOYOTA / ALPHARD (import) | 2493 | 2017 | 02/04/2021 | TOYOTA ALPHARD MPV 2.5 DBA-AGH30W (A) [15-] | ✓ |
+| TOYOTA / ALPHARD (import) | 2493 | 2019 | 12/08/2022 | TOYOTA ALPHARD MPV 2.5 (DBA-AGH30W) (A) [20-] | ✗ |
+| TOYOTA / ALPHARD 3.5 AT | 3456 | 2021 | 31/03/2021 | TOYOTA Alphard 2020 To 2023 MPV 3.5 3.5 (GGH30R-PFZLK) 296Bhp (A) [02/20-10/23] | ✓ |
+| TOYOTA / ALPHARD DBA-AGH30W(A) (import) | 2493 | 2016 | 22/03/2019 | TOYOTA Alphard (Grey Import) MPV 2.5 AYH30R-NFXVB [07/19-] | ✗ |
+| TOYOTA / CAMRY 2.0G (A) | 1998 | 2009 | 17/03/2009 | TOYOTA Camry 2006 To 2009 4 Dr Sal 2 G (ACV41R-JEPEKE) 145Bhp (A) [10/06-08/09] | ✓ |
+| TOYOTA / CAMRY ACV40R-JEAGKE | 2362 | 2009 | 19/08/2009 | TOYOTA Camry 2006 To 2009 4 Dr Sal 2.4 V (ACV40R-JEAGKE) 165Bhp (A) [10/06-08/09] | ✓ |
+| TOYOTA / COROLLA ALTIS 1.8 (A) | 1794 | 2002 |  | TOYOTA Corolla Altis 2001 On 4 Dr Sal 1.8 G (ZZE122R-GEPEKE) 134Bhp (A) [08/01-01/04] | ✓ |
+| TOYOTA / COROLLA ALTIS 1.8G A/T | 1798 | 2021 | 24/02/2021 | TOYOTA Corolla Altis 2019 On 4 Dr Sal 1.8 G (ZRE211R-GEXEKE SS) 137Bhp [10/19-] | ✓ |
+| TOYOTA / COROLLA CROSS 1.8V A/T | 1798 | 2022 | 23/05/2022 | TOYOTA Corolla Cross 2022 On 5 Dr SUV 1.8 V (ZSG10R-JHXEKE X2) 138Bhp [01/22-] | ✓ |
+| TOYOTA / COROLLA CROSS 1.8V A/T | 1798 | 2022 | 05/02/2022 | TOYOTA Corolla Cross 2022 To 2024 5 Dr SUV 1.8 V (ZSG10R-JHXEKE X2) 138Bhp [01/22-12/24] | ✓ |
+| TOYOTA / ESTIMA 2.4 (import) | 2362 | 2013 | 19/05/2016 | TOYOTA Estima (Grey Import) MPV 2.4 ACR50W-GFXEK [01/06-05/16] | ✓ |
+| TOYOTA / ESTIMA CBA-ACR30W(A) | 2362 | 2004 | 22/08/2007 | TOYOTA ESTIMA MPV 2.4 ACR30W (A) | ✓ |
+| TOYOTA / ESTIMA DBA-ACR50W (A) (import) | 2362 | 2011 | 01/07/2016 | TOYOTA ESTIMA MPV 2.4 ACR50 (DBA-ACR50W) (A) | ✓ |
+| TOYOTA / ESTIMA DBA-ACR50W(A) (import) | 2362 | 2013 | 07/08/2018 | TOYOTA Estima (Grey Import) MPV 2.4 ACR50W-GFXPK [05/06-10/19] | ✓ |
+| TOYOTA / HARRIER (import) | 1986 | 2020 | 30/06/2023 | TOYOTA Harrier 2021 On 5 Dr SUV 2 2.0 Luxury (MXUA80R ANXSB) 171Bhp [04/21-] | ✗ |
+| TOYOTA / HARRIER 2.0T LUXURY | 1998 | 2018 | 03/01/2019 | TOYOTA Harrier 2018 To 2021 5 Dr SUV 2 2.0T Luxury (ASU60R-ANTGT GT) 227Bhp (A) [01/18-04/21] | ✓ |
+| TOYOTA / HARRIER CBA-ACU30W (A) (import) | 2362 | 2007 | 21/06/2012 | TOYOTA HARRIER 5 DR SUV 2.4 CBA-ACU30W (A) | ✓ |
+| TOYOTA / HARRIER CBA-ACU30W(A) (import) | 2362 | 2008 | 07/02/2013 | TOYOTA HARRIER 5 DR SUV 2.4 ACU30 (A) | ✓ |
+| TOYOTA / HARRIER DBA-ZSU60W (A) (import) | 1986 | 2014 | 24/03/2016 | TOYOTA HARRIER 5 DR SUV 2.0 DBA-ZSU60W (A) | ✓ |
+| TOYOTA / HIACE PANEL VAN 2.5(D) | 2494 | 2012 | 20/06/2012 | TOYOTA Hiace 2006 On Van 2.5 (KDH200R-RBMDYE) 101Bhp (M) [09/10-12/13] | ✓ |
+| TOYOTA / HILUX D/C 2.4E AT 4X4 | 2393 | 2021 | 04/03/2021 | TOYOTA Hilux 2020 On 4 Dr Pickup Dbl.Cab 2.4 E (GUN125R-DETSXE A3) 148Bhp (A) [10/20-] | ✓ |
+| TOYOTA / HILUX DOUBLE CAB 2.4G AT 4X4 | 2393 | 2017 | 05/03/2018 | TOYOTA Hilux 2016 To 2020 4 Dr Pickup Dbl.Cab 2.4 G (GUN125R-DETSHECK) 148Bhp (A) [05/16-03/18] | ✓ |
+| TOYOTA / HILUX DOUBLE CAB 2.4LE 4X4 | 2393 | 2018 | 09/07/2018 | TOYOTA Hilux 2018 To 2020 4 Dr Pickup Dbl.Cab 2.4 L-Edition (GUN125R-DETSHE) 148Bhp (A) [03/18-10/20] | ✓ |
+| TOYOTA / HILUX DOUBLE CAB 2.8G AT 4X4 | 2755 | 2016 | 01/09/2016 | TOYOTA Hilux 2016 To 2020 4 Dr Pickup Dbl.Cab 2.8 G (GUN126R-DETHHECM) 175Bhp (A) [05/16-03/18] | ✓ |
+| TOYOTA / INNOVA 2.0 E (AT) | 1998 | 2012 | 26/06/2012 | TOYOTA Innova 2005 On MPV 2 E 134Bhp (A) [10/11-03/14] | ✓ |
+| TOYOTA / INNOVA 2.0 G (A) | 1998 | 2007 | 13/08/2007 | TOYOTA Innova 2005 On MPV 2 G 134Bhp (A) [05/05-09/08] | ✓ |
+| TOYOTA / INNOVA 2.0 G (AT) | 1998 | 2013 | 23/08/2013 | TOYOTA Innova 2005 On MPV 2 G 134Bhp (A) [10/11-03/14] | ✓ |
+| TOYOTA / INNOVA 2.0G AT | 1998 | 2018 | 23/01/2018 | TOYOTA Innova 2016 On MPV 2 G (TGN140R-METMKEEL) 137Bhp (A) [12/16-02/21] | ✓ |
+| TOYOTA / INNOVA 2.0X AT | 1998 | 2019 | 05/04/2019 | TOYOTA Innova 2016 On MPV 2 X (TGN140R-METHKE SM) 137Bhp (A) [10/17-02/21] | ✓ |
+| TOYOTA / MARK X (DBA-GRX120 (A) (import) | 2499 | 2005 | 14/03/2008 | TOYOTA MARK X 4 DR SAL 2.5 DBA-GRX120 (A) [05-] | ✓ |
+| TOYOTA / RUSH 1.5S (A/T) | 1495 | 2009 | 19/10/2009 | TOYOTA Rush 2008 On 5 Dr SUV 1.5 S (F700RE-GQMFM) 108Bhp (A) [01/08-11/10] | ✓ |
+| TOYOTA / TOYOTA AVANZA 1.3 (A) | 1298 | 2005 | 16/01/2006 | TOYOTA Avanza 2004 On MPV 1.3 89Bhp (A) [10/04-09/06] | ✓ |
+| TOYOTA / TOYOTA AVANZA 1.3 (A) | 1298 | 2004 | 10/11/2004 | TOYOTA Avanza 2004 On MPV 1.30 AUTO 89Bhp (A) [10/04-09/06] | ✓ |
+| TOYOTA / TOYOTA AVANZA 1.5G A/T | 1496 | 2016 | 22/09/2016 | TOYOTA Avanza 2012 On MPV 1.5 G (F654RM-GQMFMKX) 104Bhp (A) [10/15-] | ✓ |
+| TOYOTA / TOYOTA AVANZA 1.5G A/T | 1495 | 2014 | 20/03/2014 | TOYOTA Avanza 2012 On MPV 1.5 G (F652RM-GQMFM) 102Bhp (A) [01/12-09/15] | ✓ |
+| TOYOTA / TOYOTA AVANZA 1.5G A/T | 1495 | 2012 | 31/01/2013 | TOYOTA Avanza 2012 On MPV 1.50 G (F652RM-GQMFM) AUTO 102Bhp (A) [01/12-09/15] | ✓ |
+| TOYOTA / TOYOTA CAMRY 2.0E (A) | 1998 | 2011 | 25/04/2011 | TOYOTA Camry 2009 To 2012 4 Dr Sal 2 E (ACV41R-JEPNKE) 145Bhp (A) [09/09-05/12] | ✓ |
+| TOYOTA / TOYOTA CAMRY 2.0G (A) | 1998 | 2014 | 28/11/2014 | TOYOTA Camry 2012 To 2018 4 Dr Sal 2 G (ACV51R-JEPEKEFL) 146Bhp (A) [06/12-03/15] | ✓ |
+| TOYOTA / TOYOTA CAMRY 2.5L HYBRID (A) | 2494 | 2015 | 29/??/2015 | TOYOTA Camry 2012 To 2018 4 Dr Sal 2.5 HYBRID (AVV50R-JEXGBE HS) 158Bhp [04/15-11/16] | ? |
+| TOYOTA / TOYOTA COROLLA ALTIS 1.6E (A) | 1598 | 2007 | 30/05/2007 | TOYOTA Corolla Altis 2001 On 4 Dr Sal 1.6 E (ZZE121R-GEPNKE) 108Bhp (A) [02/04-02/08] | ✓ |
+| TOYOTA / TOYOTA COROLLA ALTIS 1.8E (A) | 1798 | 2012 | 27/02/2012 | TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.8 E (ZRE142R-GEXEKT) 138Bhp (A) [09/10-12/13] | ✓ |
+| TOYOTA / TOYOTA COROLLA ALTIS 1.8E (A) | 1798 | 2014 | 20/06/2014 | TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 E (ZRE172R-GEXEKE) 137Bhp (A) [01/14-11/16] | ✓ |
+| TOYOTA / TOYOTA COROLLA ALTIS 1.8G (A) | 1798 | 2016 | 31/05/2016 | TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 G (ZRE172R-GEXEKE) 137Bhp [11/14-11/16] | ✓ |
+| TOYOTA / TOYOTA COROLLA ALTIS 1.8G (A) | 1798 | 2018 | 05/06/2018 | TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 G (ZRE172R-GEXEKE) 137Bhp [12/16-10/19] | ✓ |
+| TOYOTA / TOYOTA COROLLA ALTIS 1.8G (A) | 1798 | 2010 | 01/03/2011 | TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.8 G (ZRE142R-GEXGKE) 138Bhp (A) [09/10-12/13] | ✓ |
+| TOYOTA / TOYOTA COROLLA ALTIS 2.0V (A) | 1987 | 2014 | 21/03/2014 | TOYOTA Corolla Altis 2014 On 4 Dr Sal 2 V (ZRE173R-GEXVKE) 143Bhp (A) [01/14-11/16] | ✓ |
+| TOYOTA / TOYOTA FORTUNER 2.7V (P) A/T | 2694 | 2013 | 25/04/2013 | TOYOTA Fortuner 2005 On 5 Dr SUV 2.7 V (TGN51R NKPSKE) 158Bhp (A) [10/11-01/16] | ✓ |
+| TOYOTA / TOYOTA HIACE PANEL VAN 2.5(D) | 2494 | 2015 | 04/09/2015 | TOYOTA Hiace 2006 On Van 2.5 (KDH200R-RBMDYE) 101Bhp (M) [01/14-] | ✓ |
+| TOYOTA / TOYOTA HILUX DOUBLE CAB 2.5 AT | 2494 | 2012 | 29/03/2012 | TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHE) 142Bhp (A) [10/12-10/13] | ✗ |
+| TOYOTA / TOYOTA HILUX DOUBLE CAB 2.5 AT | 2494 | 2015 | 23/07/2015 | TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHEHH) 142Bhp (A) [01/15-04/16] | ✓ |
+| TOYOTA / TOYOTA PRIUS C 1.5L (A) | 1497 | 2013 | 10/02/2014 | TOYOTA Prius C 2012 On 5 Dr Hatch 1.5 HYBRID SYNERGY DRIVE (NHP10R) 100Bhp (A) [02/12-] | ✓ |
+| TOYOTA / TOYOTA RUSH 1.5S A/T | 1496 | 2022 | 23/08/2022 | TOYOTA Rush 2018 On 5 Dr SUV 1.5 S (F850RE-GQQFMGM) 104Bhp (A) [10/18-] | ✓ |
+| TOYOTA / TOYOTA VELLFIRE 2.5 ZA (import) | 2493 | 2018 | 02/01/2024 | TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30R-NFXRK [05/21-] | ✗ |
+| TOYOTA / TOYOTA VELLFIRE DBA-ANH20W (import) | 2362 | 2008 | 10/12/2010 | TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20R-PRXSK [06/09-01/15] | ✗ |
+| TOYOTA / TOYOTA VIOS 1.5E (A) | 1496 | 2004 | 30/04/2004 | TOYOTA Vios 2003 To 2007 4 Dr Sal 1.5 E (NCP42R) 108Bhp (A) [06/03-11/05] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (A) | 1496 | 2006 | 19/09/2006 | TOYOTA Vios 2003 On 4 Dr Sal 1.5 E (NCP42R) 108Bhp (A) [12/05-09/07] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (AT) | 1497 | 2012 | 05/04/2012 | TOYOTA Vios 2007 On 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [04/10-06/12] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (AT) | 1497 | 2012 | 22/06/2012 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [04/10-06/12] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (AT) | 1497 | 2009 | 19/11/2009 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [10/07-03/10] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (AT) | 1496 | 2017 | 26/07/2017 | TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 E (NSP151R-BEXRKE E2) 106Bhp [10/16-12/18] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (AT) | 1497 | 2014 | 14/03/2014 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP150R) 108Bhp (A) [10/13-09/16] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (AT) | 1497 | 2012 | 13/08/2012 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [07/12-09/13] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5E (AT) | 1497 | 2016 | 29/09/2016 | TOYOTA Vios 2007 On 4 Dr Sal 1.50 E (NCP150R) AUTO 108Bhp (A) [10/13-09/16] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G (A) | 1496 | 2007 | 04/09/2007 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [10/07-03/10] | ✗ |
+| TOYOTA / TOYOTA VIOS 1.5G (A) | 1496 | 2006 | 16/06/2006 | TOYOTA Vios 2003 To 2007 4 Dr Sal 1.5 G (NCP42R) 108Bhp (A) [12/05-09/07] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2011 | 21/03/2011 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [04/10-06/12] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2016 | 15/04/2016 | TOYOTA Vios 2007 On 4 Dr Sal 1.5 G (NCP150R) 108Bhp (A) [10/13-09/16] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2012 | 03/01/2013 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G Limited (NCP93R) 108Bhp (A) [07/12-09/13] | ✗ |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2013 | 28/05/2013 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [07/12-09/13] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G (AT) | 1497 | 2008 | 25/09/2008 | TOYOTA Vios 2007 On 4 Dr Sal 1.50 G (NCP93R) AUTO 108Bhp (A) [10/07-03/10] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G A/T | 1496 | 2019 | 14/05/2019 | TOYOTA Vios 2019 To 2020 4 Dr Sal 1.5 G (NSP151R-BEXGKE V3) 105Bhp [01/19-12/20] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5G A/T | 1496 | 2021 | 16/11/2021 | TOYOTA Vios 2020 To 2023 4 Dr Sal 1.5 G (NSP151R-BEXGKE W3) 105Bhp [12/20-] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5J (AT) | 1497 | 2014 | 15/10/2014 | TOYOTA Vios 2007 On 4 Dr Sal 1.50 J (NCP150R) AUTO 108Bhp (A) [10/13-09/16] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5J (AT) | 1496 | 2017 | 03/08/2017 | TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 J (NSP151R-BEXDKE E1) 106Bhp [10/16-12/18] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5J (AT) | 1497 | 2013 | 09/07/2013 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP93R) 108Bhp (A) [07/12-09/13] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5J (AT) | 1497 | 2015 | 30/11/2015 | TOYOTA Vios 2007 On 4 Dr Sal 1.5 J (NCP150R) 108Bhp (A) [10/13-09/16] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5S (AT) | 1497 | 2014 | 28/01/2014 | TOYOTA Vios 2007 On 4 Dr Sal 1.5 TRD Sportivo (NCP150R) 108Bhp (A) [10/13-09/16] | ✓ |
+| TOYOTA / TOYOTA VIOS 1.5S (AT) | 1497 | 2015 | 10/03/2016 | TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 TRD Sportivo (NCP150R) 108Bhp (A) [10/13-09/16] | ✗ |
+| TOYOTA / TOYOTA YARIS 1.5E A/T | 1496 | 2022 | 27/04/2022 | TOYOTA Yaris 2020 On 5 Dr Hatch 1.5 E (NSP151R-BHXRKE ZR) 105Bhp [12/20-05/23] | ✓ |
+| TOYOTA / TOYOTA YARIS 1.5G AT | 1496 | 2023 | 12/07/2023 | TOYOTA Yaris 2023 On 5 Dr Hatch 1.5 G (NSP151R-BHXGKE 2B) 105Bhp [05/23-] | ✓ |
+| TOYOTA / VELLFIRE (import) | 2493 | 2020 | 09/06/2023 | TOYOTA Vellfire 2020 To 2023 MPV 2.5 2.5 (AGH30R-NFXLK) 177Bhp [02/20-10/23] | ✓ |
+| TOYOTA / VELLFIRE DBA-AGH30W (import) | 2493 | 2018 | 22/03/2023 | TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30W-NFXSK [01/15-] | ✓ |
+| TOYOTA / VELLFIRE DBA-AGH30W (A) (import) | 2493 | 2019 | 24/09/2021 | TOYOTA VELLFIRE MPV 2.5 DBA-AGH30W (A) | ✓ |
+| TOYOTA / VELLFIRE DBA-ANH20W (A) (import) | 2362 | 2008 | 19/11/2013 | TOYOTA VELLFIRE MPV 2.4 DBA-ANH20W (A) | ✓ |
+| TOYOTA / VELLFIRE DBA-ANH20W (A/T) (import) | 2362 | 2011 | 03/09/2015 | TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20W-NFXGK [04/08-01/15] | ✓ |
+| TOYOTA / VELOZ 1.5AT | 1496 | 2023 | 27/07/2023 | TOYOTA Veloz 2022 On MPV 1.5 1.5 (W151RE-LBQFM HK) 105Bhp [10/22-] | ✓ |
+| TOYOTA / VIOS 1.5E AT | 1496 | 2017 | 28/03/2017 | TOYOTA Vios 2016 On 4 Dr Sal 1.5 E (NSP151R-BEXRKE E2) 106Bhp [10/16-12/18] | ✓ |
+| TOYOTA / VIOS 1.5E AT | 1496 | 2017 | 12/04/2017 | TOYOTA Vios 2016 On 4 Dr Sal 1.50 E (NSP151R-BEXRKE E2) 106Bhp [10/16-12/18] | ✓ |
+| TOYOTA / VOXY (import) | 1986 | 2015 | 16/03/2020 | TOYOTA VOXY MPV 2.0 DBA-ZRR80G (A) | ✓ |
+| TOYOTA / WISH DBA-ZGE20W (import) | 1797 | 2013 | 13/07/2018 | TOYOTA WISH MPV 1.8 DBA-ZGE20W (A) [09-] | ✓ |
+| TOYOTA / WISH DBA-ZGE20W (faint, partly unreadable) (import) | 1797 (faint) | 2012 (faint) | 22/02/2017 (faint) | TOYOTA WISH MPV 1.8 DBA-ZGE20G (A) | ✗ |
+| TOYOTA / WISH DBA-ZNE10G (A) (import) | 1794 | 2007 | 15/10/2012 | TOYOTA WISH MPV 1.8 CBA-ZNE10G (A) | ✗ |
+| VOLKSWAGEN / BEETLE 1.2 | 1197 | 2014 | 17/04/2014 | VOLKSWAGEN Beetle 2014 On 3 Dr Hatch 1.2 TSI Design 103Bhp [08/14-04/17] | ✗ |
+| VOLKSWAGEN / JETTA 1.4 (A) | 1390 | 2011 | 30/03/2012 | VOLKSWAGEN Jetta 2011 On 4 Dr Sal 1.4 TSI 158Bhp (A) [10/11-08/16] | ✓ |
+| VOLKSWAGEN / PASSAT 1.8 | 1798 | 2014 | 22/04/2014 | VOLKSWAGEN Passat 2011 On 4 Dr Sal 1.8 TSI (B7) 158Bhp (A) [10/11-10/16] | ✓ |
+| VOLKSWAGEN / POLO 1.2 | 1198 | 2012 | 04/09/2012 | VOLKSWAGEN Polo 2010 On 5 Dr Hatch 1.2 TSI (MK 5) 104Bhp (A) [10/10-04/15] | ✓ |
+| VOLKSWAGEN / POLO NB | 1598 | 2013 | 03/12/2013 | VOLKSWAGEN Polo 2010 On 4 Dr Sal 1.6 104Bhp (A) [04/12-04/16] | ✓ |
+| VOLKSWAGEN / TIGUAN 1.4 | 1395 | 2019 | 06/09/2019 | VOLKSWAGEN Tiguan 2017 On 5 Dr SUV 1.4 TSI Highline 148Bhp [04/17-] | ✓ |
 
 ## What adjusters chose most (7,239 cases; models with 10+ cases, top 8 variants each)
 Number = cases that chose that option. Full list for every model: `tools/batch/model_choice_stats.json`. These include other adjusters' mistakes (see the ✗ rows above), so they only show which option is normal.
