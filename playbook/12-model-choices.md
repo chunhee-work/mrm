@@ -2,6 +2,7 @@
 
 Read with playbook 02 "Vehicle model" before every create. **The RC always wins** (02). Built 2026-11-01 from:
 - **559 RCs read by opening each case's DOC in Merimen** (111 TC0607 + 73 Newvest + 375 Aman Kepong), set against the model chosen in that case. The table at the end lists them all; ✗ = the choice does not fit the RC (made by someone else, don't copy it).
+- **1,157 more RCs for the rare options at Aman** (one case per option for the 1,655 least-used options): `playbook/12b-model-rc-table-aman-rare.md`. Look up a rare model there first.
 - **What adjusters chose in 7,239 cases** (TC0607, Newvest, Aman Kepong; `tools/batch/model_choice_stats.json`). Aman cases open only from the Aman login (CHONGAIAI); the counts below show which spelling or variant is normal.
 
 ## Rules
@@ -110,6 +111,43 @@ Read with playbook 02 "Vehicle model" before every create. **The RC always wins*
     - Axia 2019 On starts [09/19-]: a car registered before that is "Axia 2014 To 2019".
     - Saga 2019 On starts [08/19-]: SAGA 1.3L CVT registered 06/2019 is the 2016–2019 Saga.
     - Accord 2.0 made 2008 with chassis CP… is the 8th generation, not "2006 On".
+
+18. **Generation from the chassis code on the RC** (No. Chasis), when the name alone fits two generations. Pairs that were confused:
+
+    | RC chassis/code | Is | Not |
+    |---|---|---|
+    | Honda Civic FE… (2022+) | 11th gen | the "2020 On" FC |
+    | Honda City GM6 (reg 12/2019) | old gen | "City 2020 On" |
+    | Jazz GK5 | 3rd gen | GE |
+    | Accord CP… | 8th gen | — |
+    | Toyota Harrier ACU10 | 1st gen | ACU35 |
+    | Toyota Camry ACV40 | XV40 | the 1994–2006 car |
+    | Audi A4 8K | B8 | B7 |
+    | Mercedes WDD204 | W204 | W203 |
+    | Mercedes WDB211 | W211 | W210 |
+    | Mercedes 2023 C-Class | W206 | W205 |
+    | BMW 740Li 2979cc 2009 | F02 | E66 |
+    | Mercedes G350 CDI 2014 | old W463 | — |
+    | Peugeot 5008 P87 | 2nd gen | — |
+    | Kia KF | KF | KE |
+
+    Body from the code too:
+    - Mercedes W177 = 5-door hatch; 211041 / 212 / 204.047 = saloon (not estate or coupe); C238 = coupe (not cabriolet).
+    - Subaru Legacy BP5 = wagon.
+    - MINI F60 = Countryman 5-door.
+    - Defender 110 = 5-door, not a pickup.
+19. **Truck and bus codes must match letter for letter**, e.g. FE83PE vs FE83PG vs FG83PE (Fuso), NLR77UHE vs NLR85UEE (Isuzu), WU410R vs WU300R (Hino), ANF125MRM7 vs …M5 (Honda), BU94 vs BU346. If the exact code is not in the list, choose the nearest same-series code and note it.
+20. **Exact trim words**, more seen at Aman. Each pair is RC → wrong choice:
+    - VTi-L → VTi; SE-L → SE; SX → SE; 1.5G → 1.5 J
+    - HIGH PLUS → High; AUTOBIO(graphy) → Vogue
+    - AVANTGARDE → AMG Line; RS → TC; SPORT → LX
+    - Alza EZ → S; Myvi SXi → SXE Elegance
+    - Kelisa EZ → EZQ Imago; Exora "1.6 CVT PREMIUM" → R3 Limited Edition
+21. **Fuel and engine on the RC choose the option.**
+    - Hybrid on the RC → the hybrid option: C350e, E350, E300 BlueTEC Hybrid.
+    - Diesel → the D option. Petrol xDrive20i ≠ diesel xDrive20d.
+    - Turbo 1.5 TGDI ≠ 1.8.
+22. **Local assembly vs CBU** ("PEMASANGAN TEMPATAN" on the RC): choose the locally assembled (CKD) option and bracket for BMW and Mercedes, not the imported CBU line.
 
 ## All RCs read → model chosen in the case
 ### TC0607
