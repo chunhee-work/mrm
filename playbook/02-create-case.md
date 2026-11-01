@@ -44,6 +44,7 @@
 - The server-side XML search endpoint does not filter; drive the popup UI. [workshop-from-desktop-folder]
 
 ## Vehicle model (ddlbMan → ddlbModel)
+- ⭐⭐ **Read `playbook/12-model-choices.md` before choosing**: RC word → Merimen option table, base-trim rule, bracket/transmission/body checks and the mistakes other adjusters made (111 real RCs + 7,239 chosen models, 2026-11-01).
 - ⭐⭐ **Always follow the RC (JPJ Buatan/Nama Model) for the variant — never the body look, badges or the insurance schedule** (user 2026-10-30, WUE6407: RC "VIVA 1000 EZ" → Viva 1 EZ, not Viva Elite). Don't ask.
 - Match in this order, all must line up: TRIM → engine + body + transmission (A)/(M) → the `[date bracket]` containing the registration year → prefer green options. [merimen-model-variant-trim-match]
 - Trim words: Proton `Executive` → the `Executive` option; Perodua `AV` → `Advanced`/`Advance`, never Standard/Premium/SE/X/G. Check trim last before moving on. [merimen-model-variant-trim-match]

@@ -1,0 +1,2947 @@
+{
+"PERODUA|MYVI": {
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [01/15-10/17]": 73,
+"PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.5 Advanced 102Bhp (A) [11/17-07/20]": 57,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.3 EZi Premium 89Bhp (A) [06/11-12/14]": 54,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.5 SE (A) 102Bhp (A) [09/11-12/14]": 50,
+"PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.5 High 102Bhp (A) [11/17-07/20]": 35,
+"PERODUA Myvi 2021 On 5 Dr Hatch 1.5 1.5 AV 102Bhp [11/21-]": 34,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZi 86Bhp (A) [08/08-05/11]": 33,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.3 EZ Standard 89Bhp (A) [06/11-12/14]": 31,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZ 86Bhp (A) [08/08-05/11]": 30,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.3 X (A) 89Bhp (A) [01/15-10/17]": 30,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.3 SE (A) 89Bhp (A) [03/13-12/14]": 29,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZi 86Bhp (A) [05/05-07/08]": 28,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZ 86Bhp (A) [05/05-07/08]": 26,
+"PERODUA Myvi 2021 On 5 Dr Hatch 1.5 1.5 H 102Bhp [11/21-]": 25,
+"PERODUA Myvi 2020 To 2021 5 Dr Hatch 1.5 Advance 102Bhp (A) [07/20-11/21]": 25,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.3 G (A) 89Bhp (A) [01/15-10/17]": 18,
+"PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.3 Premium X 94Bhp (A) [11/17-07/20]": 16,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.5 Advance (A) 102Bhp (A) [01/15-10/17]": 16,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.30 EZi Premium AUTO 89Bhp (A) [06/11-12/14]": 14,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.50 SE (A) AUTO 102Bhp (A) [01/15-10/17]": 12,
+"PERODUA Myvi 2017 On 5 Dr Hatch 1.50 Advanced AUTO 102Bhp (A) [11/17-07/20]": 11,
+"PERODUA Myvi 2020 To 2021 5 Dr Hatch 1.5 High 102Bhp (A) [07/20-11/21]": 10,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.30 EZ Standard AUTO 89Bhp (A) [06/11-12/14]": 9,
+"PERODUA Myvi 2020 On 5 Dr Hatch 1.50 Advance AUTO 102Bhp (A) [07/20-11/21]": 8,
+"PERODUA Myvi 2021 On 5 Dr Hatch 1.5 1.5 X 102Bhp [11/21-]": 7,
+"PERODUA Myvi 2021 On 5 Dr Hatch 1.3 1.3 G 94Bhp [11/21-]": 7,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SX 86Bhp (M) [05/05-07/08]": 7,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SXi 86Bhp (M) [05/05-07/08]": 6,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.5 SE (M) 102Bhp (M) [09/11-12/14]": 6,
+"PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.3 G (A) 94Bhp (A) [11/17-07/20]": 6,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 EZi Exclusive Edition 86Bhp (A) [11/09-05/11]": 6,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SE (ZHS) 86Bhp (A) [10/08-05/11]": 6,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.30 SE (A) AUTO 89Bhp (A) [03/13-12/14]": 6,
+"PERODUA Myvi 2020 To 2021 5 Dr Hatch 1.3 Standard G 94Bhp (A) [07/20-11/21]": 5,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.5 EXTREME (A) 102Bhp (A) [09/11-12/14]": 5,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.50 SE (A) AUTO 102Bhp (A) [09/11-12/14]": 5,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.30 X (A) AUTO 89Bhp (A) [01/15-10/17]": 5,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.30 EZ AUTO 86Bhp (A) [05/05-07/08]": 5,
+"PERODUA Myvi 2017 On 5 Dr Hatch 1.50 High AUTO 102Bhp (A) [11/17-07/20]": 5,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SXi 86Bhp (M) [08/08-05/11]": 4,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.30 G (A) AUTO 89Bhp (A) [01/15-10/17]": 4,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.30 SE (ZHS) AUTO 86Bhp (A) [10/08-05/11]": 4,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.30 SXi 86Bhp (M) [05/05-07/08]": 4,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.3 SX Standard 89Bhp (M) [06/11-12/14]": 3,
+"PERODUA Myvi 2020 To 2021 5 Dr Hatch 1.3 Premium X 94Bhp (A) [07/20-11/21]": 3,
+"PERODUA Myvi 2021 On 5 Dr Hatch 1.50 1.5 H 102Bhp [11/21-]": 3,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.30 EZi AUTO 86Bhp (A) [05/05-07/08]": 3,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.30 EZi AUTO 86Bhp (A) [08/08-05/11]": 3,
+"PERODUA Myvi 2017 On 5 Dr Hatch 1.30 Premium X AUTO 94Bhp (A) [11/17-07/20]": 3,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.30 EZ AUTO 86Bhp (A) [08/08-05/11]": 3,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SE (ZHS) 86Bhp (A) [03/07-09/08]": 2,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SX 86Bhp (M) [08/08-05/11]": 2,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SE (GHS) 86Bhp (M) [10/08-05/11]": 2,
+"PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.50 Advanced AUTO 102Bhp (A) [11/17-07/20]": 2,
+"PERODUA Myvi 2020 To 2021 5 Dr Hatch 1.3 Premium X (with ASA 2.0) 94Bhp (A) [07/20-11/21]": 1,
+"PERODUA Myvi 2017 To 2020 5 Dr Hatch 1.3 G (M) 94Bhp (M) [11/17-07/20]": 1,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.3 SXi Premium 89Bhp (M) [06/11-12/14]": 1,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.3 SXE Elegance 89Bhp (M) [06/11-12/14]": 1,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1 SR 58Bhp (M) [05/05-07/08]": 1,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.3 SE (GHS) 86Bhp (M) [03/07-09/08]": 1,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.5 EXTREME (M) 102Bhp (M) [09/11-12/14]": 1,
+"PERODUA Myvi 2020 To 2021 5 Dr Hatch 1.50 Advance AUTO 102Bhp (A) [07/20-11/21]": 1,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.50 Advance (A) AUTO 102Bhp (A) [01/15-10/17]": 1,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.30 SX 86Bhp (M) [05/05-07/08]": 1,
+"PERODUA Myvi 2011 On 5 Dr Hatch 1.30 SXi Premium 89Bhp (M) [06/11-12/14]": 1,
+"PERODUA Myvi 2020 On 5 Dr Hatch 1.50 High AUTO 102Bhp (A) [07/20-11/21]": 1,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.30 SX 86Bhp (M) [08/08-05/11]": 1,
+"PERODUA Myvi 2005 On 5 Dr Hatch 1.00 SR 58Bhp (M) [05/05-07/08]": 1,
+"PERODUA Myvi 2020 On 5 Dr Hatch 1.30 Standard G AUTO 94Bhp (A) [07/20-11/21]": 1
+},
+"PROTON|SAGA": {
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (A) [07/11-06/14]": 38,
+"PROTON Saga 2019 On 4 Dr Sal 1.3 Premium 94Bhp (A) [08/19-]": 31,
+"PROTON Saga 2019 On 4 Dr Sal 1.3 Standard 94Bhp (A) [08/19-]": 27,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Standard 94Bhp (A) [05/22-]": 23,
+"PROTON Saga 2016 On 4 Dr Sal 1.3 Premium 94Bhp [09/16-]": 18,
+"PROTON Saga 2019 To 2022 4 Dr Sal 1.3 Premium 94Bhp (A) [08/19-08/22]": 15,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (A) [07/14-09/16]": 15,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Premium 94Bhp (A) [05/22-11/25]": 13,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 B-Line 94Bhp (A) [01/08-11/10]": 12,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 M-Line 94Bhp (A) [01/08-11/10]": 12,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Premium 94Bhp (A) [05/22-]": 12,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-]": 12,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FL (Executive) 94Bhp (A) [12/10-04/11]": 11,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Premium S 94Bhp (A) [05/22-]": 11,
+"PROTON Saga 2016 On 4 Dr Sal 1.3 Executive 94Bhp [09/16-]": 10,
+"PROTON Saga 2019 On 4 Dr Sal 1.30 Premium AUTO 94Bhp (A) [08/19-]": 10,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Standard) 94Bhp (A) [07/11-06/14]": 9,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Premium S 94Bhp (A) [05/22-11/25]": 9,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (M) [07/11-06/14]": 8,
+"PROTON Saga 2019 On 4 Dr Sal 1.30 Standard AUTO 94Bhp (A) [08/19-]": 8,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Standard 94Bhp (A) [05/22-11/25]": 7,
+"PROTON Saga 2019 To 2022 4 Dr Sal 1.3 Standard 94Bhp (A) [08/19-08/22]": 7,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 B-Line 94Bhp (M) [01/08-11/10]": 6,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX SV 94Bhp (A) [06/13-09/16]": 6,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.6 FL (Executive) 109Bhp (A) [05/11-09/16]": 6,
+"PROTON Saga 2022 On 4 Dr Sal 1.30 Standard AUTO 94Bhp (A) [05/22-]": 6,
+"PROTON Saga 2016 To 2019 4 Dr Sal 1.3 Premium 94Bhp [09/16-07/19]": 5,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FL (Standard) 94Bhp (A) [12/10-04/11]": 5,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FLX (Executive) AUTO 94Bhp (A) [07/11-06/14]": 5,
+"PROTON Saga 2016 To 2019 4 Dr Sal 1.3 Standard 94Bhp [09/16-07/19]": 4,
+"PROTON Saga 2016 To 2019 4 Dr Sal 1.3 Executive 94Bhp [09/16-07/19]": 4,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.6 B-Line 109Bhp (M) [05/09-11/10]": 3,
+"PROTON Saga 2016 On 4 Dr Sal 1.3 Standard 94Bhp [09/16-]": 3,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.60 FL (Executive) AUTO 109Bhp (A) [05/11-09/16]": 3,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 B-Line AUTO 94Bhp (A) [01/08-11/10]": 3,
+"PROTON Saga 2016 On 4 Dr Sal 1.30 Executive 94Bhp [09/16-]": 3,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FL (Executive) 94Bhp (M) [12/10-04/11]": 3,
+"PROTON Saga 2016 On 4 Dr Sal 1.30 Premium 94Bhp [09/16-]": 3,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FLX (Executive) 94Bhp (M) [07/11-06/14]": 3,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FL (Executive) 94Bhp (M) [12/10-04/11]": 2,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FLX (Executive) 94Bhp (M) [07/14-09/16]": 2,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Standard 94Bhp (M) [05/22-]": 2,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 PLUS 94Bhp (A) [11/15-09/16]": 2,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FL (Executive) AUTO 94Bhp (A) [12/10-04/11]": 2,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FLX SV AUTO 94Bhp (A) [06/13-09/16]": 2,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FLX (Executive) AUTO 94Bhp (A) [07/14-09/16]": 2,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 M-Line AUTO 94Bhp (A) [01/08-11/10]": 2,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 FL (Standard) 94Bhp (M) [12/10-04/11]": 1,
+"PROTON Saga 2022 On 4 Dr Sal 1.3 Standard Lite 94Bhp (A) [08/22-11/25]": 1,
+"PROTON Saga 2016 To 2019 4 Dr Sal 1.3 Standard 94Bhp (M) [09/16-07/19]": 1,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.3 N-Line 94Bhp (M) [01/08-11/10]": 1,
+"PROTON Saga 2019 To 2022 4 Dr Sal 1.3 Standard 94Bhp (M) [08/19-08/22]": 1,
+"PROTON Saga 1985 On 5 Dr Hatch 1.5 i (12V) 90Bhp (A) [09/90-07/92]": 1,
+"PROTON SAGA 4 DR SAL 1.3 FL (Standard) (A) [11-]": 1,
+"PROTON Saga 2021 On 4 Dr Sal 1.3 R3 Limited Edition 94Bhp (A) [02/21-]": 1,
+"PROTON Saga 2016 On 4 Dr Sal 1.3 Standard 94Bhp (M) [09/16-]": 1,
+"PROTON Saga 1985 On 5 Dr Hatch 1.5 S (12V) 90Bhp (M) [09/90-07/92]": 1,
+"PROTON Saga 2019 On 4 Dr Sal 1.3 Standard 94Bhp (M) [08/19-]": 1,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FLX (Executive) 94Bhp (M) [07/14-09/16]": 1,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 PLUS AUTO 94Bhp (A) [11/15-09/16]": 1,
+"PROTON Saga 1985 On 4 Dr Sal 1.50 S (12V) 90Bhp (M) [09/90-07/92]": 1,
+"PROTON Saga 2008 To 2016 4 Dr Sal 1.30 FL (Standard) 94Bhp (M) [12/10-04/11]": 1
+},
+"HONDA|CITY": {
+"HONDA City 2014 On 4 Dr Sal 1.5 E 118Bhp (A) [04/14-02/17]": 43,
+"HONDA City 2014 On 4 Dr Sal 1.5 V 118Bhp (A) [04/14-02/17]": 38,
+"HONDA City 2008 On 4 Dr Sal 1.5 i-VTEC (Grade S) 118Bhp (A) [12/08-05/12]": 38,
+"HONDA City 2014 On 4 Dr Sal 1.5 E 118Bhp [03/17-]": 37,
+"HONDA City 2008 On 4 Dr Sal 1.5 i-VTEC (Grade E) 118Bhp (A) [06/12-03/14]": 30,
+"HONDA City 2008 On 4 Dr Sal 1.5 i-VTEC (Grade S) 118Bhp (A) [06/12-03/14]": 23,
+"HONDA City 2014 On 4 Dr Sal 1.5 S+ 118Bhp (A) [04/14-02/17]": 23,
+"HONDA City 2014 On 4 Dr Sal 1.5 V 118Bhp [03/17-]": 20,
+"HONDA City 2008 On 4 Dr Sal 1.5 i-VTEC (Grade E) 118Bhp (A) [12/08-05/12]": 20,
+"HONDA City 2005 On 4 Dr Sal 1.5 i-DSI 87Bhp (A) [10/05-07/07]": 12,
+"HONDA City 2014 On 4 Dr Sal 1.5 S 118Bhp [03/17-]": 11,
+"HONDA City 2014 On 4 Dr Sal 1.5 S 118Bhp (A) [04/14-02/17]": 11,
+"HONDA City 2008 On 4 Dr Sal 1.50 i-VTEC (Grade S) AUTO 118Bhp (A) [12/08-05/12]": 10,
+"HONDA City 2020 To 2023 4 Dr Sal 1.5 1.5 E 119Bhp [10/20-08/23]": 9,
+"HONDA City 2003 To 2005 4 Dr Sal 1.5 i-DSI 87Bhp (A) [04/03-09/05]": 9,
+"HONDA City 2014 On 4 Dr Sal 1.50 V AUTO 118Bhp (A) [04/14-02/17]": 9,
+"HONDA City 2014 On 4 Dr Sal 1.5 1.5 Hybrid 108Bhp [07/17-]": 8,
+"HONDA City 2020 On 4 Dr Sal 1.5 1.5 E 119Bhp [10/20-]": 8,
+"HONDA City 2014 On 4 Dr Sal 1.50 E AUTO 118Bhp (A) [04/14-02/17]": 8,
+"HONDA City 2020 To 2023 4 Dr Sal 1.5 1.5 V 119Bhp [10/20-08/23]": 7,
+"HONDA City 2023 On 4 Dr Sal 1.5 1.5 V 119Bhp [08/23-]": 6,
+"HONDA City 2014 On 4 Dr Sal 1.50 V 118Bhp [03/17-]": 6,
+"HONDA City 2020 On 4 Dr Sal 1.50 1.5 V 119Bhp [10/20-]": 6,
+"HONDA City 2005 On 4 Dr Sal 1.5 VTEC 108Bhp (A) [10/05-07/07]": 5,
+"HONDA City 2005 On 4 Dr Sal 1.5 i-DSI 87Bhp (A) [08/07-11/08]": 5,
+"HONDA City 2020 On 4 Dr Sal 1.5 1.5 V 119Bhp [10/20-]": 5,
+"HONDA City 2021 On 4 Dr Sal 1.5 1.5 V Sensing 119Bhp [11/21-08/23]": 4,
+"HONDA City 2023 On 4 Dr Sal 1.5 1.5 RS 119Bhp [08/23-]": 4,
+"HONDA City 2004 To 2005 4 Dr Sal 1.5 VTEC 108Bhp (A) [07/04-09/05]": 4,
+"HONDA City 2023 On 4 Dr Sal 1.5 1.5 e:HEV RS 97Bhp [08/23-]": 4,
+"HONDA City 2008 On 4 Dr Sal 1.50 i-VTEC (Grade S) AUTO 118Bhp (A) [06/12-03/14]": 4,
+"HONDA City 2021 On 5 Dr Hatch 1.5 1.5 V Sensing 119Bhp [04/22-05/24]": 3,
+"HONDA City 2024 On 5 Dr Hatch 1.5 1.5 V 119Bhp [05/24-]": 3,
+"HONDA City 2005 On 4 Dr Sal 1.5 VTEC 108Bhp (A) [08/07-11/08]": 3,
+"HONDA City 2021 On 5 Dr Hatch 1.5 1.5 E 119Bhp [12/21-]": 3,
+"HONDA City 2014 On 4 Dr Sal 1.50 E 118Bhp [03/17-]": 3,
+"HONDA City 2003 To 2005 4 Dr Sal 1.50 i-DSI AUTO 87Bhp (A) [04/03-09/05]": 3,
+"HONDA City 2014 On 4 Dr Sal 1.50 S+ AUTO 118Bhp (A) [04/14-02/17]": 3,
+"HONDA City 2014 On 4 Dr Sal 1.50 S 118Bhp [03/17-]": 3,
+"HONDA City 2023 On 4 Dr Sal 1.5 1.5 S 119Bhp [08/23-]": 2,
+"HONDA City 2023 On 4 Dr Sal 1.5 1.5 E 119Bhp [08/23-]": 2,
+"HONDA City 2004 To 2005 4 Dr Sal 1.50 VTEC AUTO 108Bhp (A) [07/04-09/05]": 2,
+"HONDA City 2021 On 4 Dr Sal 1.5 1.5 V Sensing 119Bhp [11/21-]": 2,
+"HONDA City 1996 On 4 Dr Sal 1.5 EXi 101Bhp (A) [07/97-10/99]": 2,
+"HONDA City 2021 On 5 Dr Hatch 1.5 1.5 V Sensing 119Bhp [04/22-]": 2,
+"HONDA City 1999 To 2003 4 Dr Sal 1.5 EXi (Type Z) 104Bhp (A) [11/99-03/03]": 2,
+"HONDA City 2020 On 4 Dr Sal 1.50 1.5 E 119Bhp [10/20-]": 2,
+"HONDA CITY 5 DR HATCH 1.5 V (A) [22-]": 2,
+"HONDA City 2014 On 4 Dr Sal 1.50 1.5 Hybrid 108Bhp [07/17-]": 2,
+"HONDA City 2024 On 5 Dr Hatch 1.5 1.5 RS 119Bhp [05/24-]": 1,
+"HONDA City 2024 On 5 Dr Hatch 1.5 1.5 e:HEV RS 97Bhp [05/24-]": 1,
+"HONDA City 2021 On 5 Dr Hatch 1.5 1.5 E 119Bhp [12/21-05/24]": 1,
+"HONDA City 2021 On 5 Dr Hatch 1.5 1.5 V 119Bhp [12/21-05/24]": 1,
+"HONDA City 2021 On 5 Dr Hatch 1.5 RS e:HEV 97Bhp [02/22-05/24]": 1,
+"HONDA City 2020 To 2023 4 Dr Sal 1.5 1.5 S 119Bhp [10/20-08/23]": 1,
+"HONDA City 2024 On 5 Dr Hatch 1.5 1.5 E 119Bhp [05/24-]": 1,
+"HONDA City 2021 On 4 Dr Sal 1.5 RS e:HEV 97Bhp [03/21-]": 1,
+"HONDA City 2020 On 4 Dr Sal 1.5 1.5 S 119Bhp [10/20-]": 1,
+"HONDA CITY 5 DR HATCH 1.5 E e:HEV RS (A) [22-]": 1,
+"HONDA City 1996 To 1997 4 Dr Sal 1.3 EXi 94Bhp (M) [08/96-07/97]": 1,
+"HONDA City 2020 On 4 Dr Sal 1.50 1.5 S 119Bhp [10/20-]": 1,
+"HONDA CITY 4 DR SAL 1.5 E RS Hybrid (A) [20-]": 1,
+"HONDA City 2008 On 4 Dr Sal 1.50 i-VTEC (Grade E) AUTO 118Bhp (A) [06/12-03/14]": 1,
+"HONDA City 1996 On 4 Dr Sal 1.50 EXi AUTO 101Bhp (A) [07/97-10/99]": 1,
+"HONDA City 2005 On 4 Dr Sal 1.50 VTEC AUTO 108Bhp (A) [10/05-07/07]": 1,
+"HONDA City 2014 On 4 Dr Sal 1.50 S AUTO 118Bhp (A) [04/14-02/17]": 1
+},
+"TOYOTA|WISH": {
+"TOYOTA WISH MPV 1.8 CBA-ZNE10G (A)": 11,
+"TOYOTA WISH MPV 1.8 DBA-ZGE20G (A)": 6,
+"TOYOTA WISH MPV 1.8 DBA-ZGE20W (A) [09-]": 4,
+"TOYOTA WISH MPV 1.8 DBA-ZNE10G (A)": 3,
+"TOYOTA WISH MPV 2.0 ANE11R-JPPQKT (A)": 2,
+"TOYOTA WISH MPV 2.0 S (A) [06-]": 1,
+"TOYOTA WISH MPV 2.0 DBA-ANE10G (A)": 1,
+"TOYOTA Wish ZNE10 1.8 (A)": 1,
+"TOYOTA WISH MPV 2.0 DBA-ANE11W (A)": 1
+},
+"HONDA|JAZZ": {
+"HONDA Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade E) 118Bhp (A) [07/14-05/17]": 19,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade V) 118Bhp (A) [07/14-05/17]": 15,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.5 i-VTEC (Grade S) 118Bhp (A) [07/14-05/17]": 13,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.5 1.5 E 118Bhp [06/17-]": 12,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.5 1.5 S 118Bhp [06/17-]": 10,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.5 1.5 V 118Bhp [06/17-]": 8,
+"HONDA Jazz 2008 On 5 Dr Hatch 1.5 i-VTEC (Grade S) 118Bhp (A) [08/12-06/14]": 6,
+"HONDA Jazz 2003 On 5 Dr Hatch 1.5 VTEC 108Bhp (A) [04/04-07/06]": 3,
+"HONDA Jazz 2008 On 5 Dr Hatch 1.30 HYBRID AUTO 101Bhp (A) [03/12-06/14]": 3,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.50 i-VTEC (Grade E) AUTO 118Bhp (A) [07/14-05/17]": 3,
+"HONDA Jazz 2003 To 2008 5 Dr Hatch 1.4 i-DSI 82Bhp (A) [03/03-]": 2,
+"HONDA Jazz 2008 On 5 Dr Hatch 1.5 i-VTEC (Grade S) 118Bhp (A) [08/08-03/11]": 2,
+"HONDA Jazz 2008 On 5 Dr Hatch 1.3 HYBRID 101Bhp (A) [03/12-06/14]": 2,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.50 i-VTEC (Grade S) AUTO 118Bhp (A) [07/14-05/17]": 2,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.50 1.5 V 118Bhp [06/17-]": 2,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.50 i-VTEC (Grade V) AUTO 118Bhp (A) [07/14-05/17]": 2,
+"HONDA Jazz 2008 To 2014 5 Dr Hatch 1.5 i-VTEC (Grade S) CKD 118Bhp (A) [07/13-06/14]": 1,
+"HONDA Jazz 2003 To 2008 5 Dr Hatch 1.5 VTEC 108Bhp (A) [04/04-07/06]": 1,
+"HONDA Jazz 2008 To 2014 5 Dr Hatch 1.5 i-VTEC (Grade V) 118Bhp (A) [04/11-07/12]": 1,
+"HONDA Jazz 2003 To 2008 5 Dr Hatch 1.5 i-DSI 87Bhp (A) [04/04-07/06]": 1,
+"HONDA Jazz 2008 To 2014 5 Dr Hatch 1.3 HYBRID 101Bhp (A) [03/12-06/14]": 1,
+"HONDA Jazz Hybrid 2014 On 5 Dr Hatch 1.5 1.5 Hybrid 108Bhp [06/17-]": 1,
+"HONDA Jazz 2003 On 5 Dr Hatch 1.4 i-DSI 82Bhp (A) [03/03-]": 1,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.5 1.5 Hybrid 108Bhp [06/17-]": 1,
+"HONDA Jazz 2008 On 5 Dr Hatch 1.5 i-VTEC (Grade V) 118Bhp (A) [04/11-07/12]": 1,
+"HONDA Jazz 2008 On 5 Dr Hatch 1.5 i-VTEC (Grade S) CKD 118Bhp (A) [07/13-06/14]": 1,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.50 1.5 S 118Bhp [06/17-]": 1,
+"HONDA Jazz 2008 On 5 Dr Hatch 1.50 i-VTEC (Grade S) AUTO 118Bhp (A) [08/12-06/14]": 1,
+"HONDA Jazz 2008 On 5 Dr Hatch 1.50 i-VTEC (Grade V) AUTO 118Bhp (A) [04/11-07/12]": 1,
+"HONDA Jazz 2014 On 5 Dr Hatch 1.50 1.5 E 118Bhp [06/17-]": 1
+},
+"TOYOTA|COROLLA": {
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 G (ZRE172R-GEXEKE) 137Bhp [11/14-11/16]": 10,
+"TOYOTA Corolla Altis 2001 On 4 Dr Sal 1.8 G (ZZE122R-GEPEKE) 134Bhp (A) [02/04-02/08]": 9,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 G (ZRE172R-GEXEKE) 137Bhp [12/16-10/19]": 8,
+"TOYOTA Corolla Altis 2001 On 4 Dr Sal 1.8 G (ZZE122R-GEPEKE) 134Bhp (A) [08/01-01/04]": 8,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 E (ZRE172R-GEXEKE) 137Bhp (A) [01/14-11/16]": 7,
+"TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.8 E (ZRE142R-GEXEKT) 138Bhp (A) [09/10-12/13]": 7,
+"TOYOTA Corolla Altis 2019 On 4 Dr Sal 1.8 G (ZRE211R-GEXEKE SS) 137Bhp [10/19-]": 6,
+"TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.8 G (ZRE142R-GEXGKE) 138Bhp (A) [09/10-12/13]": 6,
+"TOYOTA Corolla Altis 2001 On 4 Dr Sal 1.6 E (ZZE121R-GEPNKE) 108Bhp (A) [02/04-02/08]": 5,
+"TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.8 G (ZZE142R-GEPGKE) 130Bhp (A) [03/08-08/10]": 5,
+"TOYOTA Corolla Cross 2022 To 2024 5 Dr SUV 1.8 V (ZSG10R-JHXEKE X2) 138Bhp [01/22-12/24]": 4,
+"TOYOTA Corolla Altis 2008 On 4 Dr Sal 2 V (ZRE143R-GEXVKE) 145Bhp (A) [09/10-12/13]": 4,
+"TOYOTA Corolla Cross 2022 On 5 Dr SUV 1.8 V (ZSG10R-JHXEKE X2) 138Bhp [01/22-]": 4,
+"TOYOTA Corolla Cross 2024 On 5 Dr SUV 1.8 1.8V (ZSG10R-JHXEKE 3A) 138Bhp [12/24-]": 3,
+"TOYOTA Corolla Cross Hybrid 2022 On 5 Dr SUV 1.8 (ZVG10R-JHXEBE X3) 97Bhp [01/22-]": 3,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 2 V (ZRE173R-GEXVKE) 143Bhp (A) [01/14-11/16]": 3,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 2 G (ZRE173R-GEXGKE) 143Bhp (A) [01/14-10/14]": 2,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.80 G (ZRE172R-GEXEKE) 137Bhp [12/16-]": 2,
+"TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.80 G (ZRE142R-GEXGKE) AUTO 138Bhp (A) [09/10-12/13]": 2,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.80 G (ZRE172R-GEXEKE) 137Bhp [11/14-11/16]": 2,
+"TOYOTA Corolla Altis 2023 On 4 Dr Sal 1.8 G (ZRE211R-GEXEKE C2) 137Bhp [08/23-]": 1,
+"TOYOTA Corolla Cross 2022 To 2024 5 Dr SUV 1.8 G (ZSG10R-JHXGKE X1) 138Bhp [01/22-12/24]": 1,
+"TOYOTA Corolla Cross Hybrid 5 Dr SUV 1.8 (ZVG10R-JHXEBE X3) 97Bhp [01/22-12/24]": 1,
+"TOYOTA Corolla Altis 2023 On 4 Dr Sal 1.8 E (ZRE211R-GEXEKE C1) 137Bhp [08/23-]": 1,
+"TOYOTA Corolla Altis 2023 On 4 Dr Sal 1.8 GR Sport 137Bhp [08/23-]": 1,
+"TOYOTA Corolla 1998 On 4 Dr Sal 1.6 SE-G 108Bhp (A) [01/98-05/99]": 1,
+"TOYOTA COROLLA CROSS 5 DR SUV 1.8 GR-S (A) [23-]": 1,
+"TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.8 E (ZZE142R-GEPEKT) 130Bhp (A) [03/08-08/10]": 1,
+"TOYOTA Corolla 1996 On 4 Dr Sal 1.3 GLi 85Bhp (M) [01/96-12/97]": 1,
+"TOYOTA COROLLA 4 DR SAL 1.3 AE101 (A)": 1,
+"TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.6 E (ZZE141R-GEPEKE) 108Bhp (A) [03/08-08/10]": 1,
+"TOYOTA COROLLA 4 DR SAL 1.6 EE90 (A)": 1,
+"TOYOTA Corolla 1996 On 4 Dr Sal 1.6 SE-G 108Bhp (M) [01/96-12/97]": 1,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 G (ZRE172R-GEXEKE) 137Bhp [12/16-]": 1,
+"TOYOTA Corolla 1996 On 4 Dr Sal 1.6 SE-G 108Bhp (A) [01/96-12/97]": 1,
+"TOYOTA Corolla Altis 2008 On 4 Dr Sal 1.80 G (ZZE142R-GEPGKE) AUTO 130Bhp (A) [03/08-08/10]": 1,
+"TOYOTA Corolla 1996 On 4 Dr Sal 1.60 SE-G AUTO 108Bhp (A) [01/96-12/97]": 1,
+"TOYOTA Corolla Altis 2001 On 4 Dr Sal 1.60 E (ZZE121R-GEPNKE) AUTO 108Bhp (A) [08/01-01/04]": 1,
+"TOYOTA COROLLA AE92 4 DR SAL 1.6 (A)": 1,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 2.00 V (ZRE173R-GEXVKE) AUTO 143Bhp (A) [01/14-11/16]": 1,
+"TOYOTA Corolla Altis 2019 On 4 Dr Sal 1.80 G (ZRE211R-GEXEKE SS) 137Bhp [10/19-]": 1,
+"TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.80 E (ZRE172R-GEXEKE) AUTO 137Bhp (A) [01/14-11/16]": 1
+},
+"TOYOTA|VELLFIRE": {
+"TOYOTA VELLFIRE MPV 2.4 DBA-ANH20W (A)": 15,
+"TOYOTA VELLFIRE MPV 2.5 DBA-AGH30W (A)": 11,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20R-PFXGK [06/09-01/15]": 7,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30W-NFXSK [01/15-]": 7,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30W-NRXQK [01/15-01/18]": 5,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20W-NFXGK [04/08-01/15]": 5,
+"TOYOTA Vellfire 2020 To 2023 MPV 2.5 2.5 (AGH30R-NFXLK) 177Bhp [02/20-10/23]": 4,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20W-NFXSK [04/08-01/15]": 4,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20R-PRXSK [06/09-01/15]": 4,
+"TOYOTA Vellfire 2016 On MPV 2.5 AGH30R-NFXLK 177Bhp [02/18-]": 4,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30R-PFXGK [01/15-]": 3,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30R-NFXRK [05/21-]": 3,
+"TOYOTA VELLFIRE MPV 2.4 DBA-AGH30W (ANH20) (A)": 3,
+"TOYOTA Vellfire 2016 On MPV 2.5 AGH30R-NFXLK 177Bhp [08/16-]": 3,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30W-NFXGK [01/15-]": 2,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30R-NFXSK [08/19-]": 2,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20W-NRXSK [04/08-01/15]": 2,
+"TOYOTA Vellfire 2016 To 2020 MPV 2.5 AGH30R-NFXLK 177Bhp [02/18-02/20]": 2,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH35W-NRXQK [01/15-01/18]": 2,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20W-PRXQK [04/08-01/15]": 2,
+"TOYOTA VELLFIRE MPV 3.5 DBA-GGH30W (A) [15-]": 2,
+"TOYOTA Vellfire 2016 On MPV 2.50 AGH30R-NFXLK 177Bhp [02/18-]": 2,
+"TOYOTA Vellfire 2016 On MPV 2.50 AGH30R-NFXLK 177Bhp [08/16-]": 2,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20W-NFXQK [04/08-01/15]": 1,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20W-PFXSK [04/08-01/15]": 1,
+"TOYOTA Vellfire (Grey Import) MPV 3.5 GGH20W-PRTGK (A) [04/08-10/11]": 1,
+"TOYOTA VELLFIRE MPV 2.4 Z-Premier (TAHA40) (A)": 1,
+"TOYOTA Vellfire (Grey Import) MPV 3.5 GGH20W-NFTQK (A) [04/08-01/15]": 1,
+"TOYOTA Vellfire 2023 On MPV 2.5 2.5 (AGH40R-PFXTKE VR) 180Bhp [10/23-]": 1,
+"TOYOTA Vellfire (Grey Import) MPV 3.5 GGH30W-NFTQK (A) [01/15-01/18]": 1,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH30W-PRXQK [01/15-01/18]": 1,
+"TOYOTA Vellfire (Grey Import) MPV 2.5 AGH35W-NRXGK [01/15-]": 1,
+"TOYOTA Vellfire (Grey Import) MPV 2.4 ANH20W-NRXGK [04/08-01/15]": 1,
+"TOYOTA Vellfire 2016 To 2020 MPV 2.5 AGH30R-NFXLK 177Bhp [08/16-01/18]": 1,
+"TOYOTA VELLFIRE MPV 2.4 DBA-ANH25W (A)": 1,
+"TOYOTA VELLFIRE MPV 2.4 ANH25 (A)": 1,
+"TOYOTA VELLFIRE MPV 3.5 DBA-ANH20W (2GR) (A)": 1,
+"TOYOTA VELLFIRE MPV 2.4 Golden Eyes (ANH20) (A)": 1
+},
+"TOYOTA|VIOS": {
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP150R) 108Bhp (A) [10/13-09/16]": 21,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [04/10-06/12]": 20,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP150R) 108Bhp (A) [10/13-09/16]": 19,
+"TOYOTA Vios 2023 On 4 Dr Sal 1.5 1.5G (NGC102R-EEXHKE 1B) 104Bhp [03/23-]": 19,
+"TOYOTA Vios 2019 To 2020 4 Dr Sal 1.5 G (NSP151R-BEXGKE V3) 105Bhp [01/19-12/20]": 17,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [10/07-03/10]": 16,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP93R) 108Bhp (A) [04/10-06/12]": 16,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [10/07-03/10]": 15,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP150R) 108Bhp (A) [10/13-09/16]": 14,
+"TOYOTA Vios 2003 To 2007 4 Dr Sal 1.5 G (NCP42R) 108Bhp (A) [12/05-09/07]": 13,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [04/10-06/12]": 11,
+"TOYOTA Vios 2003 To 2007 4 Dr Sal 1.5 G (NCP42R) 108Bhp (A) [06/03-11/05]": 9,
+"TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 E (NSP151R-BEXRKE E2) 106Bhp [10/16-12/18]": 9,
+"TOYOTA Vios 2003 To 2007 4 Dr Sal 1.5 E (NCP42R) 108Bhp (A) [12/05-09/07]": 9,
+"TOYOTA Vios 2003 To 2007 4 Dr Sal 1.5 E (NCP42R) 108Bhp (A) [06/03-11/05]": 9,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP93R) 108Bhp (A) [07/08-03/10]": 9,
+"TOYOTA Vios 2020 To 2023 4 Dr Sal 1.5 G (NSP151R-BEXGKE W3) 105Bhp [12/20-]": 8,
+"TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 J (NSP151R-BEXDKE E1) 106Bhp [10/16-12/18]": 8,
+"TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 G (NSP151R-BEXGKE E3) 106Bhp [10/16-12/18]": 8,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 G (NCP150R) 108Bhp (A) [10/13-09/16]": 8,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 J (NCP150R) 108Bhp (A) [10/13-09/16]": 8,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 S (NCP93R) 108Bhp (A) [10/07-05/09]": 7,
+"TOYOTA Vios 2020 To 2023 4 Dr Sal 1.5 E (NSP151R-BEXRKE W2) 105Bhp [12/20-]": 7,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 G (NCP150R) AUTO 108Bhp (A) [10/13-09/16]": 7,
+"TOYOTA Vios 2003 On 4 Dr Sal 1.5 E (NCP42R) 108Bhp (A) [12/05-09/07]": 7,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [04/10-06/12]": 7,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [07/12-09/13]": 6,
+"TOYOTA Vios 2019 To 2020 4 Dr Sal 1.5 E (NSP151R-BEXRKE V2) 105Bhp [01/19-12/20]": 6,
+"TOYOTA Vios 2003 On 4 Dr Sal 1.5 G (NCP42R) 108Bhp (A) [12/05-09/07]": 6,
+"TOYOTA Vios 2016 On 4 Dr Sal 1.5 E (NSP151R-BEXRKE E2) 106Bhp [10/16-12/18]": 6,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 J (NCP150R) AUTO 108Bhp (A) [10/13-09/16]": 6,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 G Limited (NCP93R) 108Bhp (A) [07/12-09/13]": 5,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP93R) 108Bhp (A) [07/12-09/13]": 5,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [07/12-09/13]": 5,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 TRD Sportivo (NCP150R) 108Bhp (A) [10/13-09/16]": 5,
+"TOYOTA Vios 2020 To 2023 4 Dr Sal 1.5 G (NSP151R-BEXGKE W3) 105Bhp [12/20-03/23]": 4,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 TRD Sportivo (NCP150R) 108Bhp (A) [10/13-09/16]": 4,
+"TOYOTA Vios 2016 On 4 Dr Sal 1.50 E (NSP151R-BEXRKE E2) 106Bhp [10/16-12/18]": 4,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 G (NCP93R) AUTO 108Bhp (A) [10/07-03/10]": 4,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 E (NCP150R) AUTO 108Bhp (A) [10/13-09/16]": 4,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP93R) 108Bhp (M) [07/08-03/10]": 3,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 TRD Sportivo (NCP93R) 108Bhp (A) [06/09-03/10]": 3,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 S (NCP93R) 108Bhp (A) [10/07-05/09]": 3,
+"TOYOTA Vios 2003 On 4 Dr Sal 1.5 G (NCP42R) 108Bhp (A) [06/03-11/05]": 3,
+"TOYOTA Vios 2016 On 4 Dr Sal 1.5 J (NSP151R-BEXDKE E1) 106Bhp [10/16-12/18]": 3,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 J (NCP93R) AUTO 108Bhp (A) [07/08-03/10]": 3,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 G (NCP93R) AUTO 108Bhp (A) [04/10-06/12]": 3,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 J (NCP93R) 108Bhp (M) [07/12-09/13]": 3,
+"TOYOTA Vios 2003 On 4 Dr Sal 1.50 G (NCP42R) AUTO 108Bhp (A) [06/03-11/05]": 3,
+"TOYOTA Vios 2023 To 2026 4 Dr Sal 1.5 1.5G (NGC102R-EEXHKE 1B) 104Bhp [03/23-01/26]": 2,
+"TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 GX (NSP151R-BEXGKE E4) 106Bhp [10/16-12/18]": 2,
+"TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 J (NSP151R-BEMDKE A1) 106Bhp (M) [10/16-12/18]": 2,
+"TOYOTA Vios 2023 On 4 Dr Sal 1.5 1.5E (NGC102R-EEXMKE 1A) 104Bhp [03/23-]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 E (NCP150R) 108Bhp (A) [10/13-09/16]": 2,
+"TOYOTA Vios 2020 On 4 Dr Sal 1.5 GR Sport (NSP151R-BEXGKE W3) 105Bhp [12/20-]": 2,
+"TOYOTA Vios 2003 On 4 Dr Sal 1.5 E (NCP42R) 108Bhp (A) [06/03-11/05]": 2,
+"TOYOTA Vios 2020 On 4 Dr Sal 1.5 E (NSP151R-BEXRKE W2) 105Bhp [12/20-]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [04/10-06/12]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 E (NCP93R) 108Bhp (A) [10/07-03/10]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 J (NCP93R) 108Bhp (M) [07/08-03/10]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [10/07-03/10]": 2,
+"TOYOTA Vios 2019 On 4 Dr Sal 1.50 E (NSP151R-BEXRKE V2) 105Bhp [01/19-12/20]": 2,
+"TOYOTA Vios 2016 On 4 Dr Sal 1.50 G (NSP151R-BEXGKE E3) 106Bhp [10/16-12/18]": 2,
+"TOYOTA Vios 2016 On 4 Dr Sal 1.50 GX (NSP151R-BEXGKE E4) 106Bhp [10/16-12/18]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 J (NCP93R) AUTO 108Bhp (A) [04/10-06/12]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 E (NCP93R) AUTO 108Bhp (A) [10/07-03/10]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 E (NCP93R) AUTO 108Bhp (A) [04/10-06/12]": 2,
+"TOYOTA Vios 2016 On 4 Dr Sal 1.50 J (NSP151R-BEXDKE E1) 106Bhp [10/16-12/18]": 2,
+"TOYOTA Vios 2003 On 4 Dr Sal 1.50 E (NCP42R) AUTO 108Bhp (A) [12/05-09/07]": 2,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 TRD Sportivo (NCP150R) AUTO 108Bhp (A) [10/13-09/16]": 2,
+"TOYOTA Vios 2026 On 4 Dr Sal 1.5 1.5 HEV (NYC100R-EEXHBE 1E) 90Bhp [01/26-]": 1,
+"TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 Sports Edition (NSP151R-BEXDKE CE) 106Bhp [07/17-12/20]": 1,
+"TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 TRD Sportivo (NSP151R-BEXVKE E5) 106Bhp [10/16-12/20]": 1,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 TRD Sportivo (NCP93R) 108Bhp (A) [04/10-06/11]": 1,
+"TOYOTA Vios 2020 On 4 Dr Sal 1.50 E (NSP151R-BEXRKE W2) 105Bhp [12/20-]": 1,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 J (NCP93R) 108Bhp (M) [04/10-06/12]": 1,
+"TOYOTA Vios 2007 To 2016 4 Dr Sal 1.5 TRD Sportivo (NCP93R) 108Bhp (A) [07/11-06/12]": 1,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 J (NCP93R) 108Bhp (A) [04/10-06/12]": 1,
+"TOYOTA Vios 2016 On 4 Dr Sal 1.5 G (NSP151R-BEXGKE E3) 106Bhp [10/16-12/18]": 1,
+"TOYOTA Vios 2019 On 4 Dr Sal 1.5 G (NSP151R-BEXGKE V3) 105Bhp [01/19-12/20]": 1,
+"TOYOTA Vios 2019 On 4 Dr Sal 1.5 E (NSP151R-BEXRKE V2) 105Bhp [01/19-12/20]": 1,
+"TOYOTA Vios 2016 On 4 Dr Sal 1.5 GX (NSP151R-BEXGKE E4) 106Bhp [10/16-12/18]": 1,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 G Limited (NCP93R) 108Bhp (A) [07/11-06/12]": 1,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 J (NCP93R) 108Bhp (A) [07/08-03/10]": 1,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.5 G (NCP93R) 108Bhp (A) [07/12-09/13]": 1,
+"TOYOTA Vios 2020 On 4 Dr Sal 1.50 G (NSP151R-BEXGKE W3) 105Bhp [12/20-]": 1,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 G (NCP93R) AUTO 108Bhp (A) [07/12-09/13]": 1,
+"TOYOTA Vios 2020 On 4 Dr Sal 1.50 J (NSP151R-BEXDKE W1) 105Bhp [12/20-]": 1,
+"TOYOTA Vios 2019 On 4 Dr Sal 1.50 G (NSP151R-BEXGKE V3) 105Bhp [01/19-12/20]": 1,
+"TOYOTA Vios 2016 To 2020 4 Dr Sal 1.5 G (NSP151R-BEXGKE E3)": 1,
+"TOYOTA Vios 2007 On 4 Dr Sal 1.50 TRD Sportivo (NCP93R) AUTO 108Bhp (A) [07/12-09/13]": 1
+},
+"PERODUA|KENARI": {
+"PERODUA Kenari 2000 On Mini Van 1 EZ 54Bhp (A) [04/03-]": 5,
+"PERODUA Kenari 2000 On Mini Van 1 EZ 54Bhp (A) [06/00-03/03]": 4,
+"PERODUA Kenari 2000 On Mini Van 1 EZ AERO 54Bhp (A) [04/03-]": 2,
+"PERODUA Kenari 2000 On Mini Van 1 GX 54Bhp (M) [06/00-03/03]": 1,
+"PERODUA Kenari 2000 On Mini Van 1 GX AERO 54Bhp (M) [04/03-]": 1,
+"PERODUA Kenari 2000 On Mini Van 1 GX 54Bhp (M) [04/03-]": 1,
+"PERODUA Kenari 2000 On Mini Van 1.00 GX AERO 54Bhp (M) [04/03-]": 1,
+"PERODUA Kenari 2000 On Mini Van 1.00 EZS AUTO 54Bhp (A) [04/03-]": 1,
+"PERODUA Kenari 2000 On Mini Van 1.00 GX 54Bhp (M) [06/00-03/03]": 1
+},
+"PROTON|IRIZ": {
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 PREMIUM 107Bhp (A) [09/14-05/17]": 4,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.3 Standard 94Bhp (A) [09/14-05/17]": 3,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 E 107Bhp (A) [09/14-05/17]": 3,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 Premium 107Bhp [04/19-]": 3,
+"PROTON Iriz 2021 On 5 Dr Hatch 1.6 Executive 107Bhp [08/21-]": 3,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 PREMIUM 107Bhp [06/17-03/19]": 3,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.3 Executive 94Bhp [04/19-]": 3,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 Executive 107Bhp [04/19-]": 2,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.30 E AUTO 94Bhp (A) [09/14-05/17]": 2,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.60 PREMIUM AUTO 107Bhp (A) [09/14-05/17]": 2,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.3 E 94Bhp (M) [09/14-05/17]": 1,
+"PROTON Iriz 2021 On 5 Dr Hatch 1.6 Active 107Bhp [08/21-]": 1,
+"PROTON Iriz 2021 To 2021 5 Dr Hatch 1.6 R3 Limited Edition 107Bhp [02/21-08/21]": 1,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.6 E 107Bhp (M) [09/14-05/17]": 1,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.3 Standard 94Bhp [06/17-03/19]": 1,
+"PROTON Iriz 2021 On 5 Dr Hatch 1.3 Standard 94Bhp [08/21-]": 1,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.3 Executive 94Bhp [06/17-03/19]": 1,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.3 Standard 94Bhp [04/19-]": 1,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.60 PREMIUM 107Bhp (M) [09/14-05/17]": 1,
+"PROTON Iriz 2014 To 2021 5 Dr Hatch 1.30 Standard 94Bhp (M) [09/14-05/17]": 1
+},
+"TOYOTA|AVANZA": {
+"TOYOTA Avanza 2004 On MPV 1.3 89Bhp (A) [10/04-09/06]": 11,
+"TOYOTA Avanza 2012 On MPV 1.5 G (F654RM-GQMFMKX) 104Bhp (A) [10/15-]": 6,
+"TOYOTA Avanza 2012 On MPV 1.5 G (F652RM-GQMFM) 102Bhp (A) [01/12-09/15]": 5,
+"TOYOTA Avanza 2004 On MPV 1.30 AUTO 89Bhp (A) [10/04-09/06]": 5,
+"TOYOTA Avanza 2004 On MPV 1.3 E 91Bhp (M) [10/06-09/08]": 4,
+"TOYOTA Avanza 2012 On MPV 1.50 G (F652RM-GQMFM) AUTO 102Bhp (A) [01/12-09/15]": 4,
+"TOYOTA Avanza 2004 On MPV 1.3 89Bhp (M) [10/04-09/06]": 3,
+"TOYOTA Avanza 2004 On MPV 1.5 G 108Bhp (A) [10/08-11/10]": 3,
+"TOYOTA Avanza 2012 On MPV 1.5 E (F652RM-GQDFM) 102Bhp (A) [01/12-09/15]": 3,
+"TOYOTA Avanza 2004 On MPV 1.5 G 108Bhp (A) [12/10-12/11]": 3,
+"TOYOTA Avanza 2004 On MPV 1.30 89Bhp (M) [10/04-09/06]": 3,
+"TOYOTA Avanza 2012 On MPV 1.3 E (F651RM-GMDFM) 91Bhp (M) [01/12-09/15]": 2,
+"TOYOTA Avanza 2004 On MPV 1.3 E 91Bhp (A) [10/06-09/08]": 2,
+"TOYOTA Avanza 2012 On MPV 1.5 S (F654RM-GQSFMKC) 104Bhp (A) [10/15-]": 2,
+"TOYOTA Avanza 2004 On MPV 1.5 G 108Bhp (A) [10/06-09/08]": 2,
+"TOYOTA Avanza 2004 On MPV 1.5 S 108Bhp (A) [10/08-11/10]": 1,
+"TOYOTA Avanza 2012 On MPV 1.5 S (F652RM-GQSFM) 102Bhp (A) [01/12-09/15]": 1,
+"TOYOTA Avanza 2004 On MPV 1.5 E 108Bhp (A) [10/08-11/10]": 1,
+"TOYOTA Avanza 2012 On MPV 1.5 E (F654RM-GQDFMKB) 104Bhp (A) [10/15-]": 1,
+"TOYOTA Avanza 2004 On MPV 1.50 G AUTO 108Bhp (A) [10/06-09/08]": 1,
+"TOYOTA Avanza 2012 On MPV 1.50 S (F652RM-GQSFM) AUTO 102Bhp (A) [01/12-09/15]": 1,
+"TOYOTA Avanza 2004 On MPV 1.50 E AUTO 108Bhp (A) [12/10-12/11]": 1,
+"TOYOTA Avanza 2004 On MPV 1.50 S AUTO 108Bhp (A) [10/08-11/10]": 1
+},
+"PERODUA|AXIA": {
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 G (A) 67Bhp (A) [09/14-01/17]": 47,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 G (A) 67Bhp (A) [01/17-08/19]": 28,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 SE (A) 67Bhp (A) [01/17-08/19]": 19,
+"PERODUA Axia 2023 On 5 Dr Hatch 1 1.0 SE 67Bhp [02/23-]": 13,
+"PERODUA Axia 2019 On 5 Dr Hatch 1 GXtra 67Bhp (A) [09/19-]": 11,
+"PERODUA Axia 2019 On 5 Dr Hatch 1 SE 67Bhp (A) [09/19-]": 10,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 Advance 67Bhp (A) [09/14-01/17]": 10,
+"PERODUA Axia 2023 On 5 Dr Hatch 1 1.0 X 67Bhp [02/23-]": 8,
+"PERODUA Axia 2023 On 5 Dr Hatch 1 1.0 G 67Bhp [02/23-]": 8,
+"PERODUA Axia 2019 On 5 Dr Hatch 1 G 67Bhp (A) [09/19-]": 7,
+"PERODUA Axia 2023 On 5 Dr Hatch 1 1.0 AV 67Bhp [02/23-]": 6,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 E 67Bhp (M) [09/14-01/17]": 6,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 SE (A) 67Bhp (A) [09/14-01/17]": 6,
+"PERODUA Axia 2019 On 5 Dr Hatch 1.00 SE AUTO 67Bhp (A) [09/19-]": 6,
+"PERODUA Axia 2019 On 5 Dr Hatch 1.00 G AUTO 67Bhp (A) [09/19-]": 6,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 G (A) AUTO 67Bhp (A) [09/14-01/17]": 6,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 Advance 67Bhp (A) [01/17-08/19]": 5,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 SE (A) AUTO 67Bhp (A) [01/17-08/19]": 5,
+"PERODUA Axia 2019 On 5 Dr Hatch 1 E 67Bhp (M) [09/19-]": 4,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 G (A) AUTO 67Bhp (A) [01/17-08/19]": 4,
+"PERODUA Axia 2019 On 5 Dr Hatch 1 1.0 E 67Bhp (M) [06/23-]": 3,
+"PERODUA Axia 2019 On 5 Dr Hatch 1 Style 67Bhp (A) [09/19-]": 3,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 G (M) 67Bhp (M) [09/14-01/17]": 3,
+"PERODUA Axia 2019 On 5 Dr Hatch 1.00 GXtra AUTO 67Bhp (A) [09/19-]": 3,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 E 67Bhp (M) [01/17-08/19]": 2,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 Advance AUTO 67Bhp (A) [09/14-01/17]": 2,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 G (M) 67Bhp (M) [09/14-01/17]": 2,
+"PERODUA Axia 2019 On 5 Dr Hatch 1.00 AV AUTO 67Bhp (A) [09/19-]": 2,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 SE (A) AUTO 67Bhp (A) [09/14-01/17]": 2,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 G (M) 67Bhp (M) [01/17-08/19]": 1,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 SE (M) 67Bhp (M) [09/14-01/17]": 1,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1 SE (M) 67Bhp (M) [01/17-08/19]": 1,
+"PERODUA Axia 2019 On 5 Dr Hatch 1 AV 67Bhp (A) [09/19-]": 1,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 Advance AUTO 67Bhp (A) [01/17-08/19]": 1,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 E 67Bhp (M) [01/17-08/19]": 1,
+"PERODUA Axia 2014 To 2019 5 Dr Hatch 1.00 E 67Bhp (M) [09/14-01/17]": 1
+},
+"PROTON|WIRA": {
+"PROTON Wira 1993 On 4 Dr Sal 1.5 GLi 86Bhp (A) [02/98-]": 9,
+"PROTON Wira 1993 On 5 Dr Hatch 1.5 GLi Special Edition 86Bhp (M) [08/03-]": 6,
+"PROTON Wira 1993 On 4 Dr Sal 1.5 GL 86Bhp (M) [09/95-]": 5,
+"PROTON Wira 1993 On 5 Dr Hatch 1.5 GLi 86Bhp (M) [01/02-]": 5,
+"PROTON Wira 1993 On 5 Dr Hatch 1.5 GLi 86Bhp (A) [02/98-]": 4,
+"PROTON Wira 1993 On 5 Dr Hatch 1.3 GLi 81Bhp (M) [02/98-]": 4,
+"PROTON Wira 1993 On 4 Dr Sal 1.3 GL 81Bhp (M) [09/95-]": 3,
+"PROTON Wira 1993 On 4 Dr Sal 1.5 GL 86Bhp (A) [09/95-]": 3,
+"PROTON Wira 1993 On 5 Dr Hatch 1.5 GLi Special Edition 86Bhp (A) [08/03-]": 3,
+"PROTON Wira 1993 On 4 Dr Sal 1.6 XLi 111Bhp (A) [05/93-08/95]": 3,
+"PROTON Wira 1993 On 4 Dr Sal 1.50 GL 86Bhp (M) [09/95-]": 3,
+"PROTON Wira 1993 On 4 Dr Sal 1.5 GLi 86Bhp (M) [02/98-]": 2,
+"PROTON Wira 1993 On 5 Dr Hatch 1.6 XLi 111Bhp (A) [09/95-]": 2,
+"PROTON Wira 1993 On 4 Dr Sal 1.3 GLi 81Bhp (M) [02/98-]": 2,
+"PROTON Wira 1993 On 4 Dr Sal 1.50 GLi AUTO 86Bhp (A) [02/98-]": 2,
+"PROTON Wira 1993 On 4 Dr Sal 1.50 GLi 86Bhp (M) [02/98-]": 2,
+"PROTON Wira 1993 On 5 Dr Hatch 1.60 XLi AUTO 111Bhp (A) [09/95-]": 2,
+"PROTON Wira 1993 On 5 Dr Hatch 1.50 GLi AUTO 86Bhp (A) [02/98-]": 2,
+"PROTON Wira 1993 On 4 Dr Sal 1.6 XLi 111Bhp (A) [09/95-]": 1,
+"PROTON Wira 1993 On 4 Dr Sal 1.5 GL 86Bhp (A) [05/93-08/95]": 1,
+"PROTON Wira 1993 On 5 Dr Hatch 1.5 GL 86Bhp (M) [05/93-08/95]": 1,
+"PROTON Wira 1993 On 5 Dr Hatch 1.5 GL 86Bhp (A) [09/95-]": 1,
+"PROTON Wira 1993 On 4 Dr Sal 1.3 GL 81Bhp (M) [05/93-08/95]": 1,
+"PROTON Wira 1993 On 4 Dr Sal 1.6 XLi 111Bhp (M) [09/95-]": 1,
+"PROTON Wira 1993 On 5 Dr Hatch 1.5 GL 86Bhp (M) [09/95-]": 1,
+"PROTON Wira 1993 On 4 Dr Sal 1.60 XL 111Bhp (M) [05/93-08/95]": 1,
+"PROTON Wira 1993 On 4 Dr Sal 1.30 GL 81Bhp (M) [05/93-08/95]": 1,
+"PROTON Wira 1993 On 5 Dr Hatch 1.30 GLi 81Bhp (M) [02/98-]": 1,
+"PROTON Wira 1993 On 4 Dr Sal 1.50 GL AUTO 86Bhp (A) [09/95-]": 1
+},
+"HONDA|CIVIC": {
+"HONDA Civic 2016 On 4 Dr Sal 1.5 TC-P 171Bhp [06/16-02/20]": 10,
+"HONDA Civic 2006 On 4 Dr Sal 1.8 S 138Bhp (A) [03/06-02/09]": 9,
+"HONDA Civic 2016 To 2020 4 Dr Sal 1.8 S 139Bhp [06/16-02/20]": 8,
+"HONDA Civic 2016 To 2020 4 Dr Sal 1.5 TC-P 171Bhp [06/16-02/20]": 7,
+"HONDA Civic 2016 On 4 Dr Sal 1.8 S 139Bhp [06/16-02/20]": 7,
+"HONDA Civic 2016 To 2020 4 Dr Sal 1.5 TC 171Bhp [06/16-02/20]": 6,
+"HONDA Civic 2006 On 4 Dr Sal 2 S 153Bhp (A) [04/07-02/09]": 6,
+"HONDA Civic 2006 On 4 Dr Sal 1.8 S 138Bhp (A) [03/09-06/12]": 5,
+"HONDA Civic 2016 On 4 Dr Sal 1.5 TC 171Bhp [06/16-02/20]": 5,
+"HONDA Civic 2020 To 2022 4 Dr Sal 1.5 TC 171Bhp [02/20-01/22]": 4,
+"HONDA Civic 2012 On 4 Dr Sal 1.8 S 139Bhp (A) [07/12-10/14]": 4,
+"HONDA Civic 2006 On 4 Dr Sal 2 S 153Bhp (A) [03/09-06/12]": 4,
+"HONDA Civic 2006 On 4 Dr Sal 1.80 S AUTO 138Bhp (A) [03/06-02/09]": 4,
+"HONDA Civic 2012 On 4 Dr Sal 1.8 S 139Bhp (A) [11/14-05/16]": 3,
+"HONDA Civic 2012 On 4 Dr Sal 2 S 153Bhp (A) [11/14-05/16]": 3,
+"HONDA Civic 2022 To 2025 4 Dr Sal 1.5 RS 180Bhp [01/22-01/25]": 3,
+"HONDA Civic 1991 On 4 Dr Sal 1.7 VTEC 128Bhp (A) [05/04-02/06]": 3,
+"HONDA Civic 2022 On 4 Dr Sal 1.5 RS 180Bhp [01/22-]": 3,
+"HONDA Civic 2006 On 4 Dr Sal 2 S 153Bhp (A) [03/06-03/07]": 3,
+"HONDA Civic 2020 To 2022 4 Dr Sal 1.8 S 141Bhp [02/20-01/22]": 2,
+"HONDA Civic 1996 To 1999 4 Dr Sal 1.6 VTi (S04) (A) [01/96-06/99]": 2,
+"HONDA Civic 2012 On 4 Dr Sal 2 S 153Bhp (A) [07/12-10/14]": 2,
+"HONDA Civic 2020 On 4 Dr Sal 1.8 S 141Bhp [02/20-]": 2,
+"HONDA Civic 1991 On 4 Dr Sal 1.7 VTi-S 128Bhp (A) [08/03-04/04]": 2,
+"HONDA Civic 2012 On 4 Dr Sal 1.5 HYBRID 108Bhp (A) [07/12-05/16]": 2,
+"HONDA Civic 2020 On 4 Dr Sal 1.80 S 141Bhp [02/20-]": 2,
+"HONDA Civic 2006 On 4 Dr Sal 2.00 S AUTO 153Bhp (A) [04/07-02/09]": 2,
+"HONDA Civic 2016 To 2020 5 Dr Hatch 2 Type R (FK8) 306Bhp (M) [11/17-09/23]": 1,
+"HONDA Civic 2020 To 2022 4 Dr Sal 1.5 TC-P 171Bhp [02/20-01/22]": 1,
+"HONDA Civic 2001 To 2003 4 Dr Sal 1.7 EXi-S(S5A) 118Bhp (A) [02/01-07/03]": 1,
+"HONDA Civic 2025 On 4 Dr Sal 1.5 1.5 RS 180Bhp [01/25-]": 1,
+"HONDA Civic 2022 To 2025 4 Dr Sal 1.5 V 180Bhp [01/22-01/25]": 1,
+"HONDA Civic 2022 To 2025 4 Dr Sal 1.5 E 180Bhp [01/22-01/25]": 1,
+"HONDA CIVIC FERIO 4 DR SAL 1.8 EG9 (M)": 1,
+"HONDA Civic 1991 To 1995 4 Dr Sal 1.5 EX (SR4) 93Bhp (A) [01/91-12/95]": 1,
+"HONDA Civic 2012 On 4 Dr Sal 2 Navi 153Bhp (A) [07/12-10/14]": 1,
+"HONDA Civic 2006 On 4 Dr Sal 1.8 S-L 138Bhp (A) [07/10-06/12]": 1,
+"HONDA Civic 2022 On 4 Dr Sal 1.5 V 180Bhp [01/22-]": 1,
+"HONDA Civic 2022 On 4 Dr Sal 1.5 E 180Bhp [01/22-]": 1,
+"HONDA Civic 2020 On 4 Dr Sal 1.5 TC-P 171Bhp [02/20-]": 1,
+"HONDA Civic 2020 On 4 Dr Sal 1.5 TC 171Bhp [02/20-]": 1,
+"HONDA Civic 1991 To 1995 4 Dr Sal 1.60 EXi (SR4) AUTO (A) [01/91-12/95]": 1,
+"HONDA Civic 2016 On 4 Dr Sal 1.50 TC-P 171Bhp [06/16-02/20]": 1,
+"HONDA Civic 2020 On 4 Dr Sal 1.50 TC-P 171Bhp [02/20-]": 1,
+"HONDA Civic 2016 On 4 Dr Sal 1.80 S 139Bhp [06/16-02/20]": 1,
+"HONDA Civic 2012 On 4 Dr Sal 2.00 S AUTO 153Bhp (A) [07/12-10/14]": 1,
+"HONDA Civic 1996 To 1999 4 Dr Sal 1.60 VTi (S04) AUTO (A) [01/96-06/99]": 1,
+"HONDA Civic 2012 On 4 Dr Sal 1.80 S AUTO 139Bhp (A) [07/12-10/14]": 1,
+"HONDA Civic 2012 On 4 Dr Sal 1.50 HYBRID AUTO 108Bhp (A) [07/12-05/16]": 1,
+"HONDA Civic 2012 On 4 Dr Sal 1.80 S AUTO 139Bhp (A) [11/14-05/16]": 1
+},
+"NISSAN|GRAND": {
+"NISSAN Grand Livina 2007 On MPV 1.6 104Bhp (A) [12/07-05/11]": 12,
+"NISSAN Grand Livina 2007 On MPV 1.8 124Bhp (A) [12/07-05/11]": 9,
+"NISSAN Grand Livina 2007 On MPV 1.6 104Bhp (A) [06/11-08/13]": 5,
+"NISSAN Grand Livina 2007 On MPV 1.8 124Bhp (A) [06/11-08/13]": 3,
+"NISSAN Grand Livina 2007 On MPV 1.60 AUTO 104Bhp (A) [09/13-]": 3,
+"NISSAN Grand Livina 2007 On MPV 1.6 104Bhp (A) [09/13-]": 2,
+"NISSAN Grand Livina 2007 On MPV 1.8 124Bhp (A) [09/13-]": 2,
+"NISSAN Grand Livina 2007 On MPV 1.60 AUTO 104Bhp (A) [06/11-08/13]": 2,
+"NISSAN Grand Livina 2007 On MPV 1.80 AUTO 124Bhp (A) [09/13-]": 2,
+"NISSAN Grand Livina 2007 On MPV 1.60 AUTO 104Bhp (A) [12/07-05/11]": 1,
+"NISSAN Grand Livina 2007 On MPV 1.80 AUTO 124Bhp (A) [12/07-05/11]": 1
+},
+"MITSUBISHI|ASX": {
+"MITSUBISHI ASX 2010 On 5 Dr SUV 2 2WD GL 148Bhp [09/15-]": 5,
+"MITSUBISHI ASX 2010 On 5 Dr SUV 2 2WD 148Bhp [02/14-]": 4,
+"MITSUBISHI ASX 2010 On 5 Dr SUV 2 4WD 148Bhp [02/14-]": 2,
+"MITSUBISHI ASX 2010 On 5 Dr SUV 2 148Bhp (A) [11/10-12/11]": 1,
+"MITSUBISHI ASX 2010 On 5 Dr SUV 2.00 AUTO 148Bhp (A) [11/10-12/11]": 1
+},
+"MITSUBISHI|LANCER": {
+"MITSUBISHI Lancer 2007 On 4 Dr Sal 2 GT 153Bhp [08/09-07/12]": 3,
+"MITSUBISHI Lancer 2007 On 4 Dr Sal 2 GT 153Bhp (A) [08/07-06/09]": 2,
+"MITSUBISHI Lancer 2007 On 4 Dr Sal 2.00 GT 148Bhp [08/12-]": 2,
+"MITSUBISHI Lancer 2005 On 4 Dr Sal 1.6 GLX 105Bhp (A) [07/05-]": 1
+},
+"TOYOTA|HILUX": {
+"TOYOTA Hilux 2018 To 2020 4 Dr Pickup Dbl.Cab 2.4 L-Edition (GUN125R-DETSHE) 148Bhp (A) [03/18-10/20]": 9,
+"TOYOTA Hilux 2016 To 2020 4 Dr Pickup Dbl.Cab 2.4 G (GUN125R-DETSHECK) 148Bhp (A) [05/16-03/18]": 8,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHE) 101Bhp (A) [10/08-08/11]": 6,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHE) 142Bhp (A) [10/12-10/13]": 6,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHE) 101Bhp (A) [09/11-09/12]": 5,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHE) 101Bhp (A) [03/05-09/08]": 4,
+"TOYOTA Hilux 2020 On 4 Dr Pickup Dbl.Cab 2.4 E (GUN125R-DETSXE A3) 148Bhp (A) [10/20-]": 4,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHEHH) 142Bhp (A) [01/15-04/16]": 4,
+"TOYOTA Hilux 2016 To 2020 4 Dr Pickup Dbl.Cab 2.8 G (GUN126R-DETHHECM) 175Bhp (A) [05/16-03/18]": 3,
+"TOYOTA Hilux 2005 To 2016 2 DR Pickup 2.5 (KUN25R-TRMDHE) 101Bhp (M) [10/08-08/11]": 3,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRPSHE) 142Bhp (A) [11/13-12/14]": 3,
+"TOYOTA Hilux 2016 To 2020 4 Dr Pickup Dbl.Cab 2.4 (GUN135R-DEFLHECP) 148Bhp (M) [05/16-10/20]": 2,
+"TOYOTA Hilux 2020 On 4 Dr Pickup Dbl.Cab 2.4 G (GUN125R-DEFSXE A2) 148Bhp (M) [10/20-]": 2,
+"TOYOTA Hilux 2020 On 4 Dr Pickup Dbl.Cab 2.8 Rogue (GUN126R-DETHXE A5) 202Bhp (A) [10/20-]": 2,
+"TOYOTA Hilux 2018 To 2020 4 Dr Pickup Dbl.Cab 2.8 L-Edition (GUN126R-DETHHE) 175Bhp (A) [03/18-08/19]": 2,
+"TOYOTA Hilux 2022 On 4 Dr Pickup Dbl.Cab 2.8 GR-S (GUN126R-DETHXE H6) 202Bhp (A) [08/22-]": 2,
+"TOYOTA Hilux 2022 On 4 Dr Pickup Dbl.Cab 2.4 E (GUN125R-DEFSXE H2)) 148Bhp (M) [08/22-]": 2,
+"TOYOTA Hilux 2016 To 2020 2 DR Pickup 2.4 (GUN125R-BEFXHEAJ) 148Bhp (M) [05/16-10/20]": 2,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 3 G (KUN26R-PRPSYT) 161Bhp (A) [10/10-08/11]": 2,
+"TOYOTA Hilux 2020 On 4 Dr Pickup Dbl.Cab 2.4 V (GUN125R-DETHXE A4) 148Bhp (A) [10/20-]": 2,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G TRD Sportivo (KUN25R-PRPSHEHJ) 142Bhp (A) [01/15-04/16]": 2,
+"TOYOTA Hilux 2005 To 2016 2 DR Pickup 2.5 (KUN25R-TRMDHE) 142Bhp (M) [10/12-10/13]": 1,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRMSHEHG) 142Bhp (M) [01/15-04/16]": 1,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 Standard (KUN25R-PRMDHE) 101Bhp (M) [09/11-09/12]": 1,
+"TOYOTA Hilux 2016 To 2020 4 Dr Pickup Dbl.Cab 2.4 STD (GUN125R-DEFXHECJ) 148Bhp (M) [05/16-10/20]": 1,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 3 G (KUN26R-PRPSYT) 161Bhp (A) [09/11-10/13]": 1,
+"TOYOTA Hilux 2016 To 2020 4 Dr Pickup Dbl.Cab 2.4 G (GUN125R-DEFSHEAK) 148Bhp (M) [05/16-10/20]": 1,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRMSHE) 101Bhp (M) [09/11-09/12]": 1,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 Standard (KUN25R-PRMDHE) 142Bhp (M) [11/13-12/14]": 1,
+"TOYOTA Hilux 2005 To 2016 2 DR Pickup 2.5 (KUN25R-TRMDHE) 142Bhp (M) [11/13-04/16]": 1,
+"TOYOTA Hilux 2020 On 2 DR Pickup 2.4 GUN125R-BEFLXE A1 148Bhp (M) [10/20-]": 1,
+"TOYOTA Hilux 2005 To 2016 4 Dr Pickup Dbl.Cab 2.5 G (KUN25R-PRMSHE) 101Bhp (M) [03/05-09/08]": 1,
+"TOYOTA Hilux 2005 To 2016 Dr Pickup Dbl.Cab 2.50 TD G (KUN25R-PRPSHE) AUTO 101Bhp (A) [03/05-09/08]": 1,
+"TOYOTA Hilux 2005 To 2016 Dr Pickup Dbl.Cab 2.50 TD G (KUN25R-PRPSHEHH) AUTO 142Bhp (A) [01/15-04/16]": 1,
+"TOYOTA Hilux 2005 On Dr Pickup Dbl.Cab 2.50 TD G (KUN25R-PRPSHE) AUTO 101Bhp (A) [09/11-09/12]": 1,
+"TOYOTA Hilux 2016 On Dr Pickup Dbl.Cab 2.80 TD G (GUN126R-DETHHECM) AUTO 175Bhp (A) [05/16-03/18]": 1,
+"TOYOTA Hilux 2018 On Dr Pickup Dbl.Cab 2.40 TD L-Edition (GUN125R-DETSHE) AUTO 148Bhp (A) [03/18-10/20]": 1,
+"TOYOTA Hilux 2005 On Dr Pickup Dbl.Cab 2.50 TD G (KUN25R-PRPSHE) AUTO 142Bhp (A) [11/13-]": 1,
+"TOYOTA Hilux 2005 On Dr Pickup Dbl.Cab 3.00 TD G (KUN26R-PRPSYT) AUTO 161Bhp (A) [10/10-08/11]": 1
+},
+"PERODUA|ALZA": {
+"PERODUA Alza 2009 On MPV 1.5 EZ 103Bhp (A) [01/14-10/18]": 41,
+"PERODUA Alza 2009 On MPV 1.5 EZi 102Bhp (A) [11/09-12/13]": 33,
+"PERODUA Alza 2009 On MPV 1.5 EZ 102Bhp (A) [11/09-12/13]": 29,
+"PERODUA Alza 2009 On MPV 1.5 SE 103Bhp (A) [01/14-10/18]": 29,
+"PERODUA Alza 2009 On MPV 1.5 Advanced 103Bhp (A) [01/14-10/18]": 29,
+"PERODUA Alza 2009 On MPV 1.5 SE 102Bhp (A) [09/18-07/22]": 16,
+"PERODUA Alza 2009 On MPV 1.5 Advance 102Bhp (A) [09/18-07/22]": 14,
+"PERODUA Alza 2022 On MPV 1.5 1.5 AV 105Bhp [07/22-]": 12,
+"PERODUA Alza 2009 On MPV 1.50 EZ AUTO 103Bhp (A) [01/14-10/18]": 10,
+"PERODUA Alza 2022 On MPV 1.5 1.5 H 105Bhp [07/22-]": 7,
+"PERODUA Alza 2009 On MPV 1.5 SE 103Bhp (M) [01/14-10/18]": 7,
+"PERODUA Alza 2009 On MPV 1.50 SE AUTO 103Bhp (A) [01/14-10/18]": 7,
+"PERODUA Alza 2022 On MPV 1.5 1.5 X 105Bhp [07/22-]": 4,
+"PERODUA Alza 2009 On MPV 1.5 EZi Advanced 102Bhp (A) [11/09-12/13]": 4,
+"PERODUA Alza 2009 On MPV 1.5 EZi Advanced 102Bhp (A) [11/09-06/12]": 4,
+"PERODUA Alza 2009 On MPV 1.50 EZ AUTO 102Bhp (A) [11/09-12/13]": 4,
+"PERODUA Alza 2009 On MPV 1.50 EZi AUTO 102Bhp (A) [11/09-12/13]": 4,
+"PERODUA Alza 2009 On MPV 1.5 SX 102Bhp (M) [11/09-12/13]": 3,
+"PERODUA Alza 2009 On MPV 1.50 Advanced AUTO 103Bhp (A) [01/14-10/18]": 3,
+"PERODUA Alza 2009 On MPV 1.50 SE AUTO 102Bhp (A) [09/18-07/22]": 3,
+"PERODUA Alza 2009 On MPV 1.50 Advance AUTO 102Bhp (A) [09/18-07/22]": 2,
+"PERODUA Alza 2009 On MPV 1.50 SE AUTO 102Bhp (A) [09/18-]": 2,
+"PERODUA Alza 2009 On MPV 1.5 S (AT) 102Bhp (A) [09/18-07/22]": 1,
+"PERODUA Alza 2009 On MPV 1.5 GX 103Bhp (M) [01/14-10/18]": 1,
+"PERODUA Alza 2022 On MPV 1.50 1.5 H 105Bhp [07/22-]": 1,
+"PERODUA ALZA MPV 1.5 EZ (Facelift) (A) [18-]": 1,
+"PERODUA Alza 2009 On MPV 1.50 EZi Advanced AUTO 102Bhp (A) [11/09-06/12]": 1
+},
+"TOYOTA|ALPHARD": {
+"TOYOTA Alphard (Grey Import) MPV 2.5 AGH30R-NFXSK [08/19-]": 16,
+"TOYOTA Alphard (Grey Import) MPV 2.5 AGH30R-PFXGK [01/15-]": 14,
+"TOYOTA Alphard (Grey Import) MPV 2.5 AGH30R-NFXRK [05/21-]": 13,
+"TOYOTA ALPHARD MPV 2.5 DBA-AGH30W (A) [15-]": 9,
+"TOYOTA Alphard (Grey Import) MPV 2.5 AYH30R-NFXVB [07/19-]": 8,
+"TOYOTA Alphard (Grey Import) MPV 2.5 AGH30R-PFXLK [01/15-]": 5,
+"TOYOTA ALPHARD MPV 2.4 DBA-ANH10W (A)": 5,
+"TOYOTA Alphard 2020 To 2023 MPV 3.5 3.5 (GGH30R-PFZLK) 296Bhp (A) [02/20-10/23]": 4,
+"TOYOTA ALPHARD MPV 2.5 (DBA-AGH30W) (A) [20-]": 4,
+"TOYOTA ALPHARD MPV 2.5 3BA-AGH30W (A)": 3,
+"TOYOTA Alphard 2023 On MPV 2.4 Executive Lounge (TAHA40R-PFZVTE AL) 274Bhp (A) [10/23-]": 3,
+"TOYOTA ALPHARD Z MPV 2.5 AGH 40 (A) [23-]": 3,
+"TOYOTA ALPHARD MPV 3.0 TA-MNH10W (A)": 3,
+"TOYOTA ALPHARD MPV 2.4 DBA-ANH20W (A)": 3,
+"TOYOTA Alphard (Grey Import) MPV 2.5 AYH30R-PFXQB [01/15-]": 2,
+"TOYOTA Alphard (Grey Import) MPV 3.5 GGH30R-PFZZK (A) [05/21-]": 2,
+"TOYOTA ALPHARD MPV 2.4 CBA-ANH10W (A)": 2,
+"TOYOTA Alphard (Grey Import) MPV 2.4 ANH20R-PFXGK [06/09-01/15]": 2,
+"TOYOTA ALPHARD MPV 2.5 AGH30 (A)": 1,
+"TOYOTA Alphard (Grey Import) MPV 3.5 GGH30R-NFTQK (A) [01/15-01/18]": 1,
+"TOYOTA ALPHARD MPV 2.4 DBA-ANH25W (A)": 1,
+"TOYOTA ALPHARD MPV 2.4 UA-ANH10W (A) [02- ]": 1,
+"TOYOTA Alphard 2014 To 2016 MPV 2.4 G (ANH20R-PFXQK) 168Bhp (A) [04/14-07/16]": 1,
+"TOYOTA ALPHARD MPV 2.4 ANH10 (A)": 1,
+"TOYOTA ALPHARD MPV 2.5 DBA-AGH35W (A)": 1,
+"TOYOTA Alphard (Grey Import) MPV 2.4 ATH20R-PFXQB [12/11-01/15]": 1,
+"TOYOTA Alphard 2014 To 2016 MPV 3.5 G (GGH20R-PFTQK) 271Bhp (A) [04/14-07/16]": 1,
+"TOYOTA Alphard 2014 On MPV 3.5 G (GGH20R-PFTQK) 271Bhp (A) [04/14-07/16]": 1,
+"TOYOTA Alphard 2016 On MPV 3.5 Executive Lounge (GGH30R-PFTVK) 268Bhp (A) [08/16-01/18]": 1,
+"TOYOTA ALPHARD MPV 2.5 Hybrid (DAA-AYH30W) (A)": 1,
+"TOYOTA ALPHARD MPV 3.5 DBA-GGH20W (A)": 1,
+"TOYOTA Alphard 2014 On MPV 2.40 G (ANH20R-PFXQK) AUTO 168Bhp (A) [04/14-07/16]": 1
+},
+"PERODUA|KELISA": {
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ 54Bhp (A) [10/03-]": 9,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ 54Bhp (A) [08/01-09/03]": 9,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 GX 54Bhp (M) [08/01-09/03]": 5,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 GX 54Bhp (M) [10/03-]": 4,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ Limited Edition 54Bhp (A) [04/04-]": 4,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ Special Edition 54Bhp (A) [04/04-]": 2,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1.00 EZ AUTO 54Bhp (A) [10/03-]": 2,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1.00 EZ AUTO 54Bhp (A) [08/01-09/03]": 2,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 0.85 EX 49Bhp (M) [04/04-]": 1,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZQ Imago 54Bhp (A) [03/06-]": 1,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ Limited Edition 54Bhp (A) [07/02-03/04]": 1,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 EZ Special Edition 54Bhp (A) [07/03-03/04]": 1,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1 GX Limited Edition 54Bhp (M) [07/02-03/04]": 1,
+"PERODUA Kelisa 2001 On 5 Dr Hatch 1.00 GX 54Bhp (M) [08/01-09/03]": 1
+},
+"PROTON|PERSONA": {
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Executive 107Bhp [08/16-03/19]": 17,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Premium 107Bhp [08/16-03/19]": 15,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Executive 107Bhp [04/19-08/21]": 14,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 High Line 109Bhp (A) [03/10-05/16]": 13,
+"PROTON Persona 2021 On 4 Dr Sal 1.6 Executive 107Bhp [08/21-]": 11,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Premium 107Bhp [04/19-08/21]": 9,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (M) [03/10-05/16]": 8,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Standard 107Bhp [04/19-08/21]": 8,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 High Line 109Bhp (A) [08/07-02/10]": 8,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (A) [08/07-02/10]": 7,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (A) [03/10-05/16]": 6,
+"PROTON Persona 2021 On 4 Dr Sal 1.6 Premium 107Bhp [08/21-]": 6,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Medium Line 109Bhp (A) [03/10-05/16]": 6,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.60 High Line AUTO 109Bhp (A) [03/10-05/16]": 6,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Standard 107Bhp [08/16-03/19]": 4,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (M) [08/07-02/10]": 3,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Medium Line 109Bhp (M) [03/10-05/16]": 3,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.60 Executive 107Bhp [04/19-08/21]": 3,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 SV 109Bhp (A) [12/13-05/16]": 2,
+"PROTON Persona 2021 On 4 Dr Sal 1.6 Standard 107Bhp [08/21-]": 2,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.60 Premium 107Bhp [08/16-03/19]": 2,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.60 Executive 107Bhp [08/16-03/19]": 2,
+"PROTON Persona 2021 To 2021 4 Dr Sal 1.6 Black Edition 107Bhp [02/21-08/21]": 1,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Executive 109Bhp (M) [07/14-05/16]": 1,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Standard 107Bhp (M) [04/19-08/21]": 1,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.6 Standard 107Bhp (M) [08/16-03/19]": 1,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Executive 109Bhp (A) [07/14-05/16]": 1,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Medium Line 109Bhp (M) [08/07-02/10]": 1,
+"PROTON Persona 2021 On 4 Dr Sal 1.60 Premium 107Bhp [08/21-]": 1,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.60 Base Line 109Bhp (M) [03/10-05/16]": 1,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.60 SV AUTO 109Bhp (A) [12/13-05/16]": 1,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.60 Medium Line AUTO 109Bhp (A) [03/10-05/16]": 1,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.60 Premium 107Bhp [04/19-08/21]": 1,
+"PROTON Persona 2016 To 2021 4 Dr Sal 1.60 Standard 107Bhp [04/19-08/21]": 1,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.60 Medium Line 109Bhp (M) [08/07-02/10]": 1,
+"PROTON Persona 2021 On 4 Dr Sal 1.60 Standard 107Bhp [08/21-]": 1,
+"PROTON Persona 2007 To 2016 4 Dr Sal 1.60 SV 109Bhp (M) [12/13-05/16]": 1
+},
+"MAZDA|CX-5": {
+"MAZDA CX-5 2012 On 5 Dr SUV 2 2WD 153Bhp (A) [05/12-02/16]": 16,
+"MAZDA CX-5 2019 To 2024 5 Dr SUV 2 SkyActiv-G (High) 162Bhp (A) [09/19-01/24]": 9,
+"MAZDA CX-5 2012 On 5 Dr SUV 2.5 2WD 184Bhp (A) [03/14-01/16]": 7,
+"MAZDA CX-5 2012 To 2017 5 Dr SUV 2 2WD 153Bhp (A) [05/12-02/16]": 5,
+"MAZDA CX-5 2017 To 2018 5 Dr SUV 2 GLS SkyActiv-G (GVC) 162Bhp (A) [10/17-10/18]": 3,
+"MAZDA CX-5 2017 On 5 Dr SUV 2 GLS SkyActiv-G (GVC) 162Bhp (A) [10/17-]": 3,
+"MAZDA CX-5 2012 On 5 Dr SUV 2.00 2WD AUTO 153Bhp (A) [05/12-02/16]": 3,
+"MAZDA CX-5 2012 To 2017 5 Dr SUV 2 GL SkyActiv-G 153Bhp (A) [02/16-09/17]": 2,
+"MAZDA CX-5 2018 To 2019 5 Dr SUV 2 GL SkyActiv-G (GVC) 162Bhp (A) [10/18-09/19]": 2,
+"MAZDA CX-5 2018 To 2019 5 Dr SUV 2 GLS SkyActiv-G (GVC) 162Bhp (A) [10/18-09/19]": 2,
+"MAZDA CX-5 2024 On 5 Dr SUV 2 2.0 High 2WD 162Bhp (A) [01/24-]": 1,
+"MAZDA CX-5 2019 To 2024 5 Dr SUV 2.5 GLS SkyActiv-G 192Bhp (A) [09/19-01/24]": 1,
+"MAZDA CX-5 2024 On 5 Dr SUV 2.5 2.5 High 2WD 192Bhp (A) [01/24-]": 1,
+"MAZDA CX-5 2019 To 2024 5 Dr SUV 2 SkyActiv-G (Mid) 162Bhp (A) [09/19-01/24]": 1,
+"MAZDA CX-5 2017 To 2018 5 Dr SUV 2 GL SkyActiv-G (GVC) 162Bhp (A) [10/17-10/18]": 1,
+"MAZDA CX-5 2012 To 2017 5 Dr SUV 2 4WD 152Bhp (A) [05/12-02/16]": 1,
+"MAZDA CX-5 2018 On 5 Dr SUV 2 GL SkyActiv-G (GVC) 162Bhp (A) [10/18-]": 1,
+"MAZDA CX-5 2019 On 5 Dr SUV 2 SkyActiv-G (High) 162Bhp (A) [09/19-]": 1,
+"MAZDA CX-5 2012 On 5 Dr SUV 2 GL SkyActiv-G 153Bhp (A) [02/16-09/17]": 1,
+"MAZDA CX-5 2019 On 5 Dr SUV 2.5 GLS SkyActiv-G 192Bhp (A) [09/19-]": 1,
+"MAZDA CX-5 2019 On 5 Dr SUV 2 SkyActiv-G (Mid) 162Bhp (A) [09/19-]": 1,
+"MAZDA CX-5 2018 On 5 Dr SUV 2.2 GLS SkyActiv-D AWD (GVC) 173Bhp (A) [10/18-]": 1,
+"MAZDA CX-5 2012 On 5 Dr SUV 2.5 GLS SkyActiv-G 184Bhp (A) [02/16-09/17]": 1,
+"MAZDA CX-5 5 DR SUV 2.0 2WD High SkyActiv (facelift) (A) [16-]": 1,
+"MAZDA CX-5 5 DR SUV 2.5 4WD High T/C (A) [19-]": 1,
+"MAZDA CX-5 2018 On 5 Dr SUV 2 GLS SkyActiv-G (GVC) 162Bhp (A) [10/18-]": 1,
+"MAZDA CX-5 2019 On 5 Dr SUV 2.2 GLS SkyActiv-D 173Bhp (A) [09/19-]": 1,
+"MAZDA CX-5 2019 On 5 Dr SUV 2.5 SkyActiv-G Turbo 4WD 228Bhp (A) [09/19-]": 1,
+"MAZDA CX-5 2017 On 5 Dr SUV 2.2 GLS SkyActiv-D (GVC) 173Bhp (A) [10/17-]": 1,
+"MAZDA CX-5 2017 On 5 Dr SUV 2.50 GLS SkyActiv-G (GVC) AUTO 192Bhp (A) [10/17-]": 1
+},
+"PROTON|WAJA": {
+"PROTON Waja 2000 On 4 Dr Sal 1.6 (CF1) 102Bhp (A) [08/00-12/05]": 23,
+"PROTON Waja 2000 On 4 Dr Sal 1.6 (CF1) 102Bhp (M) [08/00-12/05]": 6,
+"PROTON Waja 2000 On 4 Dr Sal 1.6 Enhanced Version 102Bhp (A) [06/04-12/05]": 3,
+"PROTON Waja 2000 On 4 Dr Sal 1.6 CPS 125Bhp (A) [02/08-]": 3,
+"PROTON Waja 2000 On 4 Dr Sal 1.6 CAMPRO 108Bhp (A) [01/07-]": 2,
+"PROTON Waja 2000 On 4 Dr Sal 1.60 (CF1) AUTO 102Bhp (A) [08/00-12/05]": 2,
+"PROTON Waja 2000 On 4 Dr Sal 1.6 CPS 125Bhp (M) [02/08-]": 1,
+"PROTON Waja 2000 On 4 Dr Sal 1.6 X (CF1) 102Bhp (A) [10/01-12/05]": 1,
+"PROTON Waja 2000 On 4 Dr Sal 1.8 (CF2) 118Bhp (A) [11/02-]": 1,
+"PROTON Waja 2000 On 4 Dr Sal 1.60 CAMPRO R3 118Bhp (M) [08/06-]": 1,
+"PROTON Waja 2000 On 4 Dr Sal 1.60 CAMPRO 108Bhp (M) [01/06-05/06]": 1
+},
+"PERODUA|ATIVA": {
+"PERODUA Ativa 2021 On 5 Dr SUV 1 1.0 AV 97Bhp [03/21-]": 31,
+"PERODUA Ativa 2021 On 5 Dr SUV 1 1.0 H 97Bhp [03/21-]": 8,
+"PERODUA Ativa 2021 On 5 Dr SUV 1 1.0 X 97Bhp [03/21-]": 3
+},
+"PERODUA|BEZZA": {
+"PERODUA Bezza 2020 On 4 Dr Sal 1.3 X 94Bhp (A) [01/20-]": 104,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.3 Premium X 94Bhp (A) [05/17-12/19]": 52,
+"PERODUA Bezza 2020 On 4 Dr Sal 1.3 AV 94Bhp (A) [01/20-]": 39,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.30 Premium X AUTO 94Bhp (A) [05/17-12/19]": 25,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.3 Advance 94Bhp (A) [05/17-12/19]": 24,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.3 Premium X 94Bhp (A) [07/16-05/17]": 21,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.3 Advance 94Bhp (A) [07/16-05/17]": 16,
+"PERODUA Bezza 2020 On 4 Dr Sal 1 G (A) 67Bhp (A) [01/20-]": 16,
+"PERODUA Bezza 2020 On 4 Dr Sal 1.30 X AUTO 94Bhp (A) [01/20-]": 15,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.3 Premium X 94Bhp (M) [05/17-12/19]": 13,
+"PERODUA Bezza 2016 On 4 Dr Sal 1 GXtra 67Bhp (A) [04/18-12/19]": 11,
+"PERODUA Bezza 2016 On 4 Dr Sal 1 Standard G 67Bhp (A) [05/17-03/18]": 9,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.30 Advance AUTO 94Bhp (A) [05/17-12/19]": 4,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.30 Premium X AUTO 94Bhp (A) [07/16-05/17]": 3,
+"PERODUA Bezza 2016 On 4 Dr Sal 1 Standard G 67Bhp (A) [07/16-05/17]": 2,
+"PERODUA Bezza 2020 On 4 Dr Sal 1 G (M) 67Bhp (M) [01/20-]": 2,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.30 Premium X 94Bhp (M) [05/17-12/19]": 2,
+"PERODUA Bezza 2020 On 4 Dr Sal 1.00 G (A) AUTO 67Bhp (A) [01/20-]": 2,
+"PERODUA Bezza 2020 On 4 Dr Sal 1.30 AV AUTO 94Bhp (A) [01/20-]": 2,
+"PERODUA Bezza 2016 On 4 Dr Sal 1 Standard G 67Bhp (M) [05/17-03/18]": 1,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.00 Standard G AUTO 67Bhp (A) [07/16-05/17]": 1,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.30 Advance AUTO 94Bhp (A) [07/16-05/17]": 1,
+"PERODUA Bezza 2016 On 4 Dr Sal 1.00 GXtra AUTO 67Bhp (A) [04/18-12/19]": 1
+},
+"MINI|COOPER": {
+"MINI Cooper 2001 On 3 Dr Hatch 1.5 (F56) 136Bhp (A) [03/14-]": 3,
+"MINI Cooper 2021 On 3 Dr Hatch 2 Cooper S 192Bhp [06/21-]": 1,
+"MINI Cooper EV 2020 To 2024 3 Dr Hatch SE Resolute 181Bhp (A) [06/21-07/24]": 1,
+"MINI Cooper 2001 On 3 Dr Hatch 1.6 (R56) 118Bhp (A) [03/07-]": 1,
+"MINI Cooper 2018 On 3 Dr Hatch 2 S (F56 LCI) 192Bhp [07/18-]": 1,
+"MINI COOPER CROSSOVER 5 DR HATCH 1.6 DBA-ZC16 (R60) (A)": 1,
+"MINI Cooper 2001 On 3 Dr Coupe 1.6 S (R58) 184Bhp (A) [10/11-]": 1
+},
+"NISSAN|X-TRAIL": {
+"NISSAN X-Trail 2015 On 5 Dr SUV 2 2WD (T32) 142Bhp (A) [02/15-]": 18,
+"NISSAN X-Trail 2010 On 5 Dr SUV 2 137Bhp (A) [04/13-01/15]": 4,
+"NISSAN X-Trail 2015 On 5 Dr SUV 2.5 4WD (T32) 169Bhp (A) [02/15-]": 3,
+"NISSAN X-Trail 2005 On 5 Dr SUV 2 146Bhp (A) [04/05-03/07]": 3,
+"NISSAN X-Trail 2003 On 5 Dr SUV 2 146Bhp (A) [06/03-03/05]": 2,
+"NISSAN X-Trail 2010 On 5 Dr SUV 2 137Bhp (A) [08/10-03/13]": 2,
+"NISSAN X-Trail 2019 On 5 Dr SUV 2.5 2.5L 4WD 169Bhp [04/19-]": 2,
+"NISSAN X-Trail 2005 On 5 Dr SUV 2 146Bhp (A) [04/07-07/10]": 2,
+"NISSAN X-Trail 2005 On 5 Dr SUV 2.5 175Bhp (A) [04/07-07/10]": 2,
+"NISSAN X-Trail 2005 On 5 Dr SUV 2.50 AUTO 175Bhp (A) [04/07-07/10]": 2,
+"NISSAN X-Trail 2019 On 5 Dr SUV 2 2.0L Hybrid 2WD 142Bhp [04/19-]": 1,
+"NISSAN X-Trail 2019 On 5 Dr SUV 2 2.0L 2WD MID 142Bhp [04/19-]": 1,
+"NISSAN X-Trail 2015 On 5 Dr SUV 2.00 2WD (T32) AUTO 142Bhp (A) [02/15-]": 1,
+"NISSAN X-Trail 2019 On 5 Dr SUV 2.00 2.0L 2WD MID 142Bhp [04/19-]": 1
+},
+"PERODUA|VIVA": {
+"PERODUA Viva 2007 On 5 Dr Hatch 1 EZ 60Bhp (A) [05/07-]": 35,
+"PERODUA Viva 2007 On 5 Dr Hatch 0.85 EX 52Bhp (M) [05/07-]": 18,
+"PERODUA Viva 2007 On 5 Dr Hatch 1 ELITE (A) 60Bhp (A) [07/09-]": 8,
+"PERODUA Viva 2007 On 5 Dr Hatch 1 ELITE EZi 60Bhp (A) [07/09-]": 6,
+"PERODUA Viva 2007 On 5 Dr Hatch 0.66 EX 47Bhp (M) [05/07-]": 6,
+"PERODUA Viva 2007 On 5 Dr Hatch 1 EZi 60Bhp (A) [05/07-]": 4,
+"PERODUA Viva 2007 On 5 Dr Hatch 1 SX 60Bhp (M) [05/07-]": 3,
+"PERODUA Viva 2007 On 5 Dr Hatch 1 ELITE (M) 60Bhp (M) [07/09-]": 2,
+"PERODUA Viva 2007 On 5 Dr Hatch 1.00 ELITE EZi AUTO 60Bhp (A) [07/09-]": 2,
+"PERODUA Viva 2007 On 5 Dr Hatch 1.00 EZ AUTO 60Bhp (A) [05/07-]": 2,
+"PERODUA Viva 2007 On 5 Dr Hatch 1.00 ELITE (A) AUTO 60Bhp (A) [07/09-]": 2,
+"PERODUA Viva 2007 On 5 Dr Hatch 1 ELITE EZL Exclusive Edition 60Bhp (A) [11/10-]": 1,
+"PERODUA Viva 2007 On 5 Dr Hatch 0.66 BX 47Bhp (M) [07/09-]": 1
+},
+"PROTON|PREVE": {
+"PROTON Preve 2012 On 4 Dr Sal 1.6 Executive 108Bhp (A) [04/12-03/18]": 15,
+"PROTON Preve 2012 On 4 Dr Sal 1.6 Premium (CFE) 138Bhp (A) [04/12-03/18]": 8,
+"PROTON Preve 2012 On 4 Dr Sal 1.6 Executive (CVT) 138Bhp [04/18-]": 5,
+"PROTON Preve 2012 On 4 Dr Sal 1.60 Premium (CFE) AUTO 138Bhp (A) [04/12-03/18]": 5,
+"PROTON Preve 2012 On 4 Dr Sal 1.60 Executive AUTO 108Bhp (A) [04/12-03/18]": 1
+},
+"PERODUA|ARUZ": {
+"PERODUA Aruz 2019 On 5 Dr SUV 1.5 1.5 AV 104Bhp (A) [01/19-]": 15,
+"PERODUA Aruz 2019 To 2021 5 Dr SUV 1.5 1.5 AV 104Bhp (A) [01/19-05/21]": 12,
+"PERODUA Aruz 2021 On 5 Dr SUV 1.5 1.5 AV 101Bhp (A) [05/21-]": 9,
+"PERODUA Aruz 2021 To 2025 5 Dr SUV 1.5 1.5 AV 101Bhp (A) [05/21-08/25]": 5,
+"PERODUA Aruz 2019 To 2021 5 Dr SUV 1.5 1.5 X 104Bhp (A) [01/19-05/21]": 3,
+"PERODUA Aruz 2021 On 5 Dr SUV 1.5 1.5 X 101Bhp (A) [05/21-]": 2,
+"PERODUA Aruz 2019 On 5 Dr SUV 1.50 1.5 AV AUTO 104Bhp (A) [01/19-]": 2,
+"PERODUA Aruz 2021 On 5 Dr SUV 1.50 1.5 AV AUTO 101Bhp (A) [05/21-]": 2,
+"PERODUA Aruz 2025 On 5 Dr SUV 1.5 1.5 X 101Bhp (A) [08/25-]": 1,
+"PERODUA Aruz 2019 On 5 Dr SUV 1.5 1.5 X 104Bhp (A) [01/19-]": 1,
+"PERODUA Aruz 2019 On 5 Dr SUV 1.50 1.5 X AUTO 104Bhp (A) [01/19-]": 1
+},
+"MITSUBISHI|XPANDER": {
+"MITSUBISHI Xpander 2020 To 2024 5 Dr SUV 1.5 1.5 104Bhp [11/20-09/24]": 4,
+"MITSUBISHI Xpander 2020 On 5 Dr SUV 1.5 1.5 104Bhp [11/20-]": 3,
+"MITSUBISHI Xpander 2024 On 5 Dr SUV 1.5 Plus 104Bhp (A) [09/24-]": 2,
+"MITSUBISHI Xpander 2020 On 5 Dr SUV 1.50 1.5 104Bhp [11/20-]": 1
+},
+"PROTON|EXORA": {
+"PROTON Exora 2009 On MPV 1.6 Bold Executive (CPS) 125Bhp (A) [01/12-01/15]": 7,
+"PROTON Exora 2009 On MPV 1.6 Bold Premium (CFE) 138Bhp (A) [01/12-01/15]": 6,
+"PROTON Exora 2009 On MPV 1.6 Premium CVT (RC) 138Bhp [05/19-08/22]": 5,
+"PROTON Exora 2009 On MPV 1.6 Bold Standard (CFE) 138Bhp (A) [01/13-01/15]": 5,
+"PROTON Exora 2009 On MPV 1.6 Bold Premium (CFE) 138Bhp (A) [02/15-06/17]": 3,
+"PROTON Exora 2009 On MPV 1.60 High Line AUTO 125Bhp (A) [07/10-12/11]": 3,
+"PROTON Exora 2022 On MPV 1.6 Premium CVT 138Bhp [08/22-]": 2,
+"PROTON Exora 2009 On MPV 1.6 Executive CVT (RC) 138Bhp [05/19-08/22]": 2,
+"PROTON Exora 2009 On MPV 1.6 Medium Line 125Bhp (M) [07/09-06/10]": 2,
+"PROTON Exora 2009 On MPV 1.6 High Line 125Bhp (A) [07/10-12/11]": 2,
+"PROTON Exora 2009 On MPV 1.6 Bold Executive (CPS) 125Bhp (M) [01/12-01/15]": 2,
+"PROTON Exora 2009 On MPV 1.6 Executive CVT 138Bhp [07/17-04/19]": 2,
+"PROTON Exora 2009 On MPV 1.6 Premium CVT (RC) 138Bhp [05/19-]": 2,
+"PROTON Exora 2009 On MPV 1.60 Bold Executive (CFE) AUTO 138Bhp (A) [02/15-06/17]": 2,
+"PROTON Exora 2009 On MPV 1.60 Standard (CPS) 125Bhp (M) [01/12-01/15]": 2,
+"PROTON Exora 2009 On MPV 1.6 Standard (CPS) 125Bhp (M) [01/12-01/15]": 1,
+"PROTON Exora 2009 On MPV 1.6 Medium Line 125Bhp (A) [07/10-12/11]": 1,
+"PROTON Exora 2009 On MPV 1.6 Bold Executive (CFE) 138Bhp (A) [02/15-06/17]": 1,
+"PROTON Exora 2009 On MPV 1.6 High Line 125Bhp (A) [04/09-06/10]": 1,
+"PROTON Exora 2009 On MPV 1.6 Prime Premium (CFE) 138Bhp (A) [01/12-01/15]": 1,
+"PROTON Exora 2009 On MPV 1.6 Base Line 125Bhp (M) [07/10-12/11]": 1,
+"PROTON Exora 2009 On MPV 1.60 Bold Premium (CFE) AUTO 138Bhp (A) [02/15-06/17]": 1,
+"PROTON Exora 2009 On MPV 1.60 High Line AUTO 125Bhp (A) [04/09-06/10]": 1,
+"PROTON Exora 2009 On MPV 1.60 Prime Premium (CFE) AUTO 138Bhp (A) [01/12-01/15]": 1,
+"PROTON Exora 2009 On MPV 1.60 Standard (CPS) AUTO 125Bhp (A) [02/15-06/17]": 1,
+"PROTON Exora 2009 On MPV 1.60 Executive Plus CVT 138Bhp [07/17-04/19]": 1
+},
+"PROTON|SATRIA": {
+"PROTON Satria 2004 On 3 Dr Hatch 1.6 Neo 108Bhp (M) [06/06-]": 1,
+"PROTON Satria 1994 On 3 Dr Hatch 1.3 GLi Special Edition 81Bhp (M) [08/04-05/06]": 1,
+"PROTON Satria 1994 On 3 Dr Hatch 1.5 GLi 86Bhp (M) [09/01-05/06]": 1,
+"PROTON Satria 1994 On 3 Dr Hatch 1.3 GLi 81Bhp (M) [01/98-05/06]": 1,
+"PROTON Satria 1994 On 3 Dr Hatch 1.3 GL 81Bhp (M) [03/96-12/97]": 1,
+"PROTON Satria 2004 On 3 Dr Hatch 1.6 Neo CPS 125Bhp (A) [02/09-]": 1,
+"PROTON Satria 2004 On 3 Dr Hatch 1.6 Neo 108Bhp (A) [06/06-]": 1,
+"PROTON Satria 1994 On 3 Dr Hatch 1.30 GL 81Bhp (M) [09/94-02/96]": 1,
+"PROTON SATRIA NEO 3 DR HATCH 1.6 R3 (A) [12-]": 1
+},
+"HYUNDAI|GRAND": {
+"HYUNDAI Grand Starex 2008 On MPV 2.5 Royale 168Bhp (A) [08/11-03/14]": 3,
+"HYUNDAI Grand Starex 2020 On MPV 2.5 Executive Plus 168Bhp (A) [05/20-]": 2,
+"HYUNDAI Grand Starex 2008 On MPV 2.5 Royale 168Bhp (A) [11/17-]": 1,
+"HYUNDAI Grand Starex 2018 On MPV 2.5 Executive Plus 168Bhp (A) [11/18-05/20]": 1,
+"HYUNDAI Grand Starex 2008 On MPV 2.5 168Bhp (A) [05/08-07/11]": 1,
+"HYUNDAI Grand Starex 2008 On MPV 2.5 Royale 168Bhp (A) [04/14-10/17]": 1,
+"HYUNDAI Grand Starex 2008 On MPV 2.5 Royale Premium 168Bhp (A) [11/17-]": 1,
+"HYUNDAI Grand Starex 2008 On MPV 2.50 TD Royale AUTO 168Bhp (A) [04/14-10/17]": 1,
+"HYUNDAI Grand Starex 2018 On MPV 2.50 TD Executive Plus AUTO 168Bhp (A) [11/18-]": 1
+},
+"PROTON|ERTIGA": {
+"PROTON Ertiga 2016 On MPV 1.4 Executive 91Bhp (A) [11/16-07/18]": 5,
+"PROTON Ertiga 2016 On MPV 1.4 Executive Plus 91Bhp (A) [11/16-07/18]": 2,
+"PROTON Ertiga 2016 On MPV 1.4 Xtra Premium 91Bhp (A) [08/18-]": 1,
+"PROTON Ertiga 2016 On MPV 1.40 Executive AUTO 91Bhp (A) [11/16-07/18]": 1,
+"PROTON Ertiga 2016 On MPV 1.40 Xtra Premium AUTO 91Bhp (A) [08/18-]": 1
+},
+"TOYOTA|INNOVA": {
+"TOYOTA Innova 2016 On MPV 2 G (TGN140R-METMKEEL) 137Bhp (A) [12/16-02/21]": 11,
+"TOYOTA Innova 2005 On MPV 2 G 134Bhp (A) [05/05-09/08]": 9,
+"TOYOTA Innova 2005 On MPV 2 E 134Bhp (A) [10/11-03/14]": 5,
+"TOYOTA Innova 2005 On MPV 2 E 134Bhp (A) [04/14-11/16]": 5,
+"TOYOTA Innova 2005 On MPV 2 G 134Bhp (A) [10/11-03/14]": 5,
+"TOYOTA Innova 2016 On MPV 2 X (TGN140R-METHKE SM) 137Bhp (A) [10/17-02/21]": 4,
+"TOYOTA Innova 2005 On MPV 2 G 134Bhp (A) [10/08-09/11]": 4,
+"TOYOTA Innova 2005 On MPV 2 E 134Bhp (M) [05/05-09/08]": 3,
+"TOYOTA Innova 2005 On MPV 2 G 134Bhp (A) [04/14-11/16]": 3,
+"TOYOTA Innova 2005 On MPV 2.00 G AUTO 134Bhp (A) [05/05-09/08]": 3,
+"TOYOTA Innova 2021 On MPV 2 X (TGN140R-METHKE C3) 137Bhp (A) [02/21-]": 2,
+"TOYOTA Innova 2016 On MPV 2.00 G (TGN140R-METMKEEL) AUTO 137Bhp (A) [12/16-02/21]": 2,
+"TOYOTA Innova 2016 On MPV 2 E (TGN140R-METSKES1) 137Bhp (A) [12/16-02/21]": 1,
+"TOYOTA Innova 2005 On MPV 2 E 134Bhp (A) [10/08-09/11]": 1,
+"TOYOTA Innova Zenix 2023 On MPV 2 V (MAGA10R-BRXHBE MA) 174Bhp [06/23-]": 1,
+"TOYOTA Innova 2005 On MPV 2 E 134Bhp (A) [05/05-09/08]": 1,
+"TOYOTA Innova 2005 On MPV 2.00 E AUTO 134Bhp (A) [10/11-03/14]": 1,
+"TOYOTA Innova 2016 On MPV 2.00 X (TGN140R-METHKE SM) AUTO 137Bhp (A) [10/17-02/21]": 1,
+"TOYOTA Innova 2005 On MPV 2.00 E 134Bhp (M) [05/05-09/08]": 1
+},
+"MERCEDES-BENZ|E-CLASS": {
+"MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 2 E250 Avantgarde (W212) 211Bhp (A) [08/13-05/16]": 7,
+"MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 2 E200 Avantgarde (W212) 184Bhp (A) [08/13-05/16]": 5,
+"MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 1.8 E200CGI BlueEfficiency - Elegance (W212) 181Bhp (A) [11/09-07/13]": 2,
+"MERCEDES-BENZ E-Class 2017 On 2 Dr Coupe 2 E200 AMG Line 184Bhp (A) [07/17-]": 2,
+"MERCEDES-BENZ E-Class 2016 On 4 Dr Sal 2 E250 Avantgarde (W213) 211Bhp (A) [06/16-]": 2,
+"MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 2.00 E200 Avantgarde (W212) AUTO 184Bhp (A) [08/13-05/16]": 2,
+"MERCEDES-BENZ E-Class 2009 On 2 Dr Coupe 1.80 E250 Sport BlueEfficiency (C207) AUTO 204Bhp (A) [06/09-02/14]": 2,
+"MERCEDES-BENZ E-Class 2017 On 2 Dr Coupe 2 E300 AMG Line 245Bhp (A) [07/17-]": 1,
+"MERCEDES-BENZ E-Class 2016 On 4 Dr Sal 2 E250 Avantgarde (W213) 211Bhp (A) [06/16-04/17]": 1,
+"MERCEDES-BENZ E-Class 2017 On 4 Dr Sal 2 E300 Exclusive Line 258Bhp (A) [07/19-]": 1,
+"MERCEDES-BENZ E-Class 2016 On 4 Dr Sal 2 E250 Exclusive (W213) 211Bhp (A) [06/16-04/17]": 1,
+"MERCEDES-BENZ E-Class 2017 On 4 Dr Sal 2 E250 Avantgarde (CKD) 211Bhp (A) [04/17-]": 1,
+"MERCEDES-BENZ E-Class 2017 On 2 Dr Cabriolet 2 E300 AMG Line 245Bhp (A) [08/18-]": 1,
+"MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 1.8 E250CGI BlueEfficiency-Avantgarde (W212) 201Bhp (A) [11/09-07/13]": 1,
+"MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 3 E300 Avantgarde (W212) 228Bhp (A) [11/09-07/13]": 1,
+"MERCEDES-BENZ E-Class 1996 On 4 Dr Sal 2.6 E240 Elegance (W211) 205Bhp (A) [01/03-10/09]": 1,
+"MERCEDES-BENZ E-Class 2017 On 2 Dr Coupe 2 E300 AMG Line Edition 1 245Bhp (A) [07/17-]": 1,
+"MERCEDES-BENZ E-Class 1996 On 4 Dr Sal 2.6 E240 Avantgarde (W211) 205Bhp (A) [01/03-10/09]": 1,
+"MERCEDES-BENZ E-Class 1996 On 4 Dr Sal 2.8 E280 Avantgarde (W210) 204Bhp (A) [01/96-12/02]": 1,
+"MERCEDES-BENZ E-Class 1996 On 4 Dr Sal 1.8 E200K Avantgarde (W211) 161Bhp (A) [01/03-12/06]": 1,
+"MERCEDES-BENZ E-Class 1996 On 4 Dr Sal 1.8 E200K Elegance (W211) 181Bhp (A) [01/07-10/09]": 1,
+"MERCEDES-BENZ E-Class 2016 On 4 Dr Sal 2 E300 AMG Line (W213) 245Bhp (A) [06/16-]": 1,
+"MERCEDES-BENZ E-Class 2009 On 2 Dr Coupe 1.8 E250 Sport BlueEfficiency (C207) 204Bhp (A) [06/09-02/14]": 1,
+"MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 1.80 E200CGI BlueEfficiency - Elegance (W212) AUTO 181Bhp (A) [11/09-07/13]": 1,
+"MERCEDES-BENZ E-Class 2009 On 2 Dr Coupe 3.5 E350 Sport BlueEfficiency (C207) 288Bhp (A) [06/09-02/14]": 1,
+"MERCEDES-BENZ E-Class 2016 On 4 Dr Sal 2 E200 Avantgarde (W213) 184Bhp (A) [06/16-]": 1,
+"MERCEDES-BENZ E-Class 2009 On 4 Dr Sal 2.00 E250 Avantgarde (W212) AUTO 211Bhp (A) [08/13-05/16]": 1,
+"MERCEDES-BENZ E-Class 1996 On 4 Dr Sal 2.60 E240 Elegance (W211) AUTO 205Bhp (A) [01/03-10/09]": 1,
+"MERCEDES-BENZ E-Class 2016 On 4 Dr Sal 2.00 E200 Avantgarde (W213) AUTO 184Bhp (A) [06/16-]": 1
+},
+"FORD|FIESTA": {
+"FORD Fiesta 2010 On 5 Dr Hatch 1.6 S 118Bhp (A) [10/10-09/13]": 5,
+"FORD Fiesta 2010 On 5 Dr Hatch 1.5 Sport 110Bhp (A) [10/13-]": 4,
+"FORD Fiesta 2010 On 5 Dr Hatch 1 EcoBoost 123Bhp (A) [05/14-]": 2,
+"FORD Fiesta 2010 On 4 Dr Sal 1.6 LX 118Bhp (A) [06/11-09/13]": 1,
+"FORD FIESTA 5 DR HATCH 998cc Sport EcoBoost (Facelift) (A) [13-]": 1,
+"FORD Fiesta 2010 On 5 Dr Hatch 1.4 LX 95Bhp (M) [10/10-09/13]": 1,
+"FORD Fiesta 2010 On 5 Dr Hatch 1.50 Sport AUTO 110Bhp (A) [10/13-]": 1
+},
+"PROTON|S70": {
+"PROTON S70 2023 On 4 Dr Sal 1.5 1.5T Flagship 148Bhp [11/23-]": 2,
+"PROTON S70 2023 To 2026 4 Dr Sal 1.5 1.5T Flagship 148Bhp [11/23-02/26]": 1
+},
+"SUBARU|XV": {
+"SUBARU XV 2012 On 5 Dr SUV 2 2.0 148Bhp [12/12-12/15]": 6,
+"SUBARU XV 2012 On 5 Dr SUV 2 2.0 STI 148Bhp [07/14-03/17]": 5,
+"SUBARU XV 2019 On 5 Dr SUV 2 2.0i-P 154Bhp [05/19-]": 5,
+"SUBARU XV 2017 On 5 Dr SUV 2 2.0i-P 154Bhp [11/17-]": 3,
+"SUBARU XV 2012 On 5 Dr SUV 2 2.0i-Premium 148Bhp [01/16-]": 2,
+"SUBARU XV 2012 On 5 Dr SUV 2 2.0i 148Bhp [01/16-]": 1,
+"SUBARU XV 2019 On 5 Dr SUV 2 2.0i-P GT 154Bhp [05/19-]": 1,
+"SUBARU XV 2019 On 5 Dr SUV 2 2.0i 154Bhp [05/19-]": 1,
+"SUBARU XV 2017 On 5 Dr SUV 2.00 2.0i-P 154Bhp [11/17-]": 1
+},
+"TOYOTA|CAMRY": {
+"TOYOTA Camry 2012 To 2018 4 Dr Sal 2 G (ACV51R-JEPEKEFL) 146Bhp (A) [06/12-03/15]": 11,
+"TOYOTA Camry 2006 To 2009 4 Dr Sal 2.4 V (ACV40R-JEAGKE) 165Bhp (A) [10/06-08/09]": 9,
+"TOYOTA Camry 2006 To 2009 4 Dr Sal 2 G (ACV41R-JEPEKE) 145Bhp (A) [10/06-08/09]": 7,
+"TOYOTA Camry 2009 To 2012 4 Dr Sal 2 G (ACV41R-JEPEKE) 145Bhp (A) [09/09-05/12]": 6,
+"TOYOTA Camry 2012 To 2018 4 Dr Sal 2.5 HYBRID (AVV50R-JEXGBE HS) 158Bhp [04/15-11/16]": 4,
+"TOYOTA Camry 2009 To 2012 4 Dr Sal 2 E (ACV41R-JEPNKE) 145Bhp (A) [09/09-05/12]": 4,
+"TOYOTA Camry 2012 To 2018 4 Dr Sal 2 G X(ASV51R-JETEHE QX) 165Bhp (A) [12/16-10/18]": 3,
+"TOYOTA Camry 1994 To 2006 4 Dr Sal 2 E (ACV31R-JEPNKE) (A) [07/02-07/04]": 3,
+"TOYOTA Camry 2009 To 2012 4 Dr Sal 2.4 V (ACV40R-JEAGKE) 165Bhp (A) [09/09-05/12]": 3,
+"TOYOTA Camry 2006 To 2009 4 Dr Sal 2 E (ACV41R-JEPNKE) 145Bhp (A) [10/06-08/09]": 2,
+"TOYOTA Camry 1994 To 2006 4 Dr Sal 2.4 V (ACV30R-JEPEKE) (A) [07/02-07/04]": 2,
+"TOYOTA Camry 1994 To 2006 4 Dr Sal 2 E (A) [08/04-09/06]": 2,
+"TOYOTA Camry 2012 To 2018 4 Dr Sal 2.5 HYBRID LUXURY (AVV50R-JEXGBE QS) 158Bhp [12/16-10/18]": 2,
+"TOYOTA Camry 2009 On 4 Dr Sal 2.40 V (ACV40R-JEAGKE) AUTO 165Bhp (A) [09/09-05/12]": 2,
+"TOYOTA Camry 2006 On 4 Dr Sal 2.00 G (ACV41R-JEPEKE) AUTO 145Bhp (A) [10/06-08/09]": 2,
+"TOYOTA Camry 2018 To 2022 4 Dr Sal 2.5 V (ASV70R-JETVKEH2) 181Bhp (A) [11/18-02/22]": 1,
+"TOYOTA Camry 2012 To 2018 4 Dr Sal 2.5 HYBRID (AVV50R-JEXGBE QL) 158Bhp [12/16-10/18]": 1,
+"TOYOTA Camry 1994 To 2006 4 Dr Sal 2.4 V [08/04-09/06]": 1,
+"TOYOTA Camry 1994 To 2006 4 Dr Sal 2 E (ACV31R-JEPNKE) [07/02-07/04]": 1,
+"TOYOTA CAMRY 4 DR SAL 2.4 V (ACV30) (facelift) (A) [04-]": 1,
+"TOYOTA CAMRY 4 DR SAL 2.0 E (ACV31) (facelift) (A) [04-]": 1,
+"TOYOTA Camry 2006 To 2009 4 Dr Sal 2.40 V (ACV40R-JEAGKE) AUTO 165Bhp (A) [10/06-08/09]": 1,
+"TOYOTA Camry 2009 On 4 Dr Sal 2.00 E (ACV41R-JEPNKE) AUTO 145Bhp (A) [09/09-05/12]": 1,
+"TOYOTA Camry 2012 On 4 Dr Sal 2.00 G (ACV51R-JEPEKEFL) AUTO 146Bhp (A) [06/12-03/15]": 1,
+"TOYOTA Camry 2006 On 4 Dr Sal 2.40 V (ACV40R-JEAGKE) AUTO 165Bhp (A) [10/06-08/09]": 1,
+"TOYOTA Camry 2012 On 4 Dr Sal 2.00 G (ASV51R-JETEHE HA) AUTO 165Bhp (A) [04/15-11/16]": 1,
+"TOYOTA Camry 1994 On 4 Dr Sal 2.20 GX (SXV10R-DEMEKQ) 122Bhp (M) [01/94-06/97]": 1
+},
+"SUZUKI|SWIFT": {
+"SUZUKI Swift 2005 On 5 Dr Hatch 1.5 102Bhp (A) [05/06-06/11]": 7,
+"SUZUKI Swift 2011 On 5 Dr Hatch 1.4 GLX 94Bhp (A) [01/13-]": 4,
+"SUZUKI Swift 2011 On 5 Dr Hatch 1.40 RR Limited Edition AUTO 94Bhp (A) [11/13-]": 3,
+"SUZUKI Swift 2005 On 5 Dr Hatch 1.5 GLX 102Bhp (A) [07/11-12/12]": 2,
+"SUZUKI Swift 2005 On 5 Dr Hatch 1.5 GX 102Bhp (A) [10/11-12/12]": 2,
+"SUZUKI Swift 2011 On 5 Dr Hatch 1.4 RR Limited Edition 94Bhp (A) [11/13-]": 1,
+"SUZUKI Swift 2005 On 5 Dr Hatch 1.5 102Bhp (A) [05/05-04/06]": 1,
+"SUZUKI Swift 2011 On 5 Dr Hatch 1.40 GLX AUTO 94Bhp (A) [01/13-]": 1,
+"SUZUKI Swift 2005 On 5 Dr Hatch 1.50 AUTO 102Bhp (A) [05/06-06/11]": 1
+},
+"AUDI|A4": {
+"AUDI A4 2009 To 2016 4 Dr Sal 1.8 TFSI (B8) 161Bhp (A) [04/12-08/16]": 2,
+"AUDI A4 2009 To 2016 4 Dr Sal 1.8 TFSI (B8) 161Bhp (A) [06/08-03/12]": 1,
+"AUDI A4 2005 To 2008 4 Dr Sal 1.8 TFSI (B7) 161Bhp (A) [08/06-05/08]": 1,
+"AUDI A4 2005 On 4 Dr Sal 2.00 Quattro TFSI (B7) AUTO 197Bhp (A) [10/05-]": 1
+},
+"TOYOTA|UNSER": {
+"TOYOTA Unser 1998 On MPV 1.8 LGX (KF80R) 82Bhp (A) [01/03-12/05]": 3,
+"TOYOTA Unser 1998 On MPV 1.8 GLi (KF80R) 82Bhp (M) [04/98-03/01]": 3,
+"TOYOTA Unser 1998 On MPV 1.8 GLi (KF80R) 82Bhp (A) [04/01-12/02]": 2,
+"TOYOTA Unser 1998 On MPV 1.8 LGX (KF80R) 82Bhp (M) [01/03-12/05]": 1,
+"TOYOTA Unser 1998 On MPV 1.8 GLi (KF80R) 82Bhp (M) [04/01-12/02]": 1,
+"TOYOTA Unser 1998 On MPV 1.80 GLi (KF80R) AUTO 82Bhp (A) [04/01-12/02]": 1
+},
+"HINO|WU300R-HBMLS3": {
+"HINO WU300R-HBMLS3 LORRY 4.0 D (M)": 1
+},
+"INOKOM|LORIMAS": {
+"INOKOM LORIMAS LORRY 2.6 D (3.6T) AU26 (M)": 4,
+"INOKOM Lorimas 2000 On Truck 2.6 (3.6T) 78Bhp (M) [05/00-]": 1
+},
+"CHEVROLET|SONIC": {
+"CHEVROLET Sonic 2012 On 5 Dr Hatch 1.4 LTZ 99Bhp (A) [12/12-]": 1,
+"CHEVROLET Sonic 2012 On 4 Dr Sal 1.4 LTZ 99Bhp (A) [12/12-]": 1
+},
+"NISSAN|SERENA": {
+"NISSAN Serena 2018 To 2022 MPV 2 S-Hybrid Highway Star (C27) 148Bhp [05/18-07/22]": 6,
+"NISSAN Serena 2011 To 2018 MPV 2 S-Hybrid Highway Star 143Bhp [11/14-04/18]": 5,
+"NISSAN Serena 2018 To 2022 MPV 2 S-Hybrid Premium Highway Star (C27) 148Bhp [05/18-07/22]": 4,
+"NISSAN Serena 2011 On MPV 2 S-Hybrid Highway Star 143Bhp [11/14-04/18]": 3,
+"NISSAN Serena 2011 To 2018 MPV 2 S-Hybrid (C26) 145Bhp (A) [07/13-10/14]": 2,
+"NISSAN Serena 2011 To 2018 MPV 2 (C26) 145Bhp (A) [01/11-06/13]": 2,
+"NISSAN Serena 2018 On MPV 2 S-Hybrid Highway Star (C27) 148Bhp [05/18-]": 2,
+"NISSAN Serena 2011 On MPV 2.00 S-Hyrid Premium Highway Star 143Bhp [11/14-04/18]": 2,
+"NISSAN Serena 1997 On MPV 2 SGL (C23) (A) [03/97-11/99]": 1,
+"NISSAN Serena 2011 To 2018 MPV 2 S-Hybrid Premium Highway Star 143Bhp [11/14-04/18]": 1,
+"NISSAN Serena 2011 On MPV 2 S-Hybrid (C26) 145Bhp (A) [07/13-10/14]": 1,
+"NISSAN Serena 2018 On MPV 2.00 S-Hybrid Highway Star (C27) 148Bhp [05/18-]": 1,
+"NISSAN Serena 2018 On MPV 2.00 S-Hybrid Premium Highway Star (C27) 148Bhp [05/18-]": 1
+},
+"MERCEDES-BENZ|C200": {
+"MERCEDES-BENZ C200 2 DR COUPE 2.0 (W205) (A) [15-]": 1,
+"MERCEDES-BENZ C200 4 DR SAL 1.5 Avantgarde (W205) (A) [18-]": 1,
+"MERCEDES-BENZ C200 4 DR SAL 1.8 DBA-204048 (W204) (A) [11-]": 1
+},
+"MERCEDES-BENZ|GLA": {
+"MERCEDES-BENZ GLA 2014 On 5 Dr SUV 2 GLA 250 4MATIC (X156) 211Bhp [11/14-]": 5,
+"MERCEDES-BENZ GLA 2014 On 5 Dr SUV 1.6 GLA 200 (X156) 156Bhp [11/14-]": 4,
+"MERCEDES-BENZ GLA 45 AMG CROSSOVER 2.0 4MATIC (X156) (A) [14-]": 1,
+"MERCEDES-BENZ GLA 180 5 DR SUV 1.6 AMG Line (X156) (A)": 1,
+"MERCEDES-BENZ GLA 2014 On 5 Dr SUV 1.60 GLA 200 (X156) 156Bhp [11/14-]": 1,
+"MERCEDES-BENZ GLA 180 CROSSOVER 1.6 X156 (A) [14-]": 1
+},
+"FORD|RANGER": {
+"FORD Ranger 2012 To 2013 4 Dr Pickup Dbl.Cab 2.2 XLT 4X4 148Bhp (A) [06/12-09/15]": 4,
+"FORD Ranger 2015 To 2018 4 Dr Pickup Dbl.Cab 2.2 XLT 4X4 158Bhp (A) [10/15-]": 3,
+"FORD Ranger 2019 On 4 Dr Pickup Dbl.Cab 2 XLT Plus 178Bhp (A) [09/20-07/22]": 3,
+"FORD Ranger 2018 To 2019 4 Dr Pickup Dbl.Cab 2 Bi-Turbo WildTrak 4X4 210Bhp (A) [10/18-]": 2,
+"FORD Ranger 2022 On 4 Dr Pickup Dbl.Cab 2 XLT Plus 207Bhp (A) [07/22-]": 2,
+"FORD Ranger 2012 To 2013 4 Dr Pickup Dbl.Cab 3.2 WILDTRAK 4X4 197Bhp (A) [06/12-09/15]": 2,
+"FORD Ranger 2015 To 2018 4 Dr Pickup Dbl.Cab 2.2 WILDTRAK 4X4 158Bhp (A) [04/18-]": 2,
+"FORD Ranger 2019 On 4 Dr Pickup Dbl.Cab 2 Wildtrak 2.0 EcoBlue 210Bhp (A) [08/20-]": 2,
+"FORD Ranger 2015 On Dr Pickup Dbl.Cab 2.20 TD XLT 4X4 AUTO 158Bhp (A) [10/15-]": 2,
+"FORD Ranger 2023 On 4 Dr Pickup Dbl.Cab 2 XLT Plus SE 207Bhp (A) [09/24-]": 1,
+"FORD Ranger 2022 On 4 Dr Pickup Dbl.Cab 2 WILDTRAK 4X4 207Bhp (A) [07/22-]": 1,
+"FORD Ranger 2015 To 2018 4 Dr Pickup Dbl.Cab 3.2 XLT 4X4 197Bhp (A) [10/15-]": 1,
+"FORD Ranger 2019 On 4 Dr Pickup Dbl.Cab 2 XLT Plus 178Bhp (A) [09/20-]": 1,
+"FORD RANGER 4 DR PICKUP DBL.CAB 2.0 D XLT 4X4 (A) [18-]": 1,
+"FORD Ranger Raptor 2022 On 4 Dr Pickup Dbl.Cab 3 V6 EcoBoost 392Bhp (A) [10/22-]": 1,
+"FORD Ranger 2015 To 2018 4 Dr Pickup Dbl.Cab 2.2 FX4 4X4 158Bhp (A) [04/17-]": 1,
+"FORD Ranger 2019 To 2022 4 Dr Pickup Dbl.Cab 2 XLT Plus 178Bhp (A) [09/20-07/22]": 1,
+"FORD Ranger 2015 To 2018 4 Dr Pickup Dbl.Cab 3.2 WILDTRAK 4X4 197Bhp (A) [10/15-]": 1,
+"FORD Ranger Raptor 2020 On 4 Dr Pickup Dbl.Cab 2 2.0 Bi-Turbo 210Bhp (A) [04/20-06/23]": 1,
+"FORD Ranger 2018 To 2019 4 Dr Pickup Dbl.Cab 2 Si-Turbo WildTrak 4X2 178Bhp (A) [10/18-]": 1,
+"FORD Ranger 2018 To 2019 4 Dr Pickup Dbl.Cab 2.2 XL 4X4 158Bhp (A) [10/18-]": 1,
+"FORD Ranger 2015 On 4 Dr Pickup Dbl.Cab 2.2 XLT 4X4 158Bhp (A) [10/15-]": 1,
+"FORD Ranger 2018 On 4 Dr Pickup Dbl.Cab 2.2 XL 4X4 158Bhp (A) [10/18-]": 1,
+"FORD Ranger 2012 On 4 Dr Pickup Dbl.Cab 2.2 XLT 4X4 148Bhp (A) [06/12-09/15]": 1,
+"FORD RANGER 4 DR PICKUP DBL.CAB 2.5 D Extreme (M) [01-]": 1,
+"FORD Ranger 1999 On 4 Dr Pickup Dbl.Cab 2.5 XLT 4X4 141Bhp (A) [04/09-05/12]": 1,
+"FORD Ranger 2019 On Dr Pickup Dbl.Cab 2.00 TD Wildtrak 2.0 EcoBlue AUTO 210Bhp (A) [08/20-]": 1,
+"FORD RANGER 4 DR PICKUP DBL.CAB 2.0 Raptor 4x4 (A) [18-]": 1,
+"FORD Ranger 2018 On Dr Pickup Dbl.Cab 2.20 TD XLT 4X4 158Bhp (M) [10/18-]": 1,
+"FORD Ranger 2015 On Dr Pickup Dbl.Cab 2.20 TD XL 4X4 123Bhp (M) [10/15-]": 1,
+"FORD Ranger 2018 On Dr Pickup Dbl.Cab 2.20 TD XLT 4X4 AUTO 158Bhp (A) [10/18-]": 1,
+"FORD Ranger 2015 On Dr Pickup Dbl.Cab 3.20 TD WILDTRAK 4X4 AUTO 197Bhp (A) [10/15-]": 1
+},
+"HONDA|HR-V": {
+"HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 V 140Bhp (A) [02/15-12/18]": 33,
+"HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 E 140Bhp (A) [02/15-12/18]": 15,
+"HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 S 140Bhp (A) [02/15-12/18]": 8,
+"HONDA HR-V 2022 On 5 Dr SUV 1.5 1.5 V 174Bhp [07/22-]": 8,
+"HONDA HR-V 2015 On 5 Dr SUV 1.80 V AUTO 140Bhp (A) [02/15-12/18]": 8,
+"HONDA HR-V 2015 On 5 Dr SUV 1.8 V 140Bhp (A) [02/15-12/18]": 7,
+"HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 E 140Bhp [01/19-07/22]": 6,
+"HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 V 140Bhp [01/19-07/22]": 5,
+"HONDA HR-V 2022 To 2025 5 Dr SUV 1.5 1.5 V 174Bhp [07/22-07/25]": 4,
+"HONDA HR-V 2022 On 5 Dr SUV 1.5 RS e:HEV 104Bhp [07/22-]": 3,
+"HONDA HR-V 2015 On 5 Dr SUV 1.80 S AUTO 140Bhp (A) [02/15-12/18]": 3,
+"HONDA HR-V 2015 On 5 Dr SUV 1.80 E AUTO 140Bhp (A) [02/15-12/18]": 3,
+"HONDA HR-V 2022 To 2025 5 Dr SUV 1.5 1.5 S 119Bhp [07/22-07/25]": 2,
+"HONDA HR-V 2015 On 5 Dr SUV 1.80 E 140Bhp [01/19-]": 2,
+"HONDA HR-V 2022 To 2025 5 Dr SUV 1.5 1.5 E 174Bhp [07/22-07/25]": 1,
+"HONDA HR-V 2022 To 2025 5 Dr SUV 1.5 RS e:HEV 104Bhp [07/22-07/25]": 1,
+"HONDA HR-V 2022 On 5 Dr SUV 1.5 1.5 E 174Bhp [07/22-]": 1,
+"HONDA HR-V 2015 To 2022 5 Dr SUV 1.8 RS 140Bhp [01/19-07/22]": 1,
+"HONDA HR-V 2015 On 5 Dr SUV 1.8 E 140Bhp [01/19-]": 1,
+"HONDA HR-V 2015 On 5 Dr SUV 1.8 S 140Bhp (A) [02/15-12/18]": 1,
+"HONDA HR-V 2015 On 5 Dr SUV 1.80 RS 140Bhp [01/19-]": 1
+},
+"SUBARU|FORESTER": {
+"SUBARU Forester 2013 To 2019 5 Dr SUV 2 2.0i-P 148Bhp [04/16-04/19]": 7,
+"SUBARU Forester 2013 To 2019 5 Dr SUV 2 2.0i 148Bhp [04/16-04/19]": 2,
+"SUBARU Forester 2013 On 5 Dr SUV 2.00 2.0i-P 148Bhp [04/16-]": 1
+},
+"MERCEDES-BENZ|GLC": {
+"MERCEDES-BENZ GLC 2016 On 5 Dr SUV 2 250 4Matic AMG Line (X253) 211Bhp (A) [01/16-]": 3,
+"MERCEDES-BENZ GLC 200 5 DR SUV 2.0 (X253) (A) [16-]": 2,
+"MERCEDES-BENZ GLC 2016 On 5 Dr SUV 3 AMG GLC 43 4Matic (X253) 367Bhp (A) [05/17-]": 2,
+"MERCEDES-BENZ GLC 2016 On 5 Dr SUV 3 AMG GLC 43 4Matic Coupe (C253) 367Bhp (A) [05/17-]": 1,
+"MERCEDES-BENZ GLC 300 5 DR SUV 2.0 4Matic AMG Line (X253) Facelift (A) [20-]": 1,
+"MERCEDES-BENZ GLC 2016 On 5 Dr SUV 2.00 250 4Matic AMG Line (X253) AUTO 211Bhp (A) [01/16-]": 1
+},
+"NISSAN|SYLPHY": {
+"NISSAN Sylphy 2008 On 4 Dr Sal 2 131Bhp (A) [06/08-02/12]": 18,
+"NISSAN Sylphy 2008 On 4 Dr Sal 2 XV 131Bhp (A) [03/12-04/14]": 3,
+"NISSAN Sylphy 2008 On 4 Dr Sal 2 XL 131Bhp (A) [03/12-04/14]": 2,
+"NISSAN SYLPHY 4 DR SAL 2.0 (B17) (A)": 1,
+"NISSAN Sylphy 2014 On 4 Dr Sal 1.8 E (B17) 129Bhp (A) [05/14-]": 1,
+"NISSAN Sylphy 2008 On 4 Dr Sal 2.00 AUTO 131Bhp (A) [06/08-02/12]": 1
+},
+"LEXUS|IS300": {
+"LEXUS IS300 4 DR SAL 2.0 F Sport (3BA-ASE30) (A)": 3,
+"LEXUS IS300 4 DR SAL 2.0 DBA-ASE30 (A)": 1
+},
+"BMW|X5": {
+"BMW X5 2016 To 2019 5 Dr SUV 2 xDrive40e M Sport (F15) 245Bhp (A) [06/16-07/19]": 2,
+"BMW X5 Hybrid 2020 On 5 Dr SUV 3 xDrive45e M Sport 281Bhp (A) [06/20-]": 2,
+"BMW X5 5 DR SUV 3.0 xDrive45e (G05) (A) [18-]": 1,
+"BMW X5 PHEV 2020 On 5 Dr SUV 3 xDrive45e M Sport 281Bhp (A) [06/20-]": 1,
+"BMW X5 5 DR SUV 3.0 xDrive35i (F15) (A) [14-]": 1,
+"BMW X5 2016 On 5 Dr SUV 2 xDrive40e M Sport (F15) 245Bhp (A) [06/16-07/19]": 1,
+"BMW X5 2007 On 5 Dr SUV 3 d (E70) 218Bhp (A) [05/07-]": 1,
+"BMW X5 2007 On 5 Dr SUV 3 si (E70) 272Bhp (A) [05/07-]": 1,
+"BMW X5 2016 On 5 Dr SUV 2.00 xDrive40e M Sport (F15) AUTO 245Bhp (A) [06/16-07/19]": 1
+},
+"BMW|3-SERIES": {
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 330e M Sport 184Bhp (A) [02/17-02/19]": 7,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 1.5 318i Luxury (F30) LCI 136Bhp (A) [11/15-02/19]": 7,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 320i Luxury (F30) N20 184Bhp (A) [09/12-10/15]": 7,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 330e Sport 184Bhp (A) [08/16-02/19]": 4,
+"BMW 3-Series 2012 On 4 Dr Sal 1.50 318i Luxury (F30) LCI AUTO 136Bhp (A) [11/15-]": 4,
+"BMW 3-Series 2023 On 4 Dr Sal 2 320i M Sport 184Bhp (A) [01/23-]": 3,
+"BMW 3-Series 2020 On 4 Dr Sal 2 320i Sport 181Bhp (A) [01/20-]": 3,
+"BMW 3-Series 2005 To 2012 4 Dr Sal 2 320i (E90) N46N 150Bhp (A) [11/08-02/12]": 3,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 1.6 316i (F30) 136Bhp (A) [07/13-02/19]": 3,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 320i Sport (F30) N20 184Bhp (A) [09/12-10/15]": 2,
+"BMW 3-Series 2019 To 2020 4 Dr Sal 2 330i M Sport (G20 CKD) 258Bhp (A) [09/19-04/20]": 2,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 328i M-Sport (F30) 242Bhp (A) [06/13-02/19]": 2,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 320i M Sport (F30) LCI 184Bhp (A) [11/15-02/19]": 2,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 320d M-Sport (F30) 181Bhp (A) [06/13-10/15]": 2,
+"BMW 3-Series 2005 To 2012 4 Dr Sal 2.5 323i (E90) N52N 190Bhp (A) [11/08-02/12]": 2,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 320d M Sport (F30) LCI 190Bhp (A) [11/15-02/19]": 2,
+"BMW 3-Series 2005 To 2012 4 Dr Sal 2 320i Sports (E90) 156Bhp (A) [11/08-02/12]": 2,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 3 335i (F30) N55 302Bhp (A) [03/12-02/19]": 2,
+"BMW 3-Series 2005 On 4 Dr Sal 2.00 320i Sports (E90) AUTO 156Bhp (A) [11/08-02/12]": 2,
+"BMW 3-Series 2012 On 4 Dr Sal 2.00 320i Sport (F30) N20 AUTO 184Bhp (A) [09/12-10/15]": 2,
+"BMW 3-Series 2005 To 2012 2 Dr Coupe 2 320i (E92) 156Bhp (A) [06/10-02/12]": 1,
+"BMW 3-Series 1999 On 4 Dr Sal 1.8 318i (E46) N46 114Bhp (A) [09/99-]": 1,
+"BMW 3-Series 2020 On 4 Dr Sal 2 330i M Sport 258Bhp (A) [04/20-]": 1,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 320i Sport (F30) LCI 184Bhp (A) [11/15-02/19]": 1,
+"BMW 3-Series 2020 On 4 Dr Sal 2 330Li M Sport 255Bhp (A) [07/21-03/23]": 1,
+"BMW 3-Series 1999 On 4 Dr Sal 2.5 325i (E46) 189Bhp (A) [01/01-]": 1,
+"BMW 3-Series 2019 To 2020 4 Dr Sal 2 330i M Sport (G20 CBU) 258Bhp (A) [03/19-08/19]": 1,
+"BMW 3-Series 2012 To 2019 4 Dr Sal 2 328i (F30) N20 242Bhp (A) [03/12-05/18]": 1,
+"BMW 3-Series 2012 On 4 Dr Sal 1.60 316i (F30) AUTO 136Bhp (A) [07/13-]": 1,
+"BMW 3-Series 2005 To 2012 4 Dr Sal 2.5 325i Sports (E90) N52N 218Bhp (A) [11/08-02/12]": 1,
+"BMW 3-Series 2012 On 4 Dr Sal 2.00 320i Sport (F30) LCI AUTO 184Bhp (A) [11/15-]": 1,
+"BMW 3-Series 2012 On 4 Dr Sal 2.00 330e M Sport AUTO 184Bhp (A) [02/17-]": 1,
+"BMW 3-Series 2012 On 4 Dr Sal 2.00 330e Sport AUTO 184Bhp (A) [08/16-]": 1,
+"BMW 3-Series 2012 On 4 Dr Sal 2.00 328i (F30) N20 AUTO 242Bhp (A) [03/12-05/18]": 1
+},
+"HONDA|BR-V": {
+"HONDA BR-V 2017 On 5 Dr SUV 1.5 V 119Bhp [01/17-]": 19,
+"HONDA BR-V 2020 On 5 Dr SUV 1.5 E 119Bhp [06/20-]": 4,
+"HONDA BR-V 2020 On 5 Dr SUV 1.5 V 119Bhp [06/20-]": 4,
+"HONDA BR-V 2017 On 5 Dr SUV 1.50 V 119Bhp [01/17-]": 3,
+"HONDA BR-V 2020 On 5 Dr SUV 1.50 V 119Bhp [06/20-]": 2,
+"HONDA BR-V 2020 On 5 Dr SUV 1.50 E 119Bhp [06/20-]": 1
+},
+"FORD|MUSTANG": {
+"FORD MUSTANG 2 DR COUPE 2.3 GTDI FN MY20 (A)": 2,
+"FORD MUSTANG 2 DR COUPE 2.3 EcoBoost (S550) (A) [15-]": 1,
+"FORD MUSTANG 2 DR COUPE 2.3 EcoBoost (A) [15-]": 1
+},
+"PROTON|X70": {
+"PROTON X70 2018 On 5 Dr SUV 1.8 TGDI Premium 182Bhp (A) [12/18-]": 9,
+"PROTON X70 2020 On 5 Dr SUV 1.8 TGDI Premium 181Bhp [02/20-]": 6,
+"PROTON X70 2018 On 5 Dr SUV 1.8 TGDI Executive (2WD) 182Bhp (A) [12/18-]": 5,
+"PROTON X70 2020 On 5 Dr SUV 1.8 TGDI Executive 181Bhp [02/20-]": 4,
+"PROTON X70 2020 On 5 Dr SUV 1.8 TGDI Premium X 181Bhp [02/20-]": 2,
+"PROTON X70 2020 On 5 Dr SUV 1.80 TGDI Executive 181Bhp [02/20-]": 2,
+"PROTON X70 2020 On 5 Dr SUV 1.8 TGDI Standard 181Bhp [02/20-]": 1,
+"PROTON X70 2022 To 2024 5 Dr SUV 1.5 TGDI Executive (2WD) 175Bhp [06/22-08/24]": 1,
+"PROTON X70 2018 On 5 Dr SUV 1.80 TGDI Standard AUTO 182Bhp (A) [12/18-]": 1,
+"PROTON X70 2022 On 5 Dr SUV 1.5 TGDI Executive (2WD) 175Bhp [06/22-]": 1,
+"PROTON X70 2022 On 5 Dr SUV 1.8 TGDI Premium 181Bhp [06/22-]": 1,
+"PROTON X70 2022 On 5 Dr SUV 1.5 TGDI Premium 175Bhp [06/22-]": 1,
+"PROTON X70 2018 On 5 Dr SUV 1.80 TGDI Executive (2WD) AUTO 182Bhp (A) [12/18-]": 1
+},
+"MODENAS|KRISS": {
+"MODENAS KRISS 107cc MJ110": 1,
+"MODENAS KRISS 97cc MN100F-B1MY": 1
+},
+"MERCEDES-BENZ|C180": {
+"MERCEDES-BENZ C180 4 DR SAL 1.8 Kompressor Elegance (W204) (A)": 2,
+"MERCEDES-BENZ C180 4 DR SAL 1.8 W203 (A)": 1,
+"MERCEDES-BENZ C180 4 DR SAL 1.6 DBA-205040C (W205) (A)": 1,
+"MERCEDES-BENZ C180 4 DR SAL 1.8 CGI Sport (W204) (A)": 1,
+"MERCEDES-BENZ C180 4 DR SAL 1.8 DBA-204049 (W204) (A) [12-]": 1
+},
+"KING LONG|CAM": {
+"KING LONG CAM KINGO PLUS VAN 3.0 D (XMQ6552) (M)": 1
+},
+"HONDA|CR-V": {
+"HONDA CR-V 2013 To 2015 5 Dr SUV 2 i-VTEC 153Bhp (A) [03/13-01/15]": 10,
+"HONDA CR-V 2017 To 2020 5 Dr SUV 1.5 1.5TC-P 2WD 190Bhp [07/17-11/20]": 6,
+"HONDA CR-V 2017 To 2020 5 Dr SUV 2 2.0 2WD 153Bhp [07/17-11/20]": 5,
+"HONDA CR-V 2007 To 2013 5 Dr SUV 2 i-VTEC 148Bhp (A) [03/10-02/13]": 5,
+"HONDA CR-V 2017 To 2020 5 Dr SUV 1.5 1.5TC 2WD 190Bhp [07/17-11/20]": 5,
+"HONDA CR-V 2007 To 2013 5 Dr SUV 2 i-VTEC 148Bhp (A) [03/07-02/10]": 5,
+"HONDA CR-V 2015 To 2017 5 Dr SUV 2 2WD i-VTEC 153Bhp (A) [02/15-06/17]": 4,
+"HONDA CR-V 2020 To 2023 5 Dr SUV 2 2.0 2WD 153Bhp [11/20-12/23]": 4,
+"HONDA CR-V 2013 To 2015 5 Dr SUV 2.4 i-VTEC 187Bhp (A) [07/13-01/15]": 4,
+"HONDA CR-V 2015 To 2017 5 Dr SUV 2 4WD i-VTEC 153Bhp (A) [02/15-06/17]": 4,
+"HONDA CR-V 2002 To 2007 5 Dr SUV 2 i-VTEC 154Bhp (A) [04/02-02/05]": 3,
+"HONDA CR-V 2017 On 5 Dr SUV 2.00 2.0 2WD 153Bhp [07/17-]": 3,
+"HONDA CR-V 2017 To 2020 5 Dr SUV 1.5 1.5TC 4WD 190Bhp [07/17-11/20]": 2,
+"HONDA CR-V 1996 To 2002 5 Dr SUV 2 124Bhp (A) [01/96-03/02]": 1,
+"HONDA CR-V 2023 On 5 Dr SUV 1.5 1.5 E 187Bhp [12/23-]": 1,
+"HONDA CR-V 2020 To 2023 5 Dr SUV 1.5 1.5TC-P 4WD 190Bhp [11/20-12/23]": 1,
+"HONDA CR-V 2020 To 2023 5 Dr SUV 1.5 1.5TC-P 2WD 190Bhp [11/20-12/23]": 1,
+"HONDA CR-V 2002 To 2007 5 Dr SUV 2 i-VTEC 154Bhp (A) [03/05-02/07]": 1,
+"HONDA CR-V 2020 On 5 Dr SUV 1.5 1.5TC-P 4WD 190Bhp [11/20-]": 1,
+"HONDA CR-V 2013 On 5 Dr SUV 2.00 i-VTEC AUTO 153Bhp (A) [03/13-01/15]": 1,
+"HONDA CR-V 2017 On 5 Dr SUV 1.50 1.5TC-P 2WD 190Bhp [07/17-]": 1,
+"HONDA CR-V 2015 On 5 Dr SUV 2.40 4WD i-VTEC AUTO 187Bhp (A) [02/15-06/17]": 1
+},
+"ISUZU|TFS55HP": {
+"ISUZU TFS55HP 2.8 Space Cab": 1
+},
+"TOYOTA|HIACE": {
+"TOYOTA Hiace 2006 On Van 2.5 (KDH200R-RBMDYE) 101Bhp (M) [01/14-]": 10,
+"TOYOTA Hiace 2006 On Van 2.5 (KDH200R-RBMDYE) 101Bhp (M) [09/10-12/13]": 6,
+"TOYOTA Hiace 2006 On Van 2.5 High Roof (KDH202R-EDMDYE) 101Bhp (M) [01/06-08/10]": 3,
+"TOYOTA Hiace 1996 On Van 2.4 LH112R-RBMRS (M) [01/96-12/05]": 2,
+"TOYOTA Hiace 2006 On Van 2.50 TD (KDH200R-RBMDYE) 101Bhp (M) [01/14-]": 2,
+"TOYOTA HIACE PANEL VAN 2.5 D Facelift (M) [15-]": 1,
+"TOYOTA Hiace 2006 On Van 2.7 VVTi - High Roof (TRH203R-EDMDKE) 149Bhp (M) [01/14-]": 1,
+"TOYOTA Hiace 2006 On Van 2.7 VVTi - High Roof (TRH203R-EDMDKE) 149Bhp (M) [09/10-12/13]": 1,
+"TOYOTA Hiace 2006 On Van 2.5 High Roof (KDH202R-EDMDYE) 101Bhp (M) [01/14-]": 1,
+"TOYOTA Hiace 2006 On Van 2.5 (KDH200R-RBMDYE) 101Bhp (M) [01/06-08/10]": 1,
+"TOYOTA Hiace 1996 On Van 2 RZH112R-RRMRSA (M) [01/96-12/05]": 1,
+"TOYOTA HIACE VAN 2.4 D LH112R-RRMRS (M)": 1,
+"TOYOTA HIACE WINDOW VAN 3.0 D LH172 (M)": 1,
+"TOYOTA Hiace 2006 On Van 2.50 TD (KDH200R-RBMDYE) 101Bhp (M) [01/06-08/10]": 1
+},
+"SSANGYONG|STAVIC": {
+"SSANGYONG STAVIC MPV 2.0 D SV200 eXDi (A) [13-]": 2
+},
+"MAZDA|6": {
+"MAZDA 6 2010 To 2013 4 Dr Sal 2.5 170Bhp (A) [07/10-02/13]": 2,
+"MAZDA 6 2010 To 2013 4 Dr Sal 2 147Bhp (A) [07/10-02/13]": 1,
+"MAZDA 6 2013 To 2018 4 Dr Sal 2 SkyActiv-G (GVC) 153Bhp (A) [02/17-07/18]": 1,
+"MAZDA 6 2013 To 2018 5 Dr Estate 2.5 SkyActiv-G (Touring) 185Bhp (A) [04/15-01/17]": 1,
+"MAZDA 6 2013 To 2018 4 Dr Sal 2 SkyActiv-G 153Bhp (A) [04/15-01/17]": 1,
+"MAZDA 6 2013 To 2018 4 Dr Sal 2 153Bhp (A) [03/13-03/15]": 1,
+"MAZDA 6 2013 To 2018 4 Dr Sal 2.5 185Bhp (A) [03/13-03/15]": 1,
+"MAZDA 6 2013 To 2018 4 Dr Sal 2.00 SkyActiv-G AUTO 153Bhp (A) [04/15-01/17]": 1,
+"MAZDA 6 2013 On 4 Dr Sal 2.50 AUTO 185Bhp (A) [03/13-03/15]": 1,
+"MAZDA 6 2004 On 4 Dr Sal 2.30 AUTO 167Bhp (A) [11/06-06/10]": 1,
+"MAZDA 6 2013 On 4 Dr Sal 2.00 SkyActiv-G (GVC) AUTO 153Bhp (A) [02/17-07/18]": 1,
+"MAZDA 6 2013 On 4 Dr Sal 2.00 SkyActiv-G AUTO 153Bhp (A) [04/15-01/17]": 1
+},
+"MERCEDES-BENZ|A250": {
+"MERCEDES-BENZ A250 SPORT 5 DR HATCH 2.0 W176 (A) [13-]": 1,
+"MERCEDES-BENZ A250 4 DR SAL 2.0 AMG Line (V177) (A) [18-]": 1
+},
+"NISSAN|NV350": {
+"NISSAN NV350 URVAN VAN 2.5 D (Facelift) (M) [17-]": 1
+},
+"MAZDA|CX-3": {
+"MAZDA CX-3 2015 To 2021 5 Dr SUV 2 SkyActiv-G 154Bhp (A) [12/15-03/21]": 2,
+"MAZDA CX-3 2021 On 5 Dr SUV 2 SkyActiv-G (GVC) 154Bhp (A) [03/21-]": 2,
+"MAZDA CX-3 2015 On 5 Dr SUV 2 SkyActiv-G 154Bhp (A) [12/15-]": 1,
+"MAZDA CX-3 2015 To 2021 5 Dr SUV 2 SkyActiv-G (GVC) 154Bhp (A) [08/18-03/21]": 1,
+"MAZDA CX-3 2022 On 5 Dr SUV 2 2.0 High 154Bhp (A) [12/23-]": 1,
+"MAZDA CX-3 2015 On 5 Dr SUV 2 SkyActiv-G (GVC) 154Bhp (A) [08/18-]": 1
+},
+"HYUNDAI|GETZ": {
+"HYUNDAI Getz 2003 On 3 Dr Hatch 1.3 81Bhp (A) [01/06-]": 2,
+"HYUNDAI Getz 2003 On 5 Dr Hatch 1.6 GLS 104Bhp (A) [02/03-]": 1,
+"HYUNDAI Getz 2003 On 5 Dr Hatch 1.3 GL 81Bhp (A) [02/03-]": 1
+},
+"MAZDA|CX-8": {
+"MAZDA CX-8 2019 On 5 Dr SUV 2.2 SkyActiv-D 4WD (High) 188Bhp (A) [11/19-]": 1,
+"MAZDA CX-8 2022 On 5 Dr SUV 2.5 High Plus 2WD 192Bhp (A) [06/22-]": 1,
+"MAZDA CX-8 2019 On 5 Dr SUV 2.5 SkyActiv-G (Mid Plus) 192Bhp (A) [11/19-]": 1,
+"MAZDA CX-8 2019 On 5 Dr SUV 2.5 SkyActiv-G (High) 192Bhp (A) [11/19-]": 1
+},
+"PERODUA|KANCIL": {
+"PERODUA Kancil 1994 On 5 Dr Hatch 0.66 EX 660 31Bhp (M) [11/99-09/02]": 5,
+"PERODUA Kancil 2002 On 5 Dr Hatch 0.66 EX 660 31Bhp (M) [10/02-]": 3,
+"PERODUA Kancil 2002 On 5 Dr Hatch 0.85 EX 850 36Bhp (M) [10/02-]": 3,
+"PERODUA Kancil 1994 On 5 Dr Hatch 0.85 EX 850 36Bhp (M) [11/99-09/02]": 2,
+"PERODUA Kancil 1994 On 5 Dr Hatch 0.85 EX 850 36Bhp (M) [08/97-10/99]": 1,
+"PERODUA Kancil 2002 On 5 Dr Hatch 0.85 EZi 850 49Bhp (A) [02/03-]": 1,
+"PERODUA Kancil 1994 On 5 Dr Hatch 0.85 EZ 850 36Bhp (A) [08/97-10/99]": 1,
+"PERODUA Kancil 1994 On 5 Dr Hatch 0.66 EZ 660 31Bhp (A) [01/95-07/97]": 1
+},
+"BMW|5-SERIES": {
+"BMW 5-Series 2010 To 2017 4 Dr Sal 2.5 523i (F10) N52 204Bhp (A) [05/10-03/17]": 10,
+"BMW 5-Series 2010 To 2017 4 Dr Sal 3 528i (F10) N52B30 258Bhp (A) [10/10-09/13]": 4,
+"BMW 5-Series PHEV 2017 To 2019 4 Dr Sal 2 530e Sport (G30) 181Bhp (A) [01/18-04/19]": 3,
+"BMW 5-Series 2003 To 2010 4 Dr Sal 2.5 525i Sports (E60) N52B25 215Bhp (A) [08/07-04/10]": 3,
+"BMW 5-Series 2010 To 2017 4 Dr Sal 2 520i (F10) 184Bhp (A) [10/13-03/17]": 3,
+"BMW 5-Series 2017 To 2019 4 Dr Sal 2 530i M Sport (G30) 252Bhp (A) [04/17-04/19]": 2,
+"BMW 5-Series 2010 To 2017 4 Dr Sal 2 520d (F10) N47D20 184Bhp (A) [03/11-09/13]": 2,
+"BMW 5-Series PHEV 2019 On 4 Dr Sal 2 530e M Sport 181Bhp (A) [04/19-]": 1,
+"BMW 5-Series 2019 On 4 Dr Sal 2 520i Luxury 181Bhp (A) [04/19-05/24]": 1,
+"BMW 5-Series 2003 To 2010 4 Dr Sal 2.5 523i SE (E60) 187Bhp (A) [08/07-04/10]": 1,
+"BMW 5-Series 2010 To 2017 4 Dr Sal 3 528i M-Sport (F10) N52B30 258Bhp (A) [06/11-09/13]": 1,
+"BMW 5-Series 2003 To 2010 4 Dr Sal 2.5 525i (E60) M54 215Bhp (A) [09/03-07/07]": 1,
+"BMW 5-Series 1996 To 2003 4 Dr Sal 2.5 525i (E39) 184Bhp (A) [01/96-01/04]": 1,
+"BMW 5-Series 2010 To 2017 4 Dr Sal 3 535i (F10) N55 306Bhp (A) [05/10-03/17]": 1,
+"BMW 5-Series 2010 To 2017 4 Dr Sal 2 528i M-Sport (F10) 245Bhp (A) [10/13-03/17]": 1,
+"BMW 5-Series 2003 To 2010 4 Dr Sal 2.50 523i SE (E60) AUTO 187Bhp (A) [08/07-04/10]": 1,
+"BMW 5-Series Hybrid 2017 On 4 Dr Sal 2.00 530e Sport (G30) AUTO 181Bhp (A) [01/18-]": 1,
+"BMW 5-Series 2010 On 4 Dr Sal 2.50 523i (F10) N52 AUTO 204Bhp (A) [05/10-]": 1,
+"BMW 5-Series 2003 On 4 Dr Sal 2.50 523i (E60) AUTO 187Bhp (A) [09/03-07/07]": 1,
+"BMW 5-Series 2010 On 4 Dr Sal 2.00 TD 520d (F10) N47D20 AUTO 184Bhp (A) [03/11-09/13]": 1,
+"BMW 5-Series 2003 On 4 Dr Sal 3.00 530i (E60) N52B30 AUTO 268Bhp (A) [08/07-04/10]": 1,
+"BMW 5-Series 2003 On 4 Dr Sal 2.50 525i (E60) M54 AUTO 215Bhp (A) [09/03-07/07]": 1,
+"BMW 5-Series Hybrid 2019 On 4 Dr Sal 2.00 530e M Sport AUTO 181Bhp (A) [04/19-]": 1,
+"BMW 5-Series 1996 On 4 Dr Sal 2.00 520i (E39) AUTO 150Bhp (A) [01/96-01/04]": 1,
+"BMW 5-Series 2003 On 4 Dr Sal 2.00 520i (E60) AUTO 168Bhp (A) [09/03-07/07]": 1
+},
+"LEXUS|LM": {
+"LEXUS LM 500H MPV 2.4 5AA-TAWH15W (A) [24-]": 1
+},
+"ISUZU|D-MAX": {
+"ISUZU D-MAX 2021 To 2023 4 Dr Pickup Dbl.Cab 1.9 4X4 Premium 148Bhp (A) [04/21-]": 2,
+"ISUZU D-MAX 2013 To 2019 4 Dr Pickup Dbl.Cab 3 V-Cross 4X4 AT 175Bhp (A) [10/16-08/19]": 2,
+"ISUZU D-MAX 2021 On 4 Dr Pickup Dbl.Cab 1.9 4X2 Plus 148Bhp (A) [10/21-]": 2,
+"ISUZU D-MAX 2013 To 2019 2 DR Pickup 2.5 4x4 MT 134Bhp (M) [05/13-09/16]": 2,
+"ISUZU D-MAX 2021 To 2023 4 Dr Pickup Dbl.Cab 3 4X4 Premium 187Bhp (A) [04/21-]": 1,
+"ISUZU D-MAX 2005 To 2013 4 Dr Pickup Dbl.Cab 3 Hi-DEF (4X4) 134Bhp (A) [09/08-]": 1,
+"ISUZU D-MAX 2013 To 2019 4 Dr Pickup Dbl.Cab 2.5 4x4 AT 134Bhp (A) [10/16-08/19]": 1,
+"ISUZU D-MAX 2013 To 2019 4 Dr Pickup Dbl.Cab 3 V-Cross 4X4 AT Z-Prestige 175Bhp (A) [10/16-08/19]": 1,
+"ISUZU D-MAX 2024 On 4 Dr Pickup Dbl.Cab 1.9 4X2 Plus 148Bhp (A) [05/24-]": 1,
+"ISUZU D-MAX 2005 To 2013 4 Dr Pickup Dbl.Cab 3 Hi-DEF (4X2) 134Bhp (A) [09/08-]": 1,
+"ISUZU D-MAX 2005 To 2013 4 Dr Pickup Dbl.Cab 2.5 LS (4X2) 78Bhp (M) [07/07-06/09]": 1,
+"ISUZU D-MAX 2023 On 4 Dr Pickup Dbl.Cab 1.9 4X4 Premium 148Bhp (A) [02/23-]": 1,
+"ISUZU D-MAX 2013 To 2019 4 Dr Pickup Dbl.Cab 2.5 Artic 4x4 (V-lid) 134Bhp (A) [05/13-08/19]": 1,
+"ISUZU D-MAX 2021 On 4 Dr Pickup Dbl.Cab 1.9 4X4 Standard 148Bhp (A) [04/21-]": 1,
+"ISUZU D-MAX 2013 To 2019 4 Dr Pickup Dbl.Cab 3 V-Cross 4X4 AT 175Bhp (A) [05/13-05/15]": 1,
+"ISUZU D-MAX 2013 To 2019 4 Dr Pickup Dbl.Cab 2.5 4x4 AT Z-Prestige 134Bhp (A) [10/16-08/19]": 1,
+"ISUZU D-MAX 2021 On 4 Dr Pickup Dbl.Cab 3 4X4 X-Terrain 187Bhp (A) [04/21-]": 1,
+"ISUZU D-MAX 2013 To 2019 4 Dr Pickup Dbl.Cab 3 V-Cross 4X4 AT 175Bhp (A) [06/15-09/16]": 1,
+"ISUZU D-MAX 2013 To 2019 4 Dr Pickup Dbl.Cab 2.5 Artic 4x4 (Roll-bar) 134Bhp (A) [05/13-08/19]": 1,
+"ISUZU D-MAX 2005 To 2013 Dr Pickup Dbl.Cab 3.00 TD Hi-DEF (4X4) AUTO 134Bhp (A) [09/08-]": 1,
+"ISUZU D-MAX 4 DR PICKUP DBL.CAB 2.5 D 4X4 TFS86JDR-RLPH (M) [13-]": 1,
+"ISUZU D-MAX 4 DR PICKUP DBL.CAB 3.0 D TFS85HDAT1 (A) [08-]": 1
+},
+"MINI|CLUBMAN": {
+"MINI Clubman 2016 To 2019 5 Dr Estate 2 Cooper S (F54) 192Bhp (A) [04/16-]": 2,
+"MINI Clubman 2016 On 5 Dr Estate 2 Cooper S (F54) 192Bhp (A) [04/16-]": 1
+},
+"CHERY|OMODA": {
+"CHERY Omoda 5 2023 On 5 Dr SUV 1.5 H 156Bhp [07/23-]": 4,
+"CHERY Omoda E5 EV 2024 On 5 Dr SUV EV 201Bhp (A) [03/24-]": 1
+},
+"KIA|CERATO": {
+"KIA Cerato 2013 On 4 Dr Sal 1.6 SX 128Bhp (A) [07/13-11/16]": 4,
+"KIA Cerato 2013 On 4 Dr Sal 2 L 160Bhp (A) [12/16-]": 3,
+"KIA Cerato 2013 On 4 Dr Sal 1.6 SX 128Bhp (A) [12/16-]": 2,
+"KIA Cerato 2013 On 4 Dr Sal 1.6 KX 128Bhp (A) [07/14-11/16]": 2,
+"KIA CERATO 4 DR SAL 1.6 YD (A) [13-]": 2,
+"KIA Cerato 2013 On 4 Dr Sal 2 L 159Bhp (A) [07/13-11/16]": 1,
+"KIA Cerato 2013 On 4 Dr Sal 1.6 KX 128Bhp (A) [12/16-]": 1
+},
+"VOLVO|XC60": {
+"VOLVO XC60 2018 On 5 Dr SUV 2 T5 Momentum 254Bhp (A) [01/18-04/20]": 2,
+"VOLVO XC60 PHEV 2018 To 2025 5 Dr SUV 2 Recharge T8 Inscription Plus (FL) 316Bhp (A) [11/21-09/25]": 1,
+"VOLVO XC60 PHEV 2025 On 5 Dr SUV 2 Ultra 317Bhp (A) [09/25-]": 1,
+"VOLVO XC60 5 DR SUV 2.0 E T8 Inscription (A) [18-]": 1,
+"VOLVO XC60 2014 To 2018 5 Dr SUV 2 T6 Drive-E 306Bhp (A) [10/14-01/18]": 1,
+"VOLVO XC60 PHEV 2018 On 5 Dr SUV 2 Inscription Plus 320Bhp (A) [06/18-11/21]": 1,
+"VOLVO XC60 PHEV 2018 On 5 Dr SUV 2 Recharge T8 Inscription Plus (FL) 316Bhp (A) [11/21-]": 1,
+"VOLVO XC60 5 DR SUV 2.0 T5 Momentum (A) [18-]": 1
+},
+"HYUNDAI|SONATA": {
+"HYUNDAI Sonata 2006 To 2012 4 Dr Sal 2.4 YF 176Bhp (A) [07/10-12/12]": 3,
+"HYUNDAI Sonata 2013 To 2020 4 Dr Sal 2 YF 164Bhp (A) [01/13-11/14]": 2,
+"HYUNDAI Sonata 2002 To 2005 4 Dr Sal 2 GLS 131Bhp (A) [01/02-12/05]": 1,
+"HYUNDAI Sonata 2013 To 2020 4 Dr Sal 2.4 YF 176Bhp (A) [01/13-11/14]": 1,
+"HYUNDAI SONATA 4 DR SAL 1.8 Y3 (M)": 1,
+"HYUNDAI Sonata 2006 To 2012 4 Dr Sal 2 NF 156Bhp (A) [01/07-06/10]": 1,
+"HYUNDAI Sonata 2006 On 4 Dr Sal 2.00 YF AUTO 163Bhp (A) [07/10-12/12]": 1,
+"HYUNDAI Sonata 2013 On 4 Dr Sal 2.40 YF AUTO 176Bhp (A) [01/13-11/14]": 1
+},
+"MERCEDES-BENZ|E": {
+"MERCEDES-BENZ E Class 2002 To 2009 5 Dr Estate 2 E200 Kompressor Avangarde 184Bhp (A) [10/03-]": 2,
+"MERCEDES-BENZ E Class 2009 On 2 Dr Cabriolet 2.1 E250CDi Sport Blue Efficiency 204Bhp (A) [03/10-]": 2,
+"MERCEDES-BENZ E Class 2009 On 4 Dr Sal 2.1 E250Cdi SE Blue Efficiency 204Bhp (A) [06/09-]": 1,
+"MERCEDES-BENZ E Class 2009 On 5 Dr Estate 1.8 E250 Sport Blue Efficiency 204Bhp (A) [01/10-]": 1,
+"MERCEDES-BENZ E Class 2009 On 2 Dr Cabriolet 1.8 E250 SE Blue Efficiency 204Bhp (A) [03/10-]": 1,
+"MERCEDES-BENZ E Class 2002 To 2009 4 Dr Sal 5 E500 Elegance 306Bhp (A) [09/02-]": 1,
+"MERCEDES-BENZ E Class 2009 On 5 Dr Estate 1.8 E200 SE Blue Efficiency 184Bhp (A) [01/10-]": 1,
+"MERCEDES-BENZ E Class 2002 To 2009 5 Dr Estate 2 E200 Kompressor Elegance 184Bhp (A) [10/03-]": 1
+},
+"ISUZU|N-SERIES": {
+"ISUZU N-Series 2010 On Truck 3 NLR77UEE-2E (4.8 Ton) 108Bhp (M) [01/16-]": 3,
+"ISUZU N-SERIES LORRY 4.6 D NPR71ULHT (M) [12-]": 2,
+"ISUZU N-Series 2010 On Tipper 3 NLR85UEE-2E (4.8 Ton) 128Bhp (M) [01/16-]": 1,
+"ISUZU N-Series 2010 On Truck 3 NLR77UEEW-2E (4.1 Ton) 108Bhp (M) [01/16-]": 1,
+"ISUZU N-Series 2010 On Truck 3 NLR85UEE-2E (4.8 Ton) 128Bhp (M) [01/16-]": 1,
+"ISUZU N-Series 2010 On Truck 4.30 D NPR66UPH (5.0Ton) 118Bhp (M) [12/10-]": 1,
+"ISUZU N-Series 2010 On Truck 3.00 TD NLR85UEE-2E (4.8 Ton) 128Bhp (M) [01/16-]": 1
+},
+"PORSCHE|911": {
+"PORSCHE 911 CARRERA 2 DR COUPE 3.0 (991) (A)": 2,
+"PORSCHE 911 CARRERA 2 DR COUPE 3.8 4S (A)": 1,
+"PORSCHE 911 CARRERA 2S 2 DR COUPE 3.8 (997) (A)": 1,
+"PORSCHE 911 CARRERA GT3 RS 2 DR COUPE 4.0 (A)": 1,
+"PORSCHE 911 CARRERA 4S 2 DR COUPE 3.0 (A)": 1
+},
+"PROTON|X50": {
+"PROTON X50 2020 To 2024 5 Dr SUV 1.5 1.5T Premium 148Bhp [10/20-06/24]": 11,
+"PROTON X50 2020 To 2024 5 Dr SUV 1.5 1.5 TGDi Flagship 175Bhp [10/20-06/24]": 9,
+"PROTON X50 2020 To 2024 5 Dr SUV 1.5 1.5T Executive 148Bhp [10/20-06/24]": 8,
+"PROTON X50 2020 On 5 Dr SUV 1.5 1.5 TGDi Flagship 175Bhp [10/20-]": 5,
+"PROTON X50 2020 To 2024 5 Dr SUV 1.5 1.5T Standard 148Bhp [10/20-06/24]": 3,
+"PROTON X50 2020 On 5 Dr SUV 1.5 1.5T Premium 148Bhp [10/20-]": 3,
+"PROTON X50 2024 To 2025 5 Dr SUV 1.5 1.5T Executive 148Bhp [06/24-07/25]": 2,
+"PROTON X50 2024 To 2025 5 Dr SUV 1.5 1.5 TGDi Flagship 175Bhp [06/24-07/25]": 1,
+"PROTON X50 2024 On 5 Dr SUV 1.5 1.5T Executive 148Bhp [06/24-]": 1
+},
+"TOYOTA|YARIS": {
+"TOYOTA Yaris 2020 On 5 Dr Hatch 1.5 G (NSP151R-BHXGKE ZS) 105Bhp [12/20-05/23]": 14,
+"TOYOTA Yaris 2019 To 2020 5 Dr Hatch 1.5 E (NSP151R-BHXRKE YR) 105Bhp [04/19-12/20]": 9,
+"TOYOTA Yaris 2020 On 5 Dr Hatch 1.5 E (NSP151R-BHXRKE ZR) 105Bhp [12/20-05/23]": 5,
+"TOYOTA Yaris 2023 On 5 Dr Hatch 1.5 G (NSP151R-BHXGKE 2B) 105Bhp [05/23-]": 5,
+"TOYOTA Yaris 2019 To 2020 5 Dr Hatch 1.5 G (NSP151R-BHXGKE YS) 105Bhp [04/19-12/20]": 3,
+"TOYOTA Yaris 2019 On 5 Dr Hatch 1.50 E (NSP151R-BHXRKE YR) 105Bhp [04/19-12/20]": 3,
+"TOYOTA Yaris 2020 On 5 Dr Hatch 1.5 E (NSP151R-BHXRKE ZR) 105Bhp [12/20-]": 2,
+"TOYOTA Yaris 2019 On 5 Dr Hatch 1.50 G (NSP151R-BHXGKE YS) 105Bhp [04/19-12/20]": 2,
+"TOYOTA YARIS CROSS 5 DR SUV 1.5 5BA-MXPB15 (A)": 1,
+"TOYOTA Yaris 2023 On 5 Dr Hatch 1.5 E (NSP151R-BHXRKE 2A) 105Bhp [05/23-]": 1,
+"TOYOTA Yaris 2019 To 2020 5 Dr Hatch 1.5 J (NSP151R-BHXDKE YQ) 105Bhp [04/19-12/20]": 1,
+"TOYOTA YARIS 5 DR HATCH 1.5 G (XP90) (A)": 1,
+"TOYOTA Yaris 2020 On 5 Dr Hatch 1.5 G (NSP151R-BHXGKE ZS) 105Bhp [12/20-]": 1,
+"TOYOTA Yaris 2020 On 5 Dr Hatch 1.50 G (NSP151R-BHXGKE ZS) 105Bhp [12/20-]": 1,
+"TOYOTA Yaris 2020 On 5 Dr Hatch 1.50 E (NSP151R-BHXRKE ZR) 105Bhp [12/20-]": 1
+},
+"HONDA|WR-V": {
+"HONDA WR-V 2023 On 5 Dr SUV 1.5 1.5 RS 121Bhp [07/23-]": 2,
+"HONDA WR-V 2023 On 5 Dr SUV 1.5 1.5 V 121Bhp [07/23-]": 1,
+"HONDA WR-V 5 DR SUV 1.5 S (A) [23-]": 1
+},
+"VOLVO|XC40": {
+"VOLVO XC40 2018 On 5 Dr SUV 2 R-Design 252Bhp (A) [10/18-10/22]": 2
+},
+"MERCEDES-BENZ|S450L": {
+"MERCEDES-BENZ S450L 4 DR SAL 3.0 W222 (A) [14-]": 1
+},
+"AUDI|A5": {
+"AUDI A5 2019 On 5 Dr Hatch 2 Sportback TFSI Quattro Sport 248Bhp [03/19-]": 1,
+"AUDI A5 2009 On 5 Dr Hatch 2 Sportback TFSI Quattro 211Bhp [09/13-]": 1,
+"AUDI A5 2009 On 2 Dr Coupe 2 TFSI Quattro 211Bhp (A) [07/10-08/13]": 1
+},
+"MERCEDES-BENZ|C-CLASS": {
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C200 Avantgarde (W205) 184Bhp (A) [04/15-10/18]": 9,
+"MERCEDES-BENZ C-Class 2018 On 4 Dr Sal 1.5 C200 Avantgarde 184Bhp (A) [11/18-]": 6,
+"MERCEDES-BENZ C-Class 2007 On 4 Dr Sal 1.8 C200K Avantgarde (W204) 181Bhp (A) [11/07-]": 5,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C200 Avantgarde (W205) 184Bhp (A) [04/15-]": 5,
+"MERCEDES-BENZ C-Class 2018 On 4 Dr Sal 2 C300 AMG Line 258Bhp (A) [11/18-]": 4,
+"MERCEDES-BENZ C-Class 2007 On 4 Dr Sal 1.8 C250CGI BlueEfficiency (W204) 201Bhp (A) [03/10-06/11]": 3,
+"MERCEDES-BENZ C-Class 2007 On 4 Dr Sal 1.8 C200CGI BlueEfficiency-Avantgarde (W204) 181Bhp (A) [03/10-06/11]": 3,
+"MERCEDES-BENZ C-Class 2018 On 2 Dr Coupe 1.5 C200 AMG Line 184Bhp (A) [11/18-]": 2,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C200 Exclusive (W205) 184Bhp (A) [10/15-10/18]": 2,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C200 Avantgarde (W205) 184Bhp (A) [09/14-03/15]": 2,
+"MERCEDES-BENZ C-Class 2018 On 4 Dr Sal 2 C200 AMG Line 204Bhp (A) [07/20-]": 2,
+"MERCEDES-BENZ C-Class 2007 On 4 Dr Sal 1.8 C200CGI BlueEfficiency- Elegance (W204) 181Bhp (A) [03/10-06/11]": 2,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C250 AMG Line (W205) 211Bhp (A) [10/15-]": 2,
+"MERCEDES-BENZ C-Class 2001 On 4 Dr Sal 2.1 C200 CDi Avantgarde (W203) 122Bhp (A) [01/01-10/07]": 2,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2.00 C200 Avantgarde (W205) AUTO 184Bhp (A) [04/15-]": 2,
+"MERCEDES-BENZ C-Class 2007 On 4 Dr Sal 1.80 C200CGI BlueEfficiency-Avantgarde (W204) AUTO 181Bhp (A) [03/10-06/11]": 2,
+"MERCEDES-BENZ C-Class 2016 On 2 Dr Coupe 2 C200 Coupe AMG Line (W205) 184Bhp (A) [05/16-05/20]": 1,
+"MERCEDES-BENZ C-Class 2016 On 2 Dr Coupe 2 C300 Coupe AMG Line (W205) 245Bhp (A) [05/16-05/20]": 1,
+"MERCEDES-BENZ C-Class 2001 On 4 Dr Sal 1.8 C180K Elegance (W203) 143Bhp (A) [01/01-10/07]": 1,
+"MERCEDES-BENZ C-Class 2001 On 4 Dr Sal 2.1 C200 CDi Classic (W203) 122Bhp (A) [01/01-10/07]": 1,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 1.8 C180 Avantgarde Line (W205) 156Bhp (A) [03/16-10/18]": 1,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C250 AMG Line (W205) 211Bhp (A) [10/15-10/18]": 1,
+"MERCEDES-BENZ C-Class 2001 On 4 Dr Sal 1.8 C180K Avantgarde (W203) 143Bhp (A) [01/01-10/07]": 1,
+"MERCEDES-BENZ C-Class 2016 On 2 Dr Cabriolet 2 C250 Cabriolet AMG Line (W205) 211Bhp (A) [09/16-05/20]": 1,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C300 AMG Line (W205) 245Bhp (A) [03/16-]": 1,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C200 Exclusive (W205) 184Bhp (A) [10/15-]": 1,
+"MERCEDES-BENZ C-Class 2014 On 2 Dr Cabriolet 2 C200 Cabriolet (W205) 184Bhp (A) [09/16-]": 1,
+"MERCEDES-BENZ C-Class 2014 On 4 Dr Sal 2 C250 (W205) 211Bhp (A) [09/14-03/15]": 1,
+"MERCEDES-BENZ C-Class 2007 On 4 Dr Sal 1.80 C200CGI BlueEfficiency- Elegance (W204) AUTO 181Bhp (A) [03/10-06/11]": 1,
+"MERCEDES-BENZ C-Class 2007 On 4 Dr Sal 1.80 C200K Avantgarde (W204) AUTO 181Bhp (A) [11/07-]": 1,
+"MERCEDES-BENZ C-Class 2007 On 4 Dr Sal 1.80 C200K Elegance (W204) AUTO 181Bhp (A) [11/07-]": 1,
+"MERCEDES-BENZ C-Class 2001 On 4 Dr Sal 1.80 C200K Elegance (W203) AUTO 163Bhp (A) [01/01-10/07]": 1
+},
+"CITROEN|DS5": {
+"CITROEN DS5 2013 On 5 Dr Hatch 1.6 1.6 THP 156 156Bhp (A) [02/13-02/17]": 1
+},
+"TOYOTA|FORTUNER": {
+"TOYOTA Fortuner 2005 On 5 Dr SUV 2.7 V (TGN51R NKPSKE) 158Bhp (A) [10/11-01/16]": 3,
+"TOYOTA Fortuner 2016 On 5 Dr SUV 2.7 SRZ (TGN156R-SETMKE KR) 164Bhp (A) [09/17-02/21]": 3,
+"TOYOTA Fortuner 2016 On 5 Dr SUV 2.4 2.4 (GUN155R-SETLHE KQ) 148Bhp (A) [09/17-02/21]": 2,
+"TOYOTA Fortuner 2016 On 5 Dr SUV 2.7 SRZ (TGN156R-SETMKE CR) 164Bhp (A) [02/16-08/17]": 2,
+"TOYOTA Fortuner 2005 On 5 Dr SUV 2.5 G (KUN50R-NKPDHE) 101Bhp (A) [10/08-09/11]": 1,
+"TOYOTA Fortuner 2021 On 5 Dr SUV 2.7 SRZ (TGN156R-SETHKE B3) 164Bhp (A) [02/21-]": 1,
+"TOYOTA Fortuner 2005 On 5 Dr SUV 2.7 V (TGN51R-NKPSKE) 158Bhp (A) [10/08-09/11]": 1,
+"TOYOTA Fortuner 2016 On 5 Dr SUV 2.40 TD VRZ (GUN155R-SETLHE CQ) AUTO 148Bhp (A) [02/16-08/17]": 1
+},
+"MAZDA|3": {
+"MAZDA 3 2011 On 4 Dr Sal 2 GLS 145Bhp (A) [09/12-03/14]": 3,
+"MAZDA 3 2019 To 2022 5 Dr Hatch 2 SkyActiv-G (High Plus) 162Bhp (A) [07/19-10/23]": 2,
+"MAZDA 3 2006 To 2012 4 Dr Sal 1.6 104Bhp (A) [11/06-05/09]": 2,
+"MAZDA 3 2014 To 2019 4 Dr Sal 2 SkyActiv-G 162Bhp (A) [04/14-03/17]": 2,
+"MAZDA 3 2006 On 4 Dr Sal 1.6 104Bhp (A) [06/09-08/12]": 2,
+"MAZDA 3 2022 To 2025 4 Dr Sal 2 High Plus 162Bhp (A) [10/23-]": 1,
+"MAZDA 3 2022 To 2025 5 Dr Hatch 2 High Plus 162Bhp (A) [10/23-]": 1,
+"MAZDA 3 2019 To 2022 5 Dr Hatch 1.5 SkyActiv-G 118Bhp (A) [07/19-10/23]": 1,
+"MAZDA 3 2014 To 2019 4 Dr Sal 2 GL SkyActiv-G 162Bhp (A) [04/15-03/17]": 1,
+"MAZDA 3 2019 To 2022 4 Dr Sal 2 SkyActiv-G (High Plus) 162Bhp (A) [07/19-10/23]": 1,
+"MAZDA 3 2014 To 2019 4 Dr Sal 2 GL SkyActiv-G (GVC) 162Bhp (A) [04/17-07/19]": 1,
+"MAZDA 3 2014 To 2019 4 Dr Sal 2 High SkyActiv-G (GVC) 162Bhp (A) [04/17-07/19]": 1,
+"MAZDA 3 2006 To 2012 4 Dr Sal 2 Sport 145Bhp (A) [06/09-08/12]": 1,
+"MAZDA 3 2014 To 2019 4 Dr Sal 2 High SkyActiv-G 162Bhp (A) [04/15-03/17]": 1,
+"MAZDA 3 2011 To 2014 4 Dr Sal 2 GLS 145Bhp (A) [09/12-03/14]": 1,
+"MAZDA 3 2011 To 2014 5 Dr Hatch 2.3 MPS 256Bhp (M) [03/11-03/14]": 1,
+"MAZDA 3 2006 On 5 Dr Hatch 1.6 104Bhp (A) [06/09-08/12]": 1,
+"MAZDA 3 2014 On 5 Dr Hatch 2 SkyActiv-G (GVC) 162Bhp (A) [04/17-]": 1,
+"MAZDA 3 2014 On 4 Dr Sal 2.00 High SkyActiv-G AUTO 162Bhp (A) [04/15-03/17]": 1,
+"MAZDA 3 2011 On 4 Dr Sal 2.00 GLS AUTO 145Bhp (A) [09/12-03/14]": 1,
+"MAZDA 3 2019 On 4 Dr Sal 1.50 SkyActiv-G AUTO 118Bhp (A) [07/19-]": 1,
+"MAZDA 3 2006 On 4 Dr Sal 2.00 Sport AUTO 145Bhp (A) [06/09-08/12]": 1
+},
+"BMW|X1": {
+"BMW X1 2015 To 2019 5 Dr SUV 2 sDrive20i (F48) 192Bhp (A) [10/15-01/20]": 3,
+"BMW X1 2010 On 5 Dr SUV 2 sDrive20i (E84) 184Bhp (A) [11/12-09/15]": 3,
+"BMW X1 2015 On 5 Dr SUV 2 sDrive20i (F48) 192Bhp (A) [10/15-]": 3,
+"BMW X1 2010 To 2015 5 Dr SUV 2 sDrive20i (E84) 184Bhp (A) [11/12-09/15]": 2,
+"BMW X1 2010 To 2015 5 Dr SUV 2 sDrive18i (E84) 148Bhp (A) [06/10-10/12]": 1,
+"BMW X1 2020 To 2023 5 Dr SUV 1.5 sDrive18i 138Bhp [07/20-10/23]": 1,
+"BMW X1 2020 To 2023 5 Dr SUV 2 sDrive20i M Sport 189Bhp [01/20-10/23]": 1,
+"BMW X1 5 DR SUV 2.0 sDrive20i xLine (U11) (A) [23-]": 1
+},
+"TOYOTA|VELOZ": {
+"TOYOTA Veloz 2022 On MPV 1.5 1.5 (W151RE-LBQFM HK) 105Bhp [10/22-]": 4
+},
+"MERCEDES-BENZ|CLA180": {
+"MERCEDES-BENZ CLA180 4 DR SAL 1.6 AMG Line (C117) (A)": 1,
+"MERCEDES-BENZ CLA180 4 DR SAL 1.6 BlueEfficiency (C117) (A) [13-]": 1,
+"MERCEDES-BENZ CLA180 4 DR SAL 1.6 DBA-117342 (C117) (A)": 1
+},
+"PEUGEOT|308": {
+"PEUGEOT 308 2008 On 5 Dr Hatch 1.6 Turbo 154Bhp (A) [11/10-06/12]": 2,
+"PEUGEOT 308 2015 On 5 Dr Hatch 1.6 THP 150Bhp (A) [04/15-]": 1,
+"PEUGEOT 308 2008 On 5 Dr Hatch 1.6 Turbo 138Bhp (A) [01/09-10/10]": 1,
+"PEUGEOT 308 2008 On 5 Dr Hatch 1.6 Turbo 154Bhp (A) [07/12-03/15]": 1
+},
+"FORD|ECOSPORT": {
+"FORD EcoSport 2014 On 5 Dr SUV 1.5 Trend 109Bhp (A) [08/14-]": 1,
+"FORD EcoSport 2014 On 5 Dr SUV 1.5 Titanium 109Bhp (A) [08/14-]": 1
+},
+"NISSAN|SENTRA": {
+"NISSAN Sentra 1995 On 4 Dr Sal 1.6 SG (N16) 116Bhp (A) [10/05-]": 4,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.60 SG (N16) AUTO 116Bhp (A) [10/05-]": 3,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.6 SG (N16) 116Bhp (A) [09/03-09/05]": 2,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.6 SG (N16) 116Bhp (M) [10/05-]": 2,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.8 XG-L (N16) 126Bhp (A) [09/03-09/05]": 1,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.8 GXE (N16) 126Bhp (A) [11/00-08/03]": 1,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.6 XE (N16) 116Bhp (A) [11/00-08/03]": 1,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.60 SG (N16) AUTO 116Bhp (A) [09/03-09/05]": 1,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.60 SG (N16) 116Bhp (M) [10/05-]": 1,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.60 EX (B14) AUTO (A) [01/95-08/97]": 1,
+"NISSAN Sentra 1995 On 4 Dr Sal 1.60 SG-L (N16) AUTO 116Bhp (A) [10/05-]": 1
+},
+"TOYOTA|HARRIER": {
+"TOYOTA HARRIER 5 DR SUV 2.0 DBA-ZSU60W (A)": 18,
+"TOYOTA HARRIER 5 DR SUV 2.4 CBA-ACU30W (A)": 10,
+"TOYOTA HARRIER 5 DR SUV 2.4 ACU30 (A)": 9,
+"TOYOTA Harrier 2018 To 2021 5 Dr SUV 2 2.0T Luxury (ASU60R-ANTGT GT) 227Bhp (A) [01/18-04/21]": 8,
+"TOYOTA Harrier 2021 On 5 Dr SUV 2 2.0 Luxury (MXUA80R ANXSB) 171Bhp [04/21-]": 3,
+"TOYOTA Harrier 2018 To 2021 5 Dr SUV 2 2.0T Premium (ASU60R-ANTMT MT) 227Bhp (A) [01/18-04/21]": 2,
+"TOYOTA HARRIER 5 DR SUV 2.4 TA-ACU10W (A)": 2,
+"TOYOTA HARRIER 5 DR SUV 2.4 UA-ACU30W (A)": 2,
+"TOYOTA Harrier 2018 To 2021 5 Dr SUV 2.00 2.0T Luxury (ASU60R-ANTGT GT) AUTO 227Bhp (A) [01/18-04/21]": 2,
+"TOYOTA HARRIER 5 DR SUV 2.4 (CBA-ACU35W) (A)": 1,
+"TOYOTA Harrier 5DR 2.3 4WD (A) (TA-ACU10W)": 1,
+"TOYOTA HARRIER 5 DR SUV 4X4 2.4 (ACU35) (A)": 1,
+"TOYOTA HARRIER 5 DR SUV 3.0 MCU15 (A)": 1,
+"TOYOTA Harrier 5DR 2.4 4WD SUV (A) (TA-ACU30W)": 1,
+"TOYOTA Harrier (GF-SXU10W) 5 DR 4x4 2.2 (A) 1999-": 1,
+"TOYOTA HARRIER 5 DR SUV 2.2 SXU10 (A) [98- ]": 1
+},
+"CHERY|A5": {
+"CHERY A5 4 DR SAL 2.0 (A) [09-]": 1
+},
+"HONDA|ACCORD": {
+"HONDA Accord 2013 On 4 Dr Sal 2 VTi-L 153Bhp (A) [09/13-08/16]": 13,
+"HONDA Accord 2007 On 4 Dr Sal 2 VTi 154Bhp (A) [04/08-02/11]": 7,
+"HONDA Accord 2007 On 4 Dr Sal 2.4 VTi-L 178Bhp (A) [03/11-08/13]": 6,
+"HONDA Accord 2003 On 4 Dr Sal 2.4 VTi-L 158Bhp (A) [11/03-06/06]": 4,
+"HONDA Accord 2007 On 4 Dr Sal 2.00 VTi AUTO 154Bhp (A) [04/08-02/11]": 4,
+"HONDA Accord 2007 On 4 Dr Sal 2 VTi-L 154Bhp (A) [07/09-02/11]": 3,
+"HONDA Accord 2006 On 4 Dr Sal 2 VTi 148Bhp (A) [07/06-03/08]": 3,
+"HONDA Accord 2013 On 4 Dr Sal 2.4 VTi-L 173Bhp (A) [09/13-08/16]": 3,
+"HONDA Accord 2013 On 4 Dr Sal 2 VTi-L 153Bhp (A) [09/16-]": 3,
+"HONDA Accord 2013 On 4 Dr Sal 2 VTi 153Bhp (A) [09/13-08/16]": 2,
+"HONDA Accord 2006 On 4 Dr Sal 2.4 VTi-L 168Bhp (A) [07/06-03/08]": 2,
+"HONDA Accord 2007 On 4 Dr Sal 2.40 VTi-L AUTO 178Bhp (A) [04/08-02/11]": 2,
+"HONDA Accord 2007 On 4 Dr Sal 2.4 VTi-L 178Bhp (A) [04/08-02/11]": 1,
+"HONDA Accord 2003 On 4 Dr Sal 2 VTi 148Bhp (A) [11/03-06/06]": 1,
+"HONDA Accord 2007 On 4 Dr Sal 2 VTi-L 154Bhp (A) [03/11-08/13]": 1,
+"HONDA Accord 2020 On 4 Dr Sal 1.5 TC 198Bhp [02/20-]": 1,
+"HONDA Accord 1994 On 4 Dr Sal 2.2 EXi (SV4) (A) [10/95-03/99]": 1,
+"HONDA Accord 1994 On 4 Dr Sal 2 EXi (SV4) (A) [10/95-03/99]": 1,
+"HONDA Accord 2020 On 4 Dr Sal 1.5 TC-P 198Bhp [02/20-]": 1,
+"HONDA Accord 2007 On 4 Dr Sal 2 VTi 154Bhp (A) [03/11-08/13]": 1,
+"HONDA ACCORD 4 DR SAL 2.4 ABA-CL9 (A)": 1,
+"HONDA Accord 2013 On 4 Dr Sal 2.00 VTi-L AUTO 153Bhp (A) [09/13-08/16]": 1,
+"HONDA Accord 2013 On 4 Dr Sal 2.40 VTi-L AUTO 173Bhp (A) [09/13-08/16]": 1,
+"HONDA Accord 2007 On 4 Dr Sal 2.40 VTi-L AUTO 178Bhp (A) [03/11-08/13]": 1,
+"HONDA Accord 2013 On 4 Dr Sal 2.00 VTi AUTO 153Bhp (A) [09/13-08/16]": 1,
+"HONDA Accord 1994 On 4 Dr Sal 2.00 EXi (SV4) (M) [10/95-03/99]": 1,
+"HONDA Accord 2003 On 4 Dr Sal 2.00 VTi AUTO 148Bhp (A) [11/03-06/06]": 1,
+"HONDA Accord 1990 On 4 Dr Sal 2.00 EXi (SM4) AUTO (A) [02/91-12/93]": 1
+},
+"NISSAN|ALMERA": {
+"NISSAN Almera 2012 On 4 Dr Sal 1.5 E 101Bhp (A) [10/12-12/14]": 26,
+"NISSAN Almera 2015 On 4 Dr Sal 1.5 E 101Bhp (A) [04/16-]": 17,
+"NISSAN Almera 2012 On 4 Dr Sal 1.5 VL 101Bhp (A) [10/12-12/14]": 14,
+"NISSAN Almera 2015 On 4 Dr Sal 1.5 E 101Bhp (A) [01/15-04/16]": 13,
+"NISSAN Almera 2012 On 4 Dr Sal 1.50 E AUTO 101Bhp (A) [10/12-12/14]": 9,
+"NISSAN Almera 2012 On 4 Dr Sal 1.5 V 101Bhp (A) [10/12-12/14]": 6,
+"NISSAN Almera 2015 On 4 Dr Sal 1.5 VL 101Bhp (A) [01/15-04/16]": 5,
+"NISSAN Almera 2018 On 4 Dr Sal 1.5 VL (Black Series) 101Bhp (A) [11/18-]": 4,
+"NISSAN Almera 2012 On 4 Dr Sal 1.5 E 101Bhp (M) [10/12-12/14]": 4,
+"NISSAN Almera 2015 On 4 Dr Sal 1.50 E AUTO 101Bhp (A) [01/15-04/16]": 4,
+"NISSAN Almera 2018 On 4 Dr Sal 1.5 E (Black Series) 101Bhp (A) [11/18-]": 3,
+"NISSAN Almera 2012 On 4 Dr Sal 1.50 VL AUTO 101Bhp (A) [10/12-12/14]": 3,
+"NISSAN Almera 2015 On 4 Dr Sal 1.5 VL 101Bhp (A) [04/16-]": 3,
+"NISSAN Almera 2020 On 4 Dr Sal 1 Turbo 1.0 VLT 99Bhp [11/20-]": 2,
+"NISSAN Almera 2015 On 4 Dr Sal 1.5 V 101Bhp (A) [01/15-04/16]": 2,
+"NISSAN Almera 2015 On 4 Dr Sal 1.50 E AUTO 101Bhp (A) [04/16-]": 2,
+"NISSAN Almera 2015 On 4 Dr Sal 1.50 VL AUTO 101Bhp (A) [04/16-]": 2,
+"NISSAN Almera 2020 On 4 Dr Sal 1 Turbo 1.0 VLP 99Bhp [11/20-]": 1,
+"NISSAN Almera 2015 On 4 Dr Sal 1.5 E 101Bhp (M) [01/15-04/16]": 1,
+"NISSAN Almera 2015 On 4 Dr Sal 1.50 VL AUTO 101Bhp (A) [01/15-04/16]": 1,
+"NISSAN Almera 2015 On 4 Dr Sal 1.50 E 101Bhp (M) [04/16-]": 1
+},
+"KING LONG|PLACER-X": {
+"KING LONG PLACER-X VAN 2.5 D FRD 6600C (M)": 2,
+"KING LONG PLACER-X A6 VAN 3.0 D FRD 6600 (M)": 1
+},
+"VOLKSWAGEN|POLO": {
+"VOLKSWAGEN Polo 2010 On 4 Dr Sal 1.6 104Bhp (A) [04/12-04/16]": 7,
+"VOLKSWAGEN Polo 2010 On 5 Dr Hatch 1.6 MPI (MK 5) 103Bhp (A) [05/15-]": 6,
+"VOLKSWAGEN Polo 2010 On 5 Dr Hatch 1.2 TSI (MK 5) 104Bhp (A) [10/10-04/15]": 5,
+"VOLKSWAGEN Polo 2018 On 5 Dr Hatch 1.6 MPI Comfortline Vienna 103Bhp (A) [08/18-]": 2,
+"VOLKSWAGEN Polo 2010 On 5 Dr Hatch 1.4 GTI (MK 5) 178Bhp (A) [09/11-04/15]": 1,
+"VOLKSWAGEN POLO SEDAN 4 DR SAL 1.6 MPI (CBU) (A) [12-]": 1,
+"VOLKSWAGEN Polo 2010 On 4 Dr Sal 1.60 AUTO 104Bhp (A) [04/12-04/16]": 1
+},
+"KIA|RIO": {
+"KIA Rio 2013 On 5 Dr Hatch 1.4 EX 108Bhp (A) [01/13-04/15]": 3,
+"KIA Rio 2013 On 5 Dr Hatch 1.4 SX 108Bhp (A) [05/15-06/17]": 1,
+"KIA Rio 2013 On 5 Dr Hatch 1.4 SX 108Bhp (A) [01/13-04/15]": 1,
+"KIA Rio 2017 On 5 Dr Hatch 1.4 1.4 MPI 99Bhp (A) [07/17-]": 1
+},
+"LAND ROVER|FREELANDER": {
+"LAND ROVER Freelander 2004 On 5 Dr SUV 2 Td4 120Bhp (A) [05/04-]": 1
+},
+"TOYOTA|ESTIMA": {
+"TOYOTA Estima (Grey Import) MPV 2.4 ACR50W-GFXEK [01/06-05/16]": 5,
+"TOYOTA ESTIMA MPV 2.4 ACR50 (DBA-ACR50W) (A)": 5,
+"TOYOTA ESTIMA MPV 2.4 ACR30W (A)": 4,
+"TOYOTA Estima (Grey Import) MPV 2.4 ACR50W-GFXPK [05/06-10/19]": 3,
+"TOYOTA Estima (Grey Import) MPV 2.4 ACR50W-GRXSK [01/06-10/19]": 3,
+"TOYOTA ESTIMA MPV 2.4 DBA-ACR50W (A) [16-]": 3,
+"TOYOTA Estima (Grey Import) MPV 2.4 ACR30W-MRSSK (A) [02/00-01/06]": 2,
+"TOYOTA Estima (Grey Import) MPV 2.4 ACR30W-MFSQK (A) [02/00-01/06]": 2,
+"TOYOTA Estima (Grey Import) MPV 3.5 GSR55W-GRTSK (A) [01/06-05/16]": 1,
+"TOYOTA Estima (Grey Import) MPV 2.4 ACR50W-GFXQK [01/06-05/16]": 1,
+"TOYOTA ESTIMA MPV 2.4 DBA-GSR50W (A) [06-]": 1,
+"TOYOTA ESTIMA MPV 2.4 TA-ACR30W (A)": 1
+},
+"TOYOTA|MARK": {
+"TOYOTA MARK X 4 DR SAL 2.5 DBA-GRX120 (A) [05-]": 4,
+"TOYOTA MARK X 4 DR SAL 2.5 DBA-GEX130 (A)": 2,
+"TOYOTA MARK X 4 DR SAL 2.5 DBA-GRX130 (A) [09-]": 1
+},
+"BMW|1-SERIES": {
+"BMW 1-Series 2013 To 2017 5 Dr Hatch 1.5 118i Sport (F20) 136Bhp (A) [11/15-]": 1,
+"BMW 1-Series 2017 To 2020 5 Dr Hatch 1.5 118i M Sport 136Bhp (A) [02/17-07/20]": 1,
+"BMW 1-Series 2013 On 5 Dr Hatch 1.6 118i 170Bhp (A) [09/13-10/14]": 1
+},
+"VOLKSWAGEN|GOLF": {
+"VOLKSWAGEN Golf 2013 On 5 Dr Hatch 2 GTI (MK7) 217Bhp [08/13-02/16]": 2,
+"VOLKSWAGEN Golf 2010 On 5 Dr Hatch 1.4 TSI (MK 6) 138Bhp (A) [10/10-02/13]": 2,
+"VOLKSWAGEN GOLF 5 DR HATCH 2.0 GTI (MK 5) (A) [05-]": 2,
+"VOLKSWAGEN GOLF 5 DR HATCH 2.0 GTI (MK 8) (A) [22-]": 1,
+"VOLKSWAGEN Golf 2013 On 5 Dr Hatch 1.4 TSI Highline 148Bhp [03/16-]": 1,
+"VOLKSWAGEN Golf 2013 On 5 Dr Hatch 2 R (Mk7.5) 287Bhp [03/18-]": 1,
+"VOLKSWAGEN Golf 2013 On 5 Dr Hatch 2 GTI (Mk7.5) 227Bhp [03/18-]": 1,
+"VOLKSWAGEN Golf 2013 On 5 Dr Hatch 1.4 TSI (MK7) Highline 148Bhp [03/13-02/16]": 1,
+"VOLKSWAGEN Golf 2010 On 5 Dr Hatch 2 GTI (MK 6) 207Bhp (A) [01/10-07/13]": 1,
+"VOLKSWAGEN Golf 2010 On 5 Dr Hatch 1.40 TSI (MK 6) AUTO 138Bhp (A) [10/10-02/13]": 1,
+"VOLKSWAGEN Golf (mk7) 2013 On 3 Dr Hatch 2.00 GTI (MK7) 217Bhp [08/13-02/16]": 1
+},
+"LEXUS|ES": {
+"LEXUS ES 2013 On 4 Dr Sal 2.5 ES 250 Luxury 181Bhp (A) [10/13-07/15]": 3,
+"LEXUS ES 2021 On 4 Dr Sal 2.5 250 Premium 204Bhp (A) [10/21-]": 1,
+"LEXUS ES 2013 On 4 Dr Sal 2.5 250 Luxury 181Bhp (A) [08/15-]": 1,
+"LEXUS ES 2019 On 4 Dr Sal 2.5 250 Luxury 204Bhp (A) [09/19-]": 1
+},
+"VOLVO|V40": {
+"VOLVO V40 2013 On 5 Dr Hatch 2 T5 213Bhp (A) [08/13-]": 1,
+"VOLVO V40 2013 On 5 Dr Hatch 2 Cross Country T5 213Bhp (A) [08/13-]": 1
+},
+"INOKOM|ELANTRA": {
+"INOKOM Elantra 2012 On 4 Dr Sal 1.6 128Bhp (A) [04/12-02/15]": 3,
+"INOKOM Elantra 2012 On 4 Dr Sal 1.8 GLS 148Bhp (A) [04/12-02/15]": 3,
+"INOKOM Elantra 2012 On 4 Dr Sal 1.6 GLS 128Bhp (A) [04/12-02/15]": 1,
+"INOKOM Elantra 2012 On 4 Dr Sal 1.60 AUTO 128Bhp (A) [04/12-02/15]": 1,
+"INOKOM Elantra 2012 On 4 Dr Sal 1.80 GLS AUTO 148Bhp (A) [04/12-02/15]": 1
+},
+"TESLA|Y": {
+"TESLA Y 5 DR LIFTBACK Standard Range RWD (75kWh) (220kW) (A)": 1
+},
+"PEUGEOT|3008": {
+"PEUGEOT 3008 2010 To 2017 5 Dr SUV 1.6 156Bhp (A) [06/10-03/14]": 3,
+"PEUGEOT 3008 2021 On 5 Dr SUV 1.6 THP Allure 165Bhp (A) [11/21-]": 2,
+"PEUGEOT 3008 2017 To 2019 5 Dr SUV 1.6 THP Allure 165Bhp (A) [09/17-]": 2
+},
+"HYUNDAI|ELANTRA": {
+"HYUNDAI Elantra 2019 To 2020 4 Dr Sal 2 Executive 150Bhp (A) [04/19-12/20]": 16,
+"HYUNDAI Elantra 2015 To 2017 4 Dr Sal 1.6 Elegance 128Bhp (A) [03/15-05/17]": 2,
+"HYUNDAI Elantra 2017 To 2019 4 Dr Sal 2 Executive 150Bhp (A) [06/17-]": 1,
+"HYUNDAI Elantra 2001 To 2008 4 Dr Sal 1.8 GLS (A) [08/01-02/04]": 1,
+"HYUNDAI Elantra 2015 To 2017 4 Dr Sal 1.6 Premium 128Bhp (A) [03/15-05/17]": 1,
+"HYUNDAI Elantra 2017 To 2019 4 Dr Sal 1.6 Turbo 201Bhp [06/17-]": 1,
+"HYUNDAI Elantra 2001 To 2008 4 Dr Sal 1.6 GLS [03/04-]": 1,
+"HYUNDAI Elantra 2001 To 2008 4 Dr Sal 1.80 GLS AUTO (A) [08/01-02/04]": 1,
+"HYUNDAI ELANTRA 4 DR SAL 1.6 GLS (J2) (A)": 1
+},
+"VOLKSWAGEN|TIGUAN": {
+"VOLKSWAGEN Tiguan 2017 On 5 Dr SUV 1.4 TSI Highline 148Bhp [04/17-]": 4,
+"VOLKSWAGEN Tiguan 2017 On 5 Dr SUV 1.4 TSI Comfortline 148Bhp [04/17-]": 2,
+"VOLKSWAGEN Tiguan Allspace 2020 To 2022 5 Dr SUV 1.4 TSI Highline 148Bhp [08/20-03/22]": 1,
+"VOLKSWAGEN Tiguan Allspace 2020 On 5 Dr SUV 1.4 TSI Highline 148Bhp [08/20-]": 1,
+"VOLKSWAGEN TIGUAN 5 DR SUV 2.0 TSI (facelift) (A) [11-]": 1
+},
+"PROTON|INSPIRA": {
+"PROTON Inspira 2010 On 4 Dr Sal 2 E 150Bhp (A) [04/12-]": 11,
+"PROTON Inspira 2010 On 4 Dr Sal 2 P 150Bhp (A) [11/10-]": 5,
+"PROTON Inspira 2010 On 4 Dr Sal 1.8 E 140Bhp (A) [11/10-]": 3,
+"PROTON Inspira 2010 On 4 Dr Sal 1.8 E 140Bhp (M) [11/10-]": 2
+},
+"NISSAN|URVAN": {
+"NISSAN Urvan 2005 On Van 3 (E25) 104Bhp (M) [05/07-10/14]": 4,
+"NISSAN Urvan 2005 On Van 3.00 D (E25) 104Bhp (M) [05/07-10/14]": 1
+},
+"HICOM|PERKASA": {
+"HICOM Perkasa 1997 On Tipper 2.8 MTB150T (5.0T) 79Bhp (M) [04/97-02/04]": 1,
+"HICOM Perkasa 1997 On Double Cab Truck 2.8 MTB 140 (4.0T) 79Bhp (M) [01/03-]": 1,
+"HICOM Perkasa 1997 On Truck 4.3 MTB150DX (5.0T) 118Bhp (M) [04/97-]": 1,
+"HICOM Perkasa 1997 On Truck 2.8 MTB 145 (4.5T) 79Bhp (M) [01/03-]": 1,
+"HICOM Perkasa 1997 On Truck 2.80 D MTB 145 (4.5T) 79Bhp (M) [01/03-]": 1
+},
+"TOYOTA|RUSH": {
+"TOYOTA Rush 2018 On 5 Dr SUV 1.5 S (F850RE-GQQFMGM) 104Bhp (A) [10/18-]": 4,
+"TOYOTA Rush 2008 On 5 Dr SUV 1.5 S (F700RE-GQMFM) 108Bhp (A) [01/08-11/10]": 4,
+"TOYOTA Rush 2008 On 5 Dr SUV 1.5 G (F700RE-GQDFM) 108Bhp (A) [01/08-11/10]": 2,
+"TOYOTA Rush 2008 On 5 Dr SUV 1.5 S (F700RE-GQMFM) 108Bhp (A) [12/10-04/15]": 1,
+"TOYOTA Rush 2008 On 5 Dr SUV 1.5 G (F700RE-GQDFM) 108Bhp (A) [12/10-04/15]": 1
+},
+"MAZDA|CX-9": {
+"MAZDA CX-9 2020 On 5 Dr SUV 2.5 SkyActiv-G Turbo 4WD 228Bhp (A) [03/20-]": 1,
+"MAZDA CX-9 2017 On 5 Dr SUV 2.5 SkyActiv-G Turbo 2WD 228Bhp (A) [11/17-03/20]": 1
+},
+"AUDI|A6": {
+"AUDI A6 2011 To 2019 4 Dr Sal 3 TFSI Quattro (C7) 300Bhp (A) [09/11-07/15]": 1,
+"AUDI A6 2011 On 4 Dr Sal 1.8 TFSI 190Bhp [08/15-]": 1,
+"AUDI A6 2019 On 4 Dr Sal 3 TFSI Quattro 340Bhp [08/19-]": 1,
+"AUDI A6 4 DR SAL 2.0 hybrid (C7) (A) [13-]": 1
+},
+"MITSUBISHI|TRITON": {
+"MITSUBISHI Triton 2006 To 2015 4 Dr Pickup Dbl.Cab 2.5 VGT 176Bhp (A) [03/12-02/14]": 4,
+"MITSUBISHI Triton 2021 On 4 Dr Pickup Dbl.Cab 2.4 VGT Athlete 178Bhp (A) [04/21-]": 3,
+"MITSUBISHI Triton 2006 To 2015 4 Dr Pickup Dbl.Cab 2.5 134Bhp (A) [11/06-08/09]": 2,
+"MITSUBISHI Triton 2019 To 2024 4 Dr Pickup Dbl.Cab 2.4 VGT 178Bhp (A) [01/19-10/24]": 2,
+"MITSUBISHI Triton 2015 To 2019 4 Dr Pickup Dbl.Cab 2.4 VGT 179Bhp (A) [09/16-01/19]": 2,
+"MITSUBISHI Triton 2015 To 2019 4 Dr Pickup Dbl.Cab 2.4 VGT Adventure X 179Bhp (A) [09/16-01/19]": 2,
+"MITSUBISHI Triton 2019 On 4 Dr Pickup Dbl.Cab 2.5 Quest 107Bhp (M) [11/19-]": 2,
+"MITSUBISHI Triton 2015 On Dr Pickup Dbl.Cab 2.40 TD VGT GL AUTO 179Bhp (A) [09/17-]": 2,
+"MITSUBISHI Triton 2019 On Dr Pickup Dbl.Cab 2.40 TD VGT Advanture X AUTO 178Bhp (A) [01/19-]": 2,
+"MITSUBISHI Triton 2015 To 2019 4 Dr Pickup Dbl.Cab 2.5 VGT Phantom 174Bhp (A) [01/16-01/19]": 1,
+"MITSUBISHI Triton 2006 To 2015 4 Dr Pickup Dbl.Cab 2.5 Facelift Lite Turbo 88Bhp (M) [03/14-04/15]": 1,
+"MITSUBISHI Triton 2015 To 2019 4 Dr Pickup Dbl.Cab 2.5 4X4 134Bhp (M) [05/15-01/19]": 1,
+"MITSUBISHI Triton 2021 To 2024 4 Dr Pickup Dbl.Cab 2.4 VGT Athlete 178Bhp (A) [04/21-10/24]": 1,
+"MITSUBISHI Triton 2019 On 4 Dr Pickup Dbl.Cab 2.4 VGT Premium 178Bhp (A) [01/19-]": 1,
+"MITSUBISHI Triton 2006 To 2015 4 Dr Pickup Dbl.Cab 2.5 134Bhp (M) [11/06-08/09]": 1,
+"MITSUBISHI Triton 2015 To 2019 4 Dr Pickup Dbl.Cab 2.5 VGT Adventure 176Bhp (A) [05/15-08/16]": 1,
+"MITSUBISHI Triton 2006 To 2015 4 Dr Pickup Dbl.Cab 2.5 134Bhp (A) [09/09-]": 1,
+"MITSUBISHI Triton 2015 To 2019 4 Dr Pickup Dbl.Cab 2.5 Quest 108Bhp (M) [05/15-01/19]": 1,
+"MITSUBISHI Triton 2006 On Dr Pickup Dbl.Cab 3.20 TD AUTO 160Bhp (A) [06/08-08/09]": 1,
+"MITSUBISHI Triton 2006 On Dr Pickup Dbl.Cab 2.50 TD AUTO 134Bhp (A) [11/06-08/09]": 1,
+"MITSUBISHI Triton 2019 On Dr Pickup Dbl.Cab 2.40 TD VGT Premium AUTO 178Bhp (A) [01/19-]": 1
+},
+"PROTON|GEN-2": {
+"PROTON Gen-2 2004 On 5 Dr Hatch 1.6 108Bhp (A) [05/04-02/08]": 6,
+"PROTON Gen-2 2004 On 5 Dr Hatch 1.60 AUTO 108Bhp (A) [05/04-02/08]": 2,
+"PROTON Gen-2 2004 On 5 Dr Hatch 1.60 108Bhp (M) [02/04-02/08]": 1
+},
+"FORD|FOCUS": {
+"FORD Focus 2012 On 5 Dr Hatch 2 Sport 168Bhp (A) [09/12-02/16]": 2,
+"FORD Focus 2012 On 4 Dr Sal 2 TITANIUM 168Bhp (A) [09/12-02/16]": 1,
+"FORD Focus 2009 On 5 Dr Hatch 2 TDCi 134Bhp (A) [03/10-08/12]": 1,
+"FORD FOCUS 4 DR SAL 2.0 GHIA (A)": 1,
+"FORD Focus 2012 On 5 Dr Hatch 2.00 Sport AUTO 168Bhp (A) [09/12-02/16]": 1
+},
+"PROTON|ISWARA": {
+"PROTON Iswara 1992 On 5 Dr Hatch 1.3 S 83Bhp (M) [08/92-11/03]": 5,
+"PROTON Iswara 1992 On 4 Dr Sal 1.5 S 90Bhp (M) [08/92-]": 4,
+"PROTON Iswara 1992 On 4 Dr Sal 1.30 S 83Bhp (M) [08/92-]": 4,
+"PROTON Iswara 1992 On 4 Dr Sal 1.5 i 90Bhp (A) [08/92-]": 2,
+"PROTON Iswara 1992 On 5 Dr Hatch 1.30 LMST 83Bhp (M) [12/03-]": 2,
+"PROTON Iswara 1992 On 5 Dr Hatch 1.30 Special Edition LMSS 83Bhp (M) [03/03-]": 2,
+"PROTON Iswara 1992 On 5 Dr Hatch 1.3 LMST 83Bhp (M) [12/03-]": 1,
+"PROTON Iswara 1992 On 5 Dr Hatch 1.3 Special Edition LMST 83Bhp (M) [04/06-]": 1,
+"PROTON Iswara 1992 On 5 Dr Hatch 1.3 Special Edition LMSS 83Bhp (M) [03/03-]": 1,
+"PROTON Iswara 1992 On 5 Dr Hatch 1.5 i 90Bhp (A) [08/92-]": 1,
+"PROTON Iswara 1992 On 5 Dr Hatch 1.30 S 83Bhp (M) [08/92-11/03]": 1,
+"PROTON Iswara 1992 On 4 Dr Sal 1.50 S 90Bhp (M) [08/92-]": 1
+},
+"TOYOTA|CARINA": {
+"TOYOTA CARINA 4DR SAL 1.8 (E-ST160)": 1
+},
+"RENAULT|FLUENCE": {
+"RENAULT Fluence 2014 On 4 Dr Sal 2 2.0 16v 140 X-Tronic Expression 143Bhp [04/15-]": 1
+},
+"LAND ROVER|RANGE": {
+"LAND ROVER RANGE ROVER EVOQUE 5 DR SUV 2.0 Si4 (Dynamic Lux) (A)": 2,
+"LAND ROVER RANGE ROVER SPORT 5 DR SUV 5.0 Supercharged V8 (A)": 1,
+"LAND ROVER RANGE ROVER EVOQUE 5 DR SUV 2.2 D SD4 (Prestige) (A) [11-]": 1,
+"LAND ROVER Range Rover 2002 On 5 Dr SUV 3 HSE 175Bhp (A) [01/02-]": 1,
+"LAND ROVER RANGE ROVER SPORT 5 DR SUV 5.0 SVR Supercharged V8 (A)": 1,
+"LAND ROVER RANGE ROVER EVOQUE 5 DR SUV 2.0 Si4 (Dynamic Plus) (A) [11-]": 1,
+"LAND ROVER RANGE ROVER EVOQUE 3 DR SUV 2.0 Si4 (Dynamic Plus) (A) [11-]": 1,
+"LAND ROVER RANGE ROVER 5 DR SUV 4.4 D SDV8 Vogue (L405) (A) [13-]": 1
+},
+"HINO|XZU413R-HKMMB3": {
+"HINO XZU413R-HKMMB3 LORRY 4.0 D (M)": 1
+},
+"TOYOTA|PRIUS": {
+"TOYOTA Prius C 2012 On 5 Dr Hatch 1.5 HYBRID SYNERGY DRIVE (NHP10R) 100Bhp (A) [02/12-]": 6,
+"TOYOTA Prius 2009 On 5 Dr Hatch 1.8 Luxury - HYBRID SYNERGY DRIVE (ZVW30R) 134Bhp (A) [02/12-]": 4,
+"TOYOTA Prius 2009 On 5 Dr Hatch 1.8 HYBRID SYNERGY DRIVE (ZVW30R) 134Bhp (A) [08/09-01/12]": 3,
+"TOYOTA Prius 2009 On 5 Dr Hatch 1.8 HYBRID SYNERGY DRIVE (ZVW30R) 134Bhp (A) [02/12-]": 1,
+"TOYOTA Prius 2009 On 5 Dr Hatch 1.80 Luxury - HYBRID SYNERGY DRIVE (ZVW30R) AUTO 134Bhp (A) [02/12-]": 1,
+"TOYOTA Prius 2009 On 5 Dr Hatch 1.80 HYBRID SYNERGY DRIVE (ZVW30R) AUTO 134Bhp (A) [08/09-01/12]": 1,
+"TOYOTA Prius C 2012 On 5 Dr Hatch 1.50 HYBRID SYNERGY DRIVE (NHP10R) AUTO 100Bhp (A) [02/12-]": 1
+},
+"VOLVO|S60": {
+"VOLVO S60 PHEV 2019 On 4 Dr Sal 2 R-Design (CKD) 320Bhp (A) [05/20-]": 1,
+"VOLVO S60 2001 On 4 Dr Sal 2.4 T5 260Bhp (A) [01/05-]": 1
+},
+"KIA|PICANTO": {
+"KIA Picanto 2013 On 5 Dr Hatch 1.2 86Bhp (A) [10/13-12/17]": 2,
+"KIA Picanto 2018 On 5 Dr Hatch 1.2 EX 83Bhp (A) [01/18-]": 1,
+"KIA PICANTO 5 DR HATCH 1.2 (TA) (A) [13-]": 1
+},
+"BMW|7-SERIES": {
+"BMW 7-Series 2002 To 2010 4 Dr Sal 3 730i (E65) M54 228Bhp (A) [03/02-06/05]": 1,
+"BMW 7-Series 2010 To 2016 4 Dr Sal 3 730Li (F02) N52 253Bhp (A) [04/10-02/13]": 1,
+"BMW 7-Series 2002 On 4 Dr Sal 4 740Li (E66) 302Bhp (A) [07/05-]": 1,
+"BMW 7-Series 2002 On 4 Dr Sal 3 730Li (E66) M54 253Bhp (A) [07/05-]": 1
+},
+"TOYOTA|86": {
+"TOYOTA 86 2017 On 2 Dr Coupe 2 2.0 (A) 197Bhp (A) [07/17-]": 2,
+"TOYOTA 86 2012 To 2017 2 Dr Coupe 2 2.0 (A) 197Bhp (A) [06/12-07/17]": 2,
+"TOYOTA 86 2 DR COUPE 2.0 (A) [12-]": 2,
+"TOYOTA 86 GT 2 DR COUPE 2.0 (M) [17-]": 1
+},
+"TOYOTA|SIENTA": {
+"TOYOTA Sienta 2016 On MPV 1.5 V (NSP170R-MWYQKTMV) 106Bhp [08/16-]": 7,
+"TOYOTA Sienta 2016 On MPV 1.50 V (NSP170R-MWYQKTMV) 106Bhp [08/16-]": 1
+},
+"MERCEDES-BENZ|300": {
+"MERCEDES-BENZ 300 SEL 4 DR SAL 3.0 W126 (A)": 2
+},
+"BMW|525I": {
+"BMW 525I 4 DR SAL 2.5 E60 (GH-NG25) (A)": 1
+},
+"NISSAN|NAVARA": {
+"NISSAN Navara 2017 On 4 Dr Pickup Dbl.Cab 2.5 VL Plus 187Bhp (A) [08/18-]": 4,
+"NISSAN Navara 2021 On 4 Dr Pickup Dbl.Cab 2.5 NP300 VL 2.5 (A) 187Bhp (A) [04/21-]": 1,
+"NISSAN Navara 2017 On 4 Dr Pickup Dbl.Cab 2.5 SE 161Bhp (A) [12/17-]": 1,
+"NISSAN Navara 2008 On 4 Dr Pickup Dbl.Cab 2.5 LE 172Bhp (A) [11/13-10/15]": 1,
+"NISSAN Navara 2021 On 4 Dr Pickup Dbl.Cab 2.5 NP300 PRO-4X 2.5 (A) 187Bhp (A) [04/21-]": 1,
+"NISSAN Navara 2017 On 4 Dr Pickup Dbl.Cab 2.5 VL 187Bhp (A) [12/17-]": 1,
+"NISSAN Navara 2008 On 4 Dr Pickup Dbl.Cab 2.5 LE 172Bhp (A) [11/08-10/13]": 1,
+"NISSAN Navara 2008 On 4 Dr Pickup Dbl.Cab 2.5 SE 172Bhp (M) [11/09-10/13]": 1,
+"NISSAN Navara 2008 On Dr Pickup Dbl.Cab 2.50 TD SE 172Bhp (M) [11/09-10/13]": 1,
+"NISSAN Navara 2015 On Dr Pickup Dbl.Cab 2.50 TD VL AUTO 187Bhp (A) [11/15-]": 1,
+"NISSAN Navara 2017 On Dr Pickup Dbl.Cab 2.50 TD VL Plus 4WD AUTO 187Bhp (A) [08/18-]": 1,
+"NISSAN Navara 2015 On Dr Pickup Dbl.Cab 2.50 TD SE 161Bhp (M) [11/15-]": 1,
+"NISSAN Navara 2008 On Dr Pickup Dbl.Cab 2.50 TD LE AUTO 172Bhp (A) [11/08-10/13]": 1,
+"NISSAN Navara 2017 On Dr Pickup Dbl.Cab 2.50 TD SE 4WD AUTO 161Bhp (A) [12/17-]": 1
+},
+"KIA|FORTE": {
+"KIA Forte 2009 To 2013 2 Dr Coupe 2 KOUP 154Bhp (A) [03/11-]": 1
+},
+"MAZDA|2": {
+"MAZDA 2 2015 To 2020 4 Dr Sal 1.5 SkyActiv-G 114Bhp (A) [02/15-03/16]": 6,
+"MAZDA 2 2010 On 4 Dr Sal 1.5 V 103Bhp (A) [04/10-01/15]": 4,
+"MAZDA 2 2010 To 2015 4 Dr Sal 1.5 R 103Bhp (A) [04/10-01/15]": 3,
+"MAZDA 2 2015 To 2020 4 Dr Sal 1.5 SkyActiv-G (High) 114Bhp (A) [09/17-03/20]": 3,
+"MAZDA 2 2015 On 4 Dr Sal 1.5 SkyActiv-G 114Bhp (A) [02/15-03/16]": 2,
+"MAZDA 2 2015 On 5 Dr Hatch 1.5 SkyActiv-G 114Bhp (A) [02/15-03/16]": 2,
+"MAZDA 2 2010 On 4 Dr Sal 1.50 V AUTO 103Bhp (A) [04/10-01/15]": 2,
+"MAZDA 2 2015 To 2020 4 Dr Sal 1.5 SkyActiv-G 114Bhp (A) [03/16-08/17]": 1,
+"MAZDA 2 2015 To 2020 5 Dr Hatch 1.5 SkyActiv-G 114Bhp (A) [02/15-03/16]": 1,
+"MAZDA 2 2010 To 2015 4 Dr Sal 1.5 V 103Bhp (A) [04/10-01/15]": 1,
+"MAZDA 2 2010 To 2015 5 Dr Hatch 1.5 V 103Bhp (A) [04/10-01/15]": 1,
+"MAZDA 2 2020 To 2023 5 Dr Hatch 1.5 SkyActiv-G (GVC) 114Bhp (A) [03/20-12/23]": 1,
+"MAZDA 2 2015 On 5 Dr Hatch 1.5 SkyActiv-G 114Bhp (A) [03/16-08/17]": 1,
+"MAZDA 2 2015 On 4 Dr Sal 1.5 SkyActiv-G (High) 114Bhp (A) [09/17-03/20]": 1,
+"MAZDA 2 2015 On 4 Dr Sal 1.5 SkyActiv-G 114Bhp (A) [03/16-08/17]": 1,
+"MAZDA 2 2010 On 5 Dr Hatch 1.5 V 103Bhp (A) [04/10-01/15]": 1,
+"MAZDA 2 2015 On 5 Dr Hatch 1.50 SkyActiv-G (High) AUTO 114Bhp (A) [09/17-03/20]": 1,
+"MAZDA 2 2015 On 4 Dr Sal 1.50 SkyActiv-G AUTO 114Bhp (A) [02/15-03/16]": 1,
+"MAZDA 2 2018 On 5 Dr Hatch 1.50 SkyActiv-G (Mid) AUTO 114Bhp (A) [03/18-03/20]": 1
+},
+"AUDI|TT": {
+"AUDI TT 2007 On 2 Dr Coupe 2 TFSI 197Bhp (A) [06/07-04/15]": 4,
+"AUDI TT 2007 On 2 Dr Coupe 2.00 TFSI AUTO 197Bhp (A) [06/07-04/15]": 1,
+"AUDI TT 2 DR COUPE 2.0 TFSI (8S) (A) [15-]": 1
+},
+"SUBARU|BRZ": {
+"SUBARU BRZ 2013 On 2 Dr Coupe 2 2.0 6AT 197Bhp (A) [08/17-]": 2,
+"SUBARU BRZ 2013 On 2 Dr Coupe 2.00 2.0 6AT AUTO 197Bhp (A) [08/17-]": 1
+},
+"PORSCHE|TAYCAN": {
+"PORSCHE TAYCAN 4S CROSS TURISMO STATION WAGON 930kW (A)": 1,
+"PORSCHE TAYCAN 4S 4 DR SAL 500kW (A) [20-]": 1,
+"PORSCHE TAYCAN TURBO S 4 DR SAL 560kW (A)": 1,
+"PORSCHE TAYCAN BASE GRADE 4 DR SAL 350kW (A)": 1
+},
+"MAZDA|CX-30": {
+"MAZDA CX-30 2020 To 2023 5 Dr SUV 2 SkyActiv-G (GVC) 162Bhp (A) [05/20-03/23]": 1,
+"MAZDA CX-30 5 DR SUV 2.0 G 2WD High+ Premium (A) [23-]": 1
+},
+"MITSUBISHI|ATTRAGE": {
+"MITSUBISHI Attrage 2013 On 4 Dr Sal 1.2 GS 79Bhp (A) [11/13-]": 3,
+"MITSUBISHI Attrage 2013 On 4 Dr Sal 1.2 SE 79Bhp (A) [11/13-]": 3,
+"MITSUBISHI Attrage 2013 On 4 Dr Sal 1.20 GS AUTO 79Bhp (A) [11/13-]": 1
+},
+"BYD|ATTO": {
+"BYD Atto 3 2025 On 5 Dr SUV Ultra Extended Range 201Bhp (A) [03/25-]": 3,
+"BYD Atto 3 2022 On 5 Dr SUV Standard Range 201Bhp (A) [12/22-]": 1,
+"BYD Atto 3 2022 On 5 Dr SUV Extended Range 201Bhp (A) [12/22-]": 1
+},
+"VOLKSWAGEN|PASSAT": {
+"VOLKSWAGEN Passat 2011 On 4 Dr Sal 1.8 TSI (B7) 158Bhp (A) [10/11-10/16]": 5,
+"VOLKSWAGEN Passat CC 2009 On 4 Dr Sal 2 197Bhp (A) [10/09-]": 3,
+"VOLKSWAGEN PASSAT 4 DR SAL 2.0 D TDI (B6) (A)": 1,
+"VOLKSWAGEN Passat CC 2009 On 4 Dr Sal 2.00 AUTO 197Bhp (A) [10/09-]": 1
+},
+"MERCEDES-BENZ|S580E": {
+"MERCEDES-BENZ S580E 4 DR SAL 3.0 E W223 (A)": 2
+},
+"VOLKSWAGEN|TOUAREG": {
+"VOLKSWAGEN Touareg 2010 To 2018 5 Dr SUV 3.6 V6 FSI 276Bhp (A) [12/10-06/18]": 1,
+"VOLKSWAGEN Touareg 2005 On 5 Dr SUV 5 TDI (A) [07/05-]": 1
+},
+"MAZDA|BIANTE": {
+"MAZDA Biante 2013 On MPV 2 SkyActiv-G 149Bhp (A) [11/13-]": 3
+},
+"BMW|6-SERIES": {
+"BMW 6-Series Gran Turismo 5 Dr Hatch 2 630i M Sport 258Bhp (A) [09/18-]": 1,
+"BMW 6-Series 2004 On 2 Dr Coupe 3.00 630Ci (E63) AUTO 254Bhp (A) [01/04-]": 1
+},
+"MITSUBISHI|FUSO": {
+"MITSUBISHI FUSO TRUCK 3.9 D FE71PB (M) [12-]": 3,
+"MITSUBISHI FUSO LORRY 3.9 D FG83PE6SRDG1 (M)": 1
+},
+"GREAT WALL|HAVAL": {
+"GREAT WALL HAVAL H2 5 DR SUV 1.5 Premium (A) [16-]": 3,
+"GREAT WALL HAVAL H1 5 DR SUV 1.5 Comfort (A) [17-]": 2,
+"GREAT WALL HAVAL H1 5 DR SUV 1.5 Premium (A) [17-]": 2,
+"GREAT WALL HAVAL H2 5 DR SUV 1.5 Facelift (A) [20-]": 1
+},
+"ISUZU|NPR81": {
+"ISUZU NPR81 LORRY 4.8 D (M)": 4
+},
+"NISSAN|VANETTE": {
+"NISSAN Vanette 1989 On Van 1.5 C22 82Bhp (M) [06/99-]": 5,
+"NISSAN Vanette 1989 On Van 1.5 C22 82Bhp (M) [01/89-12/92]": 1,
+"NISSAN Vanette 1989 On Van 1.5 C22 82Bhp (M) [01/93-05/99]": 1,
+"NISSAN VANETTE VAN 1.5 VPC22EFUP (M)": 1,
+"NISSAN Vanette Pick-Up 1997 On Truck 1.5 C22 [01/97-]": 1,
+"NISSAN Vanette 1989 On Van 1.50 C22 82Bhp (M) [06/99-]": 1
+},
+"CHEVROLET|OPTRA": {
+"CHEVROLET Optra 2003 On 4 Dr Sal 1.6 108Bhp (A) [09/03-07/05]": 2,
+"CHEVROLET Optra 2003 On 4 Dr Sal 1.8 LT 120Bhp (A) [09/03-07/05]": 1,
+"CHEVROLET Optra 2003 On 4 Dr Sal 1.60 AUTO 108Bhp (A) [09/03-07/05]": 1
+},
+"MERCEDES-BENZ|A-CLASS": {
+"MERCEDES-BENZ A-Class 2018 On 5 Dr Hatch 2 AMG A35 4MATIC Hatch 306Bhp [06/20-]": 1,
+"MERCEDES-BENZ A-Class 2018 On 4 Dr Sal 1.3 A200 Progressive Line (CKD) 163Bhp [10/21-]": 1,
+"MERCEDES-BENZ A-Class 2018 On 5 Dr Hatch 2 AMG A45 S 4MATIC+ Hatch 421Bhp [03/21-]": 1,
+"MERCEDES-BENZ A-Class 2013 To 2018 5 Dr Hatch 2 A250 Sport (W176) 208Bhp (A) [07/13-02/16]": 1,
+"MERCEDES-BENZ A-Class 2018 On 5 Dr Hatch 2 A250 AMG Line 224Bhp [10/18-]": 1,
+"MERCEDES-BENZ A-Class 2013 To 2018 5 Dr Hatch 1.6 A200 AMG Line (W176) 156Bhp [03/16-]": 1
+},
+"MERCEDES-BENZ|CLA-CLASS": {
+"MERCEDES-BENZ CLA-Class 2014 On 4 Dr Sal 1.6 CLA 200 154Bhp (A) [04/14-]": 5,
+"MERCEDES-BENZ CLA-Class 2014 On 4 Dr Sal 2 CLA 45 AMG 360Bhp (A) [04/14-]": 4,
+"MERCEDES-BENZ CLA-Class 2014 On 4 Dr Sal 1.60 CLA 200 AUTO 154Bhp (A) [04/14-]": 1
+},
+"TOYOTA|BU346": {
+"TOYOTA BU346 LORRY 3.7 D (M)": 1
+},
+"MINI|COUNTRYMAN": {
+"MINI COUNTRYMAN SE 5 DR HATCH U25 (230 kW) (A) [24-]": 1,
+"MINI Countryman 2011 On 5 Dr Hatch 1.6 Cooper S (R60) 184Bhp (A) [11/14-03/17]": 1,
+"MINI Countryman 2017 On 5 Dr Hatch 2.00 Cooper S (F60) AUTO 192Bhp (A) [04/17-]": 1
+},
+"PORSCHE|CAYENNE": {
+"PORSCHE CAYENNE 5 DR SUV 3.6 92A (E2) (A)": 2,
+"PORSCHE CAYENNE S 5 DR SUV 3.0 D V6 (92A) (A)": 2,
+"PORSCHE CAYENNE S 5 DR SUV 3.6 92A (A)": 1,
+"PORSCHE CAYENNE 5 DR SUV 3.0 (9Y0) (A)": 1,
+"PORSCHE CAYENNE 5 DR SUV 4.8 9PA (A) [07-]": 1,
+"PORSCHE CAYENNE 5 DR SUV 3.6 9PA (A) [07-]": 1,
+"PORSCHE CAYENNE 5 DR SUV 3.0 D 92A (A)": 1
+},
+"TOYOTA|SUPRA": {
+"TOYOTA SUPRA 2 DR COUPE 3.0 (3BA-DB42 (A)": 1
+},
+"MERCEDES-BENZ|SLK200": {
+"MERCEDES-BENZ SLK200 2 DR COUPE 1.8 Kompressor (R171) (A)": 1
+},
+"NISSAN|LATIO": {
+"NISSAN Latio 2007 On 5 Dr Hatch 1.6 Sport ST-L 108Bhp (A) [06/07-08/11]": 4,
+"NISSAN Latio 2007 On 4 Dr Sal 1.6 108Bhp (A) [09/11-]": 1,
+"NISSAN Latio 2007 On 4 Dr Sal 1.6 ST-L 108Bhp (A) [06/07-08/11]": 1,
+"NISSAN Latio 2007 On 4 Dr Sal 1.6 ST 108Bhp (A) [06/07-08/11]": 1,
+"NISSAN Latio 2007 On 5 Dr Hatch 1.8 124Bhp (A) [09/11-]": 1,
+"NISSAN Latio 2007 On 4 Dr Sal 1.8 Ti 124Bhp (A) [06/07-08/11]": 1,
+"NISSAN Latio 2007 On 5 Dr Hatch 1.60 Sport ST-L AUTO 108Bhp (A) [06/07-08/11]": 1
+},
+"NAZA|FORTE": {
+"NAZA Forte 2009 On 4 Dr Sal 1.6 SX 124Bhp (A) [11/09-]": 8,
+"NAZA Forte 2009 On 4 Dr Sal 2 SX 154Bhp (A) [11/09-]": 3,
+"NAZA Forte 2009 On 4 Dr Sal 1.6 EX 124Bhp (A) [11/09-]": 2,
+"NAZA Forte 2009 On 4 Dr Sal 2.00 SX AUTO 154Bhp (A) [11/09-]": 1
+},
+"DAIHATSU|DELTA": {
+"DAIHATSU DELTA LORRY 2.8 D V57A (M)": 2,
+"DAIHATSU Delta 1996 On Truck 3.7 V116-HA (5.0T) 94Bhp (M) [05/96-07/03]": 2,
+"DAIHATSU Delta 1996 On Truck 2.8 V58R-HS (4.5T) 75Bhp (M) [05/96-07/03]": 1,
+"DAIHATSU Delta 1996 On Truck 2.8 V58R-HS (4.5T) 75Bhp (M) [08/03-]": 1,
+"DAIHATSU DELTA TRUCK 3.7 D V116-HA (3.0T) (M)": 1,
+"DAIHATSU Delta 1996 On Truck 3.70 D V116-HA (5.0T) 94Bhp (M) [08/03-]": 1
+},
+"DENZA|D9": {
+"DENZA D9 MPV Premium (275kW) (A)": 1
+},
+"KIA|SPORTAGE": {
+"KIA Sportage 2010 On 5 Dr SUV 2 164Bhp (A) [06/11-02/14]": 7,
+"KIA Sportage 2010 On 5 Dr SUV 2 164Bhp (A) [03/14-08/15]": 2,
+"KIA Sportage 2010 On 5 Dr SUV 2.00 AUTO 164Bhp (A) [06/11-02/14]": 1
+},
+"KIA|SORENTO": {
+"KIA Sorento 2010 To 2016 5 Dr SUV 2.4 AWD 174Bhp (A) [03/13-04/16]": 1,
+"KIA Sorento 2016 On 5 Dr SUV 2.20 TD LS AUTO 197Bhp (A) [05/16-10/18]": 1
+},
+"TOYOTA|C-HR": {
+"TOYOTA C-HR 2018 On 5 Dr SUV 1.8 1.8 (ZGX11R-CHXEGE AB) 138Bhp [02/18-]": 4,
+"TOYOTA C-HR 5 DR SUV 1.2 DBA-NGX10 (A)": 1
+},
+"TESLA|MODEL": {
+"TESLA MODEL 3 4 DR SAL RWD (239kW) (A)": 3
+},
+"AUDI|S8": {
+"AUDI S8 4 DR SAL 4.0 TFSI quattro (D4) (A) [12-]": 1
+},
+"TOYOTA|LAND": {
+"TOYOTA LAND CRUISER 5 DR SUV 4.7 CBA-UZJ200W (A)": 1,
+"TOYOTA LAND CRUISER PRADO 5 DR 4X4 4.0 CBA-GRJ120W (A)": 1,
+"TOYOTA LAND CRUISER 5 DR SUV 4.7 D V8 (J202) (A)": 1,
+"TOYOTA Land Cruiser Prado 1996 On 5 Dr 4x4 2.8 GX (LJ95R-GKMNS) (M) [04/96-12/99]": 1
+},
+"AUDI|Q7": {
+"AUDI Q7 2006 On 5 Dr SUV 3 TDI 233Bhp (A) [09/06-10/15]": 1,
+"AUDI Q7 2015 On 5 Dr SUV 3.00 TFSI Quattro AUTO 333Bhp (A) [11/15-]": 1
+},
+"LEXUS|CT200H": {
+"LEXUS CT200h 2011 On 5 Dr Hatch 1.8 Luxury (ZWA10R-AHXBB) 134Bhp (A) [02/11-]": 1,
+"LEXUS CT200h 2011 On 5 Dr Hatch 1.80 Luxury (ZWA10R-AHXBB) AUTO 134Bhp (A) [02/11-]": 1
+},
+"PORSCHE|MACAN": {
+"PORSCHE MACAN 5 DR SUV 2.0 PDK (A) [14-]": 2,
+"PORSCHE MACAN GTS 5 DR SUV 3.0 (A)": 1,
+"PORSCHE MACAN S 5 DR SUV 3.0 PDK (A) [14-]": 1
+},
+"LEXUS|NX": {
+"LEXUS NX 2015 To 2017 5 Dr SUV 2 200t Luxury 235Bhp (A) [01/15-12/17]": 3,
+"LEXUS NX 2018 On 5 Dr SUV 2 300 F Sport 235Bhp (A) [01/18-]": 2,
+"LEXUS NX 2018 On 5 Dr SUV 2 300 Urban 235Bhp (A) [01/18-]": 1,
+"LEXUS NX 2015 To 2017 5 Dr SUV 2 200t F Sport 235Bhp (A) [01/15-12/17]": 1,
+"LEXUS NX 2015 To 2017 5 Dr SUV 2 200t 235Bhp (A) [01/15-12/17]": 1,
+"LEXUS NX 300 5 DR SUV 2.0 DBA-AGZ10 (AZ10) (A)": 1,
+"LEXUS NX 2015 To 2017 5 Dr SUV 2 200t Premium 235Bhp (A) [01/15-12/17]": 1,
+"LEXUS NX 2018 On 5 Dr SUV 2 300 Premium 235Bhp (A) [01/18-]": 1
+},
+"TOYOTA|VOXY": {
+"TOYOTA VOXY MPV 2.0 DBA-ZRR80G (A)": 4,
+"TOYOTA VOXY MPV 2.0 DBA-ZRR80W (A)": 1
+},
+"ISUZU|COMMANDO": {
+"ISUZU Commando NHR542 2.5 Lorry": 2
+},
+"PROTON|E.MAS": {
+"PROTON E.MAS e.MAS 5 2025 On 5 Dr Hatch Premium 114Bhp (A) [10/25-]": 1
+},
+"PROTON|SUPRIMA": {
+"PROTON Suprima S 2013 On 5 Dr Hatch 1.6 Premium 138Bhp (A) [08/13-]": 2,
+"PROTON Suprima S 2013 On 5 Dr Hatch 1.6 Executive 138Bhp (A) [08/13-]": 1,
+"PROTON Suprima S 2013 On 5 Dr Hatch 1.6 Standard 138Bhp (A) [12/14-]": 1
+},
+"NAZA|206": {
+"NAZA 206 2006 On 5 Dr Hatch 1.4 Bestari 74Bhp (A) [05/06-01/11]": 1
+},
+"LEXUS|RX": {
+"LEXUS RX 2019 On 5 Dr SUV 2 300 F Sport 235Bhp (A) [09/19-]": 3,
+"LEXUS RX 2015 To 2019 5 Dr SUV 2 200t F Sport 235Bhp (A) [11/15-08/19]": 1,
+"LEXUS RX 2015 To 2019 5 Dr SUV 2 200t Luxury 235Bhp (A) [11/15-08/19]": 1,
+"LEXUS RX 350 F SPORT 5 DR SUV 3.5 (A) [12-]": 1
+},
+"BYD|SEAL": {
+"BYD Seal 2024 On 4 Dr Sal Performance 523Bhp (A) [02/24-]": 1,
+"BYD SEAL 6 4 DR SAL Premium 160kW (A)": 1,
+"BYD Seal 2024 On 4 Dr Sal Premium 309Bhp (A) [02/24-]": 1
+},
+"PEUGEOT|408": {
+"PEUGEOT 408 2012 On 4 Dr Sal 2 145Bhp (A) [05/12-05/16]": 2,
+"PEUGEOT 408 2012 On 4 Dr Sal 1.60 AUTO 163Bhp (A) [05/12-05/16]": 2,
+"PEUGEOT 408 5 DR SUV 1.6 GT (P54) (A)": 1,
+"PEUGEOT 408 2012 On 4 Dr Sal 1.6 163Bhp (A) [05/12-05/16]": 1
+},
+"DAIHATSU|GRAN": {
+"DAIHATSU Gran Max 2010 To 2021 Van 1.5 S402RV-BMRFJG 96Bhp (M) [12/10-02/21]": 4,
+"DAIHATSU Gran Max 2010 On Van 1.5 S402RV-BMRFJG 96Bhp (M) [12/10-]": 3,
+"DAIHATSU GRAN MAX VAN 1.5 S403RV-BQRFJM (A) [21-]": 1,
+"DAIHATSU Gran Max 2010 On Van 1.50 S402RV-BMRFJG 96Bhp (M) [12/10-]": 1
+},
+"HONDA|WAVE": {
+"HONDA Wave 125 Wave 125 ANF125MRM5 125 cc Manual": 1,
+"HONDA WAVE DASH CUB/MOPED 109cc AFP110MCS (M) [11-]": 1
+},
+"PERODUA|RUSA": {
+"PERODUA Rusa 1996 On MUV 1.3 EX 72Bhp (M) [01/04-]": 1,
+"PERODUA Rusa 1996 On MUV 1.3 EX 72Bhp (M) [11/99-12/03]": 1
+},
+"CHERY|TIGGO": {
+"CHERY Tiggo 7 2024 On 5 Dr SUV 1.6 Pro 290T 194Bhp [03/24-]": 1
+},
+"YAMAHA|Y15ZR": {
+"YAMAHA Y15ZR 150cc [15-]": 3,
+"YAMAHA Y15ZR 150cc [22-]": 1
+},
+"KIA|CARNIVAL": {
+"KIA Carnival 2022 On MPV 2.2 2.2D 7-Seater High 199Bhp (A) [07/22-]": 1,
+"KIA CARNIVAL MPV 2.2 D (A) [17-]": 1
+},
+"LAND ROVER|DEFENDER": {
+"LAND ROVER DEFENDER 4 DR PICKUP DBL.CAB 2.0 3BA-LE72XAA (L663) (A) [20-]": 1
+},
+"MAZDA|5": {
+"MAZDA 5 2010 On MPV 2 142Bhp (A) [12/10-04/14]": 1,
+"MAZDA 5 2006 On MPV 2 135Bhp (A) [04/06-11/10]": 1
+},
+"HONDA|N": {
+"HONDA N BOX CUSTOM MINI VAN 658cc (DBA-JF3) (A)": 1
+},
+"YAMAHA|135LC": {
+"YAMAHA 135LC 135cc": 3,
+"YAMAHA 135LC FI 5MRO 134cc [22-]": 1,
+"YAMAHA 135LC 134cc [16-]": 1
+},
+"NETA|X": {
+"NETA X 500 5 DR SUV Luxury 120kW (A)": 1
+},
+"HONDA|CR-Z": {
+"HONDA CR-Z 2011 On 3 Dr Hatch 1.5 133Bhp (A) [03/13-]": 1,
+"HONDA CR-Z 2011 On 3 Dr Hatch 1.5 122Bhp (A) [06/12-02/13]": 1
+},
+"NISSAN|TEANA": {
+"NISSAN Teana 2014 On 4 Dr Sal 2 XL (L33) 134Bhp (A) [06/14-]": 4,
+"NISSAN Teana 2007 On 4 Dr Sal 2 200XE 134Bhp (A) [11/10-02/13]": 4,
+"NISSAN Teana 2007 On 4 Dr Sal 2 200XE 134Bhp (A) [03/13-05/14]": 1,
+"NISSAN Teana 2007 On 4 Dr Sal 2.50 250XV AUTO 180Bhp (A) [03/13-05/14]": 1
+},
+"BMW|Z4": {
+"BMW Z4 2003 On 2 Dr Coupe 2.5 i (E85) 189Bhp (A) [01/04-]": 3
+},
+"BENTLEY|CONTINENTAL": {
+"BENTLEY CONTINENTAL FLYING SPUR 4 DR SAL 6.0 (A) [05-]": 1,
+"BENTLEY CONTINENTAL GT 2 DR COUPE 6.0 (A) [05-]": 1
+},
+"VOLVO|V60": {
+"VOLVO V60 PHEV 2022 On 5 Dr Estate 2 Ultimate 316Bhp (A) [11/22-]": 1
+},
+"FORD|ECONOVAN": {
+"FORD Econovan 2000 On Van 2 XL (SV50) 96Bhp (M) [12/00-]": 1,
+"FORD Econovan 1.8 Semi-Panel Van 1991-": 1
+},
+"BMW|X3": {
+"BMW X3 2018 On 5 Dr SUV 2 xDrive30i M Sport 252Bhp (A) [09/19-]": 3,
+"BMW X3 2011 On 5 Dr SUV 2 xDrive20d (F25) N47D 184Bhp (A) [03/11-07/14]": 1,
+"BMW X3 2022 On 5 Dr SUV 2 xDrive30i M Sport 249Bhp (A) [02/22-]": 1,
+"BMW X3 2011 On 5 Dr SUV 2 xDrive20i (F25) LCI 184Bhp (A) [08/14-]": 1
+},
+"BYD|SEALION": {
+"BYD Sealion 7 2024 On 5 Dr SUV Premium 308Bhp (A) [11/24-]": 1
+},
+"NISSAN|NV200": {
+"NISSAN NV200 2012 On Van 1.6 108Bhp (M) [02/12-]": 7,
+"NISSAN NV200 2012 On Van 1.60 108Bhp (M) [02/12-]": 1
+},
+"AUDI|A3": {
+"AUDI A3 2014 On 4 Dr Sal 1.4 TFSI 122Bhp (A) [08/14-02/19]": 3
+},
+"UD|TRUCKS": {
+"UD TRUCKS YU41T5 LORRY 4.2 D (M)": 1
+},
+"HONDA|INSIGHT": {
+"HONDA Insight 2010 On 5 Dr Hatch 1.3 101Bhp (A) [12/10-02/12]": 6,
+"HONDA Insight 2010 On 5 Dr Hatch 1.3 101Bhp (A) [03/12-]": 3,
+"HONDA Insight 2010 On 5 Dr Hatch 1.30 AUTO 101Bhp (A) [03/12-]": 2,
+"HONDA Insight 2010 On 5 Dr Hatch 1.30 AUTO 101Bhp (A) [12/10-02/12]": 1
+},
+"HYUNDAI|STARIA": {
+"HYUNDAI Staria 2021 On MPV 2.2 Premium 175Bhp (A) [10/22-]": 1,
+"HYUNDAI Staria 2021 On MPV 2.2 Plus 175Bhp (A) [10/22-]": 1
+},
+"YAMAHA|LAGENDA": {
+"YAMAHA LAGENDA 115Z (K) 115cc": 1,
+"YAMAHA LAGENDA 110Z (E) CUB/MOPED 110cc (M) [05- ]": 1
+},
+"HONDA|ADV160": {
+"HONDA ADV160 157cc ADV160A": 1
+},
+"VOLVO|S40": {
+"VOLVO S40 2004 On 4 Dr Sal 2 Powershift 143Bhp (A) [10/09-]": 1,
+"VOLVO S40 1996 On 4 Dr Sal 2 T 170Bhp (A) [01/96-12/04]": 1,
+"VOLVO S40 2004 On 4 Dr Sal 2.4 170Bhp (A) [10/04-07/08]": 1
+},
+"CHEVROLET|CRUZE": {
+"CHEVROLET Cruze 2010 On 4 Dr Sal 1.8 LT 140Bhp (A) [06/10-10/12]": 1
+},
+"HINO|300": {
+"HINO 300 SERIES LORRY 4.0 D WU302R-HKMLHD3 (M)": 3,
+"HINO 300 SERIES LORRY 4.0 D XZU600R-HKMLK3 (M)": 1,
+"HINO 300 SERIES LORRY 4.0 D XZU640R-WKMLK3 (M)": 1,
+"HINO 300 SERIES LORRY 4.0 D XZU730R-HKMQK3 (M)": 1,
+"HINO 300 SERIES LORRY 4.0 D WU720R-HKMQL3 (M)": 1,
+"HINO 300 SERIES LORRY 4.0 D WU720R-HKMML3 (M)": 1
+},
+"SUBARU|LEGACY": {
+"SUBARU LEGACY 4 DR SAL 2.0 (A)": 1
+},
+"NAZA|CITRA": {
+"NAZA Citra 2005 On MPV 2 GLS 135Bhp (A) [01/05-04/09]": 3,
+"NAZA Citra 2005 On MPV 2 GS 135Bhp (A) [01/05-04/09]": 2,
+"NAZA Citra 2005 On MPV 2 RONDO EXS 143Bhp (A) [09/08-01/13]": 1
+},
+"INOKOM|GETZ": {
+"INOKOM Getz 2006 On 5 Dr Hatch 1.4 GLA 96Bhp (A) [10/06-]": 1
+},
+"VOLKSWAGEN|BEETLE": {
+"VOLKSWAGEN Beetle 2014 On 3 Dr Hatch 1.2 TSI Design 103Bhp [08/14-04/17]": 4,
+"VOLKSWAGEN BEETLE 3 DR HATCH 1.2 TSI (A) [12-]": 3,
+"VOLKSWAGEN Beetle 2014 On 3 Dr Hatch 1.2 TSI Sport 103Bhp [05/17-]": 1,
+"VOLKSWAGEN Beetle 2014 On 3 Dr Hatch 1.4 Dune 1.4 TSI 148Bhp [11/16-]": 1,
+"VOLKSWAGEN BEETLE 3 DR HATCH 2.0 TSI (A) [12-]": 1
+},
+"VOLKSWAGEN|JETTA": {
+"VOLKSWAGEN Jetta 2011 On 4 Dr Sal 1.4 TSI 158Bhp (A) [10/11-08/16]": 4,
+"VOLKSWAGEN Jetta 2011 On 4 Dr Sal 1.4 TSI Highline 148Bhp [09/16-]": 2
+},
+"SYM|VF3I": {
+"SYM VF3I 183cc 185 LE": 1
+},
+"HONDA|RS-X": {
+"HONDA RS-X 149cc FS150FA": 3
+},
+"PROTON|SAVVY": {
+"PROTON Savvy 2005 On 5 Dr Hatch 1.2 73Bhp (M) [06/05-12/06]": 1,
+"PROTON Savvy 2005 On 5 Dr Hatch 1.2 Lite 73Bhp (M) [07/07-]": 1,
+"PROTON Savvy 2005 On 5 Dr Hatch 1.20 AUTO 73Bhp (A) [01/07-]": 1
+},
+"HONDA|ODYSSEY": {
+"HONDA Odyssey 2013 On MPV 2.4 EXV 173Bhp (A) [11/13-01/18]": 2,
+"HONDA Odyssey 2018 On MPV 2.4 EXV 173Bhp [02/18-02/22]": 1,
+"HONDA Odyssey 2002 On MPV 2.3 [10/02-08/08]": 1,
+"HONDA Odyssey 2018 On MPV 2.40 EXV 173Bhp [02/18-]": 1,
+"HONDA ODYSSEY MPV 2.4 RB1 (A)": 1
+},
+"CHANGAN|CHANA": {
+"CHANGAN CHANA ERA STAR II LORRY 1.2 (M) [16-]": 1,
+"CHANGAN CHANA ERA STAR II PANEL VAN 1.2 (M) [16-]": 1
+},
+"BMW|2-SERIES": {
+"BMW 2-Series Gran Coupe 2020 On 4 Dr Coupe 1.5 218i M Sport 138Bhp [10/20-]": 2
+},
+"BMW|318I": {
+"BMW 318I 4 DR SAL 1.5 Luxury (F30) B38 LCI (A) [15-]": 1,
+"BMW 318I 4 DR SAL 2.0 E46 (A)": 1
+},
+"MERCEDES-BENZ|C250": {
+"MERCEDES-BENZ C250 4 DR SAL 1.8 CGI BlueEfficiency FL (W204) (A) [11-]": 1,
+"MERCEDES-BENZ C250 2 DR COUPE 1.8 AMG SPORT (W204) (A) [11-]": 1
+},
+"PEUGEOT|2008": {
+"PEUGEOT 2008 2014 On 5 Dr SUV 1.2 PureTech 110Bhp (A) [01/17-]": 2
+},
+"SUZUKI|SX4": {
+"SUZUKI SX4 2007 On 5 Dr Hatch 1.6 110Bhp (A) [11/09-07/12]": 3
+},
+"JAECOO|J7": {
+"JAECOO J7 2024 On 5 Dr SUV 1.6 AWD 194Bhp [07/24-]": 1
+},
+"BMW|528I": {
+"BMW 528I 4 DR SAL 2.0 M Sport (F10) (A) [12-]": 1
+},
+"HYUNDAI|SANTA": {
+"HYUNDAI Santa Fe 2022 On 5 Dr SUV 2.2 CRDi Executive SE 190Bhp (A) [03/22-]": 1,
+"HYUNDAI Santa Fe 2022 On 5 Dr SUV 2.2 CRDi Executive Plus SE 190Bhp (A) [03/22-]": 1
+},
+"MINI|ONE": {
+"MINI ONE 3 DR HATCH 1.6 (R50) (A)": 1,
+"MINI ONE 3 DR HATCH 1.4 ABA-ME14 (A)": 1
+},
+"BMW|X4": {
+"BMW X4 2022 On 5 Dr SUV 2 xDrive30i M Sport 249Bhp (A) [02/22-]": 2,
+"BMW X4 2019 To 2022 5 Dr SUV 2 xDrive30i M Sport 252Bhp (A) [05/19-02/22]": 1
+},
+"AUDI|Q5": {
+"AUDI Q5 2009 On 5 Dr SUV 2 TFSI Quattro 225Bhp [10/12-]": 4,
+"AUDI Q5 2009 On 5 Dr SUV 2 TFSI 211Bhp (A) [05/09-]": 1
+},
+"HYUNDAI|IONIQ": {
+"HYUNDAI Ioniq 2019 On 5 Dr Hatch 1.6 HEV Plus 104Bhp [05/19-]": 1,
+"HYUNDAI Ioniq 5 2022 On 5 Dr Hatch Plus 168Bhp (A) [03/22-]": 1,
+"HYUNDAI Ioniq 6 2023 On 4 Dr Sal Plus RWD 149Bhp (A) [09/23-]": 1,
+"HYUNDAI Ioniq 2016 On 5 Dr Hatch 1.6 HEV 104Bhp [11/16-]": 1,
+"HYUNDAI Ioniq 2016 On 5 Dr Hatch 1.6 HEV Plus 104Bhp [11/16-]": 1,
+"HYUNDAI Ioniq 2019 On 5 Dr Hatch 1.60 HEV 104Bhp [05/19-]": 1,
+"HYUNDAI Ioniq 2016 On 5 Dr Hatch 1.60 HEV 104Bhp [11/16-]": 1
+},
+"LEXUS|RX270": {
+"LEXUS RX270 5 DR SUV 2.7 DBA-AGL10W (A)": 1
+},
+"VOLKSWAGEN|VENTO": {
+"VOLKSWAGEN Vento 2016 On 4 Dr Sal 1.2 TSI Highline 103Bhp [05/16-]": 1,
+"VOLKSWAGEN Vento 2016 On 4 Dr Sal 1.60 Comfortline AUTO 103Bhp (A) [05/16-]": 1,
+"VOLKSWAGEN Vento 2016 On 4 Dr Sal 1.20 TSI Highline 103Bhp [05/16-]": 1
+},
+"MERCEDES-BENZ|A180": {
+"MERCEDES-BENZ A180 4 DR SAL 1.3 W177 (A)": 1
+},
+"MERCEDES-BENZ|E200": {
+"MERCEDES-BENZ E200 4 DR SAL 2.0 AMG (W213) (A) [16-]": 2,
+"MERCEDES-BENZ E200 4 DR SAL 2.0 Avantgarde (W213) (A) [22-]": 1
+},
+"HINO|XZU421": {
+"HINO XZU421 LORRY 4.9 D (M)": 1
+},
+"LEXUS|RX300": {
+"LEXUS RX300 5 DR SUV 2.0 3BA-AGL20W (A)": 1,
+"LEXUS RX300 5 DR SUV 3.0 MCU35R (A)": 1
+},
+"NISSAN|YU41T5": {
+"NISSAN YU41T5 LORRY 4.2 D TD42 (M)": 1
+},
+"BMW|4-SERIES": {
+"BMW 4-Series 2021 On 2 Dr Coupe 3 M4 Competition Coupe 503Bhp (A) [02/21-]": 1,
+"BMW 4-Series 2013 On 2 Dr Coupe 2.00 428i M Sport (F32) AUTO 245Bhp (A) [10/13-06/17]": 1
+},
+"TOYOTA|RAV4": {
+"TOYOTA RAV4 3DR 4WD 2.0 (ACA20R-AZPNK)": 1,
+"TOYOTA RAV4 5 DR 4X4 2.0 ACA30R-AWPGKW (A)": 1,
+"TOYOTA RAV4 3DR 4x4 2.0 (TA-ACA20W)": 1
+},
+"YAMAHA|Y125ZR": {
+"YAMAHA Y125ZR 124cc": 1
+},
+"HONDA|STREAM": {
+"HONDA STREAM MPV 2.0 RN3(K20A) (A)": 2,
+"HONDA STREAM MPV 1.8 RN6 (A)": 1,
+"HONDA STREAM MPV 2.0 RN3 (A)": 1,
+"HONDA STREAM MPV 1.8 RN6 (R18A) (A)": 1,
+"HONDA STREAM MPV 2.0 RN8 (A) [07-]": 1
+},
+"PEUGEOT|5008": {
+"PEUGEOT 5008 2010 To 2018 MPV 1.6 163Bhp (A) [05/14-03/18]": 1
+},
+"BMW|523I": {
+"BMW 523I 4 DR SAL 2.5 E60 (LCI) (A)": 1
+},
+"VOLVO|XC90": {
+"VOLVO XC90 2018 On 5 Dr SUV 2 T5 Momentum 254Bhp (A) [04/21-02/22]": 1,
+"VOLVO XC90 PHEV 2015 On 5 Dr SUV 2 Inscription (CKD) 320Bhp (A) [06/16-01/18]": 1,
+"VOLVO XC90 PHEV 2015 On 5 Dr SUV 2 Recharge T8 Inscription Plus (FL) 320Bhp (A) [11/19-04/21]": 1
+},
+"MERCEDES-BENZ|C350E": {
+"MERCEDES-BENZ C350E 4 DR SAL 2.0 E AMG Line (W206) (A) [21-]": 1
+},
+"INOKOM|ATOS": {
+"INOKOM Atos 2002 On Mini Van 1.1 GLM 78Bhp (M) [08/04-04/05]": 1,
+"INOKOM Atos 2002 On Mini Van 1.1 GLA 78Bhp (A) [08/04-04/05]": 1
+},
+"NISSAN|FRONTIER": {
+"NISSAN Frontier 2004 On 4 Dr Pickup Dbl.Cab 2.5 Spirit 131Bhp (M) [02/04-]": 1
+},
+"NISSAN|ELGRAND": {
+"NISSAN ELGRAND MPV 3.5 Highway Star (E52) (A) [12-]": 1
+},
+"VOLKSWAGEN|SCIROCCO": {
+"VOLKSWAGEN Scirocco 2009 On 3 Dr Hatch 2 TSI 207Bhp (A) [10/09-]": 1
+},
+"LEXUS|RX350": {
+"LEXUS RX350 5 DR SUV 3.5 DBA-GGL10W (A)": 1,
+"LEXUS RX350 5 DR SUV 3.5 DBA-GGL15W (A)": 1,
+"LEXUS RX350 5 DR SUV 3.5 GSU35R-AWAGKW (A) [07-]": 1
+},
+"KIA|SPECTRA": {
+"KIA Spectra 2001 On 5 Dr Hatch 1.6 LS 107Bhp (A) [01/01-]": 2
+},
+"CITROEN|C4": {
+"CITROEN C4 2014 On 5 Dr Hatch 1.6 Picasso THP 165 163Bhp (A) [01/16-]": 1
+},
+"MERCEDES-BENZ|GLE": {
+"MERCEDES-BENZ GLE 2016 On 5 Dr SUV 2.1 GLE 250d 4Matic (W166) 204Bhp (A) [01/16-]": 1
+},
+"CHEVROLET|COLORADO": {
+"CHEVROLET Colorado 2012 On 4 Dr Pickup Dbl.Cab 2.8 LTZ 180Bhp (A) [03/12-]": 1,
+"CHEVROLET Colorado 2012 On Dr Pickup Dbl.Cab 2.80 TD LTZ AUTO 180Bhp (A) [03/12-]": 1
+},
+"LEXUS|UX": {
+"LEXUS UX 2020 On 5 Dr SUV 2 200 F Sport 169Bhp [03/20-]": 1
+},
+"MERCEDES-BENZ|CLS350": {
+"MERCEDES-BENZ CLS350 4 DR SAL 3.5 BlueEFFICIENCY (W218) (A)": 2
+},
+"MG|MG4": {
+"MG MG4 2024 On 5 Dr Hatch Lux Extended Range 242Bhp (A) [03/24-]": 1
+},
+"NISSAN|LIVINA": {
+"NISSAN Livina X-Gear 2011 On 5 Dr Hatch 1.6 104Bhp (A) [04/14-]": 2
+},
+"LEXUS|RX450H": {
+"LEXUS RX450H 5 DR SUV 3.5 E (A)": 1
+},
+"PROTON|PERDANA": {
+"PROTON Perdana 1994 On 4 Dr Sal 2 V6 (E54A) 148Bhp (A) [06/03-11/13]": 3,
+"PROTON Perdana 1994 On 4 Dr Sal 2.00 V6 (E54A) AUTO 148Bhp (A) [06/03-11/13]": 2,
+"PROTON Perdana 1994 On 4 Dr Sal 2 V6 (E54A) 148Bhp (A) [01/99-05/03]": 1,
+"PROTON Perdana 2014 On 4 Dr Sal 2.4 2.4L 178Bhp (A) [06/16-]": 1,
+"PROTON Perdana 1994 On 4 Dr Sal 2.4 P 178Bhp (A) [01/14-05/16]": 1,
+"PROTON Perdana 1994 On 4 Dr Sal 2.00 SEi (E55A) AUTO (A) [12/94-12/98]": 1
+},
+"AUDI|A7": {
+"AUDI A7 2011 On 5 Dr Hatch 3 Sportback TFSI Quattro 333Bhp [09/15-]": 1
+},
+"SUZUKI|ALTO": {
+"SUZUKI Alto 2010 On 5 Dr Hatch 1 GLX 67Bhp (A) [08/10-]": 1
+},
+"HYUNDAI|ACCENT": {
+"HYUNDAI Accent 2007 On 4 Dr Sal 1.6 CVVT 110Bhp (A) [11/07-]": 1,
+"HYUNDAI Accent 2003 On 5 Dr Hatch 1.5 GLS 90Bhp (M) [12/05-10/07]": 1
+},
+"MERCEDES-BENZ|CLA": {
+"MERCEDES-BENZ CLA 250 4 DR SAL 2.0 DBA-117346 (C117) (A)": 1,
+"MERCEDES-BENZ CLA 250 4 DR SAL 2.0 C117 (A)": 1
+},
+"BMW|750E": {
+"BMW 750E 4 DR SAL 3.0 E xDrive (G70) (A) [23-]": 1
+},
+"HINO|XZU720": {
+"HINO XZU720 LORRY 4.0 D (M)": 1
+},
+"DONG FENG|DHZ6120KR6": {
+"DONG FENG DHZ6120KR6 BUS 8.4 D (M)": 1
+},
+"CHERY|MAXIME": {
+"CHERY MAXIME MPV 2.0 (B14FL) (A) [15-]": 1
+},
+"KIA|OPTIMA": {
+"KIA Optima 2012 On 4 Dr Sal 2 K5 163Bhp (A) [01/12-12/13]": 4,
+"KIA Optima 2012 On 4 Dr Sal 2.00 K5 AUTO 163Bhp (A) [01/14-04/17]": 1
+},
+"CHEVROLET|CAPTIVA": {
+"CHEVROLET Captiva 2007 On 5 Dr SUV 2.4 AWD 137Bhp (A) [11/07-04/09]": 1,
+"CHEVROLET Captiva 2007 On 5 Dr SUV 2.00 TD AWD AUTO 150Bhp (A) [11/07-04/09]": 1
+},
+"TOYOTA|CALDINA": {
+"TOYOTA CALDINA MPV 2.0 ABA-ST246W (A)": 1,
+"TOYOTA CALDINA MPV 2.0 TA-AZT246W (A)": 1
+},
+"MERCEDES-BENZ|E240": {
+"MERCEDES-BENZ E240 4 DR SAL 2.6 Elegance (W210) (A)": 1
+},
+"HYUNDAI|MATRIX": {
+"HYUNDAI Matrix 2002 On MPV 1.6 GLS 102Bhp (A) [06/03-]": 1,
+"HYUNDAI Matrix 2002 On MPV 1.60 GLS AUTO 102Bhp (A) [06/03-]": 1
+},
+"MASERATI|GHIBLI": {
+"MASERATI GHIBLI 4 DR SAL 3.0 (A)": 1
+},
+"NISSAN|CD48": {
+"NISSAN CD48 LORRY 13.1 D (M)": 1
+},
+"ISUZU|NPR71L": {
+"ISUZU NPR71L LORRY 4.6 D (M)": 2
+},
+"SUZUKI|JIMNY": {
+"SUZUKI JIMNY SIERRA 3 DR 4X4 1.5 JB74W (A)": 1
+},
+"NISSAN|YU41H4": {
+"NISSAN YU41H4 Lorry Rigid-Kargo 2001-": 1
+},
+"TOYOTA|PREVIA": {
+"TOYOTA Previa 2013 On MPV 2.4 GL (ACR50R-GFPGK) 168Bhp (A) [11/13-]": 1
+},
+"CHEVROLET|AVEO": {
+"CHEVROLET Aveo 2003 On 5 Dr Hatch 1.5 LS 83Bhp (A) [09/03-04/05]": 2,
+"CHEVROLET Aveo 2003 On 5 Dr Hatch 1.50 LS AUTO 83Bhp (A) [09/03-04/05]": 1
+},
+"LEXUS|IS250": {
+"LEXUS IS250 4 DR SAL 2.5 GSE20 (A) [05-]": 1,
+"LEXUS IS250 4 DR SAL 2.5 SE (A) [06-]": 1
+},
+"INOKOM|I10": {
+"INOKOM i10 2008 On 5 Dr Hatch 1.10 AUTO 68Bhp (A) [08/08-06/11]": 2,
+"INOKOM i10 2008 On 5 Dr Hatch 1.1 68Bhp (A) [07/11-]": 1,
+"INOKOM i10 2008 On 5 Dr Hatch 1.2 High Spec. 79Bhp (A) [05/10-06/11]": 1,
+"INOKOM i10 2008 On 5 Dr Hatch 1.10 AUTO 68Bhp (A) [07/11-]": 1
+},
+"MERCEDES-BENZ|B-CLASS": {
+"MERCEDES-BENZ B-Class 2006 On MPV 1.7 B170 (W245) 116Bhp (A) [06/06-08/08]": 1
+},
+"MITSUBISHI|MIRAGE": {
+"MITSUBISHI Mirage 2012 On 5 Dr Hatch 1.2 GL 79Bhp (A) [11/12-04/15]": 2,
+"MITSUBISHI Mirage 2012 On 5 Dr Hatch 1.2 GS 79Bhp (A) [11/12-04/15]": 1
+},
+"ISUZU|NPR85": {
+"ISUZU NPR85 LORRY 3.0 D (M)": 1
+},
+"HONDA|FREED": {
+"HONDA Freed 2010 On MPV 1.5 i-VTEC (Grade E) 116Bhp (A) [04/10-12/12]": 3
+},
+"LMG|TREKKER": {
+"LMG TREKKER 4 DR PICKUP 2.2 (M)": 1
+},
+"LEXUS|IS": {
+"LEXUS IS 2013 On 4 Dr Sal 2.5 IS 250 205Bhp (A) [06/13-10/15]": 1
+},
+"ISUZU|ELF": {
+"ISUZU ELF LORRY 4.6 D NPR PRO (NPR71UHH) (M)": 1,
+"ISUZU ELF LORRY 4.8 D NPR PRO (NPR81UKH) (M)": 1
+},
+"MERCEDES-BENZ|R-CLASS": {
+"MERCEDES-BENZ R-Class 2006 On MPV 3 R300L (V251) 228Bhp (A) [11/10-]": 1
+},
+"NISSAN|CEFIRO": {
+"NISSAN Cefiro 1996 On 4 Dr Sal 2 G (EXCIMO)(A33) 148Bhp (A) [12/01-12/09]": 1,
+"NISSAN Cefiro 1996 On 4 Dr Sal 2.00 G (EXCIMO)(A32) AUTO 138Bhp (A) [01/99-11/01]": 1
+},
+"PEUGEOT|508": {
+"PEUGEOT 508 2011 On 4 Dr Sal 1.6 Premium 156Bhp (A) [10/11-05/15]": 1
+},
+"FIRAMA|ENGINEERING": {
+"FIRAMA ENGINEERING SK40-2 SEMI TRAILER - CONTAINER": 1
+},
+"SKS|46NS": {
+"SKS 46NS / RB BUS 11.7 D (M)": 1
+},
+"MERCEDES-BENZ|S-CLASS": {
+"MERCEDES-BENZ S-Class 2014 On 4 Dr Sal 3.5 S400L Hybrid (W222) 306Bhp (A) [03/14-]": 2,
+"MERCEDES-BENZ S-Class 2006 On 4 Dr Sal 3 S300L (V221) 228Bhp (A) [01/07-10/09]": 1,
+"MERCEDES-BENZ S-Class 2014 On 4 Dr Sal 3.50 S400L Hybrid (W222) AUTO 306Bhp (A) [03/14-]": 1
+},
+"ISUZU|MU-X": {
+"ISUZU MU-X 2015 On 5 Dr SUV 2.5 4x4 AT 134Bhp (A) [06/15-07/17]": 1,
+"ISUZU MU-X 2015 On 5 Dr SUV 2.50 TD 4x4 AT AUTO 134Bhp (A) [06/15-07/17]": 1
+},
+"PERODUA|KEMBARA": {
+"PERODUA Kembara 1998 On 5 Dr SUV 1.3 EZ 82Bhp (A) [08/98-05/03]": 3,
+"PERODUA Kembara 1998 On 5 Dr SUV 1.3 GX 82Bhp (M) [08/98-05/03]": 1,
+"PERODUA Kembara 1998 On 5 Dr SUV 1.30 EZ AUTO 82Bhp (A) [08/98-05/03]": 1,
+"PERODUA Kembara 1998 On 5 Dr SUV 1.30 EZ DVVT AUTO 85Bhp (A) [06/03-06/04]": 1,
+"PERODUA Kembara 1998 On 5 Dr SUV 1.30 EX DVVT 85Bhp (M) [06/03-06/04]": 1
+},
+"MITSUBISHI|FE83": {
+"MITSUBISHI FE83 LORRY 3.9 D (FE83PG) (M)": 1
+},
+"HINO|GH1JRPA": {
+"HINO GH1JRPA LORRY 8.0 D (M)": 2
+},
+"HONDA|DOMANI": {
+"HONDA Domani 4 DR SAL 1.6 (MA4) 1992-": 1
+},
+"KIA|GRAND": {
+"KIA Grand Carnival 2018 To 2020 MPV 2.2 2.2D SX 190Bhp (A) [10/18-05/20]": 1
+},
+"MITSUBISHI|OUTLANDER": {
+"MITSUBISHI Outlander 2016 On 5 Dr SUV 2.4 4WD 165Bhp [04/16-]": 1,
+"MITSUBISHI Outlander 2016 On 5 Dr SUV 2 4WD 143Bhp [10/17-]": 1
+},
+"BMW|740LE": {
+"BMW 740LE 4 DR SAL 2.0 E xDrive (G12) (A) [16-]": 1
+},
+"FARID|PLACER": {
+"FARID PLACER X VAN 2.5 D (M) [11-]": 1
+},
+"INOKOM|SANTA": {
+"INOKOM Santa Fe 2013 On 5 Dr SUV 2.4 MPI (Elegance) 174Bhp (A) [06/13-]": 1,
+"INOKOM Santa Fe 2013 On 5 Dr SUV 2.2 CRDi (Executive Plus) 194Bhp (A) [06/13-]": 1,
+"INOKOM Santa Fe 2013 On 5 Dr SUV 2.4 MPI (Executive Plus) 174Bhp (A) [06/13-]": 1
+},
+"AUDI|S5": {
+"AUDI S5 5 DR HATCH 3.0 TFSI Quattro (A)": 1
+},
+"TOYOTA|WALD": {
+"TOYOTA Wald 5DR MPV 2.0i (WW180)": 1,
+"TOYOTA WALD MPV 1.8 WW180 (A)": 1
+},
+"MERCEDES-BENZ|G350": {
+"MERCEDES-BENZ G350 5 DR 4X4 2.9 D 3DA-463349 (W463) (A)": 1
+},
+"DONG FENG|KINGRUN": {
+"DONG FENG KINGRUN 270.LWB TRUCK 6.7 D (M)": 1
+},
+"ISUZU|NHR55E": {
+"ISUZU NHR55E 2.8 Lorry rigid Wooden body": 1
+},
+"MITSUBISHI|CANTER": {
+"MITSUBISHI CANTER LORRY 3.9 D FE83PG6SRDG3 (M) [17-]": 1,
+"MITSUBISHI CANTER LORRY 3.9 D FE71PB8SRDG1 (M)": 1,
+"MITSUBISHI CANTER LORRY 3.9 D FE85PE6SRDG3 (M)": 1,
+"MITSUBISHI CANTER LORRY 3.9 D FE639E6RDG1 (M)": 1
+},
+"RENAULT|CAPTUR": {
+"RENAULT Captur 2016 On 5 Dr SUV 1.2 TCe 120 EDC (Mk1) 118Bhp [05/18-]": 1
+},
+"HONDA|CROSSROAD": {
+"HONDA CROSSROAD 5 DR SUV 2.0 RT3 (A)": 1
+},
+"MERCEDES-BENZ|C300": {
+"MERCEDES-BENZ C300 4 DR SAL 2.0 AMG W205 (A)": 1
+},
+"HINO|FG1J": {
+"HINO FG1J TRUCK 8.0 D Lorry Rigid (M)": 2
+},
+"MERCEDES-BENZ|E250": {
+"MERCEDES-BENZ E250 4 DR SAL 2.0 AMG (W212) (A)": 1,
+"MERCEDES-BENZ E250 2 DR COUPE 2.0 (W207) (A)": 1
+},
+"HONDA|EX": {
+"HONDA EX 5 97 cc (C100E) MOTORCYCLE": 1
+},
+"ISUZU|NQR75": {
+"ISUZU NQR75 LORRY 5.2 D (M)": 1
+},
+"MITSUBISHI|PAJERO": {
+"MITSUBISHI Pajero 2009 On 5 Dr SUV 2.5 Sport GL (KG4W) 134Bhp (A) [04/10-09/13]": 1,
+"MITSUBISHI PAJERO 5 DR SUV 2.5 D Sport GL (A) [13-]": 1
+},
+"MITSUBISHI|L200": {
+"MITSUBISHI L200 (K34T) 2 DR Pick-Up 4x4 2.5i 1999": 1
+},
+"HONDA|LAGREAT": {
+"HONDA Lagreat (RL1) (J35A) 5 DR WAGON 3.5 (A) 1998-": 1
+},
+"MODENAS|KARISMA": {
+"MODENAS KARISMA SN125Z 125cc": 1
+},
+"HYUNDAI|TUCSON": {
+"HYUNDAI Tucson 2015 On 5 Dr SUV 2 Executive 153Bhp (A) [11/15-09/18]": 1
+},
+"YAMAHA|Y16ZR": {
+"YAMAHA Y16ZR 155cc [21-]": 1
+},
+"INOKOM|MATRIX": {
+"INOKOM Matrix 2004 On MPV 1.6 GLA 102Bhp (A) [08/04-]": 3
+},
+"NISSAN|CD4": {
+"NISSAN CD4 LORRY 13.7 D (M)": 1
+},
+"CITROEN|DS3": {
+"CITROEN DS3 3 DR HATCH 1.6 VTi (A) [14-]": 1
+},
+"NAZA|RIA": {
+"NAZA Ria 2003 On MPV 2.5 GS 173Bhp (A) [08/03-12/10]": 2
+},
+"FOTON|AUMARK": {
+"FOTON AUMARK S LORRY 3.8 D BJ1088VEJEA-RF (M)": 1
+},
+"FORD|KUGA": {
+"FORD Kuga 2013 On 5 Dr SUV 1.6 GTDI 178Bhp (A) [06/13-]": 1
+},
+"HINO|XZU720R-HKFRL1": {
+"HINO XZU720R-HKFRL1 BUS 4.0 D (M)": 1
+},
+"HYUNDAI|I10": {
+"HYUNDAI i10 2008 On 5 Dr Hatch 1.1 65Bhp (A) [08/08-06/11]": 1
+},
+"MITSUBISHI|GRANDIS": {
+"MITSUBISHI GRANDIS MPV 2.4 (A) [09-]": 1
+},
+"NISSAN|JA452S": {
+"NISSAN JA452S BUS 12.5 D (M)": 1
+},
+"SSANGYONG|REXTON": {
+"SSANGYONG Rexton 2002 On 5 Dr SUV 2.7 RX270 Xdi 163Bhp (A) [04/04-]": 1
+},
+"MERCEDES-BENZ|A200": {
+"MERCEDES-BENZ A200 5 DR HATCH 1.3 W177 (A) [18-]": 2,
+"MERCEDES-BENZ A200 4 DR SAL 1.3 Progressive Line (W177) (A) [18-]": 1
+},
+"CHERY|V5": {
+"CHERY V5 MPV 2.4 B14 (A)": 1
+},
+"PEUGEOT|RCZ": {
+"PEUGEOT RCZ 2011 On 2 Dr Coupe 1.6 156Bhp (A) [05/11-05/13]": 1
+},
+"BMW|420I": {
+"BMW 420I 2 DR COUPE 2.0 F32 (A) [14-]": 1
+},
+"NAZA|SURIA": {
+"NAZA Suria 2006 On 5 Dr Hatch 1.1 GS 64Bhp (A) [11/06-01/10]": 1
+},
+"FOTON|VIEW": {
+"FOTON VIEW C2 PANEL VAN 2.0 (M)": 1
+},
+"MAZDA|BT-50": {
+"MAZDA BT-50 2012 On Dr Pickup Dbl.Cab 2.20 TD AUTO 148Bhp (A) [07/12-02/16]": 2,
+"MAZDA BT-50 2012 To 2021 4 Dr Pickup Dbl.Cab 2.2 148Bhp (A) [07/12-02/16]": 1,
+"MAZDA BT-50 2012 To 2021 4 Dr Pickup Dbl.Cab 3.2 197Bhp (A) [07/12-02/16]": 1
+},
+"CITROEN|EVASION": {
+"CITROEN Evasion 1997 On MPV 2 SX 148Bhp (M) [01/97-]": 1
+},
+"CHEVROLET|ORLANDO": {
+"CHEVROLET Orlando 2012 On MPV 1.8 LT 139Bhp (A) [12/12-]": 1
+},
+"MITSUBISHI|FE639": {
+"MITSUBISHI FE639 LORRY 3.9 D (M)": 1
+},
+"MERCEDES-BENZ|C43": {
+"MERCEDES-BENZ C43 AMG 4 DR SAL 3.0 W205 (A) [17-]": 1
+},
+"MERCEDES-BENZ|CLS-CLASS": {
+"MERCEDES-BENZ CLS-Class 2005 On 4 Dr Sal 3.5 CLS350 (W219) 272Bhp (A) [01/08-12/11]": 1
+},
+"FORD|MONDEO": {
+"FORD Mondeo 2015 On 4 Dr Sal 2 EcoBoost 237Bhp (A) [05/15-]": 1
+},
+"SKS|E138I-300H": {
+"SKS E138I-300H BUS 7.7 D (M)": 2
+},
+"MERCEDES-BENZ|S320L": {
+"MERCEDES-BENZ S320L 4 DR SAL 3.2 V220 (A)": 1
+},
+"TOYOTA|TARAGO": {
+"TOYOTA TARAGO MPV 2.4 (A)": 1
+},
+"NISSAN|GT-R": {
+"NISSAN GT-R 2 DR COUPE 3.8 CBA-R35 (A)": 1,
+"NISSAN GT-R 2 DR COUPE 3.8 Premium Edition (R35) (A)": 1
+},
+"YANGTSE|WG6600CQ4": {
+"YANGTSE WG6600CQ4 WINDOW VAN 3.0 D (M) [16-]": 1
+},
+"HINO|XZU710": {
+"HINO XZU710 LORRY 4.0 D (M)": 1
+},
+"VOLVO|S80": {
+"VOLVO S80 2007 On 4 Dr Sal 2.50 T AUTO 200Bhp (A) [08/07-04/10]": 1
+},
+"GREAT WALL|M4": {
+"GREAT WALL M4 5 DR SUV 1.5 Premium (A) [14-]": 1,
+"GREAT WALL M4 5 DR SUV 1.5 Comfort (A) [14-]": 1
+},
+"BMW|520D": {
+"BMW 520D 4 DR SAL 2.0 D LIMOUSINE (A)": 1
+},
+"CHERY|EASTAR": {
+"CHERY Eastar 2008 On MPV 2.00 ES AUTO 134Bhp (A) [04/10-]": 1
+},
+"MAZDA|8": {
+"MAZDA 8 2010 On MPV 2.30 AUTO 161Bhp (A) [07/10-]": 1
+},
+"MITSUBISHI|STORM": {
+"MITSUBISHI Storm 2001 On Dr Pickup Dbl.Cab 2.50 TD GLS L200 (K74T) AUTO 99Bhp (A) [01/01-01/06]": 1
+},
+"PEUGEOT|207": {
+"PEUGEOT 207 2010 On 4 Dr Sal 1.60 AUTO 110Bhp (A) [11/10-]": 1
+},
+"LAND ROVER|DISCOVERY": {
+"LAND ROVER Discovery 2 1999 On 5 Dr SUV 2.50 TD AUTO 136Bhp (A) [10/99-05/06]": 1
+},
+"ISUZU|FRR90": {
+"ISUZU FRR90 LORRY 5.2 D (M)": 1
+},
+"TOYOTA|LITEACE": {
+"TOYOTA Liteace 1.5 W/VAN (KM36)": 1
+},
+"VOLVO|V50": {
+"VOLVO V50 2005 On 5 Dr Estate 2.50 T5 Sportswagon AUTO 220Bhp (A) [05/05-]": 1
+}
+}
