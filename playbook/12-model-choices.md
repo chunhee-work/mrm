@@ -98,11 +98,12 @@ Read with playbook 02 "Vehicle model" before every create. **The RC always wins*
       - Vios 1.5G was given G Limited.
       - Vios 1.5S was given TRD Sportivo.
 15. **Engine size and drive must match the RC (cc, 2WD/4WD).**
-    - Mistakes seen:
-      - X-Trail 2.5L 4WD was given the 2.0.
-      - Myvi 1.5 SE was given the 1.3 SE.
+    - Confirmed mistakes (the right option exists):
+      - Myvi 1.5 SE was given the 1.3 SE; Merimen has `1.5 SE (A)`.
       - CLA 250 was given CLA 45 AMG.
-      - CR-V 2.0 with chassis RM1 (2WD) was given 4WD.
+    - Not proven, check the option list first:
+      - X-Trail 2.5L 4WD (2012–2014) was given `X-Trail 2010 On 2 137Bhp`. In 7,239 cases nobody chose a 2.5 option for that generation, so Merimen may only list the 2.0. If no 2.5 / 4WD option exists, the closest same-generation option is acceptable; note it.
+      - CR-V 2.0 i-VTEC (2015) was given 4WD. The RC does not say 2WD/4WD; the "RM1 = 2WD" reading came from the chassis number only. Both `2WD` and `4WD` options exist, so decide from the RC or insurance (4WD/AWD written?) or the photos (AWD badge).
 16. **Grey imports (KENDERAAN IMPORT TERPAKAI) use the import option with the Japanese chassis code on the RC** (DBA-ANH20W, DBA-AGH30W, DBA-XG20, MXUA80-), and the bracket for the year made. Don't use the local "R" model (ANH20R, AGH30R, MXUA80R) or a newer bracket.
     - Mistakes seen: Alphard, Vellfire, Harrier, BMW 520i.
 17. **Facelift brackets — check the exact month.**
