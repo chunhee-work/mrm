@@ -35,10 +35,16 @@ if mode == "extract":
     bb = torch.hub.load(_HUB, "dinov2_vitb14", source="local")
     bb.load_state_dict({k[2:]: v for k, v in ck["state"].items() if k.startswith("0.")}); bb = bb.to(dev).eval()
     N = len(meta); F = np.lib.format.open_memmap(FEATS + ".part", "w+", np.float16, (N, 768)); t0 = time.time()
+    # 2026-11-03: BASE_FEATS=<old feats .npy> -> copy its rows (same photo order) and only run the new photos after them
+    BASE = os.environ.get("BASE_FEATS"); START = 0
+    if BASE:
+        OF = np.load(os.path.join(HERE, BASE), mmap_mode="r"); START = len(OF)
+        for k in range(0, START, 65536): e = min(k + 65536, START); F[k:e] = OF[k:e]
+        print("copied", START, "rows from", BASE, flush=True)
     from concurrent.futures import ThreadPoolExecutor
     ex = ThreadPoolExecutor(6)
     with torch.no_grad():
-        for k in range(0, N, 128):
+        for k in range(START, N, 128):
             x = torch.from_numpy(np.stack(list(ex.map(img, range(k, min(N, k + 128)))))).to(dev)
             F[k:k + len(x)] = bb(x).float().cpu().numpy().astype(np.float16)
             if k % 25600 == 0: print("extract", k, "/", N, int(time.time() - t0), "s", flush=True)
