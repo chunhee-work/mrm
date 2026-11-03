@@ -108,7 +108,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - **Cowl Panel** = the steel panel; **Cowl Panel Grille** = the plastic on top of the Cowl Panel — two different parts (user 2026-10-31).
 - Rear Exhaust Pipe ≠ Exhaust Rear Mounting (different parts).
 - **Front Crossmember** = Front Panel Lower (same part, use Front Crossmember, the most used). **Front Suspension Crossmember** is a different part (user 2026-10-31, 名称对齐台 round 4).
-- Round 4: Rear Bumper Spoiler (not Spoiler Rear); Tailgate Support Strut LH/RH; Rear/Front Wheel Rim LH/RH (steel rims too); Fender Liner LH/RH (not Quarter Liner / Liner); Front Pillar LH/RH; Rear Camera; **A/C Condenser**; Quarter Panel Ns/Os → LH/RH. Different parts, keep apart: Fender Inner Wheelhouse vs Fender Inner, Door Window Regulator vs Door Window, Rear Bumper vs Bumper Rear Finisher vs Rear Bumper Moulding.
+- Round 4: Rear Bumper Spoiler (not Spoiler Rear); Tailgate Support Strut LH/RH; Rear/Front Wheel Rim LH/RH (steel rims too); Fender Liner LH/RH = FRONT wheel arch ("Liner LH/RH" → Fender Liner); **Quarter Liner LH/RH = REAR wheel arch, a different part — never merge it into Fender Liner** (user 2026-11-03: round 4 had merged them by mistake); Front Pillar LH/RH; Rear Camera; **A/C Condenser**; Quarter Panel Ns/Os → LH/RH. Different parts, keep apart: Fender Inner Wheelhouse vs Fender Inner, Door Window Regulator vs Door Window, Rear Bumper vs Bumper Rear Finisher vs Rear Bumper Moulding.
 - A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
 
 ## Part rules — front
