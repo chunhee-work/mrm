@@ -59,11 +59,17 @@ if INIT:
     st = ck["state"]; old = {k: j for j, k in enumerate(ck["labels"])}
     bb.load_state_dict({k[2:]: v for k, v in st.items() if k.startswith("0.")})
     with torch.no_grad():
+        sys.path.insert(0, HERE); from name_map import final   # 2026-11-03: renamed/merged names start from the old rows that now mean them
+        ren = {}
+        for k2, j2 in old.items():
+            f = final(k2) if k2 not in L else None
+            if f in L and f not in old: ren.setdefault(f, []).append(j2)
         for k, j in L.items():
-            if k in old:
-                head.weight[j] = st["1.weight"][old[k]]; head.bias[j] = st["1.bias"][old[k]]
+            rs = [old[k]] if k in old else ren.get(k)
+            if rs:
+                head.weight[j] = st["1.weight"][rs].mean(0); head.bias[j] = st["1.bias"][rs].mean(0)
     if "aux" in ck: aux.load_state_dict(ck["aux"])
-    print("init from", INIT, "shared labels", sum(k in old for k in L), "/", len(L), flush=True)
+    print("init from", INIT, "shared labels", sum(k in old for k in L), "+ renamed", len(ren), "/", len(L), flush=True)
 model = model.to(dev); aux = aux.to(dev)
 opt = torch.optim.AdamW([{"params": [p for p in bb.parameters() if p.requires_grad], "lr": 2e-5},
                          {"params": list(head.parameters()) + list(aux.parameters()), "lr": 1e-3}], weight_decay=0.05)

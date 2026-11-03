@@ -44,10 +44,22 @@ if mode == "extract":
     from concurrent.futures import ThreadPoolExecutor
     ex = ThreadPoolExecutor(6)
     with torch.no_grad():
-        for k in range(START, N, 128):
-            x = torch.from_numpy(np.stack(list(ex.map(img, range(k, min(N, k + 128)))))).to(dev)
-            F[k:k + len(x)] = bb(x).float().cpu().numpy().astype(np.float16)
-            if k % 25600 == 0: print("extract", k, "/", N, int(time.time() - t0), "s", flush=True)
+        # 2026-11-03: NEED=1 -> only photos inside a +-WIN window of a train/test photo (the rest are never read; left 0)
+        todo = list(range(START, N))
+        if os.environ.get("NEED") == "1":
+            cs = collections.defaultdict(list)
+            for i, m in enumerate(meta): cs[m[1]].append(i)
+            need = set()
+            for ids in cs.values():
+                ids.sort(key=lambda i: int(meta[i][2]))
+                for p, i in enumerate(ids):
+                    if meta[i][3] == "train" or (meta[i][3] == "test" and meta[i][0]): need.update(ids[max(0, p - WIN):p + WIN + 1])
+            todo = sorted(i for i in need if i >= START); print("NEED: extracting", len(todo), "of", N, flush=True)
+        for n, k in enumerate(range(0, len(todo), 128)):
+            ii = todo[k:k + 128]
+            x = torch.from_numpy(np.stack(list(ex.map(img, ii)))).to(dev)
+            F[ii] = bb(x).float().cpu().numpy().astype(np.float16)
+            if n % 200 == 0: print("extract", k, "/", len(todo), int(time.time() - t0), "s", flush=True)
     F.flush(); del F; os.replace(FEATS + ".part", FEATS); print("extract done", int(time.time() - t0), "s", flush=True); sys.exit()
 
 # ---- train ----
