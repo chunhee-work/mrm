@@ -42,11 +42,13 @@ ALIAS = [
     (r"Rear Lamp (Outer )?(LH|RH)", "Lamp Assembly Rear"),
     (r"Door (Front|Rear) Window", "Door Glass"),
     (r"Rear Bumper Bracket (Side|Upper)", "Bumper Bracket Rear|Bumper Rear Retainer|Bumper Retainer Rear|Bumper Rear Bracket"),
-    (r"Front Bumper Bracket", "Bumper Bracket Front|Bumper Front Bracket|Bumper Front Retainer"),
+    (r"Front Bumper Bracket", "Bumper Bracket Front|Bumper Front Bracket|Bumper Front Retainer|Bumper Front Side Retainer"),
+    (r"Headlamp Panel (LH|RH)", "Front Panel Radiator Support|Headlamp Panel|Headlamp Support"),   # batch 7 CEW7805
+    (r"Rear Wheelhouse (LH|RH)", "Wheel Arch Inner Rear|Wheel House"),   # batch 7 PRM7898
 ]
 # kept by a rule even without its own photo (playbook 07 companions / suspension set)
 KEEP = re.compile(r"Shock Absorber|Suspension Spring|Steering Tie Rod|Lower Arm|Wishbone|Crossmember|Subframe|Knuckle|Driveshaft|Stabiliser|"
-                  r"Bumper Clips|Bumper Bracket|Bumper .*Sensor|Hinge|Lock|Striker|Weatherstrip|Liner|Wheel Hub|Wheel Centre|Badge \[FRT", re.I)
+                  r"Bumper Clips|Bumper Bracket|Number Plate|Bumper .*Sensor|Hinge|Lock|Striker|Weatherstrip|Liner|Wheel Hub|Wheel Centre|Badge \[FRT", re.I)
 
 
 def matches(name, row):

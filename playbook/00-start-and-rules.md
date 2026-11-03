@@ -112,6 +112,7 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 ## Google Sheet (Cari Makan)
 - After the batch, paste the rows into the sheet yourself; never just list them in chat. Row format and names: see 09. [google-sheet-cari-makan-paste]
 - First choice (2026-10-23): the Google Sheets connector (`get_values` to find the last row of '2026 Jul-Dec', then `update_values` on the next empty rows) — worked for 13 rows in one call. Fallback: Claude-in-Chrome "Browser 1" (signed in to Google). Never type the Google password. [google-sheet-cari-makan-paste]
+- ⭐ **Never use `append_values`** on this sheet: it INSERTED 9 rows at row 2 (batch 7, 2026-11-03; repaired by deleteDimension). The `range` in a `get_values` reply is the grid size, not the last data row: find the last non-empty row from the values themselves (read in chunks), then `update_values` on the rows below it.
 - Find the Name Box with `find` and click its ref; never click by coordinates (the storage banner shifts the layout). [google-sheet-cari-makan-paste]
 - Type each cell, press a separate Tab KEY between cells, Return at row end (tabs inside typed text become spaces). [google-sheet-cari-makan-paste]
 

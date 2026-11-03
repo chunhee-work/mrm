@@ -64,7 +64,7 @@ def main():
         # user 2026-10-30 (batch 5 review)
         for x in rows:   # a row whose name already says LH/RH gets NO comment (door hinge Upper/Lower is the only exception)
             key = re.sub(r"\s*\[.*$", "", x[0]).strip()
-            if re.search(r"\b(LH|RH)\b", key) and not re.search(r"Door .*Hinge", key) and any(v for v in has.get(key, [])):
+            if re.search(r"\b(LH|RH)\b", key) and x[1] != "2" and not re.search(r"Door .*Hinge", key) and any(v for v in has.get(key, [])):   # qty 2 keeps "LH & RH" (08)
                 probs.append(f"CMT NOT NEEDED {key} ({has[key]})")
             if re.search(r"Door .*Hinge", key) and not re.search(r"Upper|Lower", key) and not any(re.search(r"Upper|Lower", v) for v in has.get(key, [])):
                 probs.append(f"HINGE NO CMT {key} (needs Upper LH & Lower LH etc.)")
