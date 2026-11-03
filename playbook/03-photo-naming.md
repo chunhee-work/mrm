@@ -62,7 +62,8 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - PERODUA (Myvi, Axia, Bezza, Alza, Aruz, Ativa, Viva, Kancil…): NEVER Front Panel Assembly → Front Panel Upper / Fender Inner LH/RH / Front Crossmember / Front Panel Lower (whichever is at the crosshair). Every other make → Front Panel Assembly. [perodua-front-panel-rule]
 - "Front Panel" = Front Panel Assembly. Front Panel Upper ≠ Front Panel Upper Cover (the plastic on top). [perodua-front-panel-rule] [photo-center-crosshair-rule]
 - Front Panel Radiator Support = Headlamp Panel LH/RH. **Front Panel Support Panel LH/RH = Headlamp Panel LH/RH → always Headlamp Panel** (user 2026-11-03).
-- **Rear Panel Garnish = Rear Panel Inner Trim → always Rear Panel Inner Trim** (user 2026-11-03). [photo-center-crosshair-rule]
+- **Rear Panel Garnish = Rear Panel Inner Trim → always Rear Panel Inner Trim** (user 2026-11-03).
+- **Never Quarter Panel Inner Shield LH/RH → Quarter Liner LH/RH** (user 2026-11-03). [photo-center-crosshair-rule]
 - LORRY models (HINO 300 / ISUZU NPR / CANTER / FUSO LORRY…): "Front Chassis Member" with NO side; cars keep LH/RH. [lorry-front-chassis-member]
 - Boot Lid and Tailgate never on the same car: 4-door saloon (Sal/Sedan: Lancer, Civic, Saga, Bezza) = Boot Lid… names; 5-door/hatch/MPV/SUV (Myvi, Grand Livina) = Tailgate… names; Hinge/Lock/Strut/Trim/Weatherstrip/Striker follow (was: merge Boot Lid Striker → Tailgate Striker). [photo-center-crosshair-rule]
 - ⭐ Never use any "Lamp Assembly Rear …" catalogue spelling as a photo name, e.g. **"[inner] Lamp Assembly Rear LH (tts)" → Rear Lamp Inner LH** (user 2026-10-29). Photo names are Rear Lamp (Inner/Outer) LH/RH only; "Lamp Assembly Rear LH (tts)" is Merimen's catalogue/labour label, not a photo name.
