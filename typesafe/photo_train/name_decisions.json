@@ -1018,7 +1018,7 @@
   "Door Glass Weatherstrip Outer Rhf": null,
   "Door Rhf Weatherstrip Outer Rhf": null,
   "Front Panel Support Reinforcement": null,
-  "Front Panel Support Panel": null,
+  "Front Panel Support Panel": "Headlamp Panel",
   "Front Panel Reinforcement": null,
   "Boot Floor Extension RH": null,
   "Boot Floor Spalsh Shield Lower": null,
@@ -1778,6 +1778,14 @@
   "Door Rhf Handle Release": null,
   "Door Rear Handle Release RH": null,
   "Door Rhr Handle Release": null,
-  "Front Panel Lower": "Front Crossmember"
+  "Front Panel Lower": "Front Crossmember",
+  "Dashboard": "Interior View",
+  "Dashboard View": "Interior View",
+  "Dashboard Panel": "Interior View",
+  "Front Panel Support Panel LH": "Headlamp Panel LH",
+  "Front Panel Support Panel RH": "Headlamp Panel RH",
+  "Rear Panel Garnish": "Rear Panel Inner Trim",
+  "Rear Panel Garnish LH": "Rear Panel Inner Trim",
+  "Rear Panel Garnish RH": "Rear Panel Inner Trim"
  }
 }
