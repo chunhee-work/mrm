@@ -21,6 +21,8 @@ from name_map import final as norm  # the user's naming rules; returns None for 
 
 # names a car model does NOT have (user rules, playbook 10): (model regex, name regex)
 MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner")]   # user 2026-10-29/30: Perodua Viva has no quarter liner
+# (vehicle must NOT match, name regex, replacement): user 2026-11-03 — only Perodua has a Bonnet Latch Stud Plate; any other make -> Front Panel Assembly
+MODEL_SWAPS = [(r"^PERODUA\b", r"^Bonnet Latch Stud Plate", "Front Panel Assembly")]
 
 CORNERS = {"Front View Right", "Front View Left", "Rear View Right", "Rear View Left"}
 FTYPE = {"Odometer Reading": "Odometer Reading", "Chassis Number": "Chassis Number", "Engine Compartment": "Engine view"}
@@ -53,6 +55,15 @@ def build(out, meta_file):
                     if alt:
                         r["name"], r["conf"] = alt, min(r.get("conf", 0), 0.3)
             json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
+        swapped = 0
+        for notv, nm, rep in MODEL_SWAPS:
+            if not re.search(notv, meta.get(plate, ""), re.I):
+                for r in rs:
+                    if re.search(nm, r["name"]):
+                        r["name"] = rep; swapped += 1
+        if swapped:
+            json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
+            print(f"{plate}: {swapped} model-swapped names")
         w = meta.get(plate, "").upper().split(); brand = " ".join(w[:2]) if w[:2] in (["LAND", "ROVER"], ["GREAT", "WALL"], ["KING", "LONG"], ["DONG", "FENG"]) else (w[0] if w else "")
         for r in rs:  # the page only offers names the naming rules allow (merged spelling, banned names dropped)
             r["name"] = norm(r["name"]) or r["name"]

@@ -59,6 +59,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Engine Compartment (not Engine Compartment View / engine bay / ENGINEVIEW); **Dashboard / Dashboard View / Dashboard Panel → Interior View** (user 2026-11-03); Chassis Number (= CHASSIS NO / 1ST SUPPLE-CHASSIS NO); Tyre Size (not Size Of The Tyre); Front/Rear Suspension View LH/RH; Rear/Front Tyre LH/RH (not Tyre View). [photo-center-crosshair-rule]
 
 ## Model-dependent names
+- ⭐ **Bonnet Latch Stud Plate is a PERODUA-only name** (user 2026-11-03). On any other make the same photo = **Front Panel Assembly** (naming.py MODEL_SWAPS does it).
 - PERODUA (Myvi, Axia, Bezza, Alza, Aruz, Ativa, Viva, Kancil…): NEVER Front Panel Assembly → Front Panel Upper / Fender Inner LH/RH / Front Crossmember / Front Panel Lower (whichever is at the crosshair). Every other make → Front Panel Assembly. [perodua-front-panel-rule]
 - "Front Panel" = Front Panel Assembly. Front Panel Upper ≠ Front Panel Upper Cover (the plastic on top). [perodua-front-panel-rule] [photo-center-crosshair-rule]
 - Front Panel Radiator Support = Headlamp Panel LH/RH. **Front Panel Support Panel LH/RH = Headlamp Panel LH/RH → always Headlamp Panel** (user 2026-11-03).
