@@ -5,7 +5,7 @@
 - ⭐ [Case workflow order](case-workflow-order.md) — Step 1 create → artifact as soon as model confirmed → user edits → Step 2 = Select Parts + Labour
 - ⭐ [Case photo naming artifact](case-photo-naming-artifact.md) — every case: model names photos → 照片命名台 tab for user review; learn from changes
 - ⭐ [Lorry Front Chassis Member](lorry-front-chassis-member.md) — lorry models: "Front Chassis Member" with no LH/RH
-- ⭐ [WhatsApp 下载 trigger](whatsapp-download-trigger.md) — "下载/download" = save newest FILE from chong +60 17-620 4606 to ~/Downloads; read macfleet/DOWNLOAD.md first; only that number
+- ⭐ [WhatsApp 下载 trigger](whatsapp-download-trigger.md) — "下载/download" or "do the new case" = save newest FILE from chong +60 17-620 4606 to ~/Downloads; read macfleet/DOWNLOAD.md first; only that number
 - [Use repo skills](use-repo-skills.md) — always use pdf-reading + brainstorming skills
 - [Motor claim adjuster workflow](motor-claim-adjuster-workflow.md) — read claim PDFs, key into Merimen e-Claims
 - ⭐ [Merimen A-Z progress](merimen-az-progress.md) — the complete ordered A-Z checklist (create→report→estimate→narrative→upload) with every required field + the parallel-tabs rule; READ before every case

@@ -27,6 +27,7 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - "create case" / "do" (+ plate or folder) → full A-Z in Merimen. [merimen-create-case-procedure]
 - "send me data" (+ PDF) → only extract and present the data (copy-box format, see 01); do not touch Merimen. [motor-claim-adjuster-workflow]
 - "下载" / "download" → WhatsApp download (below), then run the full workflow. [whatsapp-download-trigger]
+- ⭐ **"do the new case" / "do new case(s)" = the same as "下载"** (user 2026-11-03): go to WhatsApp, download the newest file at once and run Phase A. Never stop to ask where the case is.
 
 ## Language
 - Reply in Simplified Chinese, always, including long status reports, tables and summaries. [language-preference]
