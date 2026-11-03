@@ -60,6 +60,18 @@ def build(out, meta_file):
                 r["name"] = r["name"].replace("(LOGO)", "(" + brand + ")")
             r["alts"] = list(dict.fromkeys(n for n in map(norm, r.get("alts", [])) if n))
             names.add(r["name"]); names.update(r["alts"])
+        # user 2026-11-03: a car with Rear Lamp Inner also has Rear Lamp Outer (and the other way round) -> plain "Rear Lamp LH/RH" becomes the missing one
+        have = {re.match(r"Rear Lamp (Inner|Outer) (LH|RH)$", r["name"]).group(1) for r in rs if re.match(r"Rear Lamp (Inner|Outer) (LH|RH)$", r["name"])}
+        if have:
+            to = "Outer" if "Inner" in have else "Inner"
+            changed = 0
+            for r in rs:
+                m = re.match(r"Rear Lamp (LH|RH)$", r["name"])
+                if m:
+                    r["name"], r["conf"] = f"Rear Lamp {to} {m.group(1)}", min(r.get("conf", 0), 0.59); changed += 1; names.add(r["name"])
+            if changed:
+                json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
+                print(f"{plate}: {changed} plain Rear Lamp -> Rear Lamp {to}")
     names = {n for n in map(norm, names) if n}
     js = lambda o: json.dumps(o, ensure_ascii=False).replace("</", "<\\/")
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
