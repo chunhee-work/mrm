@@ -145,10 +145,15 @@ def main():
                 desc = "P.REPORT" if re.search(r"POLICE", f, re.I) else ("JPJ SEARCH" if re.search(r"JPJ|SEARCH", f, re.I) else "DOC")
                 src = os.path.join(b, p, f); dst = os.path.join(b, "up", f"{p}_{desc.replace('.', '').replace(' ', '_')}.pdf")
                 if os.path.getsize(src) > 5_000_000:
-                    d = fitz.open(src); o = fitz.open()
-                    for pg in d:
-                        q = o.new_page(width=pg.rect.width, height=pg.rect.height); q.insert_image(q.rect, stream=pg.get_pixmap(dpi=150).tobytes("jpeg", jpg_quality=70))
-                    o.save(dst, deflate=True)
+                    # user 2026-11-03 (CEW7805): one pass at 150 dpi left 14.7 MB and Merimen dropped it silently -> step down until < 4.8 MB
+                    for dpi, jq in ((150, 70), (120, 60), (100, 55), (85, 50), (72, 45), (60, 40)):
+                        d = fitz.open(src); o = fitz.open()
+                        for pg in d:
+                            q = o.new_page(width=pg.rect.width, height=pg.rect.height); q.insert_image(q.rect, stream=pg.get_pixmap(dpi=dpi).tobytes("jpeg", jpg_quality=jq))
+                        o.save(dst, deflate=True, garbage=4)
+                        if os.path.getsize(dst) < 4_800_000:
+                            break
+                    print(f"   {p}: {f} compressed to {os.path.getsize(dst)/1e6:.1f} MB at {dpi} dpi")
                 else:
                     shutil.copy(src, dst)
                 files.append({"path": dst, "fdesc": desc})
@@ -158,6 +163,11 @@ def main():
             print("   TEST: upload list built, nothing uploaded:", {p: [x["fdesc"] for x in U[p]["files"]] for p in ok}); return
         out = safe("uploadpar.mjs", ",".join(ok), "session_base.txt", uf, timeout=2400)
         print("\n".join("   " + l for l in out.splitlines() if "uploaded" in l or "skip" in l.lower()))
+        # verify: every case must now list a PDF row (docsInList counts photos too, so check PDF rows only)
+        for p in ok:
+            v = safe("listdocs_pdf.mjs", *I[p]).strip().splitlines()
+            n = int(v[-1]) if v and v[-1].strip().isdigit() else -1
+            print(f"   {p}: PDF rows in Merimen = {n}" + ("" if n >= len(U[p]["files"]) else "   <-- MISSING, re-upload!"))
     s8()
 
     @step("9 naming page (wait for photo model)")

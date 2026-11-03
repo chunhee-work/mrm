@@ -54,6 +54,13 @@ def score(opt, c):
             sc += 2; why.append("body")
         elif re.search(r"\d DR", b) and re.search(r"\d DR", T):
             sc -= 3
+    # pickup cab (playbook 12 rule 3, user 2026-11-03 BPR7678): single cab never a Dbl.Cab, double cab never a 2-door pickup
+    if re.search(r"S/C|SINGLE CAB", rc):
+        if "DBL" in T or "DOUBLE" in T: sc -= 8; why.append("cab-out")
+        elif "2 DR PICKUP" in T: sc += 3; why.append("cab")
+    elif re.search(r"D/C|DOUBLE CAB|DBL", rc):
+        if "2 DR PICKUP" in T: sc -= 8; why.append("cab-out")
+        elif "DBL" in T: sc += 3; why.append("cab")
     # transmission
     tr = (c.get("transmission") or "").upper() + " " + rc
     want = "M" if re.search(r"MANUAL|\(M\)|\bMT\b", tr) else ("A" if re.search(r"AUTO|CVT|\bAT\b|\(A\)", tr) else None)
@@ -75,6 +82,10 @@ def score(opt, c):
             sc += 2; why.append("base-trim")
         elif re.search(r"\b(EXECUTIVE|PREMIUM|PREMIER|SPORT|ELITE|LIMITED)\b", T):
             sc -= 1
+    # special editions only when the RC says so (playbook 12 rule 14)
+    for ed in ("TRD", "SPORTIVO", "LIMITED", "EDITION", "EXCLUSIVE", "BLACK SERIES", "GR SPORT"):
+        if ed in T and ed not in rc:
+            sc -= 3; why.append("edition-out"); break
     for w in trims:
         alts = SYN.get(w, [w])
         if any(re.search(r"(?<![A-Z])" + re.escape(a) + r"(?![A-Z])", T) for a in alts):

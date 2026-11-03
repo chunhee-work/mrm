@@ -85,3 +85,6 @@ User 2026-10-20: "for all my feedback and the things u do wrong pls learn from l
 ## 18. Batch 5 (2026-10-30): PRY826 photo order from the 照片命名台 not uploaded
 - Phase B dumped only db `names`; `orders` (the user's drag-and-drop order) was never read, so Merimen kept the old order.
 - Rule: dump BOTH collections every time; naming.py final now stops unless `<db>/orders/.listed` exists; reorder in Merimen, then chkorder.
+
+19. **2026-11-03 batch 7 (LKH/VP):** (a) marked CEW7805 + PLG158 "pending RC / police report" from the reading agent's list without opening the pages — the police report number/date were in the bundle and no-RC cases use the insurance (playbook 12 rule 13); (b) left the 3 VP cases out of the 照片命名台 while waiting for the account; (c) CEW7805 DOC compressed to 14.7 MB and silently dropped by Merimen, `docsInList` (which counts photos) hid it; (d) pick_model chose a Dbl.Cab Hilux for an RC "HILUX S/C" — fixed (cab + special-edition rules in pick_model.py). Rules now in playbook 00 / 06.
+

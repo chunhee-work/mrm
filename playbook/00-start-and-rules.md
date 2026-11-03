@@ -14,6 +14,11 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - Do straightforward cases first; come back to odd ones (e.g. EV with watts instead of CC) only if Merimen refuses. [merimen-data-conflict-rules]
 
 ## The only stop: a missing document
+- ⭐⭐ **Before calling anything "missing", Claude opens the pages itself** (user 2026-11-03, CEW7805: "check properly every time"). The step-1 agent's `missing` list is only a hint. Check that the FIELDS the case needs are really absent, not just one page:
+  - No RC page → NOT pending: use the insurance schedule's model/cc/year (playbook 12 rule 13) and say so in the report.
+  - Our police report text page absent, but its number + date are on the Keputusan / police-photo page → NOT pending (narrative 510 and the report fields only need the number/date).
+  - Only truly missing data that no other page gives (at-fault insurance, police result, photos) makes a case pending.
+- ⭐ **Every case with photos goes into the 照片命名台 in Phase A, including pending cases and cases still waiting for an account/workshop answer** (user 2026-11-03, VP AIRBRESH). Never leave a tab out.
 - Missing doc → immediately send one copy line, set the case aside, carry on with every other case; finish it when the doc arrives.
 - ⭐ **A pending case that HAS photos still goes into the 照片命名台 in Phase A** (user 2026-10-28): run the photo model with the best model text you have (RC model, or the make/model seen in the photos) and add its tab, marked "(pending …)" on the tab, so the user can name its photos while waiting for the document. [merimen-batch-workflow]
 - Copy-line format: `<PLATE> pending <missing item>`, short, e.g. `VCD3926 pending police report` (user 2026-10-23: no extra detail in the line), and send the whole case folder (zip) with it. [merimen-pending-case-line-format]
