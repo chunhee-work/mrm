@@ -55,6 +55,11 @@ KEEP = re.compile(r"Shock Absorber|Suspension Spring|Steering Tie Rod|Lower Arm|
                   r"Bumper Clips|Bumper Bracket|Number Plate|Bumper .*Sensor|Hinge|Lock|Striker|Weatherstrip|Liner|Wheel Hub|Wheel Centre|Badge \[FRT", re.I)
 
 
+PARTWORDS = {"liner", "bracket", "moulding", "finisher", "trim", "lamp", "sensor", "support", "reinforcement", "inner", "upper",
+             "lower", "extension", "cover", "clip", "clips", "seal", "weatherstrip", "hinge", "strut", "garnish", "spoiler", "suspension",
+             "mounting", "retainer", "spring", "absorber", "guide", "rear", "front", "end", "plate", "section", "panel", "member", "wheelhouse", "house"}
+
+
 def matches(name, row):
     for pat, cat in ALIAS:
         if re.search(pat, name, re.I) and re.search(cat, row, re.I):
@@ -64,6 +69,11 @@ def matches(name, row):
     w = words(name)
     r = row.lower()
     if not w or not all(x in r for x in w[:3]):
+        return False
+    # 2026-11-04 audit: a row with an EXTRA part word is a different part (Quarter Panel != Quarter Panel Liner,
+    # Fender != Fender Liner, Front Crossmember != Suspension Crossmember Rear) -> these false matches hid real misses
+    extra = set(words(row)) - set(words(name))
+    if extra & PARTWORDS:
         return False
     s = side(name)
     return not s or not side(row) or side(row) == s
@@ -77,7 +87,10 @@ def main():
         names = {x[2] for x in plan[p]}
         eds = [json.load(open(f)) for f in glob.glob(f"{ndir}/{p}-*.json")]
         eds = [d for d in eds if d.get("model") != d.get("name")]
-        rows = [r[0] for r in json.load(open(os.path.expanduser(f"~/mrm-bot/state/rows_{p}_now.json")))]
+        R = json.load(open(os.path.expanduser(f"~/mrm-bot/state/rows_{p}_now.json")))
+        rows = [r[0] for r in R]
+        # qty-2 convention (playbook 08): ONE side's row with qty 2 + "LH & RH" comment covers both sides
+        rows += [re.sub(r"\b(LH|RH)\b", lambda m: "RH" if m.group(1) == "LH" else "LH", r[0]) for r in R if str(r[1]).strip() == "2" and side(r[0])]
         try:  # misc ticks count too (Rear Number Plate -> "Number plate, rear")
             rows += ["Rear Number Plate" if "rear" in m.lower() else "Front Number Plate" for m in json.load(open(os.path.expanduser(f"~/mrm-bot/state/sel_{p}_now.json"))).get("CM", []) if "number plate" in m.lower()]
         except Exception:

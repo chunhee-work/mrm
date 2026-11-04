@@ -23,7 +23,8 @@ def pair_rule(p,P):
     nm=lambda l: re.sub(r"\s*\([^)]*\)\s*$","",re.sub(r"^\S+ \[[^\]]*\] ","",l)).strip()
     cat={nm(l):v for v,l,_ in json.load(open(cf))['cat']}; got={nm(l) for v,l,_ in json.load(open(cf))['cat'] if v in P['CP']}
     for sd in ('LH','RH'):
-        hp=[f'Headlamp Panel {sd}']; fi=[f'Fender Front Inner {sd}',f'Fender Front Inner Upper {sd}',f'Fender Front Inner Reinforcement {sd}']
+        hp=[f'Headlamp Panel {sd}',f'Front Panel Radiator Support {sd}'];   # CEW7805/JSF901: Headlamp Panel photo = Front Panel Radiator Support
+        fi=[f'Fender Front Inner {sd}',f'Fender Front Inner Upper {sd}',f'Fender Front Inner Reinforcement {sd}']
         if any(x in got for x in hp+fi):
             for grp in (hp,fi):
                 if not any(x in got for x in grp):

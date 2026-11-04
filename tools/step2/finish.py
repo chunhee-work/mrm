@@ -54,5 +54,14 @@ print(subprocess.run([sys.executable, os.path.join(REPO, "tools/batch/checkall.p
 if os.environ.get("NAMES_DIR"):
     print(subprocess.run([sys.executable, os.path.join(REPO, "tools/naming-desk/sync_check.py"), os.environ["NAMES_DIR"]] + plates,
                          capture_output=True, text=True, cwd=REPO).stdout)
+# 2026-11-04 (user audit: 45 cases had photo items never selected): EVERY photo name vs the estimate rows, every case.
+# Fresh rows first. Any "ADD?" line must be resolved (tick / manual row / say why it is covered) before the case is done.
+for p in plates:
+    c, e = I[p]
+    open(os.path.join(H, "state", f"rows_{p}_now.json"), "w").write(safe("rows.mjs", c, e, "session_base.txt"))
+full = subprocess.run([sys.executable, os.path.join(REPO, "tools/naming-desk/sync_check.py"), os.environ.get("NAMES_DIR", "/nonexistent")] + plates,
+                      capture_output=True, text=True, cwd=REPO, env={**os.environ, "FULL": "1"}).stdout
+miss = [l for l in full.splitlines() if "ADD?" in l and not re.search(r"Chassis Number|Engine Number|Tyre (Size|Brand)", l)]
+print("PHOTO ITEMS NOT ON THE ESTIMATE (resolve every line):\n" + ("\n".join(miss) if miss else "  none"))
 d = datetime.date.today().strftime("%d/%m/%Y"); w = os.environ.get("WORKSHOP", "?")
 print("SHEET ROWS\n" + "\n".join(f"{d}\t{p}\t{w}\tD" for p in plates))
