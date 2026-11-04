@@ -149,3 +149,4 @@ RW (Rawang). Manual-part prices: `python3 "$MRM/tools/price_lookup.py" part "<na
 `labour_all.json` (217 past cases, used by labourfill), `pwset.mjs` (paint popup, imported by estfill).
 `~/mrm-bot` holds many more one-off debug scripts (`insp*.mjs`, `diag*.mjs`, `modlk*.mjs` …). They are not part of
 the workflow.
+node wslookup.mjs session_base.txt "kw1|kw2"     # READ-ONLY: workshop Lookup rows for new workshops (blank claim form, nothing saved)

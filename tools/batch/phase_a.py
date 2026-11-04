@@ -35,7 +35,9 @@ def step(name):
 def main():
     b = sys.argv[1]; data = {os.path.basename(f)[:-5]: json.load(open(os.path.join(b, "data", f)))
                              for f in os.listdir(os.path.join(b, "data")) if f.endswith(".json")}
-    plates = sys.argv[2:] or [p for p, d in data.items() if "case" in d and not d.get("missing")]
+    # 2026-11-04: a missing CLAIMANT own insurance is not a blocker (playbook 01) -> never skip a case for it (VDV9302 was skipped)
+    blocking = lambda d: [m for m in d.get("missing", []) if not re.search(r"own insurance|claimant.*insurance|\bINS\b", m, re.I)]
+    plates = sys.argv[2:] or [p for p, d in data.items() if "case" in d and not blocking(d)]
     opts = json.load(open(os.path.join(H, "model_opts_sinar.json")))
     tag = os.path.basename(os.path.normpath(b))
     cf, rf, uf = (os.path.join(H, f"{x}_{tag}.json") for x in ("cases", "report", "uploads"))
@@ -75,7 +77,7 @@ def main():
         if TEST:
             print("   TEST: no create"); return
         dry = safe("createpar2_sinar.mjs", ",".join(plates), "session_base.txt", cf, timeout=1800)
-        WS = {"Sinar": "29709", "Extreme": "72619", "Lee Kean Hin": "70382"}
+        WS = {"Sinar": "29709", "Extreme": "72619", "Lee Kean Hin": "70382", "Vp Airbresh": "22209"}
         bad = []
         for l in dry.splitlines():
             if "FILL" not in l:
