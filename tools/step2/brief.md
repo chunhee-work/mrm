@@ -24,6 +24,7 @@ Rules to apply that the draft often misses:
 - Comments: name has LH/RH → no comment (door hinge = exception, always Upper/Lower + side), EXCEPT qty-2 rows, which always get "Front LH & Front RH" / "Rear LH & Rear RH". Name without side → comment with the side.
 - No catalogue item with the photo name -> manual row with THAT name. Never map it to a different kind of part (Moulding Fender Front RH is NOT Fender Signal Lamp Front RH; a trim is never a lamp).
 - Every non-view photo name must become a selected catalogue item or a manual row (views/ID shots: Front/Rear/Side View…, Road Tax, Odometer Reading, Chassis Number, Engine Compartment, Interior View, Dashboard → no part).
+- Front Bumper Fog Lamp LH/RH → ALWAYS also its Front Bumper Fog Lamp Finisher (same side) (user 2026-11-04).
 - Companions (07): bumper → clips ×15 + sensors + brackets for THAT bumper; tailgate/boot lid set; door set; fender → liner; quarter → liner (NOT on Perodua Viva); suspension SET per corner; Grille → Grille Clips ×9; etc.
 - Same catalogue value needed twice (e.g. one Bumper Clips value for front and rear) → tick it once AND add a manual row copy with the same price and a comment ("Front Bumper"/"Rear Bumper").
 - qty-2 rows need comments "Front LH & Front RH"/"Rear LH & Rear RH"; door hinge rows without Upper/Lower+side in the name need "Upper RH" etc.; badge rows comment = logo in brackets e.g. "(MYVI)".

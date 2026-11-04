@@ -81,6 +81,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - ⭐⭐ **Front/Rear Bumper selected → its Bumper Bracket MUST be there** (user 2026-10-30, repeated; `checkall.py` now flags a bumper without a bracket/retainer).
 - **Bumper → ALWAYS Bumper Sensor LH & RH + Bumper Bracket LH & RH**, front or rear to match the bumper (confirmed (user 2026-10-20)). [estimate-companion-parts-rule]
 - **Grille** → Grille Clips, qty 9. [estimate-companion-parts-rule]
+- ⭐ **Front Bumper Fog Lamp (LH/RH) → ALWAYS also Front Bumper Fog Lamp Finisher (same side)** (user 2026-11-04, WQR9733). Catalogue "Fog Lamp Finisher" / "Bumper Front Fog Lamp Cover" item by part number; none → manual row "Front Bumper Fog Lamp Finisher LH/RH".
 - **Bonnet** → Bonnet Hinge LH + RH (separate items → tick both; else one row qty 2, comment "Front LH & Front RH"). [estimate-companion-parts-rule]
 - **Fender** LH/RH → Fender Liner, same side. [estimate-companion-parts-rule]
 - **Quarter Panel (Outer)** LH/RH → the quarter liner, same side — EXCEPT Perodua Viva, which has no quarter liner (user 2026-10-29) (both if both quarters). Tick the catalogue item as Merimen writes it (e.g. "Quarter Panel Liner Rear LH"); a manual row is named **Quarter Liner LH/RH**, never "Quarter Panel Liner" (user 2026-10-20). [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]

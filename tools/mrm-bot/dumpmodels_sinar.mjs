@@ -17,5 +17,5 @@ for(const mk of MAKES){
   out[mk]=await page.evaluate(()=>{var s=document.querySelector('select[name=ddlbModel]');return s?[...s.options].map(o=>({v:o.value,t:o.text.trim(),c:o.className})):[];});
   console.log(mk,ok,out[mk].length);
 }
-out.__ins3=await page.evaluate(()=>{var s=document.querySelector('select[name=ddlb3INSCOID]');return s?[...s.options].map(o=>o.value+'='+o.text.trim()):[];});writeFileSync('model_opts_sinar.json',JSON.stringify(out));
+out.__ins3=await page.evaluate(()=>{var s=document.querySelector('select[name=ddlb3INSCOID]');return s?[...s.options].map(o=>o.value+'='+o.text.trim()):[];});{let old={};try{old=JSON.parse(readFileSync('model_opts_sinar.json','utf8'))}catch(e){};writeFileSync('model_opts_sinar.json',JSON.stringify({...old,...out}));}   // 2026-11-04: MERGE with the makes already dumped (a SUZUKI-only dump wiped PERODUA etc.)
 await page.close();await b.close();

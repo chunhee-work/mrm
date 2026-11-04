@@ -60,8 +60,15 @@ def main():
                     v["modelValue"] = res["pick"]
             mk = v["make"].upper(); txt = next((o["t"] for o in opts.get(mk, []) if o["v"] == v["modelValue"]), res.get("text") or "")
             v["modelText"] = f"{mk} {txt}"; meta[p] = v["modelText"]
-        json.dump(meta, open(os.path.join(b, "meta.json"), "w"), indent=1)
-        json.dump({p: data[p]["case"] for p in plates}, open(cf, "w"), indent=1)
+        # 2026-11-04: MERGE with what is already there (a re-run for 1-2 plates wiped the other cases' meta 3 times in batches 8-9)
+        mf = os.path.join(b, "meta.json"); old = {}
+        try: old = json.load(open(mf))
+        except (OSError, ValueError): pass
+        json.dump({**old, **meta}, open(mf, "w"), indent=1)
+        oldc = {}
+        try: oldc = json.load(open(cf))
+        except (OSError, ValueError): pass
+        json.dump({**oldc, **{p: data[p]["case"] for p in plates}}, open(cf, "w"), indent=1)
         return meta
     meta = s1()
 

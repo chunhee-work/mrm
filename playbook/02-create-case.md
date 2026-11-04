@@ -9,7 +9,7 @@
 ## Create form (dsp_clmreg) — fixed rules
 - Set dependent dropdowns in order and dispatch `change` each time: insurer → branch/coverage, claim type → damage type, manufacturer → model. [merimen-claim-subfolder-fields]
 - Insurer `ddlbInsurer` = the AT-FAULT party's insurer (locked after save). [merimen-claim-subfolder-fields]
-- Branch `ddlbINSCOID` = HQ (Etiqa = "ET/EI HQ"; Liberty = region, e.g. East Coast); locked after save. [merimen-az-progress] [merimen-create-case-procedure]
+- Branch `ddlbINSCOID` = HQ (Etiqa General Insurance = "ET/EI HQ"; **Etiqa General Takaful (9516) = "ET HQ"** (its only option, branchopts.mjs 2026-11-04); Liberty = region, e.g. East Coast); locked after save. [merimen-az-progress] [merimen-create-case-procedure]
   - Liberty branches (2026-11-04, branchopts.mjs): East Coast · East Malaysia · Klang Valley · Northern · Southern — pick by the accident state (Selangor/KL = Klang Valley). branchMatch "HQ" fails with "must have Handling Insurer indicated" (VDV9302).
 - Tokio Marine: `ddlbVehClass_TMI` = Private. [merimen-az-progress]
 - Claim Type `_CLMTYPECTRL` = "Third Party Vehicle Damage (TP)"; set it FIRST, then re-read labels (they change after TP is chosen). [merimen-create-case-procedure]
