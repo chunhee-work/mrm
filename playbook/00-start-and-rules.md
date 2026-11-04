@@ -108,6 +108,7 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - When the batch is done: send a push notification (PushNotification tool), then the completion table (see 09). [merimen-batch-workflow]
 
 ## WhatsApp download ("下载" / "download")
+- ⭐⭐ **WhatsApp watch (user 2026-11-04 "track WhatsApp").** At the start of every session run `tools/whatsapp/wa_watch.sh` in the background (Bash run_in_background). It reads WhatsApp's ChatStorage.sqlite READ-ONLY (no tokens while waiting) and exits when chong sends a new file (waits 90 s for more files). When it exits = the user said "do the new case": push a notification `新文件到了：<file>，开始做`, download (below), run Phase A, then start the watch again.
 - Means: on this Mac, open the WhatsApp app (not web), open the configured contact's chat (number in the whatsapp-download-trigger memory) and save the newest FILE they sent into ~/Downloads. No questions. [whatsapp-download-trigger]
 - Always read `/Users/chunhee/macfleet/macfleet/DOWNLOAD.md` first (search number → verify → right-click newest grey bubble → "Save to Downloads" → verify size with ls/stat; report in its 7-line format). [whatsapp-download-trigger]
 - Any size, no permission needed (was: 100 MB check). If the bubble shows a download arrow, click it first and wait. [whatsapp-download-trigger]
