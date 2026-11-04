@@ -1,27 +1,28 @@
 <title>1 照片命名台</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
 <style>
-:root{--bg:#f3f5f8;--surface:#ffffff;--raised:#f8fafc;--ink:#0f1720;--mut:#5b6776;--line:#dfe4ea;--acc:#4f5bd5;--accInk:#ffffff;--warn:#b45309;--ed:#0e7490;--edbg:#dcf1f6;--jev:#86369e;--jevbg:#f3e6f7;--shadow:0 1px 2px rgba(15,23,32,.06),0 4px 14px rgba(15,23,32,.05)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--warn:#fbbf24;--ed:#22d3ee;--edbg:#0b2a31;--jev:#e3a6f5;--jevbg:#2c1834;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--warn:#fbbf24;--ed:#22d3ee;--edbg:#0b2a31;--jev:#e3a6f5;--jevbg:#2c1834;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
+:root{--bg:#f3f5f8;--surface:#ffffff;--raised:#f8fafc;--ink:#0f1720;--mut:#5b6776;--line:#dfe4ea;--acc:#4f5bd5;--accInk:#ffffff;--warn:#b45309;--ed:#0e7490;--edbg:#dcf1f6;--jev:#86369e;--jevbg:#f3e6f7;--ok:#15803d;--okInk:#ffffff;--shadow:0 1px 2px rgba(15,23,32,.06),0 4px 14px rgba(15,23,32,.05)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--warn:#fbbf24;--ed:#22d3ee;--edbg:#0b2a31;--jev:#e3a6f5;--jevbg:#2c1834;--ok:#4ade80;--okInk:#0b0f14;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--warn:#fbbf24;--ed:#22d3ee;--edbg:#0b2a31;--jev:#e3a6f5;--jevbg:#2c1834;--ok:#4ade80;--okInk:#0b0f14;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans","Noto Sans SC","PingFang SC",sans-serif}
 button{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
-.top .in{max-width:1240px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
-.brand{font-weight:700;font-size:15px;letter-spacing:.02em}
+.top .in{padding:8px 16px;display:flex;flex-wrap:nowrap;gap:8px;align-items:center}  /* user 2026-11-04: case tabs as long as possible, the rest small */
+@media (max-width:560px){.top .in{flex-wrap:wrap}.tabs{order:9;flex-basis:100%}}
+.brand{font-weight:700;font-size:13px;letter-spacing:.02em;white-space:nowrap}
 .tabs{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:thin}
 .tab{flex:none;min-height:40px;display:flex;align-items:center;gap:8px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s}
 .tab:hover{border-color:var(--acc)}
-.tabarr{flex:none;width:40px;height:40px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font:700 18px system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tabarr{flex:none;width:32px;height:32px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font:700 16px system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .tabarr:hover{border-color:var(--acc)}.tabarr:disabled{opacity:.3;cursor:default}
 .tab .p{font:600 14px "IBM Plex Mono",monospace}
 .tab .c{font-size:12px;color:var(--mut)}
 .tab .edc{font:700 12px "IBM Plex Mono","Noto Sans SC",monospace;padding:3px 9px;border-radius:999px;background:var(--ed);color:var(--bg);box-shadow:0 0 0 2px var(--surface)}
 .tab[aria-current="true"]{background:var(--acc);border-color:var(--acc);color:var(--accInk)}.tab[aria-current="true"] .c{color:inherit;opacity:.85}
-.seg{display:flex;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
-.seg button{min-height:34px;padding:0 14px;border:0;border-radius:999px;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:var(--mut)}
+.seg{flex:none;display:flex;padding:2px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
+.seg button{min-height:28px;padding:0 9px;border:0;border-radius:999px;background:transparent;cursor:pointer;font-size:12px;font-weight:600;color:var(--mut)}
 .seg button[aria-pressed="true"]{background:var(--acc);color:var(--accInk)}
 main{max-width:1240px;margin:0 auto;padding:20px 16px 72px;display:flex;flex-direction:column;gap:16px}
 .head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end}
@@ -70,8 +71,8 @@ button.chip{cursor:pointer;min-height:28px}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:var(--shadow);z-index:9}
 .empty{padding:40px;text-align:center;color:var(--mut);border:1px dashed var(--line);border-radius:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-.donebtn{min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--acc);background:var(--acc);color:var(--accInk);font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
-.donebtn.ask{background:var(--warn);border-color:var(--warn)}.donebtn.ok{background:var(--surface);color:var(--acc)}
+.donebtn{flex:none;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--ok);background:transparent;color:var(--ok);font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap}
+.donebtn.ask{background:var(--warn);border-color:var(--warn);color:var(--accInk)}.donebtn.ok{background:var(--ok);border-color:var(--ok);color:var(--okInk)}
 </style>
 <header class="top"><div class="in">
  <span class="brand">照片命名台</span>
