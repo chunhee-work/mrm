@@ -34,11 +34,22 @@ def model_text(p):
     return ""
 
 
+def submitted():
+    """caseids in the worklist's stat=3 list (submitted, Pending for Approval) — read-only caselist.mjs"""
+    f = os.path.join(H, "state", "caselist_now.json")
+    safe("caselist.mjs", "session_base.txt", f, timeout=600)
+    return {c for c, v in json.load(open(f)).items() if v.get("st") == 3}
+
+
 def main():
     d, plates = sys.argv[1], sys.argv[2:]
     if not DRY: wait_login()
+    st = submitted()
     for p in plates:
-        inp = json.load(open(os.path.join(d, f"{p}.json"))); out = json.load(open(os.path.join(d, f"out_{p}.json")))
+        t0 = __import__("time").time()
+        inp = json.load(open(os.path.join(d, f"{p}.json")))
+        if inp["cid"] in st:   # user 2026-11-04: a case already submitted (Pending for Approval) is NEVER touched
+            print(f"{p}: SUBMITTED (pending approval) -> not touched", flush=True); continue; out = json.load(open(os.path.join(d, f"out_{p}.json")))
         c, e = inp["cid"], inp["ext"]
         adds = sorted({v for x in out if x.get("decision") == "add" and x.get("value")
                        for v in (x["value"] if isinstance(x["value"], list) else [x["value"]])})
@@ -63,6 +74,7 @@ def main():
         subprocess.run([sys.executable, os.path.join(REPO, "tools", "batch", "fillprices.py"), d, p], env={**os.environ, "APPLY": "1"}, capture_output=True)
         safe("fillempty.mjs", c, e, "session_base.txt")
         open(f"{H}/state/rows_{p}_now.json", "w").write(safe("rows.mjs", c, e, "session_base.txt"))
+        print(f"   {p} done in {__import__('time').time() - t0:.0f} s", flush=True)
 
 
 if __name__ == "__main__":

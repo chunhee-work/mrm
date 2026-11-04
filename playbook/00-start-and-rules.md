@@ -40,6 +40,22 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 ## Progress messages
 - ⭐⭐ **Progress = ONE line, every 10 minutes while working cases** (user 2026-11-04), exactly like:
   `🔄 3 cases | ✅ 0 done | 27 minutes | 19%`
+- ⭐⭐ **Minutes and % come from MEASURED step times, never a guess (user 2026-11-04: "your estimate time is not really correct").** Add up what is left with this table, then re-check every 10 min against the real elapsed time (log each step's start/end in `<batch>/timeline.tsv`; update this table when a batch is clearly faster or slower).
+
+  | Step (8 cases, batch 9 measured) | Time |
+  |---|---|
+  | WhatsApp file → intake.py (fetch + unzip + RC pages) | ~1 min (more if NEEDS_CLICK) |
+  | Read RC pages → meta_rc.json | ~1 min |
+  | Photo model + naming page build + publish | ~1.5 min |
+  | Step 1 full document reading (agents, parallel) | ~6 min |
+  | phase_a.py (create 1 min, Adjuster Report 25 s, rates 15 s, narratives 35 s, DOC 20 s, photos 35–70 s, head start 6 s) | ~4 min |
+  | One failed create + retry | +3–5 min |
+  | User naming photos | ~19 min (user's own time, not in my %) |
+  | Per case after 完成: relabel/reorder ~40 s, REVISE plan agent ~3–5 min, apply_plan ~4 min, finish.py ~1.5 min | ~8 min per case (cases overlap; last case decides) |
+  | Google Sheet + final report (final_report.py reads totals ~1 min) | ~2 min |
+  | Adding missed parts to an existing case (add_missing.py: tick + gonext + prices + conditions + rows) | measured per case in its log (`done in N s`) |
+  | Merimen read-only scan of all cases (rows.mjs / selcat2.mjs, 4 at once) | ~3 min per 45 cases |
+
   - 🔄 = cases still running, ✅ = cases done (a case moves 🔄 → ✅ when finished); minutes = ESTIMATED time left; % = ESTIMATED progress of the whole job.
   - Set a 10-minute CronCreate reminder at the start of the work and delete it at the end.
   - When everything is done: `🔄 0 cases | ✅ 13 done | 100%` (no minutes), then the final report (09). Nothing else mid-batch except blocking questions.
