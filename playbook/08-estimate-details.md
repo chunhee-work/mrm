@@ -11,6 +11,8 @@
 - Always set values by row NAME, never by remembered row number (manual rows move after a save). [merimen-step2-estimate-detail-fill]
 - Render race: wait until `[name^="PDC"]` count ≥ `PROWCNT`, sleep ~2 s, re-count unchanged — before BOTH apply and verify (CDR332 filled 30 of 65 and still "passed"). [merimen-step2-estimate-detail-fill]
 
+- ⚠️ **After any re-save of the Select Parts page (untick / tickall + `gonext.mjs`), a catalogue row whose N/A price was set with `setprices` can vanish from the details page** (batch 7 PRM7898 Wheel Arch Inner Rear RH, RM1,855.60 lost). Fix: `gonext.mjs` once more (the row comes back as N/A), then `fillprices.py` APPLY + `fillempty.mjs`, then `finish.py` for that case. sync_check shows it as `ADD?`.
+
 ## Page fields
 - URL `index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=<cid>&extid=<extid>&tpins=0&<sess>`. [merimen-step2-estimate-detail-fill]
 - `PROWCNT` part rows; `PPT<i>` row marker; `PDC<i>` Damage Condition (skip if readOnly); `MROWCNT` misc rows; `MMI<k>` misc price (skip if readOnly). [merimen-step2-estimate-detail-fill]
