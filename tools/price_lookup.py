@@ -84,7 +84,7 @@ def seg_of(model):
     m = re.sub(r"^\[OURS[^\]]*\]\s*", "", model or "").upper()
     return next((n for n, rx in SEG if re.search(rx, m)), None)
 # lookup-only name variants (prices only; the estimate row keeps the photo name)
-PRICE_ALIAS = [(r"^rear wheelhouse", "wheel house inner rear"), (r"^front wheelhouse", "wheel house inner front")]
+PRICE_ALIAS = [(r"^rear wheelhouse", "wheel house inner rear"), (r"^wheel arch inner rear", "wheel house inner rear"), (r"^front wheelhouse", "wheel house inner front")]
 
 def tier_of(model):
     if COMMERCIAL.search(model): return "T7 commercial / lorry / bus / van"

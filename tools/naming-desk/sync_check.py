@@ -28,7 +28,7 @@ def side(s):
 
 
 # photo name -> catalogue wording (playbook 07 / 10). ONLY pairs the USER confirmed (user 2026-11-04: never add a pair on my own
-# judgement; Rear Wheelhouse is NOT Wheel Arch Inner Rear). An unconfirmed pair = a wrong row -> fix the row, do not alias it.
+# judgement — the PART NUMBER decides). An unconfirmed pair = check the part number first, never alias by name.
 ALIAS = [
     (r"Bonnet Lock", "Bonnet Latch|Bonnet Lock"),
     (r"Bumper Front Moulding", "Bumper Front Finisher|Bumper Front Moulding"),   # user 2026-10-30 (PRY826)
@@ -43,6 +43,7 @@ ALIAS = [
     (r"Rear Lamp (Outer )?(LH|RH)", "Lamp Assembly Rear"),
     (r"Door (Front|Rear) Window", "Door Glass"),
     (r"Rear Bumper Bracket (Side|Upper)", "Bumper Bracket Rear|Bumper Rear Retainer|Bumper Retainer Rear|Bumper Rear Bracket"),
+    (r"Rear Wheelhouse (LH|RH)", "Wheel Arch Inner Rear|Wheel House"),   # user 2026-11-04: same part by part number (Mazda 70-15X / 71-15X)
     (r"Firewall Panel", "Engine Partition Panel|Firewall Panel"),   # user 2026-11-04 (VAW8266): same part
     (r"Front Bumper Bracket", "Bumper Bracket Front|Bumper Front Bracket|Bumper Front Retainer|Bumper Front Side Retainer"),
     (r"Headlamp Panel (LH|RH)", "Front Panel Radiator Support|Headlamp Panel|Headlamp Support"),   # batch 7 CEW7805

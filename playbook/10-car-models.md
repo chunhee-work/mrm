@@ -147,6 +147,11 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 ### Preve 2012 On 4 Dr Sal 1.6 · TBR1334
 - Rear lamps Inner (boot lid) + Outer, separate values per side; Emblem Boot/Tailgate [PREVE] (photo Tailgate Badge (PREVE)); Boot Lid Hinge: only RH value → qty 2 "Rear LH & Rear RH"; no rear bumper clips item in group 70 → manual Bumper Clips 15 × 10.00.
 
+### Mazda 3 2022 To 2025 4 Dr Sal 2.0 High Plus · PRM7898 (batch 7)
+- Merimen calls the rear wheelhouse **Wheel Arch Inner Rear LH/RH** (BCYA7115XA / BEYN7015X = Mazda -71-15X / -70-15X "Panel, Wheel House") and the outer one **Wheel Arch Outer Rear** (-71-11Y). Photo "Rear Wheelhouse RH" → tick Wheel Arch Inner Rear RH (N). Catalogue price N/A → RM1,356.58 (C-compact ref: Civic 2016–2020).
+- Rear chassis: Chassis Member Rear Assembly LH/RH (RH N/A → LH price 4,524.60) + Chassis Member Rear Section Rear LH/RH.
+- Rear exhaust: catalogue "Exhaust Tailpipe [No.1]" exists; Rear Bumper Sensor has 7 colour values; Boot Lid Hinge qty 2.
+
 ### Mazda CX-5 2019 To 2024 2.5 · QS6559M
 - Boot floor well photos = **Spare Wheel Well** (manual, 487.00, few refs). Tailgate Hinge LH/RH share one value. Thatcham adds N: Calibrate ADAS VM Specific, Chassis Member Rear Closing Extension LH/RH, Emissions Additive Tank Bracket (+ Rear). Chassis Member Rear Assembly LH/RH have NO price (N/A) → priced 1038.40 each (all-model median).
 
