@@ -100,8 +100,16 @@ def build(out, meta_file):
         pics = {str(r["n"]): "data:image/jpeg;base64," + base64.b64encode(open(os.path.join(out, r["img"]), "rb").read()).decode()
                 for r in rs}
         json.dump(pics, open(os.path.join(out, "pics", p + ".json"), "w"))
+        # 2026-11-04 (user: "load quite long"): small first-look copies (320 px, ~10 KB each) the page shows at once; the
+        # full 640 px file then replaces them in the background, and the other cases preload so a tab switch is instant
+        from PIL import Image
+        import io
+        def small(f):
+            im = Image.open(f); im.thumbnail((320, 320)); b = io.BytesIO(); im.convert("RGB").save(b, "JPEG", quality=50)
+            return "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode()
+        json.dump({str(r["n"]): small(os.path.join(out, r["img"])) for r in rs}, open(os.path.join(out, "pics", p + "_s.json"), "w"))
         print(p, len(rs), "photos")
-    print("publish %s/naming.html with files {\"pics/<PLATE>.json\": ...} to the existing artifact URL" % out)
+    print("publish %s/naming.html with files {\"pics/<PLATE>.json\", \"pics/<PLATE>_s.json\": ...} to the existing artifact URL" % out)
 
 
 def load_db(db):

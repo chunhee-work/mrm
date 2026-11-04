@@ -114,10 +114,18 @@ function tabs(){const t=q("#tabs");t.innerHTML="";CASES.forEach(c=>{const b=el("
  b.onclick=()=>{CASE=c;ROWS=DATA.rows[c];EDIT=ALL[c]||{};try{history.replaceState(null,"","#"+c)}catch(e){}tabs();render();window.scrollTo({top:0})};t.append(b)})}
 function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar"+(matchMedia("(hover:hover)").matches?"  ·  键盘（先点一下页面）：J 上一张 · K 下一张 · 1/2/3 选其他可能 · C 复制 · V 粘贴 · E 改名 · ⌘Z 撤销 · ← 左边案件 · → 右边案件 · Enter Enter 完成并到下一个案件":"");
  const k=q("#kpis");k.innerHTML="";[["照片",ROWS.length,""],["要确认",ROWS.filter(low).length,"warn"],["你已改",Object.keys(EDIT).length,"ed"]].forEach(([a,b,c])=>{const d=el("div","kpi "+c);d.append(el("div","k",a),el("div","v",b));k.append(d)})}
-const PIC={};function render(){if(!PIC[CASE]){const c=CASE;fetch("pics/"+c+".json").then(x=>x.json()).then(j=>{PIC[c]=j;if(CASE===c)render()}).catch(()=>{});}head();const g=q("#grid");g.innerHTML="";const N=ROWS.length;let shown=0;const M=byN(CASE);const OO=order(CASE);
+// 2026-11-04 (user: loads too long): small copies first (pics/<P>_s.json), full ones after, current case first, then the
+// others in tab order -> photos appear at once and tab switches are instant. Images are swapped in place (no re-render,
+// so a name being typed is never lost).
+const PIC={},FULL={};let LQ=null;
+function swapPics(c){if(c!==CASE||!PIC[c])return;document.querySelectorAll("#grid img[data-n]").forEach(i=>{const v=PIC[c][i.dataset.n];if(v&&i.src!==v)i.src=v})}
+async function getPics(c,full){const k=full?c:c+"_s";try{const j=await (await fetch("pics/"+k+".json")).json();if(full||!FULL[c]){PIC[c]=j;if(full)FULL[c]=true}swapPics(c)}catch(e){}}
+async function loadAll(){const order=[CASE,...CASES.slice(CASES.indexOf(CASE)+1),...CASES.slice(0,CASES.indexOf(CASE))];
+ await getPics(CASE,false);await getPics(CASE,true);for(const c of order.slice(1))if(!PIC[c])await getPics(c,false);for(const c of order.slice(1))if(!FULL[c])await getPics(c,true)}
+function render(){if(!LQ)LQ=loadAll();else if(!PIC[CASE])getPics(CASE,false).then(()=>getPics(CASE,true));head();const g=q("#grid");g.innerHTML="";const N=ROWS.length;let shown=0;const M=byN(CASE);const OO=order(CASE);
  OO.forEach((nn,pos)=>{const r=M[nn];const e=EDIT[r.n];if(filter==="low"&&!low(r))return;if(filter==="ed"&&!e)return;shown++;
   const f=el("figure","card"+(e?" edited":low(r)?" warn":"")+(KC===r.n?" kc":""));f.id="p"+r.n;f.addEventListener("mousemove",ev=>{if(Date.now()-KMOVE<600)return;if(ev.movementX||ev.movementY)setKC(r.n,false)});
-  const ph=el("div","ph");const img=el("img");img.src=(PIC[CASE]&&PIC[CASE][r.n])||"";img.alt=cur(r);img.loading="lazy";ph.append(img);
+  const ph=el("div","ph");const img=el("img");img.dataset.n=r.n;img.src=(PIC[CASE]&&PIC[CASE][r.n])||"";img.alt=cur(r);img.loading="lazy";ph.append(img);
   const ol=el("div","ov l");ol.append(el("span","badge",(pos+1)+"/"+N));ph.append(ol);if(filter==="all"){ph.append(el("span","grip","⠿ 拖动排序"));ph.draggable=true;
    ph.addEventListener("dragstart",ev=>{dragN=r.n;f.classList.add("dragging");try{ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",String(r.n))}catch(x){}});
    ph.addEventListener("dragend",()=>{dragN=null;f.classList.remove("dragging");document.querySelectorAll(".over").forEach(x=>x.classList.remove("over"))});
