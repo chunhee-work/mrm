@@ -141,3 +141,7 @@ python3 fetch_fullres.py tasks.json full/
 - **GitHub 500 / 无法下载 dinov2**：程序已改成优先用本机缓存 `~/.cache/torch/hub/facebookresearch_dinov2_main`。
 - **加了很多新名称后准确率反而下降**：照片少的名称会拖累模型，所以用 `MIN` 和 `STRONG_CAP` 控制。
 - **不要提交到 git**：`driver.py`、`data/`、`models/`、`.venv*`、`*.json(l)`（有车牌）。
+
+## 2026-11-03/04 retrain rounds
+- Round 1 (build_n3.py + train_n3.sh): pre-merge labels + current name rules + user corrections + batch 7 final names (910 labels, 294,534 train photos, 3,306 test). Whole 79.9/90.9 -> **82.3/92.8**, crop 79.7/90.6 -> **81.2/92.3** (top-1/top-3). Swapped in (seq_best*.pt = seq_n3*.pt).
+- Round 2 (train_ft11.sh, option 3): stage-1 backbone re-fine-tuned 2 epochs, last 6 blocks (7.2 h; stage-1 77.1/90.9), features re-extracted for the 864,762 window photos (5.1 h), stage 2 -> whole **81.4/92.2**, worse than round 1 -> NOT swapped, crop pass skipped. Bigger backbones (DINOv2-L/g, SigLIP2-L) and SAM 2.1 crops were not tried: on this M4 / 16 GB, extraction is ~3x slower (>30 h) and SAM is ~77 s per photo.
