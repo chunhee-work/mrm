@@ -30,13 +30,16 @@ def base(n):
     return re.sub(r"\s*\[.*$", "", n).strip()
 
 
-def lookup(name):
-    r = subprocess.run([sys.executable, os.path.join(REPO, "tools", "price_lookup.py"), name], capture_output=True, text=True, cwd=REPO)
-    m = re.search(r"found in (\d+) rows.*?median RM([\d,]+\.\d\d)", r.stdout, re.S)
-    return (m.group(2).replace(",", ""), int(m.group(1))) if m else (None, 0)
+def lookup(name, model=""):
+    # 2026-11-04: use `ref --model` (same model -> brand -> same class in the tier); the old all-models median priced a Mazda from a Vellfire
+    r = subprocess.run([sys.executable, os.path.join(REPO, "tools", "price_lookup.py"), "ref", name, "--model", model or ""], capture_output=True, text=True, cwd=REPO)
+    m = re.search(r"REF .*?RM([\d,]+\.\d\d)\s+<- median of (\d+) rows, ([^\n]*)", r.stdout)
+    if not m or "OTHER TIER" in m.group(3):
+        return (None, 0)
+    return (m.group(1).replace(",", ""), int(m.group(2)))
 
 
-def plan(p, cat, rows, R):
+def plan(p, cat, rows, R, model=""):
     out = {}
     priced = {base(x[0]): x[2] for x in rows if x[2] not in ("", "N/A", "0.00")}
     pn = {l: (re.search(r"\(([^)]+)\)\s*$", l) or [None, None])[1] for _, l, _ in cat}
@@ -51,10 +54,12 @@ def plan(p, cat, rows, R):
             if side in priced:
                 out[name] = (priced[side].replace(",", ""), "other side in this case", 99); continue
             nos = [n for l, n in pn.items() if n and base(re.sub(r"^\S+ \[[^\]]*\] ", "", l)) == b]
-            hit = [rf for rf in R if rf[2] in nos] or [rf for rf in R if rf[1].lower() == b.lower()]
+            mk = (model.split() or [""])[0].upper()   # 2026-11-04: a price list only for its own brand (a Suzuki got a Perodua Myvi price)
+            RB = [rf for rf in R if rf[0].split("_")[0].upper() == mk]
+            hit = [rf for rf in RB if rf[2] in nos] or [rf for rf in RB if rf[1].lower() == b.lower()]
             if hit:
                 out[name] = ("%.2f" % hit[0][3], f"price list {hit[0][0]}", len(hit) * 5); continue
-            v, n = lookup(b)
+            v, n = lookup(b, model)
             if v:
                 out[name] = (v, f"price_lookup median of {n}", n)
     return out
@@ -64,11 +69,14 @@ def main():
     b = sys.argv[1]; I = ids(os.path.join(b, "ids.txt")); plates = sys.argv[2:] or list(I); R = refs(); apply = os.environ.get("APPLY") == "1"
     if apply:
         wait_login()
+    global META
+    try: META = json.load(open(os.path.join(b, "meta.json")))
+    except (OSError, ValueError): META = {}
     def one(p):
         c, e = I[p]
         rows = json.loads(safe("rows.mjs", c, e, "session_base.txt") or "[]")
         cat = json.load(open(os.path.join(H, "s2", f"cat_{p}.json")))["cat"]
-        pl = plan(p, cat, rows, R)
+        pl = plan(p, cat, rows, R, META.get(p, ""))
         for k, (v, src, n) in pl.items():
             print(f"{p}  {k} -> {v}  ({src}){'  FLAG <5 refs' if n < 5 else ''}", flush=True)
         if apply and pl:

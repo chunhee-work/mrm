@@ -15,6 +15,8 @@
 
 - ⭐⭐ **Manual-row price when this model has no row (user 2026-11-04, Mazda 3 Rear Wheelhouse RH: RM692.52 "too cheap").** Use the brand TIER, then cars of the SAME CLASS (A/B small, C compact, D large, SUV, MPV, pickup) and a newer generation, other side's price if that side is missing — `price_lookup.py ref` now does this in that order. Never the whole-tier median when same-class cars exist, and never an "ALL models / OTHER TIER" price as is (a Vellfire price is not a Mazda 3 price). Mazda 3 2022 Rear Wheelhouse RH = RM1,356.58 (Civic 2016–2020).
 
+- ⚠️ `fillprices.py` (2026-11-04): a price list (tools/price-refs/<Brand>_<Model>.tsv) is used ONLY for its own brand (WYY3391 Suzuki got a Perodua Myvi strut price RM39 -> RM372 Swift ref), and its fallback is `price_lookup ref --model` (never the all-models median, never an OTHER TIER price). Fix a wrong set price with `FORCE=1 node setprices.mjs …`.
+
 ## Page fields
 - URL `index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=<cid>&extid=<extid>&tpins=0&<sess>`. [merimen-step2-estimate-detail-fill]
 - `PROWCNT` part rows; `PPT<i>` row marker; `PDC<i>` Damage Condition (skip if readOnly); `MROWCNT` misc rows; `MMI<k>` misc price (skip if readOnly). [merimen-step2-estimate-detail-fill]
