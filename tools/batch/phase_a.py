@@ -79,7 +79,9 @@ def main():
 
     @step("2 photo model (background)")
     def s2():
-        if TEST and all(os.path.exists(os.path.join(b, "report", f"rows_{p}.json")) for p in plates):
+        # 2026-11-04: the photo model normally ran already (page published before phase_a); never re-run it, the user may be
+        # naming photos on the page and new rows would change the photo numbers under their edits
+        if all(os.path.exists(os.path.join(b, "report", f"rows_{p}.json")) for p in plates):
             print("   rows already there, skipped"); return None
         return subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "photos.py"), "model", b])
     photo_proc = s2()

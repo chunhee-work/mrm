@@ -16,7 +16,8 @@ PT = os.path.join(REPO, "typesafe", "photo_train")
 
 
 def model(b):
-    meta = json.load(open(os.path.join(b, "meta.json")))
+    # META=<file>: e.g. meta_rc.json (RC make/model only) so the 照片命名台 can go out before step 1 is finished (user 2026-11-04)
+    mf = os.environ.get("META") or os.path.join(b, "meta.json"); meta = json.load(open(mf))
     def one(p):
         r = subprocess.run([os.path.join(PT, ".venv/bin/python"), "case_report.py", os.path.join(b, p), p, meta[p], os.path.join(b, "report")],
                            cwd=PT, capture_output=True, text=True)
@@ -24,6 +25,9 @@ def model(b):
         print(p, line[0], flush=True)
     with ThreadPoolExecutor(int(os.environ.get("PAR_MODEL", "3"))) as ex:
         list(ex.map(one, meta))
+    nd = os.path.join(REPO, "tools", "naming-desk", "naming.py")
+    o = subprocess.run([sys.executable, nd, "build", os.path.join(b, "report"), mf], capture_output=True, text=True)
+    print("NAMING PAGE BUILT -> publish report/naming.html now:", (o.stdout + o.stderr).strip().splitlines()[-1:], flush=True)
 
 
 def upload(b, plates):
