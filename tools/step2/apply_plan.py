@@ -4,13 +4,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from mrm import safe, wait_login
 B=os.environ.get("BATCH_DIR", os.path.dirname(os.path.abspath(__file__))); H=os.path.expanduser('~/mrm-bot')
 ids={l.split()[0]:l.split()[1:] for l in open(B+'/ids.txt') if l.strip()}
+# write every case of this batch into extmap ONCE, merged with the file (batch 7: two apply runs each wrote their own copy
+# and the second one wiped the first one's cases -> estfill printed "est []" for 3 cases)
 ext=json.load(open(H+'/extmap_b4.json')) if os.path.exists(H+'/extmap_b4.json') else {}
+ext.update({p:{'cid':v[0],'extid':v[1]} for p,v in ids.items()}); json.dump(ext,open(H+'/extmap_b4.json','w'))
 def run(*a,log=None):
     o=safe(*a)   # waits for the user's relogin and retries if Merimen logged out
     if log: open(log,'w').write(o)
     return o
 def one(p):
-    c,e=ids[p]; ext[p]={'cid':c,'extid':e}; json.dump(ext,open(H+'/extmap_b4.json','w'))
+    c,e=ids[p]
     P=json.load(open(f'{H}/s2/final_plan_{p}.json'))
     json.dump({'CP':P['CP'],'N':P['N'],'R':P['R'],'CM':P.get('CM',[])},open(f'{H}/s2/apply_{p}.json','w'))   # parts + labour + misc in ONE save
     o=run('tickall.mjs',c,e,'session_base.txt',f'{H}/s2/apply_{p}.json',log=f'{H}/s2/apply_{p}.log'); print(p,'tick',[l for l in o.splitlines() if 'ticked' in l][:1])
@@ -31,3 +34,6 @@ wait_login()
 with ThreadPoolExecutor(int(os.environ.get('PAR', '5'))) as ex:
     list(ex.map(one, sys.argv[1:]))
 run('closetabs.mjs')
+# auto-fix + checks + sheet rows (tools/step2/finish.py); FINISH=0 to skip
+if os.environ.get('FINISH','1')=='1':
+    subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),'finish.py')]+sys.argv[1:])

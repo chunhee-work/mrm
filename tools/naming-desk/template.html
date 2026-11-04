@@ -84,7 +84,7 @@ button.chip{cursor:pointer;min-height:28px}
   <div class="kpis" id="kpis"></div>
  </section>
  <details class="legend"><summary>图例与用法</summary><div class="row">
-  <span><span class="badge ok">95%</span> 模型有把握</span><span><span class="badge low">40%</span> 没把握（橙色边）</span><span><span class="badge rule">固定</span> 开头 4 个角度 + Interior View</span><span><span class="chip jev">TypeSafe</span> 问过第二意见</span><span><span class="chip ed">已改</span> 你改过（蓝色边）</span>
+  <span><span class="badge ok">95%</span> 模型有把握</span><span><span class="badge low">70%</span> 低于 90% 要确认（橙色边；按「要确认」只看这些）</span><span><span class="badge rule">固定</span> 开头 4 个角度 + Interior View</span><span><span class="chip jev">TypeSafe</span> 问过第二意见</span><span><span class="chip ed">已改</span> 你改过（蓝色边）</span>
   <span>拖照片可以调整顺序，名称会跟着照片走。</span><span>点名称框就能改：从清单选一个就马上保存，打字的话停手 1 秒自动保存（Esc 取消）。按一下 Paste 就换成你最后复制的名称（在这个页面里复制的一定可以；从别的 App 复制的，浏览器不让读时会改成输入框，再按 ⌘V）。</span></div></details>
  <datalist id="names"></datalist>
  <section class="grid" id="grid"></section>
@@ -97,7 +97,8 @@ const order=c=>{const base=DATA.rows[c].map(r=>r.n);const o=(ORD[c]||[]).filter(
 const byN=c=>{const m={};DATA.rows[c].forEach(r=>m[r.n]=r);return m};
 try{const h=location.hash.slice(1);if(DATA.rows[h]){CASE=h;ROWS=DATA.rows[h]}}catch(e){}
 const NSET=new Set(NAMES);const dl=q("#names");NAMES.forEach(n=>{const o=document.createElement("option");o.value=n;dl.append(o)});
-const low=r=>r.how==="model"&&r.conf<0.6;
+const LOW=0.9;  // 2026-11-04: batch 7, the user changed 90 of 92 renamed photos below 90% and 2 of 232 at >=90% -> "要确认" = below 90%
+const low=r=>r.how==="model"&&r.conf<LOW;
 const cur=r=>EDIT[r.n]?EDIT[r.n].name:r.name;
 let tt;function toast(m){const t=q("#toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>{t.hidden=true},2600)}
 function tap(b,fn){let done=0;b.addEventListener("pointerdown",ev=>{if(ev.button!==0)return;ev.preventDefault();done=Date.now();fn()});b.addEventListener("click",()=>{if(Date.now()-done>600)fn()})}
@@ -116,7 +117,7 @@ const PIC={};function render(){if(!PIC[CASE]){const c=CASE;fetch("pics/"+c+".jso
    f.addEventListener("dragover",ev=>{if(dragN==null||dragN===r.n)return;ev.preventDefault();f.classList.add("over")});
    f.addEventListener("dragleave",()=>f.classList.remove("over"));
    f.addEventListener("drop",ev=>{ev.preventDefault();f.classList.remove("over");if(dragN==null||dragN===r.n)return;const o=order(CASE).filter(x=>x!==dragN);const i=o.indexOf(r.n);const from=order(CASE).indexOf(dragN);o.splice(from<order(CASE).indexOf(r.n)?i+1:i,0,dragN);saveOrder(o)})}
-  const or=el("div","ov r");or.append(r.how==="rule"?el("span","badge rule","固定"):el("span","badge "+(r.conf<0.6?"low":"ok"),Math.round(r.conf*100)+"%"));ph.append(or);
+  const or=el("div","ov r");or.append(r.how==="rule"?el("span","badge rule","固定"):el("span","badge "+(r.conf<LOW?"low":"ok"),Math.round(r.conf*100)+"%"));ph.append(or);
   const bd=el("figcaption","body");const nr=el("div","namerow");
   const nm=el("button","nm",cur(r));nm.title="点一下改名称";nm.onclick=()=>edit(r,f);
   const cb=el("button","paste","Copy");cb.title="复制这个名称";tap(cb,()=>copyName(cur(r)));const pb=el("button","paste","Paste");pb.title="粘贴你复制的名称";tap(pb,()=>pasteNow(r,f));nr.append(nm,cb,pb);bd.append(nr);

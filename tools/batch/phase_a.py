@@ -15,7 +15,7 @@ Timing of every step is printed and written to <batch_dir>/phase_a_timing.json.
 """
 import json, os, re, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mrm import safe, wait_login, ids, H
+from mrm import safe, wait_login, ids, par, H
 from pick_model import pick
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -207,6 +207,30 @@ def main():
             rows.append(f"| {p} | 📅 `{reg}` | {rc} | {name} | 📅 `{rng.group(1) if rng else ''}` | {'' if green else '⚠️ no price data '}(reason: Claude fills) |")
         open(os.path.join(b, "car_model_report.md"), "w").write("\n".join(rows) + "\n"); print("\n".join(rows))
     s11()
+
+    @step("12 Step 2 head start (read-only)")
+    def s12():
+        # 2026-11-04 (user: "make the workflow faster"): while the user names photos, dump every catalogue (READ ONLY, nothing is
+        # ticked) and draft a plan from the model's names, so Claude can start the planning agents now and only re-plan the
+        # photos the user changes. SPEC=0 skips it.
+        if TEST or os.environ.get("SPEC", "1") != "1":
+            return
+        os.makedirs(os.path.join(H, "s2"), exist_ok=True)
+        def cat(p):
+            o = safe("selcat2.mjs", *I[p], "session_base.txt", f"s2/cat_{p}.json")
+            fin = os.path.join(b, "report", f"final_{p}.json")
+            if not os.path.exists(os.path.join(H, "s2", f"cat_{p}.json")) or not os.path.exists(fin):
+                return f"{p}: no catalogue/final ({o.strip()[-80:]})"
+            imp = data[p].get("report", {}).get("impact") or data[p]["case"]["acc"].get("impact", "front")
+            r = subprocess.run([sys.executable, os.path.join(REPO, "typesafe", "step2_plan.py"), f"s2/cat_{p}.json", fin, imp,
+                                f"s2/tick_{p}.json", f"s2/miss_{p}.json"], cwd=H, capture_output=True, text=True,
+                               env={**os.environ, "VEHICLE": data[p]["case"]["veh"].get("modelText", "")})
+            open(os.path.join(H, "s2", f"plan_{p}.log"), "w").write(r.stdout + r.stderr)
+            return f"{p}: catalogue {len(json.load(open(os.path.join(H, 's2', f'cat_{p}.json')))['cat'])} items, draft plan ok"
+        for l in par(cat, ok):
+            print("   " + l)
+        print("   -> Claude starts the planning agents now (tools/step2/brief.md, model names); after the user's done: REVISE mode")
+    s12()
 
     T["TOTAL"] = round(time.time() - t_all, 1)
     json.dump(T, open(os.path.join(b, "phase_a_timing.json"), "w"), indent=1)
