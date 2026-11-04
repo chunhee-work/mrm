@@ -101,6 +101,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - **Shock Absorber Front → Suspension Crossmember Front; Shock Absorber Rear → Suspension Crossmember Rear** (same axle). [estimate-select-parts-rules-2026-10-17]
 - **Rear suspension** — any of Rear Shock Absorber LH/RH, Rear Suspension Spring, Rear Suspension Upper Arm, Rear Suspension Lower Arm → Rear Suspension Crossmember. [estimate-companion-parts-rule]
 - **Suspension Crossmember → Wheel Centre + Wheel Hub** (same side and axle). Rear crossmember → Rear Wheel Hub, qty 1, in the rear quarter & susp. group of the damaged side. [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
+- ⭐⭐ **Headlamp Panel ↔ Fender Inner go together (user 2026-11-04):** either one picked → pick the other too, SAME side (RH → both RH, LH → both LH). Fender Inner in the catalogue = Fender Front Inner / Fender Front Inner Upper / Fender Front Inner Reinforcement (first that exists). `apply_plan.py` adds it by itself (Perodua). Batch 9 WQR9733 RH was missing Fender Front Inner Upper RH.
 - **PERODUA Headlamp Panel** hit → also Front Panel Upper. [estimate-select-parts-rules-2026-10-17]
 - Companion missing from the catalogue → manual row ("Add New Replacement Part to [section]") with a price (08). [estimate-companion-parts-rule]
 

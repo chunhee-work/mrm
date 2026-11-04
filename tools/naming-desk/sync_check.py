@@ -83,7 +83,8 @@ def main():
         except Exception:
             pass
         out = []
-        for new in sorted({d["name"] for d in eds}):
+        # FULL=1 (user 2026-11-04 "check all the cases: any item with a photo but not selected"): every photo name, not only edits
+        for new in sorted(names if os.environ.get("FULL") == "1" else {d["name"] for d in eds}):
             if VIEWS.search(new):
                 continue
             if not any(matches(new, r) for r in rows):

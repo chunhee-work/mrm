@@ -12,9 +12,27 @@ def run(*a,log=None):
     o=safe(*a)   # waits for the user's relogin and retries if Merimen logged out
     if log: open(log,'w').write(o)
     return o
+import re
+def pair_rule(p,P):
+    """user 2026-11-04: Headlamp Panel <side> and Fender Inner <side> go together — either one picked -> pick the other, same side.
+    Fender Inner in the catalogue = Fender Front Inner / Fender Front Inner Upper / Fender Front Inner Reinforcement (first that exists)."""
+    cf=f'{H}/s2/cat_{p}.json'
+    try: mk=json.load(open(B+'/meta.json')).get(p,'')
+    except Exception: mk=''
+    if not os.path.exists(cf) or not mk.upper().startswith('PERODUA'): return   # Fender Inner is a Perodua part (other makes: Front Panel Assembly)
+    nm=lambda l: re.sub(r"\s*\([^)]*\)\s*$","",re.sub(r"^\S+ \[[^\]]*\] ","",l)).strip()
+    cat={nm(l):v for v,l,_ in json.load(open(cf))['cat']}; got={nm(l) for v,l,_ in json.load(open(cf))['cat'] if v in P['CP']}
+    for sd in ('LH','RH'):
+        hp=[f'Headlamp Panel {sd}']; fi=[f'Fender Front Inner {sd}',f'Fender Front Inner Upper {sd}',f'Fender Front Inner Reinforcement {sd}']
+        if any(x in got for x in hp+fi):
+            for grp in (hp,fi):
+                if not any(x in got for x in grp):
+                    x=next((x for x in grp if x in cat),None)
+                    if x: P['CP'].append(cat[x]); got.add(x); print(p,'pair rule: added',x)
 def one(p):
     c,e=ids[p]
     P=json.load(open(f'{H}/s2/final_plan_{p}.json'))
+    pair_rule(p,P)
     json.dump({'CP':P['CP'],'N':P['N'],'R':P['R'],'CM':P.get('CM',[])},open(f'{H}/s2/apply_{p}.json','w'))   # parts + labour + misc in ONE save
     o=run('tickall.mjs',c,e,'session_base.txt',f'{H}/s2/apply_{p}.json',log=f'{H}/s2/apply_{p}.log'); print(p,'tick',[l for l in o.splitlines() if 'ticked' in l][:1])
     open(f'{H}/state/sel_{p}_mine.json','w').write(run('selstate.mjs',c,e,'session_base.txt'))

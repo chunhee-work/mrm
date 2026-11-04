@@ -112,7 +112,7 @@ function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=
 var DONEC={};   // 2026-11-04 user: one 完成 per case -> db status/case_<PLATE>
 function tabs(){const t=q("#tabs");t.innerHTML="";CASES.forEach(c=>{const b=el("button","tab");b.append(el("span","p",c));const n=ALL[c]?Object.keys(ALL[c]).length:0;b.append(el("span","c",DATA.rows[c].length+" 张"));if(n)b.append(el("span","edc","已改 "+n));if(DONEC[c])b.append(el("span","dn","✓"));b.setAttribute("aria-current",String(c===CASE));
  b.onclick=()=>{CASE=c;ROWS=DATA.rows[c];EDIT=ALL[c]||{};try{history.replaceState(null,"","#"+c)}catch(e){}tabs();render();window.scrollTo({top:0})};t.append(b)})}
-function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar"+(matchMedia("(hover:hover)").matches?"  ·  键盘（先点一下页面）：J 上一张 · K 下一张 · 1/2/3 选其他可能 · C 复制 · V 粘贴 · E 改名 · ⌘Z 撤销 · ← 左边案件 · → 右边案件 · Enter Enter 完成并到下一个案件":"");
+function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar";
  const k=q("#kpis");k.innerHTML="";[["照片",ROWS.length,""],["要确认",ROWS.filter(low).length,"warn"],["你已改",Object.keys(EDIT).length,"ed"]].forEach(([a,b,c])=>{const d=el("div","kpi "+c);d.append(el("div","k",a),el("div","v",b));k.append(d)})}
 // 2026-11-04 (user: loads too long): small copies first (pics/<P>_s.json), full ones after, current case first, then the
 // others in tab order -> photos appear at once and tab switches are instant. Images are swapped in place (no re-render,
