@@ -22,7 +22,7 @@ The step playbooks in `playbook/` hold ALL of the user's rules, one file per ste
 | finish a batch: report tables, car-model report, sheet, re-sync after review | `playbook/09-finish-and-report.md` |
 
 ## Workflow (one instruction = every case; two phases — user 2026-10-23)
-**Phase A (no stopping):** 1 read docs → 2 create → 3 photos into 照片命名台 → 4 Adjuster Report → 5 rates → 6 narratives → 7 upload DOC → 8 upload photos → **car-model report** (playbook 09 format).
+**Phase A (no stopping):** 1 read docs → 2 photo model → **publish the 照片命名台 FIRST** (user 2026-11-04: so the user can name photos while Claude works) → 3 create → 4 Adjuster Report → 5 rates → 6 narratives → 7 upload DOC → 8 upload photos → **car-model report** (playbook 09 format).
 Then push a notification + one line: `照片命名台 ready: <PLATES>`. Start the Step 2 planning agents on the model names now (playbook 07 "head start"); they only plan, nothing is ticked. Also start the 5-min cron that watches the page's 「完成」 button (playbook 09). **STOP. Do NOT touch Select Parts, Labour or Miscellaneous until the user says they have finished the 照片命名台.**
 **Phase B (after the user's "done" in chat OR the 「完成」 button on the page):** re-read db `names` → relabel photos to the user's names → 9 planning agents in REVISE mode for the changed names, then ONE `apply_plan.py` run for all cases (ends with `finish.py` auto-fix + checks) → 10 estimate details → 11 Google Sheet. Push a notification when done.
 The other stop: a missing document → send `<PLATE> pending <doc>` and continue with the other cases.

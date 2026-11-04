@@ -13,6 +13,9 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - Apply anomaly rules silently and note them in the final per-case summary. [merimen-data-conflict-rules]
 - Do straightforward cases first; come back to odd ones (e.g. EV with watts instead of CC) only if Merimen refuses. [merimen-data-conflict-rules]
 
+- ⭐⭐ **Publish the 照片命名台 FIRST (user 2026-11-04: "do the 照片命名台 for the case first so i can edit it while u doing").** Right after step 1: run the photo model (`python3 tools/batch/photos.py model <batch_dir>`), `naming.py build <batch_dir>/report <batch_dir>/meta.json`, publish it to the 照片命名台 URL, start the 完成-button cron, tell the user — and only then run `phase_a.py` (create, report, rates, narratives, DOC, photo upload).
+- ⚠️ Never re-run phase_a.py / photos.py upload on cases that already have photos in Merimen (batch 8: a second run uploaded 3 cases twice). Both scripts now skip any case with ≥1 photo (FORCE=1 to override). Large original photos (≈5 MB each) upload in chunks: `uploadphotos.mjs <P> <cid> <ext> <start> <end>` 10 at a time.
+
 ## The only stop: a missing document
 - ⭐⭐ **Before calling anything "missing", Claude opens the pages itself** (user 2026-11-03, CEW7805: "check properly every time"). The step-1 agent's `missing` list is only a hint. Check that the FIELDS the case needs are really absent, not just one page:
   - No RC page → NOT pending: use the insurance schedule's model/cc/year (playbook 12 rule 13) and say so in the report.

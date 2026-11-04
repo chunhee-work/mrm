@@ -6,7 +6,7 @@
 
 <batch_dir> holds <PLATE>/ (original photos), meta.json {PLATE: "<Merimen model text>"}, ids.txt (PLATE cid ext), report/ (case_report output).
 """
-import json, os, subprocess, sys
+import re, json, os, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mrm import safe, par, ids, wait_login
@@ -31,6 +31,10 @@ def upload(b, plates):
     wait_login()
     def one(p):
         c, e = I[p]
+        have = safe("chkorder.mjs", p, c, e).strip().splitlines()[-1:] or [""]
+        m = re.search(r"photos (\d+)", have[0])
+        if m and m.group(1) != "0" and os.environ.get("FORCE") != "1":   # 2026-11-04: never upload twice (batch 8 duplicated 3 cases)
+            print(p, "already has", m.group(1), "photos -> skipped (FORCE=1 to upload anyway)", flush=True); return
         safe("uploadphotos.mjs", p, c, e, "0", "999", timeout=3600)
         print(p, safe("chkorder.mjs", p, c, e).strip().splitlines()[-1], flush=True)
     par(one, plates)

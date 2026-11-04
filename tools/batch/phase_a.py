@@ -188,14 +188,16 @@ def main():
 
     @step("10 photo upload")
     def s10():
-        f = os.path.join(b, "_ids_ok.txt")
+        todo = []
         for p in ok:
             have = safe("chkorder.mjs", p, *I[p]).strip().splitlines()[-1]
             m = re.search(r"photos (\d+) plan (\d+)", have)
-            if TEST or (m and m.group(1) == m.group(2) and m.group(1) != "0"):
-                print(f"   {p}: {have.strip()[:70]} — skipped")
-        if not TEST:
-            subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__), "photos.py"), "upload", b, *ok])
+            if TEST or (m and m.group(1) != "0"):   # 2026-11-04: ANY photo already in Merimen -> never upload again (batch 8: 3 cases got every photo twice)
+                print(f"   {p}: {have.strip()[:70]} — skipped (already has photos)")
+            else:
+                todo.append(p)
+        if todo and not TEST:
+            subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__), "photos.py"), "upload", b, *todo])
     s10()
 
     @step("11 car-model report")
