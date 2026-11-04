@@ -20,9 +20,11 @@ sys.path.insert(0, os.path.join(HERE, "..", "..", "typesafe", "photo_train"))
 from name_map import final as norm  # the user's naming rules; returns None for banned names (General View, TAIL LAMP…)
 
 # names a car model does NOT have (user rules, playbook 10): (model regex, name regex)
-MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner")]   # user 2026-10-29/30: Perodua Viva has no quarter liner
+MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner"),
+              (r"^PERODUA\b", r"^Front Panel Assembly$")]   # user 2026-11-04: Perodua never Front Panel Assembly (Fender Inner / Front Panel Upper / Front Crossmember …)   # user 2026-10-29/30: Perodua Viva has no quarter liner
 # (vehicle must NOT match, name regex, replacement): user 2026-11-03 — only Perodua has a Bonnet Latch Stud Plate; any other make -> Front Panel Assembly
-MODEL_SWAPS = [(r"^PERODUA\b", r"^Bonnet Latch Stud Plate", "Front Panel Assembly")]
+MODEL_SWAPS = [(r"^PERODUA\b", r"^Bonnet Latch Stud Plate", "Front Panel Assembly"),
+               (r"^PERODUA\b", r"^Fender Inner (LH|RH)$", "Front Panel Assembly")]   # user 2026-11-04: only Perodua has Fender Inner; other makes call it Front Panel Assembly
 
 CORNERS = {"Front View Right", "Front View Left", "Rear View Right", "Rear View Left"}
 FTYPE = {"Odometer Reading": "Odometer Reading", "Chassis Number": "Chassis Number", "Engine Compartment": "Engine view"}
