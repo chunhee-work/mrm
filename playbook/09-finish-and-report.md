@@ -14,6 +14,11 @@
 ## Push notification
 - When the batch is done: PushNotification first, then the report. [merimen-batch-workflow]
 
+## ⭐⭐ Final report to the user (user 2026-11-04) — short
+1. The status line `🔄 0 cases | ✅ <N> done | 100%`.
+2. The car-model table (format below: 车牌 | Registration Date | RC 资料 | Merimen 选的车型 | 车型年份范围 | 选择理由) for ALL cases of the run.
+3. Only what needs the user's decision (one line each). No long explanations.
+
 ## Completion table (in Chinese, one row per case, batch order)
 - Columns: | 车牌 | Case ID | Adjuster Report | 折扣/工时 | Narratives | Betterment |. [batch-completion-report-format]
 - Example rows: `| VDU965 | 21645828 | ✅ | 10 / 0 · 30×4 | ✅ 5 段 | 6.8 yr − 20% |`; `| PNQ3586 | 21645839 | ⏸ 建案好了，其余 pass（无照片） | — | — | — |`. [batch-completion-report-format]

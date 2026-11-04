@@ -38,7 +38,11 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - ⭐ **"do the new case" / "do new case(s)" = the same as "下载"** (user 2026-11-03): go to WhatsApp, download the newest file at once and run Phase A. Never stop to ask where the case is.
 
 ## Progress messages
-- ⭐⭐ **While doing cases: ONE line every ~10 min — `🔄 <running> cases | ✅ <done> done | <estimated minutes left> minutes | <%>%`; when all done drop the minutes: `🔄 0 cases | ✅ 13 done | 100%`** (user 2026-11-04). No long updates; only blocking questions or items the user asked for may add lines.
+- ⭐⭐ **Progress = ONE line, every 10 minutes while working cases** (user 2026-11-04), exactly like:
+  `🔄 3 cases | ✅ 0 done | 27 minutes | 19%`
+  - 🔄 = cases still running, ✅ = cases done (a case moves 🔄 → ✅ when finished); minutes = ESTIMATED time left; % = ESTIMATED progress of the whole job.
+  - Set a 10-minute CronCreate reminder at the start of the work and delete it at the end.
+  - When everything is done: `🔄 0 cases | ✅ 13 done | 100%` (no minutes), then the final report (09). Nothing else mid-batch except blocking questions.
 
 ## Language
 - Reply in Simplified Chinese, always, including long status reports, tables and summaries. [language-preference]
