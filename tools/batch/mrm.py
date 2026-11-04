@@ -30,9 +30,16 @@ def wait_login():
     t0 = os.path.getmtime(f)
     subprocess.run(["node", "ensuretab.mjs"], cwd=H, capture_output=True, timeout=120)   # user 2026-10-30: a merimen.com.my page must be open BEFORE login
     print("LOGGEDOUT: please run  cd ~/mrm-bot && node relogin.mjs   (waiting, will continue by itself)", flush=True)
+    # user 2026-11-04: "when you get stuck on the login, just send me a notification" -> flag file; tools/mrm-bot/login_watch.sh
+    # (running in the background) exits on it and Claude sends a push notification. Also a Mac banner.
+    nf = os.path.join(H, "state", "NEED_LOGIN"); os.makedirs(os.path.dirname(nf), exist_ok=True)
+    open(nf, "w").write(time.strftime("%H:%M:%S"))
+    subprocess.run(["osascript", "-e", 'display notification "Merimen logged out: cd ~/mrm-bot && node relogin.mjs" with title "MRM: please log in" sound name "Glass"'], capture_output=True)
     while True:
         time.sleep(10)
         if os.path.getmtime(f) != t0 and logged_in():
+            try: os.remove(nf)
+            except OSError: pass
             print("login OK, continuing", flush=True)
             return
 

@@ -207,6 +207,10 @@ def main():
 
     @step("10 photo upload")
     def s10():
+        # 2026-11-04 (user: faster workflow): photos go up only after the user's 「完成」 for that case, already with the final
+        # names and order (tools/batch/phase_b.py) -> no relabel/reorder step, no drops from relabel. LATE_PHOTOS=0 = old way.
+        if os.environ.get("LATE_PHOTOS", "1") == "1":
+            print("   skipped: photos are uploaded per case after its 完成 (phase_b.py)"); return
         todo = []
         for p in ok:
             have = safe("chkorder.mjs", p, *I[p]).strip().splitlines()[-1]

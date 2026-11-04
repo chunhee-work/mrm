@@ -6,7 +6,7 @@
 # Reads ChatStorage.sqlite with mode=ro only. Message type 8 = document. Last seen id kept in ~/.wa_watch_last.
 DB="$HOME/Library/Group Containers/group.net.whatsapp.WhatsApp.shared/ChatStorage.sqlite"
 JID="60176204606@%"; ST="$HOME/.wa_watch_last"
-q() { sqlite3 "file:$DB?mode=ro" "select m.Z_PK||' | '||datetime(m.ZMESSAGEDATE+978307200,'unixepoch','localtime')||' | '||coalesce(i.ZTITLE,'')||' | '||coalesce(i.ZFILESIZE,0)
+q() { sqlite3 "file:$DB?mode=ro" "select m.Z_PK||' | '||datetime(m.ZMESSAGEDATE+978307200,'unixepoch','localtime')||' | '||coalesce(m.ZTEXT,'')||' | '||coalesce(i.ZFILESIZE,0)
   from ZWAMESSAGE m join ZWACHATSESSION s on m.ZCHATSESSION=s.Z_PK left join ZWAMEDIAITEM i on m.ZMEDIAITEM=i.Z_PK
   where s.ZCONTACTJID like '$JID' and m.ZISFROMME=0 and m.ZMESSAGETYPE=8 and m.Z_PK>$1 order by m.Z_PK;" 2>/dev/null; }
 [ -f "$ST" ] || sqlite3 "file:$DB?mode=ro" "select max(m.Z_PK) from ZWAMESSAGE m join ZWACHATSESSION s on m.ZCHATSESSION=s.Z_PK where s.ZCONTACTJID like '$JID' and m.ZMESSAGETYPE=8 and m.ZISFROMME=0;" > "$ST"
