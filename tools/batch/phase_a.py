@@ -179,6 +179,7 @@ def main():
         nd = os.path.join(REPO, "tools", "naming-desk", "naming.py")
         print("   " + subprocess.run([sys.executable, nd, "build", os.path.join(b, "report"), os.path.join(b, "meta.json")], capture_output=True, text=True).stdout.strip().splitlines()[-1][:120])
         db0 = os.path.join(b, "db0"); os.makedirs(os.path.join(db0, "names"), exist_ok=True); os.makedirs(os.path.join(db0, "orders"), exist_ok=True)
+        open(os.path.join(db0, "orders", ".listed"), "w").close()   # 2026-11-04: Phase A has no user edits yet; naming.py final refuses to run without this (batch 8 photo upload crashed)
         if not TEST:
             subprocess.run([sys.executable, nd, "final", os.path.join(b, "report"), db0, *ok], capture_output=True)
             subprocess.run([sys.executable, nd, "plan", os.path.join(b, "report"), b, *ok], capture_output=True)
