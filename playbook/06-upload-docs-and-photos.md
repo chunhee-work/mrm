@@ -43,3 +43,7 @@ A case is not done until BOTH its documents and its photos are in Merimen; say s
 
 ## Dropped photos (2026-11-04)
 - `chkorder.mjs` prints `<PLATE> MISSING i,j` (0-based plan positions) when Merimen has fewer photos than the plan. `photos.py upload` re-uploads those positions (up to 2 rounds). The Phase B relabel/reorder puts them back in order. Batch 9 lost SYG7166 #3 and VFT4204 #4, #19 this way.
+
+## Photo upload timing (user 2026-11-04)
+- Upload in Phase A with the model's names (the user may be slow to name). Before phase_a's photo step, read db `status` on the 照片命名台: cases already marked 「完成」 go in `DONE_PLATES=P1,P2` → phase_a skips them and `phase_b.py` uploads them with the final names and order.
+- After a case's 「完成」: `python3 tools/batch/phase_b.py <batch> <db_dir> <PLATE>` checks Merimen = the Phase A plan (count + mismatch 0), then `relabel_ui.mjs` (changed names, positions in the current order) and `reorder_ui.mjs` (all positions, matched by the original file), then chkorder against the new plan. If Merimen ≠ the Phase A plan it does NOT relabel; fix by hand. One case at a time.

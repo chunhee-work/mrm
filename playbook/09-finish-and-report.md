@@ -37,8 +37,10 @@
 - ⭐ When the Merimen variant matches the RC exactly, the reason column says **✅ 完全对得上** (user, 2026-10-23).
 - ⭐⭐ **Exact table format (user approved 2026-10-23), columns in this order:**
 
-  | 车牌 | Registration Date | RC 资料 | Merimen 选的车型 | 车型年份范围 | 选择理由 |
-  |---|---|---|---|---|---|
+  | 车牌 | Registration Date | RC 资料 | Merimen 选的车型 | 车型年份范围 | 选择理由 | 总价 |
+  |---|---|---|---|---|---|---|
+
+  ⭐⭐ In the batch-end report the table has a **总价** column = the Adj Rpt grand total of each case (user 2026-11-04), plus a 合计 line: `python3 tools/batch/final_report.py <batch_dir>` builds it from car_model_report.md (fill 选择理由 first).
   | BMN7769 | 📅 `28/03/2014` | TOYOTA COROLLA ALTIS 1.8E (A) · 1798cc · Petrol Auto | TOYOTA Corolla Altis 2014 On 4 Dr Sal 1.8 E (ZRE172R-GEXEKE) 137Bhp (A) | 📅 `01/14-11/16` | ✅ 完全对得上 |
   | KCM8604 | 📅 `06/07/2009` | PROTON PERSONA 1.6 AUTOMATIK · 1597cc · Petrol Auto | PROTON Persona 2007 To 2016 4 Dr Sal 1.6 Base Line 109Bhp (A) | 📅 `08/07-02/10` | RC 没写等级，选了 Base Line |
 

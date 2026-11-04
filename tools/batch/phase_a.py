@@ -209,12 +209,11 @@ def main():
 
     @step("10 photo upload")
     def s10():
-        # 2026-11-04 (user: faster workflow): photos go up only after the user's 「完成」 for that case, already with the final
-        # names and order (tools/batch/phase_b.py) -> no relabel/reorder step, no drops from relabel. LATE_PHOTOS=0 = old way.
-        if os.environ.get("LATE_PHOTOS", "1") == "1":
-            print("   skipped: photos are uploaded per case after its 完成 (phase_b.py)"); return
+        # user 2026-11-04: upload in Phase A with the model's names (the user may name slowly); a case the user ALREADY marked
+        # 完成 (Claude passes DONE_PLATES=P1,P2 after reading db status) is left for phase_b.py, which uploads it with the final names.
+        done = set(filter(None, os.environ.get("DONE_PLATES", "").split(",")))
         todo = []
-        for p in ok:
+        for p in [x for x in ok if x not in done]:
             have = safe("chkorder.mjs", p, *I[p]).strip().splitlines()[-1]
             m = re.search(r"photos (\d+) plan (\d+)", have)
             if TEST or (m and m.group(1) != "0"):   # 2026-11-04: ANY photo already in Merimen -> never upload again (batch 8: 3 cases got every photo twice)
@@ -235,7 +234,12 @@ def main():
             green = any(o["v"] == v.get("modelValue") and o.get("c", "").endswith("1") for o in opts.get(v["make"].upper(), []))
             rc = f"{v.get('rcModel','')} · {v.get('cc','')}cc · {v.get('fuel','')} {v.get('transmission','')}".strip()
             rows.append(f"| {p} | 📅 `{reg}` | {rc} | {name} | 📅 `{rng.group(1) if rng else ''}` | {'' if green else '⚠️ no price data '}(reason: Claude fills) |")
-        open(os.path.join(b, "car_model_report.md"), "w").write("\n".join(rows) + "\n"); print("\n".join(rows))
+        # 2026-11-04: MERGE with the rows already there (a partial re-run for 1 plate wiped the other 7 cases' rows in batch 9)
+        f = os.path.join(b, "car_model_report.md"); new = {r.split("|")[1].strip(): r for r in rows[2:]}
+        old = [l for l in (open(f).read().splitlines() if os.path.exists(f) else []) if l.startswith("| ") and not l.startswith("| 车牌")]
+        keep = [l for l in old if l.split("|")[1].strip() not in new]
+        rows = rows[:2] + keep + list(new.values())
+        open(f, "w").write("\n".join(rows) + "\n"); print("\n".join(rows))
     s11()
 
     @step("12 Step 2 head start (read-only)")
