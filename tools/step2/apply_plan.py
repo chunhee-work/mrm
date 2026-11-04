@@ -38,6 +38,8 @@ def one(p):
     o=run('tickall.mjs',c,e,'session_base.txt',f'{H}/s2/apply_{p}.json',log=f'{H}/s2/apply_{p}.log'); print(p,'tick',[l for l in o.splitlines() if 'ticked' in l][:1])
     open(f'{H}/state/sel_{p}_mine.json','w').write(run('selstate.mjs',c,e,'session_base.txt'))
     run('gonext.mjs',c,e,'session_base.txt')
+    for m in P.get('manual',[]):   # user 2026-11-04: Suspension Crossmember Front / Rear ALWAYS in group 130 Undercarriage
+        if re.search(r'suspension crossmember|crossmember.*suspension',m[1],re.I) and m[0]!='130': print(p,'group',m[0],'-> 130 for',m[1]); m[0]='130'
     if P.get('manual'):
         json.dump(P['manual'],open(f'{H}/s2/man_{p}.json','w')); o=run('addparts.mjs',c,e,'session_base.txt',f'{H}/s2/man_{p}.json','save'); print('  manual',[l for l in o.splitlines() if 'added' in l][:1])
     o=run('estfill.mjs',p,'session_base.txt','extmap_b4.json','v'); print('  est',[l[:120] for l in o.splitlines() if 'set PDC' in l or 'PDC filled' in l][:2])

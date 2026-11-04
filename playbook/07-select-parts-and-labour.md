@@ -97,6 +97,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
   - **Front corner:** Shock Absorber, Suspension Spring, Steering Tie Rod, Suspension Lower Arm, Suspension Crossmember, Knuckle Arm, Driveshaft, Stabiliser Bar Front Link.
   - **Rear corner:** Shock Absorber, Suspension Spring, Suspension Lower Arm, Suspension Crossmember (rear has no Tie Rod, Knuckle Arm, Driveshaft or Stabiliser Link).
   - Same axle and same side as the photographed item (Front LH photo → the Front LH set). Catalogue names differ (Wishbone Lower = Suspension Lower Arm; Suspension Arm Front = lower arm). Not in the catalogue → manual row with a price. step2_plan.py adds the set automatically.
+  - ⭐⭐ **Suspension Crossmember Front AND Rear always go in group 130 Undercarriage** (user 2026-11-04) — catalogue tick or manual row; apply_plan.py / add_missing.py force group 130 for manual rows.
   - **Suspension Crossmember Front/Rear is its own item: "Subframe Front" is NOT the crossmember.** Catalogue has no "Suspension Crossmember" → manual row "Suspension Crossmember Front" / "Rear" (user 2026-10-23, CBL8902 Kenari).
 - **Shock Absorber Front → Suspension Crossmember Front; Shock Absorber Rear → Suspension Crossmember Rear** (same axle). [estimate-select-parts-rules-2026-10-17]
 - **Rear suspension** — any of Rear Shock Absorber LH/RH, Rear Suspension Spring, Rear Suspension Upper Arm, Rear Suspension Lower Arm → Rear Suspension Crossmember. [estimate-companion-parts-rule]

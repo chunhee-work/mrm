@@ -16,6 +16,8 @@ DRY = os.environ.get("DRY") == "1"
 
 
 def group(cat, name):
+    if re.search(r"suspension crossmember|crossmember.*suspension", name, re.I):
+        return "130"   # user 2026-11-04: Suspension Crossmember Front / Rear ALWAYS in Undercarriage
     want = "Front" if re.search(r"front|bonnet|headlamp|fender|grille|radiator|windscreen", name, re.I) else \
            "Rear" if re.search(r"rear|tailgate|boot|quarter|trunk|spare", name, re.I) else None
     for v, l in cat:

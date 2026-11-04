@@ -17,6 +17,7 @@ Inputs per case <P> (B = <BATCH_DIR>):
 
 Rules to apply that the draft often misses:
 - The row must carry the PHOTO'S NAME: a closest catalogue item is OK only when it is the SAME part under another name (Bonnet Lock = Bonnet Latch). Never a different kind of part (Bumper is NOT Bumper Spoiler; Bumper Spoiler is NOT Body Kit Skirt; Runningboard Spoiler is NOT Runningboard Panel/Side Skirt; a trim is never a lamp). Otherwise manual row with the photo name. Never a "closest match".
+- ⭐⭐ Manual row Suspension Crossmember Front / Rear: group "130" (Undercarriage), never another group (user 2026-11-04).
 - ⭐⭐ Headlamp Panel <side> and Fender Inner <side> (Fender Front Inner / Inner Upper / Inner Reinforcement) are ALWAYS picked together, same side (user 2026-11-04).
 - ⭐⭐⭐ THE PART NUMBER DECIDES (user 2026-11-04). Photo name ≠ catalogue name → check the part number in the label "(…)" against the maker's part name for that number (WebSearch the number; Mazda codes: -70-15X/-71-15X = inner wheelhouse R/L, -71-11Y = outer wheelhouse). Same part → tick it; not the same / not found → manual row with the photo name and a flag. Also fine: pairs listed in playbook 07 / 10 / sync_check ALIAS. Write the part number + what the maker calls it in "coverage", e.g. "Wheel Arch Inner Rear RH 80@BEYN7015X (Mazda 70-15X = Panel(R) Wheel House)".
 - Confirmed: Rear Wheelhouse = Wheel Arch Inner Rear (Mazda, part no); Firewall Panel = Engine Partition Panel (Toyota 55101).
