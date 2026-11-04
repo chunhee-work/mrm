@@ -32,6 +32,7 @@ A case is not done until BOTH its documents and its photos are in Merimen; say s
 - Run `node chkorder.mjs <PLATE> <cid> <ext>` → count + order must equal the artifact (photoplan.json). [merimen-batch-workflow] [mistakes-log-sinar-batch2]
 - A one-shot upload once stored one photo twice (same file, two docids) and shifted the order (BRS8642). Find the duplicate by fetching each docid with dsp_getfile (this account's case only) and hashing. [case-photo-naming-artifact]
 - 2026-11-04 batch 8: JSF901 / WJD4327 / WWH3780 got every photo twice (phase_a re-run). User: "u delete" -> Claude removes the second copies at the END of the next batch (one relogin afterwards).
+- ⭐ **Remove (revoke) photos: `node revokephotos.mjs <cid> <ext> <from> <to>`** (2026-11-04, user "find way to delete it"): Relabel/Reorder page → the photo's info icon → **Remove**, confirm pre-approved in the page; removes positions to..from from the highest down and only when the info window shows the same caption as that row. Tested on WWH3780: no logout. Then `chkorder.mjs`.
 - Removing the duplicate: never through `act_docinfo … action=DEL` from a CDP page (logs out); do revokes last in the batch or ask the user to delete it in the UI; ask for relogin afterwards if it logged out. [case-photo-naming-artifact] [merimen-logout-causes]
 
 ## Relabel / reorder

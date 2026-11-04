@@ -150,3 +150,5 @@ RW (Rawang). Manual-part prices: `python3 "$MRM/tools/price_lookup.py" part "<na
 `~/mrm-bot` holds many more one-off debug scripts (`insp*.mjs`, `diag*.mjs`, `modlk*.mjs` …). They are not part of
 the workflow.
 node wslookup.mjs session_base.txt "kw1|kw2"     # READ-ONLY: workshop Lookup rows for new workshops (blank claim form, nothing saved)
+
+node revokephotos.mjs <cid> <ext> <from> <to>    # remove photos at positions to..from (UI Remove button, caption-checked; 2026-11-04)
