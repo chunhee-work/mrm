@@ -45,3 +45,4 @@
 - [Labour diff log](labour-diff-log.md) — my labour ticks vs user's final per case; snapshot sel_<PLATE>_mine.json after Step 2 and diff later
 - [Merimen logout causes](merimen-logout-causes.md) — keepalive.mjs must run for the 9222 Chrome; don't close its window; same-account login elsewhere and revoke/foreign getfile calls log it out
 - [Car-model report ⚠️](car-model-report-warning.md) — step 12: mark ⚠️ when the chosen Merimen model has no price data (white, not green); prefer green variants
+- [Photo model improvement plan](photo-model-improvement-plan.md) — ideas 1-7 then 30h bigger backbone on the mini (user 2026-11-04)

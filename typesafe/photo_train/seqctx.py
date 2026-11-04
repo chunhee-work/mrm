@@ -75,6 +75,9 @@ for c, ids in case.items():
     for p, i in enumerate(ids): where[i] = (c, p)
 tr = [i for i, m in enumerate(meta) if m[3] == "train"]
 te = [i for i, m in enumerate(meta) if m[3] == "test" and m[0]]
+if os.environ.get("FOLD") in ("0", "1"):   # 2026-11-04 label audit: train on half the CASES, score the other half (pred_<TAG>.jsonl = the scored half)
+    import zlib; fo = int(os.environ["FOLD"]); h = lambda i: zlib.crc32(meta[i][1].encode()) % 2
+    te = [i for i in tr if h(i) == fo and meta[i][0]]; tr = [i for i in tr if h(i) != fo]
 labels = sorted({meta[i][0] for i in tr}); L = {k: j for j, k in enumerate(labels)}
 old = {k: j for j, k in enumerate(ck["labels"])}
 
@@ -157,6 +160,15 @@ def evaluate(write=False):
         if rr: print("  rare items: %d test photos, top1 %.1f%%" % (len(rr), 100 * sum(o["top"][0][0] == o["label"] for o in rr) / len(rr)), flush=True)
     net.train(); return ok / len(te), t3 / len(te)
 
+if os.environ.get("SCORE_TRAIN") == "1":   # 2026-11-04: score every TRAIN photo with the warm-started model (no training) -> pred_train_<TAG>.jsonl, to find wrong labels
+    net.eval(); uq = sorted(set(tr))
+    with torch.no_grad(), open(os.path.join(HERE, "pred_train_%s.jsonl" % TAG), "w") as fo:
+        for k in range(0, len(uq), B):
+            ids = uq[k:k + B]; pr = torch.softmax(net(*batch(ids, 0)), 1).cpu().numpy()
+            for i, p in zip(ids, pr):
+                o = np.argsort(-p)[:3]; lab = meta[i][0]
+                fo.write(json.dumps({"i": i, "label": lab, "p_label": round(float(p[L[lab]]), 3), "cid": meta[i][1], "seq": meta[i][2], "top": [[labels[j], round(float(p[j]), 3)] for j in o]}) + "\n")
+    print("scored", len(uq), flush=True); sys.exit()
 a1, a3 = evaluate(); print("start (stage-1 head only) top1 %.1f%% top3 %.1f%%" % (100 * a1, 100 * a3), flush=True)
 best = 0; t0 = time.time()
 for ep in range(EP):
