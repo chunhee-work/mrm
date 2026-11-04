@@ -6,7 +6,7 @@ A photo set is shot in order (wide view first, then close-ups), so the photos be
            logits = stage-1 head(centre) + context correction (starts at zero = starts at stage-1 accuracy)
 Usage: python seqctx.py extract models/dinov2_b_big10a.pt big10a
        python seqctx.py train   models/dinov2_b_big10a.pt big10a big10      (labels from big_meta.tsv = latest rules)"""
-import collections, json, os, random, sys, time
+import re, collections, json, os, random, sys, time
 import numpy as np, torch, torch.nn as nn
 from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -69,6 +69,14 @@ TAG = sys.argv[4]
 F = np.load(FEATS, mmap_mode="r")
 FC = np.load(FEATC, mmap_mode="r") if os.path.exists(FEATC) and os.environ.get("USE_CROP", "1") == "1" else None
 D = 768 * (2 if FC is not None else 1); print("crosshair zoom features:", FC is not None, flush=True)
+# 2026-11-05 ideas 2+4: mirrored photos. FLIP_AUG=<p>: during training a whole window is swapped for its mirrored features with
+# probability p and the label is mirrored (LH<->RH, Left<->Right); TTA=1: test = mean of normal + mirrored (mirrored class map).
+FAUG = float(os.environ.get("FLIP_AUG", "0")); TTA = os.environ.get("TTA") == "1"
+FF = np.load(FEATS[:-4] + "_f.npy", mmap_mode="r") if (FAUG or TTA) else None
+FCF = np.load(FEATC[:-4] + "_f.npy", mmap_mode="r") if (FAUG or TTA) and FC is not None else None
+def mirror(k):
+    sw = {"LH": "RH", "RH": "LH", "Left": "Right", "Right": "Left"}
+    return re.sub(r"\b(LH|RH|Left|Right)\b", lambda m: sw[m.group(1)], k)
 case = collections.defaultdict(list)
 for i, m in enumerate(meta): case[m[1]].append(i)
 for c in case: case[c].sort(key=lambda i: int(meta[i][2]))
@@ -81,6 +89,7 @@ if os.environ.get("FOLD") in ("0", "1"):   # 2026-11-04 label audit: train on ha
     import zlib; fo = int(os.environ["FOLD"]); h = lambda i: zlib.crc32(meta[i][1].encode()) % 2
     te = [i for i in tr if h(i) == fo and meta[i][0]]; tr = [i for i in tr if h(i) != fo]
 labels = sorted({meta[i][0] for i in tr}); L = {k: j for j, k in enumerate(labels)}
+MIR = [L.get(mirror(k), j) for j, k in enumerate(labels)]   # class j of a mirrored photo = class MIR[j]
 old = {k: j for j, k in enumerate(ck["labels"])}
 
 def rows_for(old_labels):
@@ -135,13 +144,13 @@ if RARE:
     print("rare labels (<%d train photos):" % RARE, len(rare_labels), "train rows now", len(tr), flush=True)
 EP = int(os.environ.get("EPOCHS", "6")); B = 256
 opt = torch.optim.AdamW([{"params": net.base.parameters(), "lr": 1e-4}, {"params": [p for n, p in net.named_parameters() if not n.startswith("base.")], "lr": 5e-4}], weight_decay=0.05)
-sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=[1e-4, 5e-4], total_steps=EP * (len(tr) // B))
+sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=[1e-4, 5e-4], total_steps=max(1, EP * (len(tr) // B)))
 lossf = nn.CrossEntropyLoss(label_smoothing=0.1)
 
-def batch(ids, drop):
-    ws = [window(i, drop) for i in ids]
-    x = np.stack([F[w[0]] for w in ws]).astype(np.float32)
-    if FC is not None: x = np.concatenate([x, np.stack([FC[w[0]] for w in ws]).astype(np.float32)], 2)
+def batch(ids, drop, flip=None):
+    ws = [window(i, drop) for i in ids]; flip = flip or [False] * len(ids)
+    x = np.stack([(FF if f else F)[w[0]] for w, f in zip(ws, flip)]).astype(np.float32)
+    if FC is not None: x = np.concatenate([x, np.stack([(FCF if f else FC)[w[0]] for w, f in zip(ws, flip)]).astype(np.float32)], 2)
     x = torch.from_numpy(x).to(dev)
     return x, torch.tensor([w[1] for w in ws]).to(dev)
 
@@ -150,6 +159,8 @@ def evaluate(write=False):
     with torch.no_grad():
         for k in range(0, len(te), B):
             ids = te[k:k + B]; pr = torch.softmax(net(*batch(ids, 0)), 1).cpu().numpy()
+            if TTA:   # mirrored view says "class MIR[j]" where the normal view says j
+                pf = torch.softmax(net(*batch(ids, 0, [True] * len(ids))), 1).cpu().numpy(); pr = (pr + pf[:, MIR]) / 2
             for i, p in zip(ids, pr):
                 o = np.argsort(-p)[:5]; lab = meta[i][0]
                 ok += labels[o[0]] == lab; t3 += lab in [labels[j] for j in o[:3]]
@@ -176,8 +187,9 @@ best = 0; t0 = time.time()
 for ep in range(EP):
     random.shuffle(tr)
     for k in range(0, len(tr) - B + 1, B):
-        ids = tr[k:k + B]; y = torch.tensor([L[meta[i][0]] for i in ids]).to(dev)
-        loss = lossf(net(*batch(ids, 0.15)), y); opt.zero_grad(); loss.backward(); opt.step(); sched.step()
+        ids = tr[k:k + B]; fl = [FAUG > 0 and random.random() < FAUG and L.get(mirror(meta[i][0])) is not None for i in ids]
+        y = torch.tensor([L[mirror(meta[i][0])] if f else L[meta[i][0]] for i, f in zip(ids, fl)]).to(dev)
+        loss = lossf(net(*batch(ids, 0.15, fl)), y); opt.zero_grad(); loss.backward(); opt.step(); sched.step()
         if k % (B * 200) == 0: print("ep", ep, k, "loss %.3f" % loss.item(), int(time.time() - t0), "s", flush=True)
     a1, a3 = evaluate(); print("EPOCH", ep, "test top1 %.1f%% top3 %.1f%%" % (100 * a1, 100 * a3), int(time.time() - t0), "s", flush=True)
     if a1 > best:
