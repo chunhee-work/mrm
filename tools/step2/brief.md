@@ -17,6 +17,8 @@ Inputs per case <P> (B = <BATCH_DIR>):
 
 Rules to apply that the draft often misses:
 - The row must carry the PHOTO'S NAME: a closest catalogue item is OK only when it is the SAME part under another name (Bonnet Lock = Bonnet Latch). Never a different kind of part (Bumper is NOT Bumper Spoiler; Bumper Spoiler is NOT Body Kit Skirt; Runningboard Spoiler is NOT Runningboard Panel/Side Skirt; a trim is never a lamp). Otherwise manual row with the photo name. Never a "closest match".
+- ⭐⭐ "Same part under another name" ONLY for pairs listed in playbook 07 / 10 or sync_check ALIAS (user-confirmed). Anything else that is not the exact photo name → MANUAL row with the photo name, even when you think it is the same part (user 2026-11-04, PRM7898: Rear Wheelhouse RH was ticked as Wheel Arch Inner Rear RH — WRONG, they are different parts). Put any such guess in "flags", never in CP.
+- Never map: Rear Wheelhouse ≠ Wheel Arch Inner/Outer Rear; Firewall Panel ≠ Engine Partition Panel unless the user confirms.
 - Front Chassis Member LH/RH → also its End Plate, Front Section, Rear Section (same side) when in the catalogue.
 - Misc Air-cond gas (Normal) / Air cond system checking / Radiator coolant ONLY when Radiator or A/C Condenser is selected.
 - Comments: name has LH/RH → no comment (door hinge = exception, always Upper/Lower + side), EXCEPT qty-2 rows, which always get "Front LH & Front RH" / "Rear LH & Rear RH". Name without side → comment with the side.
