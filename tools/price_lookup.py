@@ -70,6 +70,22 @@ COMMERCIAL = re.compile(r"\b(LORRY|TRUCK|BUS|N-?SERIES|ELF|FUSO|CANTER|DYNA|LORI
 # user 2026-10-31 ("yes for 2"): high-end Japanese / Korean models get their own tier between T2 and T5
 T2P = re.compile(r"\b(ALPHARD|VELLFIRE|ESTIMA|HARRIER|CAMRY|CROWN|LAND ?CRUISER|PRADO|ACCORD|ODYSSEY|LEGEND|TEANA|ELGRAND|MURANO|CX-?8|CX-?9|PALISADE|CARNIVAL|STARIA)\b", re.I)
 
+# user 2026-11-04 (Mazda 3 Rear Wheelhouse priced from the whole T2 median = too cheap): inside the tier, compare first with cars
+# of the SAME CLASS (segment / body) and a NEWER generation (model year - 10 or later), then the same class, then the whole tier.
+SEG = [
+    ("A/B small", r"\b(MYVI|AXIA|BEZZA|VIVA|KANCIL|KELISA|KENARI|SAGA|IRIZ|PERSONA|WIRA|ISWARA|VIOS|YARIS|CITY|JAZZ|ALMERA|MARCH|LIVINA|MAZDA ?2|SWIFT|CELERIO|ATTRAGE|MIRAGE|I10|I20|ACCENT|PICANTO|RIO|BRIO)\b"),
+    ("C compact", r"\b(MAZDA ?3|AXELA|CIVIC|COROLLA|ALTIS|SYLPHY|PULSAR|ELANTRA|CERATO|FORTE|LANCER|IMPREZA|PREVE|SUPRIMA|INSPIRA|WAJA|GEN-?2|FOCUS|GOLF|JETTA)\b"),
+    ("D large", r"\b(MAZDA ?6|ATENZA|CAMRY|ACCORD|TEANA|SONATA|OPTIMA|K5|PERDANA|PASSAT)\b"),
+    ("SUV", r"\b(CX-?\d+|HR-?V|CR-?V|BR-?V|WR-?V|X-?TRAIL|KICKS|RAV ?4|COROLLA CROSS|FORTUNER|HARRIER|ATIVA|ARUZ|X50|X70|X90|TUCSON|SANTA ?FE|KONA|CRETA|SPORTAGE|SORENTO|SELTOS|OUTLANDER|ASX|PAJERO|FORESTER|XV|MU-?X|VITARA|JIMNY)\b"),
+    ("MPV", r"\b(ALZA|ARUZ|EXORA|ERTIGA|AVANZA|VELOZ|INNOVA|SIENTA|WISH|ESTIMA|ALPHARD|VELLFIRE|ODYSSEY|STREAM|FREED|SERENA|GRAND LIVINA|STAREX|STARIA|CARNIVAL|CARENS|XPANDER|PREMIO|ISIS)\b"),
+    ("pickup", r"\b(HILUX|NAVARA|TRITON|D-?MAX|RANGER|BT-?50)\b"),
+]
+def seg_of(model):
+    m = re.sub(r"^\[OURS[^\]]*\]\s*", "", model or "").upper()
+    return next((n for n, rx in SEG if re.search(rx, m)), None)
+# lookup-only name variants (prices only; the estimate row keeps the photo name)
+PRICE_ALIAS = [(r"^rear wheelhouse", "wheel house inner rear"), (r"^front wheelhouse", "wheel house inner front")]
+
 def tier_of(model):
     if COMMERCIAL.search(model): return "T7 commercial / lorry / bus / van"
     t = TIER_OF.get(brand_of(model))
@@ -137,19 +153,30 @@ def ref(blocks, kw, model):
     gen = re.search(r"\b((?:19|20)\d\d)\b", m); gen = gen.group(1) if gen else None
     AB = {"frt": "front", "fr": "front", "rr": "rear", "assy": "assembly", "l": "lh", "r": "rh"}
     toks = lambda t: [AB.get(w, w) for w in re.findall(r"[a-z0-9]+", re.sub(r"\[[^]]*\]|\([^)]*\)", " ", t.lower()))]
+    for a, b in PRICE_ALIAS:
+        kw = re.sub(a, b, kw)
     want = toks(kw)
     def hits(pred):
         rows = [(num(c[-1]), c[0], b["model"]) for b in blocks if pred(b) for c in b["parts"] if num(c[-1]) > 0]
-        exact = [r for r in rows if sorted(toks(r[1])) == sorted(want)]          # same words, any order (Door Hinge Front LH = Door Front Hinge LH)
-        return exact or [r for r in rows if all(w in toks(r[1]) for w in want)]  # else: contains all the words
+        def match(w2):
+            exact = [r for r in rows if sorted(toks(r[1])) == sorted(w2)]          # same words, any order (Door Hinge Front LH = Door Front Hinge LH)
+            return exact or [r for r in rows if all(w in toks(r[1]) for w in w2)]  # else: contains all the words
+        sw = {"lh": "rh", "rh": "lh"}
+        return match(want) or match([sw.get(w, w) for w in want])   # 2026-11-04: the other side's price at the same level beats a looser level
     tiers = []
     if gen: tiers.append((f"same model {f} {gen}", lambda b: fam(b["model"]).lower() == f and gen in b["model"]))
     tiers += [(f"same model {f}", lambda b: fam(b["model"]).lower() == f),
               (f"same brand {brand}", lambda b: fam(b["model"]).lower().split()[:1] == [brand])]
     tier = tier_of(m)
     if tier:
+        sg = seg_of(m); yr = int(gen) if gen else None
+        yof = lambda b: int(re.search(r"\b((?:19|20)\d\d)\b", b["model"]).group(1)) if re.search(r"\b((?:19|20)\d\d)\b", b["model"]) else 0
+        if sg and yr:
+            tiers.append((f"same tier, same class {sg}, {yr-10}+", lambda b: tier_of(b["model"]) == tier and seg_of(b["model"]) == sg and yof(b) >= yr - 10))
+        if sg:
+            tiers.append((f"same tier, same class {sg}", lambda b: tier_of(b["model"]) == tier and seg_of(b["model"]) == sg))
         tiers.append((f"same tier {tier}", lambda b: tier_of(b["model"]) == tier))
-    tiers.append(("ALL models (no row in this tier)", lambda b: True))
+    tiers.append(("ALL models (no row in this tier) ⚠️ OTHER TIER - do not use as is, compare same-class cars by hand", lambda b: True))
     for label, pred in tiers:
         h = hits(pred)
         if h:

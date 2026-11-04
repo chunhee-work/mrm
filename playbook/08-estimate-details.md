@@ -13,6 +13,8 @@
 
 - ⚠️ **After any re-save of the Select Parts page (untick / tickall + `gonext.mjs`), a catalogue row whose N/A price was set with `setprices` can vanish from the details page** (batch 7 PRM7898 Wheel Arch Inner Rear RH, RM1,855.60 lost). Fix: `gonext.mjs` once more (the row comes back as N/A), then `fillprices.py` APPLY + `fillempty.mjs`, then `finish.py` for that case. sync_check shows it as `ADD?`.
 
+- ⭐⭐ **Manual-row price when this model has no row (user 2026-11-04, Mazda 3 Rear Wheelhouse RH: RM692.52 "too cheap").** Use the brand TIER, then cars of the SAME CLASS (A/B small, C compact, D large, SUV, MPV, pickup) and a newer generation, other side's price if that side is missing — `price_lookup.py ref` now does this in that order. Never the whole-tier median when same-class cars exist, and never an "ALL models / OTHER TIER" price as is (a Vellfire price is not a Mazda 3 price). Mazda 3 2022 Rear Wheelhouse RH = RM1,356.58 (Civic 2016–2020).
+
 ## Page fields
 - URL `index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=<cid>&extid=<extid>&tpins=0&<sess>`. [merimen-step2-estimate-detail-fill]
 - `PROWCNT` part rows; `PPT<i>` row marker; `PDC<i>` Damage Condition (skip if readOnly); `MROWCNT` misc rows; `MMI<k>` misc price (skip if readOnly). [merimen-step2-estimate-detail-fill]
