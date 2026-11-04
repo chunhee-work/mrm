@@ -112,7 +112,7 @@ function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=
 var DONEC={};   // 2026-11-04 user: one 完成 per case -> db status/case_<PLATE>
 function tabs(){const t=q("#tabs");t.innerHTML="";CASES.forEach(c=>{const b=el("button","tab");b.append(el("span","p",c));const n=ALL[c]?Object.keys(ALL[c]).length:0;b.append(el("span","c",DATA.rows[c].length+" 张"));if(n)b.append(el("span","edc","已改 "+n));if(DONEC[c])b.append(el("span","dn","✓"));b.setAttribute("aria-current",String(c===CASE));
  b.onclick=()=>{CASE=c;ROWS=DATA.rows[c];EDIT=ALL[c]||{};try{history.replaceState(null,"","#"+c)}catch(e){}tabs();render();window.scrollTo({top:0})};t.append(b)})}
-function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar"+(matchMedia("(hover:hover)").matches?"  ·  键盘（先点一下页面）：J 上一张 · K 下一张 · 1/2/3 选其他可能 · C 复制 · V 粘贴 · E 改名 · ⌘Z 撤销 · < 左边案件 · > 右边案件":"");
+function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar"+(matchMedia("(hover:hover)").matches?"  ·  键盘（先点一下页面）：J 上一张 · K 下一张 · 1/2/3 选其他可能 · C 复制 · V 粘贴 · E 改名 · ⌘Z 撤销 · < 左边案件 · > 右边案件 · Enter Enter 完成并到下一个案件":"");
  const k=q("#kpis");k.innerHTML="";[["照片",ROWS.length,""],["要确认",ROWS.filter(low).length,"warn"],["你已改",Object.keys(EDIT).length,"ed"]].forEach(([a,b,c])=>{const d=el("div","kpi "+c);d.append(el("div","k",a),el("div","v",b));k.append(d)})}
 const PIC={};function render(){if(!PIC[CASE]){const c=CASE;fetch("pics/"+c+".json").then(x=>x.json()).then(j=>{PIC[c]=j;if(CASE===c)render()}).catch(()=>{});}head();const g=q("#grid");g.innerHTML="";const N=ROWS.length;let shown=0;const M=byN(CASE);const OO=order(CASE);
  OO.forEach((nn,pos)=>{const r=M[nn];const e=EDIT[r.n];if(filter==="low"&&!low(r))return;if(filter==="ed"&&!e)return;shown++;
@@ -144,13 +144,17 @@ function edit(r,f,paste){const nm=f.querySelector(".nm");if(!nm)return;const inp
  let tm;inp.addEventListener("input",ev=>{clearTimeout(tm);const v=inp.value.replace(/\s+/g," ").trim();if(!v)return;if(NSET.has(v)&&(!ev.inputType||ev.inputType==="insertReplacementText")){fin(true);return}tm=setTimeout(()=>fin(true),3000)})}
 let CLIP="",UNDO=[];
 // 2026-11-04 (user: faster naming) keyboard on a computer: the card under the mouse (or moved to with J/K) is "current".
-// user 2026-11-04: J/↑ previous · K/↓ next · 1/2/3 = pick that "其他可能" option · E/Enter edit · C copy · V paste · ⌘Z / Ctrl+Z undo the last change · < / > previous / next case
+// user 2026-11-04: J/↑ previous · K/↓ next · 1/2/3 = pick that "其他可能" option · E edit · Enter Enter = 完成 this case and go right · C copy · V paste · ⌘Z / Ctrl+Z undo the last change · < / > previous / next case
 let KC=null;function setKC(n,scroll){if(KC===n)return;const o=document.getElementById("p"+KC);if(o)o.classList.remove("kc");KC=n;const f=document.getElementById("p"+n);if(f){f.classList.add("kc");if(scroll)f.scrollIntoView({block:"center",behavior:"smooth"})}}
 document.addEventListener("keydown",ev=>{const t=ev.target;const inField=t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA");
  if((ev.metaKey||ev.ctrlKey)&&!ev.shiftKey&&ev.key.toLowerCase()==="z"&&!inField){ev.preventDefault();const u=UNDO.pop();if(!u){toast("没有可以撤销的");return}
   if(u.c!==CASE){const b=[...document.querySelectorAll("#tabs .tab")].find(x=>x.querySelector(".p").textContent===u.c);if(b)b.click()}
   save(u.r,u.prev,true).then(()=>{setKC(u.r.n,true);toast("已撤销：第 "+u.r.n+" 张 → "+(u.prev||u.r.name))});return}
  if(ev.metaKey||ev.ctrlKey||ev.altKey||inField)return;
+ if(ev.key==="Enter"&&!(t&&t.tagName==="BUTTON")){ev.preventDefault();const now=Date.now();   // user 2026-11-04: Enter Enter = this case 完成 + go to the right case
+  if(now-(window.__ent||0)<700){window.__ent=0;if(!db){toast("还没连上，请稍等");return}const c=CASE,i=CASES.indexOf(c);
+   (DONEC[c]?Promise.resolve():setDone(c,true)).then(()=>{DONEC[c]=true;tabs();doneUI();if(i<CASES.length-1)q("#tabR").click();else toast("最后一个案件了")})}
+  else{window.__ent=now;toast("再按一次 Enter：完成 "+CASE+" 并到右边的案件")}return}
  if(ev.key==="<"||ev.key===","){ev.preventDefault();q("#tabL").click();return}   // user 2026-11-04: < left case, > right case
  if(ev.key===">"||ev.key==="."){ev.preventDefault();q("#tabR").click();return}
  const cards=[...document.querySelectorAll("#grid figure.card")];if(!cards.length)return;const k=ev.key.toLowerCase();
@@ -159,7 +163,7 @@ document.addEventListener("keydown",ev=>{const t=ev.target;const inField=t&&(t.t
  if(k==="j"||k==="arrowup"){ev.preventDefault();setKC(+cards[Math.max(0,i-1)].id.slice(1),true);return}
  if(i<0)return;const r=byN(CASE)[KC],f=cards[i];if(!r)return;
  if("123".includes(k)&&k.length===1){const opts=[r.name,...(r.how==="rule"?[]:r.alts)].filter(x=>x!==cur(r));const x=opts[+k-1];if(x){ev.preventDefault();save(r,x===r.name?null:x)}return}
- if(k==="e"||k==="enter"){ev.preventDefault();edit(r,f);return}
+ if(k==="e"){ev.preventDefault();edit(r,f);return}
  if(k==="v"){ev.preventDefault();if(CLIP)save(r,CLIP===r.name?null:CLIP);else toast("先按 C 复制一个名称");return}
  if(k==="c"){ev.preventDefault();copyName(cur(r));return}});
 async function copyName(n){CLIP=n;let ok=false;try{await navigator.clipboard.writeText(n);ok=true}catch(e){}toast(ok?("已复制："+n):("已复制（只在这个页面里能 Paste）："+n))}
