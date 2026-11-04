@@ -16,7 +16,8 @@ mode, CK, FT = sys.argv[1], sys.argv[2], sys.argv[3]
 paths = open(os.path.join(HERE, os.environ.get("PATHS_FILE", "big_paths_n3.txt"))).read().split("\n")
 meta = [l.split("\t") for l in open(os.path.join(HERE, os.environ.get("META_FILE", "big_meta_n3.tsv"))).read().split("\n") if l]
 CROP = float(os.environ.get("CROP", "0"))          # extract: >0 = only the centre (crosshair) part, e.g. 0.5 = middle half, zoomed in
-FEATS = os.path.join(HERE, "feats_%s%s.npy" % (FT, "_c" if CROP and mode == "extract" else ""))
+FLIP = os.environ.get("FLIP") == "1"   # 2026-11-04 extract: mirror every photo left<->right (LH/RH augmentation + test-time augmentation) -> feats_<ft>[_c]_f.npy
+FEATS = os.path.join(HERE, "feats_%s%s%s.npy" % (FT, "_c" if CROP and mode == "extract" else "", "_f" if FLIP and mode == "extract" else ""))
 FEATC = os.path.join(HERE, "feats_%s_c.npy" % FT)   # train: used when it exists (whole photo + crosshair zoom)
 ck = torch.load(os.path.join(HERE, CK), map_location="cpu")
 mean = np.array([0.485, 0.456, 0.406], np.float32); std = np.array([0.229, 0.224, 0.225], np.float32)
@@ -24,6 +25,7 @@ mean = np.array([0.485, 0.456, 0.406], np.float32); std = np.array([0.229, 0.224
 def img(i):
     try:
         im = Image.open(os.path.join(HERE, paths[i])).convert("RGB")
+        if FLIP: im = im.transpose(Image.FLIP_LEFT_RIGHT)
         if CROP:
             w, h = im.size; cw, ch = w * CROP, h * CROP; im = im.crop((int((w - cw) / 2), int((h - ch) / 2), int((w + cw) / 2), int((h + ch) / 2)))
         a = np.asarray(im.resize((224, 224), Image.BICUBIC), np.float32) / 255
