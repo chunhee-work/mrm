@@ -1793,6 +1793,22 @@
   "Exhaust Tailpipe Trim LH": null,
   "Exhaust Tailpipe Trim RH": null,
   "Exhaust Tail Pipe Trim": null,
-  "Exhaust Tailpipe Finisher": null
+  "Exhaust Tailpipe Finisher": null,
+  "Side Skirt RH": "Runningboard Spoiler RH",
+  "Side Skirt LH": "Runningboard Spoiler LH",
+  "Suspension Arm Front RH": "Front Suspension Lower Arm RH",
+  "Suspension Arm Front LH": "Front Suspension Lower Arm LH",
+  "Rear RH Bootlid Backup Lamp": "Rear Lamp Inner RH",
+  "Rear LH Bootlid Backup Lamp": "Rear Lamp Inner LH",
+  "Rear RH Ventilation": "Boot Extractor Vent",
+  "Rear LH Ventilation": "Boot Extractor Vent",
+  "Daytime Run Light LH": "Lamp Daytime Running LH",
+  "Daytime Run Light RH": "Lamp Daytime Running RH",
+  "Tailgate Rear": "Tailgate",
+  "Bumper Bracket Rear RH": "Rear Bumper Bracket Side RH",
+  "Bumper Bracket Rear LH": "Rear Bumper Bracket Side LH",
+  "Extension Spoiler Runningboard Panel LH": "Runningboard Spoiler LH",
+  "Extension Spoiler Runningboard Panel RH": "Runningboard Spoiler RH",
+  "Bootlid Lamp LH": "Rear Lamp Inner LH"
  }
 }

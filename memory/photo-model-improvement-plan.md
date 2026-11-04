@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 User approved (2026-11-04, "ok go ahead" + "after all these 1-7 done … try 6 use this device and train for 30 小时以上"):
-1. clean training labels (2-fold cross-check `typesafe/photo_train/audit_folds.sh` -> suspects -> user review page)
+1. clean training labels (2-fold cross-check `typesafe/photo_train/audit_folds.sh` -> suspects). DONE 2026-11-04: 139 recurring pairs, 92 decided by Claude from photos (label_fixes_audit5.json: 245 relabels + merges in name_decisions.json), 47 on the 标签核对台 https://claude.ai/artifact/VfvfpNfPMkHrcYZxFSpuhF (db audit5). The next label build (n4) MUST apply label_fixes_audit5.json + the user's audit5 decisions. ~1,100 single-photo suspects in audit_suspects.json not reviewed yet
 2. LH/RH mirror augmentation (flip + swap LH/RH)  3. impact side / vehicle as model input
 4. test-time augmentation (orig + flip + centre zoom)  5. targeted labelling of the most-confused pairs (rare_pick.py)
 6. bigger backbone (DINOv2-L / SigLIP2-L) ON THIS Mac mini, 30h+ is OK (user does not want cloud upload for now)
