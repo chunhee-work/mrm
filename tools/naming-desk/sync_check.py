@@ -44,6 +44,7 @@ ALIAS = [
     (r"Door (Front|Rear) Window", "Door Glass"),
     (r"Rear Bumper Bracket (Side|Upper)", "Bumper Bracket Rear|Bumper Rear Retainer|Bumper Retainer Rear|Bumper Rear Bracket"),
     (r"Rear Wheelhouse (LH|RH)", "Wheel Arch Inner Rear|Wheel House"),   # user 2026-11-04: same part by part number (Mazda 70-15X / 71-15X)
+    (r"Rear Exhaust Pipe", "Exhaust Silencer|Rear Exhaust Pipe|Exhaust Tailpipe"),   # user round 3 (3345273): Exhaust Silencer -> Rear Exhaust Pipe
     (r"Firewall Panel", "Engine Partition Panel|Firewall Panel"),   # user 2026-11-04 (VAW8266): same part
     (r"Front Bumper Bracket", "Bumper Bracket Front|Bumper Front Bracket|Bumper Front Retainer|Bumper Front Side Retainer"),
     (r"Headlamp Panel (LH|RH)", "Front Panel Radiator Support|Headlamp Panel|Headlamp Support"),   # batch 7 CEW7805
