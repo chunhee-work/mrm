@@ -9,8 +9,8 @@ HERE = os.path.dirname(os.path.abspath(__file__)); OUT = sys.argv[1]
 UNSURE = float(os.environ.get("UNSURE", "0.6"))   # top-1 below this = unsure
 N = int(sys.argv[2]) if len(sys.argv) > 2 else 60; RARE = int(sys.argv[3]) if len(sys.argv) > 3 else 100; PER = int(sys.argv[4]) if len(sys.argv) > 4 else 2
 paths = open(os.path.join(HERE, os.environ.get("PATHS_FILE", "big_paths_n2.txt"))).read().split("\n")
-meta = [l.split("\t") for l in open(os.path.join(HERE, os.environ.get("META_FILE", "big_meta_n2.tsv"))).read().split("\n") if l]
-F = np.load(os.path.join(HERE, "feats_big10n.npy"), mmap_mode="r"); FC = np.load(os.path.join(HERE, "feats_big10n_c.npy"), mmap_mode="r")
+meta = [l.split("\t") for l in open(os.path.join(HERE, os.environ.get("META_FILE", "big_meta_n3.tsv"))).read().split("\n") if l]
+F = np.load(os.path.join(HERE, "feats_big10n3.npy"), mmap_mode="r"); FC = np.load(os.path.join(HERE, "feats_big10n3_c.npy"), mmap_mode="r")
 ck = torch.load(os.path.join(HERE, "models", "seq_best_crop.pt"), map_location="cpu"); labels = ck["labels"]; WIN = ck["win"]; D = ck["dim"]
 class Ctx(nn.Module):
     def __init__(s):

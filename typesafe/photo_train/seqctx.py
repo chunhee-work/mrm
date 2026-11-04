@@ -13,8 +13,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 dev = "mps" if torch.backends.mps.is_available() else "cpu"
 WIN = int(os.environ.get("WIN", "4"))
 mode, CK, FT = sys.argv[1], sys.argv[2], sys.argv[3]
-paths = open(os.path.join(HERE, os.environ.get("PATHS_FILE", "big_paths.txt"))).read().split("\n")
-meta = [l.split("\t") for l in open(os.path.join(HERE, os.environ.get("META_FILE", "big_meta.tsv"))).read().split("\n") if l]
+paths = open(os.path.join(HERE, os.environ.get("PATHS_FILE", "big_paths_n3.txt"))).read().split("\n")
+meta = [l.split("\t") for l in open(os.path.join(HERE, os.environ.get("META_FILE", "big_meta_n3.tsv"))).read().split("\n") if l]
 CROP = float(os.environ.get("CROP", "0"))          # extract: >0 = only the centre (crosshair) part, e.g. 0.5 = middle half, zoomed in
 FEATS = os.path.join(HERE, "feats_%s%s.npy" % (FT, "_c" if CROP and mode == "extract" else ""))
 FEATC = os.path.join(HERE, "feats_%s_c.npy" % FT)   # train: used when it exists (whole photo + crosshair zoom)
