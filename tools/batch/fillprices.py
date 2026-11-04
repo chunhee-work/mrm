@@ -4,8 +4,8 @@
   python3 fillprices.py <batch_dir> [PLATE ...]      # dry run: prints the price it would use + source + ref count
   APPLY=1 python3 fillprices.py <batch_dir> [PLATE ...]
 
-Price order (playbook 08): 1) same row elsewhere in this case (e.g. LH priced, RH N/A), 2) the user's price lists
-tools/price-refs/*.tsv by exact part number, then by name, 3) tools/price_lookup.py median (all models),
+Price order (playbook 08): 1) same row elsewhere in this case (e.g. LH priced, RH N/A), 2) tools/price_lookup.py ref --model,
+3) ONLY when there is no reference price: the user's price lists tools/price-refs/*.tsv (same brand; part number, then name),
 4) fixed rule prices (Bumper Clips 10.00). Prices with < 5 reference rows are marked "FLAG".
 """
 import glob, json, os, re, subprocess, sys
@@ -57,11 +57,12 @@ def plan(p, cat, rows, R, model=""):
             mk = (model.split() or [""])[0].upper()   # 2026-11-04: a price list only for its own brand (a Suzuki got a Perodua Myvi price)
             RB = [rf for rf in R if rf[0].split("_")[0].upper() == mk]
             hit = [rf for rf in RB if rf[2] in nos] or [rf for rf in RB if rf[1].lower() == b.lower()]
-            if hit:
-                out[name] = ("%.2f" % hit[0][3], f"price list {hit[0][0]}", len(hit) * 5); continue
+            # 2026-11-04 (user): the Myvi / Proton / Toyota price lists are a LAST resort; the reference price comes first
             v, n = lookup(b, model)
             if v:
-                out[name] = (v, f"price_lookup median of {n}", n)
+                out[name] = (v, f"price_lookup median of {n}", n); continue
+            if hit:
+                out[name] = ("%.2f" % hit[0][3], f"price list {hit[0][0]} (no reference price)", 1)
     return out
 
 

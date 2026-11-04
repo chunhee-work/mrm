@@ -15,6 +15,7 @@
 
 - ⭐⭐ **Manual-row price when this model has no row (user 2026-11-04, Mazda 3 Rear Wheelhouse RH: RM692.52 "too cheap").** Use the brand TIER, then cars of the SAME CLASS (A/B small, C compact, D large, SUV, MPV, pickup) and a newer generation, other side's price if that side is missing — `price_lookup.py ref` now does this in that order. Never the whole-tier median when same-class cars exist, and never an "ALL models / OTHER TIER" price as is (a Vellfire price is not a Mazda 3 price). Mazda 3 2022 Rear Wheelhouse RH = RM1,356.58 (Civic 2016–2020).
 
+- ⭐⭐ **The 3 price lists (Perodua Myvi 2017, Proton Saga 2016, Toyota Vios 2016 in tools/price-refs/) are a LAST resort** (user 2026-11-04): use the reference price (`price_lookup ref --model`) first; a price list only when there is no reference price. MDX5164 Tailgate Support Strut: list RM39 → reference RM211.40.
 - ⚠️ `fillprices.py` (2026-11-04): a price list (tools/price-refs/<Brand>_<Model>.tsv) is used ONLY for its own brand (WYY3391 Suzuki got a Perodua Myvi strut price RM39 -> RM372 Swift ref), and its fallback is `price_lookup ref --model` (never the all-models median, never an OTHER TIER price). Fix a wrong set price with `FORCE=1 node setprices.mjs …`.
 
 ## Page fields

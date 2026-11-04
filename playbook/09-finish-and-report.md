@@ -18,6 +18,7 @@
 1. The status line `🔄 0 cases | ✅ <N> done | 100%`.
 2. The car-model table (format below: 车牌 | Registration Date | RC 资料 | Merimen 选的车型 | 车型年份范围 | 选择理由) for ALL cases of the run.
 3. Only what needs the user's decision (one line each). No long explanations.
+4. ⭐ One line saying the Google Sheet is filled, with the rows: `📊 Google Sheet 已填好：第 832–844 行（Cari Makan · 2026 Jul-Dec）` (user 2026-11-04). If not filled yet, say so.
 
 ## Completion table (in Chinese, one row per case, batch order)
 - Columns: | 车牌 | Case ID | Adjuster Report | 折扣/工时 | Narratives | Betterment |. [batch-completion-report-format]
