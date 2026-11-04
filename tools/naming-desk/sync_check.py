@@ -48,6 +48,18 @@ ALIAS = [
     (r"Bumper Front Lower Grille", "Grille Front Lower|Bumper Front Lower Grille"),   # user 2026-11-04 (JSF901): same part
     (r"Firewall Panel", "Engine Partition Panel|Firewall Panel"),   # user 2026-11-04 (VAW8266): same part
     (r"Front Bumper Bracket", "Bumper Bracket Front|Bumper Front Bracket|Bumper Front Retainer|Bumper Front Side Retainer"),
+    # word order / spelling only, same part (2026-11-04 audit, each checked against the case rows)
+    (r"^(Front|Rear) Bumper$", "Bumper (Front|Rear) Cover|Bumper (Front|Rear)$"),
+    (r"^(Front|Rear) Bumper (LH|RH)$", "Bumper (Front|Rear) Cover"),
+    (r"Front Bumper Fog Lamp (LH|RH)$", "Fog Lamp Front|Bumper Front Fog Lamp (LH|RH)"),
+    (r"Quarter Liner", "Quarter Panel Liner|Quarter Liner"),
+    (r"(Front|Rear) Bumper Reinforcement", "Bumper (Front|Rear) Reinforcement"),
+    (r"Windscreen Washer Tank", "Washer Tank"),
+    (r"Door (Front|Rear) Trimboard", "Door Trim Board"),
+    (r"Door (Front|Rear) Hinge (Upper|Lower)", "Door (Front|Rear) Hinge"),
+    (r"(Front|Rear) Chassis Member", "Chassis Member (Front|Rear)"),
+    (r"Runningboard Spoiler (LH|RH)", "Spoiler Runningboard|Runningboard Spoiler"),   # user round 5 merge (Side Skirt -> Runningboard Spoiler)
+    (r"Rear Bumper Bracket Side", "Bumper Rear Mounting Bracket|Bumper Rear Side Bracket|Bumper Bracket Rear"),
     (r"Headlamp Panel (LH|RH)", "Front Panel Radiator Support|Headlamp Panel|Headlamp Support"),   # batch 7 CEW7805
 ]
 # kept by a rule even without its own photo (playbook 07 companions / suspension set)
@@ -56,8 +68,8 @@ KEEP = re.compile(r"Shock Absorber|Suspension Spring|Steering Tie Rod|Lower Arm|
 
 
 PARTWORDS = {"liner", "bracket", "moulding", "finisher", "trim", "lamp", "sensor", "support", "reinforcement", "inner", "upper",
-             "lower", "extension", "cover", "clip", "clips", "seal", "weatherstrip", "hinge", "strut", "garnish", "spoiler", "suspension",
-             "mounting", "retainer", "spring", "absorber", "guide", "rear", "front", "end", "plate", "section", "panel", "member", "wheelhouse", "house"}
+             "lower", "extension", "clip", "clips", "seal", "weatherstrip", "hinge", "strut", "garnish", "spoiler", "suspension",
+             "mounting", "retainer", "spring", "absorber", "guide"}
 
 
 def matches(name, row):
@@ -72,7 +84,7 @@ def matches(name, row):
         return False
     # 2026-11-04 audit: a row with an EXTRA part word is a different part (Quarter Panel != Quarter Panel Liner,
     # Fender != Fender Liner, Front Crossmember != Suspension Crossmember Rear) -> these false matches hid real misses
-    extra = set(words(row)) - set(words(name))
+    extra = set(words(re.sub(r"\[[^\]]*\]?", "", row))) - set(words(name))   # [..] notes are not part words
     if extra & PARTWORDS:
         return False
     s = side(name)

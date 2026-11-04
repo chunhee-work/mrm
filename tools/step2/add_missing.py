@@ -49,7 +49,8 @@ def main():
         t0 = __import__("time").time()
         inp = json.load(open(os.path.join(d, f"{p}.json")))
         if inp["cid"] in st:   # user 2026-11-04: a case already submitted (Pending for Approval) is NEVER touched
-            print(f"{p}: SUBMITTED (pending approval) -> not touched", flush=True); continue; out = json.load(open(os.path.join(d, f"out_{p}.json")))
+            print(f"{p}: SUBMITTED (pending approval) -> not touched", flush=True); continue
+        out = json.load(open(os.path.join(d, f"out_{p}.json")))
         c, e = inp["cid"], inp["ext"]
         adds = sorted({v for x in out if x.get("decision") == "add" and x.get("value")
                        for v in (x["value"] if isinstance(x["value"], list) else [x["value"]])})
