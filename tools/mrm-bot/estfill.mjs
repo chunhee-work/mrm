@@ -15,6 +15,7 @@ function cond(name){var n=(name||'').toLowerCase();
  if(/support strut|\bstrut\b/.test(n))return'Broken';
  if(/windscreen|windshield/.test(n))return'Broken';
  if(/centre guide|center guide/.test(n))return'Broken';
+ if(/spare wheel retainer/.test(n))return'Bent';   // user 2026-11-04
  if(/spare wheel well|wheel well/.test(n))return'Broken';
  if(/lock|striker|hinge/.test(n))return'Bent';
  if(/lamp panel/.test(n))return'Bent';
