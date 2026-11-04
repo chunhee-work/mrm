@@ -37,6 +37,9 @@ Read this at the start of every session/batch. Newer rules override older ones; 
 - "下载" / "download" → WhatsApp download (below), then run the full workflow. [whatsapp-download-trigger]
 - ⭐ **"do the new case" / "do new case(s)" = the same as "下载"** (user 2026-11-03): go to WhatsApp, download the newest file at once and run Phase A. Never stop to ask where the case is.
 
+## Progress messages
+- ⭐⭐ **While doing cases: ONE line only — `- <cases> cases, - <done> done, - <minutes> minutes, - <%>%`** (user 2026-11-04). No long updates; only blocking questions or items the user asked for may add lines.
+
 ## Language
 - Reply in Simplified Chinese, always, including long status reports, tables and summaries. [language-preference]
 - Even when the user writes in English: still reply in Simplified Chinese (user 2026-10-21, said twice).
