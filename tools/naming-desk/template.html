@@ -19,6 +19,7 @@ button{font:inherit;color:inherit}
 .tabarr:hover{border-color:var(--acc)}.tabarr:disabled{opacity:.3;cursor:default}
 .tab .p{font:600 14px "IBM Plex Mono",monospace}
 .tab .c{font-size:12px;color:var(--mut)}
+.tab .dn{font:700 13px system-ui,sans-serif;width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--ok);color:var(--okInk)}
 .tab .edc{font:700 12px "IBM Plex Mono","Noto Sans SC",monospace;padding:3px 9px;border-radius:999px;background:var(--ed);color:var(--bg);box-shadow:0 0 0 2px var(--surface)}
 .tab[aria-current="true"]{background:var(--acc);border-color:var(--acc);color:var(--accInk)}.tab[aria-current="true"] .c{color:inherit;opacity:.85}
 .seg{flex:none;display:flex;padding:2px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
@@ -79,7 +80,7 @@ button.chip{cursor:pointer;min-height:28px}
  <nav class="tabs" id="tabs" aria-label="案件"></nav>
  <button class="tabarr" id="tabR" aria-label="下一个案件 / 向右">›</button>
  <div class="seg" role="group" aria-label="筛选"><button id="fAll" aria-pressed="true">全部</button><button id="fLow" aria-pressed="false">要确认</button><button id="fEd" aria-pressed="false">已改</button></div>
- <button class="donebtn" id="doneBtn" title="全部案件命名好后按这里，Claude 会自动开始 Phase B">完成</button>
+ <button class="donebtn" id="doneBtn" title="这个案件命名好后按这里（按两次），Claude 马上做这个案件的 Step 2">完成</button>
 </div></header>
 <main>
  <section class="head">
@@ -106,7 +107,8 @@ const cur=r=>EDIT[r.n]?EDIT[r.n].name:r.name;
 let tt;function toast(m){const t=q("#toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>{t.hidden=true},2600)}
 function tap(b,fn){let done=0;b.addEventListener("pointerdown",ev=>{if(ev.button!==0)return;ev.preventDefault();done=Date.now();fn()});b.addEventListener("click",()=>{if(Date.now()-done>600)fn()})}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
-function tabs(){const t=q("#tabs");t.innerHTML="";CASES.forEach(c=>{const b=el("button","tab");b.append(el("span","p",c));const n=ALL[c]?Object.keys(ALL[c]).length:0;b.append(el("span","c",DATA.rows[c].length+" 张"));if(n)b.append(el("span","edc","已改 "+n));b.setAttribute("aria-current",String(c===CASE));
+var DONEC={};   // 2026-11-04 user: one 完成 per case -> db status/case_<PLATE>
+function tabs(){const t=q("#tabs");t.innerHTML="";CASES.forEach(c=>{const b=el("button","tab");b.append(el("span","p",c));const n=ALL[c]?Object.keys(ALL[c]).length:0;b.append(el("span","c",DATA.rows[c].length+" 张"));if(n)b.append(el("span","edc","已改 "+n));if(DONEC[c])b.append(el("span","dn","✓"));b.setAttribute("aria-current",String(c===CASE));
  b.onclick=()=>{CASE=c;ROWS=DATA.rows[c];EDIT=ALL[c]||{};try{history.replaceState(null,"","#"+c)}catch(e){}tabs();render();window.scrollTo({top:0})};t.append(b)})}
 function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar";
  const k=q("#kpis");k.innerHTML="";[["照片",ROWS.length,""],["要确认",ROWS.filter(low).length,"warn"],["你已改",Object.keys(EDIT).length,"ed"]].forEach(([a,b,c])=>{const d=el("div","kpi "+c);d.append(el("div","k",a),el("div","v",b));k.append(d)})}
@@ -146,11 +148,11 @@ async function pasteNow(r,f){let tx="";
  if(!tx)tx=CLIP;
  if(tx){if(tx!==cur(r))save(r,tx===r.name?null:tx);else toast("名称一样，没有改动");return}
  edit(r,f,true)}
-async function saveOrder(o){const c=CASE;const prev=ORD[c];ORD[c]=o;render();
+async function saveOrder(o){const c=CASE;undone(c);const prev=ORD[c];ORD[c]=o;render();
  if(!db){toast("这个视图不能保存（请在 claude.ai 登录后打开）。");return}
  try{await db.collection("orders").doc(c).set({case:c,order:o,at:Date.now()});toast("顺序已保存")}
  catch(e){ORD[c]=prev;render();toast("顺序保存失败（"+(e&&e.code||"未知")+"），请再试一次。")}}
-async function save(r,name){const c=CASE,id=c+"-"+String(r.n).padStart(2,"0");const prev=EDIT[r.n];
+async function save(r,name){const c=CASE,id=c+"-"+String(r.n).padStart(2,"0");undone(c);const prev=EDIT[r.n];
  if(name)EDIT[r.n]={name};else delete EDIT[r.n];ALL[c]=EDIT;render();tabs();
  if(!db){toast("这个视图不能保存（请在 claude.ai 登录后打开）。");return}
  try{const d=db.collection("names").doc(id);if(name)await d.set({case:c,n:r.n,src:r.src,model:r.name,name:name,at:Date.now()});else await d.delete();
@@ -163,16 +165,23 @@ tabs();render();
  const go=d=>{const i=CASES.indexOf(CASE)+d;if(i>=0&&i<CASES.length&&t.children[i])t.children[i].click()};
  L.onclick=()=>go(-1);R.onclick=()=>go(1);
  new MutationObserver(()=>{const a=t.querySelector('[aria-current="true"]');if(a)a.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});upd()}).observe(t,{childList:true});upd();})();
-// 2026-11-04 user: 「完成」button -> db status/done {cases, at}; Claude polls it and starts Phase B by itself
-let DONE=null,askT=null;const KEY=CASES.slice().sort().join(",");
-function doneUI(){const b=q("#doneBtn");if(!b)return;const ok=DONE&&DONE.key===KEY&&DONE.done;b.classList.toggle("ok",!!ok);b.classList.remove("ask");
- b.textContent=ok?"已完成 ✓ "+new Date(DONE.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"完成";b.disabled=!db}
-async function setDone(v){try{await db.collection("status").doc("done").set({key:KEY,cases:CASES,done:v,at:Date.now()});toast(v?"已通知 Claude：开始 Phase B":"已撤销「完成」")}catch(e){toast("没保存成功，请再按一次")}}
-q("#doneBtn").onclick=()=>{const b=q("#doneBtn");if(!db){toast("还没连上，请稍等");return}const ok=DONE&&DONE.key===KEY&&DONE.done;
- if(!b.classList.contains("ask")){b.classList.add("ask");b.textContent=ok?"再按一次撤销":"再按一次确认完成";clearTimeout(askT);askT=setTimeout(doneUI,4000);return}
- clearTimeout(askT);setDone(!ok)};
+// 2026-11-04 user: one 「完成」 per case -> db status/case_<PLATE> {key,case,done,at}; when every case is done also status/done (old form).
+// Claude polls status and does Step 2 for each case as soon as it is done. Editing a done case undoes its 完成.
+let askT=null;const KEY=CASES.slice().sort().join(",");
+function doneUI(){const b=q("#doneBtn");if(!b)return;const ok=!!DONEC[CASE];b.classList.toggle("ok",ok);b.classList.remove("ask");
+ const n=CASES.filter(c=>DONEC[c]).length;
+ b.textContent=(ok?CASE+" 已完成 ✓":"完成 "+CASE)+"  ("+n+"/"+CASES.length+")";b.disabled=!db}
+async function setDone(c,v){try{await db.collection("status").doc("case_"+c).set({key:KEY,case:c,done:v,at:Date.now()});
+  const all=CASES.every(x=>x===c?v:DONEC[x]);
+  if(all||!v)await db.collection("status").doc("done").set({key:KEY,cases:CASES,done:all,at:Date.now()});
+  toast(v?(all?"全部完成，已通知 Claude":"已通知 Claude："+c+" 开始 Step 2"):"已撤销 "+c+" 的「完成」")}catch(e){toast("没保存成功，请再按一次")}}
+function undone(c){if(DONEC[c]&&db){DONEC[c]=false;setDone(c,false);toast(c+" 改了，改好后请再按「完成」");tabs();doneUI()}}
+q("#doneBtn").onclick=()=>{const b=q("#doneBtn");if(!db){toast("还没连上，请稍等");return}const ok=!!DONEC[CASE];
+ if(!b.classList.contains("ask")){b.classList.add("ask");b.textContent=ok?"再按一次撤销":"再按一次确认 "+CASE+" 完成";clearTimeout(askT);askT=setTimeout(doneUI,4000);return}
+ clearTimeout(askT);setDone(CASE,!ok)};
+new MutationObserver(doneUI).observe(q("#tabs"),{childList:true});
 (async()=>{if(!window.claude||!window.claude.use)return;db=await window.claude.use("db");if(!db)return;
- db.collection("status").onSnapshot(s=>{DONE=null;s.docs.forEach(d=>{const x=d.data();if(x&&x.key)DONE=x});doneUI()},()=>{});doneUI();
+ db.collection("status").onSnapshot(s=>{DONEC={};s.docs.forEach(d=>{const x=d.data();if(x&&x.key===KEY&&x.case&&x.done)DONEC[x.case]=true});tabs();doneUI()},()=>{});doneUI();
  db.collection("orders").onSnapshot(s=>{ORD={};s.docs.forEach(d=>{const x=d.data();if(x&&x.case&&Array.isArray(x.order))ORD[x.case]=x.order});render()},()=>{});
  db.collection("names").onSnapshot(s=>{ALL={};s.docs.forEach(d=>{const x=d.data();if(!x||!x.case)return;(ALL[x.case]=ALL[x.case]||{})[x.n]={name:x.name}});EDIT=ALL[CASE]||{};tabs();render()},()=>{})})();
 </script>
