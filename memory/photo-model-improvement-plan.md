@@ -12,3 +12,8 @@ User approved (2026-11-04, "ok go ahead" + "after all these 1-7 done … try 6 u
 7. confidence calibration so 要确认 (<90%) flags the right photos
 Baseline (live, round 1): whole 82.3/92.8, crop 81.2/92.3 on the 3,306-photo test split. Error analysis 2026-11-04: only 5% of errors are LH/RH-only, 3% Front/Rear-only; most are same-area parts (Rear Bumper vs Spoiler/Sensor/Moulding, Front Panel Assembly vs Headlamp Panel/Upper/Reinforcement, Grille Front vs Lower Grille, Tailgate/Boot Lid vs Rear View).
 **Why:** user wants fewer photos to fix on the 照片命名台. **How to apply:** do 1-7 in order when the machine is free (no Merimen batch running), compare on the same test split, swap a model in only if top-1 improves; then start 6. See [[photo-confirm-workflow]].
+
+## 2026-11-05 results ideas 2+4 (mirrored photos)
+- Test-time mirror (TTA=1) on the current crop model: top1 81.2 -> 81.9, top3 92.3 -> 92.8 (no retrain). Costs a 2nd backbone pass per photo (~+1 min per batch), not in case_report.py yet.
+- Mirror-augmented training (FLIP_AUG 0.25/0.5, 4-8 epochs, + TTA): best 82.0/92.7 — same as TTA alone (noise). Not swapped.
+- Next: idea 6 (bigger backbone on this Mac, 30 h+), then decide TTA in production.
