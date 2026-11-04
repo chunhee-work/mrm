@@ -116,7 +116,7 @@ function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CAS
  const k=q("#kpis");k.innerHTML="";[["照片",ROWS.length,""],["要确认",ROWS.filter(low).length,"warn"],["你已改",Object.keys(EDIT).length,"ed"]].forEach(([a,b,c])=>{const d=el("div","kpi "+c);d.append(el("div","k",a),el("div","v",b));k.append(d)})}
 const PIC={};function render(){if(!PIC[CASE]){const c=CASE;fetch("pics/"+c+".json").then(x=>x.json()).then(j=>{PIC[c]=j;if(CASE===c)render()}).catch(()=>{});}head();const g=q("#grid");g.innerHTML="";const N=ROWS.length;let shown=0;const M=byN(CASE);const OO=order(CASE);
  OO.forEach((nn,pos)=>{const r=M[nn];const e=EDIT[r.n];if(filter==="low"&&!low(r))return;if(filter==="ed"&&!e)return;shown++;
-  const f=el("figure","card"+(e?" edited":low(r)?" warn":"")+(KC===r.n?" kc":""));f.id="p"+r.n;f.addEventListener("mouseenter",()=>setKC(r.n,false));
+  const f=el("figure","card"+(e?" edited":low(r)?" warn":"")+(KC===r.n?" kc":""));f.id="p"+r.n;f.addEventListener("mousemove",ev=>{if(Date.now()-KMOVE<600)return;if(ev.movementX||ev.movementY)setKC(r.n,false)});
   const ph=el("div","ph");const img=el("img");img.src=(PIC[CASE]&&PIC[CASE][r.n])||"";img.alt=cur(r);img.loading="lazy";ph.append(img);
   const ol=el("div","ov l");ol.append(el("span","badge",(pos+1)+"/"+N));ph.append(ol);if(filter==="all"){ph.append(el("span","grip","⠿ 拖动排序"));ph.draggable=true;
    ph.addEventListener("dragstart",ev=>{dragN=r.n;f.classList.add("dragging");try{ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",String(r.n))}catch(x){}});
@@ -145,7 +145,7 @@ function edit(r,f,paste){const nm=f.querySelector(".nm");if(!nm)return;const inp
 let CLIP="",UNDO=[];
 // 2026-11-04 (user: faster naming) keyboard on a computer: the card under the mouse (or moved to with J/K) is "current".
 // user 2026-11-04: J/↑ previous · K/↓ next · 1/2/3 = pick that "其他可能" option · E edit · Enter Enter = 完成 this case and go right · C copy · V paste · ⌘Z / Ctrl+Z undo the last change · < / > previous / next case
-let KC=null;function setKC(n,scroll){if(KC===n)return;const o=document.getElementById("p"+KC);if(o)o.classList.remove("kc");KC=n;const f=document.getElementById("p"+n);if(f){f.classList.add("kc");if(scroll)f.scrollIntoView({block:"center",behavior:"smooth"})}}
+let KC=null,KMOVE=0;function setKC(n,scroll){if(scroll)KMOVE=Date.now();if(KC===n)return;const o=document.getElementById("p"+KC);if(o)o.classList.remove("kc");KC=n;const f=document.getElementById("p"+n);if(f){f.classList.add("kc");if(scroll)f.scrollIntoView({block:"center",behavior:"smooth"})}}
 document.addEventListener("keydown",ev=>{const t=ev.target;const inField=t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA");
  if((ev.metaKey||ev.ctrlKey)&&!ev.shiftKey&&ev.key.toLowerCase()==="z"&&!inField){ev.preventDefault();const u=UNDO.pop();if(!u){toast("没有可以撤销的");return}
   if(u.c!==CASE){const b=[...document.querySelectorAll("#tabs .tab")].find(x=>x.querySelector(".p").textContent===u.c);if(b)b.click()}
