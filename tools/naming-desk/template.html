@@ -70,6 +70,8 @@ button.chip{cursor:pointer;min-height:28px}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:var(--shadow);z-index:9}
 .empty{padding:40px;text-align:center;color:var(--mut);border:1px dashed var(--line);border-radius:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.donebtn{min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--acc);background:var(--acc);color:var(--accInk);font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
+.donebtn.ask{background:var(--warn);border-color:var(--warn)}.donebtn.ok{background:var(--surface);color:var(--acc)}
 </style>
 <header class="top"><div class="in">
  <span class="brand">照片命名台</span>
@@ -77,6 +79,7 @@ button.chip{cursor:pointer;min-height:28px}
  <nav class="tabs" id="tabs" aria-label="案件"></nav>
  <button class="tabarr" id="tabR" aria-label="下一个案件 / 向右">›</button>
  <div class="seg" role="group" aria-label="筛选"><button id="fAll" aria-pressed="true">全部</button><button id="fLow" aria-pressed="false">要确认</button><button id="fEd" aria-pressed="false">已改</button></div>
+ <button class="donebtn" id="doneBtn" title="全部案件命名好后按这里，Claude 会自动开始 Phase B">完成</button>
 </div></header>
 <main>
  <section class="head">
@@ -160,7 +163,16 @@ tabs();render();
  const go=d=>{const i=CASES.indexOf(CASE)+d;if(i>=0&&i<CASES.length&&t.children[i])t.children[i].click()};
  L.onclick=()=>go(-1);R.onclick=()=>go(1);
  new MutationObserver(()=>{const a=t.querySelector('[aria-current="true"]');if(a)a.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});upd()}).observe(t,{childList:true});upd();})();
+// 2026-11-04 user: 「完成」button -> db status/done {cases, at}; Claude polls it and starts Phase B by itself
+let DONE=null,askT=null;const KEY=CASES.slice().sort().join(",");
+function doneUI(){const b=q("#doneBtn");if(!b)return;const ok=DONE&&DONE.key===KEY&&DONE.done;b.classList.toggle("ok",!!ok);b.classList.remove("ask");
+ b.textContent=ok?"已完成 ✓ "+new Date(DONE.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"完成";b.disabled=!db}
+async function setDone(v){try{await db.collection("status").doc("done").set({key:KEY,cases:CASES,done:v,at:Date.now()});toast(v?"已通知 Claude：开始 Phase B":"已撤销「完成」")}catch(e){toast("没保存成功，请再按一次")}}
+q("#doneBtn").onclick=()=>{const b=q("#doneBtn");if(!db){toast("还没连上，请稍等");return}const ok=DONE&&DONE.key===KEY&&DONE.done;
+ if(!b.classList.contains("ask")){b.classList.add("ask");b.textContent=ok?"再按一次撤销":"再按一次确认完成";clearTimeout(askT);askT=setTimeout(doneUI,4000);return}
+ clearTimeout(askT);setDone(!ok)};
 (async()=>{if(!window.claude||!window.claude.use)return;db=await window.claude.use("db");if(!db)return;
+ db.collection("status").onSnapshot(s=>{DONE=null;s.docs.forEach(d=>{const x=d.data();if(x&&x.key)DONE=x});doneUI()},()=>{});doneUI();
  db.collection("orders").onSnapshot(s=>{ORD={};s.docs.forEach(d=>{const x=d.data();if(x&&x.case&&Array.isArray(x.order))ORD[x.case]=x.order});render()},()=>{});
  db.collection("names").onSnapshot(s=>{ALL={};s.docs.forEach(d=>{const x=d.data();if(!x||!x.case)return;(ALL[x.case]=ALL[x.case]||{})[x.n]={name:x.name}});EDIT=ALL[CASE]||{};tabs();render()},()=>{})})();
 </script>
