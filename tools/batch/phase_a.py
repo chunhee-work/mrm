@@ -39,6 +39,11 @@ def main():
     blocking = lambda d: [m for m in d.get("missing", []) if not re.search(r"own insurance|claimant.*insurance|\bINS\b", m, re.I)]
     plates = sys.argv[2:] or [p for p, d in data.items() if "case" in d and not blocking(d)]
     opts = json.load(open(os.path.join(H, "model_opts_sinar.json")))
+    # 2026-11-04: a make with no model list (batch 9 SUZUKI) made the create fail -> dump it first (dumpmodels merges makes)
+    need = sorted({data[p]["case"]["veh"]["make"].upper() for p in plates} - {k for k, v in opts.items() if v})
+    if need and not TEST:
+        print("   dumping model lists for", need, flush=True); safe("dumpmodels_sinar.mjs", ",".join(need), timeout=900)
+        opts = json.load(open(os.path.join(H, "model_opts_sinar.json")))
     tag = os.path.basename(os.path.normpath(b))
     cf, rf, uf = (os.path.join(H, f"{x}_{tag}.json") for x in ("cases", "report", "uploads"))
     t_all = time.time()
@@ -96,6 +101,13 @@ def main():
             print("   STOP: workshop not matched ->", bad); sys.exit(1)
         out = safe("createpar2_sinar.mjs", ",".join(plates), "session_base.txt", cf, "submit", timeout=2400)
         print("\n".join("   " + l for l in out.splitlines() if "=>" in l))
+        # 2026-11-04: retry a failed create once at once (batch 9 TDG7387 failed then worked on a manual re-run, ~10 min lost).
+        # Only when Merimen REJECTED the form (MSG=... and still on dsp_clmreg): no case was made, so a retry cannot duplicate one.
+        fail = [l.split()[0] for l in out.splitlines() if "=>" in l and "caseid=?" in l and "MSG=" in l and "dsp_clmreg" in l]
+        if fail:
+            print("   retry create:", fail, flush=True)
+            out2 = safe("createpar2_sinar.mjs", ",".join(fail), "session_base.txt", cf, "submit", timeout=1200)
+            print("\n".join("   " + l for l in out2.splitlines() if "=>" in l))
     s3()
 
     @step("4 ids")

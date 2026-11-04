@@ -64,3 +64,7 @@
 - Manager `ddlbMGRNAME` = "(HQ) <fixed manager>"; Adjuster `ddlbADJNAME` = "(HQ) <the user>", the plain variant, not the alternate spelling. The scripts default to the right names (`MGR`/`ADJ` env). [merimen-manager-adjuster] [merimen-batch-workflow]
 - Duplicate options exist → match exact text, take the first. Clerical `ddlbASSNAME` = default "(First Pick-up)". [merimen-manager-adjuster]
 - Click OK on the CHARGEADJ points modal, then Next (Save & Return) / `SaveReport(2)`. [merimen-manager-adjuster] [merimen-az-progress]
+
+## Automatic in phase_a (2026-11-04, batch 9 gaps)
+- A make with no model list in `model_opts_sinar.json` is dumped first (`dumpmodels_sinar.mjs <MAKE>`), so the model pick never comes back UNSURE with an empty top 3 (WYY3391 SUZUKI).
+- A create that Merimen rejected (`MSG=...` and still on `dsp_clmreg`, `caseid=?`) is retried once on its own. No case was made, so the retry cannot duplicate one. Any other failure: check the worklist before re-running.

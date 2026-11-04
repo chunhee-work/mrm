@@ -36,6 +36,15 @@ def upload(b, plates):
         if m and m.group(1) != "0" and os.environ.get("FORCE") != "1":   # 2026-11-04: never upload twice (batch 8 duplicated 3 cases)
             print(p, "already has", m.group(1), "photos -> skipped (FORCE=1 to upload anyway)", flush=True); return
         safe("uploadphotos.mjs", p, c, e, "0", "999", timeout=3600)
+        # 2026-11-04: re-upload photos Merimen dropped (batch 9: SYG7166 #3, VFT4204 #4 #19 found by hand); Phase B relabel puts them in order
+        for _ in range(2):
+            out = safe("chkorder.mjs", p, c, e)
+            m = re.search(r"MISSING ([\d,]+)", out)
+            if not m:
+                break
+            for i in m.group(1).split(","):
+                safe("uploadphotos.mjs", p, c, e, i, str(int(i) + 1), timeout=600)
+            print(p, "re-uploaded missing photos", m.group(1), flush=True)
         print(p, safe("chkorder.mjs", p, c, e).strip().splitlines()[-1], flush=True)
     par(one, plates)
     safe("closetabs.mjs")
