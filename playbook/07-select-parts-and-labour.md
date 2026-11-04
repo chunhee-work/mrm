@@ -31,6 +31,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Missed before: BRS8642 front + rear Wheel Rim RH, Runningboard Spoiler RH, Door Mirror RH; VDD414 Spare Wheel Well; FB438 Bumper Front Fog Lamp LH (user added at 763.00). [mistakes-log-sinar-batch2] [estimate-select-parts-rules-2026-10-17]
 - Case note: TCP4539 also needed Fender Front Inner Wheel House RH.
 - ⭐⭐⭐ **The PART NUMBER decides (user 2026-11-04: "moving forward the part number always the right one").** When the photo name is not the catalogue name, compare the part number in the catalogue label `(…)` with the maker's name for that number (maker parts sites / EPC; Mazda: the middle+last code, e.g. `-70-15X` = Panel(R) Wheel House = inner wheelhouse RH, `-71-15X` = LH, `-71-11Y` = outer wheelhouse). Same part → tick the catalogue item (it carries the right part number). Different or not found → manual row with the photo name + a flag. Never decide by the name alone, either way. PRM7898 (Mazda 3 2022): photo "Rear Wheelhouse RH" = catalogue **Wheel Arch Inner Rear RH (BEYN7015X)** — correct; I first wrongly swapped it to a manual row by name.
+- ✅ User-confirmed pair: **Bumper Front Lower Grille = Grille Front Lower** (user 2026-11-04, JSF901 Bezza).
 - ✅ User-confirmed pair: **Firewall Panel = Engine Partition Panel** (user 2026-11-04, VAW8266 Vios, part 551010D610) → tick the catalogue Engine Partition Panel. [photo-center-crosshair-rule]
 
 ## Rule 2 — pick the right catalogue item
