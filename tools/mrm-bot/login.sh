@@ -18,5 +18,4 @@ if ! curl -s "http://127.0.0.1:$PORT/json/version" >/dev/null; then
   for i in $(seq 1 30); do curl -s "http://127.0.0.1:$PORT/json/version" >/dev/null && break; sleep 1; done
 fi
 echo "http://127.0.0.1:$PORT" > "state/cdp_$A"
-node winlabel.mjs $PORT "$NAME" "$A" "$COL" >/dev/null 2>&1   # coloured name tab so the window is easy to recognise
 CDP="http://127.0.0.1:$PORT" node "$S"
