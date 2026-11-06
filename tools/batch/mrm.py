@@ -14,21 +14,34 @@ H = os.path.expanduser("~/mrm-bot")
 LOGOUT = ("Not Logged", "Please login", "Session Timeout", "LOGGEDOUT")
 
 
+# 2026-11-06 user: one Chrome window per account. MRM_ACCOUNT=<TC0607|NVISSAC|YUSTRI|CHONGAIAI> makes every script of a batch
+# run in THAT account's window (CDP from ~/mrm-bot/state/cdp_<ACCOUNT>) with THAT account's session file — never another account's.
+ACCOUNTS = {"TC0607": ("session_base.txt", "http://127.0.0.1:9222"), "NVISSAC": ("session_nv.txt", "http://127.0.0.1:9223"),
+            "YUSTRI": ("session_rw.txt", "http://127.0.0.1:9224"), "CHONGAIAI": ("session_aman.txt", "http://127.0.0.1:9225")}
+ACC = os.environ.get("MRM_ACCOUNT", "TC0607")
+SESSF, CDP = ACCOUNTS.get(ACC, ACCOUNTS["TC0607"])
+
+
+def acc_env():
+    return {**os.environ, "SESSF": SESSF, "CDP": CDP}
+
+
 def run(*a, timeout=900):
-    r = subprocess.run(["node", *a], capture_output=True, text=True, cwd=H, timeout=timeout)
+    a = [SESSF if x == "session_base.txt" else x for x in a]
+    r = subprocess.run(["node", *a], capture_output=True, text=True, cwd=H, timeout=timeout, env=acc_env())
     return r.stdout + r.stderr
 
 
 def logged_in():
     # 2026-11-06: one Chrome window per account -> always test TC0607 (session_base) in its own window, never the newest other session
     return subprocess.run(["node", "chklogin.mjs"], cwd=H, capture_output=True, text=True, timeout=120,
-                          env={**os.environ, "SESSF": "session_base.txt"}).stdout.strip().endswith("OK")
+                          env=acc_env()).stdout.strip().endswith("OK")
 
 
 def wait_login():
     if logged_in():
         return
-    f = os.path.join(H, "session_base.txt")
+    f = os.path.join(H, SESSF)
     t0 = os.path.getmtime(f)
     subprocess.run(["node", "ensuretab.mjs"], cwd=H, capture_output=True, timeout=120)   # user 2026-10-30: a merimen.com.my page must be open BEFORE login
     print("LOGGEDOUT: please run  cd ~/mrm-bot && node relogin.mjs   (waiting, will continue by itself)", flush=True)

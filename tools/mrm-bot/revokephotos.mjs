@@ -2,7 +2,7 @@
 // node revokephotos.mjs <cid> <ext> <from> <to>    removes positions to..from (highest first; lower positions do not move)
 // Safety: a photo is removed only if its info window shows the same caption as that row. User 2026-11-04: "find way to delete it".
 import { chromium } from 'playwright-core'; import { readFileSync } from 'fs';
-const [,,CID,EXT,FROM,TO]=process.argv; const SESS=readFileSync('session_base.txt','utf8').trim();
+const [,,CID,EXT,FROM,TO]=process.argv; const SESS=readFileSync(process.env.SESSF||'session_base.txt','utf8').trim();
 const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222')); const ctx=b.contexts()[0]; const page=await ctx.newPage(); page.on('dialog',d=>d.accept().catch(()=>{}));
 await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRdoc&fuseaction=dsp_docview&domainid=1&objid=${CID}&extid=${EXT}&corole=4&${SESS}`,{waitUntil:'domcontentloaded'}); await page.waitForTimeout(2500);
 let tp=null; const links=page.locator('a:has-text("Relabel/Reorder")'); const n=await links.count();

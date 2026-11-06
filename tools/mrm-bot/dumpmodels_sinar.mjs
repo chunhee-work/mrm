@@ -1,6 +1,6 @@
 import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync } from 'fs';
-const SESS=readFileSync('session_base.txt','utf8').trim();
+const SESS=readFileSync(process.env.SESSF||'session_base.txt','utf8').trim();
 const MAKES=process.argv[2].split(',');
 const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));
 const page=await b.contexts()[0].newPage();

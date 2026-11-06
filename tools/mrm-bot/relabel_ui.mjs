@@ -1,7 +1,7 @@
 // relabel photos via the docview "Relabel/Reorder" link (UI click, no hand-built URL)
 // node relabel_ui.mjs <cid> <extid> '{"9":["General View","Side View"]}' [save]
 import { chromium } from 'playwright-core'; import { readFileSync } from 'fs';
-const [,,CID,EXT,JS,MODE]=process.argv;const J=JSON.parse(JS);const SESS=readFileSync('session_base.txt','utf8').trim();
+const [,,CID,EXT,JS,MODE]=process.argv;const J=JSON.parse(JS);const SESS=readFileSync(process.env.SESSF||'session_base.txt','utf8').trim();
 const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const ctx=b.contexts()[0];const page=await ctx.newPage();let pop=null;page.on('popup',p=>{pop=p;});page.on('dialog',d=>d.accept().catch(()=>{}));
 try{
  await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRdoc&fuseaction=dsp_docview&domainid=1&objid=${CID}&extid=${EXT}&corole=4&${SESS}`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(2500);
