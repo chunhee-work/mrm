@@ -20,7 +20,9 @@ def run(*a, timeout=900):
 
 
 def logged_in():
-    return run("chklogin.mjs", timeout=120).strip().endswith("OK")
+    # 2026-11-06: one Chrome window per account -> always test TC0607 (session_base) in its own window, never the newest other session
+    return subprocess.run(["node", "chklogin.mjs"], cwd=H, capture_output=True, text=True, timeout=120,
+                          env={**os.environ, "SESSF": "session_base.txt"}).stdout.strip().endswith("OK")
 
 
 def wait_login():

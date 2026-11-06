@@ -22,6 +22,7 @@ for(const cid of todo){k++;
   if(MIN&&Date.now()-T0>MIN*60000){console.log('STOP: time budget');break;}
   if(fs.statfsSync&&(()=>{const s=fs.statfsSync(H);return s.bavail*s.bsize<15e9})()){console.log('STOP: disk < 15 GB');break;}
   const h=await page.evaluate(async u=>{const r=await fetch(u,{credentials:'include'});return await r.text();},`/claims/index.cfm?fusebox=SVCdoc&fuseaction=dsp_docview&domainid=1&objid=${cid}&corole=4&${SESS}`).catch(e=>'ERR '+e);
+  if(!h.includes('cSDdocstate')&&/Invalid Case Access/i.test(h)){fs.appendFileSync('no_access.txt',cid+'\n');continue;}   // this account may not open the case (NVISSAC) -> skip, do not mark done
   if(!h.includes('cSDdocstate')){
     if(/login|session|logged/i.test(h.slice(0,3000))||h.startsWith('ERR')){fs.mkdirSync(path.dirname(NEED),{recursive:true});fs.writeFileSync(NEED,new Date().toTimeString().slice(0,8)+' harvest');console.log('LOGGEDOUT? stop at',cid);break;}
     fs.appendFileSync('done_cases.txt',cid+'\n');console.log(`${k}/${todo.length} ${cid} no docview`);continue;}
