@@ -118,6 +118,7 @@ button.chip{cursor:pointer;min-height:28px}
 <div class="xscrim" id="xscrim" hidden><div class="xpal" role="dialog" aria-modal="true" aria-label="加零件（没照片）">
  <div class="xin"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><input id="xinput" autocomplete="off" placeholder="打零件名，例如 Bumper Clips" aria-label="零件名" aria-controls="xsug"><span class="kbd">Esc</span></div>
  <div class="xsug" id="xsug" role="listbox"></div>
+ <div class="xstrip" id="xpchips" aria-label="已加的零件" style="padding:0 2px"></div>
  <div class="xhint"><span class="kbd">↑</span> <span class="kbd">↓</span> 选 · <span class="kbd">Enter</span> 加 · <span class="kbd">Esc</span> 关 · 加完还开着，可以一直加</div></div></div>
 <div class="toast" id="toast" hidden></div>
 <script>
@@ -138,7 +139,9 @@ function tabs(){const t=q("#tabs");t.innerHTML="";CASES.forEach(c=>{const b=el("
  b.onclick=()=>{CASE=c;ROWS=DATA.rows[c];EDIT=ALL[c]||{};try{history.replaceState(null,"","#"+c)}catch(e){}tabs();render();window.scrollTo({top:0})};t.append(b)})}
 // ---- 2026-11-06 user option A: Space -> add parts this car needs with no photo (db extras {case,name,at}) ----
 let XTR={};const xid=(c,n)=>c+"-"+n.replace(/[^A-Za-z0-9]+/g,"_").slice(0,80);
-function xstrip(){const w=q("#xstrip");if(!w)return;w.innerHTML="";const L=(XTR[CASE]||[]);
+function xchips(w,L){L.forEach(x=>{const c=el("span","xchip",x.name);const b=el("button",null,"×");b.setAttribute("aria-label","删除 "+x.name);b.onmousedown=ev=>ev.preventDefault();b.onclick=()=>{xdel(x);setTimeout(()=>q("#xinput").focus(),0)};c.append(b);w.append(c)})}
+function xstrip(){const pc=q("#xpchips");if(pc){pc.innerHTML="";xchips(pc,XTR[CASE]||[])}   // user 2026-11-06: added parts also shown under the palette input
+ const w=q("#xstrip");if(!w)return;w.innerHTML="";const L=(XTR[CASE]||[]);
  if(L.length)w.append(el("span","lab","要选的零件（没照片）"));
  L.forEach(x=>{const c=el("span","xchip",x.name);const b=el("button",null,"×");b.setAttribute("aria-label","删除 "+x.name);b.onclick=()=>xdel(x);c.append(b);w.append(c)});
  const a=el("button","xadd","＋ 加零件 (Space)");a.onclick=xopen;w.append(a)}
