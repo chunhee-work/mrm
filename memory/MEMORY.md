@@ -49,3 +49,4 @@
 - [Case status line](case-status-line-format.md) — progress = one line: cases, done, minutes, % (user 2026-11-04)
 - [One Merimen login per browser](merimen-one-login-per-browser.md) — 2 Chrome profiles + Safari = 3 accounts at once; never mix accounts in one profile
 - [Idle Merimen accounts log out](merimen-idle-logout.md) — 30–60 min idle = logged out even with keepalive; only check/ask login when that account's batch starts
+- [Never kick the user's login](never-kick-user-login.md) — passive login checks only; sync window session first; hands off while the user logs in

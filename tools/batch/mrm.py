@@ -27,6 +27,7 @@ def acc_env():
 
 
 def run(*a, timeout=900):
+    sync_session()   # a newer login in the window always wins over the saved file, before ANY script touches Merimen
     a = [SESSF if x == "session_base.txt" else x for x in a]
     r = subprocess.run(["node", *a], capture_output=True, text=True, cwd=H, timeout=timeout, env=acc_env())
     return r.stdout + r.stderr
@@ -53,7 +54,11 @@ def sync_session():
 
 
 def logged_in():
+    # PASSIVE check first: the window's own tab + its own session, no new page, no saved file (never kicks a fresh login out)
     sync_session()
+    r = subprocess.run(["node", "chklogin_passive.mjs"], cwd=H, capture_output=True, text=True, timeout=60, env=acc_env()).stdout.strip()
+    if r.endswith("OK") or r.endswith("LOGGEDOUT"):
+        return r.endswith("OK")
     # 2026-11-06: one Chrome window per account -> always test TC0607 (session_base) in its own window, never the newest other session
     return subprocess.run(["node", "chklogin.mjs"], cwd=H, capture_output=True, text=True, timeout=120,
                           env=acc_env()).stdout.strip().endswith("OK")
