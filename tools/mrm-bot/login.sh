@@ -17,5 +17,9 @@ if ! curl -s "http://127.0.0.1:$PORT/json/version" >/dev/null; then
   open -na "Google Chrome" --args --user-data-dir="$DIR" --remote-debugging-port=$PORT --no-first-run "https://www.merimen.com.my/claims/index.cfm"
   for i in $(seq 1 30); do curl -s "http://127.0.0.1:$PORT/json/version" >/dev/null && break; sleep 1; done
 fi
+# 2026-11-07: Chrome still running but its window was closed (no tabs) -> "Browser context management is not supported". Reopen a window first.
+if ! curl -s "http://127.0.0.1:$PORT/json/list" | grep -q '"type": *"page"'; then
+  curl -s -X PUT "http://127.0.0.1:$PORT/json/new?https://www.merimen.com.my/claims/index.cfm" >/dev/null; sleep 3
+fi
 echo "http://127.0.0.1:$PORT" > "state/cdp_$A"
 CDP="http://127.0.0.1:$PORT" node "$S"
