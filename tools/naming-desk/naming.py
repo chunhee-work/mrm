@@ -146,6 +146,14 @@ def final(out, db, plates):
                 fixes.append("#%d %s" % (r["n"], raw)); n = raw
             r["name"] = n
         json.dump(rs, open(os.path.join(out, "final_%s.json" % p), "w", encoding="utf-8"), ensure_ascii=False)
+        # 2026-11-06 user: parts added with Space on the page (no photo) -> extras_<PLATE>.json, Step 2 must select them too.
+        # Dump the db collection `extras` into <db>/extras/ (ArtifactData list extras); an empty/missing folder = none.
+        ex = sorted({(json.load(open(f, encoding="utf-8")).get("data") or json.load(open(f, encoding="utf-8"))).get("name", "")
+                     for f in glob.glob(os.path.join(db, "extras", "*.json"))
+                     if (json.load(open(f, encoding="utf-8")).get("data") or json.load(open(f, encoding="utf-8"))).get("case") == p} - {""})
+        json.dump(ex, open(os.path.join(out, "extras_%s.json" % p), "w", encoding="utf-8"), ensure_ascii=False)
+        if ex:
+            print(p, "parts with no photo (Space):", ", ".join(ex))
         print(p, len(rs), "photos", "reordered" if p in orders else "", ("NEEDS A NAME (banned): " + ", ".join(fixes)) if fixes else "")
 
 

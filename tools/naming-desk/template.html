@@ -20,6 +20,26 @@ button{font:inherit;color:inherit}
 .tab .p{font:600 14px "IBM Plex Mono",monospace}
 .tab .c{font-size:12px;color:var(--mut)}
 .card.kc{outline:3px solid var(--acc);outline-offset:2px}
+/* 2026-11-06 user (option A): Space -> palette to add parts with no photo; chips under the plate */
+:root{--add:#7c3aed;--addbg:#efe7fd;--scrim:rgba(15,23,32,.45)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--add:#c4a5ff;--addbg:#241a3a;--scrim:rgba(0,0,0,.6)}}
+:root[data-theme="dark"]{--add:#c4a5ff;--addbg:#241a3a;--scrim:rgba(0,0,0,.6)}
+.xstrip{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 0}
+.xstrip .lab{font-size:12px;font-weight:700;color:var(--add);letter-spacing:.03em}
+.xchip{display:inline-flex;align-items:center;gap:4px;background:var(--addbg);color:var(--add);border:1px solid var(--add);border-radius:999px;padding:2px 4px 2px 10px;font-size:12.5px;font-weight:600}
+.xchip button{border:0;background:transparent;color:inherit;cursor:pointer;min-width:24px;min-height:24px;border-radius:999px;font-size:15px;line-height:1}
+.xadd{border:1px dashed var(--add);background:transparent;color:var(--add);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600;cursor:pointer;min-height:28px}
+.xscrim[hidden]{display:none!important}
+.xscrim{position:fixed;inset:0;z-index:20;background:var(--scrim);display:flex;justify-content:center;align-items:flex-start;padding:12vh 16px 0}
+.xpal{width:min(560px,100%);background:var(--surface);border-radius:14px;box-shadow:var(--shadow);padding:10px;display:flex;flex-direction:column;gap:8px}
+.xin{display:flex;align-items:center;gap:10px;border:2px solid var(--add);border-radius:12px;padding:6px 10px;background:var(--surface)}
+.xin input{flex:1;border:0;outline:0;background:transparent;color:var(--ink);font:16px "IBM Plex Sans","Noto Sans SC",sans-serif;min-height:34px}
+.xsug{display:flex;flex-direction:column;max-height:40vh;overflow:auto}
+.xsug button{display:flex;justify-content:space-between;gap:10px;text-align:left;border:0;background:transparent;padding:9px 12px;font-size:14px;border-radius:8px;cursor:pointer;color:var(--ink)}
+.xsug button[aria-selected="true"]{background:var(--addbg)}
+.xsug small{color:var(--mut);font:500 11.5px "IBM Plex Mono",monospace}
+.xhint{font-size:12px;color:var(--mut)}
+.kbd{font:600 11px "IBM Plex Mono",monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;background:var(--raised)}
 @media (hover:none){.card.kc{outline:none}}
 .tab .dn{font:700 13px system-ui,sans-serif;width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--ok);color:var(--okInk)}
 .tab .edc{font:700 12px "IBM Plex Mono","Noto Sans SC",monospace;padding:3px 9px;border-radius:999px;background:var(--ed);color:var(--bg);box-shadow:0 0 0 2px var(--surface)}
@@ -86,7 +106,7 @@ button.chip{cursor:pointer;min-height:28px}
 </div></header>
 <main>
  <section class="head">
-  <div><h1 class="plate" id="plate"></h1><div class="veh" id="veh"></div></div>
+  <div><h1 class="plate" id="plate"></h1><div class="veh" id="veh"></div><div class="xstrip" id="xstrip" aria-label="要选的零件（没照片）"></div></div>
   <div class="kpis" id="kpis"></div>
  </section>
  <details class="legend"><summary>图例与用法</summary><div class="row">
@@ -95,6 +115,10 @@ button.chip{cursor:pointer;min-height:28px}
  <datalist id="names"></datalist>
  <section class="grid" id="grid"></section>
 </main>
+<div class="xscrim" id="xscrim" hidden><div class="xpal" role="dialog" aria-modal="true" aria-label="加零件（没照片）">
+ <div class="xin"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><input id="xinput" autocomplete="off" placeholder="打零件名，例如 Bumper Clips" aria-label="零件名" aria-controls="xsug"><span class="kbd">Esc</span></div>
+ <div class="xsug" id="xsug" role="listbox"></div>
+ <div class="xhint"><span class="kbd">↑</span> <span class="kbd">↓</span> 选 · <span class="kbd">Enter</span> 加 · <span class="kbd">Esc</span> 关 · 加完还开着，可以一直加</div></div></div>
 <div class="toast" id="toast" hidden></div>
 <script>
 const DATA=__DATA__;const NAMES=__NAMES__;const CASES=Object.keys(DATA.rows);
@@ -112,7 +136,34 @@ function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=
 var DONEC={};   // 2026-11-04 user: one 完成 per case -> db status/case_<PLATE>
 function tabs(){const t=q("#tabs");t.innerHTML="";CASES.forEach(c=>{const b=el("button","tab");b.append(el("span","p",c));const n=ALL[c]?Object.keys(ALL[c]).length:0;b.append(el("span","c",DATA.rows[c].length+" 张"));if(n)b.append(el("span","edc","已改 "+n));if(DONEC[c])b.append(el("span","dn","✓"));b.setAttribute("aria-current",String(c===CASE));
  b.onclick=()=>{CASE=c;ROWS=DATA.rows[c];EDIT=ALL[c]||{};try{history.replaceState(null,"","#"+c)}catch(e){}tabs();render();window.scrollTo({top:0})};t.append(b)})}
-function head(){q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar";
+// ---- 2026-11-06 user option A: Space -> add parts this car needs with no photo (db extras {case,name,at}) ----
+let XTR={};const xid=(c,n)=>c+"-"+n.replace(/[^A-Za-z0-9]+/g,"_").slice(0,80);
+function xstrip(){const w=q("#xstrip");if(!w)return;w.innerHTML="";const L=(XTR[CASE]||[]);
+ if(L.length)w.append(el("span","lab","要选的零件（没照片）"));
+ L.forEach(x=>{const c=el("span","xchip",x.name);const b=el("button",null,"×");b.setAttribute("aria-label","删除 "+x.name);b.onclick=()=>xdel(x);c.append(b);w.append(c)});
+ const a=el("button","xadd","＋ 加零件 (Space)");a.onclick=xopen;w.append(a)}
+async function xsave(name){const c=CASE;name=name.replace(/\s+/g," ").trim();if(!name)return;
+ if((XTR[c]||[]).some(x=>x.name.toLowerCase()===name.toLowerCase())){toast("已经有了："+name);return}
+ if(!db){toast("还没连上，请稍等");return}
+ const id=xid(c,name);
+ try{await db.collection("extras").doc(id).set({id,case:c,name,at:Date.now()});undone(c);toast("已加："+name)}catch(e){toast("没保存成功，请再按一次")}}
+async function xdel(x){if(!db)return;try{await db.collection("extras").doc(x.id).delete();undone(x.case);toast("已删："+x.name)}catch(e){toast("没删成功，请再按一次")}}
+let XI=0,XL=[];
+function xsug(){const v=q("#xinput").value.trim().toLowerCase();const w=v.split(/\s+/).filter(Boolean);const box=q("#xsug");box.innerHTML="";
+ XL=w.length?NAMES.filter(n=>{const l=n.toLowerCase();return w.every(t=>l.includes(t))}).sort((a,b)=>a.length-b.length).slice(0,8):[];
+ if(v&&!XL.some(n=>n.toLowerCase()===v))XL.push(q("#xinput").value.trim());
+ XI=Math.min(XI,Math.max(0,XL.length-1));
+ XL.forEach((n,i)=>{const b=el("button");b.setAttribute("role","option");b.setAttribute("aria-selected",String(i===XI));b.append(el("span",null,n),el("small",null,i===XI?"Enter":(NSET.has(n)?"":"新名称")));b.onmousedown=ev=>{ev.preventDefault();xsave(n);q("#xinput").value="";xsug()};box.append(b)})}
+function xopen(){const s=q("#xscrim");s.hidden=false;const i=q("#xinput");i.value="";XI=0;xsug();setTimeout(()=>i.focus(),0)}
+function xclose(){q("#xscrim").hidden=true}
+q("#xscrim").addEventListener("mousedown",ev=>{if(ev.target.id==="xscrim")xclose()});
+q("#xinput").addEventListener("input",()=>{XI=0;xsug()});
+q("#xinput").addEventListener("keydown",ev=>{if(ev.key==="Escape"){ev.preventDefault();xclose()}
+ else if(ev.key==="ArrowDown"){ev.preventDefault();XI=Math.min(XI+1,XL.length-1);xsug()}
+ else if(ev.key==="ArrowUp"){ev.preventDefault();XI=Math.max(XI-1,0);xsug()}
+ else if(ev.key==="Enter"){ev.preventDefault();const n=XL[XI];if(n){xsave(n);ev.target.value="";XI=0;xsug()}}
+ ev.stopPropagation()});
+function head(){xstrip();q("#plate").textContent=CASE;q("#veh").textContent=DATA.meta[CASE]+" · Bengkel Kereta Sinar";
  const k=q("#kpis");k.innerHTML="";[["照片",ROWS.length,""],["要确认",ROWS.filter(low).length,"warn"],["你已改",Object.keys(EDIT).length,"ed"]].forEach(([a,b,c])=>{const d=el("div","kpi "+c);d.append(el("div","k",a),el("div","v",b));k.append(d)})}
 // 2026-11-04 (user: loads too long): small copies first (pics/<P>_s.json), full ones after, current case first, then the
 // others in tab order -> photos appear at once and tab switches are instant. Images are swapped in place (no re-render,
@@ -159,6 +210,7 @@ document.addEventListener("keydown",ev=>{const t=ev.target;const inField=t&&(t.t
   if(u.c!==CASE){const b=[...document.querySelectorAll("#tabs .tab")].find(x=>x.querySelector(".p").textContent===u.c);if(b)b.click()}
   save(u.r,u.prev,true).then(()=>{setKC(u.r.n,true);toast("已撤销：第 "+u.r.n+" 张 → "+(u.prev||u.r.name))});return}
  if(ev.metaKey||ev.ctrlKey||ev.altKey||inField)return;
+ if(ev.key===" "&&!(t&&t.tagName==="BUTTON")){ev.preventDefault();xopen();return}
  if(ev.key==="Enter"&&!(t&&t.tagName==="BUTTON")){ev.preventDefault();const now=Date.now();   // user 2026-11-04: Enter Enter = this case 完成 + go to the right case
   if(now-(window.__ent||0)<700){window.__ent=0;if(!db){toast("还没连上，请稍等");return}const c=CASE,i=CASES.indexOf(c);
    (DONEC[c]?Promise.resolve():setDone(c,true)).then(()=>{DONEC[c]=true;tabs();doneUI();if(i<CASES.length-1)q("#tabR").click();else toast("最后一个案件了")})}
@@ -215,6 +267,7 @@ q("#doneBtn").onclick=()=>{const b=q("#doneBtn");if(!db){toast("还没连上，�
 new MutationObserver(doneUI).observe(q("#tabs"),{childList:true});
 (async()=>{if(!window.claude||!window.claude.use)return;db=await window.claude.use("db");if(!db)return;
  db.collection("status").onSnapshot(s=>{DONEC={};s.docs.forEach(d=>{const x=d.data();if(x&&x.key===KEY&&x.case&&x.done)DONEC[x.case]=true});tabs();doneUI()},()=>{});doneUI();
+ db.collection("extras").onSnapshot(s=>{XTR={};s.docs.forEach(d=>{const x=d.data();if(x&&x.case&&x.name)(XTR[x.case]=XTR[x.case]||[]).push({...x,id:x.id||xid(x.case,x.name)})});Object.values(XTR).forEach(a=>a.sort((p,r)=>p.at-r.at));xstrip()},()=>{});
  db.collection("orders").onSnapshot(s=>{ORD={};s.docs.forEach(d=>{const x=d.data();if(x&&x.case&&Array.isArray(x.order))ORD[x.case]=x.order});render()},()=>{});
  db.collection("names").onSnapshot(s=>{ALL={};s.docs.forEach(d=>{const x=d.data();if(!x||!x.case)return;(ALL[x.case]=ALL[x.case]||{})[x.n]={name:x.name}});EDIT=ALL[CASE]||{};tabs();render()},()=>{})})();
 </script>

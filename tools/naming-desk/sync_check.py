@@ -97,6 +97,9 @@ def main():
     bad = 0
     for p in plates:
         names = {x[2] for x in plan[p]}
+        xf = os.path.join(os.environ.get("BATCH_DIR", ""), "report", f"extras_{p}.json")   # Space-added parts (no photo) must be on the estimate too
+        if os.path.exists(xf):
+            names |= set(json.load(open(xf)))
         eds = [json.load(open(f)) for f in glob.glob(f"{ndir}/{p}-*.json")]
         eds = [d for d in eds if d.get("model") != d.get("name")]
         R = json.load(open(os.path.expanduser(f"~/mrm-bot/state/rows_{p}_now.json")))

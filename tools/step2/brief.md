@@ -9,6 +9,7 @@ READ IN FULL FIRST (they are the user's rules; follow them exactly):
 - /Users/chunhee/Documents/VS Code/gacha-smm-playbook/mrm/memory/mistakes-log-sinar-batch2.md
 
 Inputs per case <P> (B = <BATCH_DIR>):
+- Parts the user added with Space (no photo): B/report/extras_<P>.json — select them exactly like a photo name.
 - Final photo names (the user reviewed them; they decide the parts): B/report/final_<P>.json  (list of {n,name,...}); photos: B/report/photos/<P>/NN.jpg (look at them when a name is ambiguous, for sides, counts of sensors, whether a panel is replaced, and impact area).
 - Case data (impact, vehicle): B/data/<P>.json ; Merimen model text: B/meta.json
 - Catalogue: ~/mrm-bot/s2/cat_<P>.json  {"cat":[[value,label,checked]], "labs":[[labour label, checked]]}. value prefix NN@ = group (see playbook 07 group codes).

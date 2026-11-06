@@ -6,6 +6,10 @@ import json, re, sys, collections
 sys.path.insert(0, __import__('os').path.dirname(__file__))
 import partmatch as pm
 CAT = json.load(open(sys.argv[1])); rows = json.load(open(sys.argv[2])); impact = sys.argv[3]
+# 2026-11-06 user: parts the user added with Space (no photo) sit next to final_<P>.json as extras_<P>.json -> treat each as a photo name
+_xf = __import__('os').path.join(__import__('os').path.dirname(sys.argv[2]), __import__('os').path.basename(sys.argv[2]).replace("final_", "extras_"))
+if "final_" in sys.argv[2] and __import__('os').path.exists(_xf):
+    rows = rows + [{"n": 9000 + k, "name": nm, "extra": True} for k, nm in enumerate(json.load(open(_xf)))]
 cat = [(v, l) for v, l, _ in CAT['cat']]; labs = [l for l, _ in CAT['labs']]
 RULES = json.load(open(__import__('os').path.join(__import__('os').path.dirname(__file__), '..', 'tools', 'labour_rules.json')))
 SKIP = r"^(Front|Rear) View( Right| Left)?$|^(Interior|General|Side) View|^Side View|Odometer|Chassis Number$|Engine Compartment|Road Tax|Tyre Size|Suspension View|DASHBOARD|Dashboard"

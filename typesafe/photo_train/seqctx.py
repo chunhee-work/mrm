@@ -19,7 +19,7 @@ CROP = float(os.environ.get("CROP", "0"))          # extract: >0 = only the cent
 FLIP = os.environ.get("FLIP") == "1"   # 2026-11-04 extract: mirror every photo left<->right (LH/RH augmentation + test-time augmentation) -> feats_<ft>[_c]_f.npy
 FEATS = os.path.join(HERE, "feats_%s%s%s.npy" % (FT, "_c" if CROP and mode == "extract" else "", "_f" if FLIP and mode == "extract" else ""))
 FEATC = os.path.join(HERE, "feats_%s_c.npy" % FT)   # train: used when it exists (whole photo + crosshair zoom)
-ck = torch.load(os.path.join(HERE, CK), map_location="cpu")
+ck = torch.load(os.path.join(HERE, CK), map_location="cpu"); BBN = ck.get("bb", "vitb14"); DIM = ck.get("dim", 768)   # 2026-11-05 backbone from the checkpoint
 mean = np.array([0.485, 0.456, 0.406], np.float32); std = np.array([0.229, 0.224, 0.225], np.float32)
 
 def img(i):
@@ -34,9 +34,9 @@ def img(i):
 
 if mode == "extract":
     _HUB = os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main")
-    bb = torch.hub.load(_HUB, "dinov2_vitb14", source="local")
+    bb = torch.hub.load(_HUB, "dinov2_" + BBN, source="local")
     bb.load_state_dict({k[2:]: v for k, v in ck["state"].items() if k.startswith("0.")}); bb = bb.to(dev).eval()
-    N = len(meta); F = np.lib.format.open_memmap(FEATS + ".part", "w+", np.float16, (N, 768)); t0 = time.time()
+    N = len(meta); F = np.lib.format.open_memmap(FEATS + ".part", "w+", np.float16, (N, DIM)); t0 = time.time()
     # 2026-11-03: BASE_FEATS=<old feats .npy> -> copy its rows (same photo order) and only run the new photos after them
     BASE = os.environ.get("BASE_FEATS"); START = 0
     if BASE:
@@ -68,7 +68,7 @@ if mode == "extract":
 TAG = sys.argv[4]
 F = np.load(FEATS, mmap_mode="r")
 FC = np.load(FEATC, mmap_mode="r") if os.path.exists(FEATC) and os.environ.get("USE_CROP", "1") == "1" else None
-D = 768 * (2 if FC is not None else 1); print("crosshair zoom features:", FC is not None, flush=True)
+D = DIM * (2 if FC is not None else 1); print("crosshair zoom features:", FC is not None, flush=True)
 # 2026-11-05 ideas 2+4: mirrored photos. FLIP_AUG=<p>: during training a whole window is swapped for its mirrored features with
 # probability p and the label is mirrored (LH<->RH, Left<->Right); TTA=1: test = mean of normal + mirrored (mirrored class map).
 FAUG = float(os.environ.get("FLIP_AUG", "0")); TTA = os.environ.get("TTA") == "1"
@@ -116,12 +116,12 @@ def window(i, drop=0.0):
 class Ctx(nn.Module):
     def __init__(s):
         super().__init__()
-        s.base = nn.Linear(768, len(labels)); s.inp = nn.Linear(D, 384); s.pos = nn.Parameter(torch.zeros(2 * WIN + 1, 384))
+        s.base = nn.Linear(DIM, len(labels)); s.inp = nn.Linear(D, 384); s.pos = nn.Parameter(torch.zeros(2 * WIN + 1, 384))
         s.enc = nn.TransformerEncoder(nn.TransformerEncoderLayer(384, 6, 1024, 0.1, batch_first=True, norm_first=True), 2)
         s.out = nn.Linear(384, len(labels)); nn.init.zeros_(s.out.weight); nn.init.zeros_(s.out.bias)
     def forward(s, x, m):
         h = s.enc(s.inp(x) + s.pos, src_key_padding_mask=m)
-        return s.base(x[:, WIN, :768]) + s.out(h[:, WIN])
+        return s.base(x[:, WIN, :DIM]) + s.out(h[:, WIN])
 net = Ctx()
 with torch.no_grad():   # stage-1 head as the starting point
     for k, rs in rows_for(ck["labels"]).items():

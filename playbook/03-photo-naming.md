@@ -21,6 +21,7 @@ Start as soon as the Merimen model variant is chosen; don't wait for the user's 
 - Rear-impact cars: the first straight-from-behind shot = "Rear View" (no Left/Right). [photo-center-crosshair-rule]
 
 ## 照片命名台 artifact
+- ⭐⭐ **Space = add a part with NO photo (user 2026-11-06, option A):** on the page Space opens a palette (type, ↑↓, Enter adds, Esc closes); the parts show as purple chips under the plate (× deletes) and go to db collection `extras` {id, case, name, at}. In Phase B ALSO dump `extras` (ArtifactData list extras → <db_dir>/extras/); `naming.py final` writes `report/extras_<PLATE>.json`, `step2_plan.py` treats each as a photo name, `sync_check.py` (FULL, BATCH_DIR) checks they are on the estimate. Editing extras undoes that case's 完成.
 - ⭐ **Publish BOTH `pics/<PLATE>.json` and `pics/<PLATE>_s.json` for every case** (user 2026-11-04 "load quite long"): naming.py build writes small 320 px copies (~1 MB/case) the page shows in ~1 s, then swaps in the full ones and preloads the other cases (tab switch instant).
 - ONE artifact for all cases: https://claude.ai/artifact/K6yLWFN8XChRKRVHUFcUBR, one tab per case (template scratchpad `sinar/report/tpl.html` + `cases.json`; photos `photos/<PLATE>/NN.jpg`; ≤255 files per publish). [case-photo-naming-artifact]
 - Page: Merimen report layout "n/N: Name", % chip, orange frame = unsure, big clickable name box (datalist), Paste button (click then ⌘V), one-line "其他可能", 还原; drag to reorder (names follow the photo). [case-photo-naming-artifact]
