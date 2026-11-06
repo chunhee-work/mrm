@@ -32,7 +32,28 @@ def run(*a, timeout=900):
     return r.stdout + r.stderr
 
 
+def sync_session():
+    """2026-11-06 (user: "you opened a new Merimen page and kicked my login out"): if the account's window shows a NEWER session than
+    the saved file (the user logged in by hand), save the window's session FIRST, so a check never runs with an old session
+    (testing an old session in the same browser logs the new one out)."""
+    import json as _j, urllib.request as _u
+    try:
+        tabs = _j.load(_u.urlopen(CDP + "/json/list", timeout=5))
+    except Exception:
+        return
+    f = os.path.join(H, SESSF); cur = open(f).read().strip() if os.path.exists(f) else ""
+    old = dict(kv.split("=", 1) for kv in cur.split("&") if "=" in kv)
+    for t in tabs:
+        u = t.get("url", "")
+        if t.get("type") == "page" and "merimen" in u and "CFID=" in u and "?" in u:
+            q = dict(kv.split("=", 1) for kv in u.split("?", 1)[1].split("&") if "=" in kv)
+            if q.get("CFID") and q.get("CFTOKEN") and (q["CFID"], q["CFTOKEN"]) != (old.get("CFID"), old.get("CFTOKEN")):
+                open(f, "w").write("&".join(f"{k}={q[k]}" for k in ("CFID", "CFTOKEN", "USID", "RID") if k in q))
+            return
+
+
 def logged_in():
+    sync_session()
     # 2026-11-06: one Chrome window per account -> always test TC0607 (session_base) in its own window, never the newest other session
     return subprocess.run(["node", "chklogin.mjs"], cwd=H, capture_output=True, text=True, timeout=120,
                           env=acc_env()).stdout.strip().endswith("OK")
