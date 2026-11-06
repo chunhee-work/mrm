@@ -17,3 +17,8 @@ Baseline (live, round 1): whole 82.3/92.8, crop 81.2/92.3 on the 3,306-photo tes
 - Test-time mirror (TTA=1) on the current crop model: top1 81.2 -> 81.9, top3 92.3 -> 92.8 (no retrain). Costs a 2nd backbone pass per photo (~+1 min per batch), not in case_report.py yet.
 - Mirror-augmented training (FLIP_AUG 0.25/0.5, 4-8 epochs, + TTA): best 82.0/92.7 — same as TTA alone (noise). Not swapped.
 - Next: idea 6 (bigger backbone on this Mac, 30 h+), then decide TTA in production.
+
+## 2026-11-06 label audit round 6 (1,691 single suspect photos, 6 agents, contact sheets)
+- keep 592 · model 638 · other 51 · unsure 410 → 689 relabels in typesafe/photo_train/label_fixes_audit6.json (local, like audit5).
+- Apply audit5 + audit6 fixes at the next label build (n4), then retrain stage 2 and compare.
+- Rare parts: 466 of 910 labels have < 100 train photos (test top1 21%) -> rare_lt100.json; harvest.py RARE_ONLY=1 grabs only those (+neighbours), never logs in, pauses on ~/mrm-bot/state/PAUSE_HARVEST. Blocked until Chrome "Allow JavaScript from Apple Events" is ticked again.
