@@ -1,7 +1,7 @@
 // After the user logs in by hand in the 9222 Chrome: save that tab's session to session_<name>.txt (never prints it)
 import { chromium } from '/Users/chunhee/mrm-bot/node_modules/playwright-core/index.mjs'; import { writeFileSync } from 'fs';
 const name=process.argv[2]||'aman';
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));
 const pg=b.contexts()[0].pages().find(p=>/merimen\.com\.my/.test(p.url())&&/CFID=/.test(p.url()));
 if(!pg){console.log('no logged-in Merimen tab');process.exit(1);}
 const p=new URL(pg.url()).searchParams;

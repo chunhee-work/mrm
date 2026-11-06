@@ -23,7 +23,7 @@ function misc(name){var n=(name||'').toLowerCase();
  if(/radiator coolant|coolant/.test(n))return'35.00'; // user 2026-10-10
  return null;}
 const url=`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${CID}&extid=${EXT}&tpins=0&${SESS}`;
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222'); const page=await b.contexts()[0].newPage();
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222')); const page=await b.contexts()[0].newPage();
 page.on('dialog',async d=>{await d.accept().catch(()=>{});});
 await page.goto(url,{waitUntil:'domcontentloaded'}); await page.waitForTimeout(4000);
 const ch=await page.evaluate((miscSrc)=>{var misc=eval('('+miscSrc+')');var out=[];

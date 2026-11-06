@@ -2,7 +2,7 @@
 // node wslookup.mjs session_base.txt "kw1|kw2"
 import { chromium } from 'playwright-core'; import { readFileSync } from 'fs';
 const SESS=readFileSync(process.argv[2],'utf8').trim(); const KWS=process.argv[3].split('|');
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222'); const ctx=b.contexts()[0]; const page=await ctx.newPage();
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222')); const ctx=b.contexts()[0]; const page=await ctx.newPage();
 page.on('dialog',async d=>{await d.accept().catch(()=>{});});
 await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRclaim&fuseaction=dsp_clmreg&${SESS}`,{waitUntil:'domcontentloaded'}); await page.waitForTimeout(3000);
 for(const kw of KWS){

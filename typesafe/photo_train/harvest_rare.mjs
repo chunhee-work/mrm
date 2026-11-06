@@ -5,7 +5,7 @@
 import { chromium } from '/Users/chunhee/mrm-bot/node_modules/playwright-core/index.mjs';
 import fs from 'fs'; import os from 'os'; import path from 'path';
 const H=process.cwd(), MIN=+(process.argv[2]||0), T0=Date.now();
-const SESS=fs.readFileSync(path.join(os.homedir(),'mrm-bot/session_base.txt'),'utf8').trim();
+const SESS=fs.readFileSync(process.env.SESSF||path.join(os.homedir(),'mrm-bot/session_base.txt'),'utf8').trim();   // SESSF=~/mrm-bot/session_nv.txt with CDP=http://127.0.0.1:9223 = run on a second account
 const PAUSE=path.join(os.homedir(),'mrm-bot/state/PAUSE_HARVEST'), NEED=path.join(os.homedir(),'mrm-bot/state/NEED_LOGIN');
 const cases=JSON.parse(fs.readFileSync('all_cases.json','utf8'));
 const done=new Set(fs.existsSync('done_cases.txt')?fs.readFileSync('done_cases.txt','utf8').split(/\s+/):[]);
@@ -13,7 +13,7 @@ const RARE=new Set(JSON.parse(fs.readFileSync('rare_lt100.json','utf8')).map(x=>
 const NM={};for(const l of fs.readFileSync('name_map.tsv','utf8').split('\n')){const p=l.split('\t');if(p.length===4&&p[2])NM[p[0]]=p[2];}
 const off=n=>NM[n.trim()]||n.trim();
 const GEN=/pho\w*\s+of\s+da|damaged parts|damgaed|damgfed|after repair|accident scene|^4 angles|^(photos|others|tyres)$/i;
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const page=await b.contexts()[0].newPage();
+const b=await chromium.connectOverCDP(process.env.CDP||'http://127.0.0.1:9222');const page=await b.contexts()[0].newPage();
 await page.goto('https://www.merimen.com.my/claims/index.cfm?fusebox=MTRroot&fuseaction=dsp_home&'+SESS,{waitUntil:'domcontentloaded'});await page.waitForTimeout(2000);
 const todo=Object.keys(cases).filter(c=>!done.has(c)).sort((a,b)=>b-a);let total=0,k=0;
 console.log('cases',Object.keys(cases).length,'todo',todo.length);

@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core';
 import { readFileSync } from 'fs';
 const [,,CID,EXT,SESSF,PARTSF,MODE]=process.argv;const SESS=readFileSync(SESSF,'utf8').trim();const P=JSON.parse(readFileSync(PARTSF,'utf8'));
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
 const url=`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${CID}&extid=${EXT}&tpins=0&${SESS}`;
 await page.goto(url,{waitUntil:'domcontentloaded'});await page.waitForTimeout(4500);
 const existing=await page.evaluate(()=>{const n=+document.querySelector('[name=PROWCNT]').value;const o=[];for(let i=1;i<=n;i++){const d=document.getElementById('PDS'+i);if(d&&d.value)o.push(d.value.trim().toLowerCase());}return o;});

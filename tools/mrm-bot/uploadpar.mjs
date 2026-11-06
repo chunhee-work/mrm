@@ -33,7 +33,7 @@ async function uploadOne(ctx,PLATE){
   await page2.close().catch(()=>{});
   return PLATE+': uploaded '+done+'/'+D.files.length+' docsInList='+n;
 }
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));
 const ctx=b.contexts()[0];
 const r=await Promise.all(PLATES.map(p=>uploadOne(ctx,p)));
 r.forEach(x=>console.log(x));

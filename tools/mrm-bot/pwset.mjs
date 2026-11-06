@@ -18,7 +18,7 @@ export async function paintStep(page){
 }
 if(process.argv[1].endsWith('pwset.mjs')){
   const PLATES=process.argv[2].split(',');const SESS=readFileSync(process.argv[3],'utf8').trim();const E=JSON.parse(readFileSync(process.argv[4],'utf8'));
-  const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const ctx=b.contexts()[0];
+  const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const ctx=b.contexts()[0];
   for(const P of PLATES){const D=E[P];const page=await ctx.newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
     const url=`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${D.cid}&extid=${D.extid}&tpins=0&${SESS}`;
     await page.goto(url,{waitUntil:'domcontentloaded'});await page.waitForTimeout(4000);

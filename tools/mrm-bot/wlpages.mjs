@@ -1,7 +1,7 @@
 // all pages of a worklist (clicks "Next >"): SESSF=<file> node wlpages.mjs <stat> [personal=1] -> "PLATE caseid extid" lines (read-only)
 import { chromium } from 'playwright-core'; import { readFileSync } from 'fs';
 const [,,STAT='2',PERS='1']=process.argv;const SESS=readFileSync(process.env.SESSF||'session_base.txt','utf8').trim();
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const page=await b.contexts()[0].newPage();
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const page=await b.contexts()[0].newPage();
 await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRadjuster&fuseaction=dsp_maindtl&personal=${PERS}&stat=${STAT}&totalcase=${process.env.TOT||100000}&setpage=0&${SESS}`,{waitUntil:'domcontentloaded',timeout:90000});await page.waitForTimeout(5000);
 const all=new Set();
 for(let pg=0;pg<200;pg++){

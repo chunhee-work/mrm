@@ -5,7 +5,7 @@ import { chromium } from 'playwright-core'; import { readFileSync, writeFileSync
 const [,,IDS,OUT]=process.argv;const SESS=readFileSync(process.env.SESSF||'session_base.txt','utf8').trim();
 const C=readFileSync(IDS,'utf8').trim().split('\n').map(l=>l.trim().split(/\s+/)).filter(x=>x.length===3);
 const res=existsSync(OUT)?JSON.parse(readFileSync(OUT,'utf8')):{};
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const rq=b.contexts()[0].request;
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const rq=b.contexts()[0].request;
 const parseArgs=s=>{const o=[];let i=0;while(i<s.length){while(s[i]===','||s[i]===' ')i++;if(s[i]==='"'){let j=i+1,v='';while(j<s.length&&s[j]!=='"'){if(s[j]==='\\'){v+=s[j+1];j+=2;continue}v+=s[j++];}o.push(v);i=j+1;}else{let j=i;while(j<s.length&&s[j]!==',')j++;o.push(s.slice(i,j).trim());i=j;}}return o;};
 async function one([pl,cid,ext]){try{
  const r=await rq.get(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${cid}&extid=${ext}&tpins=0&${SESS}`,{timeout:60000});

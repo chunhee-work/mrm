@@ -26,7 +26,7 @@ async function one(ctx,PLATE){
     return PLATE+': '+v+' | Betterment='+bt;
   }catch(e){await page.close().catch(()=>{});return PLATE+': ERR '+e.message.slice(0,45);}
 }
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));
 const ctx=b.contexts()[0];
 const r=await Promise.all(PLATES.map(p=>one(ctx,p)));
 r.forEach(x=>console.log(x));

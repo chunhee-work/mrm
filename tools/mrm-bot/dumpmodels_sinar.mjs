@@ -2,7 +2,7 @@ import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync } from 'fs';
 const SESS=readFileSync('session_base.txt','utf8').trim();
 const MAKES=process.argv[2].split(',');
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));
 const page=await b.contexts()[0].newPage();
 page.on('dialog',async d=>{await d.accept().catch(()=>{});});
 await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRclaim&fuseaction=dsp_clmreg&${SESS}`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(3000);

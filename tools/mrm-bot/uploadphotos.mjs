@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core'; import { readFileSync } from 'fs';
 const [,,PLATE,CID,EXT,FROM,TO]=process.argv;const SESS=readFileSync('session_base.txt','utf8').trim();
 const ALL=JSON.parse(readFileSync('photoplan.json','utf8'))[PLATE].slice(+FROM,+TO);
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const ctx=b.contexts()[0];
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const ctx=b.contexts()[0];
 const DV=`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRdoc&fuseaction=dsp_docview&domainid=1&objid=${CID}&extid=${EXT}&corole=4&${SESS}`;
 for(let s=0;s<ALL.length;s+=250){const B=ALL.slice(s,s+250);
  const page=await ctx.newPage();const pop=page;

@@ -4,7 +4,7 @@ import { chromium } from 'playwright-core'; import { readFileSync, writeFileSync
 const [,,IDS,OUT]=process.argv;const SESS=readFileSync(process.env.SESSF||'session_base.txt','utf8').trim();
 const C=readFileSync(IDS,'utf8').trim().split('\n').map(l=>l.trim().split(/\s+/)).filter(x=>x.length===3);
 const res=existsSync(OUT)?JSON.parse(readFileSync(OUT,'utf8')):{};
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const ctx=b.contexts()[0];
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const ctx=b.contexts()[0];
 async function one([pl,cid,ext]){const page=await ctx.newPage();page.on('dialog',d=>d.dismiss().catch(()=>{}));
  try{await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${cid}&extid=${ext}&tpins=0&${SESS}`,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForTimeout(3500);
   const r=await page.evaluate(()=>{const t=document.body.innerText;if(/Session Timeout|Not Logged On|Session not matched/.test(t))return {out:1};

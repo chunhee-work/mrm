@@ -1,6 +1,6 @@
 import { chromium } from 'playwright-core'; import { readFileSync } from 'fs';
 const [,,CID,EXT,SESSF,JS]=process.argv;const SESS=readFileSync(SESSF,'utf8').trim();const Q=JSON.parse(JS);
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
 const url=`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${CID}&extid=${EXT}&tpins=0&${SESS}`;
 try{
 await page.goto(url,{waitUntil:'domcontentloaded'});await page.waitForTimeout(4500);

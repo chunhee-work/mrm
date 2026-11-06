@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core';
 import { readFileSync } from 'fs';
 const [,,CID,EXT,SESSF,PRICEF]=process.argv;const SESS=readFileSync(SESSF,'utf8').trim();const PR=JSON.parse(readFileSync(PRICEF,'utf8'));
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
 const url=`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${CID}&extid=${EXT}&tpins=0&${SESS}`;
 const readRows=()=>page.evaluate(()=>{const n=+document.querySelector('[name=PROWCNT]').value;const o=[];for(let i=1;i<=n;i++){const pt=document.querySelector('[name=PPT'+i+']');if(!pt)continue;const de=document.getElementById('PDS'+i)||document.getElementById('PTDS'+i);let d=de?(de.value||de.textContent||''):'';if(!d){const td=pt.closest('tr').querySelector('.clsDesc,td[id^=PTDS],td[id^=PDS]');d=td?td.textContent:'';}o.push({i,d:d.replace(/\s+/g,' ').trim(),p:pt.value,q:(pt.closest('tr').querySelector('input.clsDtlQty')||{}).value});}return o;});
 await page.goto(url,{waitUntil:'domcontentloaded'});await page.waitForTimeout(4500);

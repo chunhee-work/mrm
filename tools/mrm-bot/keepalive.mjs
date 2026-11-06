@@ -4,7 +4,7 @@ import { chromium } from 'playwright-core';
 const log=(...a)=>console.log(new Date().toISOString().slice(5,19),...a);
 for(;;){
   try{
-    const b=await chromium.connectOverCDP('http://127.0.0.1:9222');
+    const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));
     for(;;){
       for(const p of b.contexts()[0].pages()){
         if(!/merimen/.test(p.url()))continue;

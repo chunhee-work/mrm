@@ -1,7 +1,7 @@
 // reorder photos via the docview "Relabel/Reorder" page (UI click, sets the order boxes SDO*). node reorder_ui.mjs <cid> <ext> <map.json {"<current pos>":["<name now>",<new pos>]}> [save]
 import { chromium } from 'playwright-core'; import { readFileSync } from 'fs';
 const [,,CID,EXT,MF,MODE]=process.argv;const J=JSON.parse(readFileSync(MF,'utf8'));const SESS=readFileSync(process.env.SESSF||'session_base.txt','utf8').trim();
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const ctx=b.contexts()[0];const page=await ctx.newPage();let pop=null;page.on('popup',p=>{pop=p;});page.on('dialog',d=>d.accept().catch(()=>{}));
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const ctx=b.contexts()[0];const page=await ctx.newPage();let pop=null;page.on('popup',p=>{pop=p;});page.on('dialog',d=>d.accept().catch(()=>{}));
 try{await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRdoc&fuseaction=dsp_docview&domainid=1&objid=${CID}&extid=${EXT}&corole=4&${SESS}`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(2500);
  const links=page.locator('a:has-text("Relabel/Reorder")');const n=await links.count();let target=null;
  for(let i=n-1;i>=0;i--){pop=null;await links.nth(i).click();for(let k=0;k<20&&!pop;k++)await page.waitForTimeout(300);const tp=pop||page;await tp.waitForTimeout(2500);

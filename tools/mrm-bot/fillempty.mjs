@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 const [,,CID,EXT,SESSF]=process.argv;const SESS=readFileSync(SESSF,'utf8').trim();
 const src=readFileSync(new URL('./estfill.mjs',import.meta.url),'utf8');const cs=src.indexOf('function cond(');let i=cs,dep=0;for(;i<src.length;i++){if(src[i]==='{')dep++;if(src[i]==='}'){dep--;if(dep===0)break;}}
 const COND=src.slice(cs,i+1);
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
 const url=`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${CID}&extid=${EXT}&tpins=0&${SESS}`;
 await page.goto(url,{waitUntil:'domcontentloaded'});await page.waitForTimeout(5000);
 const r=await page.evaluate((COND)=>{eval(COND);const n=+document.querySelector('[name=PROWCNT]').value;const o=[];for(let i=1;i<=n;i++){const p=document.querySelector('[name=PDC'+i+']');if(!p||p.readOnly||p.value)continue;const e=document.getElementById('PDS'+i)||document.getElementById('PTDS'+i);const d=e?(e.tagName==='INPUT'?e.value:e.textContent).replace(/\s+/g,' ').trim():'';p.value=cond(d);p.dispatchEvent(new Event('change',{bubbles:true}));o.push(d+'='+p.value);}return o;},COND);

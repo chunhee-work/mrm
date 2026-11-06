@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core';
 import { readFileSync } from 'fs';
 const [,,CID,EXT,SESSF,CMTF]=process.argv;const SESS=readFileSync(SESSF,'utf8').trim();const C=JSON.parse(readFileSync(CMTF,'utf8'));
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const page=await b.contexts()[0].newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{});});
 const url=`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRestinterface&fuseaction=dsp_details&caseid=${CID}&extid=${EXT}&tpins=0&${SESS}`;
 await page.goto(url,{waitUntil:'domcontentloaded'});await page.waitForTimeout(4500);
 const r=await page.evaluate((C)=>{const n=+document.querySelector('[name=PROWCNT]').value;const o=[];const seen={};for(let i=1;i<=n;i++){const td=document.getElementById('PTDS'+i)||document.getElementById('PDS'+i);if(!td)continue;const d=(td.tagName==='INPUT'?td.value:td.childNodes[0].textContent).trim();seen[d]=(seen[d]||0)+1;const k=(d+'#'+seen[d]) in C?d+'#'+seen[d]:d;if(!(k in C))continue;const cm=AddCmmt('P',String(i));cm.value=C[k];if(typeof FormStoreUpdate==='function')FormStoreUpdate(cm);if(cm.onblur)cm.onblur();o.push(d);}return o;},C);

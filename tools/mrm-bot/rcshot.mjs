@@ -3,7 +3,7 @@ import { chromium } from '/Users/chunhee/mrm-bot/node_modules/playwright-core/in
 const SESS=readFileSync(process.env.SESSF||'/Users/chunhee/mrm-bot/session_base.txt','utf8').trim();
 const [,,IDS]=process.argv;const PAR=+(process.env.PAR||3);const D='/Users/chunhee/mrm-bot/state/rcshot/';
 const C=readFileSync(IDS,'utf8').trim().split('\n').map(l=>l.trim().split(/\s+/)).filter(x=>x.length===3);
-const b=await chromium.connectOverCDP('http://127.0.0.1:9222');const ctx=b.contexts()[0];
+const b=await chromium.connectOverCDP((process.env.CDP||'http://127.0.0.1:9222'));const ctx=b.contexts()[0];
 async function one([pl,cid,ext]){if(existsSync(D+pl+'_p1.png')||existsSync(D+pl+'.none'))return;
  const page=await ctx.newPage();page.on('dialog',async d=>{await d.accept().catch(()=>{})});let np=null;
  try{await page.goto(`https://www.merimen.com.my/claims/index.cfm?fusebox=MTRdoc&fuseaction=dsp_docview&domainid=1&objid=${cid}&extid=${ext}&corole=4&`+SESS,{waitUntil:'domcontentloaded'});await page.waitForTimeout(2500);
