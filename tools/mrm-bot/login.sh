@@ -8,7 +8,7 @@ cd "$(dirname "$0")"; S="$1"; A="$2"; mkdir -p state
 case "$A" in
   TC0607) PORT=9222; DIR="$HOME/.agent-browser-chrome"; NAME="437"; COL="#2563eb";;
   NVISSAC) PORT=9223; DIR="$HOME/.agent-browser-chrome-2"; NAME="ark.tg"; COL="#16a34a";;
-  YUSTRI) PORT=9224; DIR="$HOME/.agent-browser-chrome-3"; NAME="新账号"; COL="#9333ea";;
+  YUSTRI) PORT=9224; DIR="$HOME/.agent-browser-chrome-3"; NAME="20010"; COL="#9333ea";;
   CHONGAIAI) PORT=9225; DIR="$HOME/.agent-browser-chrome-4"; NAME="无登录"; COL="#ea580c";;
   *) echo "unknown account $A"; exit 1;;
 esac
