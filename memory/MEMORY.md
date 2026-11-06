@@ -47,3 +47,4 @@
 - [Car-model report ⚠️](car-model-report-warning.md) — step 12: mark ⚠️ when the chosen Merimen model has no price data (white, not green); prefer green variants
 - [Photo model improvement plan](photo-model-improvement-plan.md) — ideas 1-7 then 30h bigger backbone on the mini (user 2026-11-04)
 - [Case status line](case-status-line-format.md) — progress = one line: cases, done, minutes, % (user 2026-11-04)
+- [One Merimen login per browser](merimen-one-login-per-browser.md) — 2 Chrome profiles + Safari = 3 accounts at once; never mix accounts in one profile
