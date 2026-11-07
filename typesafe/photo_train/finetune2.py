@@ -126,18 +126,29 @@ def evaluate(write=False):
             for o in out: f.write(json.dumps(o) + "\n")
     model.train(); aux.train(); return ok / len(te), t3 / len(te)
 
+# 2026-11-08 (user: "use all this Mac mini's CPU and GPU"): LOADERS threads decode the NEXT batch while the GPU trains on
+# this one (was single-threaded), AMP=1 runs the forward pass in float16 on the GPU.
+from concurrent.futures import ThreadPoolExecutor
+POOL = ThreadPoolExecutor(int(os.environ.get("LOADERS", "8"))); AMP = os.environ.get("AMP", "1") == "1"
+def make_batch(ids):
+    labs = [meta[i][0] for i in ids]
+    fl = [FLIP[l] is not None and random.random() < 0.5 for l in labs]
+    labs = [FLIP[l] if f else l for l, f in zip(labs, fl)]
+    xs = list(POOL.map(lambda a: load(a[0], True, a[1]), zip(ids, fl)))
+    return labs, np.stack(xs)
 t0 = time.time(); best, best_ep = 0, 0
 for ep in range(EPOCHS):
     random.shuffle(tr)
     if os.environ.get("SMOKE"): tr = tr[:int(os.environ["SMOKE"])]; te[:] = te[:128]
-    for k in range(0, len(tr) - BS + 1, BS):
-        ids = tr[k:k + BS]
-        labs = [meta[i][0] for i in ids]
-        fl = [FLIP[l] is not None and random.random() < 0.5 for l in labs]
-        labs = [FLIP[l] if f else l for l, f in zip(labs, fl)]
-        x = torch.from_numpy(np.stack([load(i, True, f) for i, f in zip(ids, fl)])).to(dev)
+    starts = list(range(0, len(tr) - BS + 1, BS)); nxt = POOL.submit(make_batch, tr[0:BS]) if starts else None
+    for n, k in enumerate(starts):
+        labs, xb = nxt.result()
+        if n + 1 < len(starts): nxt = POOL.submit(make_batch, tr[starts[n + 1]:starts[n + 1] + BS])
+        x = torch.from_numpy(xb).to(dev)
         y = torch.tensor([L[l] for l in labs]).to(dev)
-        feat = bb(x)
+        with torch.autocast(device_type="mps", dtype=torch.float16, enabled=AMP and dev == "mps"):
+            feat = bb(x)
+        feat = feat.float()
         ya = torch.tensor([AUX[l][0] for l in labs]).to(dev); ma = torch.tensor([AUX[l][1] for l in labs]).to(dev)
         ys = torch.tensor([AUX[l][2] for l in labs]).to(dev); yp = torch.tensor([AUX[l][3] for l in labs]).to(dev)
         la = (bce(aux["area"](feat), ya).mean(1) * ma).sum() / ma.sum().clamp(min=1)
