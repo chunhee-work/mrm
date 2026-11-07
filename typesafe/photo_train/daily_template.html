@@ -1,0 +1,54 @@
+<title>🎯 每日确认台</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&family=Noto+Sans+SC:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f3f5f8;--surface:#fff;--raised:#f8fafc;--ink:#0f1720;--mut:#5b6776;--line:#dfe4ea;--acc:#4f5bd5;--accInk:#fff;--ok:#15803d;--okInk:#fff;--warn:#b45309;--shadow:0 1px 2px rgba(15,23,32,.06),0 4px 14px rgba(15,23,32,.05)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--ok:#4ade80;--okInk:#0b0f14;--warn:#fbbf24;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--ok:#4ade80;--okInk:#0b0f14;--warn:#fbbf24;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans","Noto Sans SC","PingFang SC",sans-serif;padding-inline:16px}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.top h1{font-size:16px;margin:0}.prog{font:600 13px "IBM Plex Mono",monospace;color:var(--mut);font-variant-numeric:tabular-nums}
+.bar{flex:1 1 140px;height:6px;border-radius:6px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
+main{max-width:1100px;margin:0 auto;padding-block:14px 60px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.lead{grid-column:1/-1;color:var(--mut);font-size:13.5px;margin:0;max-width:75ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.card.done{border-color:var(--ok)}
+.card img{width:100%;aspect-ratio:4/3;object-fit:contain;background:#000;display:block;max-width:100%}
+.body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px}
+.q{font-size:13px;color:var(--mut)}.q b{color:var(--ink)}
+.acts{display:flex;flex-direction:column;gap:6px}
+.acts button{min-height:40px;text-align:left;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--raised);cursor:pointer;font-size:13.5px}
+.acts button[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--okInk)}
+.acts .keep{font-weight:700}
+.oth{display:flex;gap:6px}.oth input{flex:1;min-width:0;min-height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+.acts .unsure{background:transparent;border-style:dashed;color:var(--mut)}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:14px;z-index:9}
+</style>
+<div class="top"><h1>🎯 每日确认台 · __DAY__</h1><span class="prog" id="prog">0 / 0</span><div class="bar"><i id="barf"></i></div></div>
+<main id="list"><p class="lead">模型最没把握的训练照片，照片最少的零件排前面。每张选一个：名字对 / 模型的答案对 / 其他名字 / 看不出。你的选择会用来修正训练资料。</p></main>
+<datalist id="names"></datalist>
+<div class="toast" id="toast" hidden></div>
+<script>
+const D=__DATA__, NAMES=__NAMES__;
+const q=s=>document.querySelector(s);let db=null,DEC={};
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+let tt;function toast(m){const t=q("#toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,1800)}
+const dl=q("#names");NAMES.forEach(n=>{const o=document.createElement("option");o.value=n;dl.append(o)});
+async function save(it,choice,name){if(!db){toast("还没连上，请稍等");return}
+ try{const d=db.collection("daily").doc("p"+it.i);if(DEC[it.i]&&DEC[it.i].choice===choice&&(DEC[it.i].name||"")===(name||""))await d.delete();else await d.set({i:it.i,old:it.label,choice,name:name||"",at:Date.now()});toast("已保存")}catch(e){toast("没保存成功，请再按一次")}}
+function render(){const L=q("#list");[...L.querySelectorAll(".card")].forEach(x=>x.remove());const done=D.filter(it=>DEC[it.i]).length;
+ q("#prog").textContent=done+" / "+D.length;q("#barf").style.width=(D.length?100*done/D.length:0)+"%";
+ D.forEach(it=>{const d=DEC[it.i];const c=el("article","card"+(d?" done":""));const im=el("img");im.src=it.img;im.alt=it.label;c.append(im);
+  const b=el("div","body");const qq=el("div","q");qq.append("现在的名字：",el("b",null,it.label),"（训练照片 "+it.photos+" 张）");b.append(qq);
+  const a=el("div","acts");const mk=(cls,txt,choice,name)=>{const x=el("button",cls,txt);x.setAttribute("aria-pressed",String(!!d&&d.choice===choice&&(d.name||"")===(name||"")));x.onclick=()=>save(it,choice,name);a.append(x)};
+  mk("keep","✓ 名字对："+it.label,"keep","");
+  it.top.filter(n=>n!==it.label).forEach(n=>mk("","其实是："+n,"other",n));
+  const o=el("div","oth");const inp=el("input");inp.setAttribute("list","names");inp.placeholder="其他名字…";inp.setAttribute("aria-label","其他名字");if(d&&d.choice==="other"&&!it.top.includes(d.name))inp.value=d.name;
+  const ok=el("button",null,"保存");ok.onclick=()=>{const v=inp.value.trim();if(v)save(it,"other",v)};o.append(inp,ok);a.append(o);
+  mk("unsure","看不出 / 跳过","unsure","");b.append(a);c.append(b);L.append(c)})}
+render();
+(async()=>{if(!window.claude||!window.claude.use)return;db=await window.claude.use("db");if(!db)return;
+ db.collection("daily").onSnapshot(s=>{DEC={};s.docs.forEach(x=>{const v=x.data();if(v&&v.i!=null)DEC[v.i]=v});render()},()=>{})})();
+</script>

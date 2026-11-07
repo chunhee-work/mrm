@@ -29,3 +29,6 @@ Baseline (live, round 1): whole 82.3/92.8, crop 81.2/92.3 on the 3,306-photo tes
 - Next: label build n4 = audit5 + audit6 fixes (689+252 relabels) + 35,827 harvested rare-part photos ("General View Left/Right" renamed or dropped), retrain the ViT-B path (hours, not days).
 - 2026-11-07 ViT-B + ViT-L combined (average of the two models' answers, weight 0.6 on B): 82.1% top1 vs B alone 81.2% (3,306 test photos). Routing rare answers to L alone did not help. User wants ViT-L trained more (believes it will beat B) -> after n4, continue ViT-L stage 1 (warm start dinov2_l_big12) + re-extract.
 - n4 labels built (build_n4.py): audit5 252 + audit6 535 relabels, 46,755 new train photos (+22,967 context), 892 train labels, 312 still < 100. train_n4.sh running.
+- 2026-11-07 idea 4 (car-make prior) TESTED: on 2,556 test photos with a known make, top-1 83.72% -> 83.76% (4 changes) = no real gain; the model already follows the make. Not added (naming.py make rules stay).
+- idea 3 done: add_to_training.py after every batch -> train_queue.tsv (batches 8+9 = 1,183 photos queued).
+- idea 7 done: 🎯 每日确认台 https://claude.ai/artifact/JBn4fJi8FAvqTX9qErLEnh (daily_pick.py pick/apply, db `daily`, 30 photos/day, cron 09:13 in-session, 7-day limit).
