@@ -5,6 +5,9 @@
 - Self-check: create ✓ · report all fields (police station, claimant insurance, occupation, phones, postcodes) ✓ · rates ✓ · 5 narratives ✓ · DOC upload ✓ · photo upload + order ✓ · Step 2 parts/labour/misc ✓ · details (0 empty conditions, paint 500, qty, comments) ✓ · total ≥ RM6,000 ✓. [merimen-az-progress] [merimen-batch-workflow] [merimen-step2-estimate-detail-fill]
 - Close leftover tabs (keep one Merimen tab). [merimen-logout-causes]
 
+## Feed the photo model (user 2026-11-07, idea 3)
+- After every batch is done: `python3 typesafe/photo_train/add_to_training.py <batch_dir>/ids.txt` → the user's final photo names go into `train_queue.tsv` (256 px copies in data/queue/). The next label build adds them as training photos.
+
 ## Google Sheet rows (step 11)
 - Row: `<DD/MM/YYYY> TAB <PLATE> TAB <WORKSHOP> TAB D`; date = the day the case is done (same date for all cases that day); rows grouped by workshop; last column literal `D`. [merimen-create-case-procedure] [merimen-sheet-workshop-names]
 - Workshop short names: `extreme` → EXTREME AUTO; `sinar` → SINAR GEMILANG; `LKH` → LEE KEAN HIN (all caps, no Sdn Bhd/branch). [merimen-sheet-workshop-names]
