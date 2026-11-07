@@ -1,3 +1,4 @@
 EPOCH 0 test top1 65.1% top3 84.8% 31183 s
 EPOCH 1 test top1 74.1% top3 89.2% 59240 s
 best top1 74.1% at epoch 2
+TRAIN_LARGE_DONE

@@ -22,3 +22,8 @@ Baseline (live, round 1): whole 82.3/92.8, crop 81.2/92.3 on the 3,306-photo tes
 - keep 592 · model 638 · other 51 · unsure 410 → 689 relabels in typesafe/photo_train/label_fixes_audit6.json (local, like audit5).
 - Apply audit5 + audit6 fixes at the next label build (n4), then retrain stage 2 and compare.
 - Rare parts: 466 of 910 labels have < 100 train photos (test top1 21%) -> rare_lt100.json; harvest.py RARE_ONLY=1 grabs only those (+neighbours), never logs in, pauses on ~/mrm-bot/state/PAUSE_HARVEST. Blocked until Chrome "Allow JavaScript from Apple Events" is ticked again.
+
+## 2026-11-07 idea 6 result: ViT-L backbone (2 stage-1 epochs, ~50 h incl. feature extraction on the Mac mini)
+- stage 1: 74.1/89.2 (ViT-B big11: 77.1/90.9). Group model (stage 2, 6 epochs, no TTA): best 79.2/91.7 vs current 81.2/92.3 -> NOT swapped.
+- Only plus: rare items 36.8% vs 21% on the 38 rare test photos (ViT-L sees rare parts better).
+- Next: label build n4 = audit5 + audit6 fixes (689+252 relabels) + 35,827 harvested rare-part photos ("General View Left/Right" renamed or dropped), retrain the ViT-B path (hours, not days).
