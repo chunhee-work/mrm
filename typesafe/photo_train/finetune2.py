@@ -46,8 +46,19 @@ def load(i, aug, flip=False):
 
 _HUB = os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main")
 # 2026-11-05 idea 6: BB=vitl14 -> bigger backbone (1024-d); default vitb14 (768-d). BS=<batch size> (default 32)
-BB = os.environ.get("BB", "vitb14"); DIM = {"vits14": 384, "vitb14": 768, "vitl14": 1024, "vitg14": 1536}[BB]; BS = int(os.environ.get("BS", "32"))
-bb = torch.hub.load(_HUB, "dinov2_" + BB, source="local") if os.path.isdir(_HUB) else torch.hub.load("facebookresearch/dinov2", "dinov2_" + BB)
+BB = os.environ.get("BB", "vitb14"); BS = int(os.environ.get("BS", "32"))
+# 2026-11-07 (user: "train DINOv3 until it passes our model"): BB=dinov3_vitb16 / dinov3_vitl16 -> Meta DINOv3 (HF transformers)
+class V3(nn.Module):
+    def __init__(s, path):
+        super().__init__(); from transformers import AutoModel
+        s.m = AutoModel.from_pretrained(path); s.blocks = s.m.layer; s.norm = s.m.norm
+    def forward(s, x): return s.m(pixel_values=x).pooler_output
+if BB.startswith("dinov3"):
+    bb = V3(os.path.join(HERE, "models", BB.replace("dinov3_", "dinov3_"))); DIM = bb.m.config.hidden_size
+else:
+    DIM = {"vits14": 384, "vitb14": 768, "vitl14": 1024, "vitg14": 1536}[BB]
+    bb = torch.hub.load(_HUB, "dinov2_" + BB, source="local") if os.path.isdir(_HUB) else torch.hub.load("facebookresearch/dinov2", "dinov2_" + BB)
+PFX = ("dinov3_%s" % BB.split("_")[1][3]) if BB.startswith("dinov3") else ("dinov2_%s" % BB[3])   # dinov3_b_<tag>.pt / dinov2_b_<tag>.pt
 for p in bb.parameters(): p.requires_grad = False
 for blk in bb.blocks[-UNFREEZE:]:
     for p in blk.parameters(): p.requires_grad = True
@@ -73,6 +84,27 @@ if INIT:
     if "aux" in ck: aux.load_state_dict(ck["aux"])
     print("init from", INIT, "shared labels", sum(k in old for k in L), "+ renamed", len(ren), "/", len(L), flush=True)
 model = model.to(dev); aux = aux.to(dev)
+# TEACHER=models/dinov2_b_big10a.pt (the current trained model): the student also learns the teacher's answers (KD, user idea
+# "feed our trained model's knowledge to the new model"). Teacher labels are mapped to the student's labels by name (name_map.final).
+TEACHER = os.environ.get("TEACHER"); KDW = float(os.environ.get("KDW", "0.5")); KDT = float(os.environ.get("KDT", "2.0"))
+if TEACHER:
+    tck = torch.load(os.path.join(HERE, TEACHER), map_location="cpu")
+    tbb = torch.hub.load(_HUB, "dinov2_" + tck.get("bb", "vitb14"), source="local")
+    tbb.load_state_dict({k[2:]: v for k, v in tck["state"].items() if k.startswith("0.")})
+    thead = nn.Linear(tck.get("dim", 768), len(tck["labels"])); thead.weight.data = tck["state"]["1.weight"]; thead.bias.data = tck["state"]["1.bias"]
+    teacher = nn.Sequential(tbb, thead).to(dev).eval()
+    for p in teacher.parameters(): p.requires_grad = False
+    sys.path.insert(0, HERE); from name_map import final as _f
+    tmap = torch.full((len(tck["labels"]),), -1, dtype=torch.long)
+    for j, k in enumerate(tck["labels"]):
+        t = k if k in L else _f(k)
+        if t in L: tmap[j] = L[t]
+    tmap = tmap.to(dev); print("teacher", TEACHER, "labels mapped", int((tmap >= 0).sum()), "/", len(tck["labels"]), flush=True)
+def kd_target(x):
+    with torch.no_grad():
+        p = torch.softmax(teacher(x) / KDT, 1); m = tmap >= 0
+        q = torch.zeros(x.shape[0], len(labels), device=x.device); q.index_add_(1, tmap[m], p[:, m])
+        return q / q.sum(1, keepdim=True).clamp(min=1e-6)
 opt = torch.optim.AdamW([{"params": [p for p in bb.parameters() if p.requires_grad], "lr": 2e-5},
                          {"params": list(head.parameters()) + list(aux.parameters()), "lr": 1e-3}], weight_decay=0.05)
 steps = EPOCHS * (len(tr) // BS); sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=[2e-5, 1e-3], total_steps=steps)
@@ -109,13 +141,15 @@ for ep in range(EPOCHS):
         ya = torch.tensor([AUX[l][0] for l in labs]).to(dev); ma = torch.tensor([AUX[l][1] for l in labs]).to(dev)
         ys = torch.tensor([AUX[l][2] for l in labs]).to(dev); yp = torch.tensor([AUX[l][3] for l in labs]).to(dev)
         la = (bce(aux["area"](feat), ya).mean(1) * ma).sum() / ma.sum().clamp(min=1)
-        loss = lossf(head(feat), y) + AUXW * (la + ce(aux["side"](feat), ys) + ce(aux["pos"](feat), yp)); opt.zero_grad(); loss.backward(); opt.step(); sched.step()
+        lg = head(feat); loss = lossf(lg, y) + AUXW * (la + ce(aux["side"](feat), ys) + ce(aux["pos"](feat), yp))
+        if TEACHER: loss = loss + KDW * (KDT ** 2) * nn.functional.kl_div(torch.log_softmax(lg / KDT, 1), kd_target(x), reduction="batchmean")
+        opt.zero_grad(); loss.backward(); opt.step(); sched.step()
         if k % 3200 == 0: print("ep", ep, k, "loss %.3f" % loss.item(), int(time.time() - t0), "s", flush=True)
     if ALL:
-        torch.save({"state": model.state_dict(), "labels": labels, "aux": aux.state_dict(), "bb": BB, "dim": DIM}, os.path.join(HERE, "models", "dinov2_%s_%s.pt" % (BB[3], TAG)))
+        torch.save({"state": model.state_dict(), "labels": labels, "aux": aux.state_dict(), "bb": BB, "dim": DIM}, os.path.join(HERE, "models", "%s_%s.pt" % (PFX, TAG)))
         print("EPOCH", ep, "saved (all cases, no test set)", int(time.time() - t0), "s", flush=True); continue
     a1, a3 = evaluate()
     print("EPOCH", ep, "test top1 %.1f%% top3 %.1f%%" % (100 * a1, 100 * a3), int(time.time() - t0), "s", flush=True)
     if a1 > best:
-        best, best_ep = a1, ep + 1; torch.save({"state": model.state_dict(), "labels": labels, "aux": aux.state_dict(), "bb": BB, "dim": DIM}, os.path.join(HERE, "models", "dinov2_%s_%s.pt" % (BB[3], TAG))); evaluate(write=True)
+        best, best_ep = a1, ep + 1; torch.save({"state": model.state_dict(), "labels": labels, "aux": aux.state_dict(), "bb": BB, "dim": DIM}, os.path.join(HERE, "models", "%s_%s.pt" % (PFX, TAG))); evaluate(write=True)
 print("best top1 %.1f%% at epoch %d" % (100 * best, best_ep) if not ALL else "best final saved")

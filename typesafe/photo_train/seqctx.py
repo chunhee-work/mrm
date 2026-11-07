@@ -34,7 +34,15 @@ def img(i):
 
 if mode == "extract":
     _HUB = os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main")
-    bb = torch.hub.load(_HUB, "dinov2_" + BBN, source="local")
+    if BBN.startswith("dinov3"):   # 2026-11-07: DINOv3 student from finetune2.py (HF transformers), same wrapper as there
+        from transformers import AutoModel
+        class V3(torch.nn.Module):
+            def __init__(s, path): super().__init__(); s.m = AutoModel.from_pretrained(path)
+            def forward(s, x): return s.m(pixel_values=x).pooler_output
+        bb = V3(os.path.join(HERE, "models", BBN))
+        ck["state"] = {k: v for k, v in ck["state"].items() if k.startswith("0.m.") or not k.startswith("0.")}   # finetune2's V3 also lists blocks./norm. aliases
+    else:
+        bb = torch.hub.load(_HUB, "dinov2_" + BBN, source="local")
     bb.load_state_dict({k[2:]: v for k, v in ck["state"].items() if k.startswith("0.")}); bb = bb.to(dev).eval()
     N = len(meta); F = np.lib.format.open_memmap(FEATS + ".part", "w+", np.float16, (N, DIM)); t0 = time.time()
     # 2026-11-03: BASE_FEATS=<old feats .npy> -> copy its rows (same photo order) and only run the new photos after them

@@ -41,8 +41,14 @@ def probe(name, fn, size):
         p = head(Xte); t3 = p.topk(3, 1).indices
     a1 = (t3[:, 0] == yte).float().mean().item(); a3 = (t3 == yte[:, None]).any(1).float().mean().item()
     print(f"{name}: top1 {100*a1:.1f}%  top3 {100*a3:.1f}%  ({int(time.time()-t)} s)", flush=True)
-v2 = torch.hub.load(os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main"), "dinov2_vitb14", source="local").to(dev).eval()
-probe("DINOv2 ViT-B/14 (frozen)", lambda x: v2(x), 224); del v2
+RUN = os.environ.get("RUN", "v2b,v3b").split(",")   # v2b, v3b, v3l -- same random photos every run (seed 0)
 from transformers import AutoModel
-v3 = AutoModel.from_pretrained(os.path.join(HERE, "models/dinov3_vitb16")).to(dev).eval()
-probe("DINOv3 ViT-B/16 (frozen)", lambda x: v3(pixel_values=x).pooler_output, 224)
+if "v3l" in RUN:
+    v3l = AutoModel.from_pretrained(os.path.join(HERE, "models/dinov3_vitl16")).to(dev).eval()
+    probe("DINOv3 ViT-L/16 (frozen)", lambda x: v3l(pixel_values=x).pooler_output, 224); del v3l
+if "v2b" in RUN:
+  v2 = torch.hub.load(os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main"), "dinov2_vitb14", source="local").to(dev).eval()
+  probe("DINOv2 ViT-B/14 (frozen)", lambda x: v2(x), 224); del v2
+if "v3b" in RUN:
+  v3 = AutoModel.from_pretrained(os.path.join(HERE, "models/dinov3_vitb16")).to(dev).eval()
+  probe("DINOv3 ViT-B/16 (frozen)", lambda x: v3(pixel_values=x).pooler_output, 224)
