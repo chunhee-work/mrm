@@ -38,3 +38,4 @@ Baseline (live, round 1): whole 82.3/92.8, crop 81.2/92.3 on the 3,306-photo tes
 ## 2026-11-09 ViT-L big14 result + n5
 - Same 3,306 test photos: ViT-B production pair 82.2/92.9; ViT-L L14+L14c 80.1/92.1 (not better -> no swap); B+L all four averaged 82.8/93.9.
 - n5 labels = n4 + 名字对应台 (label_map100.json) + 每日确认台 + train_queue (build_n5.py). train_n5.sh: part 1 group models on existing features (B5/B5c, L5/L5c, ~3 h), part 2 ViT-L big15 one more epoch (~45 h).
+- 2026-11-09 23:35 n5 part 1 (3,306 test photos, n5 names): production (old) 82.3/92.9 · **B5+B5c 82.5/93.2 -> now production** (seq_best*.pt; old kept as *_prev20261109.pt) · L5+L5c 80.9/92.2 · B5+B5c+L5+L5c 83.3/93.6. Part 2 (ViT-L big15) running, ETA ~2026-11-11 22:00.
