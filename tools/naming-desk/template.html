@@ -100,6 +100,7 @@ button.chip{cursor:pointer;min-height:28px}
 .donebtn{flex:none;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--ok);background:transparent;color:var(--ok);font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap}
 .donebtn.ask{background:var(--warn);border-color:var(--warn);color:var(--accInk)}.donebtn.ok{background:var(--ok);border-color:var(--ok);color:var(--okInk)}
 @container (max-width:420px){.alts{flex-wrap:wrap;overflow-x:visible;white-space:normal}.alts span{flex-basis:100%}.alts button{flex:1 1 100%;text-align:left;min-height:40px;padding:6px 12px;border-radius:10px;white-space:normal}}  /* user 2026-11-09 phone: 其他可能 all visible, one per line, no side scrolling */  /* 2026-11-09 phone: iOS zooms in on inputs under 16px */
+@media (hover:none) and (max-width:700px){.namerow{grid-template-columns:1fr 1fr;gap:8px}.namerow .nm,.namerow .nmin{grid-column:1/-1}.namerow .paste{min-height:44px;font-size:15px;border-radius:10px}}  /* user 2026-11-09 phone only: name on its own line, Copy + Paste bigger on one line below */
 </style>
 <header class="top"><div class="in">
  <button class="tabarr" id="tabL" aria-label="上一个案件 / 向左">‹</button>
