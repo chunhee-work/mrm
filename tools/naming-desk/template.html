@@ -101,6 +101,7 @@ button.chip{cursor:pointer;min-height:28px}
 .donebtn.ask{background:var(--warn);border-color:var(--warn);color:var(--accInk)}.donebtn.ok{background:var(--ok);border-color:var(--ok);color:var(--okInk)}
 @container (max-width:420px){.alts{flex-wrap:wrap;overflow-x:visible;white-space:normal}.alts span{flex-basis:100%}.alts button{flex:1 1 100%;text-align:left;min-height:40px;padding:6px 12px;border-radius:10px;white-space:normal}}  /* user 2026-11-09 phone: 其他可能 all visible, one per line, no side scrolling */  /* 2026-11-09 phone: iOS zooms in on inputs under 16px */
 @media (hover:none) and (max-width:700px){.namerow{grid-template-columns:1fr 1fr;gap:8px}.namerow .nm,.namerow .nmin{grid-column:1/-1}.namerow .paste{min-height:44px;font-size:15px;border-radius:10px}}  /* user 2026-11-09 phone only: name on its own line, Copy + Paste bigger on one line below */
+@media (max-width:560px){.tabs{flex:1 1 100%;order:9}.donebtn{margin-left:auto;min-height:36px;padding:0 14px;font-size:13px}}  /* user 2026-11-09 phone: 完成 top right, the case tabs get the whole second row */
 </style>
 <header class="top"><div class="in">
  <button class="tabarr" id="tabL" aria-label="上一个案件 / 向左">‹</button>
@@ -269,14 +270,15 @@ tabs();render();
 let askT=null;const KEY=CASES.slice().sort().join(",");
 function doneUI(){const b=q("#doneBtn");if(!b)return;const ok=!!DONEC[CASE];b.classList.toggle("ok",ok);b.classList.remove("ask");
  const n=CASES.filter(c=>DONEC[c]).length;
- b.textContent=(ok?CASE+" 已完成 ✓":"完成 "+CASE)+"  ("+n+"/"+CASES.length+")";b.disabled=!db}
+ const NR=matchMedia("(max-width:560px)").matches;b.textContent=(ok?(NR?"":CASE+" ")+"已完成 ✓":"完成"+(NR?"":" "+CASE))+"  ("+n+"/"+CASES.length+")";  // phone: the plate is in the tab, keep the button short
+b.disabled=!db}
 async function setDone(c,v){try{await db.collection("status").doc("case_"+c).set({key:KEY,case:c,done:v,at:Date.now()});
   const all=CASES.every(x=>x===c?v:DONEC[x]);
   if(all||!v)await db.collection("status").doc("done").set({key:KEY,cases:CASES,done:all,at:Date.now()});
   toast(v?(all?"全部完成，已通知 Claude":"已通知 Claude："+c+" 开始 Step 2"):"已撤销 "+c+" 的「完成」")}catch(e){toast("没保存成功，请再按一次")}}
 function undone(c){if(DONEC[c]&&db){DONEC[c]=false;setDone(c,false);toast(c+" 改了，改好后请再按「完成」");tabs();doneUI()}}
 q("#doneBtn").onclick=()=>{const b=q("#doneBtn");if(!db){toast("还没连上，请稍等");return}const ok=!!DONEC[CASE];
- if(!b.classList.contains("ask")){b.classList.add("ask");b.textContent=ok?"再按一次撤销":"再按一次确认 "+CASE+" 完成";clearTimeout(askT);askT=setTimeout(doneUI,4000);return}
+ if(!b.classList.contains("ask")){b.classList.add("ask");b.textContent=ok?"再按一次撤销":(matchMedia("(max-width:560px)").matches?"再按一次确认":"再按一次确认 "+CASE+" 完成");clearTimeout(askT);askT=setTimeout(doneUI,4000);return}
  clearTimeout(askT);setDone(CASE,!ok)};
 new MutationObserver(doneUI).observe(q("#tabs"),{childList:true});
 (async()=>{if(!window.claude||!window.claude.use)return;db=await window.claude.use("db");if(!db)return;
