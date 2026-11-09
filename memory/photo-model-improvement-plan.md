@@ -34,3 +34,7 @@ Baseline (live, round 1): whole 82.3/92.8, crop 81.2/92.3 on the 3,306-photo tes
 - idea 7 done: 🎯 每日确认台 https://claude.ai/artifact/JBn4fJi8FAvqTX9qErLEnh (daily_pick.py pick/apply, db `daily`, 30 photos/day, cron 09:13 in-session, 7-day limit).
 - 2026-11-07 user chose 分两步走: (1) if DINOv3 ViT-B (frozen probe, probe_v3.py) is not worse than DINOv2 ViT-B -> stop the DINOv2 ViT-L run and fine-tune DINOv3 ViT-B (fast, ~3 h/epoch) and swap it in when it beats 81.2/92.3; (2) then train DINOv3 ViT-L slowly in the background and swap when it beats DINOv3 ViT-B. DINOv3 licence read: commercial use OK (no military/sanctions use; attach licence if redistributed). Weights in models/dinov3_vitb16, models/dinov3_vitl16 (HF transformers 4.57).
 - 2026-11-07 frozen probe, same 48,192 train / 3,262 test photos, linear head: DINOv2 ViT-B 28.8/48.4 · DINOv3 ViT-B 28.5/48.7 · DINOv3 ViT-L 28.7/51.4 -> no gain from DINOv3 on our photos. User: "you decide" -> DECISION: stay on DINOv2 ViT-L (big13 running, not restarted). Next ViT-L round uses TEACHER=models/dinov2_b_big10a.pt (KD now in finetune2.py). Replace ViT-B only when ViT-L's group model beats 81.2/92.3.
+
+## 2026-11-09 ViT-L big14 result + n5
+- Same 3,306 test photos: ViT-B production pair 82.2/92.9; ViT-L L14+L14c 80.1/92.1 (not better -> no swap); B+L all four averaged 82.8/93.9.
+- n5 labels = n4 + 名字对应台 (label_map100.json) + 每日确认台 + train_queue (build_n5.py). train_n5.sh: part 1 group models on existing features (B5/B5c, L5/L5c, ~3 h), part 2 ViT-L big15 one more epoch (~45 h).
