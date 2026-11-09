@@ -4,7 +4,8 @@
 __pycache__/
 *.pyc
 # local-only (credentials, machine settings)
-.claude/
+.claude/*
+!.claude/skills/
 typesafe/driver.py
 # photo model: data, weights, envs, PII lists, logs (code only goes to git)
 typesafe/photo_train/data/
