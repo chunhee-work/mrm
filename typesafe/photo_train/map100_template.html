@@ -1,0 +1,59 @@
+<title>🏷️ 名字对应台</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&family=Noto+Sans+SC:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f3f5f8;--surface:#fff;--raised:#f8fafc;--ink:#0f1720;--mut:#5b6776;--line:#dfe4ea;--acc:#4f5bd5;--accInk:#fff;--ok:#15803d;--okInk:#fff;--warn:#b45309;--shadow:0 1px 2px rgba(15,23,32,.06),0 4px 14px rgba(15,23,32,.05)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--ok:#4ade80;--okInk:#0b0f14;--warn:#fbbf24;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b0f14;--surface:#121821;--raised:#18202b;--ink:#e7ecf2;--mut:#8b97a6;--line:#243041;--acc:#8b93ff;--accInk:#0b0f14;--ok:#4ade80;--okInk:#0b0f14;--warn:#fbbf24;--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans","Noto Sans SC","PingFang SC",sans-serif;padding-inline:16px}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.top h1{font-size:16px;margin:0}.prog{font:600 13px "IBM Plex Mono",monospace;color:var(--mut);font-variant-numeric:tabular-nums}
+.bar{flex:1 1 140px;height:6px;border-radius:6px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .3s}
+main{max-width:1100px;margin:0 auto;padding-block:14px 60px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.lead{grid-column:1/-1;color:var(--mut);font-size:13.5px;margin:0;max-width:75ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.card.done{border-color:var(--ok)}
+.card img{width:100%;aspect-ratio:4/3;object-fit:contain;background:#000;display:block;max-width:100%}
+.body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px}
+.q{font-size:13px;color:var(--mut)}.q b{color:var(--ink)}
+.acts{display:flex;flex-direction:column;gap:6px}
+.acts button{min-height:40px;text-align:left;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--raised);cursor:pointer;font-size:13.5px}
+.acts button[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--okInk)}
+.acts .keep{font-weight:700}
+.oth{display:flex;gap:6px}.oth input{flex:1;min-width:0;min-height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+.acts .unsure{background:transparent;border-style:dashed;color:var(--mut)}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:14px;z-index:9}
+</style>
+<div class="top"><h1>🏷️ 名字对应台</h1><span class="prog" id="prog">0 / 0</span><div class="bar"><i id="barf"></i></div></div>
+<main id="list"><p class="lead">训练资料里这 100 个名字不在你的名字清单里（照片多的排前面）。每个选一个：改成建议的名字 / 其他名字 / 保留这个名字（加进清单）/ 不要（不拿来训练）。选了的名字会套用到这个名字的全部照片。</p></main>
+<datalist id="names"></datalist>
+<div class="toast" id="toast" hidden></div>
+<script>
+const D=__DATA__, NAMES=__NAMES__;
+const q=s=>document.querySelector(s);let db=null,DEC={};
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+let tt;function toast(m){const t=q("#toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,1800)}
+const dl=q("#names");NAMES.forEach(n=>{const o=document.createElement("option");o.value=n;dl.append(o)});
+const key=o=>"m"+[...o].map(c=>c.charCodeAt(0).toString(36)).join("").slice(0,120);
+async function save(it,choice,name){if(!db){toast("还没连上，请稍等");return}
+ try{const d=db.collection("map").doc(key(it.old));const c=DEC[it.old];if(c&&c.choice===choice&&(c.name||"")===(name||""))await d.delete();else await d.set({old:it.old,choice,name:name||"",at:Date.now()});toast("已保存")}catch(e){toast("没保存成功，请再按一次")}}
+function render(){const L=q("#list");[...L.querySelectorAll(".card")].forEach(x=>x.remove());const done=D.filter(it=>DEC[it.old]).length;
+ q("#prog").textContent=done+" / "+D.length;q("#barf").style.width=(D.length?100*done/D.length:0)+"%";
+ D.forEach(it=>{const d=DEC[it.old];const c=el("article","card"+(d?" done":""));if(it.img){const im=el("img");im.src=it.img;im.alt=it.old;im.loading="lazy";c.append(im)}
+  const b=el("div","body");const qq=el("div","q");qq.append("训练资料的名字：",el("b",null,it.old),"（"+it.n+" 张照片）");b.append(qq);
+  const a=el("div","acts");const mk=(cls,txt,choice,name)=>{const x=el("button",cls,txt);x.setAttribute("aria-pressed",String(!!d&&d.choice===choice&&(d.name||"")===(name||"")));x.onclick=()=>save(it,choice,name);a.append(x)};
+  let first=true;
+  it.sug.forEach(n=>{const cls=first?"keep":"";first=false;
+   if(n==="__MAKE__")mk(cls,"按车的牌子分（例：PERODUA 车 → "+it.old.replace("LOGO","PERODUA")+"）","make","");
+   else if(n==="__KEEP__")mk(cls,"✓ 保留这个名字（加进清单）","keep","");
+   else mk(cls,"改成："+n,"other",n)});
+  if(!it.sug.includes("__KEEP__"))mk("","✓ 保留这个名字（加进清单）","keep","");
+  const o=el("div","oth");const inp=el("input");inp.setAttribute("list","names");inp.placeholder="其他名字…";inp.setAttribute("aria-label","其他名字");if(d&&d.choice==="other"&&!it.sug.includes(d.name))inp.value=d.name;
+  const ok=el("button",null,"保存");ok.onclick=()=>{const v=inp.value.trim();if(v)save(it,"other",v)};o.append(inp,ok);a.append(o);
+  mk("unsure","不要（不拿来训练）","drop","");b.append(a);c.append(b);L.append(c)})}
+render();
+(async()=>{if(!window.claude||!window.claude.use)return;db=await window.claude.use("db");if(!db)return;
+ db.collection("map").onSnapshot(s=>{DEC={};s.docs.forEach(x=>{const v=x.data();if(v&&v.old)DEC[v.old]=v});render()},()=>{})})();
+</script>

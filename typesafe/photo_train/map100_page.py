@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""2026-11-09: the 100 n4 training labels that are not in the user's names.json -> 🏷️ 名字对应台 (map100/index.html) for the user to confirm.
+  python3 map100_page.py            # build the page from map100.json (+ hand fixes below)
+  python3 map100_page.py apply <db_dir>   # ArtifactData list map -> <db_dir>/map/*.json -> label_map100.json (old -> new | KEEP | DROP | MAKE)"""
+import base64, io, json, os, sys, glob
+from PIL import Image
+HERE = os.path.dirname(os.path.abspath(__file__))
+if len(sys.argv) > 1 and sys.argv[1] == "apply":
+    out = {}
+    for f in glob.glob(os.path.join(sys.argv[2], "map", "*.json")):
+        d = json.load(open(f)); d = d.get("data", d)
+        if d.get("old") and d.get("choice"): out[d["old"]] = d["name"] if d["choice"] == "other" else d["choice"].upper()
+    json.dump(out, open(os.path.join(HERE, "label_map100.json"), "w"), indent=0, ensure_ascii=False); print("decisions", len(out)); sys.exit()
+M = json.load(open(os.path.join(HERE, "map100.json")))
+paths = open(os.path.join(HERE, "big_paths_n4.txt")).read().split("\n")
+UN = json.load(open(os.path.join(HERE, "..", "..", "tools", "naming-desk", "names.json"))); UN = sorted(set(UN if isinstance(UN, list) else UN.get("names", UN)))
+KEEP = "__KEEP__"; MAKE = "__MAKE__"
+FIX = {   # my review of the weak automatic suggestions (KEEP = no right name in the list, keep the old one as a new name)
+ "Tailgate Badge (LOGO)": [MAKE], "Grille Badge (LOGO)": [MAKE], "Boot Lid Badge (LOGO)": [MAKE],
+ "Bumper Protector Front LH": [KEEP], "Lamp Assembly Rear Inner": ["Rear Lamp Inner LH", "Rear Lamp Inner RH"],
+ "Lamp Assembly Rear Centre": [KEEP], "Fuel Filler Cap": [KEEP, "Fuel Filler Flap"], "Badge Bumper Front": [KEEP],
+ "Bumper Front Grille": ["Bumper Front Lower Grille", "Bumper Front Upper Grille"], "Bulkhead Rear": [KEEP],
+ "Suspension Rear Lateral Link": ["Suspension Rear Lateral Link LH", "Suspension Rear Lateral Link RH"],
+ "Fender Badge LH": [KEEP], "Grille Panel/Headlamp Mask": [KEEP], "Headlamp Washer Jet LH": [KEEP], "Headlamp Washer Jet RH": [KEEP],
+ "Sticker": [KEEP], "Tie Rod End Lhf,tie Rod Lhf": ["Steering Tie Rod End LH", "Steering Tie Rod LH"], "Radar Frt": [KEEP], "Body Kit": [KEEP],
+ "Frt Lower Arm LH": ["Front Suspension Lower Arm LH", "Front LH Lower Arm"], "Cowl Panel Closing LH": [KEEP],
+ "Tailgate Moulding Upper": [KEEP], "Badge Tailgate Lower": [KEEP], "Grille Front Moulding RH": ["Grille Front Moulding", "Grille Front RH"],
+ "Air Conditioning Condenser": [KEEP], "Lamp Assembly Rear Lower LH": [KEEP, "Rear Lamp LH"], "Lamp Assembly Rear Lower RH": [KEEP, "Rear Lamp RH"],
+ "Radiator Air Intake Guide": ["Radiator Air Deflector", KEEP], "Bumper Front Upper Retainer": [KEEP],
+ "Bumper Rear Retainer Panel LH": [KEEP], "Bumper Rear Retainer Panel RH": [KEEP, "Bumper Rear Retainer Panel RH [larger Piece]"],
+ "Rear Bumper Lower": ["Bumper Rear Lower Cover", "Rear Bumper"], "Subframe Assembly Rear": ["Subframe/Axle Rear"],
+ "Fender Inner Side Gusset RH": [KEEP, "Fender Inner Reinforcement RH"],
+}
+for b in ["Tailgate Badge (SE)", "Tailgate Badge (ADVANCE)", "Tailgate Badge (EZI)", "Tailgate Badge (TOYOTA)", "Tailgate Badge (AVANZA)",
+          "Tailgate Badge (EXORA BOLD)", "Boot Lid Badge (CIVIC)", "Boot Lid Badge (HONDA)", "Boot Lid Badge (DUAL VVT-I)", "Grille Badge (NISSAN)"]:
+    FIX[b] = [KEEP]
+def thumb(p):
+    im = Image.open(p).convert("RGB"); im.thumbnail((420, 420)); b = io.BytesIO(); im.save(b, "JPEG", quality=72); return base64.b64encode(b.getvalue()).decode()
+items = []
+for r in M:
+    s = [x for x in FIX.get(r["old"], r["sug"]) if x in (KEEP, MAKE) or x in UN]
+    p = os.path.join(HERE, paths[r["i"]])
+    items.append({"old": r["old"], "n": r["n"], "sug": s[:3], "img": "data:image/jpeg;base64," + thumb(p) if os.path.exists(p) else ""})
+tpl = open(os.path.join(HERE, "map100_template.html"), encoding="utf-8").read()
+os.makedirs(os.path.join(HERE, "map100"), exist_ok=True)
+open(os.path.join(HERE, "map100", "index.html"), "w", encoding="utf-8").write(tpl.replace("__DATA__", json.dumps(items, ensure_ascii=False)).replace("__NAMES__", json.dumps(UN, ensure_ascii=False)))
+print("items", len(items), "no photo", sum(1 for x in items if not x["img"]))
