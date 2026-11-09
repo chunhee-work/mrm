@@ -19,10 +19,26 @@ rare = {x["name"]: x["photos"] for x in json.load(open(os.path.join(HERE, "rare_
 seen = {str(x["i"]) for x in json.load(open(os.path.join(HERE, "label_fixes_audit6.json")))} | {str(json.loads(l)["i"]) for l in open(os.path.join(HERE, "audit_suspects.json")).read().splitlines()[:0]}
 try: seen |= {str(x["i"]) for x in json.load(open(os.path.join(HERE, "audit_suspects.json")))}
 except Exception: pass
+# 2026-11-09 (user: "I combined all the item names for you — use those names in every artifact"): every name shown = the
+# CURRENT combined name (big_meta_n4 label = name_map.final + the user's merges); model answers are mapped the same way.
+sys.path.insert(0, HERE); from name_map import final as _final
+MER = json.load(open(os.path.join(HERE, "label_fixes_audit5.json"))).get("merges", {})
+def cname(n):
+    if not n: return ""
+    n = MER.get(n, n); f = _final(n)
+    return "" if f is None else MER.get(f, f)
+UN = json.load(open(os.path.join(HERE, "..", "..", "tools", "naming-desk", "names.json"))); UN = set(UN if isinstance(UN, list) else UN.get("names", UN))   # the user's own name list
+N4 = [l.rstrip("\n").split("\t") for l in open(os.path.join(HERE, "big_meta_n4.tsv")) if l.strip()]
 CNT = collections.Counter(l.split("\t")[0] for l in open(os.path.join(HERE, "big_meta_n4.tsv")) if l.split("\t")[3].strip() == "train")
 cand = []
 for l in open(os.path.join(HERE, "pred_train_audit.jsonl")):
     o = json.loads(l); k = str(o["i"])
+    cur = N4[o["i"]][0] if o["i"] < len(N4) else ""
+    tops = [cname(t[0]) for t in o["top"]]
+    tops = [t for t in tops if t in UN]
+    if not cur or cur not in UN or N4[o["i"]][3] != "train" or (tops and tops[0] == cur):
+        continue   # gone, or the name merge already agrees with the model -> nothing for the user to decide
+    o = {**o, "label": cur, "top": [[t, 0] for t in dict.fromkeys(x for x in tops if x)]}
     lim = 0.7 if o["label"] in rare else 0.5   # rare parts: anything below 0.7; other parts: below 0.5
     if o["p_label"] < lim and k not in seen and k not in fixes and o["i"] < len(paths) and os.path.exists(os.path.join(HERE, paths[o["i"]])):
         cand.append((CNT.get(o["label"], 0), o["p_label"], o))
@@ -32,7 +48,7 @@ for _, _, o in cand:
     if per[o["label"]] >= 3: continue      # at most 3 photos of one part per day
     pick.append(o); per[o["label"]] += 1
     if len(pick) >= N: break
-names = sorted({json.loads(l)["label"] for l in open(os.path.join(HERE, "pred_train_audit.jsonl"))} | set(rare))
+names = sorted(UN)   # only the user's own names
 items = []
 for o in pick:
     b = base64.b64encode(open(os.path.join(HERE, paths[o["i"]]), "rb").read()).decode()
