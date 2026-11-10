@@ -15,6 +15,8 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Re-read dsp_selection + dsp_details first; never duplicate rows/ticks the user already added; don't overwrite labour the user already ticked. [mistakes-log-sinar-batch2] [labour-n-r-selection]
 - Skip view/document names (Front View, Odometer Reading, Road Tax…) when building the parts list. [step2-paint-popup-method]
 
+- ⭐ **ONE-TIME model A/B on the NEXT batch (user 2026-11-10 "ok sure"):** run the Step 2 planning agents twice per case — `model: "opus"` (the plan that gets APPLIED, as usual) and `model: "fable"` (write to `~/mrm-bot/s2/final_plan_<P>_fable.json`, never applied). After the user's review of the estimate, compare both plans with the final Merimen estimate (parts, Repair/Replace, labour) and report: which plan is closer, time and tokens of each. Then the user decides whether Step 2 planning moves to Fable. All other steps stay on Opus 5.5 (cheaper, faster; photo test 2026-11-10: Opus 18/30, Fable 20/30, our model 20/30).
+
 ## Tools + commands
 - Dump the catalogue: `node selcat2.mjs <cid> <ext> session_base.txt <out.json>`; match names with `typesafe/partmatch.py` (plan builder `typesafe/step2_plan.py`: exact-name first, group-aware, clips per bumper, crossmember companions). [merimen-batch-workflow]
 - Tick: `node tickall.mjs <cid> <ext> session_base.txt tick.json` with `{"CP":[catalogue values],"N":[labour labels],"R":[labour labels]}`; it saves and clicks Thatcham "Apply & Submit". Redirect output to a log, never `| head`. [merimen-batch-workflow] [mistakes-log-sinar-batch2]
