@@ -5,6 +5,7 @@
   - **Grille Badge (BRAND)**: logo on the front grille or bonnet nose.
   - **Boot Lid Badge (BRAND)**: logo on the boot lid of a saloon.
   - **Tailgate Badge (BRAND)**: logo on the tailgate or back door of a hatchback, MPV or SUV.
+- ⭐ **All three names exist in the name list for 20 common makes (user 2026-11-10: Boot Lid Badge (PERODUA) was missing):** PERODUA, PROTON, TOYOTA, HONDA, NISSAN, MAZDA, SUZUKI, MITSUBISHI, HYUNDAI, KIA, ISUZU, FORD, VOLKSWAGEN, MERCEDES-BENZ, BMW, LEXUS, SUBARU, PEUGEOT, CHERY, BYD (`tools/naming-desk/names.json`). A badge of another make: add `<Family> (<BRAND>)` to names.json (all three families at once, brand from the table below), then republish the 照片命名台. Model / trim badges (e.g. Boot Lid Badge (VIOS), Tailgate Badge (MYVI)) stay as they are.
 - **The text in brackets is ALWAYS CAPITAL LETTERS**: (PERODUA), (PROTON), (TOYOTA), (MERCEDES-BENZ). Never write (proton), (P), (T), (logo) or (LOGO).
 - If the photo shows the brand LOGO, the bracket is the BRAND name from the table below, even when the logo is only a letter or a picture. Examples:
   - Perodua "P2" mark → (PERODUA)
