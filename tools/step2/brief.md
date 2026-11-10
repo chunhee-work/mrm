@@ -14,7 +14,6 @@ Inputs per case <P> (B = <BATCH_DIR>):
 - Case data (impact, vehicle): B/data/<P>.json ; Merimen model text: B/meta.json
 - Catalogue: ~/mrm-bot/s2/cat_<P>.json  {"cat":[[value,label,checked]], "labs":[[labour label, checked]]}. value prefix NN@ = group (see playbook 07 group codes).
 - Draft plan from typesafe/step2_plan.py: ~/mrm-bot/s2/tick_<P>.json, ~/mrm-bot/s2/miss_<P>.json, ~/mrm-bot/s2/plan_<P>.log  — a DRAFT, often wrong (e.g. it matched a fog lamp photo to "Fog Lamp Finisher", gave the same Bumper Clips value twice, gave only one tailgate strut side, missed items). Fix it.
-- ⭐ PRE-FILL (2026-11-10): ~/mrm-bot/s2/prefill_<P>.json from `tools/step2/jev_prefill.py` (Jev + the step2_plan matcher, one row per final photo name / extra). See "Using the pre-fill" below.
 - Prices for manual rows: /Users/chunhee/Documents/VS Code/gacha-smm-playbook/mrm/tools/price-refs/*.tsv (Myvi 2017, Saga 2016, Vios 2016 — same brand/model first), then `python3 tools/price_lookup.py ref "<part name>" --model "<Merimen model text from meta.json>"` (run from the repo folder; it gives ONE price: same model -> same brand -> all models only if the brand has none). Note how many reference rows; flag < 5.
 
 Rules to apply that the draft often misses:
@@ -36,27 +35,6 @@ Rules to apply that the draft often misses:
 - Labour N/R: apply playbook 07 fully, including the "batch 3" lessons (tick MORE R on inner reinforcements, both sides for front/rear hits). Use ONLY labels that exist in cat.labs (exact text). N ticks pull in parts — only N what is replaced or an R&R job.
 - Misc labels by impact (07 "Misc ticks"); suspension/wheel parts → add Road test, Road wheel alignment, Road wheel balancing. A car hit at front AND rear gets both sets (no duplicates).
 - Rear Panel Inner Trim manual row goes in group 70.
-
-## Using the pre-fill (2026-11-10)
-Claude runs it before launching you: `BATCH_DIR=<B> python3 tools/step2/jev_prefill.py <PLATES>` (~5 s per case; re-run it after `naming.py final` for REVISE).
-Each row: {name, status, code, item_text, display, jev_pick, jev_conf, matcher_pick, agree, note, cand}.
-- status "PREFILLED" (Jev and the matcher agree, jev_conf >= 0.8; 48/48 right on 3 past cases, ~98% in the 31-case test): take `code` as-is
-  (code null = no catalogue item -> manual row with the photo name). Change it ONLY when the photo clearly contradicts the name/item; say so in "flags".
-- status "REVIEW": decide yourself with all the rules above; `cand` = the top catalogue candidates, `jev_pick`/`matcher_pick` = the two guesses (often one is right).
-- `note` "LH and RH rows share ONE catalogue value" / "one catalogue item for both sides": tick that one value once; qty 2 + comment are yours.
-- The pre-fill only maps photo names to items. Companions, labour N/R, misc, manual prices, qty and comments are still all yours —
-  spend the time saved on REVIEW rows and those. A missing or failed prefill file = plan as before.
-
-OUTPUT per case: ~/mrm-bot/s2/final_plan_<P>.json :
-{"CP": [catalogue values to tick, unique], "N": [labour labels], "R": [labour labels], "CM": [misc labels],
- "manual": [[group, name, price, qty, comment], ...],
- "qty": {"<row display name>": "2", ...}, "cmt": {"<row display name>": "Rear LH & Rear RH", ...},
- "delete": ["row display names Merimen auto-adds that must go, e.g. Door Rear LH"],
- "after": ["things I must check/do on the parts page after ticking"],
- "flags": ["anything unsure, prices with <5 refs, photos you could not decide"],
- "coverage": {"<photo name>": "<catalogue label or manual row it maps to, or 'view'>"}}
-Every non-view photo name must appear in "coverage". Display names in qty/cmt = the catalogue label WITHOUT the leading code and [bracket] and (part no), e.g. "Bumper Rear Sensor", "Tailgate Support Strut LH".
-Reply (English) with: per case, counts (CP/N/R/CM/manual), the manual rows with prices and ref counts, and the flags. Do not print personal data.
 
 ## REVISE mode (2026-11-04: plan during the user's naming, fix after)
 Phase A already wrote a full final_plan_<P>.json from the MODEL's photo names. When the brief says REVISE, you get the list of
