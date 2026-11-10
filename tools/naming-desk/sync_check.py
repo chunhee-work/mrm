@@ -11,10 +11,12 @@ Prints, per case:
   REMOVE? an OLD name no photo carries any more, still in the rows -> untick / delrow it
           (unless a companion / suspension-set rule still needs it: say why in the report)
 Exit code 1 when anything is listed.
+"Same part?" = old matches() OR gate_rule() True OR Jev >= 0.6 (typesafe/client.py, one call per plate): Jev only clears false
+alarms, never adds one (its scores move between runs). JEV=0 or Jev error -> matches() only ("jev off").
 """
 import glob, json, os, re, sys
 
-VIEWS = re.compile(r"\b(view|compartment|odometer|road tax|interior|chassis no|engine no)\b", re.I)
+VIEWS = re.compile(r"\b(view|compartment|odometer|road tax|interior|chassis no|engine no|chassis number|engine number|tyre (?:brand|size))\b", re.I)
 SKIP = {"lh", "rh", "front", "rear", "assy", "assembly", "the", "of", "and"}
 
 
@@ -24,6 +26,8 @@ def words(s):
 
 def side(s):
     m = re.findall(r"\b(LH|RH)\b", s)
+    if len(set(m)) > 1:   # 2026-11-10: "Shock Absorber Front [Both LH/RH]" covers both sides, was read as RH-only
+        return None
     return m[-1] if m else None
 
 
@@ -91,9 +95,75 @@ def matches(name, row):
     return not s or not side(row) or side(row) == s
 
 
+# ---- Jev "same part?" (2026-11-10, tested in typesafe/jev_sync_test.py: gated@0.6 = 97.9% pair accuracy vs 80.6% for matches()).
+# Certain cases decided by gate_rule(); only the rest go to Jev, ONE call per plate. Jev off / error -> matches() as before.
+JEV_TH = 0.7   # 2026-11-10: 0.6 sometimes hid real misses (Cowl Panel 0.66, Quarter Panel RH 0.64)
+TOK = lambda s: set(re.findall(r"[a-z]+", re.sub(r"\[[^\]]*\]?|\([^)]*\)", " ", s.lower()))) - {"assy", "assembly", "cover", "tts", "the", "of"}
+AXES = [("front", "rear"), ("inner", "outer"), ("upper", "lower")]
+POS = {"front", "rear", "inner", "outer", "upper", "lower", "lh", "rh"}
+CHUNK = 150   # pairs per Jev request (one request per plate; >150 split, in parallel: HTTP 400 max_tokens_exceeded at ~750)
+RULES = ("Decide if an estimate row and a photo item are the SAME physical part (same part number), not a neighbouring, "
+         "attached or companion part. Different parts: Front vs Rear; LH vs RH; a panel vs its liner, trim, inner, "
+         "reinforcement, bracket, moulding, lamp, lock, hinge, striker, badge or handle; a bumper vs its sensor, "
+         "bracket, clips or holder; a number plate vs a number plate holder or lamp. Same part: catalogue wording or "
+         "word order differs but it is the same piece (e.g. Bonnet Lock = Bonnet Latch; Bumper Front Moulding = Bumper "
+         "Front Finisher; Fender Inner Wheelhouse = Fender Front Inner Support Panel; Rear Wheelhouse = Wheel Arch Inner "
+         "Rear; Headlamp Panel = Front Panel Radiator Support; Rear Bumper = Bumper Rear Cover; Firewall Panel = Engine "
+         "Partition Panel; Rear Bumper Bracket Side = Bumper Rear Retainer). A row whose side is LH but qty is 2, or "
+         "whose text says [LH & RH] / [Both LH/RH] / [RH/LH], covers BOTH sides.")
+
+
+def both_sides(row, qty):
+    return str(qty).strip() == "2" or bool(re.search(r"\bLH\b.*\bRH|\bRH\b.*\bLH|LHF|RHF|LHR|RHR|both", row, re.I))
+
+
+def gate_rule(name, row, qty):
+    """True / False when certain, None = ask Jev (copy of typesafe/jev_sync_test.py gate_rule)."""
+    n, r = TOK(name), TOK(row)
+    sn, sr = side(name), side(row)
+    if sn and sr and sn != sr and not both_sides(row, qty): return False
+    if any((a in n and b in r and a not in r) or (b in n and a in r and b not in r) for a, b in AXES): return False
+    if not (n - {"lh", "rh"}) & (r - {"lh", "rh"}): return False
+    if ("liner" in n) != ("liner" in r): return False
+    if n - {"lh", "rh"} == r - {"lh", "rh"}:
+        bn, br = re.findall(r"\[([^\]]*)", name), re.findall(r"\[([^\]]*)", row)
+        return not (bn and br and bn != br)
+    return None
+
+
+def jev_ask(pairs):
+    """{(name,row,qty): prob} for the undecided pairs, one Jev call. Raises on any error."""
+    if not pairs:
+        return {}
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "typesafe"))
+    from client import ask
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(ch):
+        st = {"rules": RULES, "pairs": {f"q{i}": {"photo_item": n, "estimate_row": r, "row_qty": q} for i, (n, r, q) in enumerate(ch)}}
+        qs = {f"q{i}": {"type": "noul", "instructions": f"pairs.q{i}: is estimate row '{r}' (qty {q}) the SAME part as photo item '{n}'?"}
+              for i, (n, r, q) in enumerate(ch)}
+        A = ask(st, qs, timeout=120).get("answers") or {}
+        out = {}
+        for i, k in enumerate(ch):
+            v = (A.get(f"q{i}") or {}).get("noul")   # client.answer() does not read "noul"
+            if v is None:
+                raise RuntimeError(f"no noul for q{i}")
+            out[k] = float(v)
+        return out
+
+    chunks = [pairs[i:i + CHUNK] for i in range(0, len(pairs), CHUNK)]
+    res = {}
+    with ThreadPoolExecutor(len(chunks)) as ex:
+        for d in ex.map(one, chunks):
+            res.update(d)
+    return res
+
+
 def main():
     ndir, plates = sys.argv[1], sys.argv[2:]
     plan = json.load(open(os.path.expanduser("~/mrm-bot/photoplan.json")))
+    use_jev = os.environ.get("JEV", "1") != "0"
     bad = 0
     for p in plates:
         names = {x[2] for x in plan[p]}
@@ -103,24 +173,44 @@ def main():
         eds = [json.load(open(f)) for f in glob.glob(f"{ndir}/{p}-*.json")]
         eds = [d for d in eds if d.get("model") != d.get("name")]
         R = json.load(open(os.path.expanduser(f"~/mrm-bot/state/rows_{p}_now.json")))
-        rows = [r[0] for r in R]
-        # qty-2 convention (playbook 08): ONE side's row with qty 2 + "LH & RH" comment covers both sides
-        rows += [re.sub(r"\b(LH|RH)\b", lambda m: "RH" if m.group(1) == "LH" else "LH", r[0]) for r in R if str(r[1]).strip() == "2" and side(r[0])]
+        RQ = [(r[0], str(r[1]).strip()) for r in R]   # (row, qty): qty-2 / [LH & RH] handled by both_sides()
         try:  # misc ticks count too (Rear Number Plate -> "Number plate, rear")
-            rows += ["Rear Number Plate" if "rear" in m.lower() else "Front Number Plate" for m in json.load(open(os.path.expanduser(f"~/mrm-bot/state/sel_{p}_now.json"))).get("CM", []) if "number plate" in m.lower()]
+            RQ += [("Rear Number Plate" if "rear" in m.lower() else "Front Number Plate", "1") for m in json.load(open(os.path.expanduser(f"~/mrm-bot/state/sel_{p}_now.json"))).get("CM", []) if "number plate" in m.lower()]
         except Exception:
             pass
-        out = []
+        rows = [r for r, _ in RQ]
+        # old path only (JEV=0 / Jev off): qty-2 convention (playbook 08) as flipped copies
+        old_rows = rows + [re.sub(r"\b(LH|RH)\b", lambda m: "RH" if m.group(1) == "LH" else "LH", r[0]) for r in R if str(r[1]).strip() == "2" and side(r[0])]
         # FULL=1 (user 2026-11-04 "check all the cases: any item with a photo but not selected"): every photo name, not only edits
-        for new in sorted(names if os.environ.get("FULL") == "1" else {d["name"] for d in eds}):
-            if VIEWS.search(new):
-                continue
-            if not any(matches(new, r) for r in rows):
+        add_names = sorted(n for n in (names if os.environ.get("FULL") == "1" else {d["name"] for d in eds}) if not VIEWS.search(n))
+        old_names = sorted(o for o in {d["model"] for d in eds if d["model"] not in names} if not VIEWS.search(o))
+        dec = None
+        if use_jev:
+            try:
+                ask_names = set(add_names) | set(old_names) | (names if old_names else set())
+                g = {(n, r, q): gate_rule(n, r, q) for n in ask_names for r, q in RQ}
+                done = {n for (n, r, q), v in g.items() if v} | {n for n in ask_names if any(matches(n, r) for r in old_rows)}   # already covered
+                orows = {(r, q) for (n, r, q), v in g.items() if n in old_names and v is not False}
+                for k, v in g.items():   # only words like Front/LH in common (and no user ALIAS pair) -> different part
+                    if v is None and not ((TOK(k[0]) - POS) & (TOK(k[1]) - POS) or any(re.search(a, k[0], re.I) and re.search(c, k[1], re.I) for a, c in ALIAS)):
+                        g[k] = False
+                need = [k for k, v in g.items() if v is None and (k[0] not in done or k[0] in old_names or k[1:] in orows)]
+                pr = jev_ask(need)
+                dec = {k: (v if v is not None else pr.get(k, 0.0) >= JEV_TH) for k, v in g.items()}
+            except Exception:
+                print("jev off")
+                dec, use_jev = None, False   # once per run, rest of the plates on matches()
+        # 2026-11-10 (coordinator): Jev can only CLEAR a false alarm, never raise a new one -> old matches() OR gate True OR Jev >= 0.6
+        yes = {(n, r) for (n, r, q), v in (dec or {}).items() if v}
+        same = lambda n, r: matches(n, r) or (n, r) in yes
+        cov = lambda n: any(same(n, r) for r in old_rows)
+        rem = lambda o: [r for r in old_rows if same(o, r) and not any(same(n, r) for n in names) and not KEEP.search(r)]
+        out = []
+        for new in add_names:
+            if not cov(new):
                 out.append(f"  ADD?    {new!r} has a photo but no estimate row")
-        for old in sorted({d["model"] for d in eds if d["model"] not in names}):
-            if VIEWS.search(old):
-                continue
-            hit = [r for r in rows if matches(old, r) and not any(matches(n, r) for n in names) and not KEEP.search(r)]
+        for old in old_names:
+            hit = rem(old)
             if hit:
                 out.append(f"  REMOVE? {old!r} no photo any more, still selected: {hit}")
         print(f"{p}: {'OK' if not out else str(len(out)) + ' to check'}")
