@@ -8,6 +8,12 @@
 - Count the cases first; read ALL cases' PDFs + photos up front (names, NRIC, policies, vehicle, accident, odo, colour, damage zone) before touching Merimen. [merimen-create-case-procedure]
 - If the source folder is gone, pull the uploaded PDFs back from Merimen: dsp_docview → `SVCDOCAttView(<docid>,4,'PDF')` → navigate a Chrome tab to the dsp_getfile URL for that docid (only cases of this account); move/rename from ~/Downloads at once (next download reuses the name). curl does not work (needs HttpOnly cookies). [merimen-document-upload-naming]
 
+## Page index first (user 2026-11-10, Jev page triage v2)
+- `intake.py` starts `tools/batch/page_index.py` in the background (~10-30 s) -> `<batch_dir>/page_index.json` (log `page_index.log`; not there → run `python3 tools/batch/page_index.py <batch_dir>` or read pages by hand as below).
+- Per case: every page with `doc_type` / `conf` / `ours` (our side; for police reports = "complainant drives our plate") / `blamed` + `png_path` (100 dpi, `<batch_dir>/pages/<PLATE>/`).
+- Step 1 opens page_index.json FIRST, then reads only the pages it needs (RC, our INS, Keputusan, both police reports, I-search) **plus every `needs_check` page** (conf < 0.7 — e.g. RC back page, police photo page). Re-render at ~230 dpi to read numbers.
+- `maybe_missing` is a DRAFT hint only. Never send `<PLATE> pending` from it: open the pages yourself first (playbook 00 "Before calling anything missing").
+
 ## Reading the bundle
 - A case may be split across several PDFs and page order may jump: read ALL files, work out which page is which, report missing pages. [claim-extraction-output-format] [workshop-from-desktop-folder]
 - Read PDFs with the Read tool. Scans have no text layer: render pages with PyMuPDF into one contact sheet per case to find pages, then re-render the page at ~230 dpi to read numbers. [merimen-document-upload-naming]

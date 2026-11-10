@@ -7,6 +7,7 @@
 2 unzip into <batch_dir>/src, list every name in full (unzip -Z1)
 3 one folder per case: <batch_dir>/<PLATE>/ (photos + its PDFs; a PDF at the zip root whose name starts with the plate goes in)
 4 RC pages for the quick make/model read: <batch_dir>/rc/<PLATE>_<page>.png (first 3 pages of each PDF, 110 dpi)
+5 starts page_index.py in the background (Jev page triage -> <batch_dir>/page_index.json, ~20 s; playbook 01)
 Prints one line per case: plate · photos · PDFs · pages. Next: read the RC pages -> meta_rc.json -> photos.py model (playbook 00).
 """
 import os, re, shutil, subprocess, sys, zipfile
@@ -58,6 +59,18 @@ def main():
     loose = [f for f in os.listdir(root) if os.path.isfile(os.path.join(root, f)) and not any(re.sub(r"\s+", "", f).upper().startswith(p) for p in plates)]
     if loose:
         print("NOT MATCHED to a case (check by hand):", loose)
+    start_page_index(b)
+
+
+def start_page_index(b):
+    """5 Jev page triage (v2) in the background -> <batch_dir>/page_index.json (playbook 01). Never blocks or breaks intake."""
+    try:
+        log = open(os.path.join(b, "page_index.log"), "w")
+        subprocess.Popen([sys.executable, os.path.join(REPO, "tools", "batch", "page_index.py"), b],
+                         stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
+        print(f"page_index.py started in background -> {os.path.join(b, 'page_index.json')} (log page_index.log)")
+    except Exception as e:
+        print("page_index.py not started (read pages by hand):", e)
 
 
 if __name__ == "__main__":

@@ -152,7 +152,9 @@ def misc_prices(misc_rows):
 DOC_TYPES = {
     "vehicle_ownership_certificate": "JPJ Sijil Pemilikan Kenderaan / vehicle ownership certificate (geran).",
     "insurance_schedule_or_cover_note": "An insurer's policy schedule, certificate or cover note for a vehicle.",
-    "isearch_report": "An ISM/MyCarInfo I-SEARCH or vehicle-detail report listing a vehicle's insurers and policy numbers.",
+    # v2 (2026-11-10, jev_page_test_v2.json): also names the JPJ mySIKAP page, which v1 confused with a schedule
+    "isearch_report": ("A vehicle look-up printout (ISM/MyCarInfo I-SEARCH, or a JPJ mySIKAP 'Butir-Butir Kenderaan / "
+                       "Pemilik / Insurans' page) listing a vehicle's owner, insurer and policy number. Not issued by the insurer."),
     "police_report": "A police report (Repot Polis) narrative made by a party.",
     "police_investigation_result": "The police Keputusan Penyiasatan letter naming the party at fault (disalahkan).",
     "police_sketch": "A police sketch plan (Rajah Kasar) or measurement page.",
@@ -187,6 +189,42 @@ def triage_page(page_text, our_plate, our_owner_name):
     out["ok"] = dt["confidence"] >= 0.60
     return out
 
+
+
+def triage_page_image(jpg_bytes, our_plate, model=None, timeout=90):
+    """v2 page triage from the page IMAGE (scans have no text layer). Tested offline on 84 pages / 10 cases
+    (typesafe/jev_page_test_v2.json: doc_type 96%, 100% at conf >= 0.7). One ask per page.
+    Returns {doc_type, conf, ours, ours_conf, blamed, blamed_conf}; ours/blamed = yes-probability 0..1.
+    For police reports `ours` = "is the complainant driving our plate" (v2), else generic belongs-to-our-side."""
+    import base64, uuid
+    ref = str(uuid.uuid4())
+    q = {
+        "doc_type": {"type": "choice", "criteria": DOC_TYPES,
+                     "instructions": "`page` is one scanned page from a Malaysian motor-insurance claim bundle. What kind of document is it?"},
+        "belongs": {"type": "noul", "instructions": (
+            "Our client's vehicle is `our_plate`. Does `page` belong to OUR client's side of the case "
+            "(our vehicle's registration/insurance/road tax, a police report made by our driver, or the "
+            "police investigation result / sketch of this accident), as opposed to the OTHER party's "
+            "vehicle, insurance, vehicle search or police report?")},
+        "blamed": {"type": "noul",
+                   "instructions": "Does `page` state which party or vehicle the police blamed (disalahkan) for the accident?"},
+        "by_our_driver": {"type": "noul", "instructions": (
+            "If `page` is a police report (Repot Polis): in 'Pengadu Menyatakan', is the complainant describing driving "
+            "vehicle `our_plate` themselves (\"saya memandu ... `our_plate`\"), rather than another vehicle? "
+            "Ignore spaces in plate numbers. If `page` is not a police report, answer no.")},
+    }
+    assets = {ref: {"type": "image", "format": "jpg", "data_base64": base64.b64encode(jpg_bytes).decode()}}
+    r = ask({"page": ref, "our_plate": our_plate}, q, model=model, images=True, assets=assets, timeout=timeout)
+    out = {}
+    for k in q:
+        v, c = answer(r, k)
+        if isinstance(v, dict) and "noul" in v:
+            v, c = v["noul"], abs(v["noul"] - 0.5) * 2
+        out[k] = v; out[k + "_conf"] = c
+    if out["doc_type"] == "police_report":
+        out["belongs"], out["belongs_conf"] = out["by_our_driver"], out["by_our_driver_conf"]
+    return {"doc_type": out["doc_type"], "conf": out["doc_type_conf"], "ours": out["belongs"], "ours_conf": out["belongs_conf"],
+            "blamed": out["blamed"], "blamed_conf": out["blamed_conf"]}
 
 # ---------------------------------------------------------------- 5. loss description
 def loss_description(loss_desc_options, colltype_options, police_narrative, damage_seen, at_fault_vehicle_kind):
