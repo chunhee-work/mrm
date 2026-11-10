@@ -49,6 +49,42 @@ def main():
     t_all = time.time()
     wait_login()
 
+    def jev_model(o_list, v, r, res):
+        try:
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "typesafe"))
+            from judgments import pick_model_variant
+            from pick_model import score
+            c = {"make": v["make"], "rcModel": v.get("rcModel", ""), "cc": v.get("cc", ""), "transmission": v.get("transmission", ""),
+                 "body": v.get("body", ""), "jpjReg": r.get("jpjReg", ""), "year": v.get("year") or r.get("manYear", "")}
+            top8 = [o["t"] for _, o in sorted(((score(o, c)[0], o) for o in o_list if o.get("t")), key=lambda x: -x[0])[:8]]
+            j = pick_model_variant(top8, v.get("rcModel", ""), "", c["jpjReg"], v.get("chassis", ""), v.get("cc", ""),
+                                   "year made %s, %s, %s, %s" % (c["year"], v.get("fuel", ""), v.get("transmission", ""), v.get("body", "")))
+            mine = res.get("text") or ""
+            if j["value"] == mine: return "Jev agrees (%.2f)" % j["confidence"]
+            if j["confidence"] >= 0.70: return "⚠️ Jev DISAGREES (%.2f): %s  -> Claude checks the RC before the create" % (j["confidence"], j["value"])
+            return "Jev unsure (%.2f), keeps pick_model" % j["confidence"]
+        except Exception as e:
+            return "Jev skipped: %s" % str(e)[:80]
+
+    def jev_loss(rep):
+        """2026-11-10: Jev second vote on Loss Description + Collision Type (test on 45 past cases: 93% / 96%, 0.3 s).
+        Options = every value used in our past reports; a confident disagreement is flagged for Claude to re-read the police report."""
+        try:
+            import glob as _g
+            from judgments import loss_description
+            past = [json.load(open(f)) for f in _g.glob(os.path.join(H, "report_b*.json"))]
+            LD = sorted({x["lossDescCat"] for d in past for x in d.values() if x.get("lossDescCat")} | {rep.get("lossDescCat") or "Collision- Head to Rear"})
+            CT = sorted({x["collType"] for d in past for x in d.values() if x.get("collType")} | {rep.get("collType") or "Private Vehicle"})
+            o = loss_description(LD, CT, "(not given: decide from the impact area and the at-fault vehicle kind)",
+                                 "impact on our vehicle: %s" % rep.get("impact", ""), rep.get("tpKind", "") or "car")
+            out = []
+            for k, mine in (("loss_desc", rep.get("lossDescCat")), ("collision_type", rep.get("collType"))):
+                g = o[k]
+                if g["value"] != mine and g["ok"]: out.append("⚠️ Jev %s = %s (%.2f), ours %s -> re-read the police report" % (k, g["value"], g["confidence"], mine))
+            return " · ".join(out) or "Jev agrees on loss desc + collision type"
+        except Exception as e:
+            return "Jev loss check skipped: %s" % str(e)[:80]
+
     @step("1 model variant")
     def s1():
         meta = {}
@@ -63,6 +99,12 @@ def main():
                 print(f"   {p}: {res['status']} {res.get('text')}" + ("" if res["status"] == "OK" else f"   top3 {res['top']}"))
                 if res["pick"]:
                     v["modelValue"] = res["pick"]
+            # 2026-11-10 (user: "jev is fast and cheap, add it in"): Jev second vote, ~0.3 s. Test on 16 past cases: when Jev's
+            # confidence >= 0.70 it was right 7/7; low-confidence answers were often wrong -> only a high-confidence DISAGREEMENT is flagged.
+            jv = jev_model(opts.get(v["make"].upper(), []), v, r, res)
+            if jv: print("   " + p + ": " + jv)
+            jl = jev_loss(data[p]["report"])
+            if jl: print("   " + p + ": " + jl)
             mk = v["make"].upper(); txt = next((o["t"] for o in opts.get(mk, []) if o["v"] == v["modelValue"]), res.get("text") or "")
             v["modelText"] = f"{mk} {txt}"; meta[p] = v["modelText"]
         # 2026-11-04: MERGE with what is already there (a re-run for 1-2 plates wiped the other cases' meta 3 times in batches 8-9)

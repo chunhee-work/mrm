@@ -66,5 +66,6 @@
 - Click OK on the CHARGEADJ points modal, then Next (Save & Return) / `SaveReport(2)`. [merimen-manager-adjuster] [merimen-az-progress]
 
 ## Automatic in phase_a (2026-11-04, batch 9 gaps)
+- ⭐ **Jev second vote (user 2026-11-10: "jev is really good at decision fast and cheap, add it in"):** phase_a step 1 asks Jev (TypeSafe, ~0.3 s) to pick the model among pick_model's top 8, and to pick Loss Description + Collision Type from the impact area + at-fault kind. It prints `Jev agrees` / `Jev unsure` / `⚠️ Jev DISAGREES`. Only a ⚠️ line needs action: Claude re-reads the RC (model) or the police report (loss desc) BEFORE the create and keeps whichever the document supports. Test `python3 typesafe/jev_test.py` (16 + 45 past cases): model — pick_model 16/16, Jev 10/16 overall but 7/7 when confidence ≥ 0.70; loss desc 93%, collision type 96%.
 - A make with no model list in `model_opts_sinar.json` is dumped first (`dumpmodels_sinar.mjs <MAKE>`), so the model pick never comes back UNSURE with an empty top 3 (WYY3391 SUZUKI).
 - A create that Merimen rejected (`MSG=...` and still on `dsp_clmreg`, `caseid=?`) is retried once on its own. No case was made, so the retry cannot duplicate one. Any other failure: check the worklist before re-running.
