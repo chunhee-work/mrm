@@ -41,6 +41,23 @@ for r in M:
     s = [x for x in FIX.get(r["old"], r["sug"]) if x in (KEEP, MAKE) or x in UN]
     p = os.path.join(HERE, paths[r["i"]])
     items.append({"old": r["old"], "n": r["n"], "sug": s[:3], "img": "data:image/jpeg;base64," + thumb(p) if os.path.exists(p) else ""})
+# 2026-11-10 user: new names on top. Any n5 train label not in names.json and not decided yet = a new item (suggest existing names:
+# "mostly all got item name already, Merimen people just use different names for the same item").
+import collections, difflib
+DEC = json.load(open(os.path.join(HERE, "label_map100.json"))) if os.path.exists(os.path.join(HERE, "label_map100.json")) else {}
+meta = [l.rstrip("\n").split("\t") for l in open(os.path.join(HERE, "big_meta_n5.tsv")) if l.strip()]
+pn5 = open(os.path.join(HERE, "big_paths_n5.txt")).read().split("\n")
+cnt = collections.Counter(r[0] for r in meta if len(r) > 3 and r[3] == "train"); first = {}
+for i, r in enumerate(meta):
+    if len(r) > 3 and r[3] == "train": first.setdefault(r[0], i)
+low = {n.lower(): n for n in UN}; have = {x["old"] for x in items}
+for lab, n in cnt.most_common():
+    if not lab or lab in UN or lab in DEC or lab in have: continue
+    sug = [low[lab.lower()]] if lab.lower() in low else []
+    sug += [x for x in difflib.get_close_matches(lab, UN, 4, 0.6) if x not in sug]
+    p = os.path.join(HERE, pn5[first[lab]])
+    items.insert(0, {"old": lab, "n": n, "sug": (sug + [KEEP])[:3], "fresh": True, "img": "data:image/jpeg;base64," + thumb(p) if os.path.exists(p) else ""})
+print("new items", sum(1 for x in items if x.get("fresh")))
 tpl = open(os.path.join(HERE, "map100_template.html"), encoding="utf-8").read()
 os.makedirs(os.path.join(HERE, "map100"), exist_ok=True)
 open(os.path.join(HERE, "map100", "index.html"), "w", encoding="utf-8").write(tpl.replace("__DATA__", json.dumps(items, ensure_ascii=False)).replace("__NAMES__", json.dumps(UN, ensure_ascii=False)))

@@ -24,10 +24,12 @@ main{max-width:1100px;margin:0 auto;padding-block:14px 60px;display:grid;grid-te
 .acts .keep{font-weight:700}
 .oth{display:flex;gap:6px}.oth input{flex:1;min-width:0;min-height:40px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
 .acts .unsure{background:transparent;border-style:dashed;color:var(--mut)}
+.seg{display:flex;padding:2px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}.seg button{min-height:32px;padding:0 12px;border:0;border-radius:999px;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:var(--mut)}.seg button[aria-pressed="true"]{background:var(--acc);color:var(--accInk)}
+.empty{grid-column:1/-1;padding:40px;text-align:center;color:var(--mut);border:1px dashed var(--line);border-radius:14px}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:14px;z-index:9}
 </style>
-<div class="top"><h1>🏷️ 名字对应台</h1><span class="prog" id="prog">0 / 0</span><div class="bar"><i id="barf"></i></div></div>
-<main id="list"><p class="lead">训练资料里这 100 个名字不在你的名字清单里（照片多的排前面）。每个选一个：改成建议的名字 / 其他名字 / 保留这个名字（加进清单）/ 不要（不拿来训练）。选了的名字会套用到这个名字的全部照片。</p></main>
+<div class="top"><h1>🏷️ 名字对应台</h1><span class="prog" id="prog">0 / 0</span><div class="seg" role="group" aria-label="筛选"><button id="fNew" aria-pressed="true">新的</button><button id="fDone" aria-pressed="false">已完成</button><button id="fAll" aria-pressed="false">全部</button></div><div class="bar"><i id="barf"></i></div></div>
+<main id="list"><p class="lead">训练资料里不在你名字清单的名字。新的排最上面，用「新的 / 已完成 / 全部」筛选。每个选一个：改成建议的名字 / 其他名字 / 保留这个名字（加进清单）/ 不要（不拿来训练）。选了的名字会套用到这个名字的全部照片。</p></main>
 <datalist id="names"></datalist>
 <div class="toast" id="toast" hidden></div>
 <script>
@@ -39,10 +41,13 @@ const dl=q("#names");NAMES.forEach(n=>{const o=document.createElement("option");
 const key=o=>"m"+[...o].map(c=>c.charCodeAt(0).toString(36)).join("").slice(0,120);
 async function save(it,choice,name){if(!db){toast("还没连上，请稍等");return}
  try{const d=db.collection("map").doc(key(it.old));const c=DEC[it.old];if(c&&c.choice===choice&&(c.name||"")===(name||""))await d.delete();else await d.set({old:it.old,choice,name:name||"",at:Date.now()});toast("已保存")}catch(e){toast("没保存成功，请再按一次")}}
-function render(){const L=q("#list");[...L.querySelectorAll(".card")].forEach(x=>x.remove());const done=D.filter(it=>DEC[it.old]).length;
+let F="new";[["fNew","new"],["fDone","done"],["fAll","all"]].forEach(([id,v])=>{q("#"+id).onclick=()=>{F=v;["fNew","fDone","fAll"].forEach(x=>q("#"+x).setAttribute("aria-pressed",String(x===id)));render()}});
+function render(){const L=q("#list");[...L.querySelectorAll(".card,.empty")].forEach(x=>x.remove());const done=D.filter(it=>DEC[it.old]).length;
  q("#prog").textContent=done+" / "+D.length;q("#barf").style.width=(D.length?100*done/D.length:0)+"%";
- D.forEach(it=>{const d=DEC[it.old];const c=el("article","card"+(d?" done":""));if(it.img){const im=el("img");im.src=it.img;im.alt=it.old;im.loading="lazy";c.append(im)}
-  const b=el("div","body");const qq=el("div","q");qq.append("训练资料的名字：",el("b",null,it.old),"（"+it.n+" 张照片）");b.append(qq);
+ const V=D.filter(it=>F==="all"||(F==="new"?!DEC[it.old]:!!DEC[it.old])).sort((x,y)=>(!!DEC[x.old])-(!!DEC[y.old])||(y.fresh?1:0)-(x.fresh?1:0));
+ if(!V.length){L.append(el("div","empty",F==="new"?"没有新的名字要对应了 ✓":"还没有完成的。"))}
+ V.forEach(it=>{const d=DEC[it.old];const c=el("article","card"+(d?" done":""));if(it.img){const im=el("img");im.src=it.img;im.alt=it.old;im.loading="lazy";c.append(im)}
+  const b=el("div","body");const qq=el("div","q");qq.append(it.fresh?"🆕 ":"","训练资料的名字：",el("b",null,it.old),"（"+it.n+" 张照片）");b.append(qq);
   const a=el("div","acts");const mk=(cls,txt,choice,name)=>{const x=el("button",cls,txt);x.setAttribute("aria-pressed",String(!!d&&d.choice===choice&&(d.name||"")===(name||"")));x.onclick=()=>save(it,choice,name);a.append(x)};
   let first=true;
   it.sug.forEach(n=>{const cls=first?"keep":"";first=false;
