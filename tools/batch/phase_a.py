@@ -49,41 +49,38 @@ def main():
     t_all = time.time()
     wait_login()
 
-    def jev_model(o_list, v, r, res):
+    # 2026-11-10 user: 'marginal ones, don't add' -> Jev model-variant + loss-description votes removed (pick_model was 16/16 already;
+    # loss desc had no proven catch). Kept: insurer + Liberty branch (a wrong branch fails the create, VDV9302).
+    def jev_options(case, rep):
+        """2026-11-10 (Jev test 2, 55 insurers: 94.5%, 43/43 at conf >= 0.9; Liberty branch 98%): second vote on the at-fault
+        insurer, our client's insurer and the Liberty branch. Only a confident disagreement is flagged; Claude re-reads the
+        I-SEARCH / policy before the create. State, city and police station stay with the code rules (they were better)."""
         try:
-            sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "typesafe"))
-            from judgments import pick_model_variant
-            from pick_model import score
-            c = {"make": v["make"], "rcModel": v.get("rcModel", ""), "cc": v.get("cc", ""), "transmission": v.get("transmission", ""),
-                 "body": v.get("body", ""), "jpjReg": r.get("jpjReg", ""), "year": v.get("year") or r.get("manYear", "")}
-            top8 = [o["t"] for _, o in sorted(((score(o, c)[0], o) for o in o_list if o.get("t")), key=lambda x: -x[0])[:8]]
-            j = pick_model_variant(top8, v.get("rcModel", ""), "", c["jpjReg"], v.get("chassis", ""), v.get("cc", ""),
-                                   "year made %s, %s, %s, %s" % (c["year"], v.get("fuel", ""), v.get("transmission", ""), v.get("body", "")))
-            mine = res.get("text") or ""
-            if j["value"] == mine: return "Jev agrees (%.2f)" % j["confidence"]
-            if j["confidence"] >= 0.70: return "⚠️ Jev DISAGREES (%.2f): %s  -> Claude checks the RC before the create" % (j["confidence"], j["value"])
-            return "Jev unsure (%.2f), keeps pick_model" % j["confidence"]
-        except Exception as e:
-            return "Jev skipped: %s" % str(e)[:80]
-
-    def jev_loss(rep):
-        """2026-11-10: Jev second vote on Loss Description + Collision Type (test on 45 past cases: 93% / 96%, 0.3 s).
-        Options = every value used in our past reports; a confident disagreement is flagged for Claude to re-read the police report."""
-        try:
-            import glob as _g
-            from judgments import loss_description
-            past = [json.load(open(f)) for f in _g.glob(os.path.join(H, "report_b*.json"))]
-            LD = sorted({x["lossDescCat"] for d in past for x in d.values() if x.get("lossDescCat")} | {rep.get("lossDescCat") or "Collision- Head to Rear"})
-            CT = sorted({x["collType"] for d in past for x in d.values() if x.get("collType")} | {rep.get("collType") or "Private Vehicle"})
-            o = loss_description(LD, CT, "(not given: decide from the impact area and the at-fault vehicle kind)",
-                                 "impact on our vehicle: %s" % rep.get("impact", ""), rep.get("tpKind", "") or "car")
+            from judgments import ask, answer
+            ins = [x for x in json.load(open(os.path.join(H, "model_opts_sinar.json"))).get("__ins3", []) if "=" in x and x.split("=", 1)[0]]
+            names = {x.split("=", 1)[0]: x.split("=", 1)[1] for x in ins}
+            crit = {n: None for n in names.values()}; crit["__none__"] = "None of these insurers."
+            qs, want = {}, {}
+            for k, txt, coid in (("ins", case.get("insName"), case.get("insCOID")), ("cli", (case.get("client") or {}).get("insName"), (case.get("client") or {}).get("insCOID"))):
+                if txt and coid in names:
+                    qs[k] = {"type": "choice", "instructions": "Which Merimen insurer is `%s`?" % k, "criteria": crit}; want[k] = (txt, names[coid])
+            REG = {"East Coast": "Terengganu, Pahang, Kelantan", "East Malaysia": "Sabah, Sarawak, Labuan", "Klang Valley": "Selangor, Kuala Lumpur, Putrajaya",
+                   "Northern": "Penang, Kedah, Perlis, Perak", "Southern": "Johor, Melaka, Negeri Sembilan"}
+            if str(case.get("insCOID")) == "61" and rep.get("accPlace"):
+                qs["br"] = {"type": "choice", "instructions": "This claim is against Liberty General Insurance. Which Liberty branch handles an accident at `place`?",
+                            "criteria": {k: "Liberty branch for " + v for k, v in REG.items()}}
+            if not qs: return ""
+            r = ask({"ins": want.get("ins", ("", ""))[0], "cli": want.get("cli", ("", ""))[0], "place": rep.get("accPlace", "")}, qs)
             out = []
-            for k, mine in (("loss_desc", rep.get("lossDescCat")), ("collision_type", rep.get("collType"))):
-                g = o[k]
-                if g["value"] != mine and g["ok"]: out.append("⚠️ Jev %s = %s (%.2f), ours %s -> re-read the police report" % (k, g["value"], g["confidence"], mine))
-            return " · ".join(out) or "Jev agrees on loss desc + collision type"
+            for k, (txt, mine) in want.items():
+                v, c = answer(r, k)
+                if v != mine and c >= 0.80: out.append("⚠️ Jev %s '%s' = %s (%.2f), ours %s -> re-read I-SEARCH/policy" % ("at-fault insurer" if k == "ins" else "client insurer", txt, v, c, mine))
+            if "br" in qs:
+                v, c = answer(r, "br"); bm = case.get("branchMatch", "")
+                if c >= 0.80 and v.split()[0].lower() not in bm.lower(): out.append("⚠️ Jev Liberty branch = %s (%.2f), ours branchMatch '%s' (HQ fails the create)" % (v, c, bm))
+            return " · ".join(out) or "Jev agrees on insurer" + (" + Liberty branch" if "br" in qs else "")
         except Exception as e:
-            return "Jev loss check skipped: %s" % str(e)[:80]
+            return "Jev option check skipped: %s" % str(e)[:80]
 
     @step("1 model variant")
     def s1():
@@ -101,10 +98,8 @@ def main():
                     v["modelValue"] = res["pick"]
             # 2026-11-10 (user: "jev is fast and cheap, add it in"): Jev second vote, ~0.3 s. Test on 16 past cases: when Jev's
             # confidence >= 0.70 it was right 7/7; low-confidence answers were often wrong -> only a high-confidence DISAGREEMENT is flagged.
-            jv = jev_model(opts.get(v["make"].upper(), []), v, r, res)
-            if jv: print("   " + p + ": " + jv)
-            jl = jev_loss(data[p]["report"])
-            if jl: print("   " + p + ": " + jl)
+            jo = jev_options(data[p]["case"], data[p]["report"])
+            if jo: print("   " + p + ": " + jo)
             mk = v["make"].upper(); txt = next((o["t"] for o in opts.get(mk, []) if o["v"] == v["modelValue"]), res.get("text") or "")
             v["modelText"] = f"{mk} {txt}"; meta[p] = v["modelText"]
         # 2026-11-04: MERGE with what is already there (a re-run for 1-2 plates wiped the other cases' meta 3 times in batches 8-9)
