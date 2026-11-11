@@ -18,6 +18,7 @@
 - When the batch is done: PushNotification first, then the report. [merimen-batch-workflow]
 
 ## ⭐⭐ Final report to the user (user 2026-11-04) — short
+- ⭐⭐ **ALWAYS send it, and send it AGAIN after any later change to a case (user 2026-11-11: "u forgot to send me the done report")** — batch 10: the totals changed after the pillar fix and no new report went out. Totals = finish.py `TOTAL` (same Adj Rpt figure as final_report.py; use it when Merimen is logged out).
 1. The status line `🔄 0 cases | ✅ <N> done | 100%`.
 2. The car-model table (format below: 车牌 | Registration Date | RC 资料 | Merimen 选的车型 | 车型年份范围 | 选择理由) for ALL cases of the run.
 3. Only what needs the user's decision (one line each). No long explanations.
