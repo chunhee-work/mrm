@@ -55,7 +55,7 @@ def arrange(P):
 def main(case_dir, plate, vehicle, out):
     fs = sorted([f for f in glob.glob(os.path.join(case_dir, "*")) if re.search(r"\.jpe?g$", f, re.I)], key=key)
     r = subprocess.run([os.path.join(HERE, ".venv/bin/python"), os.path.join(HERE, "predict_case.py"),
-                        os.path.join(HERE, "models/dinov2_b_big10a.pt")] + fs,
+                        "auto"] + fs,
                        capture_output=True, text=True, env=dict(os.environ, VEHICLE=vehicle), cwd=HERE)
     P = [json.loads(l) for l in r.stdout.splitlines() if l.startswith("{")]
     order, moved = arrange(P)

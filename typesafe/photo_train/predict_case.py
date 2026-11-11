@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Name every photo of a case with the fine-tuned DINOv2 model.
   .venv/bin/python predict_case.py <ckpt> <img1> <img2> ...   (images in shooting order)
+  .venv/bin/python predict_case.py auto <img1> ...   (or PROD=1): models from models/production.json (swap_model.py; PROD_FILE=<json> overrides)
 Prints JSON lines: {file, top:[[name,prob]x3], conf, sure}  (sure = conf >= 0.60, after neighbour smoothing).
 JEV=0 env: no TypeSafe second opinion for unsure photos (default on).
 SEQ=<models/seq_*.pt> env (batch 10): look at +-4 photos of the case together (whole photo group -> where on the car); then no extra smoothing.
@@ -8,27 +9,62 @@ VEHICLE=<vehicle model> env: PERODUA never gets "Front Panel Assembly" (split pi
 import json, os, re, sys, collections
 import numpy as np, torch, torch.nn as nn
 from PIL import Image
-ck = torch.load(sys.argv[1], map_location="cpu"); labels = ck["labels"]
-bb = torch.hub.load(os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main"), "dinov2_vitb14", source="local", pretrained=False); model = nn.Sequential(bb, nn.Linear(768, len(labels)))
-model.load_state_dict(ck["state"]); dev = "mps" if torch.backends.mps.is_available() else "cpu"; model.to(dev).eval()
-# group models (batch 10): SEQ = comma list; default = seq_best.pt (whole photos) + seq_best_crop.pt (whole + crosshair zoom), averaged
-_M = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
-SEQ = os.environ.get("SEQ", ",".join(os.path.join(_M, f) for f in ("seq_best.pt", "seq_best_crop.pt")))
-SEQ = [p for p in SEQ.split(",") if p and p != "0" and os.path.exists(p)]   # SEQ=0 -> single-photo model only
+# 2026-11-11 production.json (swap_model.py): ckpt "auto" or PROD=1 -> groups of {stage1 ckpt (its "bb"/"dim" = backbone),
+# seq group models}; several groups = probabilities averaged (equal weight per seq model), labels unioned by name.
+# PROD_FILE=<json> overrides models/production.json. Any other ckpt = the old single-backbone behaviour (SEQ env).
+HERE = os.path.dirname(os.path.abspath(__file__)); _M = os.path.join(HERE, "models")
+_HUB = os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main")
+dev = "mps" if torch.backends.mps.is_available() else "cpu"
+BS = int(os.environ.get("PRED_BS", "32"))
+AUTO = sys.argv[1] == "auto" or os.environ.get("PROD") == "1"
 class Ctx(nn.Module):
-    def __init__(s, n, win, dim):
-        super().__init__(); s.win = win
-        s.base = nn.Linear(768, n); s.inp = nn.Linear(dim, 384); s.pos = nn.Parameter(torch.zeros(2 * win + 1, 384))
+    def __init__(s, n, win, dim, bdim=768):
+        super().__init__(); s.win = win; s.bdim = bdim
+        s.base = nn.Linear(bdim, n); s.inp = nn.Linear(dim, 384); s.pos = nn.Parameter(torch.zeros(2 * win + 1, 384))
         s.enc = nn.TransformerEncoder(nn.TransformerEncoderLayer(384, 6, 1024, 0.1, batch_first=True, norm_first=True), 2)
         s.out = nn.Linear(384, n)
     def forward(s, x, m):
-        return s.base(x[:, s.win, :768]) + s.out(s.enc(s.inp(x) + s.pos, src_key_padding_mask=m)[:, s.win])
-CTX = []
-for p in SEQ:
-    sk = torch.load(p, map_location="cpu"); c = Ctx(len(sk["labels"]), sk["win"], sk.get("dim", 768))
-    c.load_state_dict(sk["ctx"]); CTX.append((c.to(dev).eval(), sk["labels"], sk.get("crop", 0)))
-if CTX:
-    labels = sorted({n for _, ls, _ in CTX for n in ls}); _LI = {n: k for k, n in enumerate(labels)}
+        return s.base(x[:, s.win, :s.bdim]) + s.out(s.enc(s.inp(x) + s.pos, src_key_padding_mask=m)[:, s.win])
+def _rel(p): return p if os.path.isabs(p) else os.path.join(HERE, p)
+def load_backbone(ck):
+    """stage-1 checkpoint -> (backbone module, head Linear, labels, dim). Backbone name/dim from the checkpoint (default vitb14/768)."""
+    bbn = ck.get("bb", "vitb14"); dim = ck.get("dim", 768); st = ck["state"]
+    if bbn.startswith("dinov3"):   # finetune2.py's V3 wrapper (HF transformers); its state also lists blocks./norm. aliases
+        from transformers import AutoModel
+        class V3(nn.Module):
+            def __init__(s, path): super().__init__(); s.m = AutoModel.from_pretrained(path)
+            def forward(s, x): return s.m(pixel_values=x).pooler_output
+        b = V3(os.path.join(_M, bbn)); st = {k: v for k, v in st.items() if k.startswith("0.m.") or not k.startswith("0.")}
+    else:
+        b = torch.hub.load(_HUB, "dinov2_" + bbn, source="local", pretrained=False)
+    b.load_state_dict({k[2:]: v for k, v in st.items() if k.startswith("0.")})
+    h = nn.Linear(dim, len(ck["labels"])); h.weight.data = st["1.weight"]; h.bias.data = st["1.bias"]
+    return b.to(dev).eval(), h.to(dev).eval(), ck["labels"], dim
+GROUPS = []   # each: dict(bb, head, hl (head labels), dim, ctx=[(Ctx, labels, crop)])
+if AUTO:
+    PROD = json.load(open(_rel(os.environ.get("PROD_FILE", "models/production.json"))))
+    for g in PROD["groups"]:
+        b, h, hl, dim = load_backbone(torch.load(_rel(g["stage1"]), map_location="cpu")); cx = []
+        for p in g.get("seq", []):
+            sk = torch.load(_rel(p), map_location="cpu"); c = Ctx(len(sk["labels"]), sk["win"], sk.get("dim", dim), dim)
+            c.load_state_dict(sk["ctx"]); cx.append((c.to(dev).eval(), sk["labels"], sk.get("crop", 0)))
+        GROUPS.append(dict(bb=b, head=h, hl=hl, dim=dim, ctx=cx))
+    CTX = [t for g in GROUPS for t in g["ctx"]]
+    labels = sorted({n for g in GROUPS for n in ([l for _, ls, _ in g["ctx"] for l in ls] if g["ctx"] else g["hl"])}); _LI = {n: k for k, n in enumerate(labels)}
+else:
+    ck = torch.load(sys.argv[1], map_location="cpu"); labels = ck["labels"]
+    bb = torch.hub.load(_HUB, "dinov2_vitb14", source="local", pretrained=False); model = nn.Sequential(bb, nn.Linear(768, len(labels)))
+    model.load_state_dict(ck["state"]); model.to(dev).eval()
+    # group models (batch 10): SEQ = comma list; default = seq_best.pt (whole photos) + seq_best_crop.pt (whole + crosshair zoom), averaged
+    SEQ = os.environ.get("SEQ", ",".join(os.path.join(_M, f) for f in ("seq_best.pt", "seq_best_crop.pt")))
+    SEQ = [p for p in SEQ.split(",") if p and p != "0" and os.path.exists(p)]   # SEQ=0 -> single-photo model only
+    CTX = []
+    for p in SEQ:
+        sk = torch.load(p, map_location="cpu"); c = Ctx(len(sk["labels"]), sk["win"], sk.get("dim", 768))
+        c.load_state_dict(sk["ctx"]); CTX.append((c.to(dev).eval(), sk["labels"], sk.get("crop", 0)))
+    if CTX:
+        labels = sorted({n for _, ls, _ in CTX for n in ls}); _LI = {n: k for k, n in enumerate(labels)}
+    GROUPS = [dict(bb=bb, ctx=CTX)] if CTX else []
 mean = np.array([0.485, 0.456, 0.406], np.float32); std = np.array([0.229, 0.224, 0.225], np.float32)
 def load(p, crop=0):
     im = Image.open(p).convert("RGB")
@@ -99,16 +135,21 @@ def _prior_vec():
 _PV = None
 files = sys.argv[2:]; P = []
 with torch.no_grad():
-    if CTX:
-        feats = lambda crop: torch.cat([bb(torch.from_numpy(np.stack([load(f, crop) for f in files[i:i + 32]])).to(dev)) for i in range(0, len(files), 32)])
-        F = feats(0); FC = feats(0.5) if any(cr for _, _, cr in CTX) else None
-        n = len(files); acc = np.zeros((n, len(labels)), np.float32)
-        for c, ls, cr in CTX:
-            x = torch.cat([F, FC], 1) if cr else F
-            idx = torch.tensor([[min(max(i + d, 0), n - 1) for d in range(-c.win, c.win + 1)] for i in range(n)]).to(dev)
-            msk = torch.tensor([[not (0 <= i + d < n) for d in range(-c.win, c.win + 1)] for i in range(n)]).to(dev)
-            pr = torch.softmax(c(x[idx], msk), 1).cpu().numpy(); cols = [_LI[l] for l in ls]
-            acc[:, cols] += pr / len(CTX)
+    if GROUPS:
+        n = len(files); acc = np.zeros((n, len(labels)), np.float32); nm = sum(len(g["ctx"]) or 1 for g in GROUPS)
+        idx = msk = None
+        for g in GROUPS:
+            feats = lambda crop: torch.cat([g["bb"](torch.from_numpy(np.stack([load(f, crop) for f in files[i:i + BS]])).to(dev)) for i in range(0, len(files), BS)])
+            F = feats(0); FC = feats(0.5) if any(cr for _, _, cr in g["ctx"]) else None
+            if not g["ctx"]:   # group without seq models: its stage-1 head alone
+                acc[:, [_LI[l] for l in g["hl"]]] += torch.softmax(g["head"](F), 1).cpu().numpy() / nm; continue
+            for c, ls, cr in g["ctx"]:
+                x = torch.cat([F, FC], 1) if cr else F
+                idx = torch.tensor([[min(max(i + d, 0), n - 1) for d in range(-c.win, c.win + 1)] for i in range(n)]).to(dev)
+                msk = torch.tensor([[not (0 <= i + d < n) for d in range(-c.win, c.win + 1)] for i in range(n)]).to(dev)
+                pr = torch.softmax(c(x[idx], msk), 1).cpu().numpy(); cols = [_LI[l] for l in ls]
+                acc[:, cols] += pr / nm
+            del F, FC
         P = [fix_make(p) for p in acc]
     else:
         for i in range(0, len(files), 32):
