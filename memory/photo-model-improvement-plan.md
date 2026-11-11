@@ -48,3 +48,4 @@ Baseline (live, round 1): whole 82.3/92.8, crop 81.2/92.3 on the 3,306-photo tes
   3. Stop rule: 2 rounds in a row with < +0.3 group top-1 -> `touch STOP_VITL`, switch to weekly ViT-B group retrains on the newest labels (~3 h).
   4. After every batch: add_to_training.py; next round picks up the new photos/labels automatically (n6 rebuild). Daily: 每日确认台 cron.
   5. Push one line to the user per round (result + what was done).
+- 2026-11-11 autopilot swap #1: production.json = ViT-B (seq_best + seq_best_crop) + ViT-L (big15 + seq_L15) vote: 83.1/93.6 vs 82.5/93.2; 53 photos 23 s vs 9 s (rule: < 30 s/case). Undo: `.venv/bin/python swap_model.py set models/production.json.prev`. Never delete dinov2_l_big15.pt / seq_L15.pt while they are in production.json.
