@@ -17,7 +17,7 @@ The most error-prone step. Read this whole file before every case. Step 2 = sele
 - Re-read dsp_selection + dsp_details first; never duplicate rows/ticks the user already added; don't overwrite labour the user already ticked. [mistakes-log-sinar-batch2] [labour-n-r-selection]
 - Skip view/document names (Front View, Odometer Reading, Road Tax…) when building the parts list. [step2-paint-popup-method]
 
-- (2026-11-11) Step 2 A/B done on TBH3142: Opus 2 misses vs Fable 3 misses against the user's final, Fable +19% tokens, +50% time, 2x price → **Step 2 planning stays on Opus 5.5** (user decision pending confirmation).
+- (2026-11-11) Step 2 A/B on TBH3142, corrected after the user's pillar decision: Opus 3 misses (rear sensors, rear lower arm, pillar rows), Fable 2 misses (Floor Panel -> Boot Floor, manual alloy rim); Fable +19% tokens, +50% time, 2x price. One case only — user decides.
 
 ## Tools + commands
 - Dump the catalogue: `node selcat2.mjs <cid> <ext> session_base.txt <out.json>`; match names with `typesafe/partmatch.py` (plan builder `typesafe/step2_plan.py`: exact-name first, group-aware, clips per bumper, crossmember companions). [merimen-batch-workflow]
