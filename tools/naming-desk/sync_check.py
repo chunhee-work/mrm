@@ -34,6 +34,11 @@ def side(s):
 # photo name -> catalogue wording (playbook 07 / 10). ONLY pairs the USER confirmed (user 2026-11-04: never add a pair on my own
 # judgement — the PART NUMBER decides). An unconfirmed pair = check the part number first, never alias by name.
 ALIAS = [
+    (r"Fender Inner (LH|RH)", "Fender Front Inner|Fender Inner"),   # 2026-11-11: playbook 07 pair rule (Fender Front Inner / Inner Upper / Inner Reinforcement)
+    (r"Quarter Panel (LH|RH)", "Bodyside"),   # 2026-11-11 TBH3142 Viva: playbook 10 (quarter outer = Bodyside LH/RH, 61112)
+    (r"Rear Bumper Reflector", "Reflector Rear|Rear Bumper Reflector"),   # 2026-11-11 TBH3142 Viva (single side-less value, comment = side)
+    (r"Rear Door Tread Plate", "Runningboard Panel Tread Plate Rear|Rear Door Tread Plate"),   # 2026-11-11 TBH3142 (67918 = rear door scuff plate)
+    (r"Door Rear Aperture Weatherstrip", "Dr Aperture Trim Finisher Rear|Door Rear Aperture Weatherstrip"),   # 2026-11-11 TBH3142 (62333 = rear door opening trim)
     (r"Bonnet Lock", "Bonnet Latch|Bonnet Lock"),
     (r"Bumper Front Moulding", "Bumper Front Finisher|Bumper Front Moulding"),   # user 2026-10-30 (PRY826)
     (r"Fender Inner Wheelhouse (LH|RH)", "Fender Front Inner Support Panel|Fender Inner Wheelhouse"),   # user 2026-10-30 (PRY826)   # user 2026-10-30: Bonnet Latch RH IS the bonnet lock
