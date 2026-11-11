@@ -104,6 +104,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 
 ### Viva 2007 On 5 Dr Hatch · TAW8095, WUE6407
 - ⭐ Enforced in code now (user repeated 2026-10-30, WUE6407 #21/22): `naming.py build` replaces any "Quarter Liner" on a Viva with the next alternative and marks it unsure (`MODEL_BANS`); `step2_plan.py` never adds the quarter-liner companion on a Viva.
+- ⭐ **Viva lessons (user 2026-11-11, TBH3142):** Bodyside LH/RH (61112) also covers **Centre Pillar Outer** and **Front Pillar** photos — no extra rows. "Floor Panel" (cabin floor) = **Floor Pan Front** (58111), not Boot Floor. **No Bumper Rear Sensor** when the bumper has no sensor holes (pick Bumper Rear Cover [w/o Reverse Sensor Hole]). **No Suspension Lower Arm Rear** (torsion beam = Suspension Crossmember Rear). Wheel rim: the catalogue steel rim is fine even for alloy photos (user: no manual alloy row). Proton price refs are fine for Perodua manual rows (same price tier).
 - Photo "Quarter Panel LH/RH" = catalogue **Bodyside LH/RH** (60@/80@, 612.10); not the small Quarter Pnl Lower/Upper Extension. Heavy rear crush → also Rear Panel Inner [Assembly] + Rear Panel Inner Section LH/RH.
 - Viva parts are cheap: TAW8095 parts total only ~RM5,575 even with the full rear set.
 - ⭐ **Perodua Viva has NO quarter liner** (user 2026-10-29): never name a photo Quarter Liner, never add the Quarter Liner companion for a quarter panel. TAW8095 #54/55/58/59 were wrongly "Quarter Liner" (the black plastic piece behind the rear bumper corner, and the inside of the rear bumper).

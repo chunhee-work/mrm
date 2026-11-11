@@ -35,6 +35,7 @@ Rules to apply that the draft often misses:
 - Labour N/R: apply playbook 07 fully, including the "batch 3" lessons (tick MORE R on inner reinforcements, both sides for front/rear hits). Use ONLY labels that exist in cat.labs (exact text). N ticks pull in parts — only N what is replaced or an R&R job.
 - Misc labels by impact (07 "Misc ticks"); suspension/wheel parts → add Road test, Road wheel alignment, Road wheel balancing. A car hit at front AND rear gets both sets (no duplicates).
 - Rear Panel Inner Trim manual row goes in group 70.
+- ⭐ (2026-11-11 TBH3142) Bumper sensors only when the photos show sensors or sensor holes (cover "[w/o … Sensor Hole]" = no sensor row). The "suspension SET per corner" companion rule skips parts the car does not have (torsion-beam rear: no Lower Arm Rear). Check playbook 10 for the model first.
 
 ## REVISE mode (2026-11-04: plan during the user's naming, fix after)
 Phase A already wrote a full final_plan_<P>.json from the MODEL's photo names. When the brief says REVISE, you get the list of

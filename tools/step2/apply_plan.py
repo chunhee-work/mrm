@@ -45,7 +45,12 @@ def one(p):
     o=run('estfill.mjs',p,'session_base.txt','extmap_b4.json','v'); print('  est',[l[:120] for l in o.splitlines() if 'set PDC' in l or 'PDC filled' in l][:2])
     if P.get('qty'): o=run('setqty.mjs',c,e,'session_base.txt',json.dumps(P['qty'])); print('  qty',o.strip()[-120:])
     if P.get('cmt'):
-        json.dump(P['cmt'],open(f'{H}/s2/cmt_{p}.json','w')); o=run('setcmt.mjs',c,e,'session_base.txt',f'{H}/s2/cmt_{p}.json'); print('  cmt',[l[:200] for l in o.splitlines() if 'VERIFY' in l][:1])
+        # 2026-11-11 TBH3142: a manual COPY row has the same display name as its catalogue row (Bumper Clips, Door Striker…);
+        # a plain name key gave BOTH rows the same comment -> use setcmt's 'Name#n' keys (#1 = catalogue row, #2 = the later manual copy).
+        C=dict(P['cmt'])
+        for m in P.get('manual',[]):
+            if len(m)>4 and m[4] and m[1] in C and C[m[1]]!=m[4]: C[m[1]+'#1']=C.pop(m[1]); C[m[1]+'#2']=m[4]
+        json.dump(C,open(f'{H}/s2/cmt_{p}.json','w')); o=run('setcmt.mjs',c,e,'session_base.txt',f'{H}/s2/cmt_{p}.json'); print('  cmt',[l[:200] for l in o.splitlines() if 'VERIFY' in l][:1])
     run('fillempty.mjs',c,e,'session_base.txt')
     open(f'{H}/state/rows_{p}_now.json','w').write(run('rows.mjs',c,e,'session_base.txt'))
 

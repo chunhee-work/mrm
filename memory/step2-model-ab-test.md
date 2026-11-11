@@ -1,9 +1,9 @@
 ---
 name: step2-model-ab-test
-description: Next batch: Step 2 planning agents run on both Opus 5.5 (applied) and Fable (shadow) to compare; other steps stay Opus
+description: Step 2 planning A/B (Opus vs Fable) done 2026-11-11 on TBH3142 -> Opus kept
 metadata:
   type: project
 ---
-User 2026-11-10 agreed: on the NEXT batch, run Step 2 planning with Opus (applied) and Fable (shadow plan `final_plan_<P>_fable.json`, never applied), then compare both with the user's final estimate and report closeness, time, tokens. Rule written in playbook 07 (top). After that one batch, remove the A/B line once the user decides.
-**Why:** Fable costs 2x and was ~60% slower; only Step 2 judgement might benefit. Photo test: Opus 18/30, Fable 20/30, our DINOv2 model 20/30 ([[photo-model-improvement-plan]]).
-**How to apply:** at Phase A head start / Phase B REVISE, launch the fable agents alongside the opus ones in the same message.
+Done 2026-11-11 on TBH3142 (205 photos, Viva). Against the user's final estimate: Opus 2 misses (rear sensors, rear lower arm), Fable 3 (Floor Panel -> Boot Floor, manual alloy rim, extra pillar rows). Fable used +19% tokens (248,891 vs 208,862), +50% time (635 s vs 423 s), 2x price. **Step 2 planning stays on Opus 5.5.** The 2 Opus misses are now rules (brief.md + playbook 10 Viva).
+**Why:** user asked for the comparison before deciding ([[jev-in-workflow]]).
+**How to apply:** no more shadow plans unless the user asks again.
