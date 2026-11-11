@@ -56,6 +56,7 @@ def main():
         insurer, our client's insurer and the Liberty branch. Only a confident disagreement is flagged; Claude re-reads the
         I-SEARCH / policy before the create. State, city and police station stay with the code rules (they were better)."""
         try:
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "typesafe"))
             from judgments import ask, answer
             ins = [x for x in json.load(open(os.path.join(H, "model_opts_sinar.json"))).get("__ins3", []) if "=" in x and x.split("=", 1)[0]]
             names = {x.split("=", 1)[0]: x.split("=", 1)[1] for x in ins}
