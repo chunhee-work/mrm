@@ -34,7 +34,6 @@ def side(s):
 # photo name -> catalogue wording (playbook 07 / 10). ONLY pairs the USER confirmed (user 2026-11-04: never add a pair on my own
 # judgement — the PART NUMBER decides). An unconfirmed pair = check the part number first, never alias by name.
 ALIAS = [
-    (r"(Centre Pillar Outer|Front Pillar) (LH|RH)", "Bodyside"),   # user 2026-11-11 TBH3142 Viva: pillars are part of the one-piece Bodyside, no extra row
     (r"Floor Panel", "Floor Pan Front|Floor Panel"),   # user 2026-11-11 TBH3142: cabin floor = Floor Pan Front (58111), not Boot Floor
     (r"Fender Inner (LH|RH)", "Fender Front Inner|Fender Inner"),   # 2026-11-11: playbook 07 pair rule (Fender Front Inner / Inner Upper / Inner Reinforcement)
     (r"Quarter Panel (LH|RH)", "Bodyside"),   # 2026-11-11 TBH3142 Viva: playbook 10 (quarter outer = Bodyside LH/RH, 61112)
