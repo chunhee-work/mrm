@@ -34,7 +34,7 @@ def step(name):
 
 def main():
     b = sys.argv[1]; data = {os.path.basename(f)[:-5]: json.load(open(os.path.join(b, "data", f)))
-                             for f in os.listdir(os.path.join(b, "data")) if f.endswith(".json")}
+                             for f in os.listdir(os.path.join(b, "data")) if f.endswith(".json") and re.fullmatch(r"[A-Z]{1,3}\d{1,4}[A-Z]?\.json", f)}   # 2026-11-12: only plate-named files (a _TEMPLATE file once created a duplicate case)
     # 2026-11-04: a missing CLAIMANT own insurance is not a blocker (playbook 01) -> never skip a case for it (VDV9302 was skipped)
     blocking = lambda d: [m for m in d.get("missing", []) if not re.search(r"own insurance|claimant.*insurance|\bINS\b", m, re.I)]
     plates = sys.argv[2:] or [p for p, d in data.items() if "case" in d and not blocking(d)]

@@ -5,12 +5,13 @@
 # by itself. Claude compares every round with production (B5+B5c) on the same test photos and swaps only when ViT-L is better.
 cd "$(dirname "$0")"; PY=.venv/bin/python
 while pgrep -f train_n5b.sh >/dev/null; do sleep 60; done
-prev=15
-for r in 16 17 18 19 20; do
+prev=${1:-15}
+for r in $(seq $((prev+1)) 20); do
   [ -f STOP_VITL ] && { echo "STOP_VITL found, stopping before round $r"; exit 0; }
   sed 's/big_meta_n5/big_meta_n6/g; s/big_paths_n5/big_paths_n6/g' build_n5.py > build_n6.py && python3 build_n6.py > n6_build.log 2>&1 || { echo N6_BUILD_FAILED; exit 1; }
-  export PATHS_FILE=big_paths_n6.txt META_FILE=big_meta_n6.tsv BB=vitl14 BS=32 AMP=1 LOADERS=8
-  INIT=models/dinov2_l_big$prev.pt TEACHER=models/dinov2_b_big10a.pt $PY finetune2.py 1 4 big$r > ftL${r}_stage1.log 2>&1
+  export PATHS_FILE=big_paths_n6.txt META_FILE=big_meta_n6.tsv BB=vitl14 BS=16 AMP=1 LOADERS=2 PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.5 PYTORCH_MPS_LOW_WATERMARK_RATIO=0.4   # 2026-11-12 user: 20+ GB crashed the Mac (16 GB) -> keep training under 10 GB
+  rm -f ftL${r}_stage2.log; INIT=models/dinov2_l_big$prev.pt TEACHER=models/dinov2_b_big10a.pt $PY finetune2.py 1 4 big$r > ftL${r}_stage1.log 2>&1
+  grep -q "best top1" ftL${r}_stage1.log || { echo "STAGE1_FAILED round $r"; exit 1; }
   NEED=1 $PY seqctx.py extract models/dinov2_l_big$r.pt big$r > ftL${r}_extract.log 2>&1
   RARE=100 EPOCHS=6 USE_CROP=0 INIT_SEQ=models/seq_L$prev.pt $PY seqctx.py train models/dinov2_l_big$r.pt big$r L$r > ftL${r}_stage2.log 2>&1
   echo "ROUND $r: stage1 $(grep -h 'best top1' ftL${r}_stage1.log | tail -1) | group $(grep -h 'best top1' ftL${r}_stage2.log | tail -1)"
