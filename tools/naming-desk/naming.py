@@ -18,6 +18,7 @@ import base64, glob, json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "typesafe", "photo_train"))
 from name_map import final as norm  # the user's naming rules; returns None for banned names (General View, TAIL LAMP…)
+PAGE_NAMES = set(json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "names.json"), encoding="utf-8")))
 
 # names a car model does NOT have (user rules, playbook 10): (model regex, name regex)
 MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner"),
@@ -141,7 +142,9 @@ def final(out, db, plates):
                 r["user"] = True
                 if raw != r["name"]:
                     print("  %s #%d  model: %s  ->  user: %s" % (p, r["n"], r["name"], raw))
-            n = norm(raw)
+            # 2026-11-12 TCP2136: a name the user picked from the page list is final; name_decisions must not rewrite it
+            # (an old decision turned "Door Rear Window RH" into "Door Window Regulator Rear RH").
+            n = raw if (r.get("user") and raw in PAGE_NAMES) else norm(raw)
             if n is None:
                 fixes.append("#%d %s" % (r["n"], raw)); n = raw
             r["name"] = n

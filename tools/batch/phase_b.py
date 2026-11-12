@@ -41,6 +41,35 @@ def maps(old, new):
     return lab, ordm
 
 
+def heal(p, old, new, labels_file):
+    """2026-11-12 batch 11 (TCG9645, VGL7278): photos whose upload was retried land at the END in Merimen, so the order
+    no longer matches the Phase A plan. Labels were set per file at upload, so match Merimen's photos to the plan by label:
+    in-order blocks first (difflib), the moved photos by label. Refuse (None) when a moved photo's label is shared by
+    photos that get different final names - then it really is ambiguous and needs a hand fix."""
+    import difflib
+    try: M = json.load(open(labels_file))
+    except (OSError, ValueError): return None
+    oldl = [x[2] for x in old]
+    if sorted(M) != sorted(oldl): return None
+    lab0, ordm0 = maps(old, new)          # keyed by OLD plan position
+    newname = {i: ordm0[str(i + 1)][0] for i in range(len(old))}; newpos = {i: ordm0[str(i + 1)][1] for i in range(len(old))}
+    assign = {}
+    for a, b2, size in difflib.SequenceMatcher(None, M, oldl, autojunk=False).get_matching_blocks():
+        for k in range(size): assign[a + k] = b2 + k
+    free = [i for i in range(len(oldl)) if i not in assign.values()]
+    for m in range(len(M)):
+        if m in assign: continue
+        cand = [i for i in free if oldl[i] == M[m]]
+        if len({newname[i] for i in cand}) > 1: return None
+        assign[m] = cand[0]; free.remove(cand[0])
+    lab, ordm = {}, {}
+    for m, i in assign.items():
+        if newname[i] != M[m]: lab[str(m + 1)] = [M[m], newname[i]]
+        ordm[str(m + 1)] = [newname[i], newpos[i]]
+    if sorted(v[1] for v in ordm.values()) != list(range(1, len(M) + 1)): return None
+    return lab, ordm
+
+
 def main():
     b, db, plates = sys.argv[1], sys.argv[2], sys.argv[3:]
     rep = os.path.join(b, "report")
@@ -52,8 +81,15 @@ def main():
     if not TEST:
         wait_login()
         for p in plates:   # Merimen vs the OLD plan, before the plan file changes
-            o = safe("chkorder.mjs", p, *I[p]).strip().splitlines()[-1]; m = re.search(r"photos (\d+) plan (\d+) mismatch (\d+)", o)
+            lf = os.path.join(b, f"merimen_labels_{p}.json"); os.environ["LABELS_OUT"] = lf
+            o = [l for l in safe("chkorder.mjs", p, *I[p]).strip().splitlines() if " photos " in l][-1]; m = re.search(r"photos (\d+) plan (\d+) mismatch (\d+)", o)
+            os.environ.pop("LABELS_OUT", None)
             have[p] = (int(m.group(1)), int(m.group(3))) if m else (0, 0)
+            if m and int(m.group(1)) == 0:   # 2026-11-12: a flaky page load reads 0 photos -> read once more before deciding "upload"
+                os.environ["LABELS_OUT"] = lf
+                o = [l for l in safe("chkorder.mjs", p, *I[p]).strip().splitlines() if " photos " in l][-1]; m = re.search(r"photos (\d+) plan (\d+) mismatch (\d+)", o)
+                os.environ.pop("LABELS_OUT", None)
+                have[p] = (int(m.group(1)), int(m.group(3))) if m else (0, 0)
     o = subprocess.run([sys.executable, ND, "final", rep, db, *plates], capture_output=True, text=True)
     print("1 final names:", (o.stdout + o.stderr).strip()[-400:])
     o = subprocess.run([sys.executable, ND, "plan", rep, b, *plates], capture_output=True, text=True)
@@ -70,7 +106,12 @@ def main():
             continue
         n, bad = have[p]
         if bad or n != len(oldplan[p]):
-            print(f"   {p}: Merimen has {n} photos / {bad} mismatches vs the Phase A plan -> NOT relabelled, fix by hand (playbook 06)"); continue
+            healed = heal(p, oldplan[p], newplan[p], os.path.join(b, f"merimen_labels_{p}.json"))
+            if healed is None:
+                print(f"   {p}: Merimen has {n} photos / {bad} mismatches vs the Phase A plan -> NOT relabelled, fix by hand (playbook 06)"); continue
+            lab, ordm = healed
+            json.dump(lab, open(os.path.join(b, f"relabel_{p}.json"), "w")); json.dump(ordm, open(os.path.join(b, f"reorder_{p}.json"), "w"))
+            print(f"   {p}: {bad} photos were out of order after the upload -> matched by label: relabel {len(lab)} · reorder {sum(1 for k, v in ordm.items() if int(k) != v[1])}")
         if lab:   # one case at a time: parallel relabel windows close each other's popups (batch 8)
             print("   " + safe("relabel_ui.mjs", *I[p], json.dumps(lab), "save").strip().splitlines()[-1][:150])
         if any(int(k) != v[1] for k, v in ordm.items()):

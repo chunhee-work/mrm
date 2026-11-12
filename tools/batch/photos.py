@@ -9,7 +9,7 @@
 import re, json, os, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mrm import safe, par, ids, wait_login
+from mrm import safe, par, ids, wait_login, close_tabs_if_alone
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PT = os.path.join(REPO, "typesafe", "photo_train")
@@ -51,7 +51,7 @@ def upload(b, plates):
             print(p, "re-uploaded missing photos", m.group(1), flush=True)
         print(p, safe("chkorder.mjs", p, c, e).strip().splitlines()[-1], flush=True)
     par(one, plates)
-    safe("closetabs.mjs")
+    close_tabs_if_alone()
 
 
 if __name__ == "__main__":

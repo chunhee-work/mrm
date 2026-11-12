@@ -34,6 +34,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 
 ### Avanza 1.5 G (MPV) · SK64A
 - Tailgate MPV: Tailgate Spare Wheel Carrier. Quarter Liner LH/RH.
+- **Yaris 2020+ hatch (batch 11 TCH1133 / VGL7278):** Boot Floor = Spare Wheel Well 583110D100 (58311 = pan, rear floor); Rear Panel = Rear Panel Lower 583070D400 (only rear panel part); Rear Lamp = Lamp Assembly Rear [LED Type] 815600DD01, inner = 815900DA31; Tailgate Hinge LH/RH = one value 688010D180 (qty 2, 'Rear LH & Rear RH'); Tailgate Aperture Weatherstrip = Tailgate Weatherstrip 67881; Rear Bumper Bracket Side = Bumper Rear Retainer 52576/52575; Quarter Liner manual 345.00 / 405.60 (Toyota refs, no Yaris row); Spare Wheel Foam manual 250.00 (no refs - confirm); badge = Emblem [YARIS] 754420D470, page name Tailgate Badge (YARIS).
 
 ## Honda
 ### Civic 2016–2020 4 Dr 1.5 TC (front hit) · FB438
@@ -59,6 +60,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Badges: **Boot Lid Badge (CITY)**; catalogue Emblem Boot/Tailgate [City] and [i-VTEC] are separate values.
 - Rear lamps Inner (boot lid) LH/RH + Outer LH/RH.
 - Rear Lamp Panel LH/RH: no catalogue part → MANUAL row with a price (user 2026-10-29, TCB9624; was "labour only").
+- **Jazz 2014+ (batch 11 QS8472K):** Boot Floor = Spare Wheel Well 04655T5LT00ZZ (Honda 04655 = Panel Set, RR Floor), not Boot Floor Frame 74610; Quarter Panel LH/RH = Bodyside Rear Section 04646/04636; Tailgate Lock manual 498.19 (11 refs); Rear Exhaust Pipe manual 1,557.00 (1 ref - confirm). Jazz has 4 rear sensors (inner/outer).
 
 ## Proton
 ### Saga 2022 On 4 Dr 1.3 (front-RH) · MDP5464
@@ -80,6 +82,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Door glass run felt = catalogue **Door Glass Run Felt Front LH** (40@) / Rear LH (50@); photo name Door Front/Rear Run Felt LH.
 - Door Front/Rear Window LH (photo) = Door Glass labour/parts. Windscreen Front/Rear, Rooflining, Front Pillar Outer RH exist (120@).
 - Door Rear Weatherstrip Outer LH (user's name).
+- **Persona 2016-2021 (batch 11 ALS4761 / TCG9645):** rear = torsion beam -> Suspension Crossmember Rear 130@PW920400, NO lower arm, NO side comment (user 2026-11-12: one part); rim 110@PW925130A0228 (455.23); front bumper bracket = Bumper Front Bracket Support LH/RH; no catalogue Headlamp Panel / Front Panel Assembly (manual 307.42, 25 refs). **Saga FLX (CCV8434):** Grille Front Moulding value is [LH - Chrome] -> comment 'LH'; Grille Clips manual 5.07. **Wira 1993+ (WFL7322):** cheap parts (~RM7.8k), alloy rim manual 345.41, bumper bracket manual 10.55.
 
 ## Perodua
 - Labour (KCM8604, LH side hit, both LH doors): user added R Fender Front Inner Reinforcement LH, Fender Front Inner Section LH, Front Pillar Reinforcement LH, Quarter Panel Inner Striker Reinforcement Panel LH.
@@ -119,6 +122,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 
 ### Alza 2009 On 1.5 EZ · WA9150L, WYN5733
 - Runningboard Spoiler RH: manual 290.34 (same model, 1 row).
+- **Bezza 2020 (batch 11 RAS7511):** Door Lock Rear manual 188.00 (3 refs); rear sensor colour variants (White/Silver/B1/D1/E0/J1) - pick the car colour. **Myvi 2021+ (TCP2136 / VMX9916):** Striker 69410BZ070 and hinges 68750/68760BZ120 are shared front/rear -> tick once + manual copy (8.80 / 16.40); front sensor [Sensor Ultrasonic] 89341BZ440D1 on black trim; Driveshaft Front manual 685.60 (2 refs). **Myvi 2005 (BSK1561):** catalogue has Quarter Panel LH only -> RH manual 962.40; Tailgate Support Strut = one value (qty 2).
 
 ## Mitsubishi
 - Labour (WA9150L, front-RH + door front RH): user added R Fender Front Inner Side Reinforcement Section RH, Fender Front Inner Upper Support Panel RH, Runningboard Panel Reinforcement RH (+ Centre Section, Section Rear), Runningboard Panel Section Centre RH.
@@ -136,6 +140,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 
 ### Grand Livina 2012 (rear hit, tailgate) · WWH2330
 - User's parts: Bumper Clips ×15, Chassis Member Rear Assembly LH, Lamp Assembly Rear LH/RH (tts), Quarter Panel LH, Quarter Liner LH (manual 325.00, Nissan median), Bumper Bracket Rear LH/RH [Side - at Rear Panel], Bumper Rear Cover, Bumper Rear Sensor ×2, Bumper Rear Shock Absorber, Rear Panel, Spoiler Bumper Rear [IMPUL type], Tailgate, Tailgate Aperture Weatherstrip.
+- **Almera 2015+ (batch 11 WB8467H):** Rear Bumper Spoiler manual 1,016.50 (85022 = rear bumper fascia, not the spoiler); Spare Wheel Cover Board manual 250.00; Quarter Liner manual 325.00 each (1 ref); rear bracket [Side - Inner] -0B / [Side - Outer] -0A.
 
 ## Hyundai
 ### Grand Starex 2008 On MPV 2.5 Royale · VCD3926

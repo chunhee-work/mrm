@@ -31,11 +31,11 @@ function cond(name){var n=(name||'').toLowerCase();
  if(/panel|tailgate|boot ?lid|bonnet|fender|quarter|\bdoor\b|floor|wheelhouse|member|pillar|roof|firewall|apron|\bdeck\b|body side|support/.test(n))return'Bent';
  if(/bumper/.test(n))return'Broken';
  return'Bent';}
-function misc(name){var n=(name||'').toLowerCase();
+function misc(name){var LIFT=__LIFT__;var n=(name||'').toLowerCase();
  if(/paintwork material.*water|water.*paintwork/.test(n))return null;
  if(/paintwork material.*solvent/.test(n))return'500.00'; // user 2026-10-10 (PGU1010 screenshot): Solvent line = 500
- if(/paintwork/.test(n))return'500.00'; // generic Paintwork Materials row (popup Other/anything) = 500 — user 2026-10-11
- if(/car-o-liner|frame aligner|aligner bench|frame bench/.test(n))return'400.00';
+ if(/paintwork/.test(n))return LIFT?'700.00':'500.00'; // generic Paintwork Materials row (popup Other/anything) = 500 — user 2026-10-11
+ if(/car-o-liner|frame aligner|aligner bench|frame bench/.test(n))return LIFT?'600.00':'400.00';
  if(/electrical/.test(n))return'35.00';
  if(/underseal/.test(n))return'60.00';
  if(/road test/.test(n))return'30.00';
@@ -69,7 +69,7 @@ const plan=await page.evaluate(({condSrc,miscSrc})=>{
   for(var k=1;k<=mn;k++){var m=document.querySelector('[name=MMI'+k+']');if(!m)continue;var nm2=rowName(m);var isPW=/paintwork/i.test(nm2);if(m.readOnly&&!isPW)continue;if(isPW&&!/solvent|water/i.test(nm2)&&hasSolvent)continue;var p=misc(nm2);if(p==null)continue;if(isPW)m.readOnly=false;m.value=p;m.dispatchEvent(new Event('input',{bubbles:true}));m.dispatchEvent(new Event('change',{bubbles:true}));mc++;mlist.push(nm2.slice(0,28)+'='+p);}
   var paint='popup';
   return {pc,mc,plist,mlist,paint};
-},{condSrc:cond.toString(),miscSrc:misc.toString()});
+},{condSrc:cond.toString(),miscSrc:misc.toString().replace('__LIFT__',process.env.LIFT==='1'?'true':'false')});
 console.log(PLATE+' set PDC='+plan.pc+' MISC='+plan.mc+' PAINTSTEP['+paintRes+']');
 if(process.argv[5]==='v'){console.log('  cond:',JSON.stringify(plan.plist));console.log('  misc:',JSON.stringify(plan.mlist));}
 await page.evaluate(()=>{document.querySelectorAll('img').forEach(im=>im.style.pointerEvents='none');});

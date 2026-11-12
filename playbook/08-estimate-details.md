@@ -84,5 +84,6 @@
   1. Add every catalogue part the photos justify that was missed (JJL6007: Chassis Member Rear Section Rear LH/RH next to the Extension parts; labour N on them instead of R).
   2. Misc: **Paintwork Materials 500 → 700.00**, **Car-O-Liner frame aligner bench 400 → 600.00**. All other misc stay at the normal prices (Electrical 35, Floor board sealant 60, Number plate rear 25, Other items 35, Tail lamp sealant 15, Underseal 60, Windscreen sealant rear 120).
   3. Re-read the Adj Rpt total (`adjtotal.mjs`); JJL6007 ended at RM6,254.95.
+  - Step 2 is one command now: `LIFT=1 node estfill.mjs <PLATE> session_base.txt extmap_b4.json v` (Paintwork 700, Car-O-Liner 600). ⭐ First re-run plain `estfill.mjs` + `adjtotal.mjs`: a total read after a failed estfill is too low (VMX9916 showed RM5,713, real RM6,878 — no lift needed).
 - **Every case total must be ≥ RM6,000 — never lower** (user 2026-10-20). If it comes out lower, re-check the photos for missed parts, companions, labour N/R, misc and paint, and price manual rows by the same model. Every item must still be justified by the photos. Never send a case below 6,000; if it can't be justified, flag it in the report.
 - A Total-Loss case still runs this step normally. [merimen-step2-estimate-detail-fill]

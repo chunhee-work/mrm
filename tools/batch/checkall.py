@@ -16,7 +16,7 @@ Needs <batch_dir>/ids.txt; photo names from ~/mrm-bot/photoplan.json.
 """
 import json, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mrm import safe, par, ids, wait_login, H
+from mrm import safe, par, ids, wait_login, H, close_tabs_if_alone
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CMT_RX = r"Sensor|Bracket|Hinge|Spring|Shock|Driveshaft|Strut|Retainer"
@@ -113,7 +113,7 @@ def main():
     if sync:
         bad = "\n".join(l for l in sync.splitlines() if l.strip() and not l.endswith(": OK"))
         print("SYNC: all OK" if not bad else "SYNC:\n" + bad)
-    safe("closetabs.mjs")
+    close_tabs_if_alone()
 
 
 if __name__ == "__main__":

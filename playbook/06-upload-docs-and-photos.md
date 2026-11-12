@@ -40,6 +40,7 @@ A case is not done until BOTH its documents and its photos are in Merimen; say s
 - Reorder ONLY with `node reorder_ui.mjs <cid> <ext> <map.json> save` (same Relabel/Reorder page; sets the order boxes `SDO*`; map = `{"<current pos>":["<name now>",<new pos>]}` built from the old vs new photoplan by `src`; it refuses to save if any current name/position differs). Verified on PRY826 2026-10-30 (26 moves, chkorder mismatch 0).
 - Never build the dsp_docmanage URL by hand (immediate logout). [merimen-logout-causes]
 - Then verify with `chkorder.mjs`. [merimen-batch-workflow]
+- ⭐ **Out-of-order upload is healed automatically (2026-11-12, batch 11 TCG9645 / VGL7278):** a retried photo upload lands at the END in Merimen, so the order no longer matches the Phase A plan (TCG #64-68, VGL 3 photos moved -> 36 mismatches). Labels are set per file at upload, so `phase_b.py` now reads Merimen's full label list (`LABELS_OUT=… chkorder.mjs`) and matches photos by label (`heal()`: in-order blocks, then the moved ones), then relabels + reorders. It only stops for a hand fix when a moved photo's label is shared by photos that get different final names. A read of 0 photos is re-read once (flaky page load).
 
 ## Dropped photos (2026-11-04)
 - `chkorder.mjs` prints `<PLATE> MISSING i,j` (0-based plan positions) when Merimen has fewer photos than the plan. `photos.py upload` re-uploads those positions (up to 2 rounds). The Phase B relabel/reorder puts them back in order. Batch 9 lost SYG7166 #3 and VFT4204 #4, #19 this way.

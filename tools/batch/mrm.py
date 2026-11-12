@@ -112,3 +112,28 @@ def ids(path):
 
 if __name__ == "__main__":
     print("login:", "OK" if logged_in() else "LOGGEDOUT")
+
+
+# 2026-11-12 batch 11: closetabs.mjs at the end of one run closed the tabs of another run working at the same time
+# (estfill "Target page closed" -> 'est []', 'manual []'). Every script that imports mrm registers itself; tabs are
+# closed only when no other registered run is still alive.
+_RUN = os.path.join(H, "state", "run")
+os.makedirs(_RUN, exist_ok=True)
+open(os.path.join(_RUN, str(os.getpid())), "w").close()
+
+
+def close_tabs_if_alone():
+    others = []
+    for f in os.listdir(_RUN):
+        if f == str(os.getpid()):
+            continue
+        try:
+            os.kill(int(f), 0); others.append(f)
+        except (ValueError, ProcessLookupError, PermissionError):
+            try: os.remove(os.path.join(_RUN, f))
+            except OSError: pass
+    try: os.remove(os.path.join(_RUN, str(os.getpid())))
+    except OSError: pass
+    if others:
+        print("closetabs skipped: other runs still working:", ",".join(others)); return
+    safe("closetabs.mjs")

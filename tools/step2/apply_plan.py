@@ -1,7 +1,7 @@
 """apply ~/mrm-bot/s2/final_plan_<P>.json in Merimen: tick -> misc -> snapshot -> details -> manual -> estfill -> qty/cmt -> fillempty"""
 import json,subprocess,sys,os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'batch'))
-from mrm import safe, wait_login
+from mrm import safe, wait_login, close_tabs_if_alone
 B=os.environ.get("BATCH_DIR", os.path.dirname(os.path.abspath(__file__))); H=os.path.expanduser('~/mrm-bot')
 ids={l.split()[0]:l.split()[1:] for l in open(B+'/ids.txt') if l.strip()}
 # write every case of this batch into extmap ONCE, merged with the file (batch 7: two apply runs each wrote their own copy
@@ -41,8 +41,15 @@ def one(p):
     for m in P.get('manual',[]):   # user 2026-11-04: Suspension Crossmember Front / Rear ALWAYS in group 130 Undercarriage
         if re.search(r'suspension crossmember|crossmember.*suspension',m[1],re.I) and m[0]!='130': print(p,'group',m[0],'-> 130 for',m[1]); m[0]='130'
     if P.get('manual'):
-        json.dump(P['manual'],open(f'{H}/s2/man_{p}.json','w')); o=run('addparts.mjs',c,e,'session_base.txt',f'{H}/s2/man_{p}.json','save'); print('  manual',[l for l in o.splitlines() if 'added' in l][:1])
-    o=run('estfill.mjs',p,'session_base.txt','extmap_b4.json','v'); print('  est',[l[:120] for l in o.splitlines() if 'set PDC' in l or 'PDC filled' in l][:2])
+        json.dump(P['manual'],open(f'{H}/s2/man_{p}.json','w'))
+        for _try in range(2):   # 2026-11-12 batch 11: TCH1133/VGL7278 came back 'manual []' (tab closed by another run) -> retry once
+            o=run('addparts.mjs',c,e,'session_base.txt',f'{H}/s2/man_{p}.json','save'); ok=[l for l in o.splitlines() if 'added' in l][:1]
+            if ok: break
+        print('  manual',ok)
+    for _try in range(2):   # 2026-11-12: 'est []' = estfill died (page closed) -> PDC/misc/paint not set and the total is too low; retry once
+        o=run('estfill.mjs',p,'session_base.txt','extmap_b4.json','v'); est=[l[:120] for l in o.splitlines() if 'set PDC' in l or 'PDC filled' in l][:2]
+        if any('PDC filled' in l for l in est): break
+    print('  est',est)
     if P.get('qty'): o=run('setqty.mjs',c,e,'session_base.txt',json.dumps(P['qty'])); print('  qty',o.strip()[-120:])
     if P.get('cmt'):
         # 2026-11-11 TBH3142: a manual COPY row has the same display name as its catalogue row (Bumper Clips, Door Striker…);
@@ -59,7 +66,7 @@ from concurrent.futures import ThreadPoolExecutor
 wait_login()
 with ThreadPoolExecutor(int(os.environ.get('PAR', '5'))) as ex:
     list(ex.map(one, sys.argv[1:]))
-run('closetabs.mjs')
+close_tabs_if_alone()
 # auto-fix + checks + sheet rows (tools/step2/finish.py); FINISH=0 to skip
 if os.environ.get('FINISH','1')=='1':
     subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),'finish.py')]+sys.argv[1:])

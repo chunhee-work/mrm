@@ -7,4 +7,5 @@ const L=[...seg.matchAll(/\d+ \d\d\/\d\d\/\d\d \d\d:\d\d (.+?) Load JPG/g)].map(
 const bad=P.map((n,i)=>n===L[i]?null:i+1+':'+n+'≠'+L[i]).filter(Boolean);// 2026-11-04: photos are uploaded in plan order, so walk both lists; a plan photo with no match is MISSING (batch 9: 3 photos silently dropped)
 {const miss=[];let j=0;P.forEach((n,i)=>{if(L[j]===n)j++;else miss.push(i);});if(L.length<P.length)console.log(PLATE,'MISSING',miss.join(','));}
 console.log(PLATE,'photos',L.length,'plan',P.length,'mismatch',bad.length,bad.slice(0,5).join(' | '));
+if(process.env.LABELS_OUT){(await import('fs')).writeFileSync(process.env.LABELS_OUT,JSON.stringify(L));}// 2026-11-12: phase_b reads Merimen's real order to heal an out-of-order upload
 await page.close();await b.close();

@@ -115,6 +115,8 @@ Read this at the start of every session/batch. Newer rules override older ones; 
   - Agents never touch Merimen; only Claude runs the .mjs scripts. Start the agents as soon as the inputs exist (catalogue dump + final names), not one case at a time.
 - Work cases in parallel where scripts allow: one tab per case, driven concurrently (`Promise.all(plates.map(p => doOne(ctx.newPage(), p)))`, popup handler per page). Never a disguised one-at-a-time loop. [merimen-batch-workflow] [merimen-az-progress] [batch-autonomy-rule]
 - After each batch step and at the end, close every page in the 9222 Chrome except one Merimen tab (labourfill/estfill and failed scripts leave tabs open). [merimen-logout-causes]
+- ⭐ **closetabs never kills another run (2026-11-12, batch 11):** apply_plan / checkall / photos used to run `closetabs.mjs` at the end and closed the tabs of a run still working (estfill 'Target page closed' -> `est []`, `manual []`, a stale total RM5,713 for VMX9916 that was really RM6,878). Now `mrm.close_tabs_if_alone()` closes tabs only when no other mrm run is alive, and apply_plan retries addparts / estfill once when they come back empty.
+- ⭐ **zsh does not split `$VAR`:** `ID="cid ext"; node x.mjs $ID` passes ONE argument (relabel_ui parsed 'save' as JSON; chkorder printed '0 photos'). Use `set -- $(grep PLATE ids.txt); node x.mjs $2 $3` or type the ids.
 
 ## Script hygiene
 - Never pipe a script that saves into `| head` (EPIPE kills it before Save). Redirect to a log file, then grep. [mistakes-log-sinar-batch2]
