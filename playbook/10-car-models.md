@@ -34,7 +34,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 
 ### Avanza 1.5 G (MPV) · SK64A
 - Tailgate MPV: Tailgate Spare Wheel Carrier. Quarter Liner LH/RH.
-- **Yaris 2020+ hatch (batch 11 TCH1133 / VGL7278):** Boot Floor ≠ Spare Wheel Well (user 2026-11-12; open question which catalogue item is the boot floor); Rear Panel = Rear Panel Lower 583070D400 (only rear panel part); Rear Lamp = Lamp Assembly Rear [LED Type] 815600DD01, inner = 815900DA31; Tailgate Hinge LH/RH = one value 688010D180 (qty 2, 'Rear LH & Rear RH'); Tailgate Aperture Weatherstrip = Tailgate Weatherstrip 67881; Rear Bumper Bracket Side = Bumper Rear Retainer 52576/52575; Quarter Liner manual 345.00 / 405.60 (Toyota refs, no Yaris row); Spare Wheel Foam manual 250.00 (no refs - confirm); badge = Emblem [YARIS] 754420D470, page name Tailgate Badge (YARIS).
+- **Yaris 2020+ hatch (batch 11 TCH1133 / VGL7278):** Boot Floor ≠ Spare Wheel Well (user 2026-11-12) -> manual Boot Floor 1,067.00 (Toyota 58311 ref), group 75; Rear Panel = Rear Panel Lower 583070D400 (only rear panel part); Rear Lamp = Lamp Assembly Rear [LED Type] 815600DD01, inner = 815900DA31; Tailgate Hinge LH/RH = one value 688010D180 (qty 2, 'Rear LH & Rear RH'); Tailgate Aperture Weatherstrip = Tailgate Weatherstrip 67881; Rear Bumper Bracket Side = Bumper Rear Retainer 52576/52575; Quarter Liner manual 345.00 / 405.60 (Toyota refs, no Yaris row); Spare Wheel Foam manual 250.00 (no refs - confirm); badge = Emblem [YARIS] 754420D470, page name Tailgate Badge (YARIS).
 
 ## Honda
 ### Civic 2016–2020 4 Dr 1.5 TC (front hit) · FB438
@@ -60,7 +60,7 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 - Badges: **Boot Lid Badge (CITY)**; catalogue Emblem Boot/Tailgate [City] and [i-VTEC] are separate values.
 - Rear lamps Inner (boot lid) LH/RH + Outer LH/RH.
 - Rear Lamp Panel LH/RH: no catalogue part → MANUAL row with a price (user 2026-10-29, TCB9624; was "labour only").
-- **Jazz 2014+ (batch 11 QS8472K):** Boot Floor ≠ Spare Wheel Well (user 2026-11-12); Quarter Panel LH/RH = Bodyside Rear Section 04646/04636; Tailgate Lock manual 498.19 (11 refs); Rear Exhaust Pipe manual 1,557.00 (1 ref - confirm). Jazz has 4 rear sensors (inner/outer).
+- **Jazz 2014+ (batch 11 QS8472K):** Boot Floor ≠ Spare Wheel Well (user 2026-11-12) -> manual Boot Floor 1,341.35 (Jazz, 13 refs), group 75; Quarter Panel LH/RH = Bodyside Rear Section 04646/04636; Tailgate Lock manual 498.19 (11 refs); Rear Exhaust Pipe manual 1,557.00 (1 ref - confirm). Jazz has 4 rear sensors (inner/outer).
 
 ## Proton
 ### Saga 2022 On 4 Dr 1.3 (front-RH) · MDP5464
