@@ -9,6 +9,7 @@ Usage: python seqctx.py extract models/dinov2_b_big10a.pt big10a
 import re, collections, json, os, random, sys, time
 import numpy as np, torch, torch.nn as nn
 from PIL import Image
+from save_util import atomic_save  # crash-safe checkpoint writes (2026-11-12)
 HERE = os.path.dirname(os.path.abspath(__file__))
 dev = "mps" if torch.backends.mps.is_available() else "cpu"
 WIN = int(os.environ.get("WIN", "4"))
@@ -201,5 +202,5 @@ for ep in range(EP):
         if k % (B * 200) == 0: print("ep", ep, k, "loss %.3f" % loss.item(), int(time.time() - t0), "s", flush=True)
     a1, a3 = evaluate(); print("EPOCH", ep, "test top1 %.1f%% top3 %.1f%%" % (100 * a1, 100 * a3), int(time.time() - t0), "s", flush=True)
     if a1 > best:
-        best = a1; torch.save({"ctx": net.state_dict(), "labels": labels, "win": WIN, "backbone": CK, "crop": 0.5 if FC is not None else 0, "dim": D}, os.path.join(HERE, "models", "seq_%s.pt" % TAG)); evaluate(write=True)
+        best = a1; atomic_save({"ctx": net.state_dict(), "labels": labels, "win": WIN, "backbone": CK, "crop": 0.5 if FC is not None else 0, "dim": D}, os.path.join(HERE, "models", "seq_%s.pt" % TAG)); evaluate(write=True)
 print("best top1 %.1f%%" % (100 * best))

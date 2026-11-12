@@ -50,6 +50,11 @@ def main():
     if os.path.exists(PROD): shutil.copy2(PROD, PROD + ".prev")
     tmp = PROD + ".tmp"; json.dump(cfg, open(tmp, "w")); os.replace(tmp, PROD)
     print("wrote", PROD, "(old one -> production.json.prev)" if os.path.exists(PROD + ".prev") else "")
+    # 2026-11-12 (user): every new production model is frozen + backed up off the Mac (private Hugging Face repo)
+    import subprocess
+    r = subprocess.run([sys.executable, os.path.join(HERE, "backup_model.py"), "upload"], capture_output=True, text=True)
+    print((r.stdout.strip().splitlines() or [""])[-1] if r.returncode == 0 else
+          "BACKUP FAILED (model still works locally; run `hf auth login`, then python3 backup_model.py upload): " + (r.stderr.strip().splitlines() or ["?"])[-1])
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import json, os, random, sys, time
 import numpy as np, torch, torch.nn as nn
 from PIL import Image
+from save_util import atomic_save  # crash-safe checkpoint writes (2026-11-12)
 HERE = os.path.dirname(os.path.abspath(__file__))
 EPOCHS = int(sys.argv[1]) if len(sys.argv) > 1 else 6
 UNFREEZE = int(sys.argv[2]) if len(sys.argv) > 2 else 4
@@ -76,10 +77,10 @@ for ep in range(EPOCHS):
         loss = lossf(model(x), y); opt.zero_grad(); loss.backward(); opt.step(); sched.step()
         if k % 3200 == 0: print("ep", ep, k, "loss %.3f" % loss.item(), int(time.time() - t0), "s", flush=True)
     if ALL:
-        torch.save({"state": model.state_dict(), "labels": labels}, os.path.join(HERE, "models", "dinov2_b_%s.pt" % TAG))
+        atomic_save({"state": model.state_dict(), "labels": labels}, os.path.join(HERE, "models", "dinov2_b_%s.pt" % TAG))
         print("EPOCH", ep, "saved (all cases, no test set)", int(time.time() - t0), "s", flush=True); continue
     a1, a3 = evaluate()
     print("EPOCH", ep, "test top1 %.1f%% top3 %.1f%%" % (100 * a1, 100 * a3), int(time.time() - t0), "s", flush=True)
     if a1 > best:
-        best, best_ep = a1, ep + 1; torch.save({"state": model.state_dict(), "labels": labels}, os.path.join(HERE, "models", "dinov2_b_%s.pt" % TAG)); evaluate(write=True)
+        best, best_ep = a1, ep + 1; atomic_save({"state": model.state_dict(), "labels": labels}, os.path.join(HERE, "models", "dinov2_b_%s.pt" % TAG)); evaluate(write=True)
 print("best top1 %.1f%% at epoch %d" % (100 * best, best_ep) if not ALL else "best final saved")
