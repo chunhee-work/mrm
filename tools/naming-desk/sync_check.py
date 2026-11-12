@@ -35,7 +35,6 @@ def side(s):
 # judgement — the PART NUMBER decides). An unconfirmed pair = check the part number first, never alias by name.
 ALIAS = [
     (r"^Rear Panel$", "Rear Panel Lower|Rear Panel Assembly|Rear Panel$"),   # 2026-11-12 TCH1133/VGL7278 Yaris: the only rear panel part is Rear Panel Lower (58307)
-    (r"Boot Floor", "Spare Wheel Well|Boot Floor"),   # 2026-11-12 QS8472K/TCH1133: Honda 04655 / Toyota 58311 = rear floor pan, catalogue calls it Spare Wheel Well
     (r"Floor Panel", "Floor Pan Front|Floor Panel"),   # user 2026-11-11 TBH3142: cabin floor = Floor Pan Front (58111), not Boot Floor
     (r"Fender Inner (LH|RH)", "Fender Front Inner|Fender Inner"),   # 2026-11-11: playbook 07 pair rule (Fender Front Inner / Inner Upper / Inner Reinforcement)
     (r"Quarter Panel (LH|RH)", "Bodyside"),   # 2026-11-11 TBH3142 Viva: playbook 10 (quarter outer = Bodyside LH/RH, 61112)
@@ -75,7 +74,7 @@ ALIAS = [
     (r"Headlamp Panel (LH|RH)", "Front Panel Radiator Support|Headlamp Panel|Headlamp Support"),   # batch 7 CEW7805
 ]
 # kept by a rule even without its own photo (playbook 07 companions / suspension set)
-KEEP = re.compile(r"Shock Absorber|Suspension Spring|Steering Tie Rod|Lower Arm|Wishbone|Crossmember|Subframe|Knuckle|Driveshaft|Stabiliser|"
+KEEP = re.compile(r"Bumper Reinforcement|Shock Absorber|Suspension Spring|Steering Tie Rod|Lower Arm|Wishbone|Crossmember|Subframe|Knuckle|Driveshaft|Stabiliser|"
                   r"Bumper Clips|Bumper Bracket|Number Plate|Bumper .*Sensor|Hinge|Lock|Striker|Weatherstrip|Liner|Wheel Hub|Wheel Centre|Badge \[FRT", re.I)
 
 

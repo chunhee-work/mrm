@@ -128,6 +128,13 @@ def main():
     def s3():
         if TEST:
             print("   TEST: no create"); return
+        # user 2026-11-12: Lonpac cases cannot be deleted; the spare case 22322366 (marked WRONG CASE, insurer Lonpac
+        # Insurance Bhd (HQ), Sinar) is REUSED for the next Lonpac claim instead of creating a new one (playbook 02).
+        lon = [p for p in plates if "lonpac" in str(data[p]["case"].get("insName", "")).lower()]
+        if lon:
+            print(f"   STOP: {', '.join(lon)} at-fault insurer = Lonpac -> reuse case 22322366 (playbook 02 'Spare Lonpac case'), not created here")
+            plates[:] = [p for p in plates if p not in lon]
+            if not plates: return
         dry = safe("createpar2_sinar.mjs", ",".join(plates), "session_base.txt", cf, timeout=1800)
         WS = {"Sinar": "29709", "Extreme": "72619", "Lee Kean Hin": "70382", "Vp Airbresh": "22209"}
         bad = []
