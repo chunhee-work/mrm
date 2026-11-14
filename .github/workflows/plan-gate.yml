@@ -1,0 +1,50 @@
+# Optional plan gate. When planReview.gate is true, a PR stays red until its «Plan: #N» issue has clean Grok and Dots
+# reviews (or reached the round cap) followed by «Reviews resolved». A fix with «Plan: none (reason)» and a fix label
+# is exempt. Make the `plan-gate` check required in branch protection to enforce it. Green when the gate is off.
+name: plan-gate
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, labeled, unlabeled, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  actions: write
+
+jobs:
+  plan-gate:
+    if: github.event_name == 'pull_request' || (github.event.issue.pull_request == null && contains(github.event.comment.body, 'Reviews resolved'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            scripts/plan-review.mjs
+            fix-loop.config.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: judge
+        if: github.event_name == 'pull_request'
+        env:
+          PLAN_REVIEW_ENABLED: ${{ vars.PLAN_REVIEW_ENABLED }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/plan-review.mjs gate
+      - name: a plan was resolved; re-run open PRs that name it
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          N: ${{ github.event.issue.number }}
+        run: |
+          gh pr list -R "$GITHUB_REPOSITORY" --state open --json number,body --jq ".[] | select(.body | test(\"(?m)^Plan:\\\\s*#$N\\\\s*$\")) | .number" |
+            while read -r pr; do
+              run=$(gh run list -R "$GITHUB_REPOSITORY" --workflow plan-gate.yml --branch "$(gh pr view "$pr" -R "$GITHUB_REPOSITORY" --json headRefName --jq .headRefName)" --limit 1 --json databaseId --jq '.[0].databaseId')
+              [ -n "$run" ] && gh run rerun "$run" -R "$GITHUB_REPOSITORY" || true
+            done

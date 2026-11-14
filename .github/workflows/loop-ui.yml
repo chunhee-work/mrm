@@ -1,0 +1,60 @@
+# loop:ui — Autopilotclaim website only (web/). Label a PR "loop:ui": the site is built, desktop + phone screenshots of the
+# public pages are taken, uploaded as an artifact, and the run is sent (signed) to the Grok webhook for a UI review.
+name: loop:ui
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+    paths: ['web/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loop-ui-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ui:
+    if: contains(github.event.pull_request.labels.*.name, 'loop:ui') && vars.FIX_LOOP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - run: npm run build
+        env:
+          SKIP_ENV_VALIDATION: '1'
+      - run: npm i --no-save playwright && npx playwright install --with-deps chromium
+      - name: screenshot public pages
+        run: |
+          (npm start -- -p 3100 &)
+          for i in $(seq 1 30); do curl -sf http://localhost:3100 >/dev/null && break; sleep 2; done
+          node -e "
+          const {chromium}=require('playwright');
+          (async()=>{const b=await chromium.launch();
+          for(const [n,w,h] of [['desktop',1440,900],['mobile',390,844]]){
+            const p=await b.newPage({viewport:{width:w,height:h}});
+            for(const u of ['/','/login','/signup']){await p.goto('http://localhost:3100'+u);await p.waitForTimeout(1500);
+              await p.screenshot({path:'shot-'+n+u.replace(/\//g,'_')+'.png',fullPage:true});}}
+          await b.close();})()"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-shots
+          path: web/shot-*.png
+      - name: notify Grok webhook (signed)
+        env:
+          URL: ${{ secrets.GROK_WEBHOOK_URL }}
+          SECRET: ${{ secrets.GROK_WEBHOOK_SECRET }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR: ${{ github.event.pull_request.html_url }}
+        run: |
+          body=$(jq -n --arg pr "$PR" --arg run "$RUN" '{event:"loop:ui",pr:$pr,screenshots:$run}')
+          sig=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/.* //')
+          curl -sS -X POST "$URL" -H "Content-Type: application/json" -H "X-Signature-256: sha256=$sig" -d "$body"

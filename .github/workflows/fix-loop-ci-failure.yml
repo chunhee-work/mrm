@@ -1,0 +1,41 @@
+# fix-loop: when a watched workflow fails on the base branch, open one issue for Claude.
+# EDIT the `workflows:` list below to the exact `name:` of your CI workflow(s). GitHub needs them written here.
+name: fix-loop-ci-failure
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fix-loop-ci-failure
+  cancel-in-progress: false
+
+jobs:
+  open:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            scripts/fix-loop.mjs
+            fix-loop.config.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: open the issue
+        env:
+          FIX_LOOP_ENABLED: ${{ vars.FIX_LOOP_ENABLED }}
+          FIX_LOOP_TOKEN: ${{ secrets.FIX_LOOP_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          FIX_LOOP_TELEGRAM_BOT_TOKEN: ${{ secrets.FIX_LOOP_TELEGRAM_BOT_TOKEN }}
+          FIX_LOOP_TELEGRAM_CHAT_ID: ${{ secrets.FIX_LOOP_TELEGRAM_CHAT_ID }}
+          FIX_LOOP_WEBHOOK_URL: ${{ secrets.FIX_LOOP_WEBHOOK_URL }}
+        run: node scripts/fix-loop.mjs ci-failure

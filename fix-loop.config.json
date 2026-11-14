@@ -1,0 +1,67 @@
+{
+  "owner": "chunhee-work",
+  "base": "main",
+  "branchPrefix": "fix-loop/",
+  "trusted": [],
+  "issueLabels": [
+    "fix-loop"
+  ],
+  "allowedPaths": [
+    "web/**"
+  ],
+  "protectedPaths": [
+    ".github/**",
+    "scripts/fix-loop.mjs",
+    "scripts/plan-review.mjs",
+    "fix-loop.config.json",
+    "web/**/migrations/**",
+    "web/**/*.sql",
+    "web/.env*",
+    "web/vercel.json",
+    "**/.env*",
+    "vercel.json"
+  ],
+  "requireOkPaths": [],
+  "requireOkForIssueFixes": false,
+  "onlyOwnerCiFailures": true,
+  "maxRounds": 5,
+  "codexTimeoutMin": 120,
+  "debounceMin": 0,
+  "maxClaudeRunsPerDay": 20,
+  "runawayIssuesPerDay": 3,
+  "checkCommands": [],
+  "requiredChecks": [
+    "check"
+  ],
+  "extraPrBodyLines": [],
+  "promptRules": [
+    "Scope: ONLY the Autopilotclaim website in web/. Never touch the Merimen automation (playbook/, tools/, typesafe/, memory/) or anything outside web/.",
+    "Run install, lint, typecheck and test inside web/ and make them pass before pushing.",
+    "Keep desktop and phone layouts both working; long lists, chats and cards go in fixed-height boxes that scroll inside, never cut off the page."
+  ],
+  "timezoneOffsetHours": 8,
+  "planReview": {
+    "enabled": true,
+    "planLabel": "plan",
+    "maxRounds": 5,
+    "reviewers": [
+      "grok",
+      "dots"
+    ],
+    "grok": {
+      "mode": "webhook"
+    },
+    "dots": {
+      "model": "gpt-5.4",
+      "inputUsdPer1M": 2.5,
+      "outputUsdPer1M": 15,
+      "monthlyCeilingUsd": 20
+    },
+    "gate": true,
+    "fixLabels": [
+      "fix",
+      "hotfix",
+      "copy"
+    ]
+  }
+}
