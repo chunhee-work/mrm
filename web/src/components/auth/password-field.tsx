@@ -45,7 +45,7 @@ export default function PasswordField({ id, name = "password", label, autoComple
           aria-label={`${t("common.show")} ${label}`}
           aria-controls={id}
           title={action}
-          className={`absolute right-[2px] top-[2px] flex h-11 w-11 items-center justify-center rounded-[3px] transition-colors duration-150 hover:text-ink focus-visible:[outline-offset:-3px] ${shown ? "text-ink" : "text-mute"}`}
+          className={`absolute right-[2px] top-[2px] flex h-11 w-11 items-center justify-center rounded-[3px] transition-colors duration-150 hover:text-ice focus-visible:[outline-offset:-3px] ${shown ? "text-ice" : "text-mute"}`}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
             <path d="M2.25 12C4.6 7.9 8 5.75 12 5.75S19.4 7.9 21.75 12C19.4 16.1 16 18.25 12 18.25S4.6 16.1 2.25 12z" />

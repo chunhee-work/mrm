@@ -60,8 +60,8 @@ export default function DropZone({
     <div
       onClick={(e) => { if (!(e.target as HTMLElement).closest("button")) pick(); }}
       data-over={over}
-      className={`app-dash relative transition-colors duration-150 ${over ? "bg-inktint" : "bg-white"} ${
-        disabled ? "opacity-55" : "cursor-pointer hover:bg-inktint/60"
+      className={`app-dash relative transition-colors duration-150 ${over ? "bg-icetint" : "bg-panel"} ${
+        disabled ? "opacity-55" : "cursor-pointer hover:bg-icetint/60"
       } ${compact ? "flex h-[60px] items-center justify-center" : "flex min-h-[236px] flex-col items-center justify-center px-5 py-8 text-center"}`}
     >
       <input
@@ -76,16 +76,16 @@ export default function DropZone({
         onChange={(e) => { onFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }}
       />
       {compact ? (
-        <button type="button" onClick={pick} disabled={disabled} className="relative flex h-11 items-center gap-2 px-4 text-[15px] font-semibold text-ink disabled:cursor-not-allowed">
+        <button type="button" onClick={pick} disabled={disabled} className="relative flex h-11 items-center gap-2 px-4 text-[15px] font-semibold text-ice disabled:cursor-not-allowed">
           <Plus />
           {addMore}
         </button>
       ) : (
         <>
-          <span className="relative text-ink"><UploadArt lift={over} /></span>
-          <p className="display-3 relative mt-4 text-[19px] text-deep [@media(pointer:coarse)]:hidden">{title}</p>
+          <span className="relative text-ice"><UploadArt lift={over} /></span>
+          <p className="display-3 relative mt-4 text-[19px] text-fg [@media(pointer:coarse)]:hidden">{title}</p>
           <p className="relative mt-1.5 text-[15px] text-mute [@media(pointer:coarse)]:mt-4">{hint}</p>
-          <button type="button" onClick={pick} disabled={disabled} className="btn-line relative mt-5 !h-11 bg-white !px-5">
+          <button type="button" onClick={pick} disabled={disabled} className="btn-line relative mt-5 !h-11 bg-panel !px-5">
             {browse}
           </button>
         </>

@@ -13,7 +13,8 @@ export const SITE = {
   regNo: "000000000000 (0000000-X)",
   address: "Kuala Lumpur, Malaysia",
   email: "hello@example.com",
-  whatsapp: "+60 00-000 0000",
+  /** Real number (owner, 2026-11-15). Unlike the company block it is shown everywhere, production included. */
+  whatsapp: "+60 12-318 5769",
   year: 2026,
 } as const;
 
@@ -21,8 +22,10 @@ export const SITE = {
 export function showCompany(): boolean {
   return !(SITE.placeholder && process.env.VERCEL_ENV === "production");
 }
-export function whatsappHref(): string {
-  return `https://wa.me/${SITE.whatsapp.replace(/\D/g, "")}`;
+/** Click-to-chat link. `text` is pre-filled in the visitor's message box, so they only press send. */
+export function whatsappHref(text?: string): string {
+  const base = `https://wa.me/${SITE.whatsapp.replace(/\D/g, "")}`;
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base;
 }
 /** Name used in the legal pages for "who operates this service". */
 export function operatorName(): string {

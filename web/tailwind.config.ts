@@ -7,15 +7,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: "#F4F6FA", // cool paper white — page
-        ink: "#1838A8", // drafting ink blue — lines, headlines, primary buttons
-        deep: "#0B1533", // deep ink — body text
-        mute: "#4B587C", // deep ink, thinned — secondary text
-        hair: "#C9D2E6", // hairline blue-grey
-        hairsoft: "#E3E8F2", // drafting grid
-        inktint: "#EDF1FA", // glass / quiet fills
-        signal: "#FF8A1F", // hazard amber — damaged / needs attention / being keyed
-        signaltint: "#FFF1E1",
+        // "Night Bay": an inspection bay at night. One cold light (ice) does the looking,
+        // amber marks what is damaged or needs attention, green only ever means done.
+        bay: "#07090C", // the room — page
+        panel: "#0E1217", // raised surface — cards, inputs, menus
+        panel2: "#151A21", // second level — hover, wells
+        hair: "#222933", // hairline
+        hairsoft: "#171C24", // faint grid
+        fg: "#EEF2F6", // text
+        mute: "#8A94A3", // secondary text (6.4:1 on bay)
+        ice: "#BFE9FF", // scan light — primary buttons, links, focus
+        icetint: "#0F1A22", // quiet ice fill
+        amber: "#FFB020", // damaged / needs attention / being keyed / error
+        ambertint: "#2A1E08",
+        go: "#3DDC97", // done
+        gotint: "#0C2219",
       },
       fontFamily: {
         display: ["var(--font-display)", ...cjk, "system-ui", "sans-serif"],

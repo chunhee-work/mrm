@@ -16,7 +16,7 @@ function Strip({ status }: { status: string }) {
   return (
     <span className="inline-flex gap-[2px] align-[-1px]">
       {PIPELINE.map((s, i) => (
-        <span key={s} className={`h-[11px] w-[4px] sm:w-[5px] ${i <= at ? "bg-ink" : "bg-hair"}`} />
+        <span key={s} className={`h-[11px] w-[4px] sm:w-[5px] ${i <= at ? "bg-ice" : "bg-hair"}`} />
       ))}
     </span>
   );
@@ -30,12 +30,12 @@ function Strip({ status }: { status: string }) {
 export function StatusMark({ status, label, detail, slot = false }: { status: string; label: string; detail?: string | null; slot?: boolean }) {
   const g = groupOf(status);
   const mark =
-    g === "needs" ? <span className="inline-block h-[9px] w-[9px] rounded-full bg-signal" /> :
-    g === "done" ? <Tick className="inline-block h-[15px] w-[15px] align-[-3px] text-ink" /> :
+    g === "needs" ? <span className="inline-block h-[9px] w-[9px] rounded-full bg-amber" /> :
+    g === "done" ? <Tick className="inline-block h-[15px] w-[15px] align-[-3px] text-ice" /> :
     <Strip status={status} />;
   return (
     <span
-      className={`block font-mono text-[12.5px] leading-[20px] [overflow-wrap:anywhere] [text-wrap:balance] sm:text-[13px] ${g === "done" ? "text-ink" : "text-deep"} ${g === "needs" ? "font-medium" : ""} ${
+      className={`block font-mono text-[12.5px] leading-[20px] [overflow-wrap:anywhere] [text-wrap:balance] sm:text-[13px] ${g === "done" ? "text-ice" : "text-fg"} ${g === "needs" ? "font-medium" : ""} ${
         slot ? "text-right lg:pl-[55px] lg:-indent-[55px] lg:text-left lg:[text-wrap:wrap]" : ""
       }`}
     >

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { localeOf } from "@/lib/i18n";
 import { useT } from "@/components/lang-provider";
-import { Crop, Cross, EmptySheetArt, NoMatchArt, Plus, Search } from "./marks";
+import { Cross, EmptySheetArt, NoMatchArt, Plus, Search } from "./marks";
+import ScanEdge from "@/components/scan-edge";
 import { groupOf, StatusMark, type Group } from "./status";
 
 export type CaseRow = {
@@ -102,12 +103,12 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
   return (
     <div className="app-fill wrap flex min-h-[460px] flex-col pb-6 pt-6 lg:pb-9 lg:pt-9">
       <div className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-4 lg:flex-nowrap lg:gap-x-8">
-        <h1 className="display-2 text-[30px] text-ink lg:text-[36px]">{t("dash.title")}</h1>
+        <h1 className="display-2 text-[30px] text-fg lg:text-[36px]">{t("dash.title")}</h1>
 
         {rows.length > 0 && (
           <>
             <div data-tabrow className="order-3 -mx-4 w-[calc(100%+32px)] overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:w-full sm:px-0 lg:order-none lg:w-auto [&::-webkit-scrollbar]:hidden">
-              <div role="tablist" aria-label={t("dash.col.status")} className="inline-flex h-11 items-stretch rounded-[4px] border border-hair bg-white p-[3px]">
+              <div role="tablist" aria-label={t("dash.col.status")} className="inline-flex h-11 items-stretch rounded-[3px] border border-hair bg-panel p-[3px]">
                 {FILTERS.map((f, i) => {
                   const on = f === filter;
                   const amber = f === "needs" && counts.needs > 0;
@@ -124,13 +125,13 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
                       onClick={() => setFilter(f)}
                       onKeyDown={(e) => onTabKey(e, i)}
                       className={`relative flex items-center gap-1.5 whitespace-nowrap rounded-[2px] px-2.5 before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] text-[14px] sm:gap-2 sm:px-3.5 font-semibold leading-none transition-colors duration-150 ${
-                        on ? "bg-ink text-white" : "text-deep hover:bg-inktint hover:text-ink"
+                        on ? "bg-ice text-bay" : "text-fg hover:bg-icetint hover:text-ice"
                       }`}
                     >
                       {t(`dash.f.${f}`)}
                       <span
                         className={`num font-mono text-[12.5px] font-medium ${
-                          amber ? "flex h-5 min-w-5 items-center justify-center rounded-[2px] bg-signal px-1 text-deep" : on ? "text-white/75" : "text-mute"
+                          amber ? "flex h-5 min-w-5 items-center justify-center rounded-[2px] bg-amber px-1 text-fg" : on ? "text-bay/75" : "text-mute"
                         }`}
                       >
                         {counts[f]}
@@ -164,7 +165,7 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
                   type="button"
                   aria-label={t("dash.clear")}
                   onClick={() => { setQ(""); searchRef.current?.focus(); }}
-                  className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-mute transition-colors hover:text-ink"
+                  className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-mute transition-colors hover:text-ice"
                 >
                   <Cross />
                 </button>
@@ -175,17 +176,17 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
       </div>
 
       <div className="relative mt-5 min-h-0 flex-1 lg:mt-7">
-        <Crop />
+        <ScanEdge />
         <div
           id="case-panel"
           role={rows.length > 0 ? "tabpanel" : undefined}
           aria-labelledby={rows.length > 0 ? `tab-${filter}` : undefined}
-          className="flex h-full flex-col overflow-hidden rounded-[4px] border border-hair bg-white"
+          className="flex h-full flex-col overflow-hidden rounded-[3px] border border-hair bg-panel"
         >
           {rows.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
               <EmptySheetArt />
-              <h2 className="display-3 mt-7 text-[22px] text-deep">{t("dash.emptyTitle")}</h2>
+              <h2 className="display-3 mt-7 text-[22px] text-fg">{t("dash.emptyTitle")}</h2>
               <p className="mt-2 text-[15px] text-mute">{t("dash.empty")}</p>
               <Link href="/cases/new" className="btn-primary mt-7 !gap-2 !pl-5">
                 <Plus />
@@ -195,14 +196,14 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
           ) : shown.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
               <NoMatchArt />
-              <p className="mt-5 text-[16px] font-medium text-deep">{t("dash.noMatch")}</p>
+              <p className="mt-5 text-[16px] font-medium text-fg">{t("dash.noMatch")}</p>
               <button type="button" className="btn-quiet mt-1" onClick={() => { setQ(""); setFilter("all"); }}>
                 {t("dash.showAll")}
               </button>
             </div>
           ) : (
             <div role="table" aria-label={t("dash.title")} aria-rowcount={shown.length + 1} tabIndex={0} className="app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-offset-[-2px]">
-              <div role="row" className={`note sticky top-0 z-10 hidden h-10 items-center gap-x-6 border-b border-hair bg-white px-6 text-mute lg:grid ${cols}`}>
+              <div role="row" className={`note sticky top-0 z-10 hidden h-10 items-center gap-x-6 border-b border-hair bg-panel px-6 text-mute lg:grid ${cols}`}>
                 <span role="columnheader" className="order-1">{t("dash.col.plate")}</span>
                 <span role="columnheader" className="order-3">{t("dash.col.status")}</span>
                 <span role="columnheader" className="order-2">{t("dash.col.vehicle")}</span>
@@ -215,11 +216,11 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
                   <div
                     key={r.id}
                     role="row"
-                    className={`flex min-h-[66px] flex-col justify-center gap-[5px] border-b border-hair px-4 py-2.5 last:-mb-px lg:grid lg:min-h-[60px] lg:items-center lg:gap-x-6 lg:gap-y-0 lg:px-6 lg:py-2 ${cols} ${needs ? "bg-signaltint" : ""}`}
+                    className={`flex min-h-[66px] flex-col justify-center gap-[5px] border-b border-hair px-4 py-2.5 last:-mb-px lg:grid lg:min-h-[60px] lg:items-center lg:gap-x-6 lg:gap-y-0 lg:px-6 lg:py-2 ${cols} ${needs ? "bg-ambertint" : ""}`}
                   >
                     {/* phones and portrait tablets: two lines (number + status, vehicle + time); from lg the four cells sit on the column grid */}
                     <div role="presentation" className="flex items-start justify-between gap-3 lg:contents">
-                      <span role="cell" className="num shrink-0 font-mono text-[15.5px] font-medium tracking-[0.01em] text-deep lg:order-1 lg:shrink lg:truncate">
+                      <span role="cell" className="num shrink-0 font-mono text-[15.5px] font-medium tracking-[0.01em] text-fg lg:order-1 lg:shrink lg:truncate">
                         {r.plate}
                       </span>
                       <span role="cell" className="min-w-0 lg:order-3">
@@ -228,7 +229,7 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
                     </div>
                     <div role="presentation" className="flex items-baseline justify-between gap-4 lg:contents">
                       <span role="cell" className="min-w-0 truncate text-[14px] text-mute lg:order-2 lg:text-[15px]">
-                        {r.carModel ? <span className="mr-2.5 font-medium text-deep lg:mr-3">{r.carModel}</span> : null}
+                        {r.carModel ? <span className="mr-2.5 font-medium text-fg lg:mr-3">{r.carModel}</span> : null}
                         {r.insurer}
                       </span>
                       <span role="cell" className="shrink-0 whitespace-nowrap text-[13px] text-mute lg:order-4 lg:text-right lg:text-[14px]">

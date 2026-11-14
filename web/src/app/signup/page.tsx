@@ -58,11 +58,11 @@ export default function Signup() {
         <div className="mt-5">
           <Title ref={doneTitle} tabIndex={-1}>{t("signup.doneTitle")}</Title>
         </div>
-        <p className="mt-5 text-[16px] leading-relaxed text-deep">
+        <p className="mt-5 text-[16px] leading-relaxed text-fg">
           {t("signup.doneText")}
           <strong className="block break-all font-semibold">{doneFor}</strong>
         </p>
-        <p className="mt-3 text-[16px] leading-relaxed text-deep">{t("signup.doneNext")}</p>
+        <p className="mt-3 text-[16px] leading-relaxed text-fg">{t("signup.doneNext")}</p>
         <Link href="/login" className="btn-line mt-7 w-full">{t("login.submit")}</Link>
       </SheetBody>
     );
@@ -97,8 +97,8 @@ export default function Signup() {
                   aria-describedby={errors.agree ? "agree-note" : undefined}
                 />
                 <span
-                  className={`pointer-events-none flex h-5 w-5 items-center justify-center rounded-[2px] border-[1.5px] bg-white text-white transition-colors duration-150 peer-checked:border-ink peer-checked:bg-ink peer-hover:border-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[3px] peer-focus-visible:outline-ink [&>svg]:opacity-0 peer-checked:[&>svg]:opacity-100 ${
-                    errors.agree ? "border-signal ring-2 ring-signal/25" : "border-mute"
+                  className={`pointer-events-none flex h-5 w-5 items-center justify-center rounded-[2px] border-[1.5px] bg-panel text-bay transition-colors duration-150 peer-checked:border-ice peer-checked:bg-ice peer-hover:border-ice peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[3px] peer-focus-visible:outline-ice [&>svg]:opacity-0 peer-checked:[&>svg]:opacity-100 ${
+                    errors.agree ? "border-amber ring-2 ring-amber/25" : "border-mute"
                   }`}
                 >
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.25" aria-hidden="true" className="transition-opacity duration-150">
@@ -106,7 +106,7 @@ export default function Signup() {
                   </svg>
                 </span>
               </span>
-              <label htmlFor="agree" className="cursor-pointer text-[14.5px] leading-5 text-deep">
+              <label htmlFor="agree" className="cursor-pointer text-[14.5px] leading-5 text-fg">
                 {t("signup.agree1")}
                 <TextLink href="/privacy" newTab>{t("footer.privacy")}</TextLink>
                 {t("signup.and")}

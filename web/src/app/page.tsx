@@ -1,12 +1,19 @@
 import { getUserOrNull } from "@/lib/session";
 import { getT } from "@/lib/i18n-server";
 import { HOME } from "@/lib/home-copy";
+import { JOURNEY } from "@/lib/landing-copy";
 import { SITE } from "@/lib/site";
 import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
-import { Closing, Faq, Hero, How, Keyed, Rule, Security, Time } from "@/components/home/sections";
+import WhatsAppFab from "@/components/whatsapp-fab";
+import Journey from "@/components/landing/journey";
+import { Closing, Faq, Keyed, Proof, Seam, Security } from "@/components/landing/sections";
 
-const STATUSES = ["uploaded", "reading", "naming", "phase_a", "waiting_user", "phase_b", "checking", "done"];
+// Still frames of the five stops, rendered from the same 3D scene (`node scripts/landing-posters.mjs`).
+const POSTER = {
+  desktop: [0, 1, 2, 3, 4].map((i) => `/landing/bay-${i}.jpg`),
+  mobile: [0, 1, 2, 3, 4].map((i) => `/landing/bay-${i}-m.jpg`),
+};
 
 export default async function Home() {
   const me = await getUserOrNull();
@@ -16,21 +23,20 @@ export default async function Home() {
   const labels = { start: t("nav.start"), cases: t("nav.myCases") };
   return (
     <>
-      <SiteNav authed={authed} />
+      <SiteNav authed={authed} overlay />
       <main id="main">
-        <Hero c={c} authed={authed} labels={labels} statuses={STATUSES.map((s) => t(`status.${s}`))} />
-        <Rule />
-        <Time c={c.time} />
-        <Rule />
-        <How c={c.how} done={t("status.done")} checking={t("status.checking")} />
+        <Journey c={JOURNEY[lang]} cta={authed ? labels.cases : labels.start} href={authed ? "/dashboard" : "/signup"} poster={POSTER} />
+        <Proof c={c.time} />
+        <Seam />
         <Keyed c={c.keyed} />
-        <Rule />
+        <Seam />
         <Security c={c.security} />
-        <Rule />
+        <Seam />
         <Faq c={c.faq} />
         <Closing c={c.closing} authed={authed} labels={labels} />
       </main>
       <SiteFooter />
+      <WhatsAppFab />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

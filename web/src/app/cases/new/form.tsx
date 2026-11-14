@@ -4,7 +4,8 @@ import Link from "next/link";
 import { upload } from "@vercel/blob/client";
 import { useT } from "@/components/lang-provider";
 import DropZone, { accepted } from "@/components/app/drop-zone";
-import { Crop, Cross, Tick } from "@/components/app/marks";
+import { Cross, Tick } from "@/components/app/marks";
+import ScanEdge from "@/components/scan-edge";
 
 type Kind = "bundle_zip" | "pdf" | "photo";
 function kindOf(f: File): Kind {
@@ -20,8 +21,8 @@ function sizeOf(n: number) {
 }
 
 const TAG: Record<Kind, string> = {
-  bundle_zip: "border-ink bg-ink text-white",
-  pdf: "border-ink text-ink",
+  bundle_zip: "border-ice bg-ice text-bay",
+  pdf: "border-ice text-ice",
   photo: "border-hair text-mute",
 };
 const TAIL = 9; // characters of a long file name that always stay visible (the end + extension)
@@ -93,10 +94,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
 
   return (
     <form onSubmit={onSubmit} aria-busy={busy} className="relative mx-auto w-full max-w-[720px]">
-      <Crop />
-      <div className="rounded-[4px] border border-hair bg-white">
+      <ScanEdge />
+      <div className="rounded-[3px] border border-hair bg-panel">
         <div className="flex h-[60px] items-center border-b border-hair px-5 sm:h-[68px] sm:px-8">
-          <h1 className="display-2 text-[24px] text-ink sm:text-[28px]">{t("new.title")}</h1>
+          <h1 className="display-2 text-[24px] text-fg sm:text-[28px]">{t("new.title")}</h1>
         </div>
 
         <div className="grid gap-7 px-5 py-6 sm:px-8 sm:py-8">
@@ -115,7 +116,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
               autoCorrect="off"
               spellCheck={false}
               enterKeyHint="next"
-              className="input font-mono font-medium tracking-[0.02em] read-only:bg-paper read-only:text-mute"
+              className="input font-mono font-medium tracking-[0.02em] read-only:bg-bay read-only:text-mute"
             />
           </div>
 
@@ -142,23 +143,23 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
             {skipped && <p className="hint" role="status">{t("new.onlyTypes")}</p>}
 
             {n > 0 && (
-              <ul ref={ledger} tabIndex={0} aria-label={t("new.files")} className="app-scroll mt-1 max-h-[218px] sm:max-h-[266px] overflow-y-auto overscroll-contain rounded-[4px] border border-hair focus-visible:outline-offset-[-2px]">
+              <ul ref={ledger} tabIndex={0} aria-label={t("new.files")} className="app-scroll mt-1 max-h-[218px] sm:max-h-[266px] overflow-y-auto overscroll-contain rounded-[3px] border border-hair focus-visible:outline-offset-[-2px]">
                 {files.map((f, i) => {
                   const k = keyOf(f);
                   const kind = kindOf(f);
                   const cut = f.name.length > TAIL + 8 ? f.name.length - TAIL : f.name.length;
                   const state = failed === k ? "failed" : !busy ? "idle" : i < step ? "done" : i === step ? "up" : "wait";
                   return (
-                    <li key={k} className={`relative flex h-12 items-center gap-3 border-b border-hair pl-3 last:border-b-0 sm:pl-4 ${state === "failed" ? "bg-signaltint" : ""}`}>
+                    <li key={k} className={`relative flex h-12 items-center gap-3 border-b border-hair pl-3 last:border-b-0 sm:pl-4 ${state === "failed" ? "bg-ambertint" : ""}`}>
                       <span className={`note flex h-[22px] w-[58px] shrink-0 items-center justify-center rounded-[2px] border !text-[11.5px] font-medium ${TAG[kind]}`}>
                         {t(`new.kind.${kind}`)}
                       </span>
-                      <span className={`flex min-w-0 flex-1 text-[15px] ${state === "wait" ? "text-mute" : "text-deep"}`} title={f.name}>
+                      <span className={`flex min-w-0 flex-1 text-[15px] ${state === "wait" ? "text-mute" : "text-fg"}`} title={f.name}>
                         <span className="truncate whitespace-pre">{f.name.slice(0, cut)}</span>
                         <span className="shrink-0 whitespace-pre">{f.name.slice(cut)}</span>
                       </span>
                       <span className="num note flex shrink-0 items-center gap-2.5 !text-[12.5px] text-mute">
-                        {state === "failed" && <span className="h-[9px] w-[9px] rounded-full bg-signal" aria-hidden="true" />}
+                        {state === "failed" && <span className="h-[9px] w-[9px] rounded-full bg-amber" aria-hidden="true" />}
                         {state === "up" ? `${Math.round(pct)}%` : sizeOf(f.size)}
                       </span>
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center">
@@ -168,18 +169,18 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
                             onClick={() => remove(f)}
                             aria-label={`${t("new.remove")} ${f.name}`}
                             title={t("new.remove")}
-                            className="flex h-11 w-11 items-center justify-center text-mute transition-colors duration-150 hover:text-ink"
+                            className="flex h-11 w-11 items-center justify-center text-mute transition-colors duration-150 hover:text-ice"
                           >
                             <Cross />
                           </button>
                         ) : state === "done" ? (
                           <>
-                            <Tick className="h-[15px] w-[15px] text-ink" />
+                            <Tick className="h-[15px] w-[15px] text-ice" />
                             <span className="sr-only">{t("status.done")}</span>
                           </>
                         ) : state === "up" ? (
                           <>
-                            <span className="h-[9px] w-[9px] rounded-full bg-signal" aria-hidden="true" />
+                            <span className="h-[9px] w-[9px] rounded-full bg-amber" aria-hidden="true" />
                             <span className="sr-only">{t("new.uploading")}</span>
                           </>
                         ) : (
@@ -188,7 +189,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
                       </span>
                       {state === "up" && (
                         <span className="absolute inset-x-0 bottom-0 h-[2px] bg-hairsoft" aria-hidden="true">
-                          <span className="block h-full bg-ink transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${pct}%` }} />
+                          <span className="block h-full bg-ice transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${pct}%` }} />
                         </span>
                       )}
                     </li>
@@ -202,7 +203,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         <div className="border-t border-hair px-5 py-5 sm:px-8">
           {msg && <p role="alert" className="field-error mb-4">{msg}</p>}
           <div className="flex flex-col gap-x-7 gap-y-1 sm:flex-row sm:items-center">
-            <button className={`btn-primary sm:min-w-[184px] ${busy ? "cursor-progress !opacity-100 hover:!bg-ink" : ""}`} disabled={busy || !ready}>
+            <button className={`btn-primary sm:min-w-[184px] ${busy ? "cursor-progress !opacity-100 hover:!bg-ice" : ""}`} disabled={busy || !ready}>
               {busy ? <span className="num">{t("new.uploading")} {Math.min(step + 1, n)}/{n}</span> : t("new.submit")}
             </button>
             {busy ? (
