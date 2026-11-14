@@ -215,12 +215,12 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
                   <div
                     key={r.id}
                     role="row"
-                    className={`flex min-h-[66px] flex-col justify-center gap-[5px] border-b border-hair px-4 py-2.5 last:-mb-px lg:grid lg:min-h-[60px] lg:items-center lg:gap-x-6 lg:gap-y-0 lg:px-6 lg:py-2 ${cols} ${needs ? "bg-signaltint" : ""}`}
+                    className={`relative flex min-h-[66px] flex-col justify-center gap-[5px] border-b border-hair px-4 py-2.5 last:-mb-px lg:grid lg:min-h-[60px] lg:items-center lg:gap-x-6 lg:gap-y-0 lg:px-6 lg:py-2 ${cols} ${needs ? "bg-signaltint" : ""}`}
                   >
                     {/* phones and portrait tablets: two lines (number + status, vehicle + time); from lg the four cells sit on the column grid */}
                     <div role="presentation" className="flex items-start justify-between gap-3 lg:contents">
                       <span role="cell" className="num shrink-0 font-mono text-[15.5px] font-medium tracking-[0.01em] text-deep lg:order-1 lg:shrink lg:truncate">
-                        {r.plate}
+                        <Link href={`/cases/${r.id}`} className="underline-offset-4 before:absolute before:inset-0 before:content-[''] hover:underline">{r.plate}</Link>
                       </span>
                       <span role="cell" className="min-w-0 lg:order-3">
                         <StatusMark status={r.status} label={t(`status.${r.status}`)} detail={r.pendingDoc} slot />
