@@ -1,4 +1,4 @@
-// Line icons, one grid (24), one stroke (1.5), square joins — drawn for this page.
+// Line icons, one grid (24), one stroke (1.5), square joins.
 const base = { width: 28, height: 28, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, "aria-hidden": true } as const;
 
 export function Arrow({ className = "" }: { className?: string }) {

@@ -5,215 +5,134 @@
 /* ───────────────────────── base ───────────────────────── */
 @layer base {
   html {
-    scroll-behavior: smooth;
+    color-scheme: dark;
     scroll-padding-top: 84px;
     -webkit-text-size-adjust: 100%;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
+    background: theme(colors.bay);
   }
   body {
-    @apply bg-paper font-sans text-deep antialiased;
+    @apply bg-bay font-sans text-fg antialiased;
     text-rendering: optimizeLegibility;
   }
   :focus-visible {
-    outline: 2px solid theme(colors.ink);
+    outline: 2px solid theme(colors.ice);
     outline-offset: 3px;
     border-radius: 2px;
   }
-  ::selection { background: theme(colors.ink); color: #fff; }
+  ::selection { background: theme(colors.ice); color: theme(colors.bay); }
   summary { list-style: none; cursor: pointer; }
   summary::-webkit-details-marker { display: none; }
 }
 
 /* ───────────────────────── type roles ───────────────────────── */
 @layer components {
-  /* Archivo, expanded + heavy: the headline cut */
+  /* Saira, condensed and upper-case: stencilled bay lettering. Latin only is upper-cased;
+     Chinese falls back to the system face and is unaffected. */
   .display {
     font-family: theme(fontFamily.display);
-    font-variation-settings: "wdth" 118;
-    font-weight: 800;
-    letter-spacing: -0.024em;
-    line-height: 0.98;
+    font-variation-settings: "wdth" 78;
+    font-weight: 700;
+    letter-spacing: 0.004em;
+    line-height: 0.92;
+    text-transform: uppercase;
   }
   .display-2 {
     font-family: theme(fontFamily.display);
-    font-variation-settings: "wdth" 114;
-    font-weight: 750;
-    letter-spacing: -0.02em;
-    line-height: 1.02;
+    font-variation-settings: "wdth" 84;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    text-transform: uppercase;
   }
   .display-3 {
     font-family: theme(fontFamily.display);
-    font-variation-settings: "wdth" 106;
-    font-weight: 650;
-    letter-spacing: -0.008em;
+    font-variation-settings: "wdth" 92;
+    font-weight: 600;
+    letter-spacing: 0.005em;
     line-height: 1.2;
   }
+  :lang(zh-CN) .display, :lang(zh-CN) .display-2 { line-height: 1.12; letter-spacing: 0; }
   .num { font-variant-numeric: tabular-nums lining-nums; }
   .note {
     font-family: theme(fontFamily.mono);
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     line-height: 1.4;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
   }
 
   .wrap { @apply mx-auto w-full max-w-sheet px-4 sm:px-8 lg:px-10; }
 
   /* buttons */
   .btn-primary {
-    @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[4px] bg-ink px-6 text-[15px] font-semibold text-white transition-colors duration-150 hover:bg-deep;
+    @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] bg-ice px-6 text-[15px] font-semibold text-bay transition-colors duration-150 hover:bg-white;
   }
   .btn-line {
-    @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[4px] border border-ink px-6 text-[15px] font-semibold text-ink transition-colors duration-150 hover:bg-ink hover:text-white;
+    @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] border border-ice px-6 text-[15px] font-semibold text-ice transition-colors duration-150 hover:bg-ice hover:text-bay;
   }
   .btn-quiet {
-    @apply inline-flex h-12 items-center gap-2 whitespace-nowrap text-[15px] font-semibold text-ink underline decoration-hair decoration-1 underline-offset-[6px] transition-colors duration-150 hover:decoration-ink;
+    @apply inline-flex h-12 items-center gap-2 whitespace-nowrap text-[16px] font-semibold text-ice underline decoration-hair decoration-1 underline-offset-[6px] transition-colors duration-150 hover:decoration-ice;
   }
 
-  /* section divider: one hairline with a tick at each end, like a dimension line */
-  .reg-rule { position: relative; height: 1px; background: theme(colors.hair); }
-  .reg-rule::before,
-  .reg-rule::after {
-    content: "";
+  /* section divider: a hairline that brightens toward the middle, like the floor seam of the bay */
+  .reg-rule { height: 1px; background: linear-gradient(90deg, transparent, theme(colors.hair) 12%, #33404D 50%, theme(colors.hair) 88%, transparent); }
+
+  /* the scan light resting on the top edge of a panel */
+  .scan-edge {
+    pointer-events: none;
     position: absolute;
-    top: -5px;
-    width: 1px;
-    height: 11px;
-    background: theme(colors.ink);
+    left: -1px;
+    right: -1px;
+    top: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, theme(colors.ice) 18%, theme(colors.ice) 82%, transparent);
+    box-shadow: 0 0 14px 0 rgba(191, 233, 255, 0.55);
+    border-radius: 1px;
   }
-  .reg-rule::before { left: 0; }
-  .reg-rule::after { right: 0; }
 
   /* ── forms (auth pages, new case) ── */
   .field { @apply grid gap-2; }
-  .label { @apply text-[14px] font-semibold leading-none text-deep; }
+  .label { @apply text-[14px] font-semibold leading-none text-fg; }
   .input {
-    @apply h-12 w-full rounded-[4px] border border-hair bg-white px-3.5 text-[16px] text-deep transition-colors duration-150 placeholder:text-mute/60 hover:border-mute focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/20;
+    @apply h-12 w-full rounded-[3px] border border-hair bg-panel px-3.5 text-[16px] text-fg transition-colors duration-150 placeholder:text-mute/60 hover:border-mute focus:border-ice focus:outline-none focus:ring-2 focus:ring-ice/20;
   }
-  .input[aria-invalid="true"] { @apply border-signal ring-2 ring-signal/25; }
+  .input[aria-invalid="true"] { @apply border-amber ring-2 ring-amber/25; }
   .hint { @apply text-[13px] leading-snug text-mute; }
-  .field-error { @apply flex items-start gap-2 text-[14px] font-medium leading-snug text-deep; }
-  .field-error::before { content: ""; @apply mt-[5px] h-[10px] w-[10px] shrink-0 bg-signal; }
+  .field-error { @apply flex items-start gap-2 text-[14px] font-medium leading-snug text-fg; }
+  .field-error::before { content: ""; @apply mt-[5px] h-[10px] w-[10px] shrink-0 bg-amber; }
   .btn-primary:disabled, .btn-line:disabled, .btn[disabled] { @apply cursor-not-allowed opacity-55; }
-  .link { @apply font-semibold text-ink underline decoration-hair decoration-1 underline-offset-4 transition-colors hover:decoration-ink; }
+  .link { @apply font-semibold text-ice underline decoration-hair decoration-1 underline-offset-4 transition-colors hover:decoration-ice; }
 
   /* ── case status (dashboard) ── */
   .status { @apply inline-flex items-center gap-2 whitespace-nowrap font-mono text-[12.5px] leading-none; }
   .status-dot { @apply h-[9px] w-[9px] shrink-0 rounded-full; }
 
   /* legacy helpers kept for any page that still uses them */
-  .btn { @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[4px] bg-ink px-6 text-[15px] font-semibold text-white transition-colors duration-150 hover:bg-deep; }
-  .card { @apply rounded-[4px] border border-hair bg-white p-6; }
+  .btn { @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] bg-ice px-6 text-[15px] font-semibold text-bay transition-colors duration-150 hover:bg-white; }
+  .card { @apply rounded-[3px] border border-hair bg-panel p-6; }
 }
 
-/* ───────────────────────── hero case sheet ───────────────────────── */
-/* --u = CSS pixels per drawing unit. The ledger rows and the car share it, so every
-   leader line meets its row exactly at any size. */
-.sheet { --u: calc((100vw - 34px) * 0.495 / 260); }
-@media (min-width: 640px) { .sheet { --u: 1.04px; } }
-@media (min-width: 1024px) { .sheet { --u: clamp(0.9px, calc((100vh - 236px) / 522), 1.3px); } }
-
-.sheet-grid {
-  background-image:
-    linear-gradient(#EDF0F7 1px, transparent 1px),
-    linear-gradient(90deg, #EDF0F7 1px, transparent 1px);
-  background-size: calc(10 * var(--u)) calc(10 * var(--u));
-  background-position: right top;
-  -webkit-mask-image: linear-gradient(90deg, transparent 4%, rgba(0, 0, 0, 0.75) 46%, #000 60%);
-  mask-image: linear-gradient(90deg, transparent 4%, rgba(0, 0, 0, 0.75) 46%, #000 60%);
-}
-
-.car { width: calc(260 * var(--u)); height: calc(522 * var(--u)); display: block; overflow: visible; }
-.car .pnl { fill: #fff; stroke: theme(colors.ink); stroke-width: 1.25px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.car .glass { fill: theme(colors.inktint); stroke: theme(colors.ink); stroke-width: 0.9px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.car .detail { fill: none; stroke: theme(colors.ink); stroke-width: 0.8px; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0.7; pointer-events: none; }
-.car .detail-fill { fill: #fff; stroke: theme(colors.ink); stroke-width: 0.8px; vector-effect: non-scaling-stroke; pointer-events: none; }
-.car .axis { fill: none; stroke: theme(colors.hair); stroke-width: 1px; stroke-dasharray: 14 4 2 4; vector-effect: non-scaling-stroke; }
-.car .dmg { cursor: default; }
-.car .dmg-fill { fill: theme(colors.signal); stroke: theme(colors.deep); stroke-width: 1.25px; stroke-linejoin: round; vector-effect: non-scaling-stroke; transition: stroke-width 0.15s; }
-.car .dmg-hatch { pointer-events: none; }
-.car .dmg.is-on .dmg-fill { stroke-width: 2.5px; }
-.car .leader { fill: none; stroke: theme(colors.deep); stroke-width: 0.85; stroke-linejoin: round; pointer-events: none; transition: stroke-width 0.15s; }
-.car .leader.is-on { stroke-width: 1.7; }
-.car .leader-dot { fill: theme(colors.deep); pointer-events: none; }
-.car .leader-ring { fill: #fff; stroke: theme(colors.deep); stroke-width: 0.85; pointer-events: none; }
-
-.ledger-row { position: relative; height: calc(40 * var(--u)); }
-.ledger-row:first-child { height: calc(32 * var(--u)); }
-.ledger-rule { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: theme(colors.deep); transform-origin: right center; }
-.ledger-row[data-on="true"] .ledger-rule { height: 2px; bottom: -0.5px; }
-.ledger-row[data-on="true"] .ledger-hi { opacity: 1; }
-.ledger-hi { position: absolute; inset: auto 0 0 0; height: min(100%, 30px); background: theme(colors.signaltint); opacity: 0; transition: opacity 0.15s; }
-.type-wrap { position: absolute; left: 0; right: 0; bottom: 0; }
-
-.st-live { opacity: 0; }
-
-@keyframes sheet-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes sheet-dim { from { opacity: 0.4; } to { opacity: 1; } }
-@keyframes sheet-hold { from, to { opacity: 1; } }
-@keyframes sheet-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-@keyframes sheet-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes sheet-type { from { clip-path: inset(-6px 100% -6px 0); } to { clip-path: inset(-6px 0 -6px 0); } }
-@keyframes sheet-caret { from { left: 0; opacity: 1; } to { left: 100%; opacity: 1; } }
-@keyframes sheet-clock { from { opacity: 1; } to { opacity: 1; } }
-@keyframes sheet-late { 0%, 99.9% { visibility: hidden; } 100% { visibility: visible; } }
-
+/* ───────────────────────── landing ───────────────────────── */
+/* light bars and pips: lit when scrolled into view (see components/in-view.tsx) */
+.lightbar { width: var(--to); }
 @media (prefers-reduced-motion: no-preference) {
-  .sheet-play .dmg-fill,
-  .sheet-play .dmg-hatch { animation: sheet-fade 0.36s var(--d) both ease-out; }
-  .sheet-play .leader { stroke-dasharray: 1; animation: sheet-draw 0.4s calc(var(--d) + 160ms) both ease-in-out; }
-  .sheet-play .leader-dot { animation: sheet-fade 0.12s calc(var(--d) + 140ms) both; }
-  .sheet-play .leader-ring { animation: sheet-fade 0.12s calc(var(--d) + 540ms) both; }
-  .sheet-play .ledger-rule { animation: sheet-rule 0.22s calc(var(--d) + 540ms) both ease-out; }
-  .sheet-play .type { animation: sheet-type 0.44s calc(var(--d) + 660ms) both steps(16, end); }
-  .sheet-play .type-wrap::after {
-    content: "";
-    position: absolute;
-    bottom: 4px;
-    width: 7px;
-    height: 15px;
-    margin-left: 2px;
-    background: theme(colors.signal);
-    opacity: 0;
-    animation: sheet-caret 0.44s calc(var(--d) + 660ms) steps(16, end);
-  }
-  .sheet-play .st-text { animation: sheet-dim 0.2s var(--s) both; }
-  .sheet-play .st-live { animation: sheet-hold calc(var(--e) - var(--s)) var(--s) linear; }
-  .sheet-play .st-tick { animation: sheet-fade 0.16s var(--e) both; }
-  .sheet-play .st-ring { animation: sheet-hold var(--s) 0s linear; opacity: 0; }
-  .sheet-play .sheet-clock { animation: sheet-clock var(--end) linear both; }
-  .sheet-play .sheet-clock:not([data-live]) .sheet-digits { animation: sheet-late var(--end) linear both; }
-  .sheet-play .sheet-done { animation: sheet-fade 0.2s var(--end) both; }
-  .sheet-play .sheet-busy { animation: sheet-hold var(--end) 0s linear; }
-}
-.sheet-busy { opacity: 0; }
-.st-ring { opacity: 0; }
-
-/* ───────────────────────── time: dimension lines ───────────────────────── */
-.dimline { position: relative; height: 28px; }
-.dimline .bar { position: absolute; left: 0; right: 0; top: 50%; height: 0; border-top: 1.5px solid currentColor; }
-.dimline .bar.dashed { border-top-style: dashed; }
-.dimline .head { position: absolute; top: 50%; width: 11px; height: 7px; margin-top: -3.5px; fill: currentColor; }
-.dimline .head.l { left: 0; }
-.dimline .head.r { right: 0; transform: scaleX(-1); }
-.ext { position: absolute; width: 0; border-left: 1px solid theme(colors.hair); }
-
-@media (prefers-reduced-motion: no-preference) {
-  .armed .reveal-x { clip-path: inset(-12px 100% -12px 0); }
-  .armed.inview .reveal-x { clip-path: inset(-12px -12px -12px 0); transition: clip-path var(--t, 1s) linear var(--w, 0s); }
+  .armed .lightbar { width: 0; }
+  .armed.inview .lightbar { width: var(--to); transition: width var(--t, 1s) cubic-bezier(0.2, 0.7, 0.2, 1) var(--w, 0s); }
+  .armed .pip { opacity: 0.15; }
+  .armed.inview .pip { opacity: 1; transition: opacity 0.2s linear var(--w, 0s); }
   .armed .draw { stroke-dasharray: 1; stroke-dashoffset: 1; }
   .armed.inview .draw { stroke-dashoffset: 0; transition: stroke-dashoffset 0.32s ease-out var(--w, 0s); }
+  .scroll-hint { animation: hint 1.8s ease-in-out infinite; transform-origin: top; }
 }
+/* the logo's eyes blink now and then */
+.logo-eyes { transform-box: fill-box; transform-origin: center; animation: logo-blink 5.4s ease-in-out infinite; }
+@keyframes logo-blink { 0%, 92%, 100% { transform: scaleY(1); } 95.5% { transform: scaleY(0.1); } }
+@media (prefers-reduced-motion: reduce) { .logo-eyes { animation: none; } }
+@keyframes hint { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
 
 /* ───────────────────────── faq ───────────────────────── */
 .faq summary .pm-v { transition: transform 0.2s ease; transform-origin: center; }
 .faq details[open] summary .pm-v { transform: scaleY(0); }
-
-@media (min-width: 1024px) {
-  .sheet { width: calc(260 * var(--u) + clamp(256px, 240 * var(--u), 312px)); }
-}
 
 /* ───────────────────────── signed-in app (app frame, case list, new case) ───────────────────────── */
 /* a page that is exactly the viewport under the top bar (61px / 65px with its hairline); its list scrolls inside */
@@ -222,15 +141,15 @@
 /* boxes that scroll inside themselves: a thin hairline scrollbar instead of the system one */
 .app-scroll { scrollbar-width: thin; scrollbar-color: theme(colors.hair) transparent; }
 .app-scroll::-webkit-scrollbar { width: 10px; }
-.app-scroll::-webkit-scrollbar-thumb { background: theme(colors.hair); border: 3px solid #fff; border-radius: 5px; }
+.app-scroll::-webkit-scrollbar-thumb { background: theme(colors.hair); border: 3px solid theme(colors.panel); border-radius: 5px; }
 .app-scroll::-webkit-scrollbar-thumb:hover { background: theme(colors.mute); }
 /* drop zone outline: a dashed ink hairline, drawn so it stays one crisp pixel; solid and heavier while a file is held over the page */
 .app-dash {
-  --dash: repeating-linear-gradient(90deg, theme(colors.ink) 0 7px, transparent 7px 12px);
-  --dash-v: repeating-linear-gradient(0deg, theme(colors.ink) 0 7px, transparent 7px 12px);
+  --dash: repeating-linear-gradient(90deg, theme(colors.ice) 0 7px, transparent 7px 12px);
+  --dash-v: repeating-linear-gradient(0deg, theme(colors.ice) 0 7px, transparent 7px 12px);
   background-image: var(--dash), var(--dash), var(--dash-v), var(--dash-v);
   background-size: 100% 1px, 100% 1px, 1px 100%, 1px 100%;
   background-position: 0 0, 0 100%, 0 0, 100% 0;
   background-repeat: no-repeat;
 }
-.app-dash[data-over="true"] { background-image: none; box-shadow: inset 0 0 0 2px theme(colors.ink); }
+.app-dash[data-over="true"] { background-image: none; box-shadow: inset 0 0 0 2px theme(colors.ice); }

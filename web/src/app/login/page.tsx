@@ -71,8 +71,8 @@ export default function Login() {
             <FieldError>{t("login.unverified")}</FieldError>
             <div className="ml-[18px] mt-1 flex min-h-[44px] items-center text-[14px]">
               {resend === "sent" ? (
-                <p role="status" className="flex items-center gap-2 font-medium text-deep">
-                  <IconTick className="shrink-0 text-ink" />
+                <p role="status" className="flex items-center gap-2 font-medium text-fg">
+                  <IconTick className="shrink-0 text-ice" />
                   {t("login.resent")}
                 </p>
               ) : (

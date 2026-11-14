@@ -45,7 +45,7 @@ function AccountMenu({ email }: { email: string }) {
         aria-controls="account-menu"
         onClick={() => setOpen((v) => !v)}
         onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); } }}
-        className={`flex h-10 max-w-[260px] items-center gap-2 rounded-[4px] border px-3 text-[14px] font-medium text-deep transition-colors duration-150 hover:border-mute ${open ? "border-ink bg-white" : "border-transparent"}`}
+        className={`flex h-10 max-w-[260px] items-center gap-2 rounded-[3px] border px-3 text-[14px] font-medium text-fg transition-colors duration-150 hover:border-mute ${open ? "border-ice bg-panel" : "border-transparent"}`}
       >
         <span className="truncate">{email}</span>
         <Chevron className={`shrink-0 text-mute transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
@@ -56,7 +56,7 @@ function AccountMenu({ email }: { email: string }) {
           role="menu"
           aria-label={email}
           onKeyDown={(e) => { if (e.key === "Tab") setOpen(false); }}
-          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[220px] rounded-[4px] border border-hair bg-white p-1 shadow-[0_12px_24px_-16px_rgba(11,21,51,0.35)]"
+          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[220px] rounded-[3px] border border-hair bg-panel p-1 shadow-[0_12px_24px_-16px_rgba(0,0,0,0.8)]"
         >
           <button
             ref={item}
@@ -64,9 +64,9 @@ function AccountMenu({ email }: { email: string }) {
             role="menuitem"
             disabled={busy}
             onClick={() => { setBusy(true); void logOut(); }}
-            className="flex h-11 w-full items-center gap-3 rounded-[2px] px-3 text-left text-[15px] font-medium text-deep transition-colors duration-150 hover:bg-inktint hover:text-ink focus-visible:bg-inktint focus-visible:outline-offset-0 disabled:opacity-55"
+            className="flex h-11 w-full items-center gap-3 rounded-[2px] px-3 text-left text-[15px] font-medium text-fg transition-colors duration-150 hover:bg-icetint hover:text-ice focus-visible:bg-icetint focus-visible:outline-offset-0 disabled:opacity-55"
           >
-            <Exit className="shrink-0 text-ink" />
+            <Exit className="shrink-0 text-ice" />
             {t("nav.logout")}
           </button>
         </div>
@@ -96,12 +96,12 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
         aria-expanded={open}
         aria-controls="app-menu"
         onClick={() => setOpen((v) => !v)}
-        className="-mr-2.5 flex h-11 w-11 items-center justify-center text-ink"
+        className="-mr-2.5 flex h-11 w-11 items-center justify-center text-ice"
       >
         <Burger open={open} />
       </button>
       {open && (
-        <div id="app-menu" className="absolute inset-x-0 top-full border-b border-hair bg-paper shadow-[0_12px_24px_-16px_rgba(11,21,51,0.35)]">
+        <div id="app-menu" className="absolute inset-x-0 top-full border-b border-hair bg-bay shadow-[0_12px_24px_-16px_rgba(0,0,0,0.8)]">
           <div className="wrap pb-3 pt-2">
             <ul>
               {links.map((l) => {
@@ -112,13 +112,13 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
                       href={l.href}
                       aria-current={here ? "page" : undefined}
                       onClick={() => setOpen(false)}
-                      className={`flex h-[52px] items-center justify-between text-[17px] font-medium ${here ? "text-ink" : "text-deep"}`}
+                      className={`flex h-[52px] items-center justify-between text-[17px] font-medium ${here ? "text-ice" : "text-fg"}`}
                     >
                       <span className="flex items-center gap-3">
-                        <span className={`h-[18px] w-[2px] ${here ? "bg-ink" : "bg-transparent"}`} aria-hidden="true" />
+                        <span className={`h-[18px] w-[2px] ${here ? "bg-ice" : "bg-transparent"}`} aria-hidden="true" />
                         {l.label}
                       </span>
-                      {l.plus ? <Plus className="text-ink" /> : null}
+                      {l.plus ? <Plus className="text-ice" /> : null}
                     </Link>
                   </li>
                 );
@@ -130,7 +130,7 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
                 type="button"
                 disabled={busy}
                 onClick={() => { setBusy(true); void logOut(); }}
-                className="-mr-1 flex h-11 shrink-0 items-center gap-2.5 px-1 text-[15px] font-semibold text-ink disabled:opacity-55"
+                className="-mr-1 flex h-11 shrink-0 items-center gap-2.5 px-1 text-[15px] font-semibold text-ice disabled:opacity-55"
               >
                 {t("nav.logout")}
                 <Exit />
@@ -150,7 +150,7 @@ export default function AppBar({ email }: { email: string }) {
   const onCases = path === "/dashboard";
   const onNew = path === "/cases/new";
   return (
-    <header className="sticky top-0 z-40 border-b border-hair bg-paper">
+    <header className="sticky top-0 z-40 border-b border-hair bg-bay">
       <div className="wrap relative flex h-[60px] items-center gap-4 lg:h-16 lg:gap-10">
         <Link href="/dashboard" className="-my-2 flex items-center py-2">
           <Brand />
@@ -160,7 +160,7 @@ export default function AppBar({ email }: { email: string }) {
             href="/dashboard"
             aria-current={onCases ? "page" : undefined}
             className={`relative flex items-center px-1 text-[15px] transition-colors duration-150 after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:transition-colors after:duration-150 ${
-              onCases ? "font-semibold text-ink after:bg-ink" : "font-medium text-deep after:bg-transparent hover:text-ink"
+              onCases ? "font-semibold text-ice after:bg-ice" : "font-medium text-fg after:bg-transparent hover:text-ice"
             }`}
           >
             {t("nav.cases")}
@@ -172,7 +172,7 @@ export default function AppBar({ email }: { email: string }) {
           <Link
             href="/cases/new"
             aria-current={onNew ? "page" : undefined}
-            className={`hidden !h-10 !gap-2 !pl-4 !pr-5 lg:inline-flex ${onNew ? "btn-line bg-white" : "btn-primary"}`}
+            className={`hidden !h-10 !gap-2 !pl-4 !pr-5 lg:inline-flex ${onNew ? "btn-line bg-panel" : "btn-primary"}`}
           >
             <Plus />
             {t("nav.newCase")}

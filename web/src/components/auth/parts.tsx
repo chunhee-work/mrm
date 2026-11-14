@@ -8,7 +8,7 @@ export function SheetBody({ children }: { children: ReactNode }) {
 
 export function Title({ children, ...rest }: ComponentProps<"h1">) {
   return (
-    <h1 className="display-2 text-[30px] !leading-[1.06] text-deep outline-none sm:text-[32px]" {...rest}>
+    <h1 className="display-2 text-[30px] !leading-[1.06] text-fg outline-none sm:text-[32px]" {...rest}>
       {children}
     </h1>
   );
@@ -74,7 +74,7 @@ export function Spinner({ className = "" }: { className?: string }) {
 /** Full-width primary button; while `busy` it is disabled and shows a spinner beside the label (the label does not move). */
 export function SubmitButton({ busy, children }: { busy: boolean; children: ReactNode }) {
   return (
-    <button type="submit" className="btn-primary w-full disabled:cursor-progress disabled:bg-ink disabled:opacity-80" disabled={busy} aria-busy={busy || undefined}>
+    <button type="submit" className="btn-primary w-full disabled:cursor-progress disabled:bg-ice disabled:opacity-80" disabled={busy} aria-busy={busy || undefined}>
       <span className="relative">
         {busy && <Spinner className="absolute -left-7 top-1/2 -mt-2" />}
         {children}
@@ -86,10 +86,10 @@ export function SubmitButton({ busy, children }: { busy: boolean; children: Reac
 /** An envelope with one amber mark: something is waiting in the inbox. */
 export function IconEnvelope() {
   return (
-    <svg width="44" height="44" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink" aria-hidden="true">
+    <svg width="44" height="44" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ice" aria-hidden="true">
       <path d="M3.75 9.75h28.5v21.5H3.75z" />
       <path d="M3.75 9.75L18 21.5l14.25-11.75" />
-      <circle cx="32.25" cy="9.75" r="4.5" fill="#FF8A1F" stroke="#0B1533" strokeWidth="1.25" />
+      <circle cx="32.25" cy="9.75" r="4.5" fill="#FFB020" stroke="#0E1217" strokeWidth="1.25" />
     </svg>
   );
 }
