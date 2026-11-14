@@ -78,7 +78,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       at = files.length; setStep(files.length);
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plate, files: done }) });
       if (!r.ok) throw new Error(t("new.fail"));
-      window.location.href = "/dashboard";
+      const { id } = (await r.json()) as { id: string };
+      window.location.href = `/cases/${id}`; // Claude starts reading the files by itself
     } catch {
       const inUpload = at < files.length;
       setMsg(inUpload ? t("new.failUpload") : t("new.fail"));
