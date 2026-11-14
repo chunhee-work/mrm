@@ -16,7 +16,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   await db.update(schema.cases).set({ status: "reading", error: null }).where(eq(schema.cases.id, id));
   try {
     const files = await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
-    const { data, usage, costUsd } = await readCaseDocs(files);
+    const { data, usage, costUsd } = await readCaseDocs(files, { userId: me.user.id, orgId: me.orgId, caseId: id });
     await db.update(schema.cases).set({
       status: data.missing.length ? "pending_doc" : "phase_a",
       pendingDoc: data.missing.join("; ") || null,

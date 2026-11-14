@@ -19,7 +19,7 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }, request) => {
       const l = langOf(request);
       await sendEmail(user.email, translate(l, "mail.resetSubject"),
-        `<p>${translate(l, "mail.resetBody")}</p><p><a href="${url}">${url}</a></p><p>${translate(l, "mail.ignore")}</p>`);
+        `<p>${translate(l, "mail.resetBody")}</p><p><a href="${url}">${url}</a></p><p>${translate(l, "mail.ignore")}</p>`, "reset");
     },
   },
   emailVerification: {
@@ -28,7 +28,7 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }, request) => {
       const l = langOf(request);
       await sendEmail(user.email, translate(l, "mail.verifySubject"),
-        `<p>${translate(l, "mail.verifyBody")}</p><p><a href="${url}">${url}</a></p>`);
+        `<p>${translate(l, "mail.verifyBody")}</p><p><a href="${url}">${url}</a></p>`, "verify");
     },
   },
   databaseHooks: {

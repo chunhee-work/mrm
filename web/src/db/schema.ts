@@ -1,4 +1,5 @@
-import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 
 // ---- Better Auth tables (names/fields required by Better Auth) ----
 export const user = pgTable("user", {
@@ -154,3 +155,41 @@ export const auditLog = pgTable("audit_log", {
   detail: text("detail"),
   at: timestamp("at").notNull().defaultNow(),
 });
+
+// ---- Admin backoffice ledgers (additive; plan: chunhee-work/mrm#4) ----
+// One row per billed Claude response, or one row per failed call. No prompts, no document text.
+// user/org/case ids have no foreign keys on purpose: history must survive deletes, and system calls have none.
+export const llmCalls = pgTable("llm_calls", {
+  id: serial("id").primaryKey(),
+  at: timestamp("at").notNull().defaultNow(),
+  requestId: text("request_id").notNull().unique(), // provider request id, or err:<call uuid> when none
+  userId: text("user_id"),
+  orgId: text("org_id"),
+  caseId: text("case_id"),
+  purpose: text("purpose").notNull(), // read_docs | system_other
+  model: text("model").notNull(),
+  inputTokens: bigint("input_tokens", { mode: "number" }).notNull().default(0),
+  outputTokens: bigint("output_tokens", { mode: "number" }).notNull().default(0),
+  cacheReadTokens: bigint("cache_read_tokens", { mode: "number" }).notNull().default(0),
+  cacheWrite5mTokens: bigint("cache_write_5m_tokens", { mode: "number" }).notNull().default(0),
+  cacheWrite1hTokens: bigint("cache_write_1h_tokens", { mode: "number" }).notNull().default(0),
+  costUsd: numeric("cost_usd", { precision: 14, scale: 8 }), // null = model has no price entry ("unpriced")
+  latencyMs: integer("latency_ms"),
+  ok: boolean("ok").notNull().default(true),
+  errorClass: text("error_class"),
+}, (t) => [
+  index("llm_calls_at_idx").on(t.at),
+  index("llm_calls_user_at_idx").on(t.userId, t.at),
+  index("llm_calls_case_idx").on(t.caseId),
+  check("llm_calls_request_id_len", sql`char_length(${t.requestId}) <= 80`),
+]);
+
+// Only the kind, the recipient's domain, and the outcome. Never the subject, body or links.
+export const emailLog = pgTable("email_log", {
+  id: serial("id").primaryKey(),
+  at: timestamp("at").notNull().defaultNow(),
+  kind: text("kind").notNull(), // verify | reset | other
+  recipientDomain: text("recipient_domain").notNull(),
+  status: text("status").notNull(), // sent | failed | skipped
+  errorClass: text("error_class"),
+}, (t) => [index("email_log_at_idx").on(t.at)]);
