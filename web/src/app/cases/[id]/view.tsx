@@ -96,9 +96,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
                 <h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2>
                 {c.status === "failed" ? (
                   <p role="alert" className="field-error">{t("case.failed")}{c.error ? ` (${c.error})` : ""}</p>
-                ) : working ? (
-                  <p className="text-[15px] text-mute">—</p>
-                ) : c.missing.length ? (
+                ) : working ? null : c.missing.length ? (
                   <ul className="app-scroll max-h-[148px] overflow-y-auto overscroll-contain rounded-[4px] border border-hair bg-signaltint" tabIndex={0}>
                     {c.missing.map((m) => (
                       <li key={m} className="flex items-start gap-3 border-b border-hair px-4 py-3 text-[15px] text-deep last:border-b-0">

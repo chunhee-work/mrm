@@ -7,6 +7,9 @@ import CaseView, { type CaseDetail } from "./view";
 import type { CaseDataT } from "@/lib/read-docs";
 import { scanCase, STALE_MS } from "@/lib/scan-case";
 
+import { pageMeta } from "@/lib/meta";
+
+export const generateMetadata = () => pageMeta("case.title", { index: false });
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a recovery read runs after the page is sent
 
