@@ -21,7 +21,7 @@ export type ScanMode = "auto" | "retry" | "recover";
 export async function scanCase(id: string, mode: ScanMode = "retry"): Promise<{ ok: boolean; missing: string[]; claimed: boolean }> {
   const cid = schema.cases.id;
   const fresh = sql`not exists (select 1 from ${schema.caseEvents} e where e.case_id = ${cid} and e.at > now() - make_interval(secs => ${sql.raw(String(STALE_MS / 1000))}))`;
-  const tries = sql`(select count(*) from ${schema.caseEvents} e where e.case_id = ${cid} and e.step = 'read_docs' and e.message = 'Reading documents') < ${MAX_ATTEMPTS}`;
+  const tries = sql`(select count(*) from ${schema.caseEvents} e where e.case_id = ${cid} and e.step = 'read_docs' and e.message = 'Reading documents') < ${sql.raw(String(MAX_ATTEMPTS))}`;
   const where =
     mode === "auto" ? and(eq(cid, id), eq(schema.cases.status, "uploaded")) :
     mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["failed", "pending_doc"])) :
