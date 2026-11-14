@@ -13,6 +13,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const { id } = await ctx.params;
   const [c] = await db.select({ id: schema.cases.id }).from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId))).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
-  const r = await scanCase(id);
+  const r = await scanCase(id, "retry");
+  if (!r.claimed) return NextResponse.json({ error: "busy" }, { status: 409 }); // already reading, or nothing to retry
   return r.ok ? NextResponse.json({ ok: true, missing: r.missing }) : NextResponse.json({ error: "scan failed" }, { status: 500 });
 }

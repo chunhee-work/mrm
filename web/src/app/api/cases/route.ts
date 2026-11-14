@@ -27,6 +27,6 @@ export async function POST(req: Request) {
   await db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${files.length} file(s)` });
   await db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.create", detail: id });
   // Step 1 starts by itself: Claude reads the documents after the response is sent.
-  after(() => scanCase(id, { onlyIfUploaded: true }));
+  after(() => scanCase(id, "auto"));
   return NextResponse.json({ id });
 }

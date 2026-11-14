@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import CaseView, { type CaseDetail } from "./view";
 import type { CaseDataT } from "@/lib/read-docs";
+import { scanCase, STALE_MS } from "@/lib/scan-case";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // a recovery read runs after the page is sent
 
 export default async function CasePage({ params }: { params: Promise<{ id: string }> }) {
   const { orgId } = await requireUser();
@@ -14,6 +17,9 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   if (!c) notFound();
   const events = await db.select().from(schema.caseEvents).where(eq(schema.caseEvents.caseId, id)).orderBy(asc(schema.caseEvents.at)).limit(100);
   const files = await db.select({ n: schema.caseFiles.id }).from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
+  const lastAt = events.length ? events[events.length - 1].at.getTime() : c.createdAt.getTime();
+  const stale = c.status === "reading" && Date.now() - lastAt > STALE_MS;
+  if (stale) after(() => scanCase(id, "recover")); // self-heal: a read that died is started again (max 3 reads per case)
   const d = (c.caseData ?? null) as CaseDataT | null;
   const detail: CaseDetail = {
     id: c.id,
@@ -33,8 +39,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
       atFaultInsurer: d.at_fault.policy?.insurer ?? null,
     },
     events: events.map((e) => ({ at: e.at.toISOString(), message: e.message })),
-    lastEventAt: events.length ? events[events.length - 1].at.toISOString() : null,
-    now: Date.now(),
+    stale,
   };
   return <CaseView c={detail} />;
 }

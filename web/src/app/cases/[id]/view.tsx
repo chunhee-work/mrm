@@ -17,36 +17,34 @@ export type CaseDetail = {
   fileCount: number;
   facts: { owner: string; policyNo: string | null; policeReport: string | null; accidentAt: string | null; atFaultPlate: string | null; atFaultInsurer: string | null } | null;
   events: { at: string; message: string }[];
-  lastEventAt: string | null;
-  now: number;
+  stale: boolean; // reading, but no news for 6 minutes: the server is already restarting it
 };
 
 const REFRESH_MS = 5_000;
-const STUCK_MS = 6 * 60_000; // the read runs at most 5 minutes; after that "reading" means it died
 
 export default function CaseView({ c }: { c: CaseDetail }) {
   const { t } = useT();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
-  const [now, setNow] = useState(c.now);
 
   const working = c.status === "uploaded" || c.status === "reading";
   useEffect(() => {
     if (!working) return;
-    const id = window.setInterval(() => { if (!document.hidden) { setNow(Date.now()); router.refresh(); } }, REFRESH_MS);
-    return () => window.clearInterval(id);
+    // poll only while the case is being read; stop at any other status, pause in a hidden tab, catch up when it is shown again
+    const tick = () => { if (!document.hidden) router.refresh(); };
+    const id = window.setInterval(tick, REFRESH_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", tick); };
   }, [working, router]);
-  useEffect(() => setNow(Date.now()), [c.now]);
 
-  const stuck = c.status === "reading" && c.lastEventAt !== null && now - Date.parse(c.lastEventAt) > STUCK_MS;
-  const canRetry = c.status === "failed" || stuck;
+  const canRetry = c.status === "failed" || c.status === "pending_doc";
 
   async function retry() {
     setBusy(true); setErr(false);
     try {
       const r = await fetch(`/api/cases/${c.id}/scan`, { method: "POST" });
-      if (!r.ok) setErr(true);
+      if (!r.ok && r.status !== 409) setErr(true); // 409 = someone already started it
     } catch { setErr(true); }
     setBusy(false);
     router.refresh();
@@ -80,7 +78,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
             <section aria-labelledby="case-found">
               <h2 id="case-found" className="label mb-3">{t("case.found")}</h2>
               {working ? (
-                <p className="text-[15px] text-mute" role="status">{t("case.reading")}</p>
+                <p className="text-[15px] text-mute" role="status">{c.stale ? t("case.stale") : t("case.reading")}</p>
               ) : (
                 <dl className="app-scroll max-h-[300px] overflow-y-auto overscroll-contain rounded-[4px] border border-hair" tabIndex={0}>
                   {rows.map(([k, v]) => (
@@ -113,7 +111,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
                 )}
                 {canRetry && (
                   <div className="mt-4">
-                    <button type="button" onClick={retry} disabled={busy} className="btn-primary">{busy ? t("case.retrying") : t("case.retry")}</button>
+                    <button type="button" onClick={retry} disabled={busy || working} className="btn-primary">{busy ? t("case.retrying") : t("case.retry")}</button>
                     {err && <p role="alert" className="field-error mt-3">{t("case.retryFail")}</p>}
                   </div>
                 )}
