@@ -124,6 +124,10 @@
   .armed.inview .draw { stroke-dashoffset: 0; transition: stroke-dashoffset 0.32s ease-out var(--w, 0s); }
   .scroll-hint { animation: hint 1.8s ease-in-out infinite; transform-origin: top; }
 }
+/* the logo's eyes blink now and then */
+.logo-eyes { transform-box: fill-box; transform-origin: center; animation: logo-blink 5.4s ease-in-out infinite; }
+@keyframes logo-blink { 0%, 92%, 100% { transform: scaleY(1); } 95.5% { transform: scaleY(0.1); } }
+@media (prefers-reduced-motion: reduce) { .logo-eyes { animation: none; } }
 @keyframes hint { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
 
 /* ───────────────────────── faq ───────────────────────── */

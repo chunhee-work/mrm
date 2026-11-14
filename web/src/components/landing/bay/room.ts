@@ -90,15 +90,9 @@ function markingsTexture(): THREE.CanvasTexture {
 
 export type Room = {
   group: THREE.Group;
-  gantry: THREE.Group;
-  gantryLight: THREE.PointLight;
-  floorLine: THREE.Mesh;
-  conduit: THREE.Mesh;
   ring: THREE.Mesh;
   ringMat: THREE.ShaderMaterial;
   tubes: THREE.MeshBasicMaterial;
-  /** the scan strips on the gantry: dim at rest, bright while it reads */
-  scanStrip: THREE.MeshBasicMaterial;
   dust: THREE.Points;
   reflector: Reflector | null;
   dispose(): void;
@@ -181,76 +175,6 @@ export function buildRoom(mobile: boolean): Room {
   for (let i = 0; i < 44; i++) { mtx.makeTranslation(-11 + i * 0.5, 2.6, 6.2 + (i % 2) * 0.06); ribs.setMatrixAt(i, mtx); }
   group.add(ribs);
 
-  // ── rails and the scan gantry
-  const steel = keep(new THREE.MeshStandardMaterial({ color: 0x151a20, roughness: 0.5, metalness: 0.85, envMapIntensity: 0.35 }));
-  const dark = keep(new THREE.MeshStandardMaterial({ color: 0x0b0e12, roughness: 0.5, metalness: 0.6 }));
-  for (const z of [-1.62, 1.62]) {
-    // flush with the floor: a steel strip with a thin line of light in its groove
-    const rail = new THREE.Mesh(keep(new THREE.BoxGeometry(7.4, 0.012, 0.075)), steel);
-    rail.position.set(-0.35, 0.006, z);
-    rail.receiveShadow = true;
-    group.add(rail);
-    const groove = new THREE.Mesh(keep(new THREE.BoxGeometry(7.4, 0.003, 0.008)), keep(lightMat(ICE, 0.4)));
-    groove.position.set(-0.35, 0.0135, z);
-    group.add(groove);
-  }
-  const gantry = new THREE.Group();
-  const iceStrip = keep(lightMat(ICE, 2.6));
-  const markStrip = keep(lightMat(ICE, 1.1));
-  for (const z of [-1.62, 1.62]) {
-    const post = new THREE.Mesh(keep(new THREE.BoxGeometry(0.16, 2.25, 0.2)), dark);
-    post.position.set(0, 1.16, z);
-    post.castShadow = true;
-    gantry.add(post);
-    const foot = new THREE.Mesh(keep(new THREE.BoxGeometry(0.5, 0.11, 0.3)), steel);
-    foot.position.set(0, 0.09, z);
-    gantry.add(foot);
-    const strip = new THREE.Mesh(keep(new THREE.BoxGeometry(0.02, 1.9, 0.012)), iceStrip);
-    strip.position.set(0, 1.2, z - Math.sign(z) * 0.106);
-    gantry.add(strip);
-    // a dimmer marker line on the outside, so the arch reads whole from either side of the bay
-    const outer = new THREE.Mesh(keep(new THREE.BoxGeometry(0.02, 1.9, 0.012)), markStrip);
-    outer.position.set(0, 1.2, z + Math.sign(z) * 0.106);
-    gantry.add(outer);
-    for (const y of [0.5, 1.1, 1.7]) {
-      const bolt = new THREE.Mesh(keep(new THREE.BoxGeometry(0.168, 0.012, 0.208)), steel);
-      bolt.position.set(0, y, z);
-      gantry.add(bolt);
-    }
-  }
-  const beam = new THREE.Mesh(keep(new THREE.BoxGeometry(0.2, 0.2, 3.44)), dark);
-  beam.position.set(0, 2.33, 0);
-  beam.castShadow = true;
-  gantry.add(beam);
-  const beamStrip = new THREE.Mesh(keep(new THREE.BoxGeometry(0.02, 0.012, 3.0)), iceStrip);
-  beamStrip.position.set(0, 2.226, 0);
-  gantry.add(beamStrip);
-  for (const sx of [-1, 1]) {
-    const side = new THREE.Mesh(keep(new THREE.BoxGeometry(0.012, 0.02, 3.44)), markStrip);
-    side.position.set(sx * 0.106, 2.33, 0);
-    gantry.add(side);
-  }
-  const head = new THREE.Mesh(keep(new THREE.BoxGeometry(0.3, 0.09, 0.5)), steel);
-  head.position.set(0, 2.47, 0);
-  gantry.add(head);
-  const gantryLight = new THREE.PointLight(ICE, 0, 5.5, 1.6);
-  gantryLight.position.set(0, 1.7, 0);
-  gantry.add(gantryLight);
-  // the line the scan light draws on the floor
-  const floorLine = new THREE.Mesh(keep(new THREE.PlaneGeometry(0.035, 3.1)), keep(lightMat(ICE, 3, { transparent: true, opacity: 0, depthWrite: false })));
-  floorLine.rotation.x = -Math.PI / 2;
-  floorLine.position.y = 0.008;
-  floorLine.renderOrder = 3;
-  gantry.add(floorLine);
-  group.add(gantry);
-
-  // ── conduit: the light that runs from the console to the gantry when the file is in
-  const conduit = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 0.03)), keep(lightMat(ICE, 2.4, { transparent: true, depthWrite: false })));
-  conduit.rotation.x = -Math.PI / 2;
-  conduit.position.y = 0.007;
-  conduit.renderOrder = 3;
-  group.add(conduit);
-
   // ── the ring that closes round the car when the case is done
   const ringMat = keep(new THREE.ShaderMaterial({
     transparent: true,
@@ -289,7 +213,7 @@ export function buildRoom(mobile: boolean): Room {
   group.add(dust);
 
   return {
-    group, gantry, gantryLight, floorLine, conduit, ring, ringMat, tubes, scanStrip: iceStrip, dust, reflector,
+    group, ring, ringMat, tubes, dust, reflector,
     dispose() {
       for (const d of disposables) d.dispose();
       if (reflector) { reflector.dispose(); }

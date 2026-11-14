@@ -1,9 +1,10 @@
 import * as THREE from "three";
+import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { clamp01, lerp, rng, seg, smooth } from "./math";
 import { AMBER, GO, ICE, glow, lightMat } from "./room";
 
 /**
- * The intake console beside the car, and everything that happens at it:
+ * The intake console beside the car (a scanned model), and everything that happens at it:
  *   Upload     the case file (documents and photos) flies in and drops into the slot
  *   Autopilot  a glass claim form rises out of it; one row per damaged part types itself and is ticked
  * No words anywhere: rows are bars, marks and ticks.
@@ -15,12 +16,19 @@ const ROWS = 5;
 const SLAB_W = 1.02;
 const SLAB_H = 1.34;
 const SLAB_Y = 0.78;
+/** where the glass form stands: in front of the car's tail, clear of the panels when they come apart */
+export const FORM_AT = new THREE.Vector3(-1.0, 0, -2.9);
+// where the slot sits on the plinth's sloped top, local to the console
+const SLOT = new THREE.Vector3(-0.01, 0.923, -0.008);
 
 export type Console = {
   group: THREE.Group;
   /** world position of the left end of row r on the glass form (where a leader line lands) */
   rowAnchor(r: number, out: THREE.Vector3): THREE.Vector3;
   set(t: number, time: number): void;
+  float(dy: number): void;
+  /** world position of the slot the case file drops into */
+  slotWorld(out: THREE.Vector3): THREE.Vector3;
   dispose(): void;
 };
 
@@ -35,64 +43,28 @@ function tickGeometry(size: number): THREE.BufferGeometry {
   return g;
 }
 
-export function buildConsole(mobile: boolean): Console {
+export function buildConsole(mobile: boolean, gltf: GLTF | null): Console {
   const group = new THREE.Group();
   group.position.set(-3.25, 0, -2.75);
   group.rotation.y = 0.5;
   const disposables: { dispose(): void }[] = [];
   const keep = <T extends { dispose(): void }>(x: T) => { disposables.push(x); return x; };
 
-  // ── body: a wedge-topped plinth
+  // ── body: the scanned plinth; its slot and edge lines are in its own light map
   const body = keep(new THREE.MeshStandardMaterial({ color: 0x1a212a, roughness: 0.42, metalness: 0.65 }));
-  const prof = new THREE.Shape();
-  prof.moveTo(-0.27, 0); prof.lineTo(0.27, 0); prof.lineTo(0.27, 0.9); prof.lineTo(-0.05, 1.04); prof.lineTo(-0.27, 1.04); prof.closePath();
-  const plinthGeo = keep(new THREE.ExtrudeGeometry(prof, { depth: 0.78, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 2 }));
-  plinthGeo.translate(0, 0, -0.39);
-  plinthGeo.rotateY(Math.PI / 2); // profile's x becomes depth (front at -z), extrusion becomes width
-  const plinth = new THREE.Mesh(plinthGeo, body);
-  plinth.castShadow = true;
-  plinth.receiveShadow = true;
-  group.add(plinth);
-  // front face details: a light seam, vents, three status dots
-  const seam = new THREE.Mesh(keep(new THREE.BoxGeometry(0.66, 0.008, 0.004)), keep(lightMat(ICE, 1.6)));
-  seam.position.set(0, 0.74, -0.286);
-  group.add(seam);
-  // edge lights: the two front corners and the foot, so the plinth has an outline in the dark
-  const edgeMat = keep(lightMat(ICE, 0.9));
-  for (const sx of [-1, 1]) {
-    const edge = new THREE.Mesh(keep(new THREE.BoxGeometry(0.006, 0.84, 0.006)), edgeMat);
-    edge.position.set(sx * 0.392, 0.45, -0.283);
-    group.add(edge);
+  let skin: THREE.MeshStandardMaterial | null = null;
+  if (gltf) {
+    gltf.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      m.castShadow = true;
+      m.receiveShadow = true;
+      skin = m.material as THREE.MeshStandardMaterial;
+      skin.envMapIntensity = 0.9;
+      skin.emissive.setScalar(1);
+    });
+    group.add(gltf.scene);
   }
-  const foot = new THREE.Mesh(keep(new THREE.BoxGeometry(0.79, 0.006, 0.006)), edgeMat);
-  foot.position.set(0, 0.012, -0.286);
-  group.add(foot);
-  const ventMat = keep(new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 0.8 }));
-  for (let i = 0; i < 6; i++) {
-    const vent = new THREE.Mesh(keep(new THREE.BoxGeometry(0.4, 0.012, 0.004)), ventMat);
-    vent.position.set(0.1, 0.2 + i * 0.045, -0.284);
-    group.add(vent);
-  }
-  const dots: THREE.Mesh[] = [];
-  const dotMats = [0, 1, 2].map(() => keep(lightMat(ICE, 0.5)));
-  for (let i = 0; i < 3; i++) {
-    const d = new THREE.Mesh(keep(new THREE.CircleGeometry(0.012, 16)), dotMats[i]);
-    d.position.set(-0.27 + i * 0.045, 0.82, -0.288);
-    d.rotation.y = Math.PI;
-    group.add(d);
-    dots.push(d);
-  }
-  // the slot on the slanted top
-  const slope = Math.atan2(0.14, 0.32);
-  const slotMat = keep(lightMat(ICE, 2.2));
-  const slot = new THREE.Mesh(keep(new THREE.BoxGeometry(0.46, 0.006, 0.03)), slotMat);
-  slot.position.set(0, 0.975, -0.1);
-  slot.rotation.x = -slope;
-  group.add(slot);
-  const lip = new THREE.Mesh(keep(new THREE.BoxGeometry(0.52, 0.012, 0.075)), keep(new THREE.MeshStandardMaterial({ color: 0x06080a, roughness: 0.5, metalness: 0.7 })));
-  lip.position.set(0, 0.971, -0.1);
-  lip.rotation.x = -slope;
-  group.add(lip);
   const slotLight = new THREE.PointLight(ICE, 0.5, 2.2, 1.8);
   slotLight.position.set(0, 1.15, -0.2);
   group.add(slotLight);
@@ -173,8 +145,8 @@ export function buildConsole(mobile: boolean): Console {
   // ── the glass claim form
   // it stands on its own floor emitter beside the damaged corner
   const form = new THREE.Group();
-  form.position.set(0.7, 0, -2.0);
-  form.rotation.y = -0.92;
+  form.position.set(FORM_AT.x, 0, FORM_AT.z);
+  form.rotation.y = -1.0;
   // flush in the floor and dark until the form rises
   const emitter = new THREE.Mesh(keep(new THREE.BoxGeometry(SLAB_W + 0.08, 0.01, 0.07)), body);
   emitter.position.y = 0.005;
@@ -185,7 +157,7 @@ export function buildConsole(mobile: boolean): Console {
   slab.position.set(0, SLAB_Y, 0);
   form.add(slab);
   // two faint beams from the floor to the form's lower corners: it is projected, not hung
-  const beamMat = keep(new THREE.LineBasicMaterial({ color: glow(ICE, 0.9), transparent: true, opacity: 0 }));
+  const beamMat = keep(new THREE.LineBasicMaterial({ color: glow(ICE, 0.9), transparent: true, opacity: 0, depthWrite: false }));
   const beams = new THREE.LineSegments(keep(new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(-SLAB_W / 2, 0.014, 0), new THREE.Vector3(-SLAB_W / 2, SLAB_Y, 0),
     new THREE.Vector3(SLAB_W / 2, 0.014, 0), new THREE.Vector3(SLAB_W / 2, SLAB_Y, 0),
@@ -196,7 +168,7 @@ export function buildConsole(mobile: boolean): Console {
   glass.position.y = SLAB_H / 2;
   glass.renderOrder = 7;
   slab.add(glass);
-  const frameMat = keep(new THREE.LineBasicMaterial({ color: glow(ICE, 1.4), transparent: true }));
+  const frameMat = keep(new THREE.LineBasicMaterial({ color: glow(ICE, 1.4), transparent: true, depthWrite: false }));
   const fw = SLAB_W / 2, fh = SLAB_H;
   const frame = new THREE.LineLoop(keep(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-fw, 0, 0), new THREE.Vector3(fw, 0, 0), new THREE.Vector3(fw, fh, 0), new THREE.Vector3(-fw, fh, 0)])), frameMat);
   frame.renderOrder = 8;
@@ -275,13 +247,13 @@ export function buildConsole(mobile: boolean): Console {
   function set(t: number, time: number) {
     group.updateMatrixWorld(true);
     // ── cards: along a curve from behind the camera's shoulder down into the slot
-    P3.set(0, 0.99, -0.1).applyMatrix4(group.matrixWorld);
+    P3.set(SLOT.x, SLOT.y + 0.03, SLOT.z).applyMatrix4(group.matrixWorld);
     P2.set(0, 2.25, -0.55).applyMatrix4(group.matrixWorld);
     P1.set(P3.x - 0.6, 3.3, P3.z - 2.6);
     P0.set(P3.x - 1.6, 4.4, P3.z - 5.6);
     group.getWorldQuaternion(endQ);
     // stand the card upright in the slot, tilted back with the slope
-    endQ.multiply(tmpQ.setFromEuler(new THREE.Euler(-0.35, Math.PI, 0)));
+    endQ.multiply(tmpQ.setFromEuler(new THREE.Euler(-0.3, Math.PI, 0)));
     const tau = clamp01((t - 0.075) / (0.305 - 0.075));
     for (let i = 0; i < N_CARDS; i++) {
       const phi = i / (N_CARDS - 1);
@@ -296,7 +268,7 @@ export function buildConsole(mobile: boolean): Console {
         .addScaledVector(P3, u * u * u);
       const loose = (1 - smooth(u * 1.25)) * 0.9;
       p.addScaledVector(jitter[i], loose);
-      const drift = time * 0.0004 + seed[i];
+      const drift = time * 0.0015 + seed[i]; // the same slow breath as everything else in the air
       p.y += Math.sin(drift) * 0.03 * loose;
       quat.copy(spin[i]).slerp(endQ, smooth(u * 1.35));
       const isDoc = kind[i] < 0.5;
@@ -310,19 +282,18 @@ export function buildConsole(mobile: boolean): Console {
     fadeAttr.needsUpdate = true;
     cards.visible = tau > 0 && tau < 1;
 
-    // slot and status dots: awake while the file is going in, steady afterwards
+    // the slot: awake while the file is going in, steady afterwards
     const feeding = seg(t, 0.08, 0.14) * (1 - seg(t, 0.29, 0.33));
     const shimmer = 0.85 + 0.15 * Math.sin(time * 0.006);
-    slotMat.color.copy(ICE).multiplyScalar(1.4 + feeding * 3.2 * shimmer);
+    if (skin) (skin as THREE.MeshStandardMaterial).emissiveIntensity = 1.3 + feeding * 3.4 * shimmer;
     slotLight.intensity = 0.4 + feeding * 2.6;
-    const stage = t < 0.3 ? 0 : t < 0.6 ? 1 : t < 0.9 ? 2 : 3;
-    for (let i = 0; i < 3; i++) dotMats[i].color.copy(stage === 3 ? GO : ICE).multiplyScalar(i < stage || stage === 3 ? 2.2 : 0.4);
 
     // ── glass form
-    const up = seg(t, 0.555, 0.625);
-    slab.visible = up > 0.001;
+    // up for the keying; signed off, it sinks back into the floor so the ending is clear
+    const up = seg(t, 0.555, 0.625) * (1 - seg(t, 0.925, 0.972));
+    slab.visible = emitter.visible = emitterGlow.visible = up > 0.001;
     slab.scale.set(1, Math.max(0.001, up), 1);
-    const closing = seg(t, 0.9, 0.97); // signed off
+    const closing = seg(t, 0.875, 0.925); // signed off
     (emitterGlow.material as THREE.MeshBasicMaterial).color.copy(ICE).lerp(GO, closing).multiplyScalar(0.02 + up * 2.6);
     glassMat.opacity = 0.07 * up + 0.03 * closing;
     glassMat.color.copy(ICE).lerp(GO, closing).multiplyScalar(0.35);
@@ -361,6 +332,9 @@ export function buildConsole(mobile: boolean): Console {
 
   void mobile;
 
+  /** how far the glass form floats off its rest height (the breathing of things in the air) */
+  function float(dy: number) { slab.position.y = SLAB_Y + dy; }
+
   const root = new THREE.Group();
   root.add(group, world, form);
 
@@ -368,6 +342,8 @@ export function buildConsole(mobile: boolean): Console {
     group: root,
     rowAnchor,
     set,
+    float,
+    slotWorld(out) { group.updateMatrixWorld(true); return out.copy(SLOT).applyMatrix4(group.matrixWorld); },
     dispose() { for (const d of disposables) d.dispose(); },
   };
 }

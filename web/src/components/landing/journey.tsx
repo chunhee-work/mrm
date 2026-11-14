@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { JourneyCopy } from "@/lib/landing-copy";
+import { Wordmark } from "@/components/brand-mark";
 
 /**
  * The landing page's scroll journey: one pinned 3D stage, five stops.
- *   0 hero · 1 Upload · 2 Scan · 3 Autopilot · 4 Done
+ *   0 hero · 1 Upload · 2 Scan · 3 Autopilot · 4 Done (the ending: logo and sign-up, the car behind them)
  * The whole picture is a pure function of one number `t` in [0, 1]; scrolling only moves `t`.
  * Each stretch between two stops takes the same scroll distance and eases in and out, so the
  * camera arrives, rests and leaves: point to point.
@@ -48,6 +49,8 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
   const segRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const railRef = useRef<HTMLDivElement>(null);
   const hintRef = useRef<HTMLDivElement>(null);
+  const sideRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<Mode>("boot");
 
   useEffect(() => {
@@ -84,8 +87,12 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         const before = tt < WINDOWS[i][1];
         el.style.transform = `translate3d(0, ${((1 - a) * (before ? 28 : -28)).toFixed(1)}px, 0)`;
       }
+      // the ending stands in the middle of the frame: the side shadow gives way to one behind the centre
+      const end = alphaAt(tt, WINDOWS[4]);
+      if (sideRef.current) sideRef.current.style.opacity = (1 - end).toFixed(3);
+      if (endRef.current) endRef.current.style.opacity = end.toFixed(3);
       const rail = railRef.current;
-      if (rail) rail.style.opacity = (1 - alphaAt(tt, WINDOWS[0])).toFixed(3);
+      if (rail) rail.style.opacity = ((1 - alphaAt(tt, WINDOWS[0])) * (1 - end)).toFixed(3);
       for (let k = 0; k < 4; k++) {
         const seg = segRefs.current[k];
         if (seg) seg.style.transform = `scaleX(${clamp01((tt - STOPS[k]) / (STOPS[k + 1] - STOPS[k])).toFixed(3)})`;
@@ -124,7 +131,9 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
       try {
         const { createBay } = await import("./bay");
         if (!alive) return;
-        bay = createBay(canvas, { mobile: window.matchMedia("(max-width: 767px)").matches });
+        const made = await createBay(canvas, { mobile: window.matchMedia("(max-width: 767px)").matches });
+        if (!alive) { made.dispose(); return; }
+        bay = made;
         measure();
         t = target;
         bay.setProgress(t);
@@ -132,8 +141,9 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         paint(t);
         setMode("live");
         if (capture) {
-          const w = window as unknown as { __setT?: (v: number) => void; __bayReady?: boolean };
-          w.__setT = (v: number) => { t = target = v; paint(v); bay!.setProgress(v); bay!.render(0); };
+          // `time` (ms) is for filming: it runs the idle motion on a clock of the script's own
+          const w = window as unknown as { __setT?: (v: number, time?: number) => void; __bayReady?: boolean };
+          w.__setT = (v: number, time = 0) => { t = target = v; paint(v); bay!.setProgress(v); bay!.render(time); };
           w.__bayReady = true;
           return;
         }
@@ -164,13 +174,13 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
     return (
       <section aria-label={c.h1.join(" ")}>
         {words.map((s, i) => (
-          <div key={i} className="relative flex min-h-[100svh] flex-col justify-start overflow-hidden pt-[112px] md:justify-center md:pt-0">
+          <div key={i} className={`relative flex min-h-[100svh] flex-col overflow-hidden ${i === 4 ? "justify-center" : "justify-start pt-[112px] md:justify-center md:pt-0"}`}>
             <picture>
               <source media="(max-width: 767px)" srcSet={poster.mobile[i]} />
               <img src={poster.desktop[i]} alt="" className="absolute inset-0 h-full w-full object-cover" loading={i ? "lazy" : "eager"} />
             </picture>
             <div className="wrap relative">
-              {s ? <StepText word={s.word} line={s.line} last={i === 4} cta={cta} href={href} /> : <HeroText c={c} cta={cta} href={href} />}
+              {!s ? <HeroText c={c} cta={cta} href={href} /> : i === 4 ? <EndText word={s.word} line={s.line} cta={cta} href={href} /> : <StepText word={s.word} line={s.line} />}
             </div>
           </div>
         ))}
@@ -192,18 +202,19 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         <canvas ref={canvasRef} aria-hidden="true" className={`absolute inset-0 h-full w-full transition-opacity duration-700 ${mode === "live" ? "opacity-100" : "opacity-0"}`} />
 
         {/* a shadow the words stand in: left on wide screens, top on phones */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(7,9,12,0.92)_0%,rgba(7,9,12,0.6)_30%,rgba(7,9,12,0)_52%)] md:bg-[linear-gradient(90deg,rgba(7,9,12,0.9)_0%,rgba(7,9,12,0.62)_30%,rgba(7,9,12,0)_58%)]" />
+        <div ref={sideRef} aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(7,9,12,0.92)_0%,rgba(7,9,12,0.6)_30%,rgba(7,9,12,0)_52%)] md:bg-[linear-gradient(90deg,rgba(7,9,12,0.9)_0%,rgba(7,9,12,0.62)_30%,rgba(7,9,12,0)_58%)]" />
+        <div ref={endRef} aria-hidden="true" className={END_SHADE} style={{ opacity: 0 }} />
         {/* the words */}
         <div className="wrap pointer-events-none relative h-full">
           {words.map((s, i) => (
             <div
               key={i}
               ref={(el) => { blockRefs.current[i] = el; }}
-              className="absolute inset-x-4 top-[104px] will-change-[opacity,transform] sm:inset-x-8 md:top-1/2 lg:inset-x-10"
+              className={`absolute inset-x-4 will-change-[opacity,transform] sm:inset-x-8 lg:inset-x-10 ${i === 4 ? "top-1/2" : "top-[104px] md:top-1/2"}`}
               style={i === 0 ? undefined : { opacity: 0, visibility: "hidden" }}
             >
-              <div className="md:-translate-y-[56%]">
-                {s ? <StepText word={s.word} line={s.line} last={i === 4} cta={cta} href={href} /> : <HeroText c={c} cta={cta} href={href} />}
+              <div className={i === 4 ? "-translate-y-[54%]" : "md:-translate-y-[56%]"}>
+                {!s ? <HeroText c={c} cta={cta} href={href} /> : i === 4 ? <EndText word={s.word} line={s.line} cta={cta} href={href} /> : <StepText word={s.word} line={s.line} />}
               </div>
             </div>
           ))}
@@ -243,20 +254,31 @@ function HeroText({ c, cta, href }: { c: JourneyCopy; cta: string; href: string 
   );
 }
 
-function StepText({ word, line, last, cta, href }: { word: string; line: string; last: boolean; cta: string; href: string }) {
+// one sentence per line where it fits: a line never breaks in the middle of a sentence it could hold
+const sentences = (line: string) => line.split(/(?<=[.。])\s*(?=\S)/).flatMap((x, i) => [i ? " " : "", <span key={i} className="inline-block">{x}</span>]);
+// the shadow the ending stands in: darkest behind the words, the car still showing round them
+const END_SHADE = "pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_46%,rgba(7,9,12,0.74)_0%,rgba(7,9,12,0.55)_45%,rgba(7,9,12,0.2)_100%)]";
+
+function StepText({ word, line }: { word: string; line: string }) {
   return (
     <div className="max-w-[640px]">
-      <h2 className={`display text-[clamp(3.2rem,15vw,5rem)] md:text-[clamp(4.4rem,8vw,9rem)] ${last ? "text-go" : "text-fg"}`}>{word}</h2>
-      <p className="mt-4 max-w-[24ch] text-balance text-[18px] leading-snug text-fg/85 md:mt-6 md:text-[22px]">
-        {/* one sentence per line where it fits: a line never breaks in the middle of a sentence it could hold */}
-        {line.split(/(?<=[.。])\s*(?=\S)/).flatMap((s, i) => [i ? " " : "", <span key={i} className="inline-block">{s}</span>])}
-      </p>
-      {last && (
-        <Link href={href} className="btn-primary pointer-events-auto mt-7 !h-14 !px-8 !text-[16px] md:mt-9">
-          {cta}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" /></svg>
-        </Link>
-      )}
+      <h2 className="display text-[clamp(3.2rem,15vw,5rem)] text-fg md:text-[clamp(4.4rem,8vw,9rem)]">{word}</h2>
+      <p className="mt-4 max-w-[24ch] text-balance text-[18px] leading-snug text-fg/85 md:mt-6 md:text-[22px]">{sentences(line)}</p>
+    </div>
+  );
+}
+
+/** The ending: the logo, the last word, and the way in. Centred, with the finished car behind it. */
+function EndText({ word, line, cta, href }: { word: string; line: string; cta: string; href: string }) {
+  return (
+    <div className="mx-auto flex max-w-[720px] flex-col items-center text-center">
+      <Wordmark className="h-[34px] w-auto text-fg md:h-[46px]" />
+      <h2 className="display mt-7 text-[clamp(3.6rem,17vw,5.6rem)] text-go md:mt-9 md:text-[clamp(5rem,9vw,10rem)]">{word}</h2>
+      <p className="mt-4 text-balance text-[18px] leading-snug text-fg/90 md:mt-5 md:text-[22px]">{sentences(line)}</p>
+      <Link href={href} className="btn-primary pointer-events-auto mt-8 !h-14 !px-9 !text-[16px] md:mt-10">
+        {cta}
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" /></svg>
+      </Link>
     </div>
   );
 }
