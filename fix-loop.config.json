@@ -1,0 +1,67 @@
+{
+  "owner": "chunhee00",
+  "base": "main",
+  "branchPrefix": "fix-loop/",
+  "trusted": [],
+  "issueLabels": [
+    "fix-loop"
+  ],
+  "allowedPaths": [
+    "web/**"
+  ],
+  "protectedPaths": [
+    ".github/**",
+    "scripts/fix-loop.mjs",
+    "scripts/plan-review.mjs",
+    "fix-loop.config.json",
+    "web/**/migrations/**",
+    "web/**/*.sql",
+    ".env*",
+    "**/.env*",
+    "web/vercel.json",
+    "vercel.json"
+  ],
+  "requireOkPaths": [],
+  "requireOkForIssueFixes": false,
+  "onlyOwnerCiFailures": true,
+  "maxRounds": 5,
+  "codexTimeoutMin": 120,
+  "debounceMin": 0,
+  "maxClaudeRunsPerDay": 20,
+  "runawayIssuesPerDay": 3,
+  "checkCommands": [],
+  "requiredChecks": [
+    "check"
+  ],
+  "extraPrBodyLines": [],
+  "promptRules": [
+    "Only the Autopilotclaim website in web/ is in scope. Never touch the Merimen automation (playbook/, tools/, typesafe/, memory/) or any file outside web/.",
+    "Run npm ci, lint, typecheck, test and build inside web/ (those that exist) and make them pass before pushing.",
+    "UI changes: keep desktop and phone layouts both working; panels use fixed-height boxes that scroll inside, nothing cut off."
+  ],
+  "timezoneOffsetHours": 8,
+  "planReview": {
+    "enabled": true,
+    "planLabel": "plan",
+    "maxRounds": 5,
+    "reviewers": [
+      "grok",
+      "dots"
+    ],
+    "grok": {
+      "mode": "webhook"
+    },
+    "dots": {
+      "model": "gpt-5.4",
+      "inputUsdPer1M": 2.5,
+      "outputUsdPer1M": 15,
+      "monthlyCeilingUsd": 20
+    },
+    "gate": true,
+    "fixLabels": [
+      "fix",
+      "hotfix",
+      "copy"
+    ]
+  }
+}

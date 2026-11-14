@@ -1,0 +1,106 @@
+# loop:ui — Autopilotclaim website only (web/). Put the label `loop:ui` on a PR: the site is built, desktop and phone
+# screenshots of the public pages are taken and kept as the artifact `ui-shots`, a PR comment links them, and Grok
+# (webhook, same GROK_WEBHOOK_URL / GROK_WEBHOOK_SECRET as plan-review) is asked to review the UI.
+# It never merges anything and does not depend on the codex loop. Same-repo PRs only (secrets are not given to forks).
+name: loop-ui
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+    paths: ['web/**']
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to review again
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: loop-ui-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  ui:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (contains(github.event.pull_request.labels.*.name, 'loop:ui') &&
+        github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', inputs.pr) || '' }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: is there a web app yet?
+        id: web
+        run: |
+          if [ -f web/package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "No web/package.json; nothing to screenshot."; fi
+      - name: install and build
+        if: steps.web.outputs.present == 'true'
+        working-directory: web
+        env:
+          SKIP_ENV_VALIDATION: '1'
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run build
+      - name: screenshots (desktop 1440x900, phone 390x844)
+        if: steps.web.outputs.present == 'true'
+        working-directory: web
+        env:
+          SKIP_ENV_VALIDATION: '1'
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+          (npm start -- -p 3100 > ../server.log 2>&1 &)
+          for i in $(seq 1 60); do curl -fs http://localhost:3100/ > /dev/null && break; sleep 2; done
+          curl -fs http://localhost:3100/ > /dev/null || { tail -50 ../server.log; exit 1; }
+          mkdir -p ../ui-shots
+          node -e "
+          const { chromium } = require('playwright');
+          (async () => {
+            const b = await chromium.launch();
+            for (const [name, w, h] of [['desktop', 1440, 900], ['mobile', 390, 844]]) {
+              const p = await b.newPage({ viewport: { width: w, height: h } });
+              for (const u of ['/', '/login', '/signup']) {
+                await p.goto('http://localhost:3100' + u, { waitUntil: 'networkidle' });
+                await p.waitForTimeout(1000);
+                await p.screenshot({ path: '../ui-shots/' + name + (u === '/' ? '_home' : u.replace(/\//g, '_')) + '.png', fullPage: false });
+              }
+            }
+            await b.close();
+          })().catch((e) => { console.error(e); process.exit(1); });
+          "
+      - uses: actions/upload-artifact@v4
+        if: steps.web.outputs.present == 'true'
+        id: shots
+        with:
+          name: ui-shots
+          path: ui-shots/*.png
+          retention-days: 14
+      - name: comment on the PR and ask Grok
+        if: steps.web.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GROK_WEBHOOK_URL: ${{ secrets.GROK_WEBHOOK_URL }}
+          GROK_WEBHOOK_SECRET: ${{ secrets.GROK_WEBHOOK_SECRET }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_URL: ${{ steps.shots.outputs.artifact-url }}
+        run: |
+          PR_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
+          gh pr comment "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --body "loop:ui: desktop and phone screenshots of /, /login and /signup are ready: ${ARTIFACT_URL:-$RUN_URL}"
+          if [ -z "$GROK_WEBHOOK_URL" ]; then echo "GROK_WEBHOOK_URL not set; skipping Grok."; exit 0; fi
+          auth="$GROK_WEBHOOK_SECRET"
+          case "$auth" in [Aa]uthorization:*) auth="${auth#*:}"; auth="$(echo "$auth" | sed 's/^ *//')";; esac
+          case "$auth" in [Bb]earer\ *|[Bb]asic\ *) ;; *) auth="Bearer $auth";; esac
+          body=$(jq -n --arg repo "$GITHUB_REPOSITORY" --argjson pr "$PR_NUMBER" --arg url "$PR_URL" --arg shots "${ARTIFACT_URL:-$RUN_URL}" \
+            '{task:"loop-ui", repo:$repo, pr:$pr, url:$url, screenshots:$shots, heading:"Grok UI review", instructions:"Review the desktop and phone screenshots of the Autopilotclaim website for this PR. Post one comment on the PR: what looks wrong (cut-off content, overflow, unreadable text, broken mobile layout) and one visible fix for each. Do not approve or merge."}')
+          curl -sS -o /dev/null -w "Grok webhook: HTTP %{http_code}\n" -X POST "$GROK_WEBHOOK_URL" -H "content-type: application/json" -H "Authorization: $auth" -d "$body"
