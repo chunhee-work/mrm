@@ -1,0 +1,30 @@
+# CI: the check the fix loop watches (fix-loop-ci-failure.yml listens for this exact name, "CI").
+# Autopilotclaim website only: checks run inside web/. Passes while web/package.json does not exist yet.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: install and check
+        run: |
+          if [ ! -f web/package.json ]; then echo "No web/package.json yet; nothing to check."; exit 0; fi
+          cd web
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run lint --if-present
+          npm run typecheck --if-present
+          npm test --if-present
+          SKIP_ENV_VALIDATION=1 npm run build --if-present
