@@ -17,7 +17,9 @@
     "web/**/migrations/**",
     "web/**/*.sql",
     "web/.env*",
-    "web/vercel.json"
+    "web/vercel.json",
+    "**/.env*",
+    "vercel.json"
   ],
   "requireOkPaths": [],
   "requireOkForIssueFixes": false,
@@ -34,7 +36,8 @@
   "extraPrBodyLines": [],
   "promptRules": [
     "Scope: ONLY the Autopilotclaim website in web/. Never touch the Merimen automation (playbook/, tools/, typesafe/, memory/) or anything outside web/.",
-    "Run install, lint, typecheck and test inside web/ and make them pass before pushing."
+    "Run install, lint, typecheck and test inside web/ and make them pass before pushing.",
+    "Keep desktop and phone layouts both working; long lists, chats and cards go in fixed-height boxes that scroll inside, never cut off the page."
   ],
   "timezoneOffsetHours": 8,
   "planReview": {
