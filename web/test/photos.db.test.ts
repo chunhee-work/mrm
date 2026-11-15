@@ -326,3 +326,19 @@ test("done then new photos: the tick goes away; two registrations at the same mo
   assert.equal(after.photosDoneAt, null);
   assert.equal(after.status, "waiting_user");
 });
+
+test("done and new photos at the same moment: the tick never sits on a case that has photos still to name", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  for (let round = 0; round < 6; round++) {
+    const { orgId, id, c } = await newCase("naming", 2);
+    for (const cl of await s.claimSlice(id)) await s.writeName(cl, named);
+    const blobPath = `${orgId}/${id}/photos/abc${round}-f-NEW.jpg`, thumbPath = `${orgId}/${id}/photos/abc${round}-s-NEW.jpg`;
+    for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, null); writeFileSync(fileOf(p), "jpeg"); }
+    const now = await caseNow(orgId, id);
+    await Promise.all([s.setDone(now, true), s.registerPhotos(now, orgId, [{ blobPath, thumbPath, name: "NEW.jpg", size: 4, hash: null }])]);
+    const [after] = await db.select().from(schema.cases).where(eq(schema.cases.id, id));
+    const waiting = (await rows(id)).filter((r) => r.nameState === "pending").length;
+    assert.equal(waiting, 1);
+    assert.equal(after.photosDoneAt, null, "a case with a photo still to name is not done");
+  }
+});

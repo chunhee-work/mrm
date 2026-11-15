@@ -117,9 +117,19 @@ export async function setDone(c: CaseRow, done: unknown): Promise<Result> {
   const r = await db.execute(sql`
     UPDATE cases SET photos_done_at = COALESCE(photos_done_at, now()),
       status = CASE WHEN status IN ('waiting_user', 'naming') THEN 'phase_b' ELSE status END
-    WHERE id = ${c.id} RETURNING status`);
+    WHERE id = ${c.id}
+      AND EXISTS (SELECT 1 FROM case_photos WHERE case_id = ${c.id})
+      AND NOT EXISTS (SELECT 1 FROM case_photos WHERE case_id = ${c.id}
+        AND final_name IS NULL AND (name_state IN ('pending', 'running') OR model_name IS NULL))
+    RETURNING status`);
+  // the check above and the write are one statement: photos added at the same moment cannot slip under the tick
+  const after = rowsOf<{ status: string }>(r)[0];
+  if (!after) {
+    const now = await db.select({ nameState: P.nameState, modelName: P.modelName, finalName: P.finalName }).from(P).where(eq(P.caseId, c.id));
+    return fail(409, "blocked", doneBlock(now) ?? { reason: "naming", count: 0 });
+  }
   await db.update(P).set({ confirmed: true }).where(eq(P.caseId, c.id));
-  return ok({ done: true, status: rowsOf<{ status: string }>(r)[0]?.status ?? c.status });
+  return ok({ done: true, status: after.status });
 }
 
 // ---- extras (parts with no photo) ----
