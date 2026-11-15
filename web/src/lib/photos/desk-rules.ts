@@ -93,12 +93,15 @@ export class UndoStack {
     }
   }
   dropPhoto(caseId: string, photoId: number) { this.list = this.list.filter((x) => !(x.caseId === caseId && x.photoId === photoId)); }
-  /** After a refresh: a photo someone else changed (its version moved on) loses its undo steps. */
-  sync(caseId: string, photos: { id: number; version: number }[]) {
+  /**
+   * After a refresh: a photo someone else changed (its version moved on) or that is gone loses its undo steps.
+   * A photo with a save of our own on its way (saving) is left alone: its version is about to move because of us.
+   */
+  sync(caseId: string, photos: { id: number; version: number }[], saving?: (photoId: number) => boolean) {
     const ver = new Map(photos.map((p) => [p.id, p.version]));
     const newest = new Map<number, UndoEntry>();
     for (const x of this.list) if (x.caseId === caseId) newest.set(x.photoId, x);
-    for (const [id, x] of newest) if (ver.get(id) !== x.after) this.dropPhoto(caseId, id);
+    for (const [id, x] of newest) if (!saving?.(id) && ver.get(id) !== x.after) this.dropPhoto(caseId, id);
   }
 }
 

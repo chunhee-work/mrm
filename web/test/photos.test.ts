@@ -201,6 +201,10 @@ test("desk: undo is newest first, one step per typing session, and steps of a ph
   assert.equal(u.peek()!.after, 3); // the older step now follows the new version
   u.sync("c", [{ id: 1, version: 3 }]);
   assert.equal(u.size, 1);
+  u.sync("c", [{ id: 1, version: 9 }], (id) => id === 1); // a refresh while our own save of photo 1 is on its way
+  assert.equal(u.size, 1, "a photo that is mid-save keeps its undo steps");
+  u.sync("c", [], (id) => id === 1);
+  assert.equal(u.size, 1);
   u.dropPhoto("c", 1); // a 409 on undo
   assert.equal(u.size, 0);
 });

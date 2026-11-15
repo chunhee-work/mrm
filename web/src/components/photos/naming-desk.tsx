@@ -121,7 +121,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       photos = [...photos].sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
       rev = old.rev;
     }
-    undo.current.sync(cid, fresh.photos.filter((p) => !writes.current.get(p.id)?.busy));
+    undo.current.sync(cid, fresh.photos, (id) => !!writes.current.get(id)?.busy);
     mutate((s) => ({ ...s, [cid]: { ...fresh, rev, photos } }));
     setTabs((ts) => ts.map((x) => (x.id === cid ? { ...x, done: fresh.done, photos: fresh.photos.length } : x)));
     if (caseRef.current === cid) setLoadFailed(false);
