@@ -16,3 +16,15 @@
 - Account: `smoke-tester@autoclaim.invalid`, email pre-verified (no mail needed), own empty org. Created with `scripts/seed-smoke-user.ts` (idempotent, touches only that email). Password lives only in the CI/local env `SMOKE_PASSWORD`, never in the repo.
 - Run: `SMOKE_PASSWORD=… node scripts/smoke.mjs https://autoclaim-web.vercel.app` (needs Playwright). It writes nothing, uploads nothing.
 - Not done yet: a GitHub Actions workflow (needs `SMOKE_PASSWORD` as a repo secret, and a workflow file the owner approves).
+
+## Photo naming desk (plan #9, 2026-11-15)
+- Page `/cases/<id>/photos`. Everything the old shared naming page did (names, copy/paste, order, extra parts, undo, shortcuts, done) now lives in the app, in the Night Bay style.
+- Names come from Claude (`claude-sonnet-5-5`; another model only through env `CLAUDE_MODEL_PHOTOS`). Photos go to Anthropic only. **TypeSafe ("jev") never receives a photo**: `src/lib/typesafe.ts` refuses any request that carries an image, and nothing calls it yet. Its key is env `TYPESAFE_API_KEY`.
+- Only the 900 px copy of a photo is sent for naming, 8 photos per call plus neighbours for sequence context. The rules block is cached (measured: ~17.5k tokens, cache read works).
+- Claim query: one `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED) RETURNING` so two tabs never name the same photo; a claim older than 6 minutes can be taken again; an answer is written only if the claim time still matches. Checked on a Neon dev branch `dev-photo-naming` (Postgres 18): 10 photos → 8, then 2, then 0; stale answer rejected. Production was not touched.
+- Migration `0002_nappy_the_executioner.sql` is additive only (2 new tables, new columns, indexes). Production has 0 cases and 0 photos, so the new unique index cannot fail. **Not applied to production yet: waits for the owner's approval.** PR #8 also adds a `0002` file; whichever merges second must regenerate its journal entry.
+- Uploads that were sent to storage but never registered are noted in `photo_uploads` and swept after 24 h on the next page load.
+- Cost cap per case: env `PHOTO_COST_CAP_USD` (default 3). Measured on two real cases with 640 px photos: 42 photos ≈ 20 s and USD 0.09–0.13, 49 photos ≈ 22 s and USD 0.10–0.14. Real 900 px copies cost about twice that.
+- Accuracy against the names the owner accepted on the old page (two cases, 91 photos): same name 67 %, right name among the 3 shown 82 %, 7 wrong names not flagged. This is weaker than the old trained model (the owner changed 1–3 names per case). Prompt tuning was stopped after three rounds to avoid fitting to two cases; the next step is a bigger set of accepted names or bringing the trained model in as a second opinion.
+- The case page does not link to this page yet (that page belongs to PR #7).
+- Local runs without Blob: `PHOTO_STORE_DIR` (never in production).

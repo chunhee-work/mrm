@@ -153,3 +153,7 @@
   background-repeat: no-repeat;
 }
 .app-dash[data-over="true"] { background-image: none; box-shadow: inset 0 0 0 2px theme(colors.ice); }
+
+/* ───────────────────────── photo naming desk ───────────────────────── */
+@keyframes deskflash { 0% { box-shadow: 0 0 0 2px theme(colors.ice); } 100% { box-shadow: 0 0 0 2px transparent; } }
+@keyframes deskrise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
