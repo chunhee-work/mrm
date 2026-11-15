@@ -87,7 +87,7 @@ export async function Shell({ current, scope, title, back, children }: { current
   const brand = (
     <Link href={href("")} className="flex items-center gap-2.5 lg:flex-col lg:items-start lg:gap-2">
       <Brand />
-      <span className="note rounded-[3px] bg-ice px-1.5 py-0.5 font-medium uppercase text-bay">Admin</span>
+      <span className="note rounded-[3px] border border-hair bg-transparent px-1.5 py-0.5 font-medium uppercase text-mute">Admin</span>
     </Link>
   );
   const exit = (
