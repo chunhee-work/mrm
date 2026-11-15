@@ -1,9 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import { get } from "@vercel/blob";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type Anthropic from "@anthropic-ai/sdk";
-import { claude, MODEL, costUsd } from "./claude";
+import { trackedParse, zodOutputFormat, MODEL, type CallCtx } from "./claude";
+import { costOf, tokensOf } from "./pricing";
 
 // Step 1 of the workflow (playbook 01): read the case bundle and return the case data.
 const Person = z.object({
@@ -61,7 +61,7 @@ async function blobBase64(url: string): Promise<string> {
   return buf.toString("base64");
 }
 
-export async function readCaseDocs(files: { kind: string; blobUrl: string; originalName: string }[]) {
+export async function readCaseDocs(files: { kind: string; blobUrl: string; originalName: string }[], ctx: Omit<CallCtx, "purpose">) {
   const pdfs = files.filter((f) => f.kind === "pdf");
   if (!pdfs.length) throw new Error("no PDF in this case");
   const content: Block[] = [];
@@ -71,7 +71,7 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
   }
   content.push({ type: "text", text: "Extract the case data from the files above." });
 
-  const res = await claude().messages.parse({
+  const res = await trackedParse({ ...ctx, purpose: "read_docs" }, {
     model: MODEL,
     max_tokens: 16000,
     thinking: { type: "adaptive" },
@@ -81,5 +81,5 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
   });
   if (res.stop_reason === "refusal") throw new Error("Claude declined this request");
   if (!res.parsed_output) throw new Error("no structured output (stop_reason: " + res.stop_reason + ")");
-  return { data: res.parsed_output, usage: res.usage, costUsd: costUsd(res.usage) };
+  return { data: res.parsed_output, usage: res.usage, costUsd: costOf(String(res.model || MODEL), tokensOf(res.usage as never)) ?? 0 };
 }

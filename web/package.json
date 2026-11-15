@@ -9,7 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx scripts/test-scan-case.ts"
+    "test": "tsx --conditions=react-server --test \"src/**/*.test.ts\" && node --import tsx --test tests/*.test.ts && node --conditions=react-server --import tsx --test \"test/*.test.ts\" && tsx scripts/test-scan-case.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
@@ -22,6 +22,7 @@
     "react-dom": "^19.3.1",
     "resend": "^6.38.1",
     "server-only": "^0.0.1",
+    "three": "0.170.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -30,6 +31,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "0.170.0",
     "autoprefixer": "^10.6.2",
     "drizzle-kit": "^0.31.11",
     "pg": "^8.23.1",

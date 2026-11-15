@@ -62,6 +62,13 @@ async function main() {
       assert.equal(await usageRows(id), 1);
       assert.deepEqual(await events(id), ["Reading documents", "Documents read"]);
     }],
+    ["case uploaded without a plate gets the one read from the documents; a typed plate is kept", async () => {
+      claude = async () => ({ ...(await ok()()), data: { ...(await ok()()).data, plate: "wxy 1234 a" } });
+      const id = await newCase("uploaded", null, { plate: "" }); await scanCase(id, "auto");
+      assert.equal((await get(id)).plate, "WXY1234A");
+      const id2 = await newCase("uploaded"); await scanCase(id2, "auto");
+      assert.equal((await get(id2)).plate, "ABC123");
+    }],
     ["missing documents -> pending_doc with the list", async () => {
       claude = ok(["Police report"]); const id = await newCase("uploaded");
       await scanCase(id, "auto"); const c = await get(id);

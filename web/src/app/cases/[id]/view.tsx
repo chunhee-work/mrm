@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
-import { Crop } from "@/components/app/marks";
-import { StatusMark } from "@/components/app/status";
+import ScanEdge from "@/components/scan-edge";
+import { StateMark } from "@/components/app/status";
 
 export type CaseDetail = {
   id: string;
@@ -51,7 +51,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   }
 
   const rows: [string, string | null][] = [
-    [t("case.plate"), c.plate],
+    [t("case.plate"), c.plate || null],
     [t("case.insurer"), c.insurer],
     [t("case.model"), c.carModel],
     ...(c.facts ? ([
@@ -67,11 +67,11 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     <div className="wrap flex flex-1 flex-col pb-10 pt-6 lg:pb-14 lg:pt-9">
       <Link href="/dashboard" className="btn-quiet mb-4 self-start">{t("case.back")}</Link>
       <div className="relative mx-auto w-full max-w-[860px]">
-        <Crop />
-        <div className="rounded-[4px] border border-hair bg-white">
+        <ScanEdge />
+        <div className="sheet rounded-[3px] border border-hair bg-panel">
           <div className="flex min-h-[60px] flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-hair px-5 py-3 sm:min-h-[68px] sm:px-8">
-            <h1 className="display-2 num font-mono text-[24px] text-ink sm:text-[28px]">{c.plate}</h1>
-            <div aria-live="polite"><StatusMark status={c.status} label={t(`status.${c.status}`)} /></div>
+            <h1 className="display-2 num font-mono text-[24px] text-fg sm:text-[28px]">{c.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}</h1>
+            <div aria-live="polite"><StateMark done={c.status === "done"} label={t(`status.${c.status}`)} /></div>
           </div>
 
           <div className="grid gap-6 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-2">
@@ -84,7 +84,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
                   {rows.map(([k, v]) => (
                     <div key={k} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 py-3 last:border-b-0">
                       <dt className="note shrink-0 text-mute">{k}</dt>
-                      <dd className={`min-w-0 text-right text-[15px] [overflow-wrap:anywhere] ${v ? "text-deep" : "text-mute"}`}>{v ?? "—"}</dd>
+                      <dd className={`min-w-0 text-right text-[15px] [overflow-wrap:anywhere] ${v ? "text-fg" : "text-mute"}`}>{v ?? "—"}</dd>
                     </div>
                   ))}
                 </dl>
@@ -99,13 +99,13 @@ export default function CaseView({ c }: { c: CaseDetail }) {
                 ) : working ? null : c.missing.length ? (
                   <ul className="app-scroll max-h-[148px] overflow-y-auto overscroll-contain rounded-[4px] border border-hair bg-signaltint" tabIndex={0}>
                     {c.missing.map((m) => (
-                      <li key={m} className="flex items-start gap-3 border-b border-hair px-4 py-3 text-[15px] text-deep last:border-b-0">
+                      <li key={m} className="flex items-start gap-3 border-b border-hair px-4 py-3 text-[15px] text-fg last:border-b-0">
                         <span className="mt-[7px] h-[9px] w-[9px] shrink-0 rounded-full bg-signal" aria-hidden="true" />{m}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-[15px] text-deep">{t("case.none")}</p>
+                  <p className="text-[15px] text-fg">{t("case.none")}</p>
                 )}
                 {canRetry && (
                   <div className="mt-4">
@@ -119,7 +119,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
                 <h2 id="case-log" className="label mb-3">{t("case.log")}</h2>
                 <ul className="app-scroll max-h-[148px] overflow-y-auto overscroll-contain rounded-[4px] border border-hair" tabIndex={0}>
                   {c.events.map((e, i) => (
-                    <li key={i} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 py-2.5 text-[14px] text-deep last:border-b-0">
+                    <li key={i} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 py-2.5 text-[14px] text-fg last:border-b-0">
                       <span className="min-w-0 [overflow-wrap:anywhere]">{e.message}</span>
                       <time dateTime={e.at} className="num note shrink-0 text-mute" suppressHydrationWarning>
                         {new Date(e.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kuala_Lumpur" })}

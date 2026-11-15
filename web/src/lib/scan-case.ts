@@ -39,7 +39,7 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     mode === "auto" ? and(eq(cid, id), eq(schema.cases.status, "uploaded")) :
     mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["uploaded", "failed", "pending_doc"])) :
     and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, tries);
-  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(where).returning({ id: cid });
+  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(where).returning({ id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate });
   if (!claimed.length) {
     if (mode === "recover") { // out of attempts: stop waiting, show Failed + the retry button
       await db.update(schema.cases).set({ status: "failed", error: "Reading timed out" })
@@ -52,12 +52,14 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Reading documents" });
   try {
     const files = await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
-    const { data, usage, costUsd } = await readCaseDocs(files);
+    const { data, usage, costUsd } = await readCaseDocs(files, { userId: claimed[0].createdBy, orgId: claimed[0].orgId, caseId: id });
     const done = await db.update(schema.cases).set({
       status: data.missing.length ? "pending_doc" : "phase_a",
       error: null,
       pendingDoc: data.missing.join("; ") || null,
       caseData: data,
+      // a case uploaded without a typed plate gets the one read from its documents
+      ...(claimed[0].plate ? {} : { plate: (data.plate ?? "").toUpperCase().replace(/\s+/g, "").slice(0, 20) }),
       insurer: data.client_policy?.insurer ?? null,
       carModel: data.client_vehicle.model ?? null,
     }).where(mine).returning({ id: cid });

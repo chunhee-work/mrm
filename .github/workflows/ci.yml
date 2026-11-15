@@ -14,6 +14,19 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Local Postgres for the payment tests (web/tests). Throwaway, test data only.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pay
+          POSTGRES_PASSWORD: pay
+          POSTGRES_DB: paytest
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pay" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://pay:pay@localhost:5432/paytest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,5 +39,6 @@ jobs:
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
           npm run lint --if-present
           npm run typecheck --if-present
+          if [ -f scripts/migrate.ts ]; then npx tsx scripts/migrate.ts; fi
           npm test --if-present
           SKIP_ENV_VALIDATION=1 npm run build --if-present

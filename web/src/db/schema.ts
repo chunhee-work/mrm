@@ -1,4 +1,5 @@
-import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 
 // ---- Better Auth tables (names/fields required by Better Auth) ----
 export const user = pgTable("user", {
@@ -86,6 +87,8 @@ export const cases = pgTable("cases", {
   error: text("error"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   doneAt: timestamp("done_at"),
+  photosDoneAt: timestamp("photos_done_at", { withTimezone: true }), // photo naming desk: "done" pressed
+  photosRev: integer("photos_rev").notNull().default(0), // bumped on every reorder
 }, (t) => [index("cases_org_idx").on(t.orgId, t.createdAt)]);
 
 export const caseFiles = pgTable("case_files", {
@@ -98,14 +101,47 @@ export const caseFiles = pgTable("case_files", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Photo naming desk (plan #9). Shown name = finalName ?? modelName.
 export const casePhotos = pgTable("case_photos", {
   id: serial("id").primaryKey(),
   caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
-  position: integer("position").notNull(),
-  modelName: text("model_name"),
+  position: integer("position").notNull(), // current display order (0-based)
+  modelName: text("model_name"), // Claude's pick after code normalisation; null = not named / "__none__"
   confidence: numeric("confidence", { precision: 5, scale: 4 }),
-  finalName: text("final_name"),
+  finalName: text("final_name"), // only when the adjuster changed it
   confirmed: boolean("confirmed").notNull().default(false),
+  origN: integer("orig_n").notNull().default(0), // 1-based upload order, never changes
+  srcName: text("src_name").notNull().default(""),
+  blobPath: text("blob_path").notNull().default(""), // private Blob pathnames, never sent to the client
+  thumbPath: text("thumb_path").notNull().default(""),
+  nameState: text("name_state").notNull().default("pending"), // pending | running | named | failed
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  how: text("how"), // rule (fixed opening shot) | model
+  alts: jsonb("alts").$type<string[]>().notNull().default([]),
+  nameError: text("name_error"),
+  namedAt: timestamp("named_at", { withTimezone: true }),
+  version: integer("version").notNull().default(0), // bumped on every user write
+  contentHash: text("content_hash"),
+}, (t) => [
+  uniqueIndex("case_photos_case_orig").on(t.caseId, t.origN),
+  index("case_photos_case_pos").on(t.caseId, t.position),
+  index("case_photos_case_state").on(t.caseId, t.nameState),
+  uniqueIndex("case_photos_case_hash").on(t.caseId, t.contentHash).where(sql`${t.contentHash} IS NOT NULL`),
+]);
+
+// Parts the car needs that have no photo.
+export const caseExtras = pgTable("case_extras", {
+  id: serial("id").primaryKey(),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("case_extras_case_name").on(t.caseId, sql`lower(${t.name})`)]);
+
+// Blob paths handed out for upload but not registered yet; rows older than 24 h are swept with their blobs.
+export const photoUploads = pgTable("photo_uploads", {
+  path: text("path").primaryKey(),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const jobs = pgTable("jobs", {
@@ -144,7 +180,36 @@ export const creditsLedger = pgTable("credits_ledger", {
   reason: text("reason").notNull(),
   caseId: text("case_id"),
   at: timestamp("at").notNull().defaultNow(),
-});
+}, (t) => [
+  // One purchase row and one refund row per order, even from a manual script (plan #12, DPR-12-2 D8).
+  uniqueIndex("credits_ledger_order_reason_uq").on(t.reason).where(sql`${t.reason} LIKE 'purchase:%' OR ${t.reason} LIKE 'refund:%'`),
+]);
+
+// Payments (plan chunhee-work/mrm#12). Money in: one row per checkout attempt.
+// The pack snapshot columns are written once at insert and never updated; only status, paid_at,
+// provider_ref and test_mode change.
+export const paymentOrders = pgTable("payment_orders", {
+  id: text("id").primaryKey(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  provider: text("provider").notNull(), // lemonsqueezy | toyyibpay | mock
+  checkoutRef: text("checkout_ref"), // set at checkout creation: toyyibPay bill code / Lemon Squeezy checkout id
+  providerRef: text("provider_ref"), // set when paid: Lemon Squeezy order id / toyyibPay reference number
+  packId: text("pack_id").notNull(),
+  packTitle: text("pack_title").notNull(),
+  packVersion: integer("pack_version").notNull(),
+  credits: integer("credits").notNull(),
+  amountMinor: bigint("amount_minor", { mode: "number" }).notNull(), // US cents / MYR sen
+  currency: text("currency").notNull(),
+  status: text("status").notNull().default("pending"), // pending | paid | failed | refunded ("expired" is display-only)
+  testMode: boolean("test_mode").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  paidAt: timestamp("paid_at"),
+}, (t) => [
+  index("payment_orders_org_idx").on(t.orgId, t.createdAt),
+  uniqueIndex("payment_orders_provider_ref_uq").on(t.provider, t.providerRef).where(sql`${t.providerRef} IS NOT NULL`),
+  check("payment_orders_status_chk", sql`${t.status} IN ('pending','paid','failed','refunded')`),
+]);
 
 export const auditLog = pgTable("audit_log", {
   id: serial("id").primaryKey(),
@@ -154,3 +219,41 @@ export const auditLog = pgTable("audit_log", {
   detail: text("detail"),
   at: timestamp("at").notNull().defaultNow(),
 });
+
+// ---- Admin backoffice ledgers (additive; plan: chunhee-work/mrm#4) ----
+// One row per billed Claude response, or one row per failed call. No prompts, no document text.
+// user/org/case ids have no foreign keys on purpose: history must survive deletes, and system calls have none.
+export const llmCalls = pgTable("llm_calls", {
+  id: serial("id").primaryKey(),
+  at: timestamp("at").notNull().defaultNow(),
+  requestId: text("request_id").notNull().unique(), // provider request id, or err:<call uuid> when none
+  userId: text("user_id"),
+  orgId: text("org_id"),
+  caseId: text("case_id"),
+  purpose: text("purpose").notNull(), // read_docs | name_photos | system_other
+  model: text("model").notNull(),
+  inputTokens: bigint("input_tokens", { mode: "number" }).notNull().default(0),
+  outputTokens: bigint("output_tokens", { mode: "number" }).notNull().default(0),
+  cacheReadTokens: bigint("cache_read_tokens", { mode: "number" }).notNull().default(0),
+  cacheWrite5mTokens: bigint("cache_write_5m_tokens", { mode: "number" }).notNull().default(0),
+  cacheWrite1hTokens: bigint("cache_write_1h_tokens", { mode: "number" }).notNull().default(0),
+  costUsd: numeric("cost_usd", { precision: 14, scale: 8 }), // null = model has no price entry ("unpriced")
+  latencyMs: integer("latency_ms"),
+  ok: boolean("ok").notNull().default(true),
+  errorClass: text("error_class"),
+}, (t) => [
+  index("llm_calls_at_idx").on(t.at),
+  index("llm_calls_user_at_idx").on(t.userId, t.at),
+  index("llm_calls_case_idx").on(t.caseId),
+  check("llm_calls_request_id_len", sql`char_length(${t.requestId}) <= 80`),
+]);
+
+// Only the kind, the recipient's domain, and the outcome. Never the subject, body or links.
+export const emailLog = pgTable("email_log", {
+  id: serial("id").primaryKey(),
+  at: timestamp("at").notNull().defaultNow(),
+  kind: text("kind").notNull(), // verify | reset | other
+  recipientDomain: text("recipient_domain").notNull(),
+  status: text("status").notNull(), // sent | failed | skipped
+  errorClass: text("error_class"),
+}, (t) => [index("email_log_at_idx").on(t.at)]);

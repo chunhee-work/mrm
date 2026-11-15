@@ -1,24 +1,6 @@
 // Marks and icons of the signed-in app. Same grid as the homepage icons: 24, stroke 1.5, square joins.
 const line = { fill: "none", stroke: "currentColor", strokeWidth: 1.5, "aria-hidden": true } as const;
 
-/** Crop marks just outside each corner of a sheet (the hero sheet's corners). Parent must be `relative`. */
-export function Crop() {
-  const mark = "pointer-events-none absolute h-[11px] w-[11px] text-ink";
-  const svg = (
-    <svg viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1" className="block h-full w-full">
-      <path d="M0 10.5h7M10.5 0v7" />
-    </svg>
-  );
-  return (
-    <span aria-hidden="true">
-      <span className={`${mark} -left-[11px] -top-[11px]`}>{svg}</span>
-      <span className={`${mark} -right-[11px] -top-[11px] -scale-x-100`}>{svg}</span>
-      <span className={`${mark} -bottom-[11px] -left-[11px] -scale-y-100`}>{svg}</span>
-      <span className={`${mark} -bottom-[11px] -right-[11px] -scale-100`}>{svg}</span>
-    </span>
-  );
-}
-
 export function Plus({ className = "" }: { className?: string }) {
   return (
     <svg className={className} width="16" height="16" viewBox="0 0 16 16" {...line} strokeWidth={1.75}>
@@ -40,10 +22,36 @@ export function Chevron({ className = "" }: { className?: string }) {
     </svg>
   );
 }
+/** Send a file up: the mark on an upload button. */
+export function Upload({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 16 16" {...line} strokeWidth={1.75}>
+      <path d="M8 10.5V2.5M4.5 5.75L8 2.25l3.5 3.5M2.5 10.5v3h11v-3" />
+    </svg>
+  );
+}
+/** A photo to look at: the mark on the button that opens the naming desk. */
+export function Photo({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 16 16" {...line} strokeWidth={1.75}>
+      <path d="M2.5 3.5h11v9h-11zM2.5 10.5l3.25-3.25 2.5 2.5 1.75-1.75 3.5 3.5" />
+      <path d="M10.5 6.25h.01" strokeWidth={2.25} strokeLinecap="square" />
+    </svg>
+  );
+}
 export function Tick({ className = "" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 16 16" {...line} strokeWidth={2}>
       <path d="M3 8.6l3.2 3.2L13 4.4" />
+    </svg>
+  );
+}
+/** Being worked on: a faint ring with one arc that goes round it (the turning is `.case-spin` in globals.css). */
+export function Working({ className = "" }: { className?: string }) {
+  return (
+    <svg className={`case-spin ${className}`} width="16" height="16" viewBox="0 0 16 16" {...line} strokeWidth={1.75}>
+      <circle cx="8" cy="8" r="6.25" opacity="0.28" />
+      <path d="M8 1.75A6.25 6.25 0 0 1 14.25 8" />
     </svg>
   );
 }
@@ -75,13 +83,13 @@ export function Burger({ open }: { open: boolean }) {
 export function UploadArt({ size = 64, lift = false }: { size?: number; lift?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.25" aria-hidden="true">
-      <path d="M12.5 4.5h28l11 11v44h-39z" fill="#fff" />
+      <path d="M12.5 4.5h28l11 11v44h-39z" className="fill-panel2" />
       <path d="M40.5 4.5v11h11" />
       <g className="transition-transform duration-200 motion-reduce:transition-none" style={{ transform: lift ? "translateY(-4px)" : undefined }}>
         <path d="M32 49V26.5" strokeWidth="1.5" />
         <path d="M23.5 34.5L32 26l8.5 8.5" strokeWidth="1.5" />
       </g>
-      <path d="M21 53.5h22" stroke="#C9D2E6" />
+      <path d="M21 53.5h22" className="stroke-hair2" />
     </svg>
   );
 }
@@ -89,16 +97,16 @@ export function UploadArt({ size = 64, lift = false }: { size?: number; lift?: b
 /** An empty case ledger: ruled rows with nothing keyed and nothing ticked. */
 export function EmptySheetArt() {
   return (
-    <svg width="168" height="132" viewBox="0 0 168 132" fill="none" stroke="#1838A8" strokeWidth="1.25" aria-hidden="true">
+    <svg width="168" height="132" viewBox="0 0 168 132" fill="none" className="stroke-ice" strokeWidth="1.25" aria-hidden="true">
       {/* crop marks */}
       <path d="M0 13.5h8M13.5 0v8M168 13.5h-8M154.500 0v8M0 118.5h8M13.5 132v-8M168 118.500h-8M154.500 132v-8" strokeWidth="1" />
-      <rect x="20.5" y="20.5" width="127" height="91" rx="2" fill="#fff" />
+      <rect x="20.5" y="20.5" width="127" height="91" rx="2" className="fill-panel2" />
       <path d="M20.5 40.500h127" />
       <path d="M31 30.500h34" strokeWidth="2" />
       {[0, 1, 2].map((i) => (
-        <g key={i} stroke="#C9D2E6">
+        <g key={i} className="stroke-hair2">
           <path d={`M31 ${56.5 + i * 20}h82`} />
-          <rect x="126.500" y={50.5 + i * 20} width="11" height="11" fill="#fff" />
+          <rect x="126.500" y={50.5 + i * 20} width="11" height="11" className="fill-panel2" />
         </g>
       ))}
     </svg>
@@ -108,11 +116,11 @@ export function EmptySheetArt() {
 /** Nothing under the glass. */
 export function NoMatchArt() {
   return (
-    <svg width="72" height="56" viewBox="0 0 72 56" fill="none" stroke="#1838A8" strokeWidth="1.25" aria-hidden="true">
-      <path d="M2 14.500h30M2 28.500h18M2 42.500h24" stroke="#C9D2E6" />
-      <circle cx="42" cy="25" r="14.500" fill="#fff" />
+    <svg width="72" height="56" viewBox="0 0 72 56" fill="none" className="stroke-ice" strokeWidth="1.25" aria-hidden="true">
+      <path d="M2 14.500h30M2 28.500h18M2 42.500h24" className="stroke-hair2" />
+      <circle cx="42" cy="25" r="14.500" className="fill-panel2" />
       <path d="M52.500 35.500L68 51" strokeWidth="1.75" />
-      <path d="M35 25h14" stroke="#C9D2E6" strokeDasharray="3 3" />
+      <path d="M35 25h14" className="stroke-hair2" strokeDasharray="3 3" />
     </svg>
   );
 }

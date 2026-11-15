@@ -42,7 +42,7 @@ const CASES = [
 const en: HomeCopy = {
   hero: {
     line1: "Upload the case file.",
-    line2: "Merimen fills itself.",
+    line2: "The claim keys itself.",
     support: "For Malaysian motor-claim adjusters. Inside your own Merimen account.",
     how: "See how it works",
     replay: "Replay",
@@ -99,6 +99,9 @@ const en: HomeCopy = {
       { q: "What do I upload?", a: "One zip, or the PDFs (registration card, policy, police reports) and the photos." },
       { q: "How long does a case take?", a: "About 5 minutes of machine time and about a minute of yours." },
       { q: "What if a document is missing?", a: "The case waits and names the missing document. Your other cases carry on." },
+      { q: "Do I still check the case?", a: `Yes. ${B} prepares the entries and you stay the adjuster: review the case in Merimen before you submit it.` },
+      { q: "How do I pay?", a: "With credits. Buy a pack on the Billing page after you sign up, and each case uses credits from your balance." },
+      { q: "Who can see my case files?", a: "Only your company. Files are stored privately, company by company, and are never used for marketing." },
       { q: "Which languages?", a: "English, 中文 and Bahasa Melayu." },
     ],
   },
@@ -108,7 +111,7 @@ const en: HomeCopy = {
 const zh: HomeCopy = {
   hero: {
     line1: "上传案件资料。",
-    line2: "Merimen 自动填好。",
+    line2: "案件自动录好。",
     support: "为马来西亚车险理算师而做，就在你自己的 Merimen 账号里。",
     how: "看看怎么用",
     replay: "重播",
@@ -165,6 +168,9 @@ const zh: HomeCopy = {
       { q: "我要上传什么？", a: "一个 zip，或者 PDF（车辆登记卡、保单、警方报告）加照片。" },
       { q: "一个案件要多久？", a: "机器大约 5 分钟，你大约 1 分钟。" },
       { q: "缺文件怎么办？", a: "这个案件会停下来，并写明缺哪一份文件。其他案件照常进行。" },
+      { q: "我还需要检查案件吗？", a: `需要。${B} 负责录入，理算师还是你：提交前请在 Merimen 里检查案件。` },
+      { q: "怎么付款？", a: "用点数。注册后在「账单」页面购买点数包，每个案件从余额里扣点数。" },
+      { q: "谁能看到我的案件资料？", a: "只有你的公司。资料按公司分开、私密保存，绝不用于营销。" },
       { q: "支持哪些语言？", a: "English、中文和 Bahasa Melayu。" },
     ],
   },
@@ -174,7 +180,7 @@ const zh: HomeCopy = {
 const ms: HomeCopy = {
   hero: {
     line1: "Muat naik fail kes.",
-    line2: "Merimen terisi sendiri.",
+    line2: "Tuntutan terisi sendiri.",
     support: "Untuk penyelaras tuntutan motor di Malaysia. Dalam akaun Merimen anda sendiri.",
     how: "Lihat cara ia berfungsi",
     replay: "Main semula",
@@ -231,6 +237,9 @@ const ms: HomeCopy = {
       { q: "Apa yang perlu saya muat naik?", a: "Satu zip, atau PDF (kad pendaftaran, polisi, laporan polis) dan gambar." },
       { q: "Berapa lama satu kes?", a: "Kira-kira 5 minit masa mesin dan kira-kira seminit masa anda." },
       { q: "Bagaimana jika ada dokumen yang tiada?", a: "Kes itu menunggu dan menyatakan dokumen yang tiada. Kes anda yang lain diteruskan." },
+      { q: "Adakah saya masih perlu menyemak kes?", a: `Ya. ${B} menyediakan entri dan anda kekal sebagai adjuster: semak kes di Merimen sebelum anda menghantarnya.` },
+      { q: "Bagaimana cara membayar?", a: "Dengan kredit. Beli pakej di halaman Bil selepas mendaftar, dan setiap kes menggunakan kredit daripada baki anda." },
+      { q: "Siapa yang boleh melihat fail kes saya?", a: "Hanya syarikat anda. Fail disimpan secara peribadi, berasingan mengikut syarikat, dan tidak pernah digunakan untuk pemasaran." },
       { q: "Bahasa apa yang disokong?", a: "English, 中文 dan Bahasa Melayu." },
     ],
   },

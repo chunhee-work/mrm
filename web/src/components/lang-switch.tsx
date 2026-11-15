@@ -15,7 +15,7 @@ export default function LangSwitch() {
   }
   return (
     <div role="group" aria-label={t("lang.label")} className="inline-flex h-11 items-center lg:h-9">
-      <div className="inline-flex h-8 items-stretch rounded-[4px] border border-hair bg-white p-[2px]">
+      <div className="inline-flex h-8 items-stretch rounded-[3px] border border-hair bg-panel p-[2px]">
         {LANGS.map((l) => (
           <button
             key={l}
@@ -23,8 +23,8 @@ export default function LangSwitch() {
             lang={l === "zh" ? "zh-CN" : l}
             aria-pressed={l === lang}
             onClick={() => pick(l)}
-            className={`relative min-w-[44px] rounded-[2px] px-2 lg:min-w-[34px] text-[12px] font-semibold leading-none transition-colors before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] ${
-              l === lang ? "bg-ink text-white" : "text-mute hover:text-ink"
+            className={`relative min-w-[36px] rounded-[2px] px-2 min-[400px]:min-w-[42px] lg:min-w-[34px] text-[12px] font-semibold leading-none transition-colors before:absolute before:-inset-y-2 before:inset-x-0 before:content-[''] ${
+              l === lang ? "bg-ice text-bay" : "text-mute hover:text-ice"
             }`}
           >
             {SHORT[l]}

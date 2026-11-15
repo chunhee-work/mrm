@@ -32,7 +32,7 @@ export default function Forgot() {
         <div className="mt-5">
           <Title ref={sentTitle} tabIndex={-1}>{t("forgot.sentTitle")}</Title>
         </div>
-        <p className="mt-5 text-[16px] leading-relaxed text-deep">{t("forgot.sent")}</p>
+        <p className="mt-5 text-[16px] leading-relaxed text-fg">{t("forgot.sent")}</p>
         <Link href="/login" className="btn-line mt-7 w-full">{t("forgot.back")}</Link>
       </SheetBody>
     );

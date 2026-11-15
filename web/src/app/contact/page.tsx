@@ -1,9 +1,10 @@
 import { getT } from "@/lib/i18n-server";
 import { pageMeta } from "@/lib/meta";
 import { SITE, showCompany, whatsappHref } from "@/lib/site";
-import { Arrow } from "@/components/home/icons";
+import { Arrow } from "@/components/icons";
+import ScanEdge from "@/components/scan-edge";
 
-export const generateMetadata = () => pageMeta("contact.title");
+export const generateMetadata = () => pageMeta("contact.title", { desc: "meta.d.contact" });
 
 function IconChat() {
   return (
@@ -25,47 +26,56 @@ function IconMail() {
 export default async function Contact() {
   const { t } = await getT();
   const company = showCompany();
-  const cell = "group flex min-h-[220px] flex-col justify-between bg-white p-6 transition-colors hover:bg-inktint lg:min-h-[280px] lg:p-9";
+  const mailCell = "group flex min-h-[150px] flex-col justify-between gap-6 bg-panel p-6 transition-colors hover:bg-panel2 lg:p-9";
   return (
     <div className="wrap pb-20 pt-12 lg:pb-28 lg:pt-20">
-      <h1 className="display text-[clamp(2.6rem,7.4vw,5.5rem)] text-deep">{t("contact.title")}</h1>
+      <h1 className="display text-[clamp(2.6rem,7.4vw,5.5rem)] text-fg">{t("contact.title")}</h1>
+      <p className="mt-5 max-w-[52ch] text-[17px] leading-relaxed text-mute lg:mt-7 lg:text-[19px]">{t("contact.sub")}</p>
 
-      {company ? (
-        <>
-          {/* two ways in */}
-          <div className="mt-10 grid gap-px border-[1.5px] border-ink bg-hair sm:grid-cols-2 lg:mt-14">
-            <a href={whatsappHref()} target="_blank" rel="noopener noreferrer" className={cell}>
-              <span className="flex items-start justify-between text-ink">
-                <IconChat />
-                <Arrow className="mt-1 transition-transform duration-200 group-hover:translate-x-1" />
-              </span>
-              <span>
-                <span className="block text-[15px] font-medium text-mute">{t("contact.chat")}</span>
-                <span className="display-2 num mt-2 block text-[clamp(1.5rem,3vw,2.4rem)] text-deep">{SITE.whatsapp}</span>
-              </span>
-            </a>
-            <a href={`mailto:${SITE.email}`} className={cell}>
-              <span className="flex items-start justify-between text-ink">
-                <IconMail />
-                <Arrow className="mt-1 transition-transform duration-200 group-hover:translate-x-1" />
-              </span>
-              <span>
-                <span className="block text-[15px] font-medium text-mute">{t("contact.write")}</span>
-                <span className="display-2 mt-2 block break-all text-[clamp(1.5rem,3vw,2.4rem)] text-deep">{SITE.email}</span>
-              </span>
-            </a>
-          </div>
+      {/* ways in: WhatsApp always; email once the company details are real */}
+      <div className={`relative mt-9 grid gap-px overflow-hidden rounded-[3px] border border-hair bg-hair lg:mt-12 ${company ? "lg:grid-cols-[1.6fr_1fr]" : ""}`}>
+        <ScanEdge />
+        {/* the whole block is the link; the button inside it is what says "press here" */}
+        <a href={whatsappHref(t("wa.msg"))} target="_blank" rel="noopener noreferrer" className="group flex flex-col gap-7 bg-panel p-6 transition-colors hover:bg-panel2 sm:flex-row sm:items-center sm:justify-between lg:p-9">
+          <span className="flex items-center gap-5">
+            <span className="shrink-0 text-ice"><IconChat /></span>
+            <span>
+              <span className="block text-[15px] font-medium text-mute">{t("contact.chat")}</span>
+              <span className="display-2 num mt-1.5 block whitespace-nowrap text-[clamp(1.7rem,3.4vw,2.8rem)] text-fg">{SITE.whatsapp}</span>
+            </span>
+          </span>
+          <span className="btn-primary w-full shrink-0 sm:w-auto">
+            {t("contact.open")}
+            <Arrow className="transition-transform duration-200 group-hover:translate-x-1" />
+          </span>
+        </a>
+        {company && (
+          <a href={`mailto:${SITE.email}`} className={mailCell}>
+            <span className="flex items-start justify-between text-ice">
+              <IconMail />
+              <Arrow className="mt-1 transition-transform duration-200 group-hover:translate-x-1" />
+            </span>
+            <span>
+              <span className="block text-[15px] font-medium text-mute">{t("contact.write")}</span>
+              <span className="mt-1.5 block break-all text-[19px] font-medium text-fg">{SITE.email}</span>
+            </span>
+          </a>
+        )}
+      </div>
 
-          {/* who you are talking to */}
-          <address className="mt-8 grid gap-px border border-hair bg-hair text-[15px] not-italic leading-snug text-deep sm:grid-cols-2 lg:mt-10 lg:grid-cols-[1fr_1.5fr_0.9fr_1.2fr]">
-            <div className="bg-white px-5 py-4 font-semibold">{SITE.legalName}</div>
-            <div className="num bg-white px-5 py-4">{t("footer.reg")} {SITE.regNo}</div>
-            <div className="bg-white px-5 py-4">{SITE.address}</div>
-            <div className="bg-white px-5 py-4">{t("contact.hours")}</div>
-          </address>
-        </>
-      ) : (
-        <p className="mt-8 max-w-[40ch] text-[18px] leading-relaxed text-mute">{t("contact.soon")}</p>
+      {/* when someone answers */}
+      <dl className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[15px] leading-snug">
+        <dt className="note text-mute">{t("contact.hoursLabel")}</dt>
+        <dd className="text-fg">{t("contact.hours")}</dd>
+      </dl>
+
+      {/* who you are talking to */}
+      {company && (
+        <address className="mt-8 grid gap-px overflow-hidden rounded-[3px] border border-hair bg-hair text-[15px] not-italic leading-snug text-fg sm:grid-cols-3 lg:mt-10 lg:grid-cols-[1fr_1.5fr_0.9fr]">
+          <div className="bg-panel px-5 py-4 font-semibold">{SITE.legalName}</div>
+          <div className="num bg-panel px-5 py-4">{t("footer.reg")} {SITE.regNo}</div>
+          <div className="bg-panel px-5 py-4">{SITE.address}</div>
+        </address>
       )}
     </div>
   );
