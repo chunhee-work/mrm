@@ -28,7 +28,7 @@ export type BayOptions = { mobile: boolean };
 /** where the logo's "o" is on the page, in CSS pixels from the canvas's top left corner */
 /** Where the page keeps the logo's place at the ending, in canvas pixels: the middle and width of the wordmark, and the middle and height of the whole block of words under it. */
 export type Dock = { cx: number; cy: number; w: number; by: number; bh: number };
-export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
+export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; /** where the viewer's mouse is in the frame, -1..1 each way (right and up are positive); the head lamps lean after it at the ending */ setPointer(x: number, y: number): void; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
 
 type V3 = [number, number, number];
 type Key = { pos: V3; look: V3; fov: number; shift: [number, number] };
@@ -480,6 +480,8 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   const rayTex = starburst(mobile ? 256 : 512);
   const beamTex = beamOnFloor(256, 128);
   const LAMP_WHITE = new THREE.Color(0xeaf6ff);
+  /** how far the beams on the floor swing after the mouse, each way */
+  const LAMP_SWING = 9 * RAD;
   const lampSprite = (map: THREE.Texture, color: THREE.Color, order: number) => {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map, color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
     sp.renderOrder = order;
@@ -496,11 +498,15 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const BEAM = 11;
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(BEAM, 5), new THREE.MeshBasicMaterial({ map: beamTex, color: glow(LAMP_WHITE, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
     pool.rotation.x = -Math.PI / 2;
-    pool.position.set(lamp.home.x + BEAM / 2 - 0.1, 0.007, lamp.home.z);
+    pool.position.set(BEAM / 2, 0, 0);
     pool.renderOrder = 2;
     pool.visible = false;
-    car.group.add(pool);
-    return { lamp, core, halo, rays, flare, pool };
+    // the beam on the floor hangs from the lamp, so it can swing a little to one side
+    const swing = new THREE.Group();
+    swing.position.set(lamp.home.x - 0.1, 0.007, lamp.home.z);
+    swing.add(pool);
+    car.group.add(swing);
+    return { lamp, core, halo, rays, flare, pool, swing, turn: li * 1.9 + 0.3 };
   });
   // under the dark that hangs behind the words (9), so the light fills the frame and the words still read
   const veil = lampSprite(haloTex, glow(LAMP_WHITE, 1), 8);
@@ -551,6 +557,10 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   let W = 1;
   let H = 1;
   let t = 0;
+  // the viewer's mouse in the frame, and the same thing eased: the lamps lean after it, they do not jump
+  const aimTo = new THREE.Vector2();
+  const aim = new THREE.Vector2();
+  const lean = new THREE.Vector3();
   let moved = true;
   let lastMove = 0;
   let lastTime = 0;
@@ -798,17 +808,28 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     vb.subVectors(camera.position, car.group.position).normalize();
     const facing = Math.pow(clamp01(va.dot(vb)), 3);
     const flick = time ? 1 + Math.sin(time * 0.004) * 0.03 : 1;
+    // the lamps lean after the mouse, a little: the glow round each lamp drifts that way, the beams on the floor swing
+    // a few degrees, and the lamp on the mouse's side burns a touch brighter. The lamp itself stays where it is.
+    const ax = aim.x * lit;
+    const ay = aim.y * lit;
+    // which way is "to the viewer's right" for the car: its own side axis, seen from the camera
+    const side = ve.set(0, 0, 1).transformDirection(car.group.matrixWorld).dot(right);
+    lean.copy(right).multiplyScalar(ax).addScaledVector(up, ay * 0.6);
     vd.set(0, 0, 0);
     for (const fx of lampFx) {
-      const k = lit * facing * flick;
+      vc.copy(fx.lamp.home).add(ve.set(0.06, 0, 0)).applyMatrix4(car.group.matrixWorld);
+      const near = THREE.MathUtils.clamp(vb.subVectors(vc, car.group.position).dot(right) * 1.4, -1, 1) * ax;
+      const k = lit * facing * flick * (1 + near * 0.22);
       fx.core.visible = fx.halo.visible = fx.rays.visible = fx.flare.visible = fx.pool.visible = k > 0.003;
       if (k <= 0.003) continue;
-      vc.copy(fx.lamp.home).add(ve.set(0.06, 0, 0)).applyMatrix4(car.group.matrixWorld);
       vd.addScaledVector(vc, 1 / lampFx.length);
+      fx.swing.rotation.y = -ax * side * LAMP_SWING;
       fx.core.position.copy(vc);
-      fx.halo.position.copy(vc);
-      fx.rays.position.copy(vc);
-      fx.flare.position.copy(vc);
+      fx.halo.position.copy(vc).addScaledVector(lean, 0.3);
+      fx.rays.position.copy(vc).addScaledVector(lean, 0.12);
+      fx.rays.material.rotation = fx.turn - ax * 0.16;
+      // the long streak stays on the lamp's own height: it only slides sideways
+      fx.flare.position.copy(vc).addScaledVector(right, ax * 0.5);
       fx.core.scale.setScalar(0.3 + 0.1 * k);
       fx.halo.scale.setScalar((mobile ? 4.4 : 6.4) * (0.7 + 0.3 * k));
       // the spikes open as the lamp comes up
@@ -824,7 +845,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const veilK = lit * facing;
     veil.visible = veilK > 0.003;
     if (veil.visible) {
-      veil.position.copy(vd);
+      veil.position.copy(vd).addScaledVector(lean, mobile ? 0 : 2.2);
       veil.scale.set(mobile ? 13 : 30, mobile ? 15 : 15, 1);
       veil.material.opacity = veilK * (mobile ? 0.14 : 0.16);
     }
@@ -854,10 +875,11 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     if (time) {
       const dt = lastTime ? Math.min(100, time - lastTime) : 16;
       lastTime = time;
+      aim.lerp(aimTo, 1 - Math.exp(-dt / 260));
       if (moved) { lastMove = time; moved = false; }
       const want = smooth((time - lastMove - 140) / 650);
       breath += (want - breath) * (1 - Math.exp(-dt / 240));
-    } else { breath = 0; moved = false; }
+    } else { breath = 0; moved = false; aim.copy(aimTo); }
     // idle: a breath of drift, never enough to change what the frame says
     const dx = time ? Math.sin(time * 0.00021) * 0.07 : 0;
     const dy = time ? Math.sin(time * 0.00017 + 1.3) * 0.035 : 0;
@@ -898,6 +920,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   return {
     setProgress,
     setDock(d) { dock = d; },
+    setPointer(x, y) { aimTo.set(THREE.MathUtils.clamp(x, -1, 1), THREE.MathUtils.clamp(y, -1, 1)); },
     render,
     resize,
     degrade,
