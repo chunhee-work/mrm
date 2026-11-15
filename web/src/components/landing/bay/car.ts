@@ -163,6 +163,40 @@ function fairNormals(mesh: THREE.Mesh, amount = 1) {
 }
 
 /**
+ * Every point of a mesh must face somewhere. A scan leaves a few that do not (a sliver of a face, two sheets back to
+ * back whose directions cancel), and on a graphics card "no direction" becomes "not a number" over every face that
+ * touches the point. Such a point takes the direction of a face it belongs to. Returns how many were mended.
+ */
+export function soundNormals(geometry: THREE.BufferGeometry): number {
+  const pos = geometry.getAttribute("position"), nor = geometry.getAttribute("normal");
+  if (!pos || !nor) return 0;
+  const lost: number[] = [];
+  for (let i = 0; i < nor.count; i++) {
+    const l = Math.hypot(nor.getX(i), nor.getY(i), nor.getZ(i));
+    if (!(l > 0.5 && l < 2)) lost.push(i); // also catches NaN
+  }
+  if (!lost.length) return 0;
+  const want = new Set(lost), found = new Map<number, THREE.Vector3>();
+  const index = geometry.getIndex();
+  const count = index ? index.count : pos.count;
+  const at = (t: number) => (index ? index.getX(t) : t);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let t = 0; t + 2 < count && found.size < want.size; t += 3) {
+    const i = at(t), j = at(t + 1), q = at(t + 2);
+    if (!want.has(i) && !want.has(j) && !want.has(q)) continue;
+    a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, j).sub(a); c.fromBufferAttribute(pos, q).sub(a);
+    b.cross(c);
+    const l = b.length();
+    if (!(l > 1e-12)) continue;
+    b.divideScalar(l);
+    for (const w of [i, j, q]) if (want.has(w) && !found.has(w)) found.set(w, b.clone());
+  }
+  for (const i of lost) { const n = found.get(i); if (n) nor.setXYZ(i, n.x, n.y, n.z); else nor.setXYZ(i, 0, 1, 0); }
+  nor.needsUpdate = true;
+  return lost.length;
+}
+
+/**
  * The scan's surface is slightly lumpy, which a matt finish hides and a clear coat shows as dents. This recomputes the
  * normals of a set of panels as one skin (so a reflection crosses a panel gap without a step) and relaxes them over their
  * neighbours, so reflections flow over the body as over pressed steel. The shape itself is not touched.
