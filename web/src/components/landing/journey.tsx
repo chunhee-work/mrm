@@ -4,6 +4,7 @@ import type React from "react";
 import Link from "next/link";
 import type { JourneyCopy } from "@/lib/landing-copy";
 import { Wordmark } from "@/components/brand-mark";
+import { canDrawLive3D } from "@/lib/gpu";
 
 /**
  * The landing page's scroll journey: one pinned 3D stage, five stops.
@@ -12,8 +13,10 @@ import { Wordmark } from "@/components/brand-mark";
  * Each stretch between two stops takes the same scroll distance and eases in and out, so the
  * camera arrives, rests and leaves: point to point.
  *
- * With reduced motion, or when WebGL is not available, the same five frames are shown as still
- * pictures in an ordinary page (mode "still").
+ * With reduced motion, or when there is no graphics card to draw on (no WebGL, or WebGL drawn on the
+ * processor), the same five frames are shown as still pictures in an ordinary page (mode "still").
+ * The live scene draws only while someone is there to see it: not off screen, not in a hidden tab,
+ * and not after a minute without a scroll, a pointer or a key.
  */
 
 const STOPS = [0, 0.2, 0.45, 0.7, 1] as const;
@@ -25,6 +28,9 @@ const WINDOWS: [number, number, number, number][] = [
   [0.62, 0.68, 0.775, 0.83],
   [0.9, 0.96, 2, 2],
 ];
+
+// how long the scene keeps breathing with nobody touching the page
+const IDLE_MS = 60_000;
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (x: number) => x * x * (3 - 2 * x);
@@ -62,16 +68,13 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
     // ?still=1: no loop and no idle motion; a script sets t and reads the frame (used to render the posters)
     const capture = new URLSearchParams(window.location.search).has("still");
     // No WebGL 2, or only a software renderer: show the stills. Asked here, quietly, so the 3D library is never loaded for nothing.
-    try {
-      const gl = document.createElement("canvas").getContext("webgl2", { failIfMajorPerformanceCaveat: !capture });
-      if (!gl) { setMode("still"); return; }
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
-    } catch { setMode("still"); return; }
+    if (!canDrawLive3D(capture)) { setMode("still"); return; }
 
     let bay: Bay | null = null;
     let raf = 0;
     let alive = true;
     let visible = true;
+    let awakeUntil = 0;
     let t = 0;
     let target = 0;
     let last = 0;
@@ -153,10 +156,14 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
       target = tOfScroll(travel > 0 ? -r.top / travel : 0);
     };
 
+    // the loop runs only while the stage is on screen, the tab is showing and someone has touched the page lately
+    const watched = () => alive && !!bay && visible && !document.hidden && performance.now() < awakeUntil;
+    const run = () => { if (!raf && watched()) { last = 0; raf = requestAnimationFrame(frame); } };
+    const wake = () => { awakeUntil = performance.now() + IDLE_MS; run(); };
     const frame = (now: number) => {
-      if (!alive) return;
+      raf = 0;
+      if (!watched() || !bay) return;
       raf = requestAnimationFrame(frame);
-      if (!visible || !bay) return;
       const raw = now - (last || now);
       const dt = Math.min(64, raw);
       last = now;
@@ -172,13 +179,15 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
 
     // the head lamps at the ending lean after the mouse; a finger on a touch screen is scrolling, not pointing
     const onPointer = (e: PointerEvent) => {
+      wake();
       if (e.pointerType === "touch" || !bay) return;
       bay.setPointer((e.clientX / window.innerWidth) * 2 - 1, 1 - (e.clientY / window.innerHeight) * 2);
     };
     const onPointerGone = () => bay?.setPointer(0, 0);
-    const onScroll = () => measure();
-    const onResize = () => { bay?.resize(); measure(); };
-    const io = new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); if (visible) last = 0; }, { rootMargin: "120px" });
+    const onScroll = () => { measure(); wake(); };
+    const onResize = () => { bay?.resize(); measure(); wake(); };
+    const onShown = () => { if (!document.hidden) wake(); };
+    const io = new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); run(); }, { rootMargin: "120px" });
 
     (async () => {
       try {
@@ -206,9 +215,12 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         window.addEventListener("scroll", onScroll, { passive: true });
         window.addEventListener("resize", onResize);
         window.addEventListener("pointermove", onPointer, { passive: true });
+        window.addEventListener("pointerdown", wake, { passive: true });
+        window.addEventListener("keydown", wake);
+        document.addEventListener("visibilitychange", onShown);
         document.documentElement.addEventListener("pointerleave", onPointerGone);
         io.observe(section);
-        raf = requestAnimationFrame(frame);
+        wake();
       } catch {
         if (alive) setMode("still");
       }
@@ -221,6 +233,9 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("pointermove", onPointer);
+      window.removeEventListener("pointerdown", wake);
+      window.removeEventListener("keydown", wake);
+      document.removeEventListener("visibilitychange", onShown);
       document.documentElement.removeEventListener("pointerleave", onPointerGone);
       bay?.dispose();
     };

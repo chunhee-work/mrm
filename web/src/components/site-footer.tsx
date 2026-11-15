@@ -18,7 +18,9 @@ export default async function SiteFooter() {
   const cell = "bg-panel px-4 py-3.5";
   return (
     <footer className="bg-bay">
-      <div className="wrap pb-10 pt-14 lg:pt-20">
+      {/* every page with this footer also has the floating WhatsApp button (72px tall with its margin):
+          the bottom 88px stays empty, so at the end of the page the button lies on nothing */}
+      <div className="wrap pb-[calc(88px+env(safe-area-inset-bottom,0px))] pt-14 lg:pt-20">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <Link href="/" aria-label={t("nav.home")} className="self-start"><Brand /></Link>
           <nav aria-label="Footer" className="flex flex-wrap gap-x-8">
