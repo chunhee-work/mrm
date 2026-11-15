@@ -44,6 +44,26 @@ export const CaseData = z.object({
 });
 export type CaseDataT = z.infer<typeof CaseData>;
 
+// Fields that may stay null; every other leaf is text. "" means "not in the bundle".
+const NULLABLE = new Set(["client_policy", "client_driver", "policy", "owner", "driver", "assembly_type"]);
+const PLACEHOLDER = /^(?:-+|n\/?a|null|none|nil|unknown|not stated|tiada|tidak ada|undefined)$/i;
+
+/**
+ * One way to read stored case data: old rows hold null where new rows hold "". Text leaves become trimmed strings (null or a
+ * placeholder like "N/A" or "-" becomes ""), the nullable objects stay as they are. policy_no is kept as written (an Allianz
+ * "N/A" has a meaning in the prompt rules). Returns null when the value is not an object.
+ */
+export function normalizeCaseData(raw: unknown): CaseDataT | null {
+  const walk = (v: unknown, key: string): unknown => {
+    if (v === null || v === undefined) return NULLABLE.has(key) ? null : key === "missing" ? [] : "";
+    if (Array.isArray(v)) return v.map((x) => walk(x, key));
+    if (typeof v === "object") return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, walk(x, k)]));
+    if (typeof v === "string") { const t = v.trim(); return key !== "policy_no" && PLACEHOLDER.test(t) ? "" : t; }
+    return v;
+  };
+  return raw && typeof raw === "object" ? (walk(raw, "") as CaseDataT) : null;
+}
+
 const SYSTEM = `You read a Malaysian motor-claim bundle for an adjuster (third-party property damage, TPPD).
 Claimant = OUR client = the not-at-fault party. The claim is against the at-fault party's insurer.
 Rules:
@@ -51,8 +71,8 @@ Rules:
 - The bundle usually holds: our client's JPJ RC (Sijil Pemilikan Kenderaan), our client's insurance schedule, the police investigation result (Keputusan Penyiasatan Kes), both police reports, and a JPJ/I-SEARCH page for the at-fault vehicle. Ignore the sketch (Rajah Kasar).
 - Lock the at-fault party: the police result names the "disalahkan" plate; the at-fault insurer is the I-SEARCH page for that exact plate. An insurance page naming a different plate is misfiled: ignore it. In a chain collision, claim against the vehicle that directly hit our client, whose insurance is in the bundle.
 - Several policies on the I-SEARCH: pick the one whose period covers the accident date.
-- Unclear digit or word: zoom mentally and give your best reading; do not leave it blank.
-- Use "" (empty text) when a text field is not in the bundle; null only where the field allows it. Dates as YYYY-MM-DD.`;
+- Unclear digit or word that IS in the bundle: zoom mentally and give your best reading.
+- When a text field is not in the bundle, return exactly "" (empty text). Never write N/A, -, none, unknown or similar; null only where the field allows it. Dates as YYYY-MM-DD.`;
 
 type Block = Anthropic.Messages.ContentBlockParam;
 
@@ -83,5 +103,5 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
   });
   if (res.stop_reason === "refusal") throw new Error("Claude declined this request");
   if (!res.parsed_output) throw new Error("no structured output (stop_reason: " + res.stop_reason + ")");
-  return { data: res.parsed_output, usage: res.usage, costUsd: costOf(String(res.model || MODEL), tokensOf(res.usage as never)) ?? 0 };
+  return { data: normalizeCaseData(res.parsed_output) as CaseDataT, usage: res.usage, costUsd: costOf(String(res.model || MODEL), tokensOf(res.usage as never)) ?? 0 };
 }
