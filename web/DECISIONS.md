@@ -55,3 +55,9 @@
 - So `src/middleware.ts` sends log in, sign up, password reset, the case pages, billing and admin asked for on the bare domain to the same path on the app host (`lib/hosts.ts`, tested), and the public top bar and the landing's Sign up button link straight to the app host there. Previews (`*.vercel.app`) and localhost are left alone. No new env variable.
 - Case list (owner, 2026-11-15): one line per case. A case that stopped reads "On hold" and has no button (the team picks it up); the words "Try again" and "rejected" are not shown to users.
 - Dates a signed-in page prints are formatted in `Asia/Kuala_Lumpur`, so the server and the browser write the same day.
+
+## Merimen connection by browser extension, P1 (plan #38)
+- App side only, off by default at three levels: env `EXT_CONNECT=on`, a per-org row in `ext_org_settings` with `enabled`, and a stored consent reference. With the env switch unset nothing touches the database, so production works before migration 0005 is applied.
+- Deviation from the plan text: the per-org switch lives in its own table `ext_org_settings` instead of a column on `organizations`, so an unapplied migration can never break existing org queries.
+- Not in P1: pairing-code exchange, install tokens, jobs, the extension, any Merimen action. Tables for them exist in migration 0005 so the owner approves one migration.
+- Migration 0005 is additive and safe to run again. It is NOT applied in production; the owner approves it first.
