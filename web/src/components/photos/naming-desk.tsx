@@ -576,100 +576,114 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const movePhoto = moveId != null ? st?.photos.find((p) => p.id === moveId) : null;
   const img = (id: number) => `/api/cases/${caseId}/photos/${id}/img?size=s`;
 
-  const arrow = "flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-hair text-ice transition-colors duration-150 hover:border-ice disabled:cursor-not-allowed disabled:text-mute disabled:opacity-40";
-  const seg = (f: Filter, label: string, count: number | null, hot: boolean) => (
+  // ───────────── the head of the desk ─────────────
+  const noBar = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  const tabMark = (x: DeskTab) => x.done
+    ? <Tick className="h-3.5 w-3.5 text-go" />
+    : <span className="text-[12px] font-normal text-mute">{x.photos}</span>;
+  const stepBtn = "flex h-9 w-8 shrink-0 items-center justify-center rounded-[3px] text-mute transition-colors duration-150 hover:bg-panel2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent";
+  const prev = <button type="button" className={stepBtn} aria-label={t("prevCase")} disabled={tabIndex <= 0} onClick={() => goCase(-1)}><Chevron className="rotate-90" /></button>;
+  const next = <button type="button" className={stepBtn} aria-label={t("nextCase")} disabled={tabIndex < 0 || tabIndex >= tabs.length - 1} onClick={() => goCase(1)}><Chevron className="-rotate-90" /></button>;
+  const doneBtn = (
+    <button
+      type="button" onClick={() => void pressDone()} aria-pressed={!!st?.done}
+      aria-disabled={!st?.done && !!blocked} title={st?.done ? undefined : blocked ?? t("doneHint")}
+      className={`flex h-9 shrink-0 items-center gap-2 rounded-[3px] px-4 text-[13.5px] font-semibold transition-colors duration-150 active:translate-y-px ${
+        st?.done ? "bg-go text-bay" : armed ? "bg-amber text-bay" : blocked ? "bg-panel2 text-mute" : "bg-ice text-bay hover:bg-icehi"
+      }`}
+    >
+      {st?.done && <Tick className="h-4 w-4" />}
+      {st?.done ? t("doneOn") : armed ? t("doneAgain") : t("done")}
+    </button>
+  );
+  const quiet = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[3px] px-3 text-[13.5px] font-semibold text-fg transition-colors duration-150 hover:bg-panel2 disabled:opacity-40";
+  const addBtn = (
+    <>
+      <input
+        ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
+        onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void onFiles(f); }}
+      />
+      <button type="button" disabled={!st || !!up} onClick={() => fileInput.current?.click()} className={quiet}>
+        <Plus className="h-3.5 w-3.5" />{up ? t("uploading", { done: up.done, total: up.total }) : t("addPhotos")}
+      </button>
+    </>
+  );
+  const helpBtn = <button type="button" onClick={() => setHelp(true)} aria-label={t("help")} title={t("help")} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] font-mono text-[14px] text-mute transition-colors duration-150 hover:bg-panel2 hover:text-fg">?</button>;
+  const soft = (f: Filter, label: string, count: number | null, hot: boolean) => (
     <button
       key={f} type="button" aria-pressed={filter === f} onClick={() => pickFilter(f)}
-      className={`flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[2px] px-2.5 text-[13px] font-semibold transition-colors duration-150 sm:flex-none sm:px-3 ${filter === f ? "bg-ice text-bay" : "text-mute hover:text-fg"}`}
+      className={`flex h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[3px] px-3 text-[13px] font-semibold transition-colors duration-150 sm:flex-none ${filter === f ? "bg-panel text-fg shadow-[0_1px_2px_rgba(10,14,19,0.14)]" : "text-mute hover:text-fg"}`}
     >
       {label}
-      {count != null && <span className={`font-mono text-[12px] ${filter === f ? "text-bay" : hot ? "text-amber" : "text-mute"}`}>{count}</span>}
+      {count != null && <span className={`font-mono text-[12px] font-normal ${hot ? "text-amber" : "text-mute"}`}>{count}</span>}
     </button>
+  );
+  const filterSoft = (
+    <div role="group" aria-label={t("filter")} className="flex min-w-0 rounded-[4px] bg-panel2 p-0.5 max-sm:basis-full">
+      {soft("all", t("f.all"), n?.total ?? null, false)}
+      {soft("confirm", t("f.confirm"), n?.confirm ?? null, !!n?.confirm)}
+      {soft("edited", t("f.edited"), n?.edited ?? null, false)}
+    </div>
+  );
+  const title = (
+    <div className="flex min-w-0 items-baseline gap-3">
+      <h1 className="font-mono text-[20px] font-semibold leading-none tracking-wide text-fg lg:text-[22px]">{st?.plate || tab?.plate || ""}</h1>
+      <p className="min-w-0 truncate text-[14px] text-mute">{st?.carModel ?? tab?.carModel ?? ""}</p>
+    </div>
+  );
+  const extrasRow = (
+    <div className={`flex items-center gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible ${noBar}`}>
+      <span className="shrink-0 pr-1 text-[12.5px] text-mute">{t("extras")}</span>
+      {st?.extras.map((e) => <ExtraChip key={e.id} e={e} onRemove={removeExtra} t={t} />)}
+      <button
+        type="button" disabled={!st} onClick={() => setPalette(true)}
+        className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[3px] px-2 text-[13px] font-semibold text-fg transition-colors duration-150 hover:bg-panel2 disabled:opacity-40"
+      >
+        <Plus className="h-3 w-3" />{t("addPart")}
+        <kbd className="ml-1 hidden rounded-[2px] border border-hair px-1 font-mono text-[10.5px] font-normal text-mute lg:inline">Space</kbd>
+      </button>
+    </div>
+  );
+  const tools = <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:basis-full">{filterSoft}{addBtn}<span className="flex-1 sm:hidden" />{helpBtn}</div>;
+
+  const head = (
+    // a white bar of cases on top, the case itself on the page below
+    <>
+      <div className="shrink-0 border-b border-hair bg-panel">
+        <div className="wrap flex items-center gap-1 max-sm:px-2">
+          {prev}
+          <nav ref={tabStrip} aria-label={t("cases")} className={`flex min-w-0 flex-1 overflow-x-auto ${noBar}`}>
+            {tabs.map((x) => {
+              const here = x.id === caseId;
+              return (
+                <button
+                  key={x.id} type="button" aria-current={here ? "true" : undefined} onClick={() => switchCase(x.id)}
+                  className={`relative flex h-12 shrink-0 items-center gap-2 px-3 font-mono text-[13.5px] tracking-wide transition-colors duration-150 ${here ? "font-semibold text-fg after:absolute after:inset-x-3 after:bottom-0 after:h-[2px] after:bg-ice" : "text-mute hover:text-fg"}`}
+                >
+                  {x.plate}{tabMark(x)}
+                </button>
+              );
+            })}
+          </nav>
+          {next}
+          <span className="mx-1.5 h-5 w-px shrink-0 bg-hair" aria-hidden="true" />
+          {doneBtn}
+        </div>
+      </div>
+      <div className="shrink-0">
+        <div className="wrap flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-3.5 max-sm:px-3">
+          {title}
+          {tools}
+          <div className="basis-full">{extrasRow}</div>
+        </div>
+      </div>
+    </>
   );
 
   return (
     <div className="app-fill flex flex-col">
-      {/* cases · filter · done */}
-      <div className="shrink-0 border-b border-hair">
-        <div className="wrap flex flex-wrap items-center gap-2 py-2 max-sm:px-3 lg:flex-nowrap lg:gap-3">
-          <div className="order-last flex min-w-0 basis-full items-center gap-1.5 lg:order-none lg:flex-1 lg:basis-0">
-            <button type="button" className={arrow} aria-label={t("prevCase")} disabled={tabIndex <= 0} onClick={() => goCase(-1)}><Chevron className="rotate-90" /></button>
-            <nav ref={tabStrip} aria-label={t("cases")} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {tabs.map((x) => {
-                const here = x.id === caseId;
-                return (
-                  <button
-                    key={x.id} type="button" aria-current={here ? "true" : undefined} onClick={() => switchCase(x.id)}
-                    className={`flex h-10 shrink-0 items-center gap-2 rounded-[3px] border px-3 font-mono text-[13.5px] font-semibold tracking-wide transition-colors duration-150 ${here ? "border-ice bg-icetint text-ice" : "border-hair text-fg hover:border-mute"}`}
-                  >
-                    {x.plate}
-                    {x.done ? <Tick className="h-3.5 w-3.5 text-go" /> : <span className="text-[12px] font-normal text-mute">{x.photos}</span>}
-                  </button>
-                );
-              })}
-            </nav>
-            <button type="button" className={arrow} aria-label={t("nextCase")} disabled={tabIndex < 0 || tabIndex >= tabs.length - 1} onClick={() => goCase(1)}><Chevron className="-rotate-90" /></button>
-          </div>
-          <div role="group" aria-label={t("filter")} className="flex min-w-0 flex-1 rounded-[3px] border border-hair p-0.5 sm:flex-none">
-            {seg("all", t("f.all"), n?.total ?? null, false)}
-            {seg("confirm", t("f.confirm"), n?.confirm ?? null, !!n?.confirm)}
-            {seg("edited", t("f.edited"), n?.edited ?? null, false)}
-          </div>
-          <button
-            type="button" onClick={() => void pressDone()} aria-pressed={!!st?.done}
-            aria-disabled={!st?.done && !!blocked} title={st?.done ? undefined : blocked ?? t("doneHint")}
-            className={`flex h-10 shrink-0 items-center gap-2 rounded-[3px] border px-4 text-[14px] font-semibold transition-colors duration-150 active:translate-y-px ${
-              st?.done ? "border-go bg-go text-bay" : armed ? "border-amber bg-amber text-bay" : blocked ? "border-hair text-mute" : "border-go text-go hover:bg-gotint"
-            }`}
-          >
-            {st?.done && <Tick className="h-4 w-4" />}
-            {st?.done ? t("doneOn") : armed ? t("doneAgain") : t("done")}
-          </button>
-        </div>
-      </div>
-
-      {/* this case */}
+      {head}
       <div className="shrink-0">
-        <div className="wrap grid gap-2.5 py-3 max-sm:px-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8 lg:py-4">
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-3">
-              <h1 className="font-mono text-[22px] font-semibold leading-none tracking-wide text-fg lg:text-[28px]">{st?.plate || tab?.plate || ""}</h1>
-              <p className="min-w-0 truncate text-[14px] text-mute">{st?.carModel ?? tab?.carModel ?? ""}</p>
-            </div>
-            <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
-              <span className="shrink-0 pr-1 font-mono text-[11.5px] tracking-wide text-mute">{t("extras")}</span>
-              {st?.extras.map((e) => <ExtraChip key={e.id} e={e} onRemove={removeExtra} t={t} />)}
-              <button
-                type="button" disabled={!st} onClick={() => setPalette(true)}
-                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[3px] border border-dashed border-ice/60 px-2.5 text-[13px] font-semibold text-ice transition-colors duration-150 hover:border-ice hover:bg-icetint disabled:opacity-40"
-              >
-                <Plus className="h-3 w-3" />{t("addPart")}
-                <kbd className="ml-1 hidden rounded-[2px] border border-hair px-1 font-mono text-[10.5px] font-normal text-mute lg:inline">Space</kbd>
-              </button>
-            </div>
-          </div>
-          <div className="flex items-end justify-between gap-5">
-            <dl className="hidden divide-x divide-hair sm:flex">
-              {([["k.photos", n?.total, "text-fg"], ["k.confirm", n?.confirm, n?.confirm ? "text-amber" : "text-fg"], ["k.edited", n?.edited, n?.edited ? "text-ice" : "text-fg"]] as const).map(([k, v, tone]) => (
-                <div key={k} className="px-4 first:pl-0">
-                  <dt className="font-mono text-[11px] uppercase tracking-wider text-mute">{t(k)}</dt>
-                  <dd className={`num mt-1 font-mono text-[24px] font-semibold leading-none ${tone}`}>{v ?? "–"}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="flex flex-1 items-center gap-2 sm:flex-none">
-              <input
-                ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
-                onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void onFiles(f); }}
-              />
-              <button type="button" disabled={!st || !!up} onClick={() => fileInput.current?.click()} className="btn-line !h-10 flex-1 !gap-2 !px-4 !text-[14px] sm:flex-none">
-                <Plus />{up ? t("uploading", { done: up.done, total: up.total }) : t("addPhotos")}
-              </button>
-              <button type="button" onClick={() => setHelp(true)} aria-label={t("help")} title={t("help")} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-hair font-mono text-[15px] text-mute transition-colors duration-150 hover:border-ice hover:text-ice">?</button>
-            </div>
-          </div>
-        </div>
-
         {/* what is going on: naming progress, or what needs a second try */}
         {st && n && (n.naming > 0 || n.failed > 0 || capped[caseId]) && (
           <div className="wrap pb-2.5 max-sm:px-3" role="status">

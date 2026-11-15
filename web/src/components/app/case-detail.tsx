@@ -6,7 +6,7 @@ import { uploadGuarded, UploadStalled } from "@/lib/upload-guard";
 import { useT } from "@/components/lang-provider";
 import { kindOf } from "@/lib/file-kind";
 import { accepted } from "./drop-zone";
-import { Tick, Upload } from "./marks";
+import { Photo, Tick, Upload } from "./marks";
 import type { CaseRow } from "./case-list";
 
 /** What a card has just sent: the missing files. */
@@ -132,6 +132,7 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
     need = <p className={say}>{t("dash.d.waiting")}</p>;
     act = (
       <Link href={`/cases/${row.id}/photos`} aria-labelledby={`${actId} ${titleId}`} className={button}>
+        <Photo />
         <span id={actId}>{t("dash.d.photos")}</span>
       </Link>
     );
