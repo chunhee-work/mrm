@@ -1,6 +1,7 @@
 import { getUserOrNull } from "@/lib/session";
 import SiteNav from "./site-nav";
 import SiteFooter from "./site-footer";
+import WhatsAppFab from "./whatsapp-fab";
 
 /** Public pages other than the homepage: nav + page + footer. */
 export default async function SubpageLayout({ children }: { children: React.ReactNode }) {
@@ -11,6 +12,7 @@ export default async function SubpageLayout({ children }: { children: React.Reac
       <main id="main" className="flex-1">{children}</main>
       <div className="wrap"><div className="reg-rule" /></div>
       <SiteFooter />
+      <WhatsAppFab />
     </div>
   );
 }

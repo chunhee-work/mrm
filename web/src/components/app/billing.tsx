@@ -65,31 +65,31 @@ export default function Billing(p: Props) {
   const cases = p.balance / 1000;
   const Banner = (
     <>
-      {p.testMode && <div role="note" className="mb-5 border border-ink bg-inktint px-4 py-3 text-[14px] font-semibold text-ink">{t("bill.test")}</div>}
-      {p.watching?.status === "paid" && <div role="status" className="mb-5 border border-hair bg-white px-4 py-3 text-[14px] font-semibold text-ink">{t("bill.thanks")}</div>}
-      {p.watching?.status === "pending" && <div role="status" className="mb-5 border border-hair bg-white px-4 py-3 text-[14px] text-deep">{t("bill.processing")}</div>}
+      {p.testMode && <div role="note" className="mb-5 rounded-[3px] border border-ice bg-icetint px-4 py-3 text-[14px] font-semibold text-ice">{t("bill.test")}</div>}
+      {p.watching?.status === "paid" && <div role="status" className="mb-5 rounded-[3px] border border-hair bg-panel px-4 py-3 text-[14px] font-semibold text-fg">{t("bill.thanks")}</div>}
+      {p.watching?.status === "pending" && <div role="status" className="mb-5 rounded-[3px] border border-hair bg-panel px-4 py-3 text-[14px] text-fg">{t("bill.processing")}</div>}
     </>
   );
 
   const Balance = (
-    <div className="border border-hair bg-white p-5">
+    <div className="rounded-[3px] border border-hair bg-panel p-5">
       <div className="text-[13px] font-medium text-mute">{t("bill.balance")}</div>
-      <div className="mt-1 text-[40px] font-semibold leading-none tabular-nums text-ink">{p.balance.toLocaleString(localeOf(lang))}</div>
-      <div className="mt-2 text-[14px] text-deep">{t("bill.cases", { n: String(Math.floor(cases * 10) / 10) })} · {t("bill.balanceHint")}</div>
+      <div className="mt-1 text-[40px] font-semibold leading-none tabular-nums text-fg">{p.balance.toLocaleString(localeOf(lang))}</div>
+      <div className="mt-2 text-[14px] text-fg">{t("bill.cases", { n: String(Math.floor(cases * 10) / 10) })} · {t("bill.balanceHint")}</div>
       {p.orgName && <div className="mt-3 truncate text-[13px] text-mute">{t("bill.org", { org: p.orgName })}</div>}
     </div>
   );
 
   const ProviderPick = !p.providers.length ? (
-    <div className="border border-hair bg-white p-5"><div className="font-semibold text-ink">{t("bill.none")}</div><div className="mt-1 text-[14px] text-mute">{t("bill.noneSub")}</div></div>
+    <div className="rounded-[3px] border border-hair bg-panel p-5"><div className="font-semibold text-fg">{t("bill.none")}</div><div className="mt-1 text-[14px] text-mute">{t("bill.noneSub")}</div></div>
   ) : (
     <fieldset>
       <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.pay")}</legend>
       <div className={"grid gap-2 sm:grid-cols-2"}>
         {p.providers.map((x) => (
-          <label key={x.id} className={`flex min-h-[56px] cursor-pointer items-center gap-3 border px-4 py-2 ${provider === x.id ? "border-ink bg-white" : "border-hair bg-white hover:border-mute"}`}>
-            <input type="radio" name="provider" className="accent-[#0B1533]" checked={provider === x.id} onChange={() => setProvider(x.id)} />
-            <span><span className="block text-[15px] font-semibold text-ink">{t(`bill.provider.${x.id}`)}</span><span className="block text-[13px] text-mute">{t(`bill.provider.${x.id}.sub`)}</span></span>
+          <label key={x.id} className={`flex min-h-[56px] cursor-pointer items-center gap-3 rounded-[3px] border px-4 py-2 ${provider === x.id ? "border-ice bg-icetint" : "border-hair bg-panel hover:border-mute"}`}>
+            <input type="radio" name="provider" className="accent-ice" checked={provider === x.id} onChange={() => setProvider(x.id)} />
+            <span><span className="block text-[15px] font-semibold text-fg">{t(`bill.provider.${x.id}`)}</span><span className="block text-[13px] text-mute">{t(`bill.provider.${x.id}.sub`)}</span></span>
           </label>
         ))}
       </div>
@@ -103,11 +103,11 @@ export default function Billing(p: Props) {
         {p.packs.map((k) => {
           const ok = packAvail(k.id);
           return (
-            <label key={k.id} className={`flex cursor-pointer items-center justify-between gap-3 border px-4 py-3 sm:flex-col sm:items-start sm:gap-1 ${packId === k.id ? "border-ink bg-white" : "border-hair bg-white hover:border-mute"} ${ok ? "" : "pointer-events-none opacity-45"}`}>
+            <label key={k.id} className={`flex cursor-pointer items-center justify-between gap-3 rounded-[3px] border px-4 py-3 sm:flex-col sm:items-start sm:gap-1 ${packId === k.id ? "border-ice bg-icetint" : "border-hair bg-panel hover:border-mute"} ${ok ? "" : "pointer-events-none opacity-45"}`}>
               <input type="radio" name="pack" className="sr-only" disabled={!ok} checked={packId === k.id} onChange={() => setPackId(k.id)} />
-              <span className="text-[16px] font-semibold text-ink">{t(`bill.pack.${k.credits / 1000}`)}</span>
+              <span className="text-[16px] font-semibold text-fg">{t(`bill.pack.${k.credits / 1000}`)}</span>
               <span className="text-[13px] text-mute">{t("bill.credits", { n: k.credits.toLocaleString(localeOf(lang)) })}</span>
-              <span className="text-[18px] font-semibold tabular-nums text-ink">{money(k.price[cur.currency], cur.currency, lang)}</span>
+              <span className="text-[18px] font-semibold tabular-nums text-fg">{money(k.price[cur.currency], cur.currency, lang)}</span>
             </label>
           );
         })}
@@ -117,7 +117,7 @@ export default function Billing(p: Props) {
 
   const Go = (
     <div>
-      {err && <div role="alert" className="mb-3 text-[14px] font-semibold text-ink">⚠ {err}</div>}
+      {err && <div role="alert" className="mb-3 text-[14px] font-semibold text-fg">⚠ {err}</div>}
       <button type="button" onClick={go} disabled={!provider || !packAvail(packId) || busy} className="btn-primary !h-12 w-full sm:w-auto sm:px-8">{busy ? t("bill.going") : t("bill.go")}</button>
     </div>
   );
@@ -125,17 +125,17 @@ export default function Billing(p: Props) {
   const History = (
     <section aria-labelledby="bill-hist">
       <h2 id="bill-hist" className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.history")}</h2>
-      {!p.orders.length ? <div className="border border-hair bg-white p-5 text-[14px] text-mute">{t("bill.noHistory")}</div> : (
-        <div className="max-h-[320px] overflow-auto border border-hair bg-white">
+      {!p.orders.length ? <div className="rounded-[3px] border border-hair bg-panel p-5 text-[14px] text-mute">{t("bill.noHistory")}</div> : (
+        <div className="max-h-[320px] overflow-auto rounded-[3px] border border-hair bg-panel">
           <table className="w-full text-left text-[14px]">
-            <thead className="sticky top-0 bg-white text-[12px] uppercase tracking-wide text-mute"><tr><th className="px-4 py-2 font-medium">{t("bill.col.date")}</th><th className="px-2 py-2 font-medium">{t("bill.col.pack")}</th><th className="px-2 py-2 text-right font-medium">{t("bill.col.amount")}</th><th className="px-4 py-2 text-right font-medium">{t("bill.col.status")}</th></tr></thead>
+            <thead className="sticky top-0 bg-panel text-[12px] uppercase tracking-wide text-mute"><tr><th className="px-4 py-2 font-medium">{t("bill.col.date")}</th><th className="px-2 py-2 font-medium">{t("bill.col.pack")}</th><th className="px-2 py-2 text-right font-medium">{t("bill.col.amount")}</th><th className="px-4 py-2 text-right font-medium">{t("bill.col.status")}</th></tr></thead>
             <tbody>
               {p.orders.map((o) => (
                 <tr key={o.id} className="border-t border-hair">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-deep">{new Date(o.createdAt).toLocaleDateString(localeOf(lang), { day: "numeric", month: "short", year: "numeric" })}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-fg">{new Date(o.createdAt).toLocaleDateString(localeOf(lang), { day: "numeric", month: "short", year: "numeric" })}</td>
                   <td className="px-2 py-2.5">{t("bill.credits", { n: o.packCredits.toLocaleString(localeOf(lang)) })}{o.testMode ? " · TEST" : ""}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{money(o.amountMinor, o.currency, lang)}</td>
-                  <td className={`whitespace-nowrap px-4 py-2.5 text-right ${o.status === "paid" ? "font-semibold text-ink" : "text-mute"}`}>{o.status === "paid" ? "✓ " : ""}{t(`bill.s.${o.status}`)}</td>
+                  <td className={`whitespace-nowrap px-4 py-2.5 text-right ${o.status === "paid" ? "font-semibold text-fg" : "text-mute"}`}>{o.status === "paid" ? "✓ " : ""}{t(`bill.s.${o.status}`)}</td>
                 </tr>
               ))}
             </tbody>
@@ -147,10 +147,10 @@ export default function Billing(p: Props) {
 
   return (
     <main className="wrap py-8 lg:py-12">
-      <h1 className="mb-6 text-[28px] font-semibold text-ink lg:text-[34px]">{t("bill.title")}</h1>
+      <h1 className="display-2 mb-6 text-[30px] text-fg lg:text-[36px]">{t("bill.title")}</h1>
       {Banner}
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
-        <div className="grid gap-6"><h2 className="text-[20px] font-semibold text-ink">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
+        <div className="grid gap-6"><h2 className="text-[20px] font-semibold text-fg">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
         <div className="grid gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
       </div>
     </main>

@@ -14,7 +14,7 @@ export default async function Cost({ searchParams }: { searchParams: Sp }) {
   const ledgerTotal = c.byDay.reduce((a, d) => a + d.usd, 0);
   return (
     <Shell current="cost" scope={scope}>
-      {pricesStale() ? <p className="note mb-4 rounded-[4px] border border-signal bg-signaltint px-3 py-2">Check prices: {Object.entries(PRICES).map(([m, p]) => `${m} ${p.lastVerified ? "last verified " + p.lastVerified : "never verified"}`).join("; ")}. Edit PRICES in lib/pricing.ts after comparing with Anthropic’s price list.</p> : null}
+      {pricesStale() ? <p className="note mb-4 rounded-[4px] border border-amber bg-ambertint px-3 py-2">Check prices: {Object.entries(PRICES).map(([m, p]) => `${m} ${p.lastVerified ? "last verified " + p.lastVerified : "never verified"}`).join("; ")}. Edit PRICES in lib/pricing.ts after comparing with Anthropic’s price list.</p> : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Our ledger, per day (USD, last 30 days)" note={`${usd(ledgerTotal)} in 30 days. A request that Anthropic billed but our server never saw (timeout after completion) is not in this ledger; the comparison on the right shows such a gap.`}>
           <Bars label="Ledger cost per day" data={c.byDay.map((d) => ({ date: d.date, v: d.usd }))} fmt={usd} />

@@ -12,12 +12,12 @@ export default async function Users({ searchParams }: { searchParams: Sp }) {
     <Shell current="users" scope={scope}>
       <form className="mb-4 flex gap-2" role="search">
         {scope.includeInternal ? <input type="hidden" name="internal" value="1" /> : null}
-        <input name="q" defaultValue={q} placeholder="Search email or name" aria-label="Search users" className="min-w-0 flex-1 rounded-[4px] border border-hair bg-white px-3 py-2 text-[15px]" />
-        <button className="rounded-[4px] bg-ink px-4 py-2 text-[14px] font-medium text-white">Search</button>
+        <input name="q" defaultValue={q} placeholder="Search email or name" aria-label="Search users" className="min-w-0 flex-1 rounded-[4px] border border-hair bg-panel px-3 py-2 text-[15px]" />
+        <button className="rounded-[4px] bg-ice px-4 py-2 text-[14px] font-medium text-bay">Search</button>
       </form>
       <p className="note mb-2 text-mute">{int(r.total)} {r.total === 1 ? "user" : "users"}{q ? ` matching “${q}”` : ""}, newest first</p>
       <Table rowKey={(u) => u.id} rows={r.rows} empty="No users yet" height="max-h-[560px]" cols={[
-        { label: "Email", cell: (u) => <Link className="text-ink underline" href={`/admin/users/${u.id}${scope.includeInternal ? "?internal=1" : ""}`}>{u.email}</Link> },
+        { label: "Email", cell: (u) => <Link className="text-ice underline" href={`/admin/users/${u.id}${scope.includeInternal ? "?internal=1" : ""}`}>{u.email}</Link> },
         { label: "Name", cell: (u) => u.name },
         { label: "Status", cell: (u) => (u.verified ? <Tag>verified</Tag> : <Tag warn>unverified</Tag>) },
         { label: "Signed up", cell: (u) => when(u.createdAt) },
@@ -26,8 +26,8 @@ export default async function Users({ searchParams }: { searchParams: Sp }) {
         { label: "Claude cost", cell: (u) => usd(u.cost), right: true },
       ]} />
       <div className="mt-3 flex justify-between">
-        {page > 0 ? <Link className="note text-ink underline" href={base(page - 1)}>Newer</Link> : <span />}
-        {(page + 1) * PAGE < r.total ? <Link className="note text-ink underline" href={base(page + 1)}>Older</Link> : <span />}
+        {page > 0 ? <Link className="note text-ice underline" href={base(page - 1)}>Newer</Link> : <span />}
+        {(page + 1) * PAGE < r.total ? <Link className="note text-ice underline" href={base(page + 1)}>Older</Link> : <span />}
       </div>
     </Shell>
   );

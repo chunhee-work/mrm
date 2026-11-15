@@ -17,6 +17,12 @@
 - Run: `SMOKE_PASSWORD=… node scripts/smoke.mjs https://autoclaim-web.vercel.app` (needs Playwright). It writes nothing, uploads nothing.
 - Not done yet: a GitHub Actions workflow (needs `SMOKE_PASSWORD` as a repo secret, and a workflow file the owner approves).
 
+## Two colour sets (2026-11-15)
+- Owner's rule: only the landing is dark ("Night Bay"); every app/workspace page is white. So the colour tokens in `tailwind.config.ts` are CSS variables with two sets in `globals.css`: the dark set on `:root` (landing, public site pages, 404) and a white set under `.theme-light`. `components/app-layout.tsx` (case list, new case, billing) and `components/auth-layout.tsx` (log in, sign up, password reset) wrap themselves in `.theme-light`; their route layouts export `lightViewport` from `lib/theme.ts`.
+- A new signed-in page gets the white set by using `AppLayout`. Use the tokens (`bg-panel`, `text-fg`, `border-hair`, `bg-ice text-bay` for the primary action…), never a hex colour, so it follows the set it sits in.
+- On white, the primary colour (`ice`) is ink black and the scan blue (`scan`) is the accent (progress, the lit top edge of a sheet). The logo's visor is filled in on white so its two white eyes stay visible.
+- `public/landing/bay-*.jpg` were rendered again with `scripts/landing-posters.mjs`: they now show the white face ball, like the live 3D scene.
+
 ## Admin backoffice (plan: issue #4)
 - Lives at `/admin` on app.autopilotclaim.com (not a separate host). A `backoffice.` alias can be added later as a Vercel domain plus a host rewrite.
 - Access: verified email listed in env `ADMIN_EMAILS` (comma list; missing/empty/malformed = nobody) and a session younger than 12 h. Everyone else gets the same 404 as any missing page. No `/api/admin/*` routes exist; all reads happen in server components.
