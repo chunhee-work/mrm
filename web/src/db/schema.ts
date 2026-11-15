@@ -145,7 +145,36 @@ export const creditsLedger = pgTable("credits_ledger", {
   reason: text("reason").notNull(),
   caseId: text("case_id"),
   at: timestamp("at").notNull().defaultNow(),
-});
+}, (t) => [
+  // One purchase row and one refund row per order, even from a manual script (plan #12, DPR-12-2 D8).
+  uniqueIndex("credits_ledger_order_reason_uq").on(t.reason).where(sql`${t.reason} LIKE 'purchase:%' OR ${t.reason} LIKE 'refund:%'`),
+]);
+
+// Payments (plan chunhee-work/mrm#12). Money in: one row per checkout attempt.
+// The pack snapshot columns are written once at insert and never updated; only status, paid_at,
+// provider_ref and test_mode change.
+export const paymentOrders = pgTable("payment_orders", {
+  id: text("id").primaryKey(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  provider: text("provider").notNull(), // lemonsqueezy | toyyibpay | mock
+  checkoutRef: text("checkout_ref"), // set at checkout creation: toyyibPay bill code / Lemon Squeezy checkout id
+  providerRef: text("provider_ref"), // set when paid: Lemon Squeezy order id / toyyibPay reference number
+  packId: text("pack_id").notNull(),
+  packTitle: text("pack_title").notNull(),
+  packVersion: integer("pack_version").notNull(),
+  credits: integer("credits").notNull(),
+  amountMinor: bigint("amount_minor", { mode: "number" }).notNull(), // US cents / MYR sen
+  currency: text("currency").notNull(),
+  status: text("status").notNull().default("pending"), // pending | paid | failed | refunded ("expired" is display-only)
+  testMode: boolean("test_mode").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  paidAt: timestamp("paid_at"),
+}, (t) => [
+  index("payment_orders_org_idx").on(t.orgId, t.createdAt),
+  uniqueIndex("payment_orders_provider_ref_uq").on(t.provider, t.providerRef).where(sql`${t.providerRef} IS NOT NULL`),
+  check("payment_orders_status_chk", sql`${t.status} IN ('pending','paid','failed','refunded')`),
+]);
 
 export const auditLog = pgTable("audit_log", {
   id: serial("id").primaryKey(),
