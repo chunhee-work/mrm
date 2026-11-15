@@ -193,6 +193,8 @@ test("owner-only free code: sent only for allow-listed email", async () => {
   await lemonsqueezy.createCheckout({ order, email: "other@example.com", returnUrl: "https://r" } as any);
   assert.equal(bodies[0].data.attributes.checkout_data.discount_code, "OWNERFREE");
   assert.equal(bodies[1].data.attributes.checkout_data.discount_code, undefined);
+  assert.equal(bodies[0].data.attributes.checkout_data.billing_address.zip, "50000");
+  assert.equal(bodies[1].data.attributes.checkout_data.billing_address.zip, undefined);
   assert.equal(bodies[0].data.attributes.checkout_options.discount, true);
   assert.equal(bodies[1].data.attributes.checkout_options.discount, false);
   delete process.env.OWNER_FREE_EMAILS; delete process.env.LEMONSQUEEZY_OWNER_CODE;
