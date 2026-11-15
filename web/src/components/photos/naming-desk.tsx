@@ -644,40 +644,38 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       </button>
     </div>
   );
-  const tools = <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:basis-full">{filterSoft}{addBtn}<span className="flex-1 sm:hidden" />{helpBtn}</div>;
-
   const head = (
-    // a white bar of cases on top, the case itself on the page below
-    <>
-      <div className="shrink-0 border-b border-hair bg-panel">
-        <div className="wrap flex items-center gap-1 max-sm:px-2">
-          {prev}
-          <nav ref={tabStrip} aria-label={t("cases")} className={`flex min-w-0 flex-1 overflow-x-auto ${noBar}`}>
-            {tabs.map((x) => {
-              const here = x.id === caseId;
-              return (
-                <button
-                  key={x.id} type="button" aria-current={here ? "true" : undefined} onClick={() => switchCase(x.id)}
-                  className={`relative flex h-12 shrink-0 items-center gap-2 px-3 font-mono text-[13.5px] tracking-wide transition-colors duration-150 ${here ? "font-semibold text-fg after:absolute after:inset-x-3 after:bottom-0 after:h-[2px] after:bg-ice" : "text-mute hover:text-fg"}`}
-                >
-                  {x.plate}{tabMark(x)}
-                </button>
-              );
-            })}
-          </nav>
-          {next}
-          <span className="mx-1.5 h-5 w-px shrink-0 bg-hair" aria-hidden="true" />
-          {doneBtn}
+    // one raised card holds everything about this case: the cases, the case, its extra parts
+    <div className="shrink-0 pb-3 pt-3 lg:pt-4">
+      <div className="wrap max-sm:px-3">
+        <div className="rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(10,14,19,0.06),0_10px_28px_-14px_rgba(10,14,19,0.22)] ring-1 ring-hair">
+          <div className="flex items-center gap-1.5 border-b border-hair px-2.5 py-2">
+            {prev}
+            <nav ref={tabStrip} aria-label={t("cases")} className={`flex min-w-0 flex-1 gap-1.5 overflow-x-auto p-0.5 ${noBar}`}>
+              {tabs.map((x) => {
+                const here = x.id === caseId;
+                return (
+                  <button
+                    key={x.id} type="button" aria-current={here ? "true" : undefined} onClick={() => switchCase(x.id)}
+                    className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-3.5 font-mono text-[13px] tracking-wide transition-colors duration-150 ${here ? "bg-icetint font-semibold text-fg ring-[1.5px] ring-inset ring-scan" : "bg-panel2 text-fg hover:bg-hair"}`}
+                  >
+                    {x.plate}{tabMark(x)}
+                  </button>
+                );
+              })}
+            </nav>
+            {next}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3.5 lg:px-5">
+            {title}
+            <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:basis-full">
+              {filterSoft}{addBtn}<span className="flex-1 sm:hidden" />{helpBtn}{doneBtn}
+            </div>
+          </div>
+          <div className="border-t border-hair px-4 py-2 lg:px-5">{extrasRow}</div>
         </div>
       </div>
-      <div className="shrink-0">
-        <div className="wrap flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-3.5 max-sm:px-3">
-          {title}
-          {tools}
-          <div className="basis-full">{extrasRow}</div>
-        </div>
-      </div>
-    </>
+    </div>
   );
 
   return (
