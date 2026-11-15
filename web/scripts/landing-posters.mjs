@@ -31,7 +31,7 @@ for (const { suffix, quality, ...ctxOpts } of SIZES) {
   await page.goto(`${origin}/?still=1`, { waitUntil: "domcontentloaded", timeout: 120000 });
   await page.waitForFunction("window.__bayReady === true", null, { timeout: 180000 });
   // the frame only: no navigation, no words, no buttons
-  await page.addStyleTag({ content: 'canvas{transition:none!important;opacity:1!important} header, a[aria-label*="WhatsApp"], .wrap.pointer-events-none, nextjs-portal{display:none!important}' });
+  await page.addStyleTag({ content: 'canvas{transition:none!important;opacity:1!important} header, a[aria-label*="WhatsApp"], .wrap.pointer-events-none, [data-shade], nextjs-portal{display:none!important}' });
   for (let i = 0; i < STOPS.length; i++) {
     await page.evaluate((t) => new Promise((r) => { window.__setT(t); requestAnimationFrame(() => requestAnimationFrame(r)); }), STOPS[i]);
     await page.waitForTimeout(200);

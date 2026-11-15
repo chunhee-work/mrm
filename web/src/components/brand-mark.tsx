@@ -1,3 +1,4 @@
+import type React from "react";
 import { SITE } from "@/lib/site";
 import { WORDMARK as W } from "./brand-data";
 
@@ -8,7 +9,7 @@ import { WORDMARK as W } from "./brand-data";
 export type FirstO = "bot" | "wheel";
 export const FIRST_O: FirstO = "bot";
 
-function O({ kind }: { kind: FirstO }) {
+function O({ kind, oRef }: { kind: FirstO; oRef?: React.Ref<SVGGElement> }) {
   if (kind === "wheel") {
     const { ring, mid, spoke, hub, ends } = W.wheel;
     return (
@@ -20,10 +21,10 @@ function O({ kind }: { kind: FirstO }) {
     );
   }
   return (
-    <g transform={`rotate(7 ${W.o.cx} ${W.o.cy})`}>
+    <g ref={oRef} transform={`rotate(7 ${W.o.cx} ${W.o.cy})`}>
       {/* the visor is cut out of the ball, so whatever is behind the logo shows through it */}
       <path fillRule="evenodd" d={W.face} />
-      <g className="logo-eyes" fill="#BFE9FF">
+      <g className="logo-eyes" fill="#FFFFFF">
         {W.eyes.map((d) => <path key={d} d={d} />)}
       </g>
     </g>
@@ -31,12 +32,12 @@ function O({ kind }: { kind: FirstO }) {
 }
 
 /** The full wordmark. Set its height with a class; the width follows. */
-export function Wordmark({ className = "", kind = FIRST_O }: { className?: string; kind?: FirstO }) {
+export function Wordmark({ className = "", kind = FIRST_O, oRef }: { className?: string; kind?: FirstO; /** the "o" itself, for the landing page's ending, where the scan ball flies into it */ oRef?: React.Ref<SVGGElement> }) {
   return (
     <svg viewBox={W.viewBox} className={className} fill="currentColor" role="img" aria-label={SITE.brand}>
       <g transform="scale(1,-1)">
         <path d={W.letters} />
-        <O kind={kind} />
+        <O kind={kind} oRef={oRef} />
       </g>
     </svg>
   );

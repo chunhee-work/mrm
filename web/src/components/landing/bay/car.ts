@@ -32,6 +32,10 @@ export type Car = {
   damaged: Part[];
   frame: THREE.Object3D | null;
   material: THREE.MeshStandardMaterial | null;
+  /** the head lamps' own copy of the paint material, so they can be switched on by themselves */
+  lampMaterial: THREE.MeshStandardMaterial | null;
+  /** the two head lamps, left then right */
+  lamps: Part[];
   dispose(): void;
 };
 
@@ -41,25 +45,25 @@ export const DAMAGED = ["bonnet", "lampL", "grille", "fenderL", "bumperF"] as co
 type V3 = [number, number, number];
 // [along the car, up, away from the centre line]: the third number is mirrored for the right-hand part
 const OUT: [string, V3, V3?][] = [
-  ["bonnet", [0.2, 0.46, 0], [0, 0, -0.1]],
-  ["windscreen", [0.16, 0.52, 0], [0, 0, -0.06]],
-  ["roof", [-0.05, 0.6, 0]],
-  ["tailgate", [-0.5, 0.26, 0], [0, 0, 0.1]],
-  ["bumperF", [0.5, -0.02, 0]],
-  ["grille", [0.86, 0.03, 0]],
-  ["bumperR", [-0.5, -0.02, 0]],
-  ["lamp", [0.6, 0.16, 0.26]],
-  ["tail", [-0.56, 0.12, 0.24]],
-  ["fender", [0.2, 0.06, 0.4]],
-  ["doorF", [0.04, 0, 0.42]],
-  ["doorR", [-0.04, 0, 0.42]],
-  ["glassF", [0.04, 0.2, 0.6]],
-  ["glassR", [-0.04, 0.2, 0.6]],
-  ["quarter", [-0.22, 0.05, 0.4]],
-  ["sill", [0, -0.06, 0.36]],
-  ["rail", [0, 0.3, 0.36]],
-  ["mirror", [0.1, 0.1, 0.62]],
-  ["wheel", [0, 0, 0.36]],
+  ["bonnet", [0.25, 0.5, 0], [0, 0, -0.1]],
+  ["windscreen", [0.2, 0.64, 0], [0, 0, -0.06]],
+  ["roof", [-0.05, 0.84, 0]],
+  ["tailgate", [-0.86, 0.36, 0], [0, 0, 0.1]],
+  ["bumperF", [0.55, -0.02, 0]],
+  ["grille", [0.9, 0.03, 0]],
+  ["bumperR", [-0.98, -0.02, 0]],
+  ["lamp", [0.62, 0.16, 0.3]],
+  ["tail", [-1.04, 0.14, 0.4]],
+  ["fender", [0.26, 0.08, 0.78]],
+  ["doorF", [0.07, 0, 0.9]],
+  ["doorR", [-0.07, 0, 0.9]],
+  ["glassF", [0.07, 0.3, 1.22]],
+  ["glassR", [-0.07, 0.3, 1.22]],
+  ["quarter", [-0.42, 0.06, 0.82]],
+  ["sill", [0, -0.06, 0.62]],
+  ["rail", [0, 0.46, 0.62]],
+  ["mirror", [0.16, 0.16, 1.3]],
+  ["wheel", [0, 0, 0.72]],
   ["under", [0, 0, 0]],
 ];
 
@@ -76,7 +80,8 @@ export function buildCar(gltf: GLTF | null, overlayMaterial: THREE.ShaderMateria
   const parts: Part[] = [];
   let frame: THREE.Object3D | null = null;
   let material: THREE.MeshStandardMaterial | null = null;
-  if (!gltf) return { group, parts, damaged: [], frame, material, dispose() {} };
+  let lampMaterial: THREE.MeshStandardMaterial | null = null;
+  if (!gltf) return { group, parts, damaged: [], frame, material, lampMaterial, lamps: [], dispose() {} };
 
   const meshes: THREE.Mesh[] = [];
   gltf.scene.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
@@ -104,6 +109,10 @@ export function buildCar(gltf: GLTF | null, overlayMaterial: THREE.ShaderMateria
       mat.emissiveIntensity = 1.5;
       darkBacks(mat);
     }
+    if (name.startsWith("lamp") && material) {
+      if (!lampMaterial) { lampMaterial = material.clone(); darkBacks(lampMaterial); }
+      mesh.material = lampMaterial;
+    }
     const rule = OUT.find(([prefix]) => name.startsWith(prefix));
     const right = /R$/.test(name) && !/^(bumperR)$/.test(name);
     const left = /L$/.test(name);
@@ -126,9 +135,12 @@ export function buildCar(gltf: GLTF | null, overlayMaterial: THREE.ShaderMateria
   group.add(gltf.scene);
   const damaged = DAMAGED.map((n) => parts.find((p) => p.name === n)).filter((p): p is Part => !!p);
 
+  const lamps = ["lampL", "lampR"].map((n) => parts.find((p) => p.name === n)).filter((p): p is Part => !!p);
+
   return {
-    group, parts, damaged, frame, material,
+    group, parts, damaged, frame, material, lampMaterial, lamps,
     dispose() {
+      lampMaterial?.dispose();
       gltf.scene.traverse((o) => {
         const m = o as THREE.Mesh;
         if (!m.isMesh) return;

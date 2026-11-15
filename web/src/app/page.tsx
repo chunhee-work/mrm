@@ -7,7 +7,7 @@ import SiteNav from "@/components/site-nav";
 import SiteFooter from "@/components/site-footer";
 import WhatsAppFab from "@/components/whatsapp-fab";
 import Journey from "@/components/landing/journey";
-import { Closing, Faq, Keyed, Proof, Seam, Security } from "@/components/landing/sections";
+import { More, Proof } from "@/components/landing/sections";
 
 // Still frames of the five stops, rendered from the same 3D scene (`node scripts/landing-posters.mjs`).
 const POSTER = {
@@ -26,14 +26,9 @@ export default async function Home() {
       <SiteNav authed={authed} overlay />
       <main id="main">
         <Journey c={JOURNEY[lang]} cta={authed ? labels.cases : labels.start} href={authed ? "/dashboard" : "/signup"} poster={POSTER} />
+        {/* the detail lives on pages of its own (How it works, Security, FAQ): this page stays short */}
         <Proof c={c.time} />
-        <Seam />
-        <Keyed c={c.keyed} />
-        <Seam />
-        <Security c={c.security} />
-        <Seam />
-        <Faq c={c.faq} />
-        <Closing c={c.closing} authed={authed} labels={labels} />
+        <More c={c} label={t("nav.more")} />
       </main>
       <SiteFooter />
       <WhatsAppFab />

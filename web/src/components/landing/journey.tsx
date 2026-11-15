@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import type React from "react";
 import Link from "next/link";
 import type { JourneyCopy } from "@/lib/landing-copy";
 import { Wordmark } from "@/components/brand-mark";
@@ -39,7 +40,7 @@ function tOfScroll(p: number) {
   return STOPS[i] + (STOPS[i + 1] - STOPS[i]) * smooth(x - i);
 }
 
-type Bay = { setProgress(t: number): void; render(timeMs: number): void; resize(): void; degrade(): boolean; dispose(): void };
+type Bay = { setProgress(t: number): void; setDock(d: { x: number; y: number; r: number } | null): void; render(timeMs: number): void; resize(): void; degrade(): boolean; dispose(): void };
 type Mode = "boot" | "live" | "still";
 
 export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta: string; href: string; poster: { desktop: string[]; mobile: string[] } }) {
@@ -49,8 +50,9 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
   const segRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const railRef = useRef<HTMLDivElement>(null);
   const hintRef = useRef<HTMLDivElement>(null);
-  const sideRef = useRef<HTMLDivElement>(null);
+  const shadeRefs = useRef<(HTMLDivElement | null)[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
+  const oRef = useRef<SVGGElement>(null);
   const [mode, setMode] = useState<Mode>("boot");
 
   useEffect(() => {
@@ -76,21 +78,72 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
     let last = 0;
     let slow = 0;
 
+    // the moving pieces of each block, looked up once
+    const parts = blockRefs.current.map((el) => el ? {
+      chars: Array.from(el.querySelectorAll<HTMLElement>("[data-ch]")),
+      fill: el.querySelector<HTMLElement>("[data-fill]"),
+      num: el.querySelector<HTMLElement>("[data-num]"),
+      rule: el.querySelector<HTMLElement>("[data-rule]"),
+      line: el.querySelector<HTMLElement>("[data-line]"),
+    } : null);
+
     const paint = (tt: number) => {
       for (let i = 0; i < 5; i++) {
         const el = blockRefs.current[i];
         if (!el) continue;
+        const [wa, wb, wc, wd] = WINDOWS[i];
         const a = alphaAt(tt, WINDOWS[i]);
-        el.style.opacity = a.toFixed(3);
+        const pt = parts[i];
+        const animated = !!pt && pt.chars.length > 0;
         el.style.visibility = a < 0.01 ? "hidden" : "visible";
-        // Arrives from below, leaves upward: the same direction the page is moving.
-        const before = tt < WINDOWS[i][1];
-        el.style.transform = `translate3d(0, ${((1 - a) * (before ? 28 : -28)).toFixed(1)}px, 0)`;
+        if (!animated) {
+          // the hero: arrives from below, leaves upward, the same direction the page is moving
+          el.style.opacity = a.toFixed(3);
+          el.style.transform = `translate3d(0, ${((1 - a) * (tt < wb ? 28 : -28)).toFixed(1)}px, 0)`;
+        } else if (pt) {
+          // a step: its number lands, its word rises letter by letter out of a slot, a rule draws, the line follows.
+          // It leaves the same way, upward. All of it is tied to the scroll, so it plays backwards too.
+          const inP = wb <= wa ? 1 : clamp01((tt - wa) / (wb - wa));
+          const outP = wd <= wc ? 0 : clamp01((tt - wc) / (wd - wc));
+          el.style.opacity = Math.min(1, inP * 4, (1 - outP) * 4).toFixed(3);
+          const n = pt.chars.length;
+          for (let j = 0; j < n; j++) {
+            const lag = (j / n) * 0.6;
+            const up = smooth(clamp01(inP * 1.6 - lag));
+            const off = smooth(clamp01(outP * 1.6 - lag));
+            pt.chars[j].style.transform = `translate3d(0, ${((1 - up) * 108 - off * 108).toFixed(1)}%, 0)`;
+          }
+          const land = smooth(inP);
+          if (pt.num) {
+            pt.num.style.opacity = (land * (1 - smooth(outP))).toFixed(3);
+            pt.num.style.transform = `translate3d(${((1 - land) * -26).toFixed(1)}px, ${(-smooth(outP) * 30).toFixed(1)}px, 0) scale(${(1 + (1 - land) * 0.22).toFixed(3)})`;
+          }
+          // the number fills with light while you stay on its step
+          if (pt.fill) pt.fill.style.clipPath = `inset(${((1 - smooth(clamp01((tt - wb + 0.02) / Math.max(0.01, Math.min(wc, 1) - wb + 0.02)))) * 100).toFixed(1)}% 0 0 0)`;
+          if (pt.rule) pt.rule.style.transform = `scaleX(${(smooth(clamp01(inP * 1.5 - 0.3)) * (1 - smooth(outP))).toFixed(3)})`;
+          if (pt.line) {
+            const k = smooth(clamp01(inP * 2 - 1)) * (1 - smooth(clamp01(outP * 2)));
+            pt.line.style.opacity = k.toFixed(3);
+            pt.line.style.transform = `translate3d(0, ${((1 - k) * (outP > 0 ? -14 : 14)).toFixed(1)}px, 0)`;
+          }
+        }
+        const shade = shadeRefs.current[i];
+        if (shade) shade.style.opacity = a.toFixed(3);
       }
-      // the ending stands in the middle of the frame: the side shadow gives way to one behind the centre
+      // the ending stands in the middle of the frame, with a shadow of its own behind it
       const end = alphaAt(tt, WINDOWS[4]);
-      if (sideRef.current) sideRef.current.style.opacity = (1 - end).toFixed(3);
       if (endRef.current) endRef.current.style.opacity = end.toFixed(3);
+      // the logo's "o" is the scan ball: it stays empty until the ball has flown into it
+      const o = oRef.current;
+      if (o) {
+        const landed = smooth(clamp01((tt - 0.954) / 0.018));
+        o.style.opacity = landed.toFixed(3);
+        if (bay && tt > 0.84) {
+          const r = o.getBoundingClientRect();
+          const c = canvas.getBoundingClientRect();
+          bay.setDock(r.width > 0 ? { x: r.left + r.width / 2 - c.left, y: r.top + r.height / 2 - c.top, r: r.width / 2 } : null);
+        }
+      }
       const rail = railRef.current;
       if (rail) rail.style.opacity = ((1 - alphaAt(tt, WINDOWS[0])) * (1 - end)).toFixed(3);
       for (let k = 0; k < 4; k++) {
@@ -179,8 +232,9 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
               <source media="(max-width: 767px)" srcSet={poster.mobile[i]} />
               <img src={poster.desktop[i]} alt="" className="absolute inset-0 h-full w-full object-cover" loading={i ? "lazy" : "eager"} />
             </picture>
-            <div className="wrap relative">
-              {!s ? <HeroText c={c} cta={cta} href={href} /> : i === 4 ? <EndText word={s.word} line={s.line} cta={cta} href={href} /> : <StepText word={s.word} line={s.line} />}
+            <div aria-hidden="true" className={`${SHADE[i]} opacity-100`} />
+            <div className={`wrap relative ${i === 1 ? "md:flex md:justify-end" : ""}`}>
+              {!s ? <HeroText c={c} cta={cta} href={href} /> : i === 4 ? <EndText word={s.word} line={s.line} cta={cta} href={href} /> : <StepText n={i} word={s.word} line={s.line} />}
             </div>
           </div>
         ))}
@@ -201,26 +255,28 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         </picture>
         <canvas ref={canvasRef} aria-hidden="true" className={`absolute inset-0 h-full w-full transition-opacity duration-700 ${mode === "live" ? "opacity-100" : "opacity-0"}`} />
 
-        {/* a shadow the words stand in: left on wide screens, top on phones */}
-        <div ref={sideRef} aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(7,9,12,0.92)_0%,rgba(7,9,12,0.6)_30%,rgba(7,9,12,0)_52%)] md:bg-[linear-gradient(90deg,rgba(7,9,12,0.9)_0%,rgba(7,9,12,0.62)_30%,rgba(7,9,12,0)_58%)]" />
-        <div ref={endRef} aria-hidden="true" className={END_SHADE} style={{ opacity: 0 }} />
+        {/* a shadow for each block of words to stand in, wherever in the frame that block is */}
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} ref={(el) => { shadeRefs.current[i] = el; }} aria-hidden="true" data-shade="" className={SHADE[i]} style={i === 0 ? undefined : { opacity: 0 }} />
+        ))}
+        <div ref={endRef} aria-hidden="true" data-shade="" className={SHADE[4]} style={{ opacity: 0 }} />
         {/* the words */}
         <div className="wrap pointer-events-none relative h-full">
           {words.map((s, i) => (
             <div
               key={i}
               ref={(el) => { blockRefs.current[i] = el; }}
-              className={`absolute inset-x-4 will-change-[opacity,transform] sm:inset-x-8 lg:inset-x-10 ${i === 4 ? "top-1/2" : "top-[104px] md:top-1/2"}`}
+              className={`absolute inset-x-4 will-change-[opacity,transform] sm:inset-x-8 lg:inset-x-10 ${PLACE[i]}`}
               style={i === 0 ? undefined : { opacity: 0, visibility: "hidden" }}
             >
-              <div className={i === 4 ? "-translate-y-[54%]" : "md:-translate-y-[56%]"}>
-                {!s ? <HeroText c={c} cta={cta} href={href} /> : i === 4 ? <EndText word={s.word} line={s.line} cta={cta} href={href} /> : <StepText word={s.word} line={s.line} />}
+              <div className={INNER[i]}>
+                {!s ? <HeroText c={c} cta={cta} href={href} /> : i === 4 ? <EndText word={s.word} line={s.line} cta={cta} href={href} oRef={oRef} /> : <StepText n={i} word={s.word} line={s.line} />}
               </div>
             </div>
           ))}
 
           {/* four-part progress mark */}
-          <div ref={railRef} aria-hidden="true" className="absolute bottom-[max(28px,env(safe-area-inset-bottom))] left-4 flex gap-1.5 opacity-0 sm:left-8 lg:left-10">
+          <div ref={railRef} aria-hidden="true" className="absolute bottom-[max(28px,env(safe-area-inset-bottom))] left-1/2 flex -translate-x-1/2 gap-1.5 opacity-0">
             {[0, 1, 2, 3].map((k) => (
               <span key={k} className="block h-[3px] w-10 overflow-hidden rounded-full bg-fg/15 sm:w-14">
                 <span ref={(el) => { segRefs.current[k] = el; }} className="block h-full w-full origin-left scale-x-0 bg-ice" />
@@ -238,17 +294,39 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
   );
 }
 
+// Where each block of words stands on a wide screen: the hero on the left, Upload on the right, Scan at the bottom left,
+// Autopilot at the top left, the ending in the middle. On a phone they all stand at the top, the ending in the middle.
+const PLACE = [
+  "top-[104px] md:top-1/2",
+  "top-[104px] md:top-1/2 md:flex md:justify-end",
+  "top-[104px] md:bottom-[12%] md:top-auto",
+  "top-[104px] md:top-[15%]",
+  "top-[40%] md:top-[38%]",
+];
+const INNER = ["md:-translate-y-[56%]", "md:-translate-y-[56%]", "", "", "-translate-y-1/2"];
+const SHADE_BASE = "pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(7,9,12,0.92)_0%,rgba(7,9,12,0.6)_30%,rgba(7,9,12,0)_52%)]";
+const SHADE = [
+  `${SHADE_BASE} md:bg-[linear-gradient(90deg,rgba(7,9,12,0.9)_0%,rgba(7,9,12,0.62)_30%,rgba(7,9,12,0)_58%)]`,
+  `${SHADE_BASE} md:bg-[linear-gradient(270deg,rgba(7,9,12,0.9)_0%,rgba(7,9,12,0.62)_28%,rgba(7,9,12,0)_54%)]`,
+  `${SHADE_BASE} md:bg-[radial-gradient(ellipse_62%_58%_at_0%_100%,rgba(7,9,12,0.94)_0%,rgba(7,9,12,0.7)_45%,rgba(7,9,12,0)_100%)]`,
+  `${SHADE_BASE} md:bg-[radial-gradient(ellipse_62%_58%_at_0%_0%,rgba(7,9,12,0.94)_0%,rgba(7,9,12,0.7)_45%,rgba(7,9,12,0)_100%)]`,
+  // the ending: darkest behind the words, the car still showing round them
+  "pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_62%_44%_at_50%_34%,rgba(7,9,12,0.8)_0%,rgba(7,9,12,0.55)_55%,rgba(7,9,12,0)_100%)]",
+];
+
+const Arrow = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" /></svg>;
+
 function HeroText({ c, cta, href }: { c: JourneyCopy; cta: string; href: string }) {
   return (
-    <div className="pointer-events-auto max-w-[680px]">
-      <h1 className="display text-[clamp(3.4rem,15.5vw,5.2rem)] text-fg md:text-[clamp(4.6rem,8.4vw,9.6rem)]">
-        <span className="block">{c.h1[0]}</span>
-        <span className="block text-ice">{c.h1[1]}</span>
+    <div className="pointer-events-auto max-w-[720px]">
+      <h1 className="jd text-[clamp(2.5rem,11.4vw,4rem)] md:text-[clamp(3.2rem,5.6vw,6.6rem)]">
+        <span className="jd-thin block">{c.h1[0]}</span>
+        <span className="jd-steel block">{c.h1[1]}</span>
       </h1>
       <p className="mt-5 text-[17px] leading-snug text-mute md:mt-7 md:text-[19px]">{c.sub}</p>
-      <Link href={href} className="btn-primary mt-7 !h-14 !px-8 !text-[16px] md:mt-9">
+      <Link href={href} className="btn-hero mt-7 md:mt-9">
         {cta}
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" /></svg>
+        <Arrow />
       </Link>
     </div>
   );
@@ -256,28 +334,48 @@ function HeroText({ c, cta, href }: { c: JourneyCopy; cta: string; href: string 
 
 // one sentence per line where it fits: a line never breaks in the middle of a sentence it could hold
 const sentences = (line: string) => line.split(/(?<=[.。])\s*(?=\S)/).flatMap((x, i) => [i ? " " : "", <span key={i} className="inline-block">{x}</span>]);
-// the shadow the ending stands in: darkest behind the words, the car still showing round them
-const END_SHADE = "pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_46%,rgba(7,9,12,0.74)_0%,rgba(7,9,12,0.55)_45%,rgba(7,9,12,0.2)_100%)]";
 
-function StepText({ word, line }: { word: string; line: string }) {
+/** A word as letters, each in its own slot, so the page can raise them one after another. */
+function Letters({ text }: { text: string }) {
+  return (
+    <>
+      <span className="sr-only">{text}</span>
+      <span aria-hidden="true" className="inline-flex flex-wrap">
+        {Array.from(text).map((ch, i) => (
+          <span key={i} className="jd-slot"><span data-ch="" className="jd-steel inline-block will-change-transform">{ch === " " ? " " : ch}</span></span>
+        ))}
+      </span>
+    </>
+  );
+}
+
+function StepText({ n, word, line }: { n: number; word: string; line: string }) {
   return (
     <div className="max-w-[640px]">
-      <h2 className="display text-[clamp(3.2rem,15vw,5rem)] text-fg md:text-[clamp(4.4rem,8vw,9rem)]">{word}</h2>
-      <p className="mt-4 max-w-[24ch] text-balance text-[18px] leading-snug text-fg/85 md:mt-6 md:text-[22px]">{sentences(line)}</p>
+      <div className="flex items-end gap-4 md:gap-6">
+        {/* the step's number: an outline that fills with light */}
+        <span data-num="" aria-hidden="true" className="jd-num relative block text-[clamp(4.6rem,21vw,7rem)] md:text-[clamp(6.5rem,10.5vw,12.5rem)]">
+          <span className="jd-num-line">{n}</span>
+          <span data-fill="" className="jd-num-fill absolute inset-0">{n}</span>
+        </span>
+        <h2 className="jd pb-[0.14em] text-[clamp(2.3rem,10.4vw,3.6rem)] md:text-[clamp(3rem,5vw,6rem)]"><span className="sr-only">{n}. </span><Letters text={word} /></h2>
+      </div>
+      <span data-rule="" aria-hidden="true" className="mt-4 block h-px w-full max-w-[420px] origin-left bg-gradient-to-r from-ice/80 to-ice/0 md:mt-5" />
+      <p data-line="" className="mt-4 max-w-[26ch] text-balance text-[18px] leading-snug text-fg/85 md:mt-5 md:text-[21px]">{sentences(line)}</p>
     </div>
   );
 }
 
-/** The ending: the logo, the last word, and the way in. Centred, with the finished car behind it. */
-function EndText({ word, line, cta, href }: { word: string; line: string; cta: string; href: string }) {
+/** The ending: the logo, the last word, and the way in. Centred, with the finished car facing you under it. */
+function EndText({ word, line, cta, href, oRef }: { word: string; line: string; cta: string; href: string; oRef?: React.Ref<SVGGElement> }) {
   return (
     <div className="mx-auto flex max-w-[720px] flex-col items-center text-center">
-      <Wordmark className="h-[34px] w-auto text-fg md:h-[46px]" />
-      <h2 className="display mt-7 text-[clamp(3.6rem,17vw,5.6rem)] text-go md:mt-9 md:text-[clamp(5rem,9vw,10rem)]">{word}</h2>
-      <p className="mt-4 text-balance text-[18px] leading-snug text-fg/90 md:mt-5 md:text-[22px]">{sentences(line)}</p>
-      <Link href={href} className="btn-primary pointer-events-auto mt-8 !h-14 !px-9 !text-[16px] md:mt-10">
+      <Wordmark className="h-[34px] w-auto text-fg md:h-[46px]" oRef={oRef} />
+      <h2 className="jd jd-go mt-6 text-[clamp(3rem,14vw,4.6rem)] md:mt-8 md:text-[clamp(3.8rem,6.4vw,7.4rem)]"><Letters text={word} /></h2>
+      <p data-line="" className="mt-3 text-balance text-[18px] leading-snug text-fg/90 md:mt-4 md:text-[21px]">{sentences(line)}</p>
+      <Link href={href} className="btn-hero pointer-events-auto mt-7 md:mt-8">
         {cta}
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" /></svg>
+        <Arrow />
       </Link>
     </div>
   );

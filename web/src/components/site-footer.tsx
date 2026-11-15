@@ -8,6 +8,9 @@ export default async function SiteFooter() {
   const { t } = await getT();
   const company = showCompany();
   const links = [
+    { href: "/how-it-works", label: t("nav.how") },
+    { href: "/security", label: t("nav.security") },
+    { href: "/faq", label: t("nav.faq") },
     { href: "/privacy", label: t("footer.privacy") },
     { href: "/terms", label: t("footer.terms") },
     { href: "/contact", label: t("footer.contact") },
