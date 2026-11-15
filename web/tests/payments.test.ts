@@ -181,3 +181,19 @@ test("a provider with no config is hidden", async () => {
   delete process.env.LEMONSQUEEZY_API_KEY; delete process.env.TOYYIBPAY_SECRET_KEY; delete process.env.TOYYIBPAY_CATEGORY_CODE; delete process.env.PAYMENTS_MOCK;
   assert.deepEqual(await availableProviders(), []);
 });
+
+test("owner-only free code: sent only for allow-listed email", async () => {
+  const { lemonsqueezy } = await import("../src/lib/payments/providers/lemonsqueezy");
+  process.env.LEMONSQUEEZY_API_KEY = "k"; process.env.LEMONSQUEEZY_STORE_ID = "1"; process.env.LEMONSQUEEZY_VARIANT_PACK_1 = "2";
+  process.env.LEMONSQUEEZY_OWNER_CODE = "OWNERFREE"; process.env.OWNER_FREE_EMAILS = " Boss@Example.com ,x@y.z";
+  const bodies: any[] = [];
+  globalThis.fetch = (async (_u: unknown, init: any) => { bodies.push(JSON.parse(init.body)); return new Response(JSON.stringify({ data: { id: "c1", attributes: { url: "https://x" } } }), { status: 200 }); }) as typeof fetch;
+  const order = await mk("lemonsqueezy");
+  await lemonsqueezy.createCheckout({ order, email: "boss@example.com", returnUrl: "https://r" } as any);
+  await lemonsqueezy.createCheckout({ order, email: "other@example.com", returnUrl: "https://r" } as any);
+  assert.equal(bodies[0].data.attributes.checkout_data.discount_code, "OWNERFREE");
+  assert.equal(bodies[1].data.attributes.checkout_data.discount_code, undefined);
+  assert.equal(bodies[0].data.attributes.checkout_options.discount, true);
+  assert.equal(bodies[1].data.attributes.checkout_options.discount, false);
+  delete process.env.OWNER_FREE_EMAILS; delete process.env.LEMONSQUEEZY_OWNER_CODE;
+});
