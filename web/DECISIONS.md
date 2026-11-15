@@ -31,3 +31,9 @@
 - `email_log` stores kind, recipient domain and outcome only.
 - Org-wide spend comes from the Anthropic Admin API (`ANTHROPIC_ADMIN_KEY`), best-effort cached per instance. The response shape was written from the docs and is tested against mocks; confirm it against the first real response.
 - Tests: `npm test` runs unit tests anywhere; the seeded database tests run only when `DATABASE_URL` points at a local Postgres with the migrations applied.
+
+## Two hosts, one deployment (2026-11-15)
+- The system is on the app host (env `BETTER_AUTH_URL`, `https://app.<domain>`); the bare domain and `www.` are the marketing site. Better Auth refuses a sign-in posted from the bare domain (wrong origin, 403) and a session made on one host does not exist on the other.
+- So `src/middleware.ts` sends log in, sign up, password reset, the case pages, billing and admin asked for on the bare domain to the same path on the app host (`lib/hosts.ts`, tested), and the public top bar and the landing's Sign up button link straight to the app host there. Previews (`*.vercel.app`) and localhost are left alone. No new env variable.
+- Case list (owner, 2026-11-15): one line per case. A case that stopped reads "On hold" and has no button (the team picks it up); the words "Try again" and "rejected" are not shown to users.
+- Dates a signed-in page prints are formatted in `Asia/Kuala_Lumpur`, so the server and the browser write the same day.

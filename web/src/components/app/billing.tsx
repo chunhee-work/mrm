@@ -132,7 +132,7 @@ export default function Billing(p: Props) {
             <tbody>
               {p.orders.map((o) => (
                 <tr key={o.id} className="border-t border-hair">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-fg">{new Date(o.createdAt).toLocaleDateString(localeOf(lang), { day: "numeric", month: "short", year: "numeric" })}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-fg">{new Date(o.createdAt).toLocaleDateString(localeOf(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kuala_Lumpur" })}</td>
                   <td className="px-2 py-2.5">{t("bill.credits", { n: o.packCredits.toLocaleString(localeOf(lang)) })}{o.testMode ? " · TEST" : ""}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{money(o.amountMinor, o.currency, lang)}</td>
                   <td className={`whitespace-nowrap px-4 py-2.5 text-right ${o.status === "paid" ? "font-semibold text-fg" : "text-mute"}`}>{o.status === "paid" ? "✓ " : ""}{t(`bill.s.${o.status}`)}</td>
