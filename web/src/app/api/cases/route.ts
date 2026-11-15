@@ -4,7 +4,8 @@ import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 
 const Body = z.object({
-  plate: z.string().trim().min(2).max(20).transform((s) => s.toUpperCase().replace(/\s+/g, "")),
+  // not asked for any more: the reader takes the plate from the documents. Still accepted, so an older page keeps working.
+  plate: z.string().trim().max(20).transform((s) => s.toUpperCase().replace(/\s+/g, "")).optional(),
   files: z.array(z.object({
     kind: z.enum(["bundle_zip", "pdf", "photo"]),
     url: z.string().url(), name: z.string().max(300), size: z.number().int().nonnegative(),
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
-  const { plate, files } = parsed.data;
+  const { plate = "", files } = parsed.data; // "" until the documents are read (the column is NOT NULL)
   const id = crypto.randomUUID();
   await db.insert(schema.cases).values({ id, orgId: me.orgId, createdBy: me.user.id, plate, status: "uploaded" });
   await db.insert(schema.caseFiles).values(files.map((f) => ({ caseId: id, kind: f.kind, blobUrl: f.url, originalName: f.name, size: f.size })));

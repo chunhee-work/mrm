@@ -1,4 +1,6 @@
+import { headers } from "next/headers";
 import { getUserOrNull } from "@/lib/session";
+import { appOriginFor } from "@/lib/hosts";
 import { getT } from "@/lib/i18n-server";
 import { HOME } from "@/lib/home-copy";
 import { JOURNEY } from "@/lib/landing-copy";
@@ -20,12 +22,13 @@ export default async function Home() {
   const { lang, t } = await getT();
   const c = HOME[lang];
   const authed = !!me;
+  const app = appOriginFor((await headers()).get("host")); // "" on the app host: the links stay inside the site
   const labels = { start: t("nav.start"), cases: t("nav.myCases") };
   return (
     <>
       <SiteNav authed={authed} overlay />
       <main id="main">
-        <Journey c={JOURNEY[lang]} cta={authed ? labels.cases : labels.start} href={authed ? "/dashboard" : "/signup"} poster={POSTER} />
+        <Journey c={JOURNEY[lang]} cta={authed ? labels.cases : labels.start} href={app + (authed ? "/dashboard" : "/signup")} poster={POSTER} />
         {/* the detail lives on pages of its own (How it works, Security, FAQ): this page stays short */}
         <Proof c={c.time} />
         <More c={c} label={t("nav.more")} />

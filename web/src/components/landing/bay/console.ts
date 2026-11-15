@@ -11,9 +11,9 @@ const LOOK: number = 1;
 
 /**
  * The intake console beside the car (a scanned model), and everything that happens at it:
- *   Upload     the case file hangs in front of the viewer, big sheets one over another: the pages an adjuster knows
- *              (ownership certificate, insurance schedule, police report, sketch plan, search result) and the damage
- *              photos. Scroll on, and sheet after sheet goes into the slot
+ *   Upload     the case file hangs in front of the viewer, one line of sheets leading down to the slot: the pages an
+ *              adjuster knows (ownership certificate, insurance schedule, police report, sketch plan, search result)
+ *              and the damage photos. Scroll on, and sheet after sheet goes into the slot
  *   Autopilot  a glass claim form opens under the scan ball; one row per damaged part types itself and is ticked,
  *              and the same part turns from amber to green on the form's own drawing of the car
  * No words anywhere: every line of writing is a bar.
@@ -36,42 +36,53 @@ const HERO_PAGE = 12;
 const HERO_PHOTO = 13;
 
 /**
- * How the case file hangs in front of the viewer at the Upload stop: a few big sheets one over another, the nearest
- * sharp, the ones behind larger and out of focus, and loose sheets far off in the dark. Listed from the back to the front.
+ * How the case file hangs in front of the viewer at the Upload stop: one tidy line of sheets that leads down into the
+ * slot, the nearest sheet large and sharp, each next one smaller and a step further off; behind it a second line, dimmer
+ * and out of focus, and a few loose sheets far off in the dark. Listed from the back to the front.
  *   x, y    where its middle shows in the frame (0..1 from the top left)      h      its height, in frame heights
  *   depth   metres from the viewer                                            turn   pitch, yaw, roll in degrees
  *   blur    how far out of focus, in sheet widths                             dim    how much of the light reaches it
  */
 type Sheet = { cell: number; x: number; y: number; h: number; depth: number; turn: [number, number, number]; blur: number; dim: number; shadow?: boolean };
-const SHEETS_WIDE: Sheet[] = [
-  { cell: 11, x: 0.433, y: 0.322, h: 0.093, depth: 5.0, turn: [4, -20, 8], blur: 0.05, dim: 0.3 },
-  { cell: 4, x: 0.374, y: 0.489, h: 0.186, depth: 4.4, turn: [-6, 24, -7], blur: 0.045, dim: 0.3 },
-  { cell: 10, x: 0.083, y: 0.731, h: 0.124, depth: 4.2, turn: [8, 30, 10], blur: 0.05, dim: 0.3 },
-  { cell: 3, x: 0.073, y: 0.346, h: 0.223, depth: 4.2, turn: [-3, 34, 5], blur: 0.04, dim: 0.34 },
-  { cell: 9, x: 0.269, y: 0.756, h: 0.105, depth: 3.9, turn: [10, 10, -6], blur: 0.04, dim: 0.36 },
-  { cell: 8, x: 0.383, y: 0.278, h: 0.081, depth: 3.8, turn: [-8, -14, -5], blur: 0.035, dim: 0.4 },
-  { cell: 1, x: 0.128, y: 0.489, h: 0.52, depth: 3.4, turn: [-3, 18, -2], blur: 0.02, dim: 0.46 },
-  { cell: 5, x: 0.303, y: 0.408, h: 0.372, depth: 3.0, turn: [-4, 15, 2], blur: 0.012, dim: 0.6 },
-  { cell: 7, x: 0.341, y: 0.331, h: 0.124, depth: 2.6, turn: [-3, 12, 4], blur: 0.005, dim: 0.86, shadow: true },
-  { cell: 2, x: 0.185, y: 0.551, h: 0.422, depth: 2.5, turn: [-3, 14, -4], blur: 0.004, dim: 0.8, shadow: true },
-  { cell: HERO_PAGE, x: 0.236, y: 0.508, h: 0.422, depth: 2.2, turn: [-3, 13, -1.2], blur: 0, dim: 1, shadow: true },
-  { cell: HERO_PHOTO, x: 0.321, y: 0.625, h: 0.186, depth: 1.9, turn: [-2, 10, 1.2], blur: 0, dim: 1, shadow: true },
-];
-// a phone's frame is tall: the words are above, the machine below, the file between them
-const SHEETS_NARROW: Sheet[] = [
-  { cell: 11, x: 0.788, y: 0.344, h: 0.068, depth: 5.0, turn: [4, -20, 8], blur: 0.05, dim: 0.3 },
-  { cell: 4, x: 0.844, y: 0.54, h: 0.16, depth: 4.4, turn: [-6, -24, -7], blur: 0.045, dim: 0.3 },
-  { cell: 10, x: 0.18, y: 0.676, h: 0.072, depth: 4.2, turn: [8, 30, 10], blur: 0.05, dim: 0.3 },
-  { cell: 3, x: 0.124, y: 0.5, h: 0.176, depth: 4.2, turn: [-3, 34, 5], blur: 0.04, dim: 0.34 },
-  { cell: 9, x: 0.204, y: 0.36, h: 0.068, depth: 3.9, turn: [10, 10, -6], blur: 0.04, dim: 0.36 },
-  { cell: 8, x: 0.796, y: 0.68, h: 0.064, depth: 3.8, turn: [-8, -14, -5], blur: 0.035, dim: 0.4 },
-  { cell: 1, x: 0.292, y: 0.48, h: 0.4, depth: 3.4, turn: [-3, 16, -2], blur: 0.02, dim: 0.46 },
-  { cell: 5, x: 0.644, y: 0.452, h: 0.272, depth: 3.0, turn: [-4, 13, 2], blur: 0.012, dim: 0.6 },
-  { cell: 7, x: 0.692, y: 0.388, h: 0.092, depth: 2.6, turn: [-3, 10, 4], blur: 0.005, dim: 0.86, shadow: true },
-  { cell: 2, x: 0.348, y: 0.528, h: 0.296, depth: 2.5, turn: [-4, 12, -5], blur: 0.004, dim: 0.8, shadow: true },
-  { cell: HERO_PAGE, x: 0.46, y: 0.5, h: 0.304, depth: 2.2, turn: [-3, 10, -1.2], blur: 0, dim: 1, shadow: true },
-  { cell: HERO_PHOTO, x: 0.64, y: 0.608, h: 0.132, depth: 1.9, turn: [-2, 8, 1.2], blur: 0, dim: 1, shadow: true },
-];
+type Hang = { sheets: Sheet[]; /** where the slot shows in the frame at the Upload stop: the sheet nearest to it goes in first */ mouth: [number, number] };
+const HANG_WIDE: Hang = {
+  mouth: [0.569, 0.624],
+  sheets: [
+    // far off, in the dark
+    { cell: 11, x: 0.07, y: 0.2, h: 0.085, depth: 5.2, turn: [6, 30, 9], blur: 0.05, dim: 0.26 },
+    { cell: 4, x: 0.035, y: 0.5, h: 0.13, depth: 5.0, turn: [-6, 32, -8], blur: 0.045, dim: 0.24 },
+    { cell: 10, x: 0.415, y: 0.17, h: 0.075, depth: 4.8, turn: [8, -8, -7], blur: 0.045, dim: 0.28 },
+    // the second line, behind and below the first
+    { cell: 1, x: 0.15, y: 0.65, h: 0.23, depth: 4.2, turn: [-3, 22, -4], blur: 0.016, dim: 0.4 },
+    { cell: 8, x: 0.255, y: 0.69, h: 0.115, depth: 4.0, turn: [-2, 18, 3], blur: 0.014, dim: 0.44 },
+    { cell: 3, x: 0.345, y: 0.7, h: 0.17, depth: 3.8, turn: [-3, 16, -3], blur: 0.012, dim: 0.48 },
+    { cell: 9, x: 0.43, y: 0.705, h: 0.09, depth: 3.6, turn: [-2, 14, 4], blur: 0.01, dim: 0.52 },
+    // the line itself: it ends just over the slot
+    { cell: 5, x: 0.563, y: 0.522, h: 0.165, depth: 3.3, turn: [-6, 8, -1.5], blur: 0.003, dim: 0.88, shadow: true },
+    { cell: 7, x: 0.505, y: 0.5, h: 0.135, depth: 2.95, turn: [-3, 11, 3], blur: 0.0015, dim: 0.93, shadow: true },
+    { cell: 2, x: 0.432, y: 0.44, h: 0.27, depth: 2.6, turn: [-3, 12, -2], blur: 0, dim: 0.97, shadow: true },
+    { cell: HERO_PHOTO, x: 0.335, y: 0.4, h: 0.19, depth: 2.25, turn: [-2, 12, 2.5], blur: 0, dim: 1, shadow: true },
+    { cell: HERO_PAGE, x: 0.2, y: 0.295, h: 0.37, depth: 2.0, turn: [-3, 14, -3], blur: 0, dim: 1, shadow: true },
+  ],
+};
+// a phone's frame is tall: the words are above, the machine below, the line of sheets comes down between them
+const HANG_NARROW: Hang = {
+  mouth: [0.532, 0.79],
+  sheets: [
+    { cell: 11, x: 0.88, y: 0.3, h: 0.05, depth: 5.2, turn: [4, -24, 8], blur: 0.05, dim: 0.26 },
+    { cell: 4, x: 0.1, y: 0.74, h: 0.09, depth: 5.0, turn: [-6, 30, -7], blur: 0.045, dim: 0.24 },
+    { cell: 10, x: 0.9, y: 0.72, h: 0.045, depth: 4.8, turn: [8, -20, 10], blur: 0.045, dim: 0.28 },
+    { cell: 1, x: 0.17, y: 0.59, h: 0.13, depth: 4.2, turn: [-3, 20, -4], blur: 0.016, dim: 0.4 },
+    { cell: 8, x: 0.3, y: 0.655, h: 0.062, depth: 4.0, turn: [-2, 16, 3], blur: 0.014, dim: 0.44 },
+    { cell: 3, x: 0.87, y: 0.42, h: 0.1, depth: 3.8, turn: [-3, -18, 4], blur: 0.012, dim: 0.46 },
+    { cell: 9, x: 0.36, y: 0.715, h: 0.05, depth: 3.6, turn: [-2, 14, 4], blur: 0.01, dim: 0.52 },
+    { cell: 5, x: 0.545, y: 0.716, h: 0.095, depth: 3.3, turn: [-6, 6, -1.5], blur: 0.003, dim: 0.88, shadow: true },
+    { cell: 7, x: 0.555, y: 0.645, h: 0.075, depth: 2.95, turn: [-3, 8, 3], blur: 0.0015, dim: 0.93, shadow: true },
+    { cell: 2, x: 0.57, y: 0.553, h: 0.15, depth: 2.6, turn: [-3, 9, -2], blur: 0, dim: 0.97, shadow: true },
+    { cell: HERO_PHOTO, x: 0.49, y: 0.462, h: 0.1, depth: 2.25, turn: [-2, 9, 2.5], blur: 0, dim: 1, shadow: true },
+    { cell: HERO_PAGE, x: 0.25, y: 0.39, h: 0.205, depth: 2.0, turn: [-3, 11, -3], blur: 0, dim: 1, shadow: true },
+  ],
+};
 const PAGE_ASPECT = 880 / 1168;
 const PHOTO_ASPECT = 1168 / 880;
 const isPage = (cell: number) => cell < DOCS || cell === HERO_PAGE;
@@ -273,8 +284,12 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
 
   // ── the case file: pages and photos, instanced; each card is a piece of one of the two pictures
   for (const tex of [casefile, hero]) { tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; }
-  const SHEETS = mobile ? SHEETS_NARROW : SHEETS_WIDE;
+  const { sheets: SHEETS, mouth } = mobile ? HANG_NARROW : HANG_WIDE;
   const N_CARDS = SHEETS.length;
+  // the order the sheets move in: the one nearest the slot first, the one furthest up the line last (0..1)
+  const turnOf = SHEETS.map((sh, i) => ({ i, d: Math.hypot(sh.x - mouth[0], sh.y - mouth[1]) })).sort((a, b) => a.d - b.d);
+  const phiOf = new Float32Array(N_CARDS);
+  turnOf.forEach((o, k) => { phiOf[o.i] = k / (N_CARDS - 1); });
   const quat = new THREE.Quaternion();
   const cardGeo = keep(new THREE.PlaneGeometry(1, 1, 8, 1));
   const cell = new Float32Array(N_CARDS);
@@ -292,8 +307,8 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
     seed[i] = r() * 10;
     spin.push(new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 1.5, (r() - 0.5) * 2.2, (r() - 0.5) * 1.3)));
     rest.push(new THREE.Quaternion().setFromEuler(new THREE.Euler(sh.turn[0] * RAD, sh.turn[1] * RAD, sh.turn[2] * RAD, "YXZ")));
-    // where it comes from: out of the frame, below and to the side, and nearer than where it will hang
-    from.push(new THREE.Vector3(sh.x + (r() - 0.62) * 0.7, 1.25 + sh.h * 0.6 + r() * 0.5, sh.depth * (0.5 + r() * 0.25)));
+    // where it comes from: out of the frame, up the line it will hang in, and nearer than where it will hang
+    from.push(new THREE.Vector3(sh.x - 0.42 - r() * 0.3, -0.3 - sh.h * 0.6 - r() * 0.35, sh.depth * (0.55 + r() * 0.25)));
   }
   cardGeo.setAttribute("aCell", new THREE.InstancedBufferAttribute(cell, 1));
   cardGeo.setAttribute("aSeed", new THREE.InstancedBufferAttribute(seed, 1));
@@ -516,11 +531,11 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
     let s = 0;
     for (let i = 0; i < N_CARDS; i++) {
       const sh = SHEETS[i];
-      const phi = i / (N_CARDS - 1);
-      // in: the far sheets first, the near ones last, each easing to a stop
+      const phi = phiOf[i];
+      // in: the sheet that will hang nearest the slot first, each easing to a stop
       const a = clamp01((coming - phi * 0.5) / 0.5);
       const arrive = 1 - Math.pow(1 - a, 3);
-      // out: the same order; the sheet nearest the viewer is the last to go
+      // out: the same order; the sheet at the top of the line is the last to go
       const q = clamp01((going - phi * 0.6) / 0.4);
       const e = q * q * (3 - 2 * q);
       const u = lerp(e, q, 0.35);
