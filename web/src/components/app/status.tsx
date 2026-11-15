@@ -10,45 +10,36 @@ export function groupOf(status: string): Group {
   return NEEDS.has(status) ? "needs" : "active";
 }
 
-/** The pipeline with its end: the eight stops of a case's progress track. */
+// The list no longer draws the steps (owner 2026-11-15: a user needs to know done or not, and what is missing).
+// The order below stays as the one written record of the pipeline; tests/case-files.test.ts checks it.
+/** The pipeline with its end: the eight stops a case goes through. */
 export const TRACK = [...PIPELINE, "done"] as const;
 /** Which stop a case is at (0 to 7). A case missing a document stopped while reading; a failed case has no place (-1). */
 export function stepOf(status: string): number {
   return (TRACK as readonly string[]).indexOf(status === "pending_doc" ? "reading" : status);
 }
 
-/** Seven segments, one per pipeline step; filled up to the step the case is on. The step being worked on breathes. */
-function Strip({ status }: { status: string }) {
-  const at = PIPELINE.indexOf(status as (typeof PIPELINE)[number]);
-  return (
-    <span className="inline-flex gap-[2px] align-[-1px]">
-      {PIPELINE.map((s, i) => (
-        <span key={s} className={`h-[11px] w-[4px] sm:w-[5px] ${i <= at ? "bg-scan" : "bg-hair"} ${i === at ? "case-breathe" : ""}`} />
-      ))}
-    </span>
-  );
+/**
+ * What a row tells its owner, in the only words they need: finished, being worked on (whichever step),
+ * or the reason it is waiting for them (a document is missing, it stopped, it wants their confirmation).
+ */
+export type Shown = "done" | "working" | "missing" | "stopped" | "confirm";
+export function shownOf(status: string): Shown {
+  if (status === "done") return "done";
+  if (status === "pending_doc") return "missing";
+  if (status === "failed") return "stopped";
+  if (status === "waiting_user") return "confirm";
+  return "working";
 }
 
 /**
- * Drawn mark + status text. Needs you: amber dot. In progress: ink strip. Done: ink tick.
- * The mark is inline, so when a long status wraps it stays with the first word.
- * `slot` (from lg) gives the mark a fixed-width slot so both the marks and the texts of a column line up.
+ * The drawn mark in front of a row's status. Done: green tick. Being worked on: a blue light that pulses.
+ * Waiting for the user: amber dot. All three sit in the same 16px slot, so the marks and the texts line up down the list.
  */
-export function StatusMark({ status, label, detail, slot = false }: { status: string; label: string; detail?: string | null; slot?: boolean }) {
-  const g = groupOf(status);
-  const mark =
-    g === "needs" ? <span className="inline-block h-[9px] w-[9px] rounded-full bg-amber" /> :
-    g === "done" ? <Tick className="inline-block h-[15px] w-[15px] align-[-3px] text-ice" /> :
-    <Strip status={status} />;
+export function StatusMark({ shown }: { shown: Shown }) {
   return (
-    <span
-      className={`block font-mono text-[12.5px] leading-[20px] [overflow-wrap:anywhere] [text-wrap:balance] sm:text-[13px] ${g === "done" ? "text-ice" : "text-fg"} ${g === "needs" ? "font-medium" : ""} ${
-        slot ? "text-right lg:pl-[55px] lg:-indent-[55px] lg:text-left lg:[text-wrap:wrap]" : ""
-      }`}
-    >
-      <span aria-hidden="true" className={`mr-2 inline-block indent-0 ${slot ? "lg:w-[47px] lg:text-left" : ""}`}>{mark}</span>
-      {label}
-      {status === "pending_doc" && detail ? `: ${detail}` : ""}
+    <span aria-hidden="true" className="flex h-[22px] w-4 shrink-0 items-center justify-center">
+      {shown === "done" ? <Tick className="h-4 w-4 text-go" /> : shown === "working" ? <span className="case-live" /> : <span className="h-[9px] w-[9px] rounded-full bg-amber" />}
     </span>
   );
 }

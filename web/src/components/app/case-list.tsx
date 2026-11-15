@@ -2,12 +2,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { localeOf } from "@/lib/i18n";
+import { upload } from "@vercel/blob/client";
 import { useT } from "@/components/lang-provider";
-import { Chevron, Cross, EmptySheetArt, NoMatchArt, Plus, Search } from "./marks";
+import { kindOf } from "@/lib/file-kind";
 import ScanEdge from "@/components/scan-edge";
-import { groupOf, StatusMark, stepOf, TRACK, type Group } from "./status";
-import CaseDetail from "./case-detail";
+import { accepted } from "./drop-zone";
+import { Cross, EmptySheetArt, NoMatchArt, Plus, Search, Tick, Upload } from "./marks";
+import { groupOf, shownOf, StatusMark, type Group } from "./status";
 
 export type CaseRow = {
   id: string;
@@ -16,37 +17,201 @@ export type CaseRow = {
   insurer: string | null;
   status: string;
   pendingDoc: string | null;
-  createdAt: string; // ISO
-  doneAt: string | null; // ISO
 };
 
 type Filter = Group | "all";
 const FILTERS: Filter[] = ["all", "needs", "active", "done"];
-const GROUPS: Group[] = ["needs", "active", "done"]; // the order of the sections under "All"
+const GROUPS: Group[] = ["needs", "active", "done"]; // the order of the rows under "All"
 const REFRESH_MS = 20_000;
+const RECEIVED_MS = 8_000;
 
 const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 
-function relative(rtf: Intl.RelativeTimeFormat, then: number, now: number) {
-  const s = Math.round((then - now) / 1000);
-  const a = Math.abs(s);
-  if (a < 60) return rtf.format(0, "second");
-  if (a < 3600) return rtf.format(Math.trunc(s / 60), "minute");
-  if (a < 86400) return rtf.format(Math.trunc(s / 3600), "hour");
-  if (a < 86400 * 14) return rtf.format(Math.trunc(s / 86400), "day");
-  if (a < 86400 * 60) return rtf.format(Math.trunc(s / (86400 * 7)), "week");
-  if (a < 86400 * 365) return rtf.format(Math.trunc(s / (86400 * 30)), "month");
-  return rtf.format(Math.trunc(s / (86400 * 365)), "year");
+// From lg a row is four cells on one line: number, vehicle, status, and a fixed slot for the one button a row can have
+// (fixed, so the statuses start at the same place whether or not the row has a button).
+const COLS = "lg:grid-cols-[minmax(128px,0.9fr)_minmax(0,2.2fr)_minmax(0,2.1fr)_164px]";
+// The row's one button: ink, compact; 44px tall under the finger, 36px (with a taller hit area) from lg.
+const ACT =
+  "relative inline-flex h-11 min-w-[104px] items-center justify-center gap-2 whitespace-nowrap rounded-[3px] bg-ice px-4 text-[14px] font-semibold leading-none text-bay transition-colors duration-150 hover:bg-icehi before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] lg:h-9 lg:px-3.5";
+
+/**
+ * One case, one line: which car, and the one thing its owner needs to know. Done, being worked on,
+ * or what it is waiting for. Nothing opens (owner 2026-11-15: "user just need to know it done or not … and if missing thing, then is what").
+ * A missing document is sent from the row itself: choosing the files uploads them, there is no second button.
+ */
+function CaseItem({ row, orgId }: { row: CaseRow; orgId: string }) {
+  const { t } = useT();
+  const router = useRouter();
+  const item = useRef<HTMLLIElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const [sending, setSending] = useState<number | null>(null); // how much of the upload has gone up (0 to 100), while it runs
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState("");
+
+  // "Received" is a passing word: by the time it goes, the list has been read again and the row speaks for itself.
+  useEffect(() => {
+    if (!sent) return;
+    const id = window.setTimeout(() => setSent(false), RECEIVED_MS);
+    return () => window.clearTimeout(id);
+  }, [sent]);
+
+  /** Upload the chosen files (none for "Try again"), then put the case back in the queue. */
+  async function send(files: File[]) {
+    if (sending !== null) return;
+    setErr("");
+    setSending(0);
+    let saving = false;
+    try {
+      const folder = `${orgId}/${row.id}-add-${crypto.randomUUID()}`;
+      const total = files.reduce((n, f) => n + f.size, 0) || 1;
+      const done = [];
+      let before = 0;
+      for (const f of files) {
+        const base = before;
+        const b = await upload(`${folder}/${f.name}`, f, {
+          access: "private", handleUploadUrl: "/api/upload", multipart: f.size > 20e6,
+          onUploadProgress: (p) => setSending(Math.min(100, Math.round(((base + p.loaded) / total) * 100))),
+        });
+        before += f.size;
+        done.push({ kind: kindOf(f), url: b.url, name: f.name, size: f.size });
+      }
+      saving = true;
+      const r = await fetch(`/api/cases/${row.id}/files`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
+      if (!r.ok) throw new Error("not saved");
+      // the button is about to go: keep the keyboard's place on this row
+      if (document.activeElement === button.current) item.current?.focus();
+      setSent(true);
+      router.refresh();
+    } catch {
+      setErr(t(saving ? "dash.a.fail" : "new.failUpload"));
+    } finally {
+      setSending(null);
+    }
+  }
+  function onChosen(list: File[]) {
+    const ok = list.filter(accepted);
+    if (ok.length) void send(ok);
+    else if (list.length) setErr(t("dash.a.badType"));
+  }
+
+  const real = shownOf(row.status);
+  // Just sent: the row says "in progress" straight away, it does not wait for the list to be read again.
+  const shown = sent && (real === "missing" || real === "stopped") ? "working" : real;
+  const needs = shown === "missing" || shown === "stopped" || shown === "confirm";
+  const act = shown === "missing" ? "upload" : shown === "stopped" ? "retry" : null;
+  // Below lg, a row that needs the user (or has just been sent) gives its status a full line of its own under the car,
+  // so a long list of missing documents has room; its button sits where the other rows have their status.
+  const wide = needs || sent;
+  const docs = (row.pendingDoc ?? "").split("; ").map((d) => d.trim()).filter(Boolean);
+  const label =
+    shown === "missing" ? (docs.length ? t("dash.s.missing", { what: docs.join(", ") }) : t("dash.s.missingSome")) : t(`dash.s.${shown}`);
+  const statusId = `case-status-${row.id}`;
+  const busy = sending !== null;
+
+  return (
+    <li
+      ref={item}
+      tabIndex={-1}
+      className={`relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2.5 border-b px-4 py-3.5 transition-colors duration-150 last:-mb-px focus-visible:outline-offset-[-2px] lg:min-h-[68px] lg:gap-x-6 lg:px-6 lg:py-3 ${COLS} ${
+        needs ? "border-amber/25 bg-ambertint" : "border-hair hover:bg-bay"
+      }`}
+    >
+      {/* phones and portrait tablets: number over vehicle, and to their right the status or the row's button */}
+      <div className="min-w-0 lg:contents">
+        <p className="num truncate font-mono text-[16px] font-medium leading-[22px] tracking-[0.01em] text-fg">
+          {row.plate || <span className="font-sans text-[15px] font-normal tracking-normal text-mute">{t("dash.unread")}</span>}
+        </p>
+        <p className="mt-0.5 truncate text-[14px] leading-[20px] text-mute lg:mt-0 lg:text-[15px] lg:leading-[22px]">
+          {row.carModel ? <span className={`mr-2 ${shown === "done" ? "" : "text-fg"}`}>{row.carModel}</span> : null}
+          {row.carModel && row.insurer ? " " : null}
+          {row.insurer}
+        </p>
+      </div>
+
+      <p
+        id={statusId}
+        className={`flex min-w-0 items-start gap-2.5 text-[15px] leading-[22px] ${
+          needs ? "font-medium text-fg" : shown === "done" ? "text-mute" : "text-fg"
+        } ${wide ? "max-lg:col-span-2 max-lg:row-start-2 max-lg:-ml-[3px]" : "whitespace-nowrap"} ${act || sent ? "" : "lg:col-span-2"}`}
+      >
+        <StatusMark shown={shown} />
+        <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
+      </p>
+
+      {(act || sent) && (
+        <div className="flex justify-end max-lg:col-start-2 max-lg:row-start-1">
+          {/* always in the page while the row can act, so "Received" is announced when it arrives */}
+          <p role="status" className={sent ? "flex h-11 items-center gap-2 whitespace-nowrap text-[14px] font-medium text-fg lg:h-9" : "sr-only"}>
+            {sent && (
+              <>
+                <Tick className="h-[15px] w-[15px] shrink-0 text-go" />
+                {t("dash.a.received")}
+              </>
+            )}
+          </p>
+          {!sent && act === "upload" && (
+            <>
+              <input
+                ref={input}
+                type="file"
+                multiple
+                accept=".zip,.pdf,image/*"
+                tabIndex={-1}
+                aria-hidden="true"
+                className="sr-only"
+                onChange={(e) => { onChosen(Array.from(e.target.files ?? [])); e.target.value = ""; }}
+              />
+              <button
+                ref={button}
+                type="button"
+                aria-describedby={statusId}
+                aria-disabled={busy}
+                onClick={() => { if (!busy) input.current?.click(); }}
+                className={`${ACT} ${busy ? "num cursor-progress hover:bg-ice" : ""}`}
+              >
+                {busy ? t("dash.a.uploading", { pct: String(sending) }) : <><Upload />{t("dash.a.upload")}</>}
+                {/* the upload so far, along the button's bottom edge */}
+                {busy && (
+                  <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden rounded-b-[3px]">
+                    <span className="block h-full origin-left bg-scan transition-transform duration-200 motion-reduce:transition-none" style={{ transform: `scaleX(${sending / 100})` }} />
+                  </span>
+                )}
+              </button>
+            </>
+          )}
+          {!sent && act === "retry" && (
+            <button
+              ref={button}
+              type="button"
+              aria-describedby={statusId}
+              aria-disabled={busy}
+              onClick={() => void send([])}
+              className={`${ACT} ${busy ? "cursor-progress opacity-55 hover:bg-ice" : ""}`}
+            >
+              {t("dash.a.retry")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* what went wrong, under the status and on its text's left edge (the square sits in the mark's slot) */}
+      {err && (
+        <p role="alert" className="col-span-2 flex items-start gap-2.5 text-[14px] font-medium leading-[20px] text-fg max-lg:-ml-[3px] lg:col-start-3">
+          <span aria-hidden="true" className="mx-[3px] mt-[5px] h-[10px] w-[10px] shrink-0 bg-amber" />
+          {err}
+        </p>
+      )}
+      {needs && <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-amber" />}
+    </li>
+  );
 }
 
-export default function CaseList({ rows, orgId, now: serverNow }: { rows: CaseRow[]; orgId: string; now: number }) {
-  const { t, lang } = useT();
+export default function CaseList({ rows, orgId }: { rows: CaseRow[]; orgId: string }) {
+  const { t } = useT();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
-  const [now, setNow] = useState(serverNow);
-  const [openId, setOpenId] = useState<string | null>(null); // the one row that is open
-  const [keptId, setKeptId] = useState<string | null>(null); // the row that was open before: its panel stays in the page while it closes
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -64,21 +229,6 @@ export default function CaseList({ rows, orgId, now: serverNow }: { rows: CaseRo
     return () => window.clearInterval(id);
   }, [live, router]);
 
-  // Keep "5 minutes ago" honest between refreshes.
-  useEffect(() => { setNow(Date.now()); }, [serverNow]);
-  useEffect(() => {
-    const id = window.setInterval(() => { if (!document.hidden) setNow(Date.now()); }, 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const fmt = useMemo(() => {
-    const locale = localeOf(lang);
-    return {
-      rel: new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
-      abs: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kuala_Lumpur" }),
-    };
-  }, [lang]);
-
   // Phones: the tab row scrolls sideways; keep the selected tab in view.
   useEffect(() => {
     const el = tabs.current[FILTERS.indexOf(filter)];
@@ -92,41 +242,9 @@ export default function CaseList({ rows, orgId, now: serverNow }: { rows: CaseRo
 
   const needle = squash(q);
   const shown = rows.filter((r) => (filter === "all" || groupOf(r.status) === filter) && (!needle || squash(r.plate ?? "").includes(needle)));
-  // "All" is layered: what needs the user first, then what is being worked on, then what is finished (newest first inside each)
-  const sections: { group: Group | null; rows: CaseRow[] }[] =
-    filter === "all"
-      ? GROUPS.map((group) => ({ group, rows: shown.filter((r) => groupOf(r.status) === group) })).filter((s) => s.rows.length > 0)
-      : [{ group: null, rows: shown }];
-  const lastId = sections.at(-1)?.rows.at(-1)?.id;
-
-  function toggle(id: string) {
-    setKeptId(openId);
-    setOpenId(openId === id ? null : id);
-  }
-  const openRow = shown.find((r) => r.id === openId);
-  const openHere = !!openRow;
-  const openGroup = openRow ? groupOf(openRow.status) : null;
-  // Escape closes the open row and hands the focus back to it.
-  useEffect(() => {
-    if (!openId || !openHere) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
-      setKeptId(openId);
-      setOpenId(null);
-      document.getElementById(`case-row-${openId}`)?.focus();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [openId, openHere]);
-  // Once the panel has opened (or its case has moved to another section), bring all of it into view.
-  useEffect(() => {
-    if (!openId || !openHere) return;
-    const id = window.setTimeout(() => {
-      const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      document.getElementById(`case-item-${openId}`)?.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" });
-    }, 260);
-    return () => window.clearTimeout(id);
-  }, [openId, openHere, openGroup]);
+  // "All" is layered: what needs the user first, then what is being worked on, then what is finished (newest first inside each).
+  // One flat run of rows, so a case that moves to another layer stays the same element and keeps what it was doing.
+  const ordered = filter === "all" ? GROUPS.flatMap((g) => shown.filter((r) => groupOf(r.status) === g)) : shown;
 
   function onTabKey(e: React.KeyboardEvent, i: number) {
     const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
@@ -137,80 +255,6 @@ export default function CaseList({ rows, orgId, now: serverNow }: { rows: CaseRo
     tabs.current[to]?.focus();
   }
 
-  const cols = "lg:grid-cols-[minmax(132px,1fr)_minmax(0,2.3fr)_minmax(0,2.1fr)_minmax(112px,0.9fr)_12px]";
-
-  function renderCase(r: CaseRow) {
-    const group = groupOf(r.status);
-    const needs = group === "needs";
-    const open = r.id === openId;
-    const at = new Date(r.createdAt);
-    return (
-      <div
-        key={r.id}
-        id={`case-item-${r.id}`}
-        role="presentation"
-        className={`scroll-mt-12 border-b border-hair transition-[padding] duration-200 motion-reduce:transition-none ${open ? "px-1 py-2 lg:px-2" : r.id === lastId ? "-mb-px" : ""}`}
-      >
-        {/* the open case lifts off the list: a white sheet with an ink outline, a step in from the edges (the row's own padding gives the step back, so its cells stay on the columns) */}
-        <div role="presentation" className={`relative ${open ? "sheet z-[2] rounded-[3px] bg-panel outline outline-1 outline-ice" : ""}`}>
-          <div
-            role="row"
-            className={`relative flex min-h-[66px] items-center gap-3 py-2.5 transition-[padding,background-color] duration-200 motion-reduce:transition-none lg:grid lg:min-h-[60px] lg:gap-x-6 lg:py-2 ${cols} ${
-              open ? "px-3 lg:px-4" : `px-4 lg:px-6 ${needs ? "bg-ambertint hover:bg-amber/[0.17]" : "hover:bg-icetint/50"}`
-            }`}
-          >
-            {/* phones and portrait tablets: two lines (number + status, vehicle + time); from lg the four cells sit on the column grid */}
-            <div role="presentation" className="flex min-w-0 flex-1 flex-col gap-[5px] lg:contents">
-              <div role="presentation" className="flex items-start justify-between gap-3 lg:contents">
-                <span role="cell" className="num shrink-0 font-mono text-[15.5px] font-medium tracking-[0.01em] text-fg lg:order-1 lg:min-w-0 lg:shrink">
-                  {/* the whole row is this button: its ::after covers the row */}
-                  <button
-                    type="button"
-                    id={`case-row-${r.id}`}
-                    aria-expanded={open}
-                    aria-controls={`case-detail-${r.id}`}
-                    aria-label={r.plate ? undefined : r.carModel || t(`status.${r.status}`)}
-                    onClick={() => toggle(r.id)}
-                    className="block max-w-full truncate text-left after:absolute after:inset-0 after:rounded-[3px] after:content-[''] focus-visible:outline-none focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ice"
-                  >
-                    {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{group === "active" ? t("dash.d.reading") : "—"}</span>}
-                  </button>
-                </span>
-                <span role="cell" className="min-w-0 lg:order-3">
-                  <StatusMark status={r.status} label={t(`status.${r.status}`)} detail={r.pendingDoc} slot />
-                </span>
-              </div>
-              <div role="presentation" className="flex items-baseline justify-between gap-4 lg:contents">
-                <span role="cell" className="min-w-0 truncate text-[14px] text-mute lg:order-2 lg:text-[15px]">
-                  {r.carModel ? <span className={`mr-2.5 font-medium lg:mr-3 ${group === "done" ? "" : "text-fg"}`}>{r.carModel}</span> : null}
-                  {r.insurer}
-                </span>
-                <span role="cell" className="shrink-0 whitespace-nowrap text-[13px] text-mute lg:order-4 lg:text-right lg:text-[14px]">
-                  <time dateTime={r.createdAt} title={fmt.abs.format(at)} suppressHydrationWarning>
-                    {relative(fmt.rel, at.getTime(), now)}
-                  </time>
-                </span>
-              </div>
-            </div>
-            <Chevron className={`shrink-0 transition-transform duration-200 motion-reduce:transition-none lg:order-5 ${open ? "rotate-180 text-fg" : "text-mute"}`} />
-            {/* being worked on: a line along the bottom edge, as long as the case has got, with a glint running along it */}
-            {group === "active" && (
-              <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 -bottom-px z-[1] h-[2px]">
-                <span className="case-glint block h-full bg-scan" style={{ width: `${((stepOf(r.status) + 1) / TRACK.length) * 100}%` }} />
-              </span>
-            )}
-          </div>
-          <div role="row" id={`case-detail-${r.id}`} className="case-panel" data-open={open} aria-hidden={!open} inert={!open}>
-            <div role="cell" aria-colspan={4}>
-              {(open || r.id === keptId) && <CaseDetail row={r} orgId={orgId} abs={fmt.abs} />}
-            </div>
-          </div>
-          {needs && <span aria-hidden="true" className={`pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-amber ${open ? "rounded-l-[3px]" : ""}`} />}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="app-fill wrap flex min-h-[460px] flex-col pb-6 pt-6 lg:pb-9 lg:pt-9">
       <div className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-4 lg:flex-nowrap lg:gap-x-8">
@@ -219,7 +263,7 @@ export default function CaseList({ rows, orgId, now: serverNow }: { rows: CaseRo
         {rows.length > 0 && (
           <>
             <div data-tabrow className="order-3 -mx-4 w-[calc(100%+32px)] overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:w-full sm:px-0 lg:order-none lg:w-auto [&::-webkit-scrollbar]:hidden">
-              <div role="tablist" aria-label={t("dash.col.status")} className="inline-flex h-11 items-stretch rounded-[3px] border border-hair bg-panel p-[3px]">
+              <div role="tablist" aria-label={t("dash.filter")} className="inline-flex h-11 items-stretch rounded-[3px] border border-hair bg-panel p-[3px]">
                 {FILTERS.map((f, i) => {
                   const on = f === filter;
                   const amber = f === "needs" && counts.needs > 0;
@@ -304,7 +348,7 @@ export default function CaseList({ rows, orgId, now: serverNow }: { rows: CaseRo
                 {t("dash.new")}
               </Link>
             </div>
-          ) : shown.length === 0 ? (
+          ) : ordered.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
               <NoMatchArt />
               <p className="mt-5 text-[16px] font-medium text-fg">{t("dash.noMatch")}</p>
@@ -313,26 +357,9 @@ export default function CaseList({ rows, orgId, now: serverNow }: { rows: CaseRo
               </button>
             </div>
           ) : (
-            <div role="table" aria-label={t("dash.title")} tabIndex={0} className="app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-offset-[-2px]">
-              <div role="row" className={`note sticky top-0 z-10 hidden h-10 items-center gap-x-6 border-b border-hair bg-panel px-6 text-mute lg:grid ${cols}`}>
-                <span role="columnheader" className="order-1">{t("dash.col.plate")}</span>
-                <span role="columnheader" className="order-3">{t("dash.col.status")}</span>
-                <span role="columnheader" className="order-2">{t("dash.col.vehicle")}</span>
-                <span role="columnheader" className="order-4 text-right">{t("dash.col.created")}</span>
-              </div>
-              {/* one flat run of rows (no wrapper per section), so a case that moves to another section stays the same element and keeps its open panel */}
-              {sections.flatMap((sec) => [
-                sec.group && (
-                  <div key={`head-${sec.group}`} role="row" className="flex h-9 items-center border-b border-hair bg-bay px-4 lg:px-6">
-                    <span role="cell" aria-colspan={4} className="note flex items-center gap-2.5 font-medium uppercase tracking-[0.08em] text-fg">
-                      {t(`dash.f.${sec.group}`)}
-                      <span className="num font-normal text-mute">{sec.rows.length}</span>
-                    </span>
-                  </div>
-                ),
-                ...sec.rows.map(renderCase),
-              ])}
-            </div>
+            <ul aria-label={t("dash.title")} tabIndex={0} className="app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-offset-[-2px]">
+              {ordered.map((r) => <CaseItem key={r.id} row={r} orgId={orgId} />)}
+            </ul>
           )}
         </div>
       </div>
