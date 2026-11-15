@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { day, int, words } from "@/lib/admin/format";
 import type { Scope } from "@/lib/admin/queries";
 import {
-  IconBack, IconCases, IconCost, IconErrors, IconExit, IconHealth, IconInfo, IconNext, IconOk, IconOverview, IconUsers,
+  IconBack, IconCases, IconCost, IconErrors, IconExit, IconHealth, IconInfo, IconNext, IconOk, IconOverview, IconTodo, IconUsers,
 } from "./_icons";
 
 export type Sp = Promise<{ [k: string]: string | string[] | undefined }>;
@@ -64,7 +64,7 @@ export function StatusBars({ rows }: { rows: { status: string; n: number }[] }) 
 
 // ---- frame ----
 const NAV = [
-  ["", "Overview", IconOverview], ["users", "Users", IconUsers], ["cost", "Cost", IconCost],
+  ["", "Overview", IconOverview], ["todo", "To-do", IconTodo], ["users", "Users", IconUsers], ["cost", "Cost", IconCost],
   ["cases", "Cases", IconCases], ["errors", "Errors", IconErrors], ["health", "Health", IconHealth],
 ] as const;
 
@@ -105,12 +105,12 @@ export async function Shell({ current, scope, title, back, children }: { current
     </div>
   );
 
-  // A side rail on a computer; on a phone the six tabs sit in a bar under the thumb and stay there while the page scrolls.
+  // A side rail on a computer; on a phone the seven tabs sit in a bar under the thumb and stay there while the page scrolls.
   return (
     <div className="theme-light min-h-screen bg-bay text-fg lg:grid lg:grid-cols-[264px_1fr]">
       <aside className="border-b border-hair bg-panel lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex h-[60px] items-center justify-between px-4 lg:h-auto lg:px-5 lg:pb-3 lg:pt-5">{brand}<span className="lg:hidden">{exit}</span></div>
-        <nav aria-label="Admin" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-hair bg-panel pb-[env(safe-area-inset-bottom)] lg:static lg:mt-2 lg:block lg:border-t-0 lg:px-3">
+        <nav aria-label="Admin" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t border-hair bg-panel pb-[env(safe-area-inset-bottom)] lg:static lg:mt-2 lg:block lg:border-t-0 lg:px-3">
           {NAV.map(([slug, label, Icon]) => (
             <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined}
               className={`flex flex-col items-center gap-1 py-2 text-[11px] font-medium lg:mb-0.5 lg:h-11 lg:flex-row lg:gap-3 lg:rounded-[3px] lg:px-3 lg:py-0 lg:text-[15px] ${current === slug ? "text-ice lg:bg-ice lg:text-bay" : "text-mute hover:text-fg lg:hover:bg-panel2"}`}>
