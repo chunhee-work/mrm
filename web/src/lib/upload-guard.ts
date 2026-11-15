@@ -22,20 +22,21 @@ export function stallTimer(ms: number, onStall: () => void) {
  */
 export async function uploadGuarded(path: string, file: File, onPct: (pct: number) => void) {
   const ac = new AbortController();
-  let stalled = false;
   let last = -1;
-  const timer = stallTimer(STALL_MS, () => { stalled = true; ac.abort(); });
+  let giveUp!: (e: Error) => void;
+  // raced against the upload, so the wait ends even if the storage client does not answer the abort
+  const stall = new Promise<never>((_, reject) => { giveUp = reject; });
+  const timer = stallTimer(STALL_MS, () => { ac.abort(); giveUp(new UploadStalled()); });
+  const sending = upload(path, file, {
+    access: "private", handleUploadUrl: "/api/upload", multipart: file.size > 20e6, abortSignal: ac.signal,
+    onUploadProgress: (p) => {
+      if (p.percentage > last) { last = p.percentage; timer.touch(); } // only real progress resets the clock
+      onPct(p.percentage);
+    },
+  });
+  sending.catch(() => {}); // a cancelled upload rejects later; the race below has already answered
   try {
-    return await upload(path, file, {
-      access: "private", handleUploadUrl: "/api/upload", multipart: file.size > 20e6, abortSignal: ac.signal,
-      onUploadProgress: (p) => {
-        if (p.percentage > last) { last = p.percentage; timer.touch(); } // only real progress resets the clock
-        onPct(p.percentage);
-      },
-    });
-  } catch (e) {
-    if (stalled) throw new UploadStalled();
-    throw e;
+    return await Promise.race([sending, stall]);
   } finally {
     timer.stop();
   }
