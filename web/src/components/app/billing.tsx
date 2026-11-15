@@ -83,7 +83,7 @@ export default function Billing(p: Props) {
   const ProviderPick = !p.providers.length ? (
     <div className="rounded-[3px] border border-hair bg-panel p-5"><div className="font-semibold text-fg">{t("bill.none")}</div><div className="mt-1 text-[14px] text-mute">{t("bill.noneSub")}</div></div>
   ) : (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.pay")}</legend>
       <div className={"grid gap-2 sm:grid-cols-2"}>
         {p.providers.map((x) => (
@@ -97,7 +97,7 @@ export default function Billing(p: Props) {
   );
 
   const PackPick = cur ? (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.pick")}</legend>
       <div className={"grid gap-2 sm:grid-cols-3"}>
         {p.packs.map((k) => {
@@ -149,9 +149,9 @@ export default function Billing(p: Props) {
     <main className="wrap py-8 lg:py-12">
       <h1 className="display-2 mb-6 text-[30px] text-fg lg:text-[36px]">{t("bill.title")}</h1>
       {Banner}
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
-        <div className="grid gap-6"><h2 className="text-[20px] font-semibold text-fg">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
-        <div className="grid gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6"><h2 className="text-[20px] font-semibold text-fg">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
       </div>
     </main>
   );
