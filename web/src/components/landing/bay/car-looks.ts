@@ -62,11 +62,31 @@ export function buildLooksCar(gltf: GLTF, overlayMaterial: THREE.ShaderMaterial,
   const parts: Part[] = [];
   const { all, lit, paint } = finishes();
   const geometries: THREE.BufferGeometry[] = [];
+  const extra: THREE.Material[] = [];
+  let frame: THREE.Object3D | null = null;
   gltf.scene.updateMatrixWorld(true);
   const v = new THREE.Vector3(), nm = new THREE.Matrix3(), box = new THREE.Box3(), mid = new THREE.Vector3();
   let k = 0;
   for (const node of [...gltf.scene.children]) {
     const name = node.name;
+    if (name === "frame") {
+      // the inner frame keeps its own scanned skin; it stays out of sight until the panels have left it
+      node.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        const mat = m.material as THREE.MeshStandardMaterial;
+        mat.envMapIntensity = 0.9;
+        mat.side = THREE.DoubleSide;
+        m.castShadow = true;
+        m.receiveShadow = true;
+        geometries.push(m.geometry);
+        extra.push(mat);
+      });
+      node.visible = false;
+      group.add(node);
+      frame = node;
+      continue;
+    }
     const pieces: THREE.Mesh[] = [];
     node.traverse((o) => { if ((o as THREE.Mesh).isMesh) pieces.push(o as THREE.Mesh); });
     if (!pieces.length) continue;
@@ -130,11 +150,12 @@ export function buildLooksCar(gltf: GLTF, overlayMaterial: THREE.ShaderMaterial,
   const damaged = DAMAGED.map((n) => parts.find((p) => p.name === n)).filter((p): p is Part => !!p);
   const lamps = ["lampL", "lampR"].map((n) => parts.find((p) => p.name === n)).filter((p): p is Part => !!p);
   return {
-    group, parts, damaged, frame: null, material: paint, lampMaterial: null, lamps,
+    group, parts, damaged, frame, material: paint, lampMaterial: null, lamps,
     lit(amount) { for (const l of lit) l.material.emissiveIntensity = l.rest * (1 + amount * 1.6); },
     dispose() {
       for (const g of geometries) g.dispose();
       for (const m of new Set(Object.values(all))) m.dispose();
+      for (const m of extra) { (m as THREE.MeshStandardMaterial).map?.dispose(); m.dispose(); }
     },
   };
 }
