@@ -10,13 +10,20 @@ export function groupOf(status: string): Group {
   return NEEDS.has(status) ? "needs" : "active";
 }
 
-/** Seven segments, one per pipeline step; filled up to the step the case is on. */
+/** The pipeline with its end: the eight stops of a case's progress track. */
+export const TRACK = [...PIPELINE, "done"] as const;
+/** Which stop a case is at (0 to 7). A case missing a document stopped while reading; a failed case has no place (-1). */
+export function stepOf(status: string): number {
+  return (TRACK as readonly string[]).indexOf(status === "pending_doc" ? "reading" : status);
+}
+
+/** Seven segments, one per pipeline step; filled up to the step the case is on. The step being worked on breathes. */
 function Strip({ status }: { status: string }) {
   const at = PIPELINE.indexOf(status as (typeof PIPELINE)[number]);
   return (
     <span className="inline-flex gap-[2px] align-[-1px]">
       {PIPELINE.map((s, i) => (
-        <span key={s} className={`h-[11px] w-[4px] sm:w-[5px] ${i <= at ? "bg-scan" : "bg-hair"}`} />
+        <span key={s} className={`h-[11px] w-[4px] sm:w-[5px] ${i <= at ? "bg-scan" : "bg-hair"} ${i === at ? "case-breathe" : ""}`} />
       ))}
     </span>
   );

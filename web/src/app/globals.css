@@ -279,3 +279,46 @@
   /* the ball sits at 24.4% / 19.4% of the still and is 5.8% of its width across */
   .auth-scene-bot { clip-path: ellipse(2.82% 5.02% at 24.42% 19.4%); filter: brightness(0.5) contrast(1.25) saturate(0.7); }
 }
+
+/* ───────────────────────── case list: a row that opens, a case being worked on ───────────────────────── */
+/* the panel under a row: opens by height and fades in (the one child is the clipped track of the grid) */
+.case-panel { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 240ms ease-out, opacity 240ms ease-out; }
+.case-panel[data-open="true"] { grid-template-rows: 1fr; opacity: 1; }
+.case-panel > * { min-height: 0; overflow: hidden; }
+/* the step being worked on, in the row's strip of seven */
+.case-breathe { animation: case-breathe 1.2s ease-in-out infinite; }
+@keyframes case-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.28; } }
+/* the row's progress line: a glint runs the length of the filled part, then rests */
+.case-glint { position: relative; overflow: hidden; container-type: inline-size; }
+.case-glint::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 96px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.92) 60%, transparent);
+  transform: translateX(-96px); animation: case-glint 2.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes case-glint { 0% { transform: translateX(-96px); } 62%, 100% { transform: translateX(100cqw); } }
+/* the open panel: the same glint on the line that leads to the current stop (downwards on phones, across from sm)… */
+.case-link-live { overflow: hidden; }
+.case-link-live::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 20%, rgb(255 255 255 / 0.92) 62%, transparent);
+  transform: translateY(-100%); animation: case-link-y 2.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes case-link-y { 0% { transform: translateY(-100%); } 62%, 100% { transform: translateY(100%); } }
+@keyframes case-link-x { 0% { transform: translateX(-100%); } 62%, 100% { transform: translateX(100%); } }
+@media (min-width: 640px) {
+  .case-link-live::after {
+    background: linear-gradient(90deg, transparent 20%, rgb(255 255 255 / 0.92) 62%, transparent);
+    transform: translateX(-100%); animation-name: case-link-x;
+  }
+}
+/* …and a soft ring that widens from the current stop */
+.case-ping::before {
+  content: ""; position: absolute; inset: -2px; border-radius: 9999px; background: rgb(var(--c-scan) / 0.5);
+  animation: case-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes case-ping { 0% { transform: scale(1); opacity: 0.55; } 75%, 100% { transform: scale(2.3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .case-panel { transition: none; }
+  .case-breathe { animation: none; }
+  .case-glint::after, .case-link-live::after, .case-ping::before { animation: none; display: none; }
+}
