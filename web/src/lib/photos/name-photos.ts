@@ -5,7 +5,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { db, schema } from "@/db";
 import { claude } from "@/lib/claude";
-import { safeError } from "./log";
+import { logLine, safeError } from "./log";
 import { costCapUsd, normalizePick, photoModel, sliceCostUsd, sliceMatches, NEIGHBOURS, NONE, PART_NAMES, type ModelPick } from "./rules";
 import { photoBase64 } from "./store";
 import { claimSlice, failPending, pendingCount, retryFailed, spentUsd, writeFailed, writeName, type CaseRow, type Claimed } from "./server";
@@ -15,6 +15,8 @@ import { claimSlice, failPending, pendingCount, retryFailed, spentUsd, writeFail
 
 const MAX_IMAGES = 12;
 const MAX_TOKENS = 2000;
+// Two tries of 120 s end well inside the route's maxDuration (300 s), which ends before a claim can be taken again (6 min).
+const CALL_TIMEOUT_MS = 120_000;
 
 const Picks = z.object({
   photos: z.array(z.object({
@@ -101,7 +103,7 @@ export async function callModel(vehicle: string, shots: { n: number; name: boole
       output_config: { effort: "low", format: zodOutputFormat(Picks) },
       system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content }],
-    });
+    }, { timeout: CALL_TIMEOUT_MS, maxRetries: 1 });
     if (res.stop_reason === "refusal") throw Object.assign(new Error("refusal"), { name: "Refusal" });
     if (!res.parsed_output) throw Object.assign(new Error("no output"), { name: res.stop_reason === "max_tokens" ? "OutputTooLong" : "NoOutput" });
     return { picks: res.parsed_output.photos as ModelPick[], usage: res.usage, model };
@@ -145,7 +147,7 @@ export async function runSlice(c: CaseRow, opts: { retryFailed?: boolean } = {})
         caseId: c.id, inputTokens: out.usage.input_tokens, outputTokens: out.usage.output_tokens,
         cacheTokens: out.usage.cache_read_input_tokens ?? 0, costUsd: sliceCostUsd(out.model, out.usage).toFixed(4),
       });
-    } catch { /* a failed ledger write never fails naming */ }
+    } catch (e) { console.error(logLine("photos.usage", { caseId: c.id }, e)); /* a failed ledger write never fails naming */ }
 
     if (!sliceMatches([...byId.keys()], out.picks)) throw Object.assign(new Error("mismatch"), { name: "AnswerMismatch" });
     for (const p of out.picks) {

@@ -16,7 +16,9 @@ export const POST = photoRoute("photos.token", async ({ req, c, me }) => {
         try { const h = (JSON.parse(clientPayload || "{}") as { hash?: unknown }).hash; hash = typeof h === "string" ? h : null; } catch { /* no hash */ }
         const check = await noteUpload(c, me.orgId, pathname, hash);
         if (!check.ok) { refused = check.reason; throw new Error(check.reason); }
-        return { allowedContentTypes: [...IMAGE_TYPES], maximumSizeInBytes: MAX_BYTES, addRandomSuffix: false, allowOverwrite: true };
+        // Overwrite stays on so a retry of the same file works; the token dies after 10 minutes and a path that already
+        // belongs to a stored photo is refused above ("taken").
+        return { allowedContentTypes: [...IMAGE_TYPES], maximumSizeInBytes: MAX_BYTES, addRandomSuffix: false, allowOverwrite: true, validUntil: Date.now() + 10 * 60_000 };
       },
       onUploadCompleted: async () => {},
     });
