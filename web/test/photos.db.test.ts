@@ -298,3 +298,25 @@ test.after(async () => {
   const { db } = await kit();
   await (db as unknown as { $client?: { end?: () => Promise<void> } }).$client?.end?.();
 });
+
+test("done then new photos: the tick goes away; two registrations at the same moment get their own numbers", opts, async () => {
+  const { s } = await kit();
+  const { orgId, id, c } = await newCase("waiting_user", 2);
+  for (const x of await s.claimSlice(id)) assert.equal(await s.writeName(x, named), true, "a normal answer lands");
+  assert.equal((await s.setDone(c, true)).body.status, "phase_b");
+  const mk = async (tag: string) => {
+    const blobPath = `${orgId}/${id}/photos/${tag}-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/${tag}-s-IMG.jpg`;
+    for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, null); writeFileSync(fileOf(p), "jpeg"); }
+    return { blobPath, thumbPath, name: `${tag}.jpg`, size: 4, hash: null };
+  };
+  const [a, b] = [await mk("new1"), await mk("new2")];
+  const now = await caseNow(orgId, id);
+  const [ra, rb] = await Promise.all([s.registerPhotos(now, orgId, [a]), s.registerPhotos(now, orgId, [b])]);
+  assert.deepEqual([ra.status, rb.status], [200, 200]);
+  const all = await rows(id);
+  assert.deepEqual(all.map((r) => r.origN).sort(), [1, 2, 3, 4]);
+  assert.deepEqual(all.map((r) => r.position), [0, 1, 2, 3]);
+  const after = await caseNow(orgId, id);
+  assert.equal(after.photosDoneAt, null);
+  assert.equal(after.status, "waiting_user");
+});
