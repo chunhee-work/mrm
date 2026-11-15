@@ -217,6 +217,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     w.busy = true;
     const r = await api("PATCH", `/api/cases/${e.caseId}/photos/${e.photoId}`, { finalName: e.prev, version: base.version });
     w.busy = false;
+    const queued = w.next; // a name picked while the undo was on its way: it goes out next, on top of the undo
+    w.next = undefined;
     if (r.ok) {
       const row = r.body.photo as Photo;
       undo.current.done(e, row.version);
@@ -234,7 +236,12 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     } else {
       say(tRef.current("undoFailed"));
     }
-  }, [patchPhoto, setDoneLocal, say]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (queued) {
+      const known = server.current.get(e.photoId);
+      if (known) patchPhoto(e.caseId, e.photoId, () => known); // back to what is stored, so the queued name counts as a change
+      void rename(e.caseId, e.photoId, queued.target, queued.session);
+    }
+  }, [patchPhoto, setDoneLocal, say, rename]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const photoOf = (id: number) => statesRef.current[caseRef.current]?.photos.find((x) => x.id === id);
 
