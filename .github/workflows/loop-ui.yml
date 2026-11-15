@@ -57,4 +57,7 @@ jobs:
         run: |
           body=$(jq -n --arg pr "$PR" --arg run "$RUN" '{event:"loop:ui",pr:$pr,screenshots:$run}')
           sig=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/.* //')
-          curl -sS -X POST "$URL" -H "Content-Type: application/json" -H "X-Signature-256: sha256=$sig" -d "$body"
+          code=$(curl -sS -o /tmp/grok-reply.txt -w '%{http_code}' -X POST "$URL" -H "Content-Type: application/json" -H "X-Signature-256: sha256=$sig" -d "$body")
+          echo "Grok webhook: HTTP $code"
+          # On a rejection, show only the first 300 chars of the reply (never the URL, secret or request body).
+          if [ "${code:0:1}" != "2" ]; then head -c 300 /tmp/grok-reply.txt | tr '\n' ' '; echo; fi
