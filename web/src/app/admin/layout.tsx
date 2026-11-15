@@ -1,5 +1,6 @@
 import type { Viewport } from "next";
 import { isAdminRequest, requireAdmin } from "@/lib/admin/auth";
+import { AdminTabIcon } from "@/components/tab-icon";
 import { lightViewport } from "@/lib/theme";
 
 // The gate runs here first so the 404 for outsiders is rendered exactly like any other missing page.
@@ -14,5 +15,5 @@ export async function generateViewport(): Promise<Viewport> {
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
-  return children;
+  return <>{children}<AdminTabIcon /></>;
 }
