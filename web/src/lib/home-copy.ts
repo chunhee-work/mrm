@@ -42,7 +42,7 @@ const CASES = [
 const en: HomeCopy = {
   hero: {
     line1: "Upload the case file.",
-    line2: "Merimen fills itself.",
+    line2: "The claim keys itself.",
     support: "For Malaysian motor-claim adjusters. Inside your own Merimen account.",
     how: "See how it works",
     replay: "Replay",
@@ -111,7 +111,7 @@ const en: HomeCopy = {
 const zh: HomeCopy = {
   hero: {
     line1: "上传案件资料。",
-    line2: "Merimen 自动填好。",
+    line2: "案件自动录好。",
     support: "为马来西亚车险理算师而做，就在你自己的 Merimen 账号里。",
     how: "看看怎么用",
     replay: "重播",
@@ -180,7 +180,7 @@ const zh: HomeCopy = {
 const ms: HomeCopy = {
   hero: {
     line1: "Muat naik fail kes.",
-    line2: "Merimen terisi sendiri.",
+    line2: "Tuntutan terisi sendiri.",
     support: "Untuk penyelaras tuntutan motor di Malaysia. Dalam akaun Merimen anda sendiri.",
     how: "Lihat cara ia berfungsi",
     replay: "Main semula",

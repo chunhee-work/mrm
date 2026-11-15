@@ -18,7 +18,7 @@ export function localeOf(l: Lang): string {
 type Dict = Record<string, string>;
 
 const en: Dict = {
-  "meta.title": "{brand} · Motor claims keyed into Merimen",
+  "meta.title": "{brand} · Motor claims keyed for you",
   "meta.desc": "Upload the case file and {brand} keys the motor claim into your own Merimen account. For Malaysian loss adjusters.",
   "nav.how": "How it works",
   "nav.security": "Security",
@@ -40,7 +40,7 @@ const en: Dict = {
   "footer.reg": "Registration No.",
   "footer.disclaimer": "Merimen is a trademark of its respective owner. {brand} is an independent service and is not affiliated with Merimen.",
   "footer.rights": "All rights reserved.",
-  "home.title": "Key your motor claims into Merimen automatically",
+  "home.title": "Key your motor claims automatically",
   "home.sub": "Upload the case files, confirm the photo names, and the system does the rest inside your own Merimen account.",
   "home.open": "Go to my cases",
   "home.signup": "Sign up",
@@ -232,7 +232,7 @@ const en: Dict = {
 };
 
 const zh: Dict = {
-  "meta.title": "{brand} · 车险理赔自动录入 Merimen",
+  "meta.title": "{brand} · 车险理赔自动录入",
   "meta.desc": "上传案件资料，{brand} 把车险理赔案件录入你自己的 Merimen 账号。为马来西亚理算师而做。",
   "nav.how": "怎么用",
   "nav.security": "安全",
@@ -254,7 +254,7 @@ const zh: Dict = {
   "footer.reg": "注册号",
   "footer.disclaimer": "Merimen 是其所有者的商标。{brand} 是独立服务，与 Merimen 没有隶属关系。",
   "footer.rights": "版权所有。",
-  "home.title": "把理赔案件自动录进 Merimen",
+  "home.title": "把理赔案件自动录好",
   "home.sub": "上传案件资料，确认照片名称，其余由系统在你自己的 Merimen 账号里完成。",
   "home.open": "进入我的案件",
   "home.signup": "注册",
@@ -446,7 +446,7 @@ const zh: Dict = {
 };
 
 const ms: Dict = {
-  "meta.title": "{brand} · Tuntutan motor dimasukkan ke Merimen",
+  "meta.title": "{brand} · Tuntutan motor dimasukkan untuk anda",
   "meta.desc": "Muat naik fail kes dan {brand} memasukkan tuntutan motor ke dalam akaun Merimen anda sendiri. Untuk penyelaras kerugian di Malaysia.",
   "nav.how": "Cara ia berfungsi",
   "nav.security": "Keselamatan",
@@ -468,7 +468,7 @@ const ms: Dict = {
   "footer.reg": "No. Pendaftaran",
   "footer.disclaimer": "Merimen ialah tanda dagangan pemiliknya. {brand} ialah perkhidmatan bebas dan tidak bergabung dengan Merimen.",
   "footer.rights": "Hak cipta terpelihara.",
-  "home.title": "Masukkan tuntutan motor ke Merimen secara automatik",
+  "home.title": "Masukkan tuntutan motor secara automatik",
   "home.sub": "Muat naik dokumen kes, sahkan nama gambar, dan sistem menyiapkan selebihnya dalam akaun Merimen anda sendiri.",
   "home.open": "Pergi ke kes saya",
   "home.signup": "Daftar",

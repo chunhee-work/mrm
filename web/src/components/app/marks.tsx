@@ -30,6 +30,15 @@ export function Upload({ className = "" }: { className?: string }) {
     </svg>
   );
 }
+/** A photo to look at: the mark on the button that opens the naming desk. */
+export function Photo({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 16 16" {...line} strokeWidth={1.75}>
+      <path d="M2.5 3.5h11v9h-11zM2.5 10.5l3.25-3.25 2.5 2.5 1.75-1.75 3.5 3.5" />
+      <path d="M10.5 6.25h.01" strokeWidth={2.25} strokeLinecap="square" />
+    </svg>
+  );
+}
 export function Tick({ className = "" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 16 16" {...line} strokeWidth={2}>
