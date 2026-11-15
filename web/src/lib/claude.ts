@@ -33,7 +33,8 @@ type Deps = { client?: { messages: { create: Anthropic["messages"]["create"] } }
 
 /**
  * messages.create() + parseMessage() (what messages.parse() does) plus one ledger row per call. The row is written as soon as the
- * billed response arrives, BEFORE the structured output is parsed, so a response that fails to parse is still counted.
+ * billed response arrives, from res.usage, so a refusal, a missing output or a parse failure is still counted: those rows keep
+ * their tokens and cost but are ok=false with errorClass refusal | no_output | parse_error.
  * Success: usage from the response, keyed by the provider request id.
  * Failure (API error, network, timeout): zero tokens, ok=false, keyed by the error's request id or err:<call uuid>.
  * The call uuid is made once per invocation, so SDK retries or a rethrow cannot add a second failure row.
@@ -46,6 +47,13 @@ export async function trackedParse<P extends ParseParams>(ctx: CallCtx, params: 
   let billed = false;
   try {
     const res = await (deps.client ?? client()).messages.create(params);
+    // Parse first but keep the outcome, so the ledger row is written once, from res.usage, whatever happens next.
+    let parsed: ParsedMessage<ExtractParsedContentFromParams<P>> | null = null;
+    let parseErr: unknown = null;
+    try { parsed = parseMessage(res, params as never, { logger: console }) as ParsedMessage<ExtractParsedContentFromParams<P>>; } catch (pe) { parseErr = pe; }
+    const wantsOutput = !!(params as { output_config?: { format?: unknown } }).output_config?.format;
+    // A billed response that is unusable keeps its tokens and cost but is marked ok=false with a reason.
+    const reason = parseErr ? "parse_error" : res.stop_reason === "refusal" ? "refusal" : wantsOutput && !parsed?.parsed_output ? "no_output" : null;
     const t = tokensOf(res.usage as never);
     const model = String(res.model || params.model);
     await record({
@@ -54,10 +62,11 @@ export async function trackedParse<P extends ParseParams>(ctx: CallCtx, params: 
       inputTokens: t.input, outputTokens: t.output, cacheReadTokens: t.cacheRead,
       cacheWrite5mTokens: t.cacheWrite5m, cacheWrite1hTokens: t.cacheWrite1h,
       costUsd: ((c) => (c === null ? null : c.toFixed(8)))(costOf(model, t)),
-      latencyMs: Date.now() - started, ok: true,
+      latencyMs: Date.now() - started, ok: reason === null, errorClass: reason,
     });
     billed = true;
-    return parseMessage(res, params as never, { logger: console }) as ParsedMessage<ExtractParsedContentFromParams<P>>;
+    if (parseErr) throw parseErr;
+    return parsed as ParsedMessage<ExtractParsedContentFromParams<P>>;
   } catch (e) {
     if (billed) throw e; // usage is already in the ledger; a parse failure must not add a zero-cost row
     const rid = (e as { requestID?: string | null; request_id?: string | null }).requestID ?? (e as { request_id?: string | null }).request_id;

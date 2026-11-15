@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { trackedParse, zodOutputFormat, type CallCtx } from "./claude";
-import type { LedgerRow } from "./ledger";
+import { recordCall, recordEmail, type LedgerRow } from "./ledger";
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => { const p = join(dir, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
@@ -62,5 +62,23 @@ test("a billed response whose output cannot be parsed is still recorded with its
   const params = { ...P, output_config: { format: zodOutputFormat(z.object({ a: z.string() })) } };
   await assert.rejects(trackedParse(ctx, params, { client: client as never, record: async (r) => { rows.push(r); } }));
   assert.equal(rows.length, 1);
-  assert.equal(rows[0].ok, true); assert.equal(rows[0].requestId, "req_p"); assert.deepEqual([rows[0].inputTokens, rows[0].outputTokens], [40, 7]);
+  assert.equal(rows[0].ok, false); assert.equal(rows[0].errorClass, "parse_error"); assert.equal(rows[0].requestId, "req_p"); assert.deepEqual([rows[0].inputTokens, rows[0].outputTokens], [40, 7]);
+});
+test("a refusal and a missing structured output keep their tokens but are marked not ok", async () => {
+  const fmt = { output_config: { format: zodOutputFormat(z.object({ a: z.string() })) } };
+  const mk = (stop: string, text: string) => ({ messages: { create: async () => ({ _request_id: "req_" + stop, model: "claude-opus-5-5", stop_reason: stop, content: text ? [{ type: "text", text }] : [], usage: { input_tokens: 9, output_tokens: 3 } }) } });
+  for (const [stop, text, cls] of [["refusal", "{\"a\":\"x\"}", "refusal"], ["max_tokens", "", "no_output"]]) {
+    const rows: LedgerRow[] = [];
+    await trackedParse(ctx, { ...P, ...fmt }, { client: mk(stop, text) as never, record: async (r) => { rows.push(r); } });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].ok, false); assert.equal(rows[0].errorClass, cls); assert.deepEqual([rows[0].inputTokens, rows[0].outputTokens], [9, 3]);
+  }
+});
+test("a ledger write that throws never fails the Claude call or the email log", async () => {
+  const boom = { insert: () => { throw new Error("relation does not exist"); }, select: () => { throw new Error("x"); } } as never;
+  assert.equal(await recordCall({ requestId: "r", purpose: "read_docs", model: "m" }, boom), "error");
+  await recordEmail({ kind: "verify", recipientDomain: "x.com", status: "sent" }, boom); // resolves, does not throw
+  const client = { messages: { create: async () => ({ _request_id: "req_ok", model: "claude-opus-5-5", content: [], usage: { input_tokens: 1, output_tokens: 1 } }) } };
+  const res = await trackedParse(ctx, P, { client: client as never, record: (r) => recordCall(r, boom) });
+  assert.equal((res as { _request_id?: string })._request_id, "req_ok");
 });

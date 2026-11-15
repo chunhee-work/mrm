@@ -19,7 +19,7 @@ export default async function Cost({ searchParams }: { searchParams: Sp }) {
         <Card title="Our ledger, per day (USD, last 30 days)" note={`${usd(ledgerTotal)} in 30 days. A request that Anthropic billed but our server never saw (timeout after completion) is not in this ledger; the comparison on the right shows such a gap.`}>
           <Bars label="Ledger cost per day" data={c.byDay.map((d) => ({ date: d.date, v: d.usd }))} fmt={usd} />
         </Card>
-        <Card title="Anthropic organization spend (USD, last 30 days)" note="Whole Anthropic organization: anything else billed to the same org is included. Fetched from the Admin API, cached per server instance for 60 s.">
+        <Card title="Anthropic organization spend (USD, last 30 days)" note="Whole Anthropic organization: anything else billed to the same org is included. Fetched from the Admin API (daily buckets that lag, so today is partial), cached per server instance for 60 s. The ledger is the real-time number.">
           {org.state === "not_connected" ? <p className="note text-mute">Not connected. Set ANTHROPIC_ADMIN_KEY in Vercel.</p> : null}
           {org.state === "unavailable" ? <p className="note"><Tag warn>Reconciliation unavailable</Tag> {org.reason}. {org.staleAt ? `Showing the last good answer from ${when(new Date(org.staleAt).toISOString())}.` : "No earlier answer to show."}</p> : null}
           {orgDays.length ? <><Bars label="Organization cost per day" data={orgDays.map((d) => ({ date: d.date, v: d.usd }))} fmt={usd} />
