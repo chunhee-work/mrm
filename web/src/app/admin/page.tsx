@@ -31,7 +31,7 @@ export default async function Overview({ searchParams }: { searchParams: Sp }) {
   return (
     <Shell current="" scope={scope} title="Overview">
       <div className="grid gap-4">
-        {attention}{stats}
+        {stats}{attention}
         <div className="grid gap-4 lg:grid-cols-2">
           <Card icon={<IconUsers />} title="New users, 30 days"><Bars label="Signups per day" data={o.signups.map((s) => ({ date: s.date, v: s.n }))} /></Card>
           <Card icon={<IconCases />} title="Cases by status"><StatusBars rows={statuses} /></Card>

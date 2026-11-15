@@ -105,35 +105,25 @@ export async function Shell({ current, scope, title, back, children }: { current
     </div>
   );
 
-  // The app's own top bar: every tab has an icon and its name; on a phone the six sit in one row under it.
+  // A side rail on a computer; on a phone the six tabs sit in a bar under the thumb and stay there while the page scrolls.
   return (
-    <div className="theme-light min-h-screen bg-bay text-fg">
-      <header className="sticky top-0 z-40 border-b border-hair bg-panel">
-        <div className="wrap flex h-[60px] items-center gap-4 lg:h-16 lg:gap-8">
-          {brand}
-          <nav aria-label="Admin" className="hidden gap-6 self-stretch lg:flex">
-            {NAV.map(([slug, label, Icon]) => (
-              <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined}
-                className={`relative flex items-center gap-2 px-1 text-[15px] after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] ${current === slug ? "font-semibold text-ice after:bg-ice" : "font-medium text-mute after:bg-transparent hover:text-fg"}`}>
-                <Icon />{label}
-              </Link>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-3">
-            <span className="hidden max-w-[240px] truncate text-[14px] text-mute md:block">{me.email}</span>
-            {exit}
-          </div>
-        </div>
-        <nav aria-label="Admin" className="grid grid-cols-6 border-t border-hairsoft lg:hidden">
+    <div className="theme-light min-h-screen bg-bay text-fg lg:grid lg:grid-cols-[264px_1fr]">
+      <aside className="border-b border-hair bg-panel lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
+        <div className="flex h-[60px] items-center justify-between px-4 lg:px-5">{brand}<span className="lg:hidden">{exit}</span></div>
+        <nav aria-label="Admin" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-hair bg-panel pb-[env(safe-area-inset-bottom)] lg:static lg:mt-2 lg:block lg:border-t-0 lg:px-3">
           {NAV.map(([slug, label, Icon]) => (
             <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined}
-              className={`relative flex flex-col items-center gap-1 py-2 text-[11px] font-medium after:absolute after:inset-x-2 after:-bottom-px after:h-[2px] ${current === slug ? "text-ice after:bg-ice" : "text-mute after:bg-transparent"}`}>
+              className={`flex flex-col items-center gap-1 py-2 text-[11px] font-medium lg:mb-0.5 lg:h-11 lg:flex-row lg:gap-3 lg:rounded-[3px] lg:px-3 lg:py-0 lg:text-[15px] ${current === slug ? "text-ice lg:bg-ice lg:text-bay" : "text-mute hover:text-fg lg:hover:bg-panel2"}`}>
               <Icon />{label}
             </Link>
           ))}
         </nav>
-      </header>
-      <main id="main" className="wrap pb-10 pt-5 lg:pt-7">{head}{children}</main>
+        <div className="mt-auto hidden border-t border-hair p-3 lg:block">
+          <p className="truncate px-2 pb-1 text-[13px] text-mute">{me.email}</p>
+          {exit}
+        </div>
+      </aside>
+      <main id="main" className="min-w-0 px-4 pb-24 pt-5 sm:px-8 lg:pb-10 lg:pt-7">{head}{children}</main>
     </div>
   );
 }
