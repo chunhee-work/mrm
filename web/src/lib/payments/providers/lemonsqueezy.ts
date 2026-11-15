@@ -90,7 +90,11 @@ export const lemonsqueezy: PaymentProvider = {
     const checkoutData: Record<string, unknown> = { email, billing_address: { country: "MY" }, custom: { order_id: order.id } };
     // Owner-only free code: applied by us for allow-listed login emails; everyone else never sees a discount box.
     const ownerFree = isOwnerFree(email);
-    if (ownerFree) checkoutData.discount_code = process.env.LEMONSQUEEZY_OWNER_CODE;
+    if (ownerFree) {
+      checkoutData.discount_code = process.env.LEMONSQUEEZY_OWNER_CODE;
+      // A 100% order hides the address form but still validates the postal code; give it a valid MY one.
+      checkoutData.billing_address = { country: "MY", zip: "50000" };
+    }
     const body = {
       data: {
         type: "checkouts",
