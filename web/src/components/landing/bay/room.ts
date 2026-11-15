@@ -25,7 +25,8 @@ export function buildEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
   strip(8, 3.2, [0, 4.7, 0], [Math.PI / 2, 0, 0], 1.25); // a soft box overhead: the slow gradient on bonnet, roof and shoulders
   for (const z of [-2.2, 0.2, 2.6]) strip(9, 0.3, [0, 4.2, z], [Math.PI / 2, 0, 0], 4.5); // the tubes: crisp lines in paint and glass
   strip(12, 2.4, [0, 2.4, -9], [0, 0, 0], 1.9); // soft wall on the camera side
-  strip(13, 0.3, [0, 2.3, -6.5], [0, 0, 0], 2.6); // one long strip on the camera side: the highlight that runs down the car's shoulder
+  strip(13, 0.3, [0, 2.3, -6.5], [0, 0, 0], 2.6);
+  strip(14, 1.6, [0, 0.35, -7.5], [0.5, 0, 0], 0.55); // a low, dim sheet on the camera side, leaning up: what the doors and wings mirror, since the camera looks down on them // one long strip on the camera side: the highlight that runs down the car's shoulder
   strip(6, 3, [9, 2.5, 0], [0, -Math.PI / 2, 0], 1.5); // ahead of the nose
   strip(6, 2.4, [-9, 2.4, 0], [0, Math.PI / 2, 0], 0.7); // behind the tail
   strip(8, 1, [0, 0.6, 9], [0, Math.PI, 0], 0.5, new THREE.Color(0x6f8aa5)); // far side, low
