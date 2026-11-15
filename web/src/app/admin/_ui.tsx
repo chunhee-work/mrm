@@ -85,7 +85,7 @@ export async function Shell({ current, scope, title, back, children }: { current
   const me = await requireAdmin();
   const href = (slug: string) => withScope(`/admin${slug ? "/" + slug : ""}`, scope);
   const brand = (
-    <Link href={href("")} className="flex items-center gap-2.5">
+    <Link href={href("")} className="flex items-center gap-2.5 lg:flex-col lg:items-start lg:gap-2">
       <Brand />
       <span className="note rounded-[3px] bg-ice px-1.5 py-0.5 font-medium uppercase text-bay">Admin</span>
     </Link>
@@ -109,7 +109,7 @@ export async function Shell({ current, scope, title, back, children }: { current
   return (
     <div className="theme-light min-h-screen bg-bay text-fg lg:grid lg:grid-cols-[264px_1fr]">
       <aside className="border-b border-hair bg-panel lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
-        <div className="flex h-[60px] items-center justify-between px-4 lg:px-5">{brand}<span className="lg:hidden">{exit}</span></div>
+        <div className="flex h-[60px] items-center justify-between px-4 lg:h-auto lg:px-5 lg:pb-3 lg:pt-5">{brand}<span className="lg:hidden">{exit}</span></div>
         <nav aria-label="Admin" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-hair bg-panel pb-[env(safe-area-inset-bottom)] lg:static lg:mt-2 lg:block lg:border-t-0 lg:px-3">
           {NAV.map(([slug, label, Icon]) => (
             <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined}
