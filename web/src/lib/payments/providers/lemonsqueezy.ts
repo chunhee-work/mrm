@@ -94,6 +94,8 @@ export const lemonsqueezy: PaymentProvider = {
       checkoutData.discount_code = process.env.LEMONSQUEEZY_OWNER_CODE;
       // A 100% order hides the address form but still validates the postal code; give it a valid MY one.
       checkoutData.billing_address = { country: "MY", zip: "50000" };
+      // The hidden card form still requires a cardholder name.
+      checkoutData.name = email.split("@")[0] || "Owner";
     }
     const body = {
       data: {

@@ -194,6 +194,8 @@ test("owner-only free code: sent only for allow-listed email", async () => {
   assert.equal(bodies[0].data.attributes.checkout_data.discount_code, "OWNERFREE");
   assert.equal(bodies[1].data.attributes.checkout_data.discount_code, undefined);
   assert.equal(bodies[0].data.attributes.checkout_data.billing_address.zip, "50000");
+  assert.equal(bodies[0].data.attributes.checkout_data.name, "boss");
+  assert.equal(bodies[1].data.attributes.checkout_data.name, undefined);
   assert.equal(bodies[1].data.attributes.checkout_data.billing_address.zip, undefined);
   assert.equal(bodies[0].data.attributes.checkout_options.discount, true);
   assert.equal(bodies[1].data.attributes.checkout_options.discount, false);
