@@ -45,6 +45,13 @@ export default function AuthScene() {
     let slow = 0;
     let frames = 0;
 
+    // the picture fades out towards its edges, and the ball sits near one: a small clear patch in that fade goes with it
+    const follow = () => {
+      if (!bay) return;
+      const [x, y] = bay.botAt();
+      el.style.setProperty("--bx", `${(x * 100).toFixed(2)}%`);
+      el.style.setProperty("--by", `${(y * 100).toFixed(2)}%`);
+    };
     const frame = (now: number) => {
       raf = 0;
       if (!alive || !bay) return;
@@ -57,6 +64,7 @@ export default function AuthScene() {
       spin += (want - spin) * (1 - Math.exp(-dt / (held ? 60 : 220)));
       bay.setSpin(spin);
       bay.render(now);
+      follow();
       // a machine that cannot keep up: draw less, then only when the car is being turned
       if (dt > 42) slow++;
       if (++frames === 90) {
@@ -66,7 +74,12 @@ export default function AuthScene() {
       if (!document.hidden && (!idle || held || Math.abs(want - spin) > 0.002 || Math.abs(coast) > 0.00002)) raf = requestAnimationFrame(frame);
     };
     let idle = false;
-    const wake = () => { if (!raf && alive && bay && !capture) { lastT = 0; raf = requestAnimationFrame(frame); } };
+    const wake = () => {
+      if (!alive || !bay) return;
+      // a script taking pictures has no loop: each change is drawn once, at once
+      if (capture) { spin = want; bay.setSpin(spin); bay.render(0); follow(); return; }
+      if (!raf) { lastT = 0; raf = requestAnimationFrame(frame); }
+    };
 
     const onDown = (e: PointerEvent) => {
       if (!bay || (e.pointerType === "mouse" && e.button !== 0)) return;
@@ -81,6 +94,7 @@ export default function AuthScene() {
       lastX = e.clientX;
       want += d;
       coast = coast * 0.6 + (d / 16) * 0.4;
+      wake();
     };
     const onUp = (e: PointerEvent) => {
       if (!held) return;
@@ -102,13 +116,14 @@ export default function AuthScene() {
         if (capture) spin = 0;
         bay.setSpin(spin);
         bay.render(capture ? 0 : performance.now());
+        follow();
         setLive(true);
         el.addEventListener("pointerdown", onDown);
         el.addEventListener("pointermove", onMove);
         el.addEventListener("pointerup", onUp);
         el.addEventListener("pointercancel", onUp);
         document.addEventListener("visibilitychange", onVisible);
-        (window as unknown as { __authSpin?: (rad: number) => void }).__authSpin = (rad) => { spin = want = rad; coast = 0; bay!.setSpin(rad); bay!.render(0); };
+        (window as unknown as { __authSpin?: (rad: number) => void }).__authSpin = (rad) => { spin = want = rad; coast = 0; bay!.setSpin(rad); bay!.render(0); follow(); };
         wake();
       } catch { /* the still stays */ }
     };

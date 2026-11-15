@@ -266,7 +266,12 @@
     -webkit-mask-image: var(--fade); mask-image: var(--fade);
   }
   /* live: the same frame drawn in 3D takes the still's place, and the reader can take hold of it and turn the car */
-  .auth-scene-live { opacity: 0; transition: opacity 0.5s ease-out; }
+  .auth-scene-live {
+    opacity: 0; transition: opacity 0.5s ease-out;
+    /* the live ball moves when the car is turned: a clear patch in the fade follows it (--bx / --by, set by auth-scene.tsx) */
+    --ball: radial-gradient(ellipse 5% 8.9% at var(--bx, 24.42%) var(--by, 19.4%), #000 0, #000 66%, transparent 100%);
+    -webkit-mask-image: var(--ball), var(--fade); mask-image: var(--ball), var(--fade);
+  }
   .auth-scene[data-live] { pointer-events: auto; cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
   .auth-scene[data-live][data-held] { cursor: grabbing; }
   .auth-scene[data-live] .auth-scene-live { opacity: 1; }

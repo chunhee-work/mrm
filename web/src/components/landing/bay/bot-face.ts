@@ -99,7 +99,8 @@ export function buildFaceBot(ink = false): Bot {
     keep(new THREE.MeshBasicMaterial({ map: eyeTex, color: glow(new THREE.Color(0xffffff), 1.25), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })),
   );
   eyes.renderOrder = 6;
-  if (ink) { eyes.material.blending = THREE.NormalBlending; eyes.material.color.set(0x000000); }
+  // in ink the eyes are a dark drawing on the bright glass: the same texture, used as its own cut-out
+  if (ink) { eyes.material.map = null; eyes.material.alphaMap = eyeTex; eyes.material.blending = THREE.NormalBlending; eyes.material.color.set(0x000000); }
   tilt.add(eyes);
 
   const light = new THREE.PointLight(ICE, 1, 5.5, 1.6);

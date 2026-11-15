@@ -32,7 +32,7 @@ export type BayOptions = { mobile: boolean; bot?: BotLook; /** how the case file
 /** where the logo's "o" is on the page, in CSS pixels from the canvas's top left corner */
 /** Where the page keeps the logo's place at the ending, in canvas pixels: the middle and width of the wordmark, and the middle and height of the whole block of words under it. */
 export type Dock = { cx: number; cy: number; w: number; by: number; bh: number };
-export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; /** where the viewer's mouse is in the frame, -1..1 each way (right and up are positive); the head lamps lean after it at the ending */ setPointer(x: number, y: number): void; /** turn the turntable by hand, in radians, on top of where the page has it (the account pages let the reader drag the car round) */ setSpin(rad: number): void; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
+export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; /** where the viewer's mouse is in the frame, -1..1 each way (right and up are positive); the head lamps lean after it at the ending */ setPointer(x: number, y: number): void; /** turn the turntable by hand, in radians, on top of where the page has it (the account pages let the reader drag the car round) */ setSpin(rad: number): void; /** where the ball is in the frame, as fractions of its width and height from the top left (for a mask that has to follow it) */ botAt(): [number, number]; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
 
 type V3 = [number, number, number];
 type Key = { pos: V3; look: V3; fov: number; shift: [number, number] };
@@ -658,6 +658,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   }
 
   let handSpin = 0;
+  const botNdc = new THREE.Vector3();
   function setProgress(tt: number) {
     const next = clamp01(tt);
     if (Math.abs(next - t) > 2e-5) moved = true;
@@ -1042,6 +1043,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     setProgress,
     setDock(d) { dock = d; },
     setSpin(rad) { handSpin = rad; },
+    botAt() { botNdc.setFromMatrixPosition(bot.group.matrixWorld).project(camera); return [botNdc.x * 0.5 + 0.5, 0.5 - botNdc.y * 0.5]; },
     setPointer(x, y) { aimTo.set(THREE.MathUtils.clamp(x, -1, 1), THREE.MathUtils.clamp(y, -1, 1)); },
     render,
     resize,
