@@ -83,7 +83,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
 
   const Status = () => (
     <div aria-live="polite" className="inline-flex items-center gap-2.5 whitespace-nowrap text-[14px] font-medium leading-none text-fg">
-      {t(`status.${c.status}`)}<Mark />
+      {t(`status.${c.status}`)}{Mark()}
     </div>
   );
 
@@ -130,11 +130,11 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const Header = () => (
     <div className="flex min-h-[60px] flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-hair px-5 py-3 sm:min-h-[68px] sm:px-8">
       <h1 className={`display-2 text-[24px] text-fg sm:text-[28px] ${c.plate ? "num font-mono" : ""}`}>{title}</h1>
-      <Status />
+      {Status()}
     </div>
   );
 
-  const Shell = ({ children }: { children: React.ReactNode }) => (
+  const shell = (children: React.ReactNode) => (
     <div className="wrap flex flex-1 flex-col pb-10 pt-6 lg:pb-14 lg:pt-9">
       <Link href="/dashboard" className="btn-quiet mb-4 self-start">{t("case.back")}</Link>
       <div className="relative mx-auto w-full max-w-[860px]">
@@ -145,26 +145,26 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   );
 
   // one banner says what happened and offers the action; facts and activity sit under it
-  return (
-    <Shell>
-      <Header />
+  return shell(
+    <>
+      {Header()}
       <div className={`flex flex-wrap items-center justify-between gap-4 border-b border-hair px-5 py-4 sm:px-8 ${failed || pending ? "bg-ambertint" : working ? "bg-panel2" : ""}`} role={failed ? "alert" : "status"}>
         <div className="flex min-w-0 items-start gap-3">
-          <span className="mt-[3px]"><Mark /></span>
+          <span className="mt-[3px]">{Mark()}</span>
           <div className="min-w-0">
             <p className="text-[17px] font-medium leading-snug text-fg">{headline}</p>
             {sub && !pending && <p className="mt-1 text-[14px] text-mute">{sub}</p>}
           </div>
         </div>
-        <Retry />
+        {Retry()}
       </div>
       <div className="grid gap-6 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-2">
         <div className="grid content-start gap-6">
-          {facts.length > 0 && <section aria-labelledby="case-found"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2><Facts /></section>}
-          {pending && c.missing.length > 0 && <section aria-labelledby="case-missing"><h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2><MissingList /></section>}
+          {facts.length > 0 && <section aria-labelledby="case-found"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2>{Facts()}</section>}
+          {pending && c.missing.length > 0 && <section aria-labelledby="case-missing"><h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2>{MissingList()}</section>}
         </div>
-        <section aria-labelledby="case-log"><div id="case-log"><Log /></div></section>
+        <section aria-labelledby="case-log"><div id="case-log">{Log()}</div></section>
       </div>
-    </Shell>
+    </>
   );
 }
