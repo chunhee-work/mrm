@@ -181,7 +181,7 @@ export default function CaseList({ rows, now: serverNow }: { rows: CaseRow[]; no
           id="case-panel"
           role={rows.length > 0 ? "tabpanel" : undefined}
           aria-labelledby={rows.length > 0 ? `tab-${filter}` : undefined}
-          className="flex h-full flex-col overflow-hidden rounded-[3px] border border-hair bg-panel"
+          className="sheet flex h-full flex-col overflow-hidden rounded-[3px] border border-hair bg-panel"
         >
           {rows.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">

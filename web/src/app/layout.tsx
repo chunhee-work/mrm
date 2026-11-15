@@ -5,6 +5,7 @@ import { getT } from "@/lib/i18n-server";
 import { htmlLang, localeOf } from "@/lib/i18n";
 import { SITE } from "@/lib/site";
 import { LangProvider } from "@/components/lang-provider";
+import { TabIcon } from "@/components/tab-icon";
 
 // Display: Saira (variable, with its width axis — set condensed). Body: Hanken Grotesk. Readouts: IBM Plex Mono.
 // Brand: Outfit, the face the wordmark is drawn in, for the landing page's big lettering only.
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {t("nav.skip")}
         </a>
         <LangProvider lang={lang}>{children}</LangProvider>
+        <TabIcon />
       </body>
     </html>
   );

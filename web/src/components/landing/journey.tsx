@@ -40,7 +40,7 @@ function tOfScroll(p: number) {
   return STOPS[i] + (STOPS[i + 1] - STOPS[i]) * smooth(x - i);
 }
 
-type Bay = { setProgress(t: number): void; setDock(d: { cx: number; cy: number; w: number; by: number; bh: number } | null): void; render(timeMs: number): void; resize(): void; degrade(): boolean; dispose(): void };
+type Bay = { setProgress(t: number): void; setDock(d: { cx: number; cy: number; w: number; by: number; bh: number } | null): void; setPointer(x: number, y: number): void; render(timeMs: number): void; resize(): void; degrade(): boolean; dispose(): void };
 type Mode = "boot" | "live" | "still";
 
 export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta: string; href: string; poster: { desktop: string[]; mobile: string[] } }) {
@@ -170,6 +170,12 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
       bay.render(now);
     };
 
+    // the head lamps at the ending lean after the mouse; a finger on a touch screen is scrolling, not pointing
+    const onPointer = (e: PointerEvent) => {
+      if (e.pointerType === "touch" || !bay) return;
+      bay.setPointer((e.clientX / window.innerWidth) * 2 - 1, 1 - (e.clientY / window.innerHeight) * 2);
+    };
+    const onPointerGone = () => bay?.setPointer(0, 0);
     const onScroll = () => measure();
     const onResize = () => { bay?.resize(); measure(); };
     const io = new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); if (visible) last = 0; }, { rootMargin: "120px" });
@@ -178,7 +184,9 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
       try {
         const { createBay } = await import("./bay");
         if (!alive) return;
-        const made = await createBay(canvas, { mobile: window.matchMedia("(max-width: 767px)").matches });
+        // ?still=1&bot=face (or lens): a script may ask for the other ball, to picture the two side by side
+        const asked = capture ? new URLSearchParams(window.location.search).get("bot") : null;
+        const made = await createBay(canvas, { mobile: window.matchMedia("(max-width: 767px)").matches, bot: asked === "face" || asked === "lens" ? asked : undefined });
         if (!alive) { made.dispose(); return; }
         bay = made;
         measure();
@@ -189,13 +197,16 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         setMode("live");
         if (capture) {
           // `time` (ms) is for filming: it runs the idle motion on a clock of the script's own
-          const w = window as unknown as { __setT?: (v: number, time?: number) => void; __bayReady?: boolean };
+          const w = window as unknown as { __setT?: (v: number, time?: number) => void; __setPointer?: (x: number, y: number) => void; __bayReady?: boolean };
           w.__setT = (v: number, time = 0) => { t = target = v; paint(v); bay!.setProgress(v); bay!.render(time); };
+          w.__setPointer = (x: number, y: number) => bay!.setPointer(x, y);
           w.__bayReady = true;
           return;
         }
         window.addEventListener("scroll", onScroll, { passive: true });
         window.addEventListener("resize", onResize);
+        window.addEventListener("pointermove", onPointer, { passive: true });
+        document.documentElement.addEventListener("pointerleave", onPointerGone);
         io.observe(section);
         raf = requestAnimationFrame(frame);
       } catch {
@@ -209,6 +220,8 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
       io.disconnect();
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("pointermove", onPointer);
+      document.documentElement.removeEventListener("pointerleave", onPointerGone);
       bay?.dispose();
     };
   }, []);

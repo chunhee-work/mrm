@@ -19,8 +19,22 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1794712544302,
-      "tag": "0002_nappy_the_executioner",
+      "when": 1794721403214,
+      "tag": "0002_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794725957355,
+      "tag": "0003_admin_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794732354131,
+      "tag": "0004_photo_desk",
       "breakpoints": true
     }
   ]

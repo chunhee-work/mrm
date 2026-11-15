@@ -1,10 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import { asc, eq } from "drizzle-orm";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { db, schema } from "@/db";
-import { claude } from "@/lib/claude";
+import { trackedParse, zodOutputFormat } from "@/lib/claude";
 import { logLine, safeError } from "./log";
 import { costCapUsd, normalizePick, photoModel, sliceCostUsd, sliceMatches, NEIGHBOURS, NONE, PART_NAMES, type ModelPick } from "./rules";
 import { photoBase64 } from "./store";
@@ -82,10 +81,13 @@ function vehicleOf(c: CaseRow): string {
   return (c.carModel || fromDocs || "").slice(0, 120);
 }
 
+/** Who the call is counted against in the AI cost ledger. */
+export type Who = { userId: string | null; orgId: string | null; caseId: string | null };
+const SYSTEM_CALL: Who = { userId: null, orgId: null, caseId: null };
 export type CallResult = { picks: ModelPick[]; usage: Anthropic.Messages.Usage; model: string };
 
 /** One Claude call. Any failure leaves as a short error with no request or response content attached. */
-export async function callModel(vehicle: string, shots: { n: number; name: boolean; known: string | null; jpegBase64: string }[], modelEnv = process.env.CLAUDE_MODEL_PHOTOS): Promise<CallResult> {
+export async function callModel(vehicle: string, shots: { n: number; name: boolean; known: string | null; jpegBase64: string }[], who: Who = SYSTEM_CALL, modelEnv = process.env.CLAUDE_MODEL_PHOTOS): Promise<CallResult> {
   const model = photoModel(modelEnv);
   const content: Block[] = [{
     type: "text",
@@ -96,14 +98,14 @@ export async function callModel(vehicle: string, shots: { n: number; name: boole
     content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: s.jpegBase64 } });
   }
   try {
-    const res = await claude().messages.parse({
+    const res = await trackedParse({ ...who, purpose: "name_photos" }, {
       model,
       max_tokens: MAX_TOKENS,
       thinking: { type: "adaptive" },
       output_config: { effort: "low", format: zodOutputFormat(Picks) },
       system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content }],
-    }, { timeout: CALL_TIMEOUT_MS, maxRetries: 1 });
+    }, { request: { timeout: CALL_TIMEOUT_MS, maxRetries: 1 } });
     if (res.stop_reason === "refusal") throw Object.assign(new Error("refusal"), { name: "Refusal" });
     if (!res.parsed_output) throw Object.assign(new Error("no output"), { name: res.stop_reason === "max_tokens" ? "OutputTooLong" : "NoOutput" });
     return { picks: res.parsed_output.photos as ModelPick[], usage: res.usage, model };
@@ -115,7 +117,7 @@ export async function callModel(vehicle: string, shots: { n: number; name: boole
 export type SliceOutcome = { claimed: number; named: number; failed: number; remaining: number; capped: boolean };
 
 /** Runs one naming slice for a case the caller already checked. */
-export async function runSlice(c: CaseRow, opts: { retryFailed?: boolean } = {}): Promise<SliceOutcome> {
+export async function runSlice(c: CaseRow, opts: { retryFailed?: boolean; userId?: string | null } = {}): Promise<SliceOutcome> {
   if (opts.retryFailed) await retryFailed(c.id);
 
   if ((await spentUsd(c.id)) >= costCapUsd(process.env.PHOTO_COST_CAP_USD)) {
@@ -141,7 +143,7 @@ export async function runSlice(c: CaseRow, opts: { retryFailed?: boolean } = {})
     }));
 
     const vehicle = vehicleOf(c);
-    const out = await callModel(vehicle, shots);
+    const out = await callModel(vehicle, shots, { userId: opts.userId ?? null, orgId: c.orgId, caseId: c.id });
     try {
       await db.insert(schema.usage).values({
         caseId: c.id, inputTokens: out.usage.input_tokens, outputTokens: out.usage.output_tokens,

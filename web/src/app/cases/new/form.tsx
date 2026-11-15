@@ -95,7 +95,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   return (
     <form onSubmit={onSubmit} aria-busy={busy} className="relative mx-auto w-full max-w-[720px]">
       <ScanEdge />
-      <div className="rounded-[3px] border border-hair bg-panel">
+      <div className="sheet rounded-[3px] border border-hair bg-panel">
         <div className="flex h-[60px] items-center border-b border-hair px-5 sm:h-[68px] sm:px-8">
           <h1 className="display-2 text-[24px] text-fg sm:text-[28px]">{t("new.title")}</h1>
         </div>
@@ -189,7 +189,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
                       </span>
                       {state === "up" && (
                         <span className="absolute inset-x-0 bottom-0 h-[2px] bg-hairsoft" aria-hidden="true">
-                          <span className="block h-full bg-ice transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${pct}%` }} />
+                          <span className="block h-full bg-scan transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${pct}%` }} />
                         </span>
                       )}
                     </li>

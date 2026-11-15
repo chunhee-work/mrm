@@ -1,0 +1,84 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { z } from "zod";
+import { trackedParse, zodOutputFormat, type CallCtx } from "./claude";
+import { recordCall, recordEmail, type LedgerRow } from "./ledger";
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((n) => { const p = join(dir, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
+}
+
+test("only claude.ts touches the Anthropic SDK at runtime", () => {
+  const bad: string[] = [];
+  for (const f of walk("src").filter((p) => /\.(ts|tsx)$/.test(p) && !p.endsWith("claude.ts") && !p.endsWith(".test.ts"))) {
+    for (const line of readFileSync(f, "utf8").split("\n")) {
+      if (/@anthropic-ai\/sdk/.test(line) && !/^\s*import type\b/.test(line)) bad.push(`${f}: ${line.trim()}`);
+      if (/new Anthropic\(/.test(line)) bad.push(`${f}: ${line.trim()}`);
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
+const ctx: CallCtx = { userId: "u1", orgId: "o1", caseId: "c1", purpose: "read_docs" };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const P: any = { model: "claude-opus-5-5", max_tokens: 10, messages: [] };
+
+test("success writes exactly one row with tokens and priced cost", async () => {
+  const rows: LedgerRow[] = [];
+  const client = { messages: { create: async () => ({ _request_id: "req_1", model: "claude-opus-5-5", content: [], usage: { input_tokens: 1000, output_tokens: 100, cache_read_input_tokens: 500, cache_creation: { ephemeral_5m_input_tokens: 10, ephemeral_1h_input_tokens: 20 } } }) } };
+  await trackedParse(ctx, P, { client: client as never, record: async (r) => { rows.push(r); } });
+  assert.equal(rows.length, 1);
+  const r = rows[0];
+  assert.equal(r.requestId, "req_1"); assert.equal(r.ok, true); assert.equal(r.userId, "u1"); assert.equal(r.caseId, "c1");
+  assert.deepEqual([r.inputTokens, r.outputTokens, r.cacheReadTokens, r.cacheWrite5mTokens, r.cacheWrite1hTokens], [1000, 100, 500, 10, 20]);
+  assert.equal(Number(r.costUsd), (1000 * 4 + 100 * 20 + 500 * 0.2 + 10 * 5 + 20 * 8) / 1e6);
+});
+test("unknown model is stored unpriced (null cost)", async () => {
+  const rows: LedgerRow[] = [];
+  const client = { messages: { create: async () => ({ _request_id: "req_2", model: "mystery-1", content: [], usage: { input_tokens: 5, output_tokens: 5 } }) } };
+  await trackedParse(ctx, P, { client: client as never, record: async (r) => { rows.push(r); } });
+  assert.equal(rows[0].costUsd, null);
+});
+test("terminal failure writes one ok=false row, zero tokens, and rethrows", async () => {
+  const rows: LedgerRow[] = [];
+  const err = Object.assign(new Error("boom"), { name: "APIConnectionError" });
+  const client = { messages: { create: async () => { throw err; } } };
+  await assert.rejects(trackedParse({ ...ctx, userId: null }, P, { client: client as never, record: async (r) => { rows.push(r); } }), /boom/);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].ok, false); assert.equal(rows[0].inputTokens ?? 0, 0); assert.equal(rows[0].userId, null);
+  assert.match(rows[0].requestId, /^err:/); assert.equal(rows[0].errorClass, "APIConnectionError");
+});
+test("an API error with a request id uses it", async () => {
+  const rows: LedgerRow[] = [];
+  const client = { messages: { create: async () => { throw Object.assign(new Error("x"), { requestID: "req_err" }); } } };
+  await assert.rejects(trackedParse(ctx, P, { client: client as never, record: async (r) => { rows.push(r); } }));
+  assert.equal(rows[0].requestId, "req_err");
+});
+test("a billed response whose output cannot be parsed is still recorded with its tokens", async () => {
+  const rows: LedgerRow[] = [];
+  const client = { messages: { create: async () => ({ _request_id: "req_p", model: "claude-opus-5-5", content: [{ type: "text", text: "not json" }], usage: { input_tokens: 40, output_tokens: 7 } }) } };
+  const params = { ...P, output_config: { format: zodOutputFormat(z.object({ a: z.string() })) } };
+  await assert.rejects(trackedParse(ctx, params, { client: client as never, record: async (r) => { rows.push(r); } }));
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].ok, false); assert.equal(rows[0].errorClass, "parse_error"); assert.equal(rows[0].requestId, "req_p"); assert.deepEqual([rows[0].inputTokens, rows[0].outputTokens], [40, 7]);
+});
+test("a refusal and a missing structured output keep their tokens but are marked not ok", async () => {
+  const fmt = { output_config: { format: zodOutputFormat(z.object({ a: z.string() })) } };
+  const mk = (stop: string, text: string) => ({ messages: { create: async () => ({ _request_id: "req_" + stop, model: "claude-opus-5-5", stop_reason: stop, content: text ? [{ type: "text", text }] : [], usage: { input_tokens: 9, output_tokens: 3 } }) } });
+  for (const [stop, text, cls] of [["refusal", "{\"a\":\"x\"}", "refusal"], ["max_tokens", "", "no_output"]]) {
+    const rows: LedgerRow[] = [];
+    await trackedParse(ctx, { ...P, ...fmt }, { client: mk(stop, text) as never, record: async (r) => { rows.push(r); } });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].ok, false); assert.equal(rows[0].errorClass, cls); assert.deepEqual([rows[0].inputTokens, rows[0].outputTokens], [9, 3]);
+  }
+});
+test("a ledger write that throws never fails the Claude call or the email log", async () => {
+  const boom = { insert: () => { throw new Error("relation does not exist"); }, select: () => { throw new Error("x"); } } as never;
+  assert.equal(await recordCall({ requestId: "r", purpose: "read_docs", model: "m" }, boom), "error");
+  await recordEmail({ kind: "verify", recipientDomain: "x.com", status: "sent" }, boom); // resolves, does not throw
+  const client = { messages: { create: async () => ({ _request_id: "req_ok", model: "claude-opus-5-5", content: [], usage: { input_tokens: 1, output_tokens: 1 } }) } };
+  const res = await trackedParse(ctx, P, { client: client as never, record: (r) => recordCall(r, boom) });
+  assert.equal((res as { _request_id?: string })._request_id, "req_ok");
+});

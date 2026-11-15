@@ -7,7 +7,7 @@ import { MIN_PASSWORD } from "@/lib/i18n";
 import PasswordField from "@/components/auth/password-field";
 import { Field, FieldError, IconEnvelope, SheetBody, SheetFoot, SubmitButton, TextLink, Title } from "@/components/auth/parts";
 
-type Errors = { name?: boolean; email?: boolean; password?: boolean; agree?: boolean; form?: "fail" | "offline" };
+type Errors = { email?: boolean; password?: boolean; confirm?: boolean; agree?: boolean; form?: "fail" | "offline" };
 
 export default function Signup() {
   const { t } = useT();
@@ -23,16 +23,17 @@ export default function Signup() {
     const form = e.currentTarget;
     const f = new FormData(form);
     const el = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
-    const name = String(f.get("name") ?? "").trim();
     const email = String(f.get("email") ?? "").trim();
     const password = String(f.get("password") ?? "");
+    const confirm = String(f.get("confirm") ?? "");
+    const name = email.split("@")[0].split("+")[0].trim().slice(0, 60) || email.slice(0, 60); // Better Auth stores a name; the company is no longer asked for
     const bad: Errors = {};
-    if (!name) bad.name = true;
     if (!email || !el("email").validity.valid) bad.email = true;
     if (password.length < MIN_PASSWORD) bad.password = true;
+    if (!bad.password && confirm !== password) bad.confirm = true; // length is checked first; mismatch only matters once the length is fine
     if (!f.get("agree")) bad.agree = true;
     setErrors(bad);
-    const first = (["name", "email", "password", "agree"] as const).find((k) => bad[k]);
+    const first = (["email", "password", "confirm", "agree"] as const).find((k) => bad[k]);
     if (first) { el(first).focus(); return; }
     setBusy(true);
     try {
@@ -48,7 +49,9 @@ export default function Signup() {
   // an error goes away as soon as its own field is corrected
   function onInput(e: React.FormEvent<HTMLFormElement>) {
     const n = (e.target as HTMLInputElement).name as keyof Errors;
-    if (errors[n] || errors.form) setErrors((o) => ({ ...o, [n]: undefined, form: undefined }));
+    // editing either password box also clears a stale "do not match" note
+    const fix = n === "password" ? { password: undefined, confirm: undefined } : { [n]: undefined };
+    if (errors[n] || errors.form || (n === "password" && errors.confirm)) setErrors((o) => ({ ...o, ...fix, form: undefined }));
   }
 
   if (doneFor)
@@ -73,10 +76,6 @@ export default function Signup() {
       <form onSubmit={onSubmit} onInput={onInput} noValidate className="mt-7">
         <div className="grid gap-5">
           <Field
-            id="name" name="name" type="text" label={t("signup.name")} required autoComplete="organization"
-            error={errors.name ? t("signup.needName") : undefined}
-          />
-          <Field
             id="email" name="email" type="email" label={t("signup.email")} required
             autoComplete="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             error={errors.email ? t("login.needEmail") : undefined}
@@ -85,6 +84,10 @@ export default function Signup() {
             id="password" label={t("signup.password")} autoComplete="new-password" minLength={MIN_PASSWORD}
             hint={t("signup.passwordHint")}
             error={errors.password ? t("signup.passwordHint") : undefined}
+          />
+          <PasswordField
+            id="confirm" name="confirm" label={t("signup.confirm")} autoComplete="new-password" minLength={MIN_PASSWORD}
+            error={errors.confirm ? t("signup.mismatch") : undefined}
           />
 
           <div className="grid gap-2.5">

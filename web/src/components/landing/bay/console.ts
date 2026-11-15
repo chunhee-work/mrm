@@ -7,7 +7,7 @@ const RAD = Math.PI / 180;
 
 // How much of the claim form is in the working amber: 1 = the rows only, 2 = the frame, the car's panel and the glass too,
 // 3 = as 2 with the rows filled solid. 0 is the old all-ice form.
-const LOOK: number = 2;
+const LOOK: number = 1;
 
 /**
  * The intake console beside the car (a scanned model), and everything that happens at it:
@@ -44,33 +44,33 @@ const HERO_PHOTO = 13;
  */
 type Sheet = { cell: number; x: number; y: number; h: number; depth: number; turn: [number, number, number]; blur: number; dim: number; shadow?: boolean };
 const SHEETS_WIDE: Sheet[] = [
-  { cell: 11, x: 0.6, y: 0.2, h: 0.15, depth: 5.0, turn: [4, -20, 8], blur: 0.05, dim: 0.3 },
-  { cell: 4, x: 0.505, y: 0.47, h: 0.3, depth: 4.4, turn: [-6, 24, -7], blur: 0.045, dim: 0.3 },
-  { cell: 10, x: 0.035, y: 0.86, h: 0.2, depth: 4.2, turn: [8, 30, 10], blur: 0.05, dim: 0.3 },
-  { cell: 3, x: 0.02, y: 0.24, h: 0.36, depth: 4.2, turn: [-3, 34, 5], blur: 0.04, dim: 0.34 },
-  { cell: 9, x: 0.335, y: 0.9, h: 0.17, depth: 3.9, turn: [10, 10, -6], blur: 0.04, dim: 0.36 },
-  { cell: 8, x: 0.52, y: 0.13, h: 0.13, depth: 3.8, turn: [-8, -14, -5], blur: 0.035, dim: 0.4 },
-  { cell: 1, x: 0.125, y: 0.47, h: 0.98, depth: 3.4, turn: [-3, 18, -2], blur: 0.02, dim: 0.46 },
-  { cell: 5, x: 0.39, y: 0.34, h: 0.6, depth: 3.0, turn: [-4, 15, 2], blur: 0.012, dim: 0.6 },
-  { cell: 7, x: 0.452, y: 0.215, h: 0.2, depth: 2.6, turn: [-3, 12, 4], blur: 0.005, dim: 0.86, shadow: true },
-  { cell: 2, x: 0.2, y: 0.57, h: 0.68, depth: 2.5, turn: [-3, 14, -4], blur: 0.004, dim: 0.8, shadow: true },
-  { cell: HERO_PAGE, x: 0.282, y: 0.5, h: 0.68, depth: 2.2, turn: [-3, 13, -1.2], blur: 0, dim: 1, shadow: true },
-  { cell: HERO_PHOTO, x: 0.42, y: 0.69, h: 0.3, depth: 1.9, turn: [-2, 10, 1.2], blur: 0, dim: 1, shadow: true },
+  { cell: 11, x: 0.433, y: 0.322, h: 0.093, depth: 5.0, turn: [4, -20, 8], blur: 0.05, dim: 0.3 },
+  { cell: 4, x: 0.374, y: 0.489, h: 0.186, depth: 4.4, turn: [-6, 24, -7], blur: 0.045, dim: 0.3 },
+  { cell: 10, x: 0.083, y: 0.731, h: 0.124, depth: 4.2, turn: [8, 30, 10], blur: 0.05, dim: 0.3 },
+  { cell: 3, x: 0.073, y: 0.346, h: 0.223, depth: 4.2, turn: [-3, 34, 5], blur: 0.04, dim: 0.34 },
+  { cell: 9, x: 0.269, y: 0.756, h: 0.105, depth: 3.9, turn: [10, 10, -6], blur: 0.04, dim: 0.36 },
+  { cell: 8, x: 0.383, y: 0.278, h: 0.081, depth: 3.8, turn: [-8, -14, -5], blur: 0.035, dim: 0.4 },
+  { cell: 1, x: 0.128, y: 0.489, h: 0.52, depth: 3.4, turn: [-3, 18, -2], blur: 0.02, dim: 0.46 },
+  { cell: 5, x: 0.303, y: 0.408, h: 0.372, depth: 3.0, turn: [-4, 15, 2], blur: 0.012, dim: 0.6 },
+  { cell: 7, x: 0.341, y: 0.331, h: 0.124, depth: 2.6, turn: [-3, 12, 4], blur: 0.005, dim: 0.86, shadow: true },
+  { cell: 2, x: 0.185, y: 0.551, h: 0.422, depth: 2.5, turn: [-3, 14, -4], blur: 0.004, dim: 0.8, shadow: true },
+  { cell: HERO_PAGE, x: 0.236, y: 0.508, h: 0.422, depth: 2.2, turn: [-3, 13, -1.2], blur: 0, dim: 1, shadow: true },
+  { cell: HERO_PHOTO, x: 0.321, y: 0.625, h: 0.186, depth: 1.9, turn: [-2, 10, 1.2], blur: 0, dim: 1, shadow: true },
 ];
 // a phone's frame is tall: the words are above, the machine below, the file between them
 const SHEETS_NARROW: Sheet[] = [
-  { cell: 11, x: 0.86, y: 0.305, h: 0.085, depth: 5.0, turn: [4, -20, 8], blur: 0.05, dim: 0.3 },
-  { cell: 4, x: 0.93, y: 0.55, h: 0.2, depth: 4.4, turn: [-6, -24, -7], blur: 0.045, dim: 0.3 },
-  { cell: 10, x: 0.1, y: 0.72, h: 0.09, depth: 4.2, turn: [8, 30, 10], blur: 0.05, dim: 0.3 },
-  { cell: 3, x: 0.03, y: 0.5, h: 0.22, depth: 4.2, turn: [-3, 34, 5], blur: 0.04, dim: 0.34 },
-  { cell: 9, x: 0.13, y: 0.325, h: 0.085, depth: 3.9, turn: [10, 10, -6], blur: 0.04, dim: 0.36 },
-  { cell: 8, x: 0.87, y: 0.725, h: 0.08, depth: 3.8, turn: [-8, -14, -5], blur: 0.035, dim: 0.4 },
-  { cell: 1, x: 0.24, y: 0.475, h: 0.5, depth: 3.4, turn: [-3, 16, -2], blur: 0.02, dim: 0.46 },
-  { cell: 5, x: 0.68, y: 0.44, h: 0.34, depth: 3.0, turn: [-4, 13, 2], blur: 0.012, dim: 0.6 },
-  { cell: 7, x: 0.74, y: 0.36, h: 0.115, depth: 2.6, turn: [-3, 10, 4], blur: 0.005, dim: 0.86, shadow: true },
-  { cell: 2, x: 0.31, y: 0.535, h: 0.37, depth: 2.5, turn: [-4, 12, -5], blur: 0.004, dim: 0.8, shadow: true },
-  { cell: HERO_PAGE, x: 0.45, y: 0.5, h: 0.38, depth: 2.2, turn: [-3, 10, -1.2], blur: 0, dim: 1, shadow: true },
-  { cell: HERO_PHOTO, x: 0.675, y: 0.635, h: 0.165, depth: 1.9, turn: [-2, 8, 1.2], blur: 0, dim: 1, shadow: true },
+  { cell: 11, x: 0.788, y: 0.344, h: 0.068, depth: 5.0, turn: [4, -20, 8], blur: 0.05, dim: 0.3 },
+  { cell: 4, x: 0.844, y: 0.54, h: 0.16, depth: 4.4, turn: [-6, -24, -7], blur: 0.045, dim: 0.3 },
+  { cell: 10, x: 0.18, y: 0.676, h: 0.072, depth: 4.2, turn: [8, 30, 10], blur: 0.05, dim: 0.3 },
+  { cell: 3, x: 0.124, y: 0.5, h: 0.176, depth: 4.2, turn: [-3, 34, 5], blur: 0.04, dim: 0.34 },
+  { cell: 9, x: 0.204, y: 0.36, h: 0.068, depth: 3.9, turn: [10, 10, -6], blur: 0.04, dim: 0.36 },
+  { cell: 8, x: 0.796, y: 0.68, h: 0.064, depth: 3.8, turn: [-8, -14, -5], blur: 0.035, dim: 0.4 },
+  { cell: 1, x: 0.292, y: 0.48, h: 0.4, depth: 3.4, turn: [-3, 16, -2], blur: 0.02, dim: 0.46 },
+  { cell: 5, x: 0.644, y: 0.452, h: 0.272, depth: 3.0, turn: [-4, 13, 2], blur: 0.012, dim: 0.6 },
+  { cell: 7, x: 0.692, y: 0.388, h: 0.092, depth: 2.6, turn: [-3, 10, 4], blur: 0.005, dim: 0.86, shadow: true },
+  { cell: 2, x: 0.348, y: 0.528, h: 0.296, depth: 2.5, turn: [-4, 12, -5], blur: 0.004, dim: 0.8, shadow: true },
+  { cell: HERO_PAGE, x: 0.46, y: 0.5, h: 0.304, depth: 2.2, turn: [-3, 10, -1.2], blur: 0, dim: 1, shadow: true },
+  { cell: HERO_PHOTO, x: 0.64, y: 0.608, h: 0.132, depth: 1.9, turn: [-2, 8, 1.2], blur: 0, dim: 1, shadow: true },
 ];
 const PAGE_ASPECT = 880 / 1168;
 const PHOTO_ASPECT = 1168 / 880;
@@ -330,20 +330,13 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
       uniform sampler2D uMap; uniform sampler2D uHero; uniform vec3 uIce;
       varying vec2 vUv; varying float vCell; varying float vSeed; varying float vFade; varying vec2 vSoft; varying vec3 vN; varying vec3 vV;
       const vec3 PAPER = vec3(0.93, 0.95, 0.97);
-      // the sheet's own picture at uv: a page fills its sheet, a photo is a print with a white border.
+      // the sheet's own picture at uv: a page fills its sheet, and so does a photo (no white border round the print).
       // dx, dy say how coarse a copy of the picture to read; they are worked out once, outside any branch.
       vec3 sheet(vec2 uv, vec2 dx, vec2 dy){
         uv = clamp(uv, 0.0, 1.0);
         bool heroCell = vCell > 11.5;
         bool photo = heroCell ? vCell > 12.5 : vCell > 5.5;
-        vec2 q = uv;
-        float inside = 1.0;
-        if (photo) {
-          vec2 b = vec2(0.03, 0.04);
-          q = (uv - b) / (1.0 - 2.0 * b);
-          inside = step(0.0, q.x) * step(q.x, 1.0) * step(0.0, q.y) * step(q.y, 1.0);
-          q = clamp(q, 0.004, 0.996);
-        }
+        vec2 q = photo ? clamp(uv, 0.004, 0.996) : uv;
         vec3 c;
         if (heroCell) {
           vec2 a = photo ? vec2(880.0 + q.x * 1168.0, (1.0 - q.y) * 880.0) : vec2(q.x * 880.0, (1.0 - q.y) * 1168.0);
@@ -358,7 +351,7 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
           a = (at + a) / vec2(4.0, 3.0);
           c = textureGrad(uMap, vec2(a.x, 1.0 - a.y), dx * k, dy * k).rgb;
         }
-        return mix(PAPER, c, inside);
+        return c;
       }
       void main(){
         float blur = vSoft.x;

@@ -1,17 +1,11 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import { getT } from "@/lib/i18n-server";
 import { Brand } from "./brand-mark";
 import LangSwitch from "./lang-switch";
 import ScanEdge from "./scan-edge";
 import WhatsAppFab from "./whatsapp-fab";
 
-// The pool of light the sheet stands in.
-const POOL: CSSProperties = {
-  backgroundImage: "radial-gradient(50% 50% at 50% 46%, rgb(var(--c-ice) / 0.11), rgb(var(--c-ice) / 0.03) 55%, transparent 72%)",
-};
-
-/** Account pages (log in, sign up, password reset): brand + language, one sheet, three small links. */
+/** Account pages (log in, sign up, password reset), on white: brand + language, one sheet, three small links. */
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const { t } = await getT();
   const links = [
@@ -20,8 +14,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
     { href: "/contact", label: t("footer.contact") },
   ];
   return (
-    <div className="day flex min-h-screen flex-col supports-[min-height:100dvh]:min-h-[100dvh]">
-      <header className="border-b border-hair bg-bay">
+    <div className="theme-light flex min-h-screen flex-col bg-bay text-fg supports-[min-height:100dvh]:min-h-[100dvh]">
+      <header className="border-b border-hair bg-panel">
         <div className="wrap flex h-[60px] items-center justify-between gap-4 lg:h-16">
           <Link href="/" className="flex h-11 items-center" aria-label={t("nav.home")}>
             <Brand />
@@ -30,31 +24,32 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         </div>
       </header>
 
-      <main id="main" className="relative flex flex-1 flex-col overflow-clip px-4 pb-4 pt-9 sm:px-8 sm:pb-5 sm:pt-10">
-        {/* wide screens: the bay itself, mid-scan, to the right of the sheet (a still from the landing page's 3D scene) */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[64%] lg:block" aria-hidden="true">
-          <img src="/landing/bay-2.jpg" alt="" className="h-full w-full object-cover object-[88%_center]" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgb(var(--c-bay))_0%,rgb(var(--c-bay)/0.55)_26%,rgb(var(--c-bay)/0)_52%),linear-gradient(0deg,rgb(var(--c-bay))_0%,rgb(var(--c-bay)/0)_22%)]" />
-        </div>
-        <div className="relative mx-auto w-full max-w-[440px] sm:my-auto lg:mx-0 lg:ml-[clamp(32px,8.5vw,168px)]">
-          <div className="pointer-events-none absolute -inset-x-[320px] -inset-y-[200px] hidden sm:block lg:hidden" style={POOL} aria-hidden="true" />
-          <div className="relative rounded-[3px] border border-hair bg-panel">
-            <ScanEdge />
-            {children}
+      <main id="main" className="flex flex-1 flex-col pb-4 pt-9 sm:pb-5 sm:pt-10">
+        <div className="wrap flex flex-1 flex-col lg:grid lg:grid-cols-[440px_minmax(0,1fr)] lg:items-center lg:gap-x-[clamp(40px,5vw,88px)]">
+          <div className="relative mx-auto w-full max-w-[440px] sm:my-auto lg:mx-0">
+            <div className="sheet relative rounded-[3px] border border-hair bg-panel">
+              <ScanEdge />
+              {children}
+            </div>
+          </div>
+          {/* wide screens: one framed picture of the bay, mid-scan (a still from the landing page's 3D scene); the page itself stays white */}
+          <div className="relative hidden h-[min(600px,calc(100dvh-230px))] min-h-[420px] overflow-hidden rounded-[6px] bg-[#07090C] lg:block" aria-hidden="true">
+            <img src="/landing/bay-2.jpg" alt="" className="h-full w-full object-cover object-[52%_center]" />
           </div>
         </div>
       </main>
 
-      <footer className="wrap relative">
-        <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-6 pb-3 sm:pb-5">
+      {/* a phone: the WhatsApp button is part of this row, not floating over the form */}
+      <footer className="wrap relative flex items-center gap-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:block sm:pb-0">
+        <nav aria-label="Footer" className="flex min-w-0 flex-1 flex-wrap gap-x-5 sm:justify-center sm:gap-x-6 sm:pb-5">
           {links.map((l) => (
             <Link key={l.href} href={l.href} className="flex h-11 items-center text-[13px] font-medium text-mute transition-colors hover:text-ice">
               {l.label}
             </Link>
           ))}
         </nav>
+        <WhatsAppFab inFlow />
       </footer>
-      <WhatsAppFab />
     </div>
   );
 }

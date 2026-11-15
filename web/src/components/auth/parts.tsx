@@ -89,7 +89,7 @@ export function IconEnvelope() {
     <svg width="44" height="44" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ice" aria-hidden="true">
       <path d="M3.75 9.75h28.5v21.5H3.75z" />
       <path d="M3.75 9.75L18 21.5l14.25-11.75" />
-      <circle cx="32.25" cy="9.75" r="4.5" fill="rgb(var(--c-amber))" stroke="rgb(var(--c-panel))" strokeWidth="1.25" />
+      <circle cx="32.25" cy="9.75" r="4.5" className="fill-amber stroke-panel" strokeWidth="1.25" />
     </svg>
   );
 }
