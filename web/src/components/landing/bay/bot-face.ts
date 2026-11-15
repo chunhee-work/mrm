@@ -8,6 +8,7 @@ import { BOT_R, type Bot, type Face } from "./bot";
  * It faces +z (so `group.lookAt(p)` turns its face to p). Its face is a small drawing, redrawn only when it changes.
  *   mode 0  two open eyes        mode 1  one scan bar with a light running along it
  *   mode 2  three working dots   mode 3  done: one eye stays, the other becomes a white tick
+ * With its two eyes open (mode 0) it can also glance: `look` slides the eyes inside the visor.
  * Between two modes the eyes close to two short lines and open again as the next one.
  */
 
@@ -26,6 +27,9 @@ const EYE = "#ffffff";
 const EYE_W = 52;
 const EYE_H = 112;
 const EYE_X = 82;
+// how far a glance moves the eyes, in pixels of the face drawing
+const LOOK_X = 44;
+const LOOK_Y = 20;
 
 function pill(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
   const r = Math.min(w, h) / 2;
@@ -113,7 +117,10 @@ export function buildFaceBot(): Bot {
 
   function setFace(f: Face) {
     const open = Math.max(0, Math.min(1, f.open));
-    const key = `${f.mode}|${open.toFixed(2)}|${f.mode === 0 || f.mode === 3 ? 0 : f.phase.toFixed(2)}`;
+    // the open eyes can glance: they slide inside the visor, a little, never out of it
+    const lx = f.mode === 0 && f.look ? Math.round(Math.max(-1, Math.min(1, f.look[0])) * LOOK_X) : 0;
+    const ly = f.mode === 0 && f.look ? Math.round(Math.max(-1, Math.min(1, f.look[1])) * LOOK_Y) : 0;
+    const key = `${f.mode}|${open.toFixed(2)}|${f.mode === 0 ? `${lx},${ly}` : f.mode === 3 ? 0 : f.phase.toFixed(2)}`;
     if (key === drawn) return;
     drawn = key;
     g.globalCompositeOperation = "source-over";
@@ -126,9 +133,9 @@ export function buildFaceBot(): Bot {
       pill(g, x - EYE_W / 2, CY - 5, EYE_W, 10);
       g.globalAlpha = 1;
     };
-    const eye = (x: number) => { g.fillStyle = EYE; const h = 10 + (EYE_H - 10) * open; pill(g, x - EYE_W / 2, CY - h / 2, EYE_W, h); };
+    const eye = (x: number, y = CY) => { g.fillStyle = EYE; const h = 10 + (EYE_H - 10) * open; pill(g, x - EYE_W / 2, y - h / 2, EYE_W, h); };
     if (f.mode === 0) {
-      for (const x of EX) eye(x);
+      for (const x of EX) eye(x + lx, CY - ly);
     } else if (f.mode === 1) {
       // the two lines reach for each other and become one bar
       g.fillStyle = EYE;

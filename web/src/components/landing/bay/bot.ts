@@ -13,7 +13,7 @@ import { AMBER, GO, ICE, glow } from "./room";
 
 export const BOT_R = 0.17;
 
-export type Face = { mode: 0 | 1 | 2 | 3; /** 0 = the light is down, 1 = fully the mode's light */ open: number; /** 0..1, where the pulse is */ phase: number };
+export type Face = { mode: 0 | 1 | 2 | 3; /** 0 = the light is down, 1 = fully the mode's light */ open: number; /** 0..1, where the pulse is */ phase: number; /** where the two open eyes look, -1..1 sideways and up (the face ball only) */ look?: [number, number] };
 
 export type Bot = {
   group: THREE.Group;

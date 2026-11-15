@@ -9,7 +9,7 @@ import { BOT_R, buildBot, type Face } from "./bot";
 import { buildFaceBot } from "./bot-face";
 import { buildLogo } from "./logo";
 import { buildCar, type Part } from "./car";
-import { FORM_H, buildConsole, type Viewer } from "./console";
+import { FORM_H, buildConsole, type FileLook, type Viewer } from "./console";
 import { AMBER, BAY, GO, ICE, buildEnvironment, buildRoom, glow } from "./room";
 import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 
@@ -28,7 +28,7 @@ import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 /** Which ball flies in the bay: the black lens ball (a scanned model) or the white ball with a face (drawn in code). */
 export type BotLook = "lens" | "face";
 export const BOT_LOOK: BotLook = "face";
-export type BayOptions = { mobile: boolean; bot?: BotLook };
+export type BayOptions = { mobile: boolean; bot?: BotLook; /** how the case file hangs at the Upload stop (see console.ts); for pictures of the choices */ file?: FileLook };
 /** where the logo's "o" is on the page, in CSS pixels from the canvas's top left corner */
 /** Where the page keeps the logo's place at the ending, in canvas pixels: the middle and width of the wordmark, and the middle and height of the whole block of words under it. */
 export type Dock = { cx: number; cy: number; w: number; by: number; bh: number };
@@ -390,7 +390,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   const frameScale = car.frame ? car.frame.scale.x : 1;
   const room = buildRoom(mobile);
   scene.add(room.group);
-  const con = buildConsole(mobile, consoleFile, casefile, casefileHero);
+  const con = buildConsole(mobile, consoleFile, casefile, casefileHero, opts.file);
   scene.add(con.group);
   const bot = botFile ? buildBot(botFile) : buildFaceBot();
   scene.add(bot.group, bot.key);
@@ -774,23 +774,39 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       .addScaledVector(ve, toOrbit * (1 - toDesk))
       .addScaledVector(va.copy(formTop).addScaledVector(up, -FORM_H * 0.45).lerp(camera.position, 0.55), toDesk * (1 - toDock))
       .addScaledVector(camera.position, toDock);
+    // as the logo's "o" it is alive: it turns its head a little after the mouse
+    if (toDock > 0) gaze.addScaledVector(right, aim.x * 1.5 * toDock).addScaledVector(up, aim.y * 0.9 * toDock);
     bot.group.lookAt(gaze);
     // the light comes out of its face: a point just off the glass, where the scan bar (or the lens) is
     muzzle.subVectors(gaze, ball).normalize().multiplyScalar(BOT_R * scale * 1.05).add(ball);
     if (faceBot) muzzle.y += BOT_R * scale * 0.08;
     // ── its eyes
     const on = pulse(t, 0.3, 0.326, 0.488, 0.515);
-    const edges = [0.3, 0.535, 0.862];
+    // two eyes, the scan bar, three dots, the tick; and once it is the logo's "o", its own two eyes again
+    const edges = [0.3, 0.535, 0.862, 0.948];
     let mode = 0;
     let near = 1;
     for (const e of edges) { if (t >= e) mode++; near = Math.min(near, Math.abs(t - e) / 0.014); }
+    const home = mode === 4;
+    if (home) mode = 0;
     let open = smooth(near);
+    let lookX = 0;
+    let lookY = 0;
     if (mode === 0 && time) {
-      // a blink now and then
+      // a blink now and then; in the logo, now and then two in a row
       const b = (time % 4300) / 150;
       if (b < 1) open *= Math.abs(b * 2 - 1);
+      else if (home && b > 1.6 && b < 2.6 && Math.floor(time / 4300) % 3 === 2) open *= Math.abs((b - 1.6) * 2 - 1);
+      if (home) {
+        // its eyes go after the mouse; left alone, it glances to one side, then the other, like the icon in the browser tab
+        const c = (time % 11000) / 11000;
+        const idle = pulse(c, 0.3, 0.33, 0.43, 0.46) - pulse(c, 0.76, 0.79, 0.89, 0.92);
+        const led = Math.min(1, Math.hypot(aim.x, aim.y) * 4);
+        lookX = lerp(idle * 0.8, Math.max(-1, Math.min(1, aim.x * 1.6)), led);
+        lookY = lerp(0, Math.max(-1, Math.min(1, aim.y * 1.6)), led);
+      }
     }
-    const face: Face = { mode: mode as Face["mode"], open, phase: mode === 1 ? (t * 31 + time * 0.0006) % 1 : (t * 60 + time * 0.0011) % 1 };
+    const face: Face = { mode: mode as Face["mode"], open, phase: mode === 1 ? (t * 31 + time * 0.0006) % 1 : (t * 60 + time * 0.0011) % 1, look: [lookX, lookY] };
     bot.setFace(face);
     const done = seg(t, 0.9, 0.99);
     bot.light.color.copy(eyeColour.copy(ICE).lerp(GO, seg(t, 0.862, 0.9) * (1 - toDock)));

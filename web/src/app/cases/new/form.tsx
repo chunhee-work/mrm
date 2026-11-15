@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { upload } from "@vercel/blob/client";
 import { useT } from "@/components/lang-provider";
 import DropZone, { accepted } from "@/components/app/drop-zone";
@@ -29,7 +28,6 @@ const TAIL = 9; // characters of a long file name that always stay visible (the 
 
 export default function NewCaseForm({ orgId }: { orgId: string }) {
   const { t } = useT();
-  const [plate, setPlate] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(-1); // index of the file being uploaded; files.length = all up, creating the case
@@ -65,7 +63,6 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     e.preventDefault(); setBusy(true); setMsg(""); setFailed(null); setSkipped(false);
     let at = 0;
     try {
-      const plate = String(new FormData(e.currentTarget).get("plate"));
       const batchId = crypto.randomUUID();
       const done = [];
       for (let i = 0; i < files.length; i++) {
@@ -77,7 +74,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         done.push({ kind: kindOf(f), url: b.url, name: f.name, size: f.size });
       }
       at = files.length; setStep(files.length);
-      const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plate, files: done }) });
+      const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
       if (!r.ok) throw new Error(t("new.fail"));
       window.location.href = "/dashboard";
     } catch {
@@ -90,7 +87,6 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
 
   const n = files.length;
   const total = files.reduce((s, f) => s + f.size, 0);
-  const ready = plate.trim().length > 0 && n > 0;
 
   return (
     <form onSubmit={onSubmit} aria-busy={busy} className="relative mx-auto w-full max-w-[720px]">
@@ -101,25 +97,6 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         </div>
 
         <div className="grid gap-7 px-5 py-6 sm:px-8 sm:py-8">
-          <div className="field sm:max-w-[300px]">
-            <label className="label" htmlFor="plate">{t("new.plate")}</label>
-            <input
-              id="plate"
-              name="plate"
-              required
-              value={plate}
-              onChange={(e) => setPlate(e.target.value.toUpperCase())}
-              readOnly={busy}
-              maxLength={20}
-              autoCapitalize="characters"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="next"
-              className="input font-mono font-medium tracking-[0.02em] read-only:bg-bay read-only:text-mute"
-            />
-          </div>
-
           <div className="field">
             <div className="flex items-baseline justify-between gap-4">
               <label className="label" htmlFor="case-files">{t("new.files")}</label>
@@ -200,19 +177,17 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
           </div>
         </div>
 
-        <div className="border-t border-hair px-5 py-5 sm:px-8">
-          {msg && <p role="alert" className="field-error mb-4">{msg}</p>}
-          <div className="flex flex-col gap-x-7 gap-y-1 sm:flex-row sm:items-center">
-            <button className={`btn-primary sm:min-w-[184px] ${busy ? "cursor-progress !opacity-100 hover:!bg-ice" : ""}`} disabled={busy || !ready}>
-              {busy ? <span className="num">{t("new.uploading")} {Math.min(step + 1, n)}/{n}</span> : t("new.submit")}
-            </button>
-            {busy ? (
-              <span className="btn-quiet justify-center opacity-40 !no-underline" aria-disabled="true">{t("new.cancel")}</span>
-            ) : (
-              <Link href="/dashboard" className="btn-quiet justify-center">{t("new.cancel")}</Link>
+        {/* one button at a time: "Choose files" in the empty drop zone, then "Upload case" once there is something to upload */}
+        {(n > 0 || msg) && (
+          <div className="border-t border-hair px-5 py-5 sm:px-8">
+            {msg && <p role="alert" className="field-error mb-4">{msg}</p>}
+            {n > 0 && (
+              <button className={`btn-primary w-full sm:w-auto sm:min-w-[184px] ${busy ? "cursor-progress !opacity-100 hover:!bg-ice" : ""}`} disabled={busy}>
+                {busy ? <span className="num">{t("new.uploading")} {Math.min(step + 1, n)}/{n}</span> : t("new.submit")}
+              </button>
             )}
           </div>
-        </div>
+        )}
       </div>
     </form>
   );

@@ -8,6 +8,8 @@ const RAD = Math.PI / 180;
 // How much of the claim form is in the working amber: 1 = the rows only, 2 = the frame, the car's panel and the glass too,
 // 3 = as 2 with the rows filled solid. 0 is the old all-ice form.
 const LOOK: number = 1;
+/** How the case file hangs at the Upload stop (see `hung` below). */
+export const FILE_LOOK = 0 as 0 | 1 | 2 | 3;
 
 /**
  * The intake console beside the car (a scanned model), and everything that happens at it:
@@ -72,6 +74,22 @@ const SHEETS_NARROW: Sheet[] = [
   { cell: HERO_PAGE, x: 0.46, y: 0.5, h: 0.304, depth: 2.2, turn: [-3, 10, -1.2], blur: 0, dim: 1, shadow: true },
   { cell: HERO_PHOTO, x: 0.64, y: 0.608, h: 0.132, depth: 1.9, turn: [-2, 8, 1.2], blur: 0, dim: 1, shadow: true },
 ];
+/**
+ * The same file, hung lighter. 0 is the full spread above. The others keep its picture and take weight off it:
+ *   1  the whole spread, smaller         2  only the five sheets in focus, no big blurred ones behind
+ *   3  those five, small, as one neat handful
+ */
+export type FileLook = 0 | 1 | 2 | 3;
+const NEAR = 5; // the last five of a list are the sheets in focus
+function hung(list: Sheet[], look: FileLook, mobile: boolean): Sheet[] {
+  if (!look) return list;
+  const [cx, cy] = mobile ? [0.5, 0.5] : [0.25, 0.5];
+  const k = look === 1 ? (mobile ? 0.7 : 0.68) : look === 2 ? (mobile ? 0.82 : 0.82) : mobile ? 0.62 : 0.58;
+  // a handful sits nearer the machine it is about to go into
+  const [mx, my] = look === 3 ? (mobile ? [0, 0.02] : [0.035, 0.0]) : [0, 0];
+  const keep = look === 1 ? list : list.slice(-NEAR);
+  return keep.map((s) => ({ ...s, x: cx + (s.x - cx) * k + mx, y: cy + (s.y - cy) * k + my, h: s.h * k }));
+}
 const PAGE_ASPECT = 880 / 1168;
 const PHOTO_ASPECT = 1168 / 880;
 const isPage = (cell: number) => cell < DOCS || cell === HERO_PAGE;
@@ -246,7 +264,7 @@ function drawForm(g: CanvasRenderingContext2D, s: FormState, widths: number[][])
   }
 }
 
-export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE.Texture, hero: THREE.Texture): Console {
+export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE.Texture, hero: THREE.Texture, file: FileLook = FILE_LOOK): Console {
   const group = new THREE.Group();
   group.position.set(-3.25, 0, -2.75);
   group.rotation.y = 0.5;
@@ -273,7 +291,7 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
 
   // ── the case file: pages and photos, instanced; each card is a piece of one of the two pictures
   for (const tex of [casefile, hero]) { tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; }
-  const SHEETS = mobile ? SHEETS_NARROW : SHEETS_WIDE;
+  const SHEETS = hung(mobile ? SHEETS_NARROW : SHEETS_WIDE, file, mobile);
   const N_CARDS = SHEETS.length;
   const quat = new THREE.Quaternion();
   const cardGeo = keep(new THREE.PlaneGeometry(1, 1, 8, 1));
