@@ -85,6 +85,7 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
   useDismiss(open, close, ref);
   const links = [
     { href: "/dashboard", label: t("nav.cases") },
+    { href: "/billing", label: t("nav.billing") },
     { href: "/cases/new", label: t("nav.newCase"), plus: true },
   ];
   return (
@@ -149,6 +150,7 @@ export default function AppBar({ email }: { email: string }) {
   const path = usePathname();
   const onCases = path === "/dashboard";
   const onNew = path === "/cases/new";
+  const onBilling = path.startsWith("/billing");
   return (
     <header className="sticky top-0 z-40 border-b border-hair bg-bay">
       <div className="wrap relative flex h-[60px] items-center gap-4 lg:h-16 lg:gap-10">
@@ -164,6 +166,15 @@ export default function AppBar({ email }: { email: string }) {
             }`}
           >
             {t("nav.cases")}
+          </Link>
+          <Link
+            href="/billing"
+            aria-current={onBilling ? "page" : undefined}
+            className={`relative ml-8 flex items-center px-1 text-[15px] transition-colors duration-150 after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:transition-colors after:duration-150 ${
+              onBilling ? "font-semibold text-ink after:bg-ink" : "font-medium text-deep after:bg-transparent hover:text-ink"
+            }`}
+          >
+            {t("nav.billing")}
           </Link>
         </nav>
         <div className="ml-auto flex items-center gap-1.5 lg:gap-4">
