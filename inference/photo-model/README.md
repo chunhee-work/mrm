@@ -1,3 +1,13 @@
+---
+title: MRM photo model service
+emoji: 🚗
+colorFrom: gray
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # photo-model service
 
 Runs the owner's trained photo-naming model (private HF repo `chunhee00/mrm-photo-model`, folder `production/`) for the
