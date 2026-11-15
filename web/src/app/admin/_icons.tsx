@@ -16,6 +16,7 @@ export const IconCost = (p: P) => <I {...p}><circle cx="9" cy="9" r="6.75" /><pa
 export const IconCases = (p: P) => <I {...p}><path d="M3.75 1.75h7.5l3 3v11.5H3.75z" /><path d="M11.25 1.75v3h3M6.5 8.25h5M6.5 11.25h5" /></I>;
 export const IconErrors = (p: P) => <I {...p}><path d="M9 2.25l7 12.5H2z" /><path d="M9 7v3.75M9 12.25v.75" /></I>;
 export const IconHealth = (p: P) => <I {...p}><path d="M1.5 9.5h3.25l1.75-4.5 3.25 8.5 2-5 .9 1h3.85" /></I>;
+export const IconTodo = (p: P) => <I {...p}><path d="M2.5 4.5l1.5 1.5 2.5-3M2.5 11.5l1.5 1.5 2.5-3M9.25 4.75h6.25M9.25 11.75h6.25" /></I>;
 export const IconMail = (p: P) => <I {...p}><path d="M2.25 3.75h13.5v10.5H2.25z" /><path d="M2.5 4.25L9 9.75l6.5-5.5" /></I>;
 export const IconClock = (p: P) => <I {...p}><circle cx="9" cy="9" r="6.75" /><path d="M9 5v4.25l2.75 1.75" /></I>;
 export const IconOk = (p: P) => <I {...p}><circle cx="9" cy="9" r="6.75" /><path d="M5.75 9.25l2.25 2.25 4.25-4.75" /></I>;
