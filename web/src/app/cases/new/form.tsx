@@ -177,9 +177,11 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
           <div className="border-t border-hair px-5 py-5 sm:px-8">
             {msg && <p role="alert" className="field-error mb-4">{msg}</p>}
             {n > 0 && (
-              <button className={`btn-primary w-full sm:w-auto sm:min-w-[184px] ${busy ? "cursor-progress !opacity-100 hover:!bg-ice" : ""}`} disabled={busy}>
-                {busy ? <span className="num">{t("new.uploading")} {Math.min(step + 1, n)}/{n}</span> : t("new.submit")}
-              </button>
+              <div className="flex justify-end">
+                <button className={`btn-primary w-full sm:w-auto sm:min-w-[184px] ${busy ? "cursor-progress !opacity-100 hover:!bg-ice" : ""}`} disabled={busy}>
+                  {busy ? <span className="num">{t("new.uploading")} {Math.min(step + 1, n)}/{n}</span> : t("new.submit")}
+                </button>
+              </div>
             )}
           </div>
         )}
