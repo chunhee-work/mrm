@@ -9,7 +9,7 @@ import Billing, { type OrderView } from "@/components/app/billing";
 
 export const dynamic = "force-dynamic";
 
-export default async function BillingPage({ searchParams }: { searchParams: Promise<{ order?: string; v?: string }> }) {
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const { orgId } = await requireUser();
   const sp = await searchParams;
   const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1);
@@ -35,7 +35,6 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       packs={packs}
       orders={rows}
       watching={watching ? { id: watching.id, status: displayStatus(watching, now) } : null}
-      variant={process.env.NODE_ENV !== "production" && ["a", "b", "c"].includes(sp.v ?? "") ? (sp.v as "a" | "b" | "c") : "a"}
     />
   );
 }

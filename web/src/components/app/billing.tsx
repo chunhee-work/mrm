@@ -23,7 +23,6 @@ type Props = {
   packs: PackView[];
   orders: OrderView[];
   watching: { id: string; status: OrderView["status"] } | null;
-  variant: "a" | "b" | "c";
 };
 
 const money = (minor: number, cur: "MYR" | "USD", lang: string) =>
@@ -86,7 +85,7 @@ export default function Billing(p: Props) {
   ) : (
     <fieldset>
       <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.pay")}</legend>
-      <div className={p.variant === "b" ? "flex flex-col gap-2" : "grid gap-2 sm:grid-cols-2"}>
+      <div className={"grid gap-2 sm:grid-cols-2"}>
         {p.providers.map((x) => (
           <label key={x.id} className={`flex min-h-[56px] cursor-pointer items-center gap-3 border px-4 py-2 ${provider === x.id ? "border-ink bg-white" : "border-hair bg-white hover:border-mute"}`}>
             <input type="radio" name="provider" className="accent-[#0B1533]" checked={provider === x.id} onChange={() => setProvider(x.id)} />
@@ -100,11 +99,11 @@ export default function Billing(p: Props) {
   const PackPick = cur ? (
     <fieldset>
       <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.pick")}</legend>
-      <div className={p.variant === "b" ? "flex flex-col gap-2" : "grid gap-2 sm:grid-cols-3"}>
+      <div className={"grid gap-2 sm:grid-cols-3"}>
         {p.packs.map((k) => {
           const ok = packAvail(k.id);
           return (
-            <label key={k.id} className={`flex cursor-pointer items-center justify-between gap-3 border px-4 py-3 ${p.variant === "b" ? "" : "sm:flex-col sm:items-start sm:gap-1"} ${packId === k.id ? "border-ink bg-white" : "border-hair bg-white hover:border-mute"} ${ok ? "" : "pointer-events-none opacity-45"}`}>
+            <label key={k.id} className={`flex cursor-pointer items-center justify-between gap-3 border px-4 py-3 sm:flex-col sm:items-start sm:gap-1 ${packId === k.id ? "border-ink bg-white" : "border-hair bg-white hover:border-mute"} ${ok ? "" : "pointer-events-none opacity-45"}`}>
               <input type="radio" name="pack" className="sr-only" disabled={!ok} checked={packId === k.id} onChange={() => setPackId(k.id)} />
               <span className="text-[16px] font-semibold text-ink">{t(`bill.pack.${k.credits / 1000}`)}</span>
               <span className="text-[13px] text-mute">{t("bill.credits", { n: k.credits.toLocaleString(localeOf(lang)) })}</span>
@@ -150,27 +149,10 @@ export default function Billing(p: Props) {
     <main className="wrap py-8 lg:py-12">
       <h1 className="mb-6 text-[28px] font-semibold text-ink lg:text-[34px]">{t("bill.title")}</h1>
       {Banner}
-      {p.variant === "a" && (
-        <div className="grid gap-8">
-          {Balance}
-          <div className="grid gap-5"><h2 className="text-[20px] font-semibold text-ink">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
-          {History}
-        </div>
-      )}
-      {p.variant === "b" && (
-        <div className="mx-auto grid max-w-[560px] gap-6">
-          {Balance}
-          <h2 className="text-[20px] font-semibold text-ink">{t("bill.buy")}</h2>
-          {PackPick}{ProviderPick}{Go}
-          {History}
-        </div>
-      )}
-      {p.variant === "c" && (
-        <div className="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-start">
-          <div className="grid gap-6"><h2 className="text-[20px] font-semibold text-ink">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
-          <div className="grid gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
-        </div>
-      )}
+      <div className="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-start">
+        <div className="grid gap-6"><h2 className="text-[20px] font-semibold text-ink">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
+        <div className="grid gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
+      </div>
     </main>
   );
 }
