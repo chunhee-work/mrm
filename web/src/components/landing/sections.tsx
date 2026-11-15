@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { appOriginFor } from "@/lib/hosts";
 import type { CSSProperties } from "react";
 import type { HomeCopy } from "@/lib/home-copy";
 import InView from "@/components/in-view";
@@ -181,7 +183,9 @@ export function Faq({ c, page = false }: { c: C["faq"]; page?: boolean }) {
 }
 
 /** The last screen: the light comes back on, one button. */
-export function Closing({ c, authed, labels }: { c: C["closing"]; authed: boolean; labels: { start: string; cases: string } }) {
+export async function Closing({ c, authed, labels }: { c: C["closing"]; authed: boolean; labels: { start: string; cases: string } }) {
+  // on the marketing domain the account pages are on the app host: link straight there (a relative link is prefetched across hosts and fails)
+  const app = appOriginFor((await headers()).get("host"));
   return (
     <section aria-labelledby="closing-h" className="relative overflow-hidden border-t border-hair">
       <span className="scan-edge" aria-hidden="true" />
@@ -189,7 +193,7 @@ export function Closing({ c, authed, labels }: { c: C["closing"]; authed: boolea
       <div className="wrap relative flex flex-col items-start gap-10 py-28 lg:py-44">
         <h2 id="closing-h" className="display max-w-[13ch] text-balance text-[clamp(3rem,8.4vw,8.5rem)] text-fg">{c.title}</h2>
         <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-          <Link href={authed ? "/dashboard" : "/signup"} className="btn-primary !h-14 !px-8 !text-[16px]">
+          <Link href={app + (authed ? "/dashboard" : "/signup")} className="btn-primary !h-14 !px-8 !text-[16px]">
             {authed ? labels.cases : labels.start}
             <Arrow />
           </Link>

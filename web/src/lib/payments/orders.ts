@@ -6,7 +6,7 @@ import { PaymentError, type OrderRow, type ProviderId } from "./types";
 import type { Currency } from "./packs";
 
 export const MAX_PENDING_PER_10_MIN = 3;
-export const DISPLAY_EXPIRY_MS = 24 * 3600_000;
+export const DISPLAY_EXPIRY_MS = 3600_000;
 
 function toRow(r: typeof schema.paymentOrders.$inferSelect): OrderRow {
   return { ...r, provider: r.provider as ProviderId, currency: r.currency as Currency, status: r.status as OrderRow["status"] };
@@ -60,7 +60,7 @@ export async function markFailed(id: string) {
   await db.update(schema.paymentOrders).set({ status: "failed" }).where(and(eq(schema.paymentOrders.id, id), eq(schema.paymentOrders.status, "pending")));
 }
 
-/** Display state only: a pending order older than 24 h shows as expired; the stored status stays pending. */
+/** Display state only: a pending order older than 1 h shows as not completed (a checkout the customer walked away from); the stored status stays pending. */
 export function displayStatus(o: Pick<OrderRow, "status" | "createdAt">, now = Date.now()): OrderRow["status"] | "expired" {
   return o.status === "pending" && now - o.createdAt.getTime() > DISPLAY_EXPIRY_MS ? "expired" : o.status;
 }

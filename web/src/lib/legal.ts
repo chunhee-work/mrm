@@ -8,7 +8,7 @@ import type { Lang } from "./i18n";
 export type LegalSection = { h: string; p?: string[]; ul?: string[] };
 export type LegalDoc = { title: string; updated: string; note: string; intro: string[]; sections: LegalSection[] };
 
-export const LEGAL_UPDATED = "2026-11-14";
+export const LEGAL_UPDATED = "2026-11-15";
 
 const privacyEn: LegalDoc = {
   title: "Privacy Notice",
@@ -28,7 +28,8 @@ const privacyEn: LegalDoc = {
     {
       h: "What we collect",
       ul: [
-        "Account: company name, your name, work email, your password (stored only as a one-way hash), language choice, and sign-in and activity records.",
+        "Account: your email, your password (stored only as a one-way hash), your company name if you give us one, language choice, and sign-in and activity records.",
+        "Payments: the credit pack you bought, the amount, the date and whether it was paid. Card and bank details are entered on our payment provider’s page; we never receive or store them.",
         "Case data: registration cards, insurance policies, police reports, names, identity card numbers, addresses, phone numbers, vehicle details, vehicle photos, and the claim details keyed into Merimen.",
         "Merimen connection: you sign in to Merimen yourself. We never receive your Merimen password. The session that lets us work in your account is kept encrypted and only while the connection is active.",
         "Cookies: only the ones needed to keep you signed in and remember your language. No advertising or tracking cookies.",
@@ -47,13 +48,13 @@ const privacyEn: LegalDoc = {
     {
       h: "Must you provide it?",
       p: [
-        "Company name, email and password are needed to open an account; without them we cannot provide the service. Case data is supplied by you, case by case, when you choose to submit a claim.",
+        "Email and password are needed to open an account; without them we cannot provide the service. Case data is supplied by you, case by case, when you choose to submit a claim.",
       ],
     },
     {
       h: "Who receives it",
       ul: [
-        "Service providers that run {brand} for us: cloud hosting and file storage, database, email delivery, AI services that read documents and photos, and the cloud browser used to work inside your Merimen account. They may use the data only to provide their service to us.",
+        "Service providers that run {brand} for us: cloud hosting and file storage, database, email delivery, payment processing, AI services that read documents and photos, and the cloud browser used to work inside your Merimen account. They may use the data only to provide their service to us.",
         "Merimen, when we key a case into your account on your instruction.",
         "Regulators, courts or enforcement agencies, when the law requires it.",
       ],
@@ -118,7 +119,8 @@ const privacyMs: LegalDoc = {
     {
       h: "Apa yang kami kumpul",
       ul: [
-        "Akaun: nama syarikat, nama anda, e-mel kerja, kata laluan anda (disimpan sebagai cincangan sehala sahaja), pilihan bahasa, serta rekod log masuk dan aktiviti.",
+        "Akaun: e-mel anda, kata laluan anda (disimpan sebagai cincangan sehala sahaja), nama syarikat anda jika diberikan, pilihan bahasa, serta rekod log masuk dan aktiviti.",
+        "Pembayaran: pakej kredit yang anda beli, jumlah, tarikh dan sama ada ia telah dibayar. Butiran kad dan bank dimasukkan di halaman penyedia pembayaran kami; kami tidak pernah menerima atau menyimpannya.",
         "Data kes: kad pendaftaran kenderaan, polisi insurans, laporan polis, nama, nombor kad pengenalan, alamat, nombor telefon, butiran kenderaan, gambar kenderaan dan butiran tuntutan yang dimasukkan ke dalam Merimen.",
         "Sambungan Merimen: anda sendiri yang log masuk ke Merimen. Kami tidak pernah menerima kata laluan Merimen anda. Sesi yang membolehkan kami bekerja dalam akaun anda disimpan secara tersulit dan hanya semasa sambungan aktif.",
         "Kuki: hanya yang perlu untuk mengekalkan log masuk dan mengingati bahasa anda. Tiada kuki pengiklanan atau penjejakan.",
@@ -137,13 +139,13 @@ const privacyMs: LegalDoc = {
     {
       h: "Adakah wajib diberikan?",
       p: [
-        "Nama syarikat, e-mel dan kata laluan diperlukan untuk membuka akaun; tanpanya kami tidak dapat menyediakan perkhidmatan. Data kes dibekalkan oleh anda, kes demi kes, apabila anda memilih untuk menghantar tuntutan.",
+        "E-mel dan kata laluan diperlukan untuk membuka akaun; tanpanya kami tidak dapat menyediakan perkhidmatan. Data kes dibekalkan oleh anda, kes demi kes, apabila anda memilih untuk menghantar tuntutan.",
       ],
     },
     {
       h: "Siapa yang menerimanya",
       ul: [
-        "Pembekal perkhidmatan yang mengendalikan {brand} bagi pihak kami: pengehosan awan dan storan fail, pangkalan data, penghantaran e-mel, perkhidmatan AI yang membaca dokumen dan gambar, serta pelayar awan yang digunakan untuk bekerja dalam akaun Merimen anda. Mereka hanya boleh menggunakan data itu untuk memberikan perkhidmatan kepada kami.",
+        "Pembekal perkhidmatan yang mengendalikan {brand} bagi pihak kami: pengehosan awan dan storan fail, pangkalan data, penghantaran e-mel, pemprosesan pembayaran, perkhidmatan AI yang membaca dokumen dan gambar, serta pelayar awan yang digunakan untuk bekerja dalam akaun Merimen anda. Mereka hanya boleh menggunakan data itu untuk memberikan perkhidmatan kepada kami.",
         "Merimen, apabila kami memasukkan kes ke dalam akaun anda atas arahan anda.",
         "Pengawal selia, mahkamah atau agensi penguatkuasaan, apabila dikehendaki oleh undang-undang.",
       ],
@@ -206,7 +208,8 @@ const privacyZh: LegalDoc = {
     {
       h: "我们收集什么",
       ul: [
-        "账号：公司名称、你的姓名、工作邮箱、密码（只保存单向哈希）、语言选择、登录和操作记录。",
+        "账号：你的邮箱、密码（只保存单向哈希）、公司名称（如果你有提供）、语言选择、登录和操作记录。",
+        "付款：你买的点数包、金额、日期和是否已付款。银行卡和银行资料在付款服务商的页面上填写，我们不会收到也不会保存。",
         "案件资料：车辆注册卡、保单、报案纸、姓名、身份证号码、地址、电话、车辆资料、车辆照片，以及录入 Merimen 的理赔内容。",
         "Merimen 连接：由你本人登录 Merimen，我们不会收到你的 Merimen 密码。让我们在你账号里操作的会话信息以加密方式保存，而且只在连接有效期间保留。",
         "Cookie：只用保持登录和记住语言所必需的。没有广告或追踪 Cookie。",
@@ -224,12 +227,12 @@ const privacyZh: LegalDoc = {
     },
     {
       h: "是否必须提供",
-      p: ["开通账号需要公司名称、邮箱和密码，缺少这些我们无法提供服务。案件资料由你在提交每个案件时自行提供。"],
+      p: ["开通账号需要邮箱和密码，缺少这些我们无法提供服务。案件资料由你在提交每个案件时自行提供。"],
     },
     {
       h: "谁会收到资料",
       ul: [
-        "为我们运行 {brand} 的服务商：云端托管和文件存储、数据库、邮件发送、读取文件和照片的 AI 服务，以及用来在你的 Merimen 账号里操作的云端浏览器。他们只能为向我们提供服务而使用这些资料。",
+        "为我们运行 {brand} 的服务商：云端托管和文件存储、数据库、邮件发送、付款处理、读取文件和照片的 AI 服务，以及用来在你的 Merimen 账号里操作的云端浏览器。他们只能为向我们提供服务而使用这些资料。",
         "Merimen：当我们按你的指示把案件录入你的账号时。",
         "法律要求时的监管机构、法院或执法机构。",
       ],
@@ -310,8 +313,14 @@ const termsEn: LegalDoc = {
       ],
     },
     {
-      h: "Fees",
-      p: ["Fees are the ones agreed with you before you use the paid service. Taxes are added where the law requires."],
+      h: "Credits and payment",
+      ul: [
+        "The service is prepaid with credits. The packs and their prices are shown on the Billing page before you pay.",
+        "Each case you submit uses credits from your balance, at the rate shown on the Billing page.",
+        "Payments are handled by third-party payment providers. For card and PayPal payments the provider sells as reseller of record, and its checkout terms also apply to the payment.",
+        "Credits cannot be exchanged for cash. If a case cannot be completed because of a fault on our side, we return the credits it used. For any other refund request, write to us and we will review it. Your rights under Malaysian law are not affected.",
+        "Taxes are added where the law requires.",
+      ],
     },
     {
       h: "Fair use",
@@ -393,8 +402,14 @@ const termsMs: LegalDoc = {
       ],
     },
     {
-      h: "Bayaran",
-      p: ["Bayaran adalah seperti yang dipersetujui dengan anda sebelum anda menggunakan perkhidmatan berbayar. Cukai ditambah jika dikehendaki oleh undang-undang."],
+      h: "Kredit dan pembayaran",
+      ul: [
+        "Perkhidmatan ini dibayar terlebih dahulu dengan kredit. Pakej dan harganya dipaparkan di halaman Bil sebelum anda membayar.",
+        "Setiap kes yang anda hantar menggunakan kredit daripada baki anda, pada kadar yang dipaparkan di halaman Bil.",
+        "Pembayaran dikendalikan oleh penyedia pembayaran pihak ketiga. Bagi pembayaran kad dan PayPal, penyedia itu menjual sebagai penjual semula rekod, dan terma pembayarannya turut terpakai.",
+        "Kredit tidak boleh ditukar dengan wang tunai. Jika sesuatu kes tidak dapat disiapkan kerana kesilapan di pihak kami, kami memulangkan kredit yang digunakan. Bagi permintaan bayaran balik yang lain, tulis kepada kami dan kami akan menelitinya. Hak anda di bawah undang-undang Malaysia tidak terjejas.",
+        "Cukai ditambah jika dikehendaki oleh undang-undang.",
+      ],
     },
     {
       h: "Penggunaan wajar",
@@ -466,8 +481,14 @@ const termsZh: LegalDoc = {
       p: ["{brand} 负责准备录入内容，你仍然是理算师。提交或批准前，请在 Merimen 里核对每个案件。专业判断和最终报告由你负责。"],
     },
     {
-      h: "费用",
-      p: ["费用以你使用付费服务前与我们约定的为准。法律要求时另加税费。"],
+      h: "点数与付款",
+      ul: [
+        "本服务以点数预付。点数包和价格在付款前显示于「账单」页面。",
+        "你提交的每个案件会从余额扣除点数，扣除标准以「账单」页面显示的为准。",
+        "付款由第三方付款服务商处理。银行卡和 PayPal 付款由该服务商作为登记转售商出售，其结账条款同样适用于该笔付款。",
+        "点数不能兑换现金。如果案件因我们的过失而无法完成，我们会退回该案件扣除的点数。其他退款请求请来信，我们会逐一审核。你在马来西亚法律下的权利不受影响。",
+        "法律要求时另加税费。",
+      ],
     },
     {
       h: "合理使用",

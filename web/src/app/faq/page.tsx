@@ -4,7 +4,7 @@ import { HOME } from "@/lib/home-copy";
 import { pageMeta } from "@/lib/meta";
 import { Closing, Faq } from "@/components/landing/sections";
 
-export const generateMetadata = () => pageMeta("nav.faq");
+export const generateMetadata = () => pageMeta("nav.faq", { desc: "meta.d.faq" });
 
 export default async function FaqPage() {
   const me = await getUserOrNull();

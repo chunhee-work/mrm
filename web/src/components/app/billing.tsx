@@ -62,7 +62,7 @@ export default function Billing(p: Props) {
     setBusy(false);
   }
 
-  const cases = p.balance / 1000;
+  const wholeCases = Math.floor((p.balance / 1000) * 10) / 10; // how many cases the balance pays for
   const Banner = (
     <>
       {p.testMode && <div role="note" className="mb-5 rounded-[3px] border border-ice bg-icetint px-4 py-3 text-[14px] font-semibold text-ice">{t("bill.test")}</div>}
@@ -75,7 +75,7 @@ export default function Billing(p: Props) {
     <div className="rounded-[3px] border border-hair bg-panel p-5">
       <div className="text-[13px] font-medium text-mute">{t("bill.balance")}</div>
       <div className="mt-1 text-[40px] font-semibold leading-none tabular-nums text-fg">{p.balance.toLocaleString(localeOf(lang))}</div>
-      <div className="mt-2 text-[14px] text-fg">{t("bill.cases", { n: String(Math.floor(cases * 10) / 10) })} · {t("bill.balanceHint")}</div>
+      <div className="mt-2 text-[14px] text-fg">{t(wholeCases === 1 ? "bill.casesOne" : "bill.casesMany", { n: String(wholeCases) })} · {t("bill.balanceHint")}</div>
       {p.orgName && <div className="mt-3 truncate text-[13px] text-mute">{t("bill.org", { org: p.orgName })}</div>}
     </div>
   );
@@ -122,37 +122,41 @@ export default function Billing(p: Props) {
     </div>
   );
 
+  // Each payment is one row of two lines (date + pack on the left, amount + state on the right), so nothing is cut off
+  // in the narrow side column or on a phone. The box has a fixed height and scrolls inside.
   const History = (
     <section aria-labelledby="bill-hist">
       <h2 id="bill-hist" className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.history")}</h2>
       {!p.orders.length ? <div className="rounded-[3px] border border-hair bg-panel p-5 text-[14px] text-mute">{t("bill.noHistory")}</div> : (
-        <div className="max-h-[320px] overflow-auto rounded-[3px] border border-hair bg-panel">
-          <table className="w-full text-left text-[14px]">
-            <thead className="sticky top-0 bg-panel text-[12px] uppercase tracking-wide text-mute"><tr><th className="px-4 py-2 font-medium">{t("bill.col.date")}</th><th className="px-2 py-2 font-medium">{t("bill.col.pack")}</th><th className="px-2 py-2 text-right font-medium">{t("bill.col.amount")}</th><th className="px-4 py-2 text-right font-medium">{t("bill.col.status")}</th></tr></thead>
-            <tbody>
-              {p.orders.map((o) => (
-                <tr key={o.id} className="border-t border-hair">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-fg">{new Date(o.createdAt).toLocaleDateString(localeOf(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kuala_Lumpur" })}</td>
-                  <td className="px-2 py-2.5">{t("bill.credits", { n: o.packCredits.toLocaleString(localeOf(lang)) })}{o.testMode ? " · TEST" : ""}</td>
-                  <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{money(o.amountMinor, o.currency, lang)}</td>
-                  <td className={`whitespace-nowrap px-4 py-2.5 text-right ${o.status === "paid" ? "font-semibold text-fg" : "text-mute"}`}>{o.status === "paid" ? "✓ " : ""}{t(`bill.s.${o.status}`)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul tabIndex={0} aria-labelledby="bill-hist" className="app-scroll max-h-[320px] overflow-y-auto overscroll-contain rounded-[3px] border border-hair bg-panel focus-visible:outline-offset-[-2px]">
+          {p.orders.map((o) => (
+            <li key={o.id} className="flex items-center justify-between gap-4 border-b border-hairsoft px-4 py-3 last:border-b-0">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-medium text-fg">
+                  {t("bill.credits", { n: o.packCredits.toLocaleString(localeOf(lang)) })}
+                  {o.testMode && <span className="rounded-[2px] border border-hair px-1.5 py-px text-[11px] font-medium uppercase tracking-wide text-mute">{t("bill.tag.test")}</span>}
+                </div>
+                <div className="mt-0.5 text-[13px] text-mute">{new Date(o.createdAt).toLocaleDateString(localeOf(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kuala_Lumpur" })}</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[15px] font-medium tabular-nums text-fg">{money(o.amountMinor, o.currency, lang)}</div>
+                <div className={`mt-0.5 text-[13px] ${o.status === "paid" ? "font-semibold text-go" : "text-mute"}`}>{o.status === "paid" ? "✓ " : ""}{t(`bill.s.${o.status}`)}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );
 
   return (
-    <main className="wrap py-8 lg:py-12">
+    <div className="wrap py-8 lg:py-12">
       <h1 className="display-2 mb-6 text-[30px] text-fg lg:text-[36px]">{t("bill.title")}</h1>
       {Banner}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6"><h2 className="text-[20px] font-semibold text-fg">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
       </div>
-    </main>
+    </div>
   );
 }
