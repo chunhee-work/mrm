@@ -42,26 +42,38 @@ async function failJob(c: CaseRow, j: PhotoModelJob, why: string): Promise<void>
 }
 
 async function start(c: CaseRow): Promise<Outcome | null> {
+  // 1. Reserve the case-level job FIRST (compare-and-set), so two desks never claim different halves of the same case.
+  //    The short lease keeps every other poll waiting while this call claims the photos.
+  const t = nowS();
+  const jobId = randomUUID();
+  const reserved: PhotoModelJob = {
+    job_id: jobId, status: "claimed", order_hash: "", claims: [], claimed_at: t, submit_deadline: t + cfg.submitWindowS,
+    run_deadline: null, lease_until: t + cfg.leaseS, attempts: 0, resubmitted: false, error: null,
+  };
+  if (!(await writeJob(c.id, null, reserved))) return null;
+  const release = () => db.execute(sql`UPDATE cases SET photo_model_job = NULL WHERE id = ${c.id} AND photo_model_job->>'job_id' = ${jobId}`);
+  // 2. Claim the photos. Only the holder of the reservation gets here.
   const claimed = await claimSlice(c.id, 1000);
-  if (!claimed.length) return null;
+  if (!claimed.length) { await release(); return null; }
   if (claimed.length > cfg.maxPhotos) {
+    await release();
     await writeFailed(claimed, "too many photos: name by hand");
     return { claimed: 0, named: 0, failed: claimed.length, remaining: await pendingCount(c.id), capped: false };
   }
   const ids = new Set(claimed.map((x) => x.id));
   const rows = (await photoRows(c.id)).filter((r) => ids.has(r.id));
-  const t = nowS();
   const job: PhotoModelJob = {
-    job_id: randomUUID(), status: "claimed", order_hash: orderHash(rows),
+    ...reserved, order_hash: orderHash(rows), lease_until: null,
     claims: rows.map((r) => ({ id: r.id, at: claimed.find((x) => x.id === r.id)!.claimedAt })),
-    claimed_at: t, submit_deadline: t + cfg.submitWindowS, run_deadline: null, lease_until: null, attempts: 0, resubmitted: false, error: null,
   };
-  if (!(await writeJob(c.id, null, job))) { await writeFailed(claimed, "another job is running"); return null; }
+  // 3. Fill the reservation in. If it was lost (it expired and was failed), give the photos back as failed so the desk shows them.
+  if (!(await writeJob(c.id, { job_id: jobId, status: "claimed" }, job))) { await writeFailed(claimed, "naming was interrupted, try again"); return null; }
   return { claimed: claimed.length, named: 0, failed: 0, remaining: await pendingCount(c.id), capped: false };
 }
 
 async function trySubmit(c: CaseRow, j: PhotoModelJob): Promise<void> {
   // take the lease first: one submit attempt at a time
+  if (!j.claims.length) return void (await failJob(c, j, "naming was interrupted, try again")); // a reservation that never got its photos
   const leased: PhotoModelJob = { ...j, lease_until: nowS() + cfg.leaseS, attempts: j.attempts + 1 };
   const got = rowsOf(await db.execute(sql`UPDATE cases SET photo_model_job = ${JSON.stringify(leased)}::jsonb
     WHERE id = ${c.id} AND photo_model_job->>'job_id' = ${j.job_id} AND photo_model_job->>'status' = ${j.status}
