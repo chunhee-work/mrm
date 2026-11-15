@@ -151,11 +151,13 @@ export default function CaseList({ rows, orgId }: { rows: CaseRow[]; orgId: stri
                   {[...active, ...done].map((r) => {
                     const vehicle = [r.carModel, r.insurer].filter(Boolean).join(" · ");
                     return (
-                      <li key={r.id} className="flex min-h-[64px] items-center gap-4 border-b border-hairsoft px-4 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-bay/70 lg:min-h-[56px] lg:px-6 lg:py-2">
+                      <li key={r.id} className="relative flex min-h-[64px] items-center gap-4 border-b border-hairsoft px-4 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-bay/70 lg:min-h-[56px] lg:px-6 lg:py-2">
                         {/* phones: the vehicle under its number; from lg the two sit side by side, on two columns */}
                         <div className="min-w-0 flex-1 lg:flex lg:items-baseline lg:gap-6">
                           <span className="num block truncate font-mono text-[15.5px] font-medium leading-snug tracking-[0.01em] text-fg lg:w-[168px] lg:shrink-0">
-                            {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{t("dash.noPlate")}</span>}
+                            <Link href={`/cases/${r.id}`} className="underline-offset-4 before:absolute before:inset-0 before:content-[''] hover:underline">
+                              {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{t("dash.noPlate")}</span>}
+                            </Link>
                           </span>
                           {vehicle && <span className="mt-1 block truncate text-[14px] leading-snug text-mute lg:mt-0 lg:text-[15px]">{vehicle}</span>}
                         </div>
