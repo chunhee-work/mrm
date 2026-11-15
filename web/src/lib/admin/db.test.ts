@@ -6,8 +6,11 @@ import { recordCall } from "@/lib/ledger";
 import { sendEmail } from "@/lib/email";
 import { casesPage, costPage, overview, usersList } from "./queries";
 
-// Needs a local Postgres with the migrations applied (DATABASE_URL on localhost); skipped otherwise (e.g. in CI).
-const local = /@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL ?? "");
+// DESTRUCTIVE: this file TRUNCATEs the application tables. It only runs when ALL of these hold, so it can never wipe a
+// development database by accident: ADMIN_DB_TESTS=1 is set on purpose, DATABASE_URL is on localhost, and the database
+// name contains "test" (e.g. postgres://localhost/autoclaim_test with the migrations applied). Otherwise it is skipped.
+const url = process.env.DATABASE_URL ?? "";
+const local = process.env.ADMIN_DB_TESTS === "1" && /@(localhost|127\.0\.0\.1)[:/]/.test(url) && /\/[^/?]*test[^/?]*(\?|$)/i.test(url);
 const t = local ? test : test.skip;
 const hrs = (h: number) => new Date(Date.now() - h * 3600_000);
 const ext = { includeInternal: false }, inc = { includeInternal: true };

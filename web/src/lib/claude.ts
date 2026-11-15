@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageCreateParamsNonStreaming } from "@anthropic-ai/sdk/resources/messages/messages";
-import type { ExtractParsedContentFromParams, ParsedMessage } from "@anthropic-ai/sdk/lib/parser";
+import { parseMessage, type ExtractParsedContentFromParams, type ParsedMessage } from "@anthropic-ai/sdk/lib/parser";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { costOf, tokensOf } from "./pricing";
 import { recordCall, type LedgerRow } from "./ledger";
@@ -29,10 +29,12 @@ function client(): Anthropic {
 export type CallCtx = { userId: string | null; orgId: string | null; caseId: string | null; purpose: "read_docs" | "system_other" };
 export type ParseParams = MessageCreateParamsNonStreaming;
 
-type Deps = { client?: Pick<Anthropic, "messages">; record?: (row: LedgerRow) => Promise<unknown> };
+type Deps = { client?: { messages: { create: Anthropic["messages"]["create"] } }; record?: (row: LedgerRow) => Promise<unknown> };
 
 /**
- * messages.parse() plus one ledger row per call. Success: usage from the response, keyed by the provider request id.
+ * messages.create() + parseMessage() (what messages.parse() does) plus one ledger row per call. The row is written as soon as the
+ * billed response arrives, BEFORE the structured output is parsed, so a response that fails to parse is still counted.
+ * Success: usage from the response, keyed by the provider request id.
  * Failure (API error, network, timeout): zero tokens, ok=false, keyed by the error's request id or err:<call uuid>.
  * The call uuid is made once per invocation, so SDK retries or a rethrow cannot add a second failure row.
  */
@@ -41,8 +43,9 @@ export async function trackedParse<P extends ParseParams>(ctx: CallCtx, params: 
   const callId = randomUUID();
   const started = Date.now();
   const base = { userId: ctx.userId, orgId: ctx.orgId, caseId: ctx.caseId, purpose: ctx.purpose, model: String(params.model) };
+  let billed = false;
   try {
-    const res = await (deps.client ?? client()).messages.parse(params);
+    const res = await (deps.client ?? client()).messages.create(params);
     const t = tokensOf(res.usage as never);
     const model = String(res.model || params.model);
     await record({
@@ -53,8 +56,10 @@ export async function trackedParse<P extends ParseParams>(ctx: CallCtx, params: 
       costUsd: ((c) => (c === null ? null : c.toFixed(8)))(costOf(model, t)),
       latencyMs: Date.now() - started, ok: true,
     });
-    return res;
+    billed = true;
+    return parseMessage(res, params as never, { logger: console }) as ParsedMessage<ExtractParsedContentFromParams<P>>;
   } catch (e) {
+    if (billed) throw e; // usage is already in the ledger; a parse failure must not add a zero-cost row
     const rid = (e as { requestID?: string | null; request_id?: string | null }).requestID ?? (e as { request_id?: string | null }).request_id;
     await record({
       ...base, requestId: (rid || `err:${callId}`).slice(0, 80),

@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { trackedParse, type CallCtx } from "./claude";
+import { z } from "zod";
+import { trackedParse, zodOutputFormat, type CallCtx } from "./claude";
 import type { LedgerRow } from "./ledger";
 
 function walk(dir: string): string[] {
@@ -26,7 +27,7 @@ const P: any = { model: "claude-opus-5-5", max_tokens: 10, messages: [] };
 
 test("success writes exactly one row with tokens and priced cost", async () => {
   const rows: LedgerRow[] = [];
-  const client = { messages: { parse: async () => ({ _request_id: "req_1", model: "claude-opus-5-5", usage: { input_tokens: 1000, output_tokens: 100, cache_read_input_tokens: 500, cache_creation: { ephemeral_5m_input_tokens: 10, ephemeral_1h_input_tokens: 20 } } }) } };
+  const client = { messages: { create: async () => ({ _request_id: "req_1", model: "claude-opus-5-5", content: [], usage: { input_tokens: 1000, output_tokens: 100, cache_read_input_tokens: 500, cache_creation: { ephemeral_5m_input_tokens: 10, ephemeral_1h_input_tokens: 20 } } }) } };
   await trackedParse(ctx, P, { client: client as never, record: async (r) => { rows.push(r); } });
   assert.equal(rows.length, 1);
   const r = rows[0];
@@ -36,14 +37,14 @@ test("success writes exactly one row with tokens and priced cost", async () => {
 });
 test("unknown model is stored unpriced (null cost)", async () => {
   const rows: LedgerRow[] = [];
-  const client = { messages: { parse: async () => ({ _request_id: "req_2", model: "mystery-1", usage: { input_tokens: 5, output_tokens: 5 } }) } };
+  const client = { messages: { create: async () => ({ _request_id: "req_2", model: "mystery-1", content: [], usage: { input_tokens: 5, output_tokens: 5 } }) } };
   await trackedParse(ctx, P, { client: client as never, record: async (r) => { rows.push(r); } });
   assert.equal(rows[0].costUsd, null);
 });
 test("terminal failure writes one ok=false row, zero tokens, and rethrows", async () => {
   const rows: LedgerRow[] = [];
   const err = Object.assign(new Error("boom"), { name: "APIConnectionError" });
-  const client = { messages: { parse: async () => { throw err; } } };
+  const client = { messages: { create: async () => { throw err; } } };
   await assert.rejects(trackedParse({ ...ctx, userId: null }, P, { client: client as never, record: async (r) => { rows.push(r); } }), /boom/);
   assert.equal(rows.length, 1);
   assert.equal(rows[0].ok, false); assert.equal(rows[0].inputTokens ?? 0, 0); assert.equal(rows[0].userId, null);
@@ -51,7 +52,15 @@ test("terminal failure writes one ok=false row, zero tokens, and rethrows", asyn
 });
 test("an API error with a request id uses it", async () => {
   const rows: LedgerRow[] = [];
-  const client = { messages: { parse: async () => { throw Object.assign(new Error("x"), { requestID: "req_err" }); } } };
+  const client = { messages: { create: async () => { throw Object.assign(new Error("x"), { requestID: "req_err" }); } } };
   await assert.rejects(trackedParse(ctx, P, { client: client as never, record: async (r) => { rows.push(r); } }));
   assert.equal(rows[0].requestId, "req_err");
+});
+test("a billed response whose output cannot be parsed is still recorded with its tokens", async () => {
+  const rows: LedgerRow[] = [];
+  const client = { messages: { create: async () => ({ _request_id: "req_p", model: "claude-opus-5-5", content: [{ type: "text", text: "not json" }], usage: { input_tokens: 40, output_tokens: 7 } }) } };
+  const params = { ...P, output_config: { format: zodOutputFormat(z.object({ a: z.string() })) } };
+  await assert.rejects(trackedParse(ctx, params, { client: client as never, record: async (r) => { rows.push(r); } }));
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].ok, true); assert.equal(rows[0].requestId, "req_p"); assert.deepEqual([rows[0].inputTokens, rows[0].outputTokens], [40, 7]);
 });

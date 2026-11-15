@@ -93,19 +93,20 @@ export async function userDetail(id: string, db: Db = defaultDb) {
   return { user: u[0] ?? null, cases, calls };
 }
 
+// Window = from UTC midnight 30 days ago, the same start the Anthropic cost report uses, so the two totals compare like with like.
 export async function costPage(scope: Scope, db: Db = defaultDb) {
   const ok = idOk(scope, "c.user_id");
   const [day, model, purpose, user, topCases] = await Promise.all([
-    rows(db, sql`SELECT to_char(date_trunc('day', at), 'YYYY-MM-DD') d, coalesce(sum(cost_usd), 0) usd, count(*) calls FROM llm_calls c
-      WHERE at > now() - interval '30 days' AND ${ok} GROUP BY 1 ORDER BY 1`),
+    rows(db, sql`SELECT to_char(date_trunc('day', at AT TIME ZONE 'utc'), 'YYYY-MM-DD') d, coalesce(sum(cost_usd), 0) usd, count(*) calls FROM llm_calls c
+      WHERE at > (date_trunc('day', now() AT TIME ZONE 'utc') AT TIME ZONE 'utc' - interval '30 days') AND ${ok} GROUP BY 1 ORDER BY 1`),
     rows(db, sql`SELECT model, coalesce(sum(cost_usd), 0) usd, count(*) calls, sum(input_tokens) inp, sum(output_tokens) outp,
       sum(cache_read_tokens) cr, sum(cache_write_5m_tokens + cache_write_1h_tokens) cw, count(*) FILTER (WHERE ok AND cost_usd IS NULL) unpriced
-      FROM llm_calls c WHERE at > now() - interval '30 days' AND ${ok} GROUP BY model ORDER BY usd DESC`),
-    rows(db, sql`SELECT purpose, coalesce(sum(cost_usd), 0) usd, count(*) calls FROM llm_calls c WHERE at > now() - interval '30 days' AND ${ok} GROUP BY purpose ORDER BY usd DESC`),
+      FROM llm_calls c WHERE at > (date_trunc('day', now() AT TIME ZONE 'utc') AT TIME ZONE 'utc' - interval '30 days') AND ${ok} GROUP BY model ORDER BY usd DESC`),
+    rows(db, sql`SELECT purpose, coalesce(sum(cost_usd), 0) usd, count(*) calls FROM llm_calls c WHERE at > (date_trunc('day', now() AT TIME ZONE 'utc') AT TIME ZONE 'utc' - interval '30 days') AND ${ok} GROUP BY purpose ORDER BY usd DESC`),
     rows(db, sql`SELECT c.user_id, u.email, coalesce(sum(c.cost_usd), 0) usd, count(*) calls FROM llm_calls c LEFT JOIN "user" u ON u.id = c.user_id
-      WHERE c.at > now() - interval '30 days' AND ${ok} GROUP BY c.user_id, u.email ORDER BY usd DESC LIMIT 10`),
+      WHERE c.at > (date_trunc('day', now() AT TIME ZONE 'utc') AT TIME ZONE 'utc' - interval '30 days') AND ${ok} GROUP BY c.user_id, u.email ORDER BY usd DESC LIMIT 10`),
     rows(db, sql`SELECT c.case_id, cs.status, cs.car_model, coalesce(sum(c.cost_usd), 0) usd, count(*) calls FROM llm_calls c LEFT JOIN cases cs ON cs.id = c.case_id
-      WHERE c.case_id IS NOT NULL AND c.at > now() - interval '30 days' AND ${ok} GROUP BY c.case_id, cs.status, cs.car_model ORDER BY usd DESC LIMIT 10`),
+      WHERE c.case_id IS NOT NULL AND c.at > (date_trunc('day', now() AT TIME ZONE 'utc') AT TIME ZONE 'utc' - interval '30 days') AND ${ok} GROUP BY c.case_id, cs.status, cs.car_model ORDER BY usd DESC LIMIT 10`),
   ]);
   return {
     byDay: day.map((r) => ({ date: String(r.d), usd: num(r.usd), calls: num(r.calls) })),
