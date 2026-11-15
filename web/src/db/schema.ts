@@ -285,8 +285,10 @@ export const extPairingCodes = pgTable("ext_pairing_codes", {
   attempts: integer("attempts").notNull().default(0),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
+  hourBucket: bigint("hour_bucket", { mode: "number" }).notNull(), // floor(epoch / 1 h): the rate-limit window
+  slot: integer("slot").notNull(), // 1..5 inside the window; the unique index below makes the limit race-proof
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [uniqueIndex("ext_pairing_user_slot").on(t.userId, t.hourBucket, t.slot)]);
 // Used from P2 on (install tokens, jobs, step checkpoints). Created now so the owner approves one migration.
 export const extInstalls = pgTable("ext_installs", {
   id: text("id").primaryKey(),

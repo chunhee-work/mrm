@@ -25,8 +25,12 @@ CREATE TABLE IF NOT EXISTS "ext_pairing_codes" (
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"expires_at" timestamp NOT NULL,
 	"used_at" timestamp,
+	"hour_bucket" bigint NOT NULL,
+	"slot" integer NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "ext_pairing_user_slot" ON "ext_pairing_codes" ("user_id","hour_bucket","slot");
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "ext_installs" (
 	"id" text PRIMARY KEY NOT NULL,

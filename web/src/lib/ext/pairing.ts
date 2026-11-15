@@ -26,3 +26,12 @@ export function cleanFirmLabel(v: unknown): string | null {
   const s = v.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
   return s || null;
 }
+
+/** The rate-limit window: clock hours, so the count and the slot number can be made unique in the database. */
+export const hourBucket = (now = Date.now()) => Math.floor(now / 3600_000);
+
+/** Postgres unique violation, however the driver wraps it (node-postgres, neon http). */
+export function isUniqueViolation(e: unknown): boolean {
+  const x = e as { code?: string; cause?: { code?: string } } | null;
+  return x?.code === "23505" || x?.cause?.code === "23505";
+}

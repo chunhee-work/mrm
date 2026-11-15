@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { decideGate, envOn } from "./gate";
-import { newCode, hashCode, codeUsable, cleanFirmLabel, CODE_ALPHABET, CODE_LENGTH, CODE_TTL_MS, MAX_ATTEMPTS_PER_CODE } from "./pairing";
+import { newCode, hashCode, codeUsable, cleanFirmLabel, CODE_ALPHABET, CODE_LENGTH, CODE_TTL_MS, MAX_ATTEMPTS_PER_CODE, hourBucket, isUniqueViolation } from "./pairing";
 
 const on = { enabled: true, consentReference: "MERIMEN-2026-001" };
 
@@ -57,4 +57,14 @@ test("firm label: optional, 80 characters at most, control characters removed, n
   assert.equal(cleanFirmLabel("   "), null);
   assert.equal(cleanFirmLabel("Ah Seng\n\tAdjusters"), "Ah Seng Adjusters");
   assert.equal(cleanFirmLabel("x".repeat(200))?.length, 80);
+});
+
+test("rate-limit window is the clock hour, and unique violations are recognised however they are wrapped", () => {
+  const h = Date.UTC(2026, 10, 15, 12, 0, 0);
+  assert.equal(hourBucket(h), hourBucket(h + 3599_999));
+  assert.equal(hourBucket(h) + 1, hourBucket(h + 3600_000));
+  assert.equal(isUniqueViolation({ code: "23505" }), true);
+  assert.equal(isUniqueViolation({ cause: { code: "23505" } }), true);
+  assert.equal(isUniqueViolation({ code: "23503" }), false);
+  assert.equal(isUniqueViolation(null), false);
 });
