@@ -60,8 +60,8 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
       caseData: data,
       // a case uploaded without a typed plate gets the one read from its documents
       ...(claimed[0].plate ? {} : { plate: (data.plate ?? "").toUpperCase().replace(/\s+/g, "").slice(0, 20) }),
-      insurer: data.client_policy?.insurer ?? null,
-      carModel: data.client_vehicle.model ?? null,
+      insurer: data.client_policy?.insurer || null,
+      carModel: data.client_vehicle.model || null,
     }).where(mine).returning({ id: cid });
     // The Claude call was paid for either way, so the usage row is written even if a newer attempt took over.
     await db.insert(schema.usage).values({
