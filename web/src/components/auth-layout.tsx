@@ -4,6 +4,7 @@ import { Brand } from "./brand-mark";
 import LangSwitch from "./lang-switch";
 import AuthScene from "./auth-scene";
 import ScanEdge from "./scan-edge";
+import WhatsAppFab from "./whatsapp-fab";
 
 /** Account pages (log in, sign up, password reset), on white: brand + language, one sheet, three small links. */
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -36,14 +37,16 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         </div>
       </main>
 
-      <footer className="wrap pointer-events-none relative">
-        <nav aria-label="Footer" className="pointer-events-auto mx-auto flex w-fit flex-wrap justify-center gap-x-6 pb-3 sm:pb-5">
+      {/* a phone: the WhatsApp button is part of this row, not floating over the form */}
+      <footer className="wrap pointer-events-none relative flex items-center gap-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:block sm:pb-0">
+        <nav aria-label="Footer" className="pointer-events-auto flex min-w-0 flex-1 flex-wrap gap-x-5 sm:mx-auto sm:w-fit sm:justify-center sm:gap-x-6 sm:pb-5">
           {links.map((l) => (
             <Link key={l.href} href={l.href} className="flex h-11 items-center text-[13px] font-medium text-mute transition-colors hover:text-ice">
               {l.label}
             </Link>
           ))}
         </nav>
+        <WhatsAppFab inFlow />
       </footer>
     </div>
   );
