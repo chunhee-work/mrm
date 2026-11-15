@@ -5,13 +5,8 @@ import { useT } from "@/components/lang-provider";
 import DropZone, { accepted } from "@/components/app/drop-zone";
 import { Cross, Tick } from "@/components/app/marks";
 import ScanEdge from "@/components/scan-edge";
+import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
 
-type Kind = "bundle_zip" | "pdf" | "photo";
-function kindOf(f: File): Kind {
-  if (/\.zip$/i.test(f.name)) return "bundle_zip";
-  if (/\.pdf$/i.test(f.name)) return "pdf";
-  return "photo";
-}
 const keyOf = (f: File) => `${f.name}:${f.size}`;
 function sizeOf(n: number) {
   if (n < 1e6) return `${Math.max(1, Math.round(n / 1e3))} KB`;

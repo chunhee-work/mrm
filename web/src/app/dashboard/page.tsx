@@ -18,5 +18,5 @@ export default async function Dashboard() {
     createdAt: c.createdAt.toISOString(),
     doneAt: c.doneAt ? c.doneAt.toISOString() : null,
   }));
-  return <CaseList rows={list} now={Date.now()} />;
+  return <CaseList rows={list} orgId={orgId} now={Date.now()} />;
 }

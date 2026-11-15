@@ -22,6 +22,14 @@ export function Chevron({ className = "" }: { className?: string }) {
     </svg>
   );
 }
+/** Send a file up: the mark on an upload button. */
+export function Upload({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 16 16" {...line} strokeWidth={1.75}>
+      <path d="M8 10.5V2.5M4.5 5.75L8 2.25l3.5 3.5M2.5 10.5v3h11v-3" />
+    </svg>
+  );
+}
 export function Tick({ className = "" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 16 16" {...line} strokeWidth={2}>
