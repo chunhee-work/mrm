@@ -83,13 +83,20 @@ export async function reorderPhotos(c: CaseRow, ids: unknown, rev: unknown): Pro
   if (!Number.isInteger(rev)) return fail(400, "invalid");
   const current = (await db.select({ id: P.id }).from(P).where(eq(P.caseId, c.id))).map((r) => r.id);
   if (!isPermutation(current, ids)) return fail(409, "stale_order");
-  const bumped = await db.execute(sql`UPDATE cases SET photos_rev = photos_rev + 1 WHERE id = ${c.id} AND photos_rev = ${rev as number} RETURNING photos_rev`);
+  // One statement: the revision moves and the positions are written together, so another tab can never
+  // read the new revision before the order that belongs to it is stored (the row lock on the case makes it wait).
+  const bumped = await db.execute(sql`
+    WITH bump AS (
+      UPDATE cases SET photos_rev = photos_rev + 1 WHERE id = ${c.id} AND photos_rev = ${rev as number} RETURNING photos_rev
+    ), moved AS (
+      UPDATE case_photos p SET position = v.pos
+      FROM bump, (SELECT (e.value)::int AS id, (e.ordinality - 1)::int AS pos FROM jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb) WITH ORDINALITY AS e(value, ordinality)) v
+      WHERE p.id = v.id AND p.case_id = ${c.id}
+      RETURNING p.id
+    )
+    SELECT photos_rev FROM bump`);
   const next = rowsOf<{ photos_rev: number }>(bumped)[0];
   if (!next) return fail(409, "stale_order");
-  await db.execute(sql`
-    UPDATE case_photos p SET position = v.pos
-    FROM (SELECT (e.value)::int AS id, (e.ordinality - 1)::int AS pos FROM jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb) WITH ORDINALITY AS e(value, ordinality)) v
-    WHERE p.id = v.id AND p.case_id = ${c.id}`);
   const cleared = await clearDone(c.id);
   return ok({ rev: Number(next.photos_rev), done: cleared ? false : c.photosDoneAt != null });
 }

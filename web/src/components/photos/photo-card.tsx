@@ -8,7 +8,7 @@ export type CardActions = {
   select: (id: number) => void;
   startEdit: (id: number) => void;
   editText: (text: string, picked: boolean) => void;
-  commitEdit: (close: boolean) => void;
+  commitEdit: (close: boolean, confirmed?: boolean) => void;
   cancelEdit: () => void;
   copy: (id: number) => void;
   paste: (id: number) => void;
@@ -112,7 +112,7 @@ function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, a,
                 }}
                 onKeyDown={(e) => {
                   e.stopPropagation();
-                  if (e.key === "Enter") { e.preventDefault(); a.commitEdit(true); }
+                  if (e.key === "Enter") { e.preventDefault(); a.commitEdit(true, true); }
                   else if (e.key === "Escape") { e.preventDefault(); a.cancelEdit(); }
                 }}
                 onBlur={() => a.commitEdit(true)}

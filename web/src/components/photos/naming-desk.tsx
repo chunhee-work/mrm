@@ -413,9 +413,10 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       if (picked && inList(text.trim())) { commitEdit(true); return; } // chosen from the list: saved at once
       idle.current = setTimeout(() => commitEdit(false), 1000); // typing: saved a second after the last key
     },
-    commitEdit: (close) => {
+    commitEdit: (close, confirmed) => {
       const e = editingRef.current;
-      if (e?.guard !== undefined && e.text === e.guard) { setEditing(null); return; } // pasted text nobody confirmed
+      // pasted text nobody confirmed is dropped; Enter is the confirmation
+      if (e?.guard !== undefined && e.text === e.guard && !(confirmed && e.text.trim())) { setEditing(null); return; }
       commitEdit(close);
     },
     cancelEdit: () => { if (idle.current) clearTimeout(idle.current); setEditing(null); },
