@@ -35,7 +35,7 @@ export function nextStep(job: PhotoModelJob | null, now: number): Step {
     if (now > j.submit_deadline) return "fail_submit_deadline";
     return j.lease_until && j.lease_until > now ? "wait" : "submit";
   }
-  if (j.run_deadline && now > j.run_deadline) return "fail_run_deadline";
+  // past run_deadline it still polls once: finished results are kept 24 h by the Space, and poll() fails the job only if there are none
   return "poll";
 }
 

@@ -116,6 +116,7 @@ async function poll(c: CaseRow, j: PhotoModelJob): Promise<number> {
     return named;
   }
   if (s.kind === "failed") await failJob(c, j, s.error);
+  else if ((s.kind === "queued" || s.kind === "running" || s.kind === "unreachable") && j.run_deadline && nowS() > j.run_deadline) await failJob(c, j, "service took too long");
   else if (s.kind === "unknown") {
     if (j.resubmitted) await failJob(c, j, "service lost the job");
     else await writeJob(c.id, j, { ...j, status: "claimed", resubmitted: true, lease_until: null, run_deadline: null, submit_deadline: nowS() + cfg.submitWindowS });
@@ -138,7 +139,6 @@ export async function advance(c: CaseRow, opts: { retryFailed?: boolean } = {}):
   if (step === "submit") await trySubmit(c, job);
   else if (step === "poll") named = await poll(c, job);
   else if (step === "fail_submit_deadline") await failJob(c, job, "service did not respond in time");
-  else if (step === "fail_run_deadline") await failJob(c, job, "service took too long");
   const o = await same();
   return { ...o, named };
 }

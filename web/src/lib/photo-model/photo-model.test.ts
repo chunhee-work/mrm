@@ -34,7 +34,7 @@ test("state machine", () => {
   assert.equal(nextStep(job({ lease_until: 4 }), 5), "submit");
   assert.equal(nextStep(job({}), 1001), "fail_submit_deadline");
   assert.equal(nextStep(job({ status: "running", run_deadline: 100 }), 50), "poll");
-  assert.equal(nextStep(job({ status: "running", run_deadline: 100 }), 101), "fail_run_deadline");
+  assert.equal(nextStep(job({ status: "running", run_deadline: 100 }), 101), "poll"); // still asks the Space once: results may be waiting
 });
 
 test("order hash changes when photos or files change", () => {
