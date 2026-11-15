@@ -97,9 +97,10 @@ function CaseItem({ row, orgId }: { row: CaseRow; orgId: string }) {
 
   const real = shownOf(row.status);
   // Just sent: the row says "in progress" straight away, it does not wait for the list to be read again.
-  const shown = sent && (real === "missing" || real === "stopped") ? "working" : real;
+  const shown = sent && real === "missing" ? "working" : real;
   const needs = shown === "missing" || shown === "stopped" || shown === "confirm";
-  const act = shown === "missing" ? "upload" : shown === "stopped" ? "retry" : null;
+  // a case on hold has no button: there is nothing for the user to press, the team picks it up
+  const act = shown === "missing" ? "upload" : null;
   // Below lg, a row that needs the user (or has just been sent) gives its status a full line of its own under the car,
   // so a long list of missing documents has room; its button sits where the other rows have their status.
   const wide = needs || sent;
@@ -179,18 +180,6 @@ function CaseItem({ row, orgId }: { row: CaseRow; orgId: string }) {
                 )}
               </button>
             </>
-          )}
-          {!sent && act === "retry" && (
-            <button
-              ref={button}
-              type="button"
-              aria-describedby={statusId}
-              aria-disabled={busy}
-              onClick={() => void send([])}
-              className={`${ACT} ${busy ? "cursor-progress opacity-55 hover:bg-ice" : ""}`}
-            >
-              {t("dash.a.retry")}
-            </button>
           )}
         </div>
       )}

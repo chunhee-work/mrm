@@ -94,10 +94,72 @@ function lacquer(base: THREE.MeshStandardMaterial, glass = false): THREE.MeshPhy
   m.roughness = glass ? 0.12 : 0.42;
   m.clearcoat = 1;
   m.clearcoatRoughness = 0.07;
-  m.normalScale.setScalar(0.3);
-  m.envMapIntensity = glass ? 0.6 : 1.5;
+  if (glass) {
+    // the scan paints its own grey smears on the panes and its bump map draws streaks in a mirror this sharp:
+    // a pane is one dark tint, and the only thing to see in it is the room
+    m.map = null;
+    m.normalMap = null;
+    m.color.set(0x070b10);
+  } else m.normalScale.setScalar(0.3);
+  m.envMapIntensity = glass ? 0.4 : 1.5;
   darkBacks(m);
   return m;
+}
+
+/**
+ * A pane of glass is a mirror, and a mirror shows every ripple the scan left in it, however long the normals are relaxed.
+ * A real pane is one gentle curve, so each pane's normals are replaced by the closest gentle curve: every component of the
+ * normal is fitted as a quadratic in the point's position (least squares), which keeps the pane's overall bow and drops the ripples.
+ */
+function fairNormals(mesh: THREE.Mesh, amount = 1) {
+  const pos = mesh.geometry.getAttribute("position"), nor = mesh.geometry.getAttribute("normal");
+  if (!pos || !nor || pos.count < 20) return;
+  mesh.geometry.computeBoundingBox();
+  const box = mesh.geometry.boundingBox!, mid = box.getCenter(new THREE.Vector3());
+  const span = Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z) / 2 || 1;
+  const K = 10, f = new Float64Array(K);
+  const basis = (i: number) => {
+    const x = (pos.getX(i) - mid.x) / span, y = (pos.getY(i) - mid.y) / span, z = (pos.getZ(i) - mid.z) / span;
+    f[0] = 1; f[1] = x; f[2] = y; f[3] = z; f[4] = x * x; f[5] = y * y; f[6] = z * z; f[7] = x * y; f[8] = y * z; f[9] = z * x;
+  };
+  // normal equations: A (K x K) and three right-hand sides, one per component
+  const A = new Float64Array(K * K), B = new Float64Array(K * 3);
+  for (let i = 0; i < pos.count; i++) {
+    basis(i);
+    for (let r = 0; r < K; r++) {
+      for (let c = 0; c < K; c++) A[r * K + c] += f[r] * f[c];
+      B[r * 3] += f[r] * nor.getX(i); B[r * 3 + 1] += f[r] * nor.getY(i); B[r * 3 + 2] += f[r] * nor.getZ(i);
+    }
+  }
+  for (let r = 0; r < K; r++) A[r * K + r] += 1e-6 * pos.count; // a flat pane leaves some terms undetermined
+  for (let col = 0; col < K; col++) {
+    let best = col;
+    for (let r = col + 1; r < K; r++) if (Math.abs(A[r * K + col]) > Math.abs(A[best * K + col])) best = r;
+    if (Math.abs(A[best * K + col]) < 1e-12) return;
+    if (best !== col) {
+      for (let c = 0; c < K; c++) { const t = A[col * K + c]; A[col * K + c] = A[best * K + c]; A[best * K + c] = t; }
+      for (let c = 0; c < 3; c++) { const t = B[col * 3 + c]; B[col * 3 + c] = B[best * 3 + c]; B[best * 3 + c] = t; }
+    }
+    for (let r = 0; r < K; r++) {
+      if (r === col) continue;
+      const k = A[r * K + col] / A[col * K + col];
+      if (!k) continue;
+      for (let c = col; c < K; c++) A[r * K + c] -= k * A[col * K + c];
+      for (let c = 0; c < 3; c++) B[r * 3 + c] -= k * B[col * 3 + c];
+    }
+  }
+  const out = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    basis(i);
+    let x = 0, y = 0, z = 0;
+    for (let r = 0; r < K; r++) { const d = A[r * K + r]; x += (f[r] * B[r * 3]) / d; y += (f[r] * B[r * 3 + 1]) / d; z += (f[r] * B[r * 3 + 2]) / d; }
+    let l = Math.hypot(x, y, z) || 1;
+    // amount < 1 keeps part of the panel's own modelling (a bonnet has creases a pane has not)
+    x = (x / l) * amount + nor.getX(i) * (1 - amount); y = (y / l) * amount + nor.getY(i) * (1 - amount); z = (z / l) * amount + nor.getZ(i) * (1 - amount);
+    l = Math.hypot(x, y, z) || 1;
+    out[i * 3] = x / l; out[i * 3 + 1] = y / l; out[i * 3 + 2] = z / l;
+  }
+  mesh.geometry.setAttribute("normal", new THREE.BufferAttribute(out, 3));
 }
 
 /**
@@ -241,6 +303,9 @@ export function buildCar(gltf: GLTF | null, overlayMaterial: THREE.ShaderMateria
   gltf.scene.updateMatrixWorld(true);
   smoothNormals(panels, 90);
   smoothNormals(glass, 320); // a pane is close to flat: its mirror image should not wobble
+  glass.forEach((pane) => fairNormals(pane));
+  // the two big sheets that face the ceiling lights: most of their ripples go, their creases stay
+  panels.forEach((panel) => { if (/^(bonnet|roof)/.test(panel.name)) fairNormals(panel, 0.7); });
   group.add(gltf.scene);
   const damaged = DAMAGED.map((n) => parts.find((p) => p.name === n)).filter((p): p is Part => !!p);
 
