@@ -247,6 +247,7 @@
 /* ── account pages: the bay, mid-scan, drawn in ink on the white page (owner 2026-11-15: no frame, no hard edge, white stays the main colour) ──
    The still from the landing scene is turned into its negative (dark room to white paper, light lines to ink), multiplied onto the page
    and faded out all round. The ball is the same still shown as it is and darkened, cut to the ball's outline, so it is as dark as the car.
+   components/auth-scene.tsx then draws the same frame live, in 3D, over the still (same negative, same fade).
    --edge is the form's left edge (.wrap); --w is the picture's width: as tall as the page allows, never past the screen. */
 .auth-scene { display: none; }
 @media (min-width: 1024px) {
@@ -264,6 +265,12 @@
     filter: invert(1) hue-rotate(180deg) contrast(0.9); mix-blend-mode: multiply;
     -webkit-mask-image: var(--fade); mask-image: var(--fade);
   }
+  /* live: the same frame drawn in 3D takes the still's place, and the reader can take hold of it and turn the car */
+  .auth-scene-live { opacity: 0; transition: opacity 0.5s ease-out; }
+  .auth-scene[data-live] { pointer-events: auto; cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+  .auth-scene[data-live][data-held] { cursor: grabbing; }
+  .auth-scene[data-live] .auth-scene-live { opacity: 1; }
+  .auth-scene[data-live] img { opacity: 0; transition: opacity 0.5s ease-out; }
   /* the ball sits at 24.4% / 19.4% of the still and is 5.8% of its width across */
   .auth-scene-bot { clip-path: ellipse(2.82% 5.02% at 24.42% 19.4%); filter: brightness(0.5) contrast(1.25) saturate(0.7); }
 }

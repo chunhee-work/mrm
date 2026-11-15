@@ -28,11 +28,11 @@ import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 /** Which ball flies in the bay: the black lens ball (a scanned model) or the white ball with a face (drawn in code). */
 export type BotLook = "lens" | "face";
 export const BOT_LOOK: BotLook = "face";
-export type BayOptions = { mobile: boolean; bot?: BotLook; /** how the case file hangs at the Upload stop (see console.ts); for pictures of the choices */ file?: FileLook };
+export type BayOptions = { mobile: boolean; bot?: BotLook; /** how the case file hangs at the Upload stop (see console.ts); for pictures of the choices */ file?: FileLook; /** the frame will be shown as its negative (account pages): the ball is lit so that it comes out dark */ ink?: boolean };
 /** where the logo's "o" is on the page, in CSS pixels from the canvas's top left corner */
 /** Where the page keeps the logo's place at the ending, in canvas pixels: the middle and width of the wordmark, and the middle and height of the whole block of words under it. */
 export type Dock = { cx: number; cy: number; w: number; by: number; bh: number };
-export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; /** where the viewer's mouse is in the frame, -1..1 each way (right and up are positive); the head lamps lean after it at the ending */ setPointer(x: number, y: number): void; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
+export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; /** where the viewer's mouse is in the frame, -1..1 each way (right and up are positive); the head lamps lean after it at the ending */ setPointer(x: number, y: number): void; /** turn the turntable by hand, in radians, on top of where the page has it (the account pages let the reader drag the car round) */ setSpin(rad: number): void; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
 
 type V3 = [number, number, number];
 type Key = { pos: V3; look: V3; fov: number; shift: [number, number] };
@@ -392,7 +392,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   scene.add(room.group);
   const con = buildConsole(mobile, consoleFile, casefile, casefileHero, opts.file);
   scene.add(con.group);
-  const bot = botFile ? buildBot(botFile) : buildFaceBot();
+  const bot = botFile ? buildBot(botFile) : buildFaceBot(opts.ink);
   scene.add(bot.group, bot.key);
 
   // ── the scan light. Everything in it starts at the ball:
@@ -657,6 +657,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     cur.shift.set(lerp(k(i).shift[0], k(i + 1).shift[0], f), lerp(k(i).shift[1], k(i + 1).shift[1], f));
   }
 
+  let handSpin = 0;
   function setProgress(tt: number) {
     const next = clamp01(tt);
     if (Math.abs(next - t) > 2e-5) moved = true;
@@ -682,7 +683,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const idle = time ? breath : 0;
 
     // ── the turntable
-    const spin = spinAt(t) * RAD;
+    const spin = spinAt(t) * RAD + handSpin;
     car.group.rotation.y = spin;
     room.table.rotation.y = spin;
     car.group.updateMatrixWorld(true);
@@ -1040,6 +1041,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   return {
     setProgress,
     setDock(d) { dock = d; },
+    setSpin(rad) { handSpin = rad; },
     setPointer(x, y) { aimTo.set(THREE.MathUtils.clamp(x, -1, 1), THREE.MathUtils.clamp(y, -1, 1)); },
     render,
     resize,

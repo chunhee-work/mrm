@@ -43,7 +43,11 @@ function pill(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   g.fill();
 }
 
-export function buildFaceBot(): Bot {
+/**
+ * `ink`: for a frame that is shown as its own negative (the account pages draw the bay in ink on white paper).
+ * The ball is made bright there, shell and visor both, with dark eyes, so that it comes out dark with light eyes.
+ */
+export function buildFaceBot(ink = false): Bot {
   const group = new THREE.Group();
   const tilt = new THREE.Group();
   tilt.rotation.z = 0.12; // the mascot's head is always a little to one side
@@ -57,6 +61,7 @@ export function buildFaceBot(): Bot {
     keep(new THREE.MeshPhysicalMaterial({ color: 0xd3dae2, roughness: 0.34, metalness: 0.08, clearcoat: 1, clearcoatRoughness: 0.12, emissive: 0xbfd3e6, emissiveIntensity: 0.035, envMapIntensity: 1.25, sheen: 0.4, sheenRoughness: 0.5, sheenColor: 0xbfe9ff })),
   );
   body.castShadow = true;
+  if (ink) { body.material.emissive.set(0xffffff); body.material.emissiveIntensity = 0.62; }
   tilt.add(body);
 
   // a patch of a slightly larger ball, facing +z
@@ -81,6 +86,7 @@ export function buildFaceBot(): Bot {
     keep(new THREE.MeshPhysicalMaterial({ color: 0x020304, roughness: 0.22, metalness: 0, specularIntensity: 0.3, clearcoat: 0.14, clearcoatRoughness: 0.05, alphaMap: mask(0), transparent: true, depthWrite: false })),
   );
   visor.renderOrder = 5;
+  if (ink) { visor.material.emissive.set(0xffffff); visor.material.emissiveIntensity = 0.95; }
   tilt.add(visor);
 
   const eyeCanvas = document.createElement("canvas");
@@ -93,6 +99,7 @@ export function buildFaceBot(): Bot {
     keep(new THREE.MeshBasicMaterial({ map: eyeTex, color: glow(new THREE.Color(0xffffff), 1.25), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })),
   );
   eyes.renderOrder = 6;
+  if (ink) { eyes.material.blending = THREE.NormalBlending; eyes.material.color.set(0x000000); }
   tilt.add(eyes);
 
   const light = new THREE.PointLight(ICE, 1, 5.5, 1.6);
@@ -108,6 +115,7 @@ export function buildFaceBot(): Bot {
   const haloSprite = new THREE.Sprite(halo);
   haloSprite.scale.setScalar(BOT_R * 7);
   haloSprite.renderOrder = 4;
+  haloSprite.visible = !ink; // a glow would come out as a smudge
   group.add(haloSprite);
 
   const EX = [TW / 2 - EYE_X, TW / 2 + EYE_X];
