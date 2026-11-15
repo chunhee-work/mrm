@@ -17,6 +17,24 @@
 - Run: `SMOKE_PASSWORD=… node scripts/smoke.mjs https://autoclaim-web.vercel.app` (needs Playwright). It writes nothing, uploads nothing.
 - Not done yet: a GitHub Actions workflow (needs `SMOKE_PASSWORD` as a repo secret, and a workflow file the owner approves).
 
+## Photo naming desk (plan #9, 2026-11-15)
+- Page `/cases/<id>/photos`. Everything the old shared naming page did (names, copy/paste, order, extra parts, undo, shortcuts, done) now lives in the app, in the Night Bay style.
+- Names come from Claude (`claude-sonnet-5-5`; another model only through env `CLAUDE_MODEL_PHOTOS`). Photos go to Anthropic only. **TypeSafe ("jev") never receives a photo**: `src/lib/typesafe.ts` refuses any request that carries an image, and nothing calls it yet. Its key is env `TYPESAFE_API_KEY`.
+- Only the 900 px copy of a photo is sent for naming, 8 photos per call plus neighbours for sequence context. The rules block is cached (measured: ~17.5k tokens, cache read works).
+- Claim query: one `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED) RETURNING` so two tabs never name the same photo; a claim older than 6 minutes can be taken again; an answer is written only if the claim time still matches. Checked on a Neon dev branch `dev-photo-naming` (Postgres 18): 10 photos → 8, then 2, then 0; stale answer rejected. Production was not touched.
+- Migration `0004_photo_desk.sql` is additive only (2 new tables, new columns, indexes). Its statements were applied to production on 2026-11-15 after the owner approved them, before the payment and admin migrations took numbers 0002 and 0003; the file was then renumbered and every statement made safe to run again (`IF NOT EXISTS`), so `npm run db:migrate` skips over what is already there.
+- Uploads that were sent to storage but never registered are noted in `photo_uploads` and swept after 24 h on the next page load.
+- Cost cap per case: env `PHOTO_COST_CAP_USD` (default 3). Measured on two real cases with 640 px photos: 42 photos ≈ 20 s and USD 0.09–0.13, 49 photos ≈ 22 s and USD 0.10–0.14. Real 900 px copies cost about twice that.
+- Accuracy against the names the owner accepted on the old page (two cases, 91 photos): same name 67 %, right name among the 3 shown 82 %, 7 wrong names not flagged. This is weaker than the old trained model (the owner changed 1–3 names per case). Prompt tuning was stopped after three rounds to avoid fitting to two cases; the next step is a bigger set of accepted names or bringing the trained model in as a second opinion.
+- Timings: one Claude call is cut at 120 s and tried at most twice, the naming route ends at 300 s, a claim can be taken again after 6 minutes. So a slice that is still running is never taken a second time.
+- The claim time is compared as text with full microseconds (`claimed_at::text` out, `::timestamptz` in), never through a JS Date, so the guard on the result write matches (covered by the database test).
+- The `jobs` table (created for stage 2, unused) is not used for photo naming: one job row per case cannot be split between two tabs, and each photo needs its own state for Retry and for naming by hand. The state lives on `case_photos` (`name_state`, `claimed_at`).
+- Upload tokens: the path must sit under `<org>/<case>/photos/`, image types only, 25 MB, valid 10 minutes; a path that already belongs to a stored photo is refused.
+- Cost cap: checked before each slice. Two tabs can each pass the check once, so the overshoot is at most one slice per open tab (about USD 0.02 to 0.05). USD 3 is the hard stop, USD 1 per 100 photos is the target.
+- The case page does not link to this page yet (that page belongs to PR #7). Before it is linked: the owner decides on the measured accuracy (67 % same name), and a 25 MB full-size photo is opened once on a preview.
+- Local runs without Blob: `PHOTO_STORE_DIR` (never in production).
+- The page uses `AppLayout`, so it gets the white colour set (see "Two colour sets" below).
+
 ## Two colour sets (2026-11-15)
 - Owner's rule: only the landing is dark ("Night Bay"); every app/workspace page is white. So the colour tokens in `tailwind.config.ts` are CSS variables with two sets in `globals.css`: the dark set on `:root` (landing, public site pages, 404) and a white set under `.theme-light`. `components/app-layout.tsx` (case list, new case, billing) and `components/auth-layout.tsx` (log in, sign up, password reset) wrap themselves in `.theme-light`; their route layouts export `lightViewport` from `lib/theme.ts`.
 - A new signed-in page gets the white set by using `AppLayout`. Use the tokens (`bg-panel`, `text-fg`, `border-hair`, `bg-ice text-bay` for the primary action…), never a hex colour, so it follows the set it sits in.

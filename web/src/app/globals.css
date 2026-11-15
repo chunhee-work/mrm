@@ -286,3 +286,7 @@
 @keyframes case-spin { to { transform: rotate(360deg); } }
 /* without motion the arc rests on its ring: still a different mark from the tick of a finished case */
 @media (prefers-reduced-motion: reduce) { .case-spin { animation: none; } }
+
+/* ───────────────────────── photo naming desk ───────────────────────── */
+@keyframes deskflash { 0% { box-shadow: 0 0 0 2px theme(colors.ice); } 100% { box-shadow: 0 0 0 2px transparent; } }
+@keyframes deskrise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

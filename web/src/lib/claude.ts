@@ -26,10 +26,11 @@ function client(): Anthropic {
 }
 
 /** Who and what a call is for. userId/orgId/caseId are null for system calls (cron, admin, webhooks). */
-export type CallCtx = { userId: string | null; orgId: string | null; caseId: string | null; purpose: "read_docs" | "system_other" };
+export type CallCtx = { userId: string | null; orgId: string | null; caseId: string | null; purpose: "read_docs" | "name_photos" | "system_other" };
 export type ParseParams = MessageCreateParamsNonStreaming;
 
-type Deps = { client?: { messages: { create: Anthropic["messages"]["create"] } }; record?: (row: LedgerRow) => Promise<unknown> };
+/** request: per-call limits (a shorter timeout, fewer tries) for calls that sit inside a time-boxed route. */
+type Deps = { client?: { messages: { create: Anthropic["messages"]["create"] } }; record?: (row: LedgerRow) => Promise<unknown>; request?: { timeout?: number; maxRetries?: number } };
 
 /**
  * messages.create() + parseMessage() (what messages.parse() does) plus one ledger row per call. The row is written as soon as the
@@ -46,7 +47,7 @@ export async function trackedParse<P extends ParseParams>(ctx: CallCtx, params: 
   const base = { userId: ctx.userId, orgId: ctx.orgId, caseId: ctx.caseId, purpose: ctx.purpose, model: String(params.model) };
   let billed = false;
   try {
-    const res = await (deps.client ?? client()).messages.create(params);
+    const res = await (deps.client ?? client()).messages.create(params, deps.request);
     // Parse first but keep the outcome, so the ledger row is written once, from res.usage, whatever happens next.
     let parsed: ParsedMessage<ExtractParsedContentFromParams<P>> | null = null;
     let parseErr: unknown = null;

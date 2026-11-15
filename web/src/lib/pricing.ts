@@ -16,6 +16,7 @@ export const PRICES: Record<string, Price> = {
   // input/output/cacheRead are the numbers the app already used; cache-write rates are the standard
   // 1.25x / 2x of input. None of these has been checked against the Anthropic cost report yet.
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite5m: 5, cacheWrite1h: 8, effectiveFrom: "2026-11-14", lastVerified: null },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheWrite5m: 2.5, cacheWrite1h: 4, effectiveFrom: "2026-11-15", lastVerified: null },
 };
 
 export type UsageLike = {
