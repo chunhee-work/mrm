@@ -26,11 +26,11 @@ export default function Signup() {
     const email = String(f.get("email") ?? "").trim();
     const password = String(f.get("password") ?? "");
     const confirm = String(f.get("confirm") ?? "");
-    const name = email.split("@")[0] || email; // Better Auth stores a name; the company is no longer asked for
+    const name = email.split("@")[0].trim().slice(0, 60) || email; // Better Auth stores a name; the company is no longer asked for
     const bad: Errors = {};
     if (!email || !el("email").validity.valid) bad.email = true;
     if (password.length < MIN_PASSWORD) bad.password = true;
-    if (confirm !== password) bad.confirm = true;
+    if (!bad.password && confirm !== password) bad.confirm = true; // length is checked first; mismatch only matters once the length is fine
     if (!f.get("agree")) bad.agree = true;
     setErrors(bad);
     const first = (["email", "password", "confirm", "agree"] as const).find((k) => bad[k]);
@@ -49,7 +49,9 @@ export default function Signup() {
   // an error goes away as soon as its own field is corrected
   function onInput(e: React.FormEvent<HTMLFormElement>) {
     const n = (e.target as HTMLInputElement).name as keyof Errors;
-    if (errors[n] || errors.form) setErrors((o) => ({ ...o, [n]: undefined, form: undefined }));
+    // editing either password box also clears a stale "do not match" note
+    const fix = n === "password" ? { password: undefined, confirm: undefined } : { [n]: undefined };
+    if (errors[n] || errors.form || (n === "password" && errors.confirm)) setErrors((o) => ({ ...o, ...fix, form: undefined }));
   }
 
   if (doneFor)
