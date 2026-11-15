@@ -17,23 +17,40 @@ export const lightMat = (c: THREE.Color, k: number, opts: THREE.MeshBasicMateria
 export function buildEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
   const s = new THREE.Scene();
   s.background = new THREE.Color(0x020304);
-  const strip = (w: number, h: number, pos: [number, number, number], rot: [number, number, number], k: number, c = ICE) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: glow(c, k), side: THREE.DoubleSide }));
+  const strip = (w: number, h: number, pos: [number, number, number], rot: [number, number, number], k: number, c = ICE, map: THREE.Texture | null = null) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: glow(c, k), side: THREE.DoubleSide, map }));
     m.position.set(...pos);
     m.rotation.set(...rot);
     s.add(m);
   };
-  strip(8, 3.2, [0, 4.7, 0], [Math.PI / 2, 0, 0], 1.25); // a soft box overhead: the slow gradient on bonnet, roof and shoulders
-  for (const z of [-2.2, 0.2, 2.6]) strip(9, 0.3, [0, 4.2, z], [Math.PI / 2, 0, 0], 4.5); // the tubes: crisp lines in paint and glass
-  strip(12, 2.4, [0, 2.4, -9], [0, 0, 0], 1.9); // soft wall on the camera side
-  strip(13, 0.3, [0, 2.3, -6.5], [0, 0, 0], 2.6);
-  strip(14, 1.6, [0, 0.35, -7.5], [0.5, 0, 0], 0.55); // a low, dim sheet on the camera side, leaning up: what the doors and wings mirror, since the camera looks down on them // one long strip on the camera side: the highlight that runs down the car's shoulder
-  strip(6, 3, [9, 2.5, 0], [0, -Math.PI / 2, 0], 1.2); // ahead of the nose
-  strip(6, 3, [-9, 2.5, 0], [0, Math.PI / 2, 0], 1.2); // behind the tail: the same light as the nose, so neither end of the car falls away
-  strip(8, 1, [0, 0.6, 9], [0, Math.PI, 0], 0.5, new THREE.Color(0x6f8aa5)); // far side, low
+  // a soft box: its light falls off to its edges, so its reflection in the paint ends in a gradient and not in a cut
+  const soft = (() => {
+    const c = document.createElement("canvas");
+    c.width = 256; c.height = 64;
+    const g = c.getContext("2d")!;
+    const a = g.createLinearGradient(0, 0, 256, 0);
+    a.addColorStop(0, "#000"); a.addColorStop(0.18, "#fff"); a.addColorStop(0.82, "#fff"); a.addColorStop(1, "#000");
+    g.fillStyle = a; g.fillRect(0, 0, 256, 64);
+    const b = g.createLinearGradient(0, 0, 0, 64);
+    b.addColorStop(0, "rgba(0,0,0,1)"); b.addColorStop(0.3, "rgba(0,0,0,0)"); b.addColorStop(0.7, "rgba(0,0,0,0)"); b.addColorStop(1, "rgba(0,0,0,1)");
+    g.fillStyle = b; g.fillRect(0, 0, 256, 64);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  })();
+  strip(10, 4.2, [0, 4.7, 0], [Math.PI / 2, 0, 0], 1.5, ICE, soft); // a soft box overhead: the slow gradient on bonnet, roof and shoulders
+  for (const z of [-2.2, 0.2, 2.6]) strip(9, 0.3, [0, 4.2, z], [Math.PI / 2, 0, 0], 2.8); // the tubes: crisp lines in paint and glass
+  strip(14, 2.6, [0, 2.6, -9], [0, 0, 0], 2.3, ICE, soft); // soft wall on the camera side
+  strip(15, 0.22, [0, 1.25, -6.5], [0, 0, 0], 4.2); // one long strip on the camera side: the highlight that runs down the car's shoulder
+  strip(14, 1.6, [0, 0.35, -7.5], [0.5, 0, 0], 0.6, ICE, soft); // a low, dim sheet on the camera side, leaning up: what the doors and wings mirror, since the camera looks down on them
+  strip(6, 3.2, [9, 2.5, 0], [0, -Math.PI / 2, 0], 2.3, ICE, soft); // ahead of the nose
+  strip(6, 3.2, [-9, 2.5, 0], [0, Math.PI / 2, 0], 2.3, ICE, soft); // behind the tail: the same light as the nose, so neither end of the car falls away
+  strip(14, 0.5, [0, 3.0, 8.5], [0, Math.PI, 0], 3.4); // far side, high: the rim of light along the roof line and the far shoulder
+  strip(10, 1.2, [0, 0.7, 9], [0, Math.PI, 0], 0.6, new THREE.Color(0x6f8aa5)); // far side, low
   const pm = new THREE.PMREMGenerator(renderer);
-  const tex = pm.fromScene(s, 0.035).texture;
+  const tex = pm.fromScene(s, 0.03).texture;
   pm.dispose();
+  soft.dispose();
   s.traverse((o) => {
     const m = o as THREE.Mesh;
     if (m.isMesh) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); }
@@ -170,7 +187,7 @@ export function buildRoom(mobile: boolean): Room {
     g.fillStyle = grd; g.save(); g.translate(128, 64); g.scale(1, 0.5); g.translate(-128, -64); g.fillRect(0, -64, 256, 256); g.restore();
     return keep(new THREE.CanvasTexture(c));
   })();
-  const blob = new THREE.Mesh(keep(new THREE.PlaneGeometry(5.4, 2.7)), keep(new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false })));
+  const blob = new THREE.Mesh(keep(new THREE.PlaneGeometry(6.0, 3.0)), keep(new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false })));
   blob.rotation.x = -Math.PI / 2;
   blob.position.y = 0.005;
   blob.renderOrder = 2;

@@ -344,7 +344,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const [carFile, consoleFile, botFile, casefile, casefileHero] = await Promise.all([
-    loader.loadAsync("/landing/car.glb"),
+    loader.loadAsync("/landing/car-sedan.glb"),
     loader.loadAsync("/landing/console.glb"),
     faceBot ? Promise.resolve(null) : loader.loadAsync("/landing/bot.glb"),
     new THREE.TextureLoader().loadAsync("/landing/casefile.webp"),
@@ -358,20 +358,20 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.16;
+  renderer.toneMappingExposure = 1.25;
 
   const scene = new THREE.Scene();
   scene.background = BAY.clone();
   scene.fog = new THREE.FogExp2(BAY.getHex(), 0.07);
   const env = buildEnvironment(renderer);
   scene.environment = env;
-  scene.environmentIntensity = 1.2;
+  scene.environmentIntensity = 1.6;
 
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
 
   // ── lights: the room is lit by its reflections (the environment); the key only casts the shadow
   scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x0a0c10, 0.4));
-  const key = new THREE.DirectionalLight(0xdff3ff, 0.06);
+  const key = new THREE.DirectionalLight(0xdff3ff, 0.2);
   key.position.set(2.2, 6.5, -3.2);
   key.castShadow = true;
   key.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
@@ -379,7 +379,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   key.shadow.camera.near = 1; key.shadow.camera.far = 14;
   key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0xbfe9ff, 0.04);
+  const rim = new THREE.DirectionalLight(0xbfe9ff, 0.3);
   rim.position.set(-5, 3, 5);
   scene.add(rim);
   const amberLight = new THREE.PointLight(AMBER, 0, 4.5, 1.6);
@@ -956,6 +956,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     for (const l of goLights) l.intensity = done * 4;
     const lit = seg(t, 0.925, 0.995);
     if (car.lampMaterial) car.lampMaterial.emissiveIntensity = 1.5 + lit * 5;
+    car.lit?.(lit);
     // a flare only shows to someone the lamp is pointed at
     va.set(1, 0, 0).transformDirection(car.group.matrixWorld);
     vb.subVectors(camera.position, car.group.position).normalize();
