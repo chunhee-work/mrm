@@ -450,6 +450,12 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   beam.frustumCulled = false;
   beam.renderOrder = 5;
   scene.add(beam);
+  // the bright point on the ball's face where the light comes out
+  const sparkTex = softDisc(64, [[0, "rgba(255,255,255,1)"], [0.1, "rgba(255,255,255,0.6)"], [0.35, "rgba(255,255,255,0.1)"], [1, "rgba(255,255,255,0)"]]);
+  const spark = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color: glow(ICE, 1), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+  spark.renderOrder = 7;
+  spark.visible = false;
+  scene.add(spark);
   // the line on the floor is light too: soft across, and it fades away at both ends
   const traceGeo = new THREE.PlaneGeometry(1, 0.12);
   traceGeo.rotateX(-Math.PI / 2);
@@ -578,7 +584,8 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
 
   // ── the logo, for the ending: the wordmark as a solid thing in the room, its "o" left open for the ball. It has a
   //    lamp of its own in front of it, the head lamps reach it from below, and a patch of dark hangs behind the words.
-  const logo = buildLogo();
+  // with the face ball the word has no "o" of its own: the ball is the "o". The lens ball keeps its ring, like a lens in its mount
+  const logo = buildLogo({ ring: !faceBot });
   scene.add(logo.group);
   const logoKey = new THREE.PointLight(0xffffff, 0, 7, 1.4);
   const logoUnder = new THREE.PointLight(LAMP_WHITE, 0, 3.2, 1.4);
@@ -615,6 +622,8 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   const desk = new THREE.Vector3();
   const formTop = new THREE.Vector3();
   const gaze = new THREE.Vector3();
+  /** where the scan light leaves the ball: the middle of its face */
+  const muzzle = new THREE.Vector3();
   const slot = con.slotWorld(new THREE.Vector3());
   const eyeColour = new THREE.Color();
   const yawQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), formAt.yaw);
@@ -749,13 +758,26 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     bot.group.position.copy(ball);
     bot.group.scale.setScalar(scale);
     // ── what it looks at: the viewer, the slot, the car, the form, the viewer again
+    // while it scans it is turned from the viewer toward the car, a good half of the way and never past a profile:
+    // the light then leaves its face outward, and the face stays in view even when the ball passes in front of the car
+    va.set(0, lerp(0.75, ball.y, 0.35), 0).sub(ball).normalize();
+    vb.copy(cur.pos).sub(ball).normalize();
+    const between = Math.max(-1, Math.min(1, va.dot(vb)));
+    const turn = Math.min(Math.acos(between) * 0.5, 56 * RAD);
+    vc.copy(va).addScaledVector(vb, -between); // the side of the picture the car is on, seen from the ball
+    if (vc.lengthSq() < 1e-6) vc.copy(right);
+    vc.normalize();
+    ve.copy(vb).multiplyScalar(Math.cos(turn)).addScaledVector(vc, Math.sin(turn)).multiplyScalar(2).add(ball);
     gaze.set(0, 0, 0)
       .addScaledVector(va.copy(cur.pos).lerp(vb.set(0.6, 0.9, 0), 0.22), 1 - toWatch)
       .addScaledVector(vb.copy(slot).lerp(camera.position, 0.45), toWatch * (1 - toOrbit))
-      .addScaledVector(va.set(0, lerp(0.75, ball.y, 0.35), 0).lerp(cur.pos, 0.42), toOrbit * (1 - toDesk))
+      .addScaledVector(ve, toOrbit * (1 - toDesk))
       .addScaledVector(va.copy(formTop).addScaledVector(up, -FORM_H * 0.45).lerp(camera.position, 0.55), toDesk * (1 - toDock))
       .addScaledVector(camera.position, toDock);
     bot.group.lookAt(gaze);
+    // the light comes out of its face: a point just off the glass, where the scan bar (or the lens) is
+    muzzle.subVectors(gaze, ball).normalize().multiplyScalar(BOT_R * scale * 1.05).add(ball);
+    if (faceBot) muzzle.y += BOT_R * scale * 0.08;
     // ── its eyes
     const on = pulse(t, 0.3, 0.326, 0.488, 0.515);
     const edges = [0.3, 0.535, 0.862];
@@ -786,21 +808,25 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     scan.uSwept.value = sweptDeg * RAD;
     car.group.worldToLocal(ballCar.copy(ball));
     scan.uDir.value.set(ballCar.x, ballCar.z).normalize();
-    moteMat.uniforms.uBall.value.copy(ballCar);
+    car.group.worldToLocal(moteMat.uniforms.uBall.value.copy(muzzle));
     const scanning = on > 0.004;
-    fan.visible = trace.visible = beam.visible = motes.visible = scanning;
+    fan.visible = trace.visible = beam.visible = motes.visible = spark.visible = scanning;
     if (scanning) {
+      // drawn over the ball, whole: the face is always turned enough to the viewer for it to belong there
+      spark.position.copy(muzzle);
+      spark.scale.setScalar(BOT_R * scale * (1.1 + 0.15 * Math.sin(scan.uTime.value * 9)));
+      spark.material.opacity = on * 0.8;
       const arr = fanGeo.attributes.position.array as Float32Array;
-      arr.set([ball.x, ball.y, ball.z, 0, 1.55, 0, 0, 0.03, 0]);
+      arr.set([muzzle.x, muzzle.y, muzzle.z, 0, 1.55, 0, 0, 0.03, 0]);
       fanGeo.attributes.position.needsUpdate = true;
       // the ribbon: from the ball to the car's middle, widening, turned to the viewer
       va.set(0, 0.8, 0);
-      vb.subVectors(va, ball);
-      vc.subVectors(camera.position, ball).cross(vb).normalize();
+      vb.subVectors(va, muzzle);
+      vc.subVectors(camera.position, muzzle).cross(vb).normalize();
       const b = beamGeo.attributes.position.array as Float32Array;
       b.set([
-        ball.x - vc.x * 0.05, ball.y - vc.y * 0.05, ball.z - vc.z * 0.05,
-        ball.x + vc.x * 0.05, ball.y + vc.y * 0.05, ball.z + vc.z * 0.05,
+        muzzle.x - vc.x * 0.035, muzzle.y - vc.y * 0.035, muzzle.z - vc.z * 0.035,
+        muzzle.x + vc.x * 0.035, muzzle.y + vc.y * 0.035, muzzle.z + vc.z * 0.035,
         va.x - vc.x * 0.4, va.y - vc.y * 0.4, va.z - vc.z * 0.4,
         va.x + vc.x * 0.4, va.y + vc.y * 0.4, va.z + vc.z * 0.4,
       ]);
@@ -1012,7 +1038,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       car.dispose();
       holo.dispose();
       amberHolo.dispose();
-      logo.dispose(); shadeTex.dispose(); glowTex.dispose(); haloTex.dispose(); rayTex.dispose(); ringTex.dispose(); ghostTex.dispose(); beamTex.dispose();
+      logo.dispose(); shadeTex.dispose(); glowTex.dispose(); sparkTex.dispose(); spark.material.dispose(); haloTex.dispose(); rayTex.dispose(); ringTex.dispose(); ghostTex.dispose(); beamTex.dispose();
       leadMat.dispose(); dotGeo.dispose(); dotMat.dispose();
       for (const l of leads) l.geo.dispose();
       scene.traverse((o) => {

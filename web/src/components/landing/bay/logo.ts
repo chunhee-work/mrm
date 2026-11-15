@@ -5,13 +5,14 @@ import { clamp01, smooth } from "./math";
 
 /**
  * The logo as an object in the bay: the wordmark's own outlines, given a thickness and a bevelled edge, in the same
- * pearl as the bay's cold light. Its first "o" is a plain ring: the ball flies into it and sits there like a lens in its mount.
+ * pearl as the bay's cold light. Its first "o" is either a plain ring the ball sits in, like a lens in its mount, or nothing at all:
+ * then the ball itself is the "o", as the mascot's face is in the flat logo.
  * One unit of the group is one unit of the drawing (the word is `width` wide); the origin is the middle of its box,
  * and the front of the letters is the plane z = 0.
  */
 export type Logo3D = {
   group: THREE.Group;
-  /** the middle of the first "o", in the group's own space: the word's "o" is a ring, and the ball sits in it like a lens in its mount */
+  /** the middle of the first "o", in the group's own space: where the ball comes to rest */
   o: THREE.Vector3;
   /** how big the ball is in there, in the drawing's units */
   ballRadius: number;
@@ -28,7 +29,7 @@ const BEVEL = 11;
 const O_INNER = 172;
 const O_BALL = 160;
 
-export function buildLogo(): Logo3D {
+export function buildLogo(opts: { ring: boolean } = { ring: true }): Logo3D {
   const group = new THREE.Group();
   const [, vy, , vh] = W.viewBox.split(" ").map(Number);
   const cx = W.width / 2;
@@ -50,10 +51,12 @@ export function buildLogo(): Logo3D {
 
   const material = new THREE.MeshPhysicalMaterial({ color: 0xdfe6ed, roughness: 0.5, metalness: 0.05, clearcoat: 0.35, clearcoatRoughness: 0.4, emissive: 0xcfe2f2, emissiveIntensity: 0.06 });
   const disposables: { dispose(): void }[] = [material];
-  const ring = new THREE.Shape().absarc(W.o.cx, W.o.cy, W.o.r, 0, Math.PI * 2, false);
-  ring.holes.push(new THREE.Path().absarc(W.o.cx, W.o.cy, O_INNER, 0, Math.PI * 2, true));
-  letters.push({ shapes: [ring], x0: W.o.cx - W.o.r, x1: W.o.cx + W.o.r });
-  letters.sort((a, b) => a.x0 - b.x0);
+  if (opts.ring) {
+    const ring = new THREE.Shape().absarc(W.o.cx, W.o.cy, W.o.r, 0, Math.PI * 2, false);
+    ring.holes.push(new THREE.Path().absarc(W.o.cx, W.o.cy, O_INNER, 0, Math.PI * 2, true));
+    letters.push({ shapes: [ring], x0: W.o.cx - W.o.r, x1: W.o.cx + W.o.r });
+    letters.sort((a, b) => a.x0 - b.x0);
+  }
 
   const pivots = letters.map((l) => {
     const geo = new THREE.ExtrudeGeometry(l.shapes, { depth: DEPTH - BEVEL * 2, bevelEnabled: true, bevelThickness: BEVEL, bevelSize: BEVEL, bevelOffset: -BEVEL, bevelSegments: 3, curveSegments: 14 });
@@ -87,7 +90,8 @@ export function buildLogo(): Logo3D {
   return {
     group,
     o: new THREE.Vector3(W.o.cx - cx, W.o.cy - cy, -DEPTH / 2),
-    ballRadius: O_BALL,
+    // on its own the ball is as big as the "o" it stands for
+    ballRadius: opts.ring ? O_BALL : W.o.r,
     width: W.width,
     material,
     set,
