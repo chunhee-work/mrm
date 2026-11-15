@@ -39,16 +39,17 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         </div>
       </main>
 
-      <footer className="wrap relative">
-        <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-6 pb-3 sm:pb-5">
+      {/* a phone: the WhatsApp button is part of this row, not floating over the form */}
+      <footer className="wrap relative flex items-center gap-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:block sm:pb-0">
+        <nav aria-label="Footer" className="flex min-w-0 flex-1 flex-wrap gap-x-5 sm:justify-center sm:gap-x-6 sm:pb-5">
           {links.map((l) => (
             <Link key={l.href} href={l.href} className="flex h-11 items-center text-[13px] font-medium text-mute transition-colors hover:text-ice">
               {l.label}
             </Link>
           ))}
         </nav>
+        <WhatsAppFab inFlow />
       </footer>
-      <WhatsAppFab />
     </div>
   );
 }
