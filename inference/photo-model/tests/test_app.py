@@ -104,3 +104,10 @@ def test_logs_never_hold_filenames_headers_or_vehicle(caplog):
 def test_no_secret_configured_means_nobody(monkeypatch):
     monkeypatch.delenv("PHOTO_MODEL_SECRET")
     assert post([b"a"]).status_code == 401
+
+
+def test_retry_with_new_timestamp_is_idempotent_not_409():
+    now = int(time.time())
+    assert post([b"a", b"b"], ts=str(now)).status_code == 202
+    r = post([b"a", b"b"], ts=str(now + 5))  # response was lost, the web app retries a few seconds later
+    assert r.status_code == 202

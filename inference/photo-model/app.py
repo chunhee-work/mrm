@@ -92,7 +92,9 @@ async def post_job(request: Request, meta: str = Form(...), photos: List[UploadF
     if not job_id.replace("-", "").isalnum() or len(job_id) > 64:
         return deny(400, "invalid")
     try:
-        job = queue.submit(job_id, canon, vehicle, data)
+        # idempotency key = the same fields without the timestamp: a retry (new timestamp) of an accepted job must not be a 409
+        key = core.canonical_post("", case_id, job_id, order_hash, vehicle, [core.sha256_hex(b) for _, b in data])
+        job = queue.submit(job_id, key, vehicle, data)
     except core.Full:
         return deny(429, "busy")
     except core.Mismatch:

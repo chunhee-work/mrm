@@ -92,13 +92,15 @@ async function poll(c: CaseRow, j: PhotoModelJob): Promise<number> {
   if (s.kind === "done") {
     const rows = (await photoRows(c.id)).filter((r) => j.claims.some((x) => x.id === r.id));
     if (orderHash(rows) !== j.order_hash || s.results.length !== j.claims.length) { await failJob(c, j, "result does not match photos"); return 0; }
-    if (!(await writeJob(c.id, j, { ...j, status: "done", lease_until: null }))) return 0;
+    // Names are written while the job is still "running", so no other poll can start a new job and re-claim these photos.
+    // writeName only touches rows still claimed by this job, so two polls doing this at once cannot clash.
     const vehicle = vehicleOf(c);
     let named = 0;
     for (let i = 0; i < j.claims.length; i++) {
       const row = rows.find((r) => r.id === j.claims[i].id)!;
       if (await writeName({ id: j.claims[i].id, claimedAt: j.claims[i].at }, toNamed(s.results[i], vehicle, row.origN))) named++;
     }
+    await writeJob(c.id, j, { ...j, status: "done", lease_until: null });
     return named;
   }
   if (s.kind === "failed") await failJob(c, j, s.error);
