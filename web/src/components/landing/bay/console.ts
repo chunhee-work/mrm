@@ -1,18 +1,24 @@
 import * as THREE from "three";
 import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { clamp01, lerp, rng, seg, smooth } from "./math";
-import { ICE, glow } from "./room";
+import { AMBER, ICE, glow } from "./room";
+
+const RAD = Math.PI / 180;
+
+// How much of the claim form is in the working amber: 1 = the rows only, 2 = the frame, the car's panel and the glass too,
+// 3 = as 2 with the rows filled solid. 0 is the old all-ice form.
+const LOOK: number = 2;
 
 /**
  * The intake console beside the car (a scanned model), and everything that happens at it:
- *   Upload     the case file flies in and drops into the slot: the pages an adjuster knows (ownership certificate,
- *              insurance schedule, police report, sketch plan, search result) and the damage photos
+ *   Upload     the case file hangs in front of the viewer, big sheets one over another: the pages an adjuster knows
+ *              (ownership certificate, insurance schedule, police report, sketch plan, search result) and the damage
+ *              photos. Scroll on, and sheet after sheet goes into the slot
  *   Autopilot  a glass claim form opens under the scan ball; one row per damaged part types itself and is ticked,
  *              and the same part turns from amber to green on the form's own drawing of the car
  * No words anywhere: every line of writing is a bar.
  */
 
-const N_CARDS = 34;
 const ROWS = 5;
 // the claim form: a sheet of glass, its top edge hanging under the ball
 export const FORM_W = 0.72;
@@ -23,9 +29,65 @@ const ROW_Y0 = 440;
 const ROW_PITCH = 82;
 // where the slot sits on the plinth's sloped top, local to the console
 const SLOT = new THREE.Vector3(-0.01, 0.923, -0.008);
-// the picture of the case file: 4 x 3 cells; six pages first, then six photos
+// the picture of the case file: 4 x 3 cells; six pages first, then six photos. The two sheets that hang nearest the
+// viewer have a sharper picture of their own (cells 12 and 13).
 const DOCS = 6;
-const CELLS = 12;
+const HERO_PAGE = 12;
+const HERO_PHOTO = 13;
+
+/**
+ * How the case file hangs in front of the viewer at the Upload stop: a few big sheets one over another, the nearest
+ * sharp, the ones behind larger and out of focus, and loose sheets far off in the dark. Listed from the back to the front.
+ *   x, y    where its middle shows in the frame (0..1 from the top left)      h      its height, in frame heights
+ *   depth   metres from the viewer                                            turn   pitch, yaw, roll in degrees
+ *   blur    how far out of focus, in sheet widths                             dim    how much of the light reaches it
+ */
+type Sheet = { cell: number; x: number; y: number; h: number; depth: number; turn: [number, number, number]; blur: number; dim: number; shadow?: boolean };
+const SHEETS_WIDE: Sheet[] = [
+  { cell: 11, x: 0.6, y: 0.2, h: 0.15, depth: 5.0, turn: [4, -20, 8], blur: 0.05, dim: 0.3 },
+  { cell: 4, x: 0.505, y: 0.47, h: 0.3, depth: 4.4, turn: [-6, 24, -7], blur: 0.045, dim: 0.3 },
+  { cell: 10, x: 0.035, y: 0.86, h: 0.2, depth: 4.2, turn: [8, 30, 10], blur: 0.05, dim: 0.3 },
+  { cell: 3, x: 0.02, y: 0.24, h: 0.36, depth: 4.2, turn: [-3, 34, 5], blur: 0.04, dim: 0.34 },
+  { cell: 9, x: 0.335, y: 0.9, h: 0.17, depth: 3.9, turn: [10, 10, -6], blur: 0.04, dim: 0.36 },
+  { cell: 8, x: 0.52, y: 0.13, h: 0.13, depth: 3.8, turn: [-8, -14, -5], blur: 0.035, dim: 0.4 },
+  { cell: 1, x: 0.125, y: 0.47, h: 0.98, depth: 3.4, turn: [-3, 18, -2], blur: 0.02, dim: 0.46 },
+  { cell: 5, x: 0.39, y: 0.34, h: 0.6, depth: 3.0, turn: [-4, 15, 2], blur: 0.012, dim: 0.6 },
+  { cell: 7, x: 0.452, y: 0.215, h: 0.2, depth: 2.6, turn: [-3, 12, 4], blur: 0.005, dim: 0.86, shadow: true },
+  { cell: 2, x: 0.2, y: 0.57, h: 0.68, depth: 2.5, turn: [-3, 14, -4], blur: 0.004, dim: 0.8, shadow: true },
+  { cell: HERO_PAGE, x: 0.282, y: 0.5, h: 0.68, depth: 2.2, turn: [-3, 13, -1.2], blur: 0, dim: 1, shadow: true },
+  { cell: HERO_PHOTO, x: 0.42, y: 0.69, h: 0.3, depth: 1.9, turn: [-2, 10, 1.2], blur: 0, dim: 1, shadow: true },
+];
+// a phone's frame is tall: the words are above, the machine below, the file between them
+const SHEETS_NARROW: Sheet[] = [
+  { cell: 11, x: 0.86, y: 0.305, h: 0.085, depth: 5.0, turn: [4, -20, 8], blur: 0.05, dim: 0.3 },
+  { cell: 4, x: 0.93, y: 0.55, h: 0.2, depth: 4.4, turn: [-6, -24, -7], blur: 0.045, dim: 0.3 },
+  { cell: 10, x: 0.1, y: 0.72, h: 0.09, depth: 4.2, turn: [8, 30, 10], blur: 0.05, dim: 0.3 },
+  { cell: 3, x: 0.03, y: 0.5, h: 0.22, depth: 4.2, turn: [-3, 34, 5], blur: 0.04, dim: 0.34 },
+  { cell: 9, x: 0.13, y: 0.325, h: 0.085, depth: 3.9, turn: [10, 10, -6], blur: 0.04, dim: 0.36 },
+  { cell: 8, x: 0.87, y: 0.725, h: 0.08, depth: 3.8, turn: [-8, -14, -5], blur: 0.035, dim: 0.4 },
+  { cell: 1, x: 0.24, y: 0.475, h: 0.5, depth: 3.4, turn: [-3, 16, -2], blur: 0.02, dim: 0.46 },
+  { cell: 5, x: 0.68, y: 0.44, h: 0.34, depth: 3.0, turn: [-4, 13, 2], blur: 0.012, dim: 0.6 },
+  { cell: 7, x: 0.74, y: 0.36, h: 0.115, depth: 2.6, turn: [-3, 10, 4], blur: 0.005, dim: 0.86, shadow: true },
+  { cell: 2, x: 0.31, y: 0.535, h: 0.37, depth: 2.5, turn: [-4, 12, -5], blur: 0.004, dim: 0.8, shadow: true },
+  { cell: HERO_PAGE, x: 0.45, y: 0.5, h: 0.38, depth: 2.2, turn: [-3, 10, -1.2], blur: 0, dim: 1, shadow: true },
+  { cell: HERO_PHOTO, x: 0.675, y: 0.635, h: 0.165, depth: 1.9, turn: [-2, 8, 1.2], blur: 0, dim: 1, shadow: true },
+];
+const PAGE_ASPECT = 880 / 1168;
+const PHOTO_ASPECT = 1168 / 880;
+const isPage = (cell: number) => cell < DOCS || cell === HERO_PAGE;
+// the file gathers on the way to the Upload stop, hangs there, and goes into the machine on the way out of it
+const FILE_IN: [number, number] = [0.05, 0.178];
+const FILE_OUT: [number, number] = [0.222, 0.312];
+
+/** What the scene tells the console about the viewer each frame, so the file can hang in front of them. */
+export type Viewer = {
+  /** the point `depth` metres in front of the viewer that shows at (fx, fy) of the frame */
+  at(fx: number, fy: number, depth: number, out: THREE.Vector3): THREE.Vector3;
+  /** how tall the frame is at that depth, in metres */
+  tall(depth: number): number;
+  quat: THREE.Quaternion;
+  up: THREE.Vector3;
+};
 
 export type Console = {
   group: THREE.Group;
@@ -33,7 +95,7 @@ export type Console = {
   form: THREE.Group;
   /** world position of the left end of row r on the glass form (where a leader line lands) */
   rowAnchor(r: number, out: THREE.Vector3): THREE.Vector3;
-  set(t: number, time: number): void;
+  set(t: number, time: number, viewer: Viewer): void;
   /** world position of the slot the case file drops into */
   slotWorld(out: THREE.Vector3): THREE.Vector3;
   dispose(): void;
@@ -64,17 +126,23 @@ function drawForm(g: CanvasRenderingContext2D, s: FormState, widths: number[][])
   g.lineCap = "round"; g.lineJoin = "round";
   const prog = s.ticked.reduce((a, b) => a + b, 0) / ROWS;
   const c = s.closing;
+  const warm = LOOK >= 1;
+  const all = LOOK >= 2;
+  const solid = LOOK >= 3;
+  // the form's working colour: amber while the claim is open, green once it is signed
+  const work = (a: number) => (warm ? mixed(c, a) : ice(a));
+  const edge = (a: number) => (all ? mixed(c, a) : ice(a));
 
   // ── heading, and the state of the whole claim on the right
   rr(g, 44, 48, 250, 26, 6); fill(ice(0.95));
-  rr(g, 44, 88, 150, 11, 5); fill(ice(0.38));
+  rr(g, 44, 88, 150, 11, 5); fill(all ? mixed(c, 0.7) : ice(0.38));
   rr(g, 548, 46, 176, 54, 27); fill(mixed(c, 0.1)); stroke(mixed(c, 0.9), 2);
   g.beginPath(); g.arc(578, 73, 8, 0, Math.PI * 2); fill(mixed(c, 1));
   rr(g, 598, 66, 96 * (0.3 + 0.7 * prog), 14, 7); fill(mixed(c, 0.9));
 
   // ── the car, seen from above, nose to the left; the five damaged parts are marked on it
-  rr(g, 44, 140, 680, 270, 14); fill(ice(0.035)); stroke(ice(0.22), 1.5);
-  g.strokeStyle = ice(0.2); g.lineWidth = 1;
+  rr(g, 44, 140, 680, 270, 14); fill(all ? mixed(c, 0.05) : ice(0.035)); stroke(all ? mixed(c, 0.55) : ice(0.22), 1.5);
+  g.strokeStyle = all ? mixed(c, 0.5) : ice(0.2); g.lineWidth = 1;
   for (let x = 64; x <= 704; x += 20) { g.beginPath(); g.moveTo(x, 398); g.lineTo(x, x % 100 === 64 ? 386 : 392); g.stroke(); }
   // wheels, under the body
   for (const [x, y] of [[212, 176], [212, 364], [520, 176], [520, 364]] as const) { rr(g, x, y, 78, 14, 6); fill(ice(0.3)); }
@@ -114,10 +182,17 @@ function drawForm(g: CanvasRenderingContext2D, s: FormState, widths: number[][])
     const k = s.ticked[i];
     const live = typed > 0.001 && k < 0.999;
     const [nameW, subW, amtW] = widths[i];
-    if (live) { rr(g, 44, y + 4, 680, ROW_PITCH - 8, 10); fill(amber(0.1)); rr(g, 44, y + 4, 5, ROW_PITCH - 8, 2); fill(amber(0.95)); }
+    if (warm) {
+      // every row is a card in the working colour: faint while it waits, bright while it is typed, settled once ticked
+      rr(g, 44, y + 4, 680, ROW_PITCH - 8, 10);
+      if (live) { fill(amber(solid ? 0.3 : 0.17)); stroke(amber(0.95), 2); }
+      else if (k >= 0.999) { fill(work(solid ? 0.2 : 0.09)); stroke(work(0.5), 1.5); }
+      else { fill(work(solid ? 0.1 : 0.035)); stroke(work(solid ? 0.5 : 0.32), 1.5); }
+      if (typed > 0.001) { rr(g, 44, y + 4, 5, ROW_PITCH - 8, 2); fill(mixed(k, 0.95)); }
+    } else if (live) { rr(g, 44, y + 4, 680, ROW_PITCH - 8, 10); fill(amber(0.1)); rr(g, 44, y + 4, 5, ROW_PITCH - 8, 2); fill(amber(0.95)); }
     else if (k >= 0.999) { rr(g, 44, y + 4, 680, ROW_PITCH - 8, 10); fill(go(0.045)); }
     rr(g, 64, y + 26, 30, 30, 8);
-    if (typed > 0.001) fill(mixed(k, 0.92)); else stroke(ice(0.3), 1.5);
+    if (typed > 0.001) fill(mixed(k, 0.92)); else stroke(warm ? work(0.75) : ice(0.3), 1.5);
     if (typed > 0.001) {
       rr(g, 116, y + 23, nameW * typed, 16, 7); fill(ice(0.95));
       rr(g, 116, y + 48, subW * seg(typed, 0.3, 1), 8, 4); fill(ice(0.36));
@@ -132,9 +207,9 @@ function drawForm(g: CanvasRenderingContext2D, s: FormState, widths: number[][])
       const amt = amtW * seg(typed, 0.62, 1);
       if (amt > 1) { rr(g, 646 - amt, y + 34, amt, 14, 7); fill(ice(0.7)); }
     } else {
-      rr(g, 116, y + 30, 150, 10, 5); fill(ice(0.1));
+      rr(g, 116, y + 30, 150, 10, 5); fill(warm ? work(0.32) : ice(0.1));
     }
-    rr(g, 672, y + 25, 32, 32, 8); stroke(k > 0.01 ? go(0.4 + 0.6 * k) : ice(typed > 0.001 ? 0.6 : 0.28), 2);
+    rr(g, 672, y + 25, 32, 32, 8); stroke(k > 0.01 ? go(0.4 + 0.6 * k) : warm ? work(typed > 0.001 ? 1 : 0.7) : ice(typed > 0.001 ? 0.6 : 0.28), 2);
     if (k > 0.02) {
       const a = [679, y + 42], b = [686, y + 49], d = [698, y + 33];
       const l1 = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -146,15 +221,15 @@ function drawForm(g: CanvasRenderingContext2D, s: FormState, widths: number[][])
       if (len > l1) { const k2 = (len - l1) / l2; g.lineTo(b[0] + (d[0] - b[0]) * k2, b[1] + (d[1] - b[1]) * k2); }
       stroke(go(1), 5);
     }
-    if (i < ROWS - 1) { g.fillStyle = ice(0.1); g.fillRect(44, y + ROW_PITCH - 1, 680, 1.5); }
+    if (!warm && i < ROWS - 1) { g.fillStyle = ice(0.1); g.fillRect(44, y + ROW_PITCH - 1, 680, 1.5); }
   }
 
   // ── the sum, and the sign-off
-  g.fillStyle = ice(0.28); g.fillRect(44, 862, 680, 1.5);
+  g.fillStyle = all ? mixed(c, 0.5) : ice(0.28); g.fillRect(44, 862, 680, 1.5);
   rr(g, 44, 886, 110, 12, 6); fill(ice(0.4));
   const sum = 230 * prog;
-  if (sum > 1) { rr(g, 724 - sum, 878, sum, 28, 9); fill(c > 0.5 ? go(0.95) : ice(0.92)); }
-  if (c < 0.999) { g.globalAlpha = 1 - c; g.setLineDash([8, 7]); g.beginPath(); g.moveTo(44, 968); g.lineTo(250, 968); stroke(ice(0.26), 1.5); g.beginPath(); g.arc(690, 950, 26, 0, Math.PI * 2); stroke(ice(0.22), 1.5); g.setLineDash([]); g.globalAlpha = 1; }
+  if (sum > 1) { rr(g, 724 - sum, 878, sum, 28, 9); fill(c > 0.5 ? go(0.95) : warm ? amber(0.95) : ice(0.92)); }
+  if (c < 0.999) { g.globalAlpha = 1 - c; g.setLineDash([8, 7]); g.beginPath(); g.moveTo(44, 968); g.lineTo(250, 968); stroke(edge(all ? 0.5 : 0.26), 1.5); g.beginPath(); g.arc(690, 950, 26, 0, Math.PI * 2); stroke(edge(all ? 0.5 : 0.22), 1.5); g.setLineDash([]); g.globalAlpha = 1; }
   if (c > 0.01) {
     // a signature, written from left to right, and a round stamp with a tick in it
     g.save(); g.beginPath(); g.rect(40, 916, 230 * c, 70); g.clip();
@@ -166,12 +241,12 @@ function drawForm(g: CanvasRenderingContext2D, s: FormState, widths: number[][])
     g.globalAlpha = 1;
   }
   for (let i = 0; i < ROWS; i++) {
-    rr(g, 44 + i * 138, 1000, 128, 6, 3); fill(ice(0.14));
+    rr(g, 44 + i * 138, 1000, 128, 6, 3); fill(warm ? work(0.22) : ice(0.14));
     if (s.ticked[i] > 0.01) { rr(g, 44 + i * 138, 1000, 128 * s.ticked[i], 6, 3); fill(c > 0.5 ? go(1) : mixed(s.ticked[i], 1)); }
   }
 }
 
-export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE.Texture): Console {
+export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE.Texture, hero: THREE.Texture): Console {
   const group = new THREE.Group();
   group.position.set(-3.25, 0, -2.75);
   group.rotation.y = 0.5;
@@ -196,25 +271,29 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
   slotLight.position.set(0, 1.15, -0.2);
   group.add(slotLight);
 
-  // ── the case file: pages and photos, instanced; each card is a piece of the one picture
-  casefile.colorSpace = THREE.SRGBColorSpace;
-  casefile.anisotropy = 4;
+  // ── the case file: pages and photos, instanced; each card is a piece of one of the two pictures
+  for (const tex of [casefile, hero]) { tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; }
+  const SHEETS = mobile ? SHEETS_NARROW : SHEETS_WIDE;
+  const N_CARDS = SHEETS.length;
   const quat = new THREE.Quaternion();
   const cardGeo = keep(new THREE.PlaneGeometry(1, 1, 8, 1));
   const cell = new Float32Array(N_CARDS);
   const seed = new Float32Array(N_CARDS);
   const fade = new Float32Array(N_CARDS);
   const flat = new Float32Array(N_CARDS);
+  const soft = new Float32Array(N_CARDS * 2); // blur, dim
   const r = rng(11);
   const spin: THREE.Quaternion[] = [];
-  const jitter: THREE.Vector3[] = [];
-  let photo = 0;
+  const rest: THREE.Quaternion[] = [];
+  const from: THREE.Vector3[] = [];
   for (let i = 0; i < N_CARDS; i++) {
-    // a page, then a photo, in the order of the bundle: whenever you look, the stream shows both
-    cell[i] = i % 2 === 0 ? (i / 2) % DOCS : DOCS + (photo++ % (CELLS - DOCS));
+    const sh = SHEETS[i];
+    cell[i] = sh.cell;
     seed[i] = r() * 10;
     spin.push(new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 1.5, (r() - 0.5) * 2.2, (r() - 0.5) * 1.3)));
-    jitter.push(new THREE.Vector3((r() - 0.5) * 1.5, (r() - 0.5) * 1.1, (r() - 0.5) * 1.5));
+    rest.push(new THREE.Quaternion().setFromEuler(new THREE.Euler(sh.turn[0] * RAD, sh.turn[1] * RAD, sh.turn[2] * RAD, "YXZ")));
+    // where it comes from: out of the frame, below and to the side, and nearer than where it will hang
+    from.push(new THREE.Vector3(sh.x + (r() - 0.62) * 0.7, 1.25 + sh.h * 0.6 + r() * 0.5, sh.depth * (0.5 + r() * 0.25)));
   }
   cardGeo.setAttribute("aCell", new THREE.InstancedBufferAttribute(cell, 1));
   cardGeo.setAttribute("aSeed", new THREE.InstancedBufferAttribute(seed, 1));
@@ -224,15 +303,18 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
   const flatAttr = new THREE.InstancedBufferAttribute(flat, 1);
   flatAttr.setUsage(THREE.DynamicDrawUsage);
   cardGeo.setAttribute("aFlat", flatAttr);
+  const softAttr = new THREE.InstancedBufferAttribute(soft, 2);
+  softAttr.setUsage(THREE.DynamicDrawUsage);
+  cardGeo.setAttribute("aSoft", softAttr);
   const cardMat = keep(new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
     transparent: true,
-    uniforms: { uMap: { value: casefile }, uIce: { value: ICE.clone() } },
+    uniforms: { uMap: { value: casefile }, uHero: { value: hero }, uIce: { value: ICE.clone() } },
     vertexShader: `
-      attribute float aCell; attribute float aSeed; attribute float aFade; attribute float aFlat;
-      varying vec2 vUv; varying float vCell; varying float vSeed; varying float vFade; varying vec3 vN; varying vec3 vV;
+      attribute float aCell; attribute float aSeed; attribute float aFade; attribute float aFlat; attribute vec2 aSoft;
+      varying vec2 vUv; varying float vCell; varying float vSeed; varying float vFade; varying vec2 vSoft; varying vec3 vN; varying vec3 vV;
       void main(){
-        vUv = uv; vCell = aCell; vSeed = aSeed; vFade = aFade;
+        vUv = uv; vCell = aCell; vSeed = aSeed; vFade = aFade; vSoft = aSoft;
         // paper in the air is never flat: a soft curl across the sheet, gone by the time it stands in the slot
         float curl = (0.07 + 0.05 * sin(aSeed * 3.7)) * (1.0 - aFlat);
         float x = position.x;
@@ -245,41 +327,99 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
     fragmentShader: `
-      uniform sampler2D uMap; uniform vec3 uIce;
-      varying vec2 vUv; varying float vCell; varying float vSeed; varying float vFade; varying vec3 vN; varying vec3 vV;
-      void main(){
-        float isPhoto = step(5.5, vCell);
-        vec2 at = vec2(mod(vCell, 4.0), floor(vCell / 4.0));
-        vec2 uv = vUv;
-        vec3 paper = vec3(0.93, 0.95, 0.97);
-        vec3 col;
-        if (isPhoto > 0.5) {
-          // a print: a white border round the picture
+      uniform sampler2D uMap; uniform sampler2D uHero; uniform vec3 uIce;
+      varying vec2 vUv; varying float vCell; varying float vSeed; varying float vFade; varying vec2 vSoft; varying vec3 vN; varying vec3 vV;
+      const vec3 PAPER = vec3(0.93, 0.95, 0.97);
+      // the sheet's own picture at uv: a page fills its sheet, a photo is a print with a white border.
+      // dx, dy say how coarse a copy of the picture to read; they are worked out once, outside any branch.
+      vec3 sheet(vec2 uv, vec2 dx, vec2 dy){
+        uv = clamp(uv, 0.0, 1.0);
+        bool heroCell = vCell > 11.5;
+        bool photo = heroCell ? vCell > 12.5 : vCell > 5.5;
+        vec2 q = uv;
+        float inside = 1.0;
+        if (photo) {
           vec2 b = vec2(0.03, 0.04);
-          vec2 q = (uv - b) / (1.0 - 2.0 * b);
-          float inside = step(0.0, q.x) * step(q.x, 1.0) * step(0.0, q.y) * step(q.y, 1.0);
-          vec2 a = (at + vec2(q.x, mix(63.0, 449.0, 1.0 - q.y) / 512.0)) / vec2(4.0, 3.0);
-          col = mix(paper, texture2D(uMap, vec2(a.x, 1.0 - a.y)).rgb, inside);
+          q = (uv - b) / (1.0 - 2.0 * b);
+          inside = step(0.0, q.x) * step(q.x, 1.0) * step(0.0, q.y) * step(q.y, 1.0);
+          q = clamp(q, 0.004, 0.996);
+        }
+        vec3 c;
+        if (heroCell) {
+          vec2 a = photo ? vec2(880.0 + q.x * 1168.0, (1.0 - q.y) * 880.0) : vec2(q.x * 880.0, (1.0 - q.y) * 1168.0);
+          vec2 k = (photo ? vec2(1168.0, 880.0) : vec2(880.0, 1168.0)) / vec2(2048.0, 1168.0);
+          c = textureGrad(uHero, vec2(a.x / 2048.0, 1.0 - a.y / 1168.0), dx * k, dy * k).rgb;
         } else {
-          vec2 a = (at + vec2(mix(64.0, 448.0, uv.x), mix(1.0, 511.0, 1.0 - uv.y)) / 512.0) / vec2(4.0, 3.0);
-          col = texture2D(uMap, vec2(a.x, 1.0 - a.y)).rgb;
+          // a whole number that has come through the rasteriser is only nearly whole
+          float cell = floor(vCell + 0.5);
+          vec2 at = vec2(mod(cell, 4.0), floor(cell / 4.0));
+          vec2 a = photo ? vec2(q.x, mix(63.0, 449.0, 1.0 - q.y) / 512.0) : vec2(mix(64.0, 448.0, q.x), mix(1.0, 511.0, 1.0 - q.y)) / 512.0;
+          vec2 k = (photo ? vec2(512.0, 386.0) : vec2(384.0, 510.0)) / vec2(2048.0, 1536.0);
+          a = (at + a) / vec2(4.0, 3.0);
+          c = textureGrad(uMap, vec2(a.x, 1.0 - a.y), dx * k, dy * k).rgb;
+        }
+        return mix(PAPER, c, inside);
+      }
+      void main(){
+        float blur = vSoft.x;
+        vec2 dx = dFdx(vUv), dy = dFdy(vUv);
+        vec3 col;
+        if (blur < 0.0015) col = sheet(vUv, dx, dy);
+        else {
+          // out of focus: the picture is taken a little to every side and from a coarser copy of itself
+          float coarse = max(1.0, blur * 240.0);
+          dx *= coarse; dy *= coarse;
+          col = sheet(vUv, dx, dy) * 2.0;
+          for (int i = 0; i < 8; i++) {
+            float a = float(i) * 0.7853982 + vSeed;
+            float rad = blur * (i - (i / 2) * 2 == 0 ? 1.0 : 0.55);
+            col += sheet(vUv + vec2(cos(a), sin(a) * 0.75) * rad, dx, dy);
+          }
+          col /= 10.0;
         }
         vec3 n = normalize(vN);
         // the back of a sheet is blank paper
-        if (!gl_FrontFacing) { n = -n; col = paper * 0.82; }
+        if (!gl_FrontFacing) { n = -n; col = PAPER * 0.82; }
         vec3 v = normalize(vV);
         // lit by the room: the tubes overhead, the cold light of the slot below, a glint when a sheet turns through the light
         float top = 0.5 + 0.5 * n.y;
         float face = abs(dot(n, v));
         vec3 h = normalize(v + normalize(vec3(-0.3, 1.0, -0.2)));
         float glint = pow(max(dot(n, h), 0.0), 60.0);
-        vec3 lit = col * (0.2 + 0.5 * top + 0.22 * face) + uIce * (0.06 * (1.0 - top) + 0.28 * glint);
-        gl_FragColor = vec4(lit, vFade);
+        vec3 lit = col * (0.2 + 0.5 * top + 0.22 * face) * vSoft.y + uIce * (0.06 * (1.0 - top) + 0.28 * glint) * vSoft.y;
+        // a sheet out of focus has no hard edge either
+        vec2 e = min(vUv, 1.0 - vUv);
+        float w = max(blur * 1.6, 0.0012);
+        float edge = smoothstep(0.0, w, e.x) * smoothstep(0.0, w * 0.75, e.y);
+        float alpha = vFade * edge;
+        if (alpha < 0.012) discard;
+        gl_FragColor = vec4(lit, alpha);
       }`,
   }));
   const cards = new THREE.InstancedMesh(cardGeo, cardMat, N_CARDS);
   cards.frustumCulled = false;
   cards.renderOrder = 6;
+  // the near sheets throw a soft shadow on whatever hangs behind them
+  const shadowed = SHEETS.map((sh, i) => (sh.shadow ? i : -1)).filter((i) => i >= 0);
+  const shadeGeo = keep(new THREE.PlaneGeometry(1, 1));
+  const shadeFade = new Float32Array(shadowed.length);
+  const shadeAttr = new THREE.InstancedBufferAttribute(shadeFade, 1);
+  shadeAttr.setUsage(THREE.DynamicDrawUsage);
+  shadeGeo.setAttribute("aFade", shadeAttr);
+  const shadeMat = keep(new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false,
+    vertexShader: "attribute float aFade; varying vec2 vUv; varying float vFade; void main(){ vUv = uv; vFade = aFade; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }",
+    fragmentShader: `
+      varying vec2 vUv; varying float vFade;
+      void main(){
+        vec2 e = min(vUv, 1.0 - vUv);
+        float a = smoothstep(0.0, 0.2, e.x) * smoothstep(0.0, 0.2, e.y);
+        gl_FragColor = vec4(0.0, 0.0, 0.0, a * a * vFade);
+      }`,
+  }));
+  const shades = new THREE.InstancedMesh(shadeGeo, shadeMat, shadowed.length);
+  shades.frustumCulled = false;
+  shades.renderOrder = 5;
   // cards live in world space, not under the rotated console
   const world = new THREE.Group();
 
@@ -289,7 +429,7 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
   form.add(slab);
   const glassMat = keep(new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
-    uniforms: { uUp: { value: 0 }, uTime: { value: 0 }, uTint: { value: ICE.clone() } },
+    uniforms: { uUp: { value: 0 }, uTime: { value: 0 }, uTint: { value: (LOOK >= 2 ? AMBER : ICE).clone() } },
     vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
     fragmentShader: `
       uniform float uUp; uniform float uTime; uniform vec3 uTint; varying vec2 vUv;
@@ -362,54 +502,87 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
   const m4 = new THREE.Matrix4();
   const sc = new THREE.Vector3();
   const tmpQ = new THREE.Quaternion();
+  const hang = new THREE.Vector3();
+  const eul = new THREE.Euler();
   const tint = new THREE.Color();
   const GO_C = new THREE.Color(0x3ddc97);
 
   group.updateMatrixWorld(true);
-  world.add(cards);
+  world.add(shades, cards);
 
-  function set(t: number, time: number) {
+  function set(t: number, time: number, viewer: Viewer) {
     group.updateMatrixWorld(true);
-    // ── cards: along a curve from behind the viewer's shoulder down into the slot
+    // ── the case file: it gathers in front of the viewer, hangs there, then goes down into the slot sheet by sheet
     P3.set(SLOT.x, SLOT.y + 0.03, SLOT.z).applyMatrix4(group.matrixWorld);
     P2.set(0, 2.25, -0.55).applyMatrix4(group.matrixWorld);
-    P1.set(P3.x - 0.6, 3.1, P3.z - 2.6);
-    P0.set(P3.x - 1.7, 3.6, P3.z - 5.2);
     group.getWorldQuaternion(endQ);
     // stand the card upright in the slot, tilted back with the slope
     endQ.multiply(tmpQ.setFromEuler(new THREE.Euler(-0.3, Math.PI, 0)));
-    const tau = clamp01((t - 0.075) / (0.305 - 0.075));
+    const coming = clamp01((t - FILE_IN[0]) / (FILE_IN[1] - FILE_IN[0]));
+    const going = clamp01((t - FILE_OUT[0]) / (FILE_OUT[1] - FILE_OUT[0]));
+    let s = 0;
     for (let i = 0; i < N_CARDS; i++) {
+      const sh = SHEETS[i];
       const phi = i / (N_CARDS - 1);
-      const q = clamp01((tau - phi * 0.72) / 0.28);
+      // in: the far sheets first, the near ones last, each easing to a stop
+      const a = clamp01((coming - phi * 0.5) / 0.5);
+      const arrive = 1 - Math.pow(1 - a, 3);
+      // out: the same order; the sheet nearest the viewer is the last to go
+      const q = clamp01((going - phi * 0.6) / 0.4);
       const e = q * q * (3 - 2 * q);
       const u = lerp(e, q, 0.35);
-      const iu = 1 - u;
-      p.set(0, 0, 0)
-        .addScaledVector(P0, iu * iu * iu)
-        .addScaledVector(P1, 3 * iu * iu * u)
-        .addScaledVector(P2, 3 * iu * u * u)
-        .addScaledVector(P3, u * u * u);
-      const loose = (1 - smooth(u * 1.25)) * 0.9;
-      p.addScaledVector(jitter[i], loose);
-      const drift = time * 0.0015 + seed[i]; // the same slow breath as everything else in the air
-      p.y += Math.sin(drift) * 0.03 * loose;
-      quat.copy(spin[i]).slerp(endQ, smooth(u * 1.35));
-      const isDoc = cell[i] < DOCS;
-      const sink = 1 - seg(u, 0.93, 1);
-      sc.set(isDoc ? 0.34 : 0.44, (isDoc ? 0.452 : 0.332) * lerp(0.25, 1, sink), 1);
+      // where it hangs: it is never quite still
+      const drift = time * 0.0011 + seed[i];
+      const sway = time ? 1 : 0;
+      viewer.at(sh.x + Math.sin(drift * 0.7) * 0.004 * sway, sh.y + Math.sin(drift) * 0.007 * sway, sh.depth, hang);
+      viewer.at(from[i].x, from[i].y, from[i].z, p);
+      p.lerp(hang, arrive);
+      quat.copy(viewer.quat).multiply(tmpQ.copy(spin[i]).slerp(rest[i], arrive));
+      if (sway) quat.multiply(tmpQ.setFromEuler(eul.set(Math.sin(drift * 0.8) * 0.012, Math.sin(drift * 0.6 + 1) * 0.02, 0)));
+      const tall = viewer.tall(sh.depth) * sh.h;
+      const page = isPage(sh.cell);
+      sc.set(tall * (page ? PAGE_ASPECT : PHOTO_ASPECT), tall, 1);
+      let sink = 1;
+      if (u > 0) {
+        // down to the machine: up a little first, over the slot, then in
+        const iu = 1 - u;
+        P1.copy(p).lerp(P2, 0.45).addScaledVector(viewer.up, 0.35);
+        p.multiplyScalar(iu * iu * iu)
+          .addScaledVector(P1, 3 * iu * iu * u)
+          .addScaledVector(P2, 3 * iu * u * u)
+          .addScaledVector(P3, u * u * u);
+        quat.slerp(endQ, smooth(u * 1.35));
+        sink = 1 - seg(u, 0.93, 1);
+        const k = smooth(Math.min(1, u * 1.5));
+        sc.set(lerp(sc.x, page ? 0.34 : 0.44, k), lerp(sc.y, page ? 0.452 : 0.332, k) * lerp(0.25, 1, sink), 1);
+      }
       m4.compose(p, quat, sc);
       cards.setMatrixAt(i, m4);
-      fade[i] = q <= 0 || q >= 1 ? 0 : Math.min(1, q * (mobile ? 2 : 9)) * sink;
-      flat[i] = smooth(u * 1.2);
+      const shown = a <= 0 || q >= 1 ? 0 : Math.min(1, a * 5) * sink;
+      fade[i] = shown;
+      // big and near, a sheet is almost flat; in flight it curls; in the slot it is flat again
+      flat[i] = Math.max(0.86 * arrive * (1 - smooth(u * 3)), smooth(u * 1.2));
+      // the eye follows the file into the machine: what was out of focus comes sharp, what was dim comes into the slot's light
+      const follow = smooth(u * 1.6);
+      soft[i * 2] = sh.blur * (1 - follow) * (0.6 + 0.4 * arrive);
+      soft[i * 2 + 1] = lerp(sh.dim, 1, follow);
+      if (sh.shadow) {
+        // its shadow: a little behind it, a little lower, wider than the sheet
+        hang.copy(p).addScaledVector(viewer.up, -sc.y * 0.05);
+        hang.addScaledVector(P0.set(0, 0, -1).applyQuaternion(viewer.quat), 0.03);
+        m4.compose(hang, quat, P0.set(sc.x * 1.22, sc.y * 1.2, 1));
+        shades.setMatrixAt(s, m4);
+        shadeFade[s] = shown * arrive * (1 - smooth(u * 2.5)) * 0.62;
+        s++;
+      }
     }
     cards.instanceMatrix.needsUpdate = true;
-    fadeAttr.needsUpdate = true;
-    flatAttr.needsUpdate = true;
-    cards.visible = tau > 0 && tau < 1;
+    shades.instanceMatrix.needsUpdate = true;
+    fadeAttr.needsUpdate = flatAttr.needsUpdate = softAttr.needsUpdate = shadeAttr.needsUpdate = true;
+    cards.visible = shades.visible = coming > 0 && going < 1;
 
     // the slot: awake while the file is going in, steady afterwards
-    const feeding = seg(t, 0.08, 0.14) * (1 - seg(t, 0.29, 0.33));
+    const feeding = seg(t, FILE_OUT[0], FILE_OUT[0] + 0.03) * (1 - seg(t, FILE_OUT[1] - 0.005, FILE_OUT[1] + 0.025));
     const shimmer = 0.85 + 0.15 * Math.sin(time * 0.006);
     if (skin) (skin as THREE.MeshStandardMaterial).emissiveIntensity = 1.3 + feeding * 3.4 * shimmer;
     slotLight.intensity = 0.4 + feeding * 2.6;
@@ -420,10 +593,11 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
     if (!form.visible) return;
     slab.scale.set(lerp(0.9, 1, up), Math.max(0.001, up), 1);
     const closing = seg(t, 0.83, 0.862); // signed off
-    tint.copy(ICE).lerp(GO_C, closing);
+    tint.copy(LOOK >= 2 ? AMBER : ICE).lerp(GO_C, closing);
     glassMat.uniforms.uUp.value = up;
     glassMat.uniforms.uTime.value = time * 0.001;
-    glassMat.uniforms.uTint.value.copy(tint);
+    // amber glass goes muddy fast: the pane itself takes about half of the colour, the frame all of it
+    glassMat.uniforms.uTint.value.copy(tint).multiplyScalar(LOOK >= 2 ? lerp(0.5, 1, closing) : 1);
     frameMat.color.copy(tint).multiplyScalar(1.2);
     frameMat.opacity = up;
     bracketMat.color.copy(tint).multiplyScalar(2);
@@ -457,7 +631,7 @@ export function buildConsole(mobile: boolean, gltf: GLTF | null, casefile: THREE
     rowAnchor,
     set,
     slotWorld(out) { group.updateMatrixWorld(true); return out.copy(SLOT).applyMatrix4(group.matrixWorld); },
-    dispose() { for (const d of disposables) d.dispose(); casefile.dispose(); },
+    dispose() { for (const d of disposables) d.dispose(); casefile.dispose(); hero.dispose(); },
   };
 }
 

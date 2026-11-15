@@ -40,7 +40,7 @@ function tOfScroll(p: number) {
   return STOPS[i] + (STOPS[i + 1] - STOPS[i]) * smooth(x - i);
 }
 
-type Bay = { setProgress(t: number): void; setDock(d: { x: number; y: number; r: number } | null): void; render(timeMs: number): void; resize(): void; degrade(): boolean; dispose(): void };
+type Bay = { setProgress(t: number): void; setDock(d: { cx: number; cy: number; w: number; by: number; bh: number } | null): void; render(timeMs: number): void; resize(): void; degrade(): boolean; dispose(): void };
 type Mode = "boot" | "live" | "still";
 
 export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta: string; href: string; poster: { desktop: string[]; mobile: string[] } }) {
@@ -51,7 +51,6 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
   const railRef = useRef<HTMLDivElement>(null);
   const hintRef = useRef<HTMLDivElement>(null);
   const shadeRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const endRef = useRef<HTMLDivElement>(null);
   const oRef = useRef<SVGGElement>(null);
   const [mode, setMode] = useState<Mode>("boot");
 
@@ -130,19 +129,14 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         const shade = shadeRefs.current[i];
         if (shade) shade.style.opacity = a.toFixed(3);
       }
-      // the ending stands in the middle of the frame, with a shadow of its own behind it
       const end = alphaAt(tt, WINDOWS[4]);
-      if (endRef.current) endRef.current.style.opacity = end.toFixed(3);
-      // the logo's "o" is the scan ball: it stays empty until the ball has flown into it
-      const o = oRef.current;
-      if (o) {
-        const landed = smooth(clamp01((tt - 0.954) / 0.018));
-        o.style.opacity = landed.toFixed(3);
-        if (bay && tt > 0.84) {
-          const r = o.getBoundingClientRect();
-          const c = canvas.getBoundingClientRect();
-          bay.setDock(r.width > 0 ? { x: r.left + r.width / 2 - c.left, y: r.top + r.height / 2 - c.top, r: r.width / 2 } : null);
-        }
+      // the ending's logo is an object in the 3D room; the page only keeps its place, and tells the room where that is
+      const mark = oRef.current?.ownerSVGElement;
+      if (mark && bay && tt > 0.84) {
+        const r = mark.getBoundingClientRect();
+        const b = (mark.parentElement ?? mark).getBoundingClientRect();
+        const c = canvas.getBoundingClientRect();
+        bay.setDock(r.width > 0 ? { cx: r.left + r.width / 2 - c.left, cy: r.top + r.height / 2 - c.top, w: r.width, by: b.top + b.height / 2 - c.top, bh: b.height } : null);
       }
       const rail = railRef.current;
       if (rail) rail.style.opacity = ((1 - alphaAt(tt, WINDOWS[0])) * (1 - end)).toFixed(3);
@@ -259,7 +253,6 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         {[0, 1, 2, 3].map((i) => (
           <div key={i} ref={(el) => { shadeRefs.current[i] = el; }} aria-hidden="true" data-shade="" className={SHADE[i]} style={i === 0 ? undefined : { opacity: 0 }} />
         ))}
-        <div ref={endRef} aria-hidden="true" data-shade="" className={SHADE[4]} style={{ opacity: 0 }} />
         {/* the words */}
         <div className="wrap pointer-events-none relative h-full">
           {words.map((s, i) => (
@@ -270,7 +263,7 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
               style={i === 0 ? undefined : { opacity: 0, visibility: "hidden" }}
             >
               <div className={INNER[i]}>
-                {!s ? <HeroText c={c} cta={cta} href={href} /> : i === 4 ? <EndText word={s.word} line={s.line} cta={cta} href={href} oRef={oRef} /> : <StepText n={i} word={s.word} line={s.line} />}
+                {!s ? <HeroText c={c} cta={cta} href={href} /> : i === 4 ? <EndText word={s.word} line={s.line} cta={cta} href={href} oRef={oRef} live={mode === "live"} /> : <StepText n={i} word={s.word} line={s.line} />}
               </div>
             </div>
           ))}
@@ -319,7 +312,7 @@ const Arrow = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none" 
 function HeroText({ c, cta, href }: { c: JourneyCopy; cta: string; href: string }) {
   return (
     <div className="pointer-events-auto max-w-[720px]">
-      <h1 className="jd text-[clamp(2.5rem,11.4vw,4rem)] md:text-[clamp(3.2rem,5.6vw,6.6rem)]">
+      <h1 className="jd jd-hero text-[clamp(3rem,13.4vw,4.8rem)] md:text-[clamp(3.8rem,6.6vw,7.8rem)]">
         <span className="jd-thin block">{c.h1[0]}</span>
         <span className="jd-steel block">{c.h1[1]}</span>
       </h1>
@@ -358,7 +351,7 @@ function StepText({ n, word, line }: { n: number; word: string; line: string }) 
           <span className="jd-num-line">{n}</span>
           <span data-fill="" className="jd-num-fill absolute inset-0">{n}</span>
         </span>
-        <h2 className="jd pb-[0.14em] text-[clamp(2.3rem,10.4vw,3.6rem)] md:text-[clamp(3rem,5vw,6rem)]"><span className="sr-only">{n}. </span><Letters text={word} /></h2>
+        <h2 className="jd pb-[0.14em] text-[clamp(2.6rem,11.6vw,4rem)] md:text-[clamp(3.3rem,5.5vw,6.6rem)]"><span className="sr-only">{n}. </span><Letters text={word} /></h2>
       </div>
       <span data-rule="" aria-hidden="true" className="mt-4 block h-px w-full max-w-[420px] origin-left bg-gradient-to-r from-ice/80 to-ice/0 md:mt-5" />
       <p data-line="" className="mt-4 max-w-[26ch] text-balance text-[18px] leading-snug text-fg/85 md:mt-5 md:text-[21px]">{sentences(line)}</p>
@@ -367,13 +360,18 @@ function StepText({ n, word, line }: { n: number; word: string; line: string }) 
 }
 
 /** The ending: the logo, the last word, and the way in. Centred, with the finished car facing you under it. */
-function EndText({ word, line, cta, href, oRef }: { word: string; line: string; cta: string; href: string; oRef?: React.Ref<SVGGElement> }) {
+function EndText({ word, line, cta, href, oRef, live = false }: { word: string; line: string; cta: string; href: string; oRef?: React.Ref<SVGGElement>; /** the 3D room is drawing the logo: keep its place and its name, not its picture */ live?: boolean }) {
   return (
-    <div className="mx-auto flex max-w-[720px] flex-col items-center text-center">
-      <Wordmark className="h-[34px] w-auto text-fg md:h-[46px]" oRef={oRef} />
-      <h2 className="jd jd-go mt-6 text-[clamp(3rem,14vw,4.6rem)] md:mt-8 md:text-[clamp(3.8rem,6.4vw,7.4rem)]"><Letters text={word} /></h2>
-      <p data-line="" className="mt-3 text-balance text-[18px] leading-snug text-fg/90 md:mt-4 md:text-[21px]">{sentences(line)}</p>
-      <Link href={href} className="btn-hero pointer-events-auto mt-7 md:mt-8">
+    <div className="mx-auto flex max-w-[860px] flex-col items-center text-center">
+      {/* the logo is the last picture; the word under it is a stamp on the finished job, not a second headline */}
+      <Wordmark className={`h-[46px] w-auto text-fg sm:h-[60px] md:h-[clamp(72px,6.6vw,104px)] ${live ? "opacity-0" : ""}`} oRef={oRef} />
+      <h2 className="jd jd-go jd-tag mt-5 flex items-center gap-4 text-[17px] md:mt-7 md:gap-5 md:text-[22px]">
+        <span aria-hidden="true" className="block h-px w-10 bg-gradient-to-r from-go/0 to-go/70 md:w-16" />
+        <span className="jd-tag-word"><Letters text={word} /></span>
+        <span aria-hidden="true" className="block h-px w-10 bg-gradient-to-r from-go/70 to-go/0 md:w-16" />
+      </h2>
+      <p data-line="" className="mt-3 text-balance text-[15px] leading-snug text-fg/70 md:mt-4 md:text-[17px]">{sentences(line)}</p>
+      <Link href={href} className="btn-hero pointer-events-auto mt-7 md:mt-9">
         {cta}
         <Arrow />
       </Link>

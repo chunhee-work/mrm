@@ -25,6 +25,8 @@ export default {
       },
       fontFamily: {
         display: ["var(--font-display)", ...cjk, "system-ui", "sans-serif"],
+        // the wordmark's own typeface, for the landing page's big lettering
+        brand: ["var(--font-brand)", ...cjk, "system-ui", "sans-serif"],
         sans: ["var(--font-sans)", ...cjk, "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", ...cjk, "ui-monospace", "monospace"],
       },

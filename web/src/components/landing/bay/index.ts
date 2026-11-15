@@ -6,8 +6,9 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { BOT_R, buildBot, type Face } from "./bot";
+import { buildLogo } from "./logo";
 import { buildCar, type Part } from "./car";
-import { FORM_H, buildConsole } from "./console";
+import { FORM_H, buildConsole, type Viewer } from "./console";
 import { AMBER, BAY, GO, ICE, buildEnvironment, buildRoom, glow, lightMat } from "./room";
 import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 
@@ -25,7 +26,8 @@ import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 
 export type BayOptions = { mobile: boolean };
 /** where the logo's "o" is on the page, in CSS pixels from the canvas's top left corner */
-export type Dock = { x: number; y: number; r: number };
+/** Where the page keeps the logo's place at the ending, in canvas pixels: the middle and width of the wordmark, and the middle and height of the whole block of words under it. */
+export type Dock = { cx: number; cy: number; w: number; by: number; bh: number };
 export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
 
 type V3 = [number, number, number];
@@ -33,7 +35,7 @@ type Key = { pos: V3; look: V3; fov: number; shift: [number, number] };
 // shift: where the picture's centre sits in the frame, as a fraction of width / height (+x = right, +y = down)
 const DESKTOP: Key[] = [
   { pos: [4.9, 1.15, -6.3], look: [0.2, 0.62, 0], fov: 31, shift: [0.2, 0.03] },
-  { pos: [-6.5, 1.75, -5.3], look: [-2.8, 1.0, -2.15], fov: 34, shift: [-0.15, 0.03] },
+  { pos: [-6.5, 1.75, -5.3], look: [-2.8, 1.0, -2.15], fov: 34, shift: [0.11, 0.05] },
   { pos: [0.4, 1.3, -7.9], look: [-0.1, 0.9, 0], fov: 30, shift: [0.1, -0.03] },
   { pos: [1.0, 2.9, -7.9], look: [0.0, 0.7, -0.1], fov: 31, shift: [0.02, 0.09] },
   { pos: [0, 0.82, -8.4], look: [0, 0.8, 0], fov: 30, shift: [0, 0.27] },
@@ -54,8 +56,8 @@ const RAD = Math.PI / 180;
 const spinAt = (t: number) => 25 * seg(t, 0.02, 0.2) + 25 * seg(t, 0.2, 0.45) + 360 * seg(t, 0.47, 0.655) + 40 * seg(t, 0.84, 0.975);
 
 // ── the ball's flight
-const REST: V3 = [1.55, 1.72, -0.95]; // beside the car, before anything starts
-const WATCH: V3 = [-3.0, 1.62, -1.45]; // over the console's shoulder while the file goes in
+const REST: V3 = [2.45, 1.6, -0.35]; // off the car's nose, before anything starts
+const WATCH: V3 = [-3.0, 1.9, -2.05]; // over the console's shoulder while the file goes in
 const WATCH_NARROW: V3 = [-3.5, 1.6, -2.05]; // on a phone the file comes down the middle of the frame, so it watches from the side
 // the scan: an ellipse round the car, in the car's own space (it turns with the turntable)
 const ORBIT_A = 2.75;
@@ -137,9 +139,14 @@ function overlayMaterial(scan: Scan, amber: boolean) {
         float fres = pow(1.0 - abs(dot(n, v)), 2.0);
         // the scan goes round the car: a point has been read once the light has passed its bearing
         float th = mod(atan(vCar.z, vCar.x) - uTheta0, 6.2831853);
-        float seen = smoothstep(0.0, 0.05, uSwept - th);
-        float since = mod(uSwept - th, 6.2831853);
-        float read = seen * (0.3 + 0.7 * exp(-since / 1.1));
+        // no edge of the survey is a drawn line: where it has not been read yet the mesh thins out cell by cell,
+        // behind the light as much as at the bearing the scan set out from
+        float jit = (hash(floor(p)) - 0.5) * 0.5;
+        float lead = uSwept - th;
+        float seen = smoothstep(0.0, 0.34, lead + jit * 0.4);
+        float born = max(smoothstep(0.0, 1.0, th + jit), smoothstep(0.0, 0.34, lead - 6.2831853 + jit * 0.4));
+        float since = mod(lead, 6.2831853);
+        float read = seen * born * (0.3 + 0.7 * exp(-since / 1.1) * smoothstep(0.0, 0.3, since));
         // the light itself: the upright sheet from the ball to the middle of the car
         float off = dot(vCar.xz, vec2(-uDir.y, uDir.x));
         float facing = step(0.0, dot(vCar.xz, uDir));
@@ -227,15 +234,66 @@ function softDisc(size: number, stops: [number, string][]) {
   return new THREE.CanvasTexture(c);
 }
 
+/** What a lamp does to a lens: a few soft spikes round a point, wide at the lamp and gone by their ends. The same on every load. */
+function starburst(size: number) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d")!;
+  const r = rng(11);
+  const h = size / 2;
+  g.translate(h, h);
+  g.globalCompositeOperation = "lighter";
+  const n = 14;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + (r() - 0.5) * 0.34;
+    const len = h * (0.34 + 0.66 * r());
+    const wide = h * (0.01 + 0.018 * r());
+    const cx = Math.cos(a), sy = Math.sin(a);
+    // each spike is a few tapers one over another, so its edges are soft without a blur
+    for (let p = 0; p < 4; p++) {
+      const w = wide * (1 + p * 1.7);
+      const grd = g.createLinearGradient(0, 0, cx * len, sy * len);
+      grd.addColorStop(0, `rgba(255,255,255,${(0.085 / (p + 1)).toFixed(3)})`);
+      grd.addColorStop(0.5, `rgba(255,255,255,${(0.02 / (p + 1)).toFixed(3)})`);
+      grd.addColorStop(1, "rgba(255,255,255,0)");
+      g.fillStyle = grd;
+      g.beginPath(); g.moveTo(-sy * w, cx * w); g.lineTo(cx * len, sy * len); g.lineTo(sy * w, -cx * w); g.closePath(); g.fill();
+    }
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+/** A head lamp's beam where it lands on the floor: hot at the car, widening and fading away from it (u runs away from the car). */
+function beamOnFloor(w: number, h: number) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d")!;
+  const img = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const u = x / (w - 1);
+    const v = (y / (h - 1) - 0.5) * 2;
+    const along = Math.min(1, u / 0.07) * Math.exp(-u * 2.6) * (1 - u * u);
+    const across = Math.exp(-Math.pow(v / (0.16 + 0.62 * u), 2));
+    const a = Math.max(0, along * across);
+    const i = (y * w + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+    img.data[i + 3] = Math.round(255 * a);
+  }
+  g.putImageData(img, 0, 0);
+  return new THREE.CanvasTexture(c);
+}
+
 export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Promise<Bay> {
   const mobile = opts.mobile;
   // the two scanned models and the picture of the case file come first: without them there is no scene, and the caller shows the stills instead
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  const [carFile, consoleFile, casefile] = await Promise.all([
+  const [carFile, consoleFile, botFile, casefile, casefileHero] = await Promise.all([
     loader.loadAsync("/landing/car.glb"),
     loader.loadAsync("/landing/console.glb"),
+    loader.loadAsync("/landing/bot.glb"),
     new THREE.TextureLoader().loadAsync("/landing/casefile.webp"),
+    new THREE.TextureLoader().loadAsync("/landing/casefile-hero.webp"),
   ]);
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: "high-performance" });
@@ -270,9 +328,14 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   scene.add(rim);
   const amberLight = new THREE.PointLight(AMBER, 0, 4.5, 1.6);
   scene.add(amberLight);
-  const goLight = new THREE.PointLight(GO, 0, 9, 1.4);
-  goLight.position.set(0, 0.5, -2.6);
-  scene.add(goLight);
+  // the green of the ending comes up from the ring on the floor, one light low at each side of the car: a light hung in
+  // front of the nose burns a hot spot into the flat panel between the lamps
+  const goLights = [-1, 1].map((sx) => {
+    const l = new THREE.PointLight(GO, 0, 9, 1.4);
+    l.position.set(sx * 2.5, 0.22, -1.5);
+    scene.add(l);
+    return l;
+  });
 
   // ── things
   const scan: Scan = { uDir: { value: new THREE.Vector2(1, 0) }, uTheta0: { value: SCAN_FROM }, uSwept: { value: 0 }, uOn: { value: 0 }, uTime: { value: 0 }, uSpin: { value: 0 } };
@@ -284,10 +347,10 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   const frameScale = car.frame ? car.frame.scale.x : 1;
   const room = buildRoom(mobile);
   scene.add(room.group);
-  const con = buildConsole(mobile, consoleFile, casefile);
+  const con = buildConsole(mobile, consoleFile, casefile, casefileHero);
   scene.add(con.group);
-  const bot = buildBot();
-  scene.add(bot.group);
+  const bot = buildBot(botFile);
+  scene.add(bot.group, bot.key);
 
   // ── the scan light. Everything in it starts at the ball:
   //    an upright fan of rays from the ball to the middle of the car, a soft beam down its centre,
@@ -409,29 +472,59 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   // parts that stand on the floor slide; everything else is in the air and breathes
   const floats = car.parts.map((p) => !/^(wheel|under)/.test(p.name));
 
-  // ── the head lamps, for the ending: a hot core and a long flare on each, and the light they throw on the floor
+  // ── the head lamps, for the ending. A lamp pointed at a lens does five things, and each is one piece here: a hot
+  //    core, a wide soft glow, fine streaks round it, one long streak across the frame, and its beam on the floor.
+  //    Between the two lamps a veil of light lifts the whole picture, the way a dark room looks with lamps in your eyes.
   const glowTex = softDisc(128, [[0, "rgba(255,255,255,1)"], [0.18, "rgba(255,255,255,0.55)"], [0.5, "rgba(255,255,255,0.1)"], [1, "rgba(255,255,255,0)"]]);
-  const poolTex = softDisc(128, [[0, "rgba(255,255,255,0.9)"], [0.5, "rgba(255,255,255,0.25)"], [1, "rgba(255,255,255,0)"]]);
+  const haloTex = softDisc(256, [[0, "rgba(255,255,255,0.5)"], [0.07, "rgba(255,255,255,0.34)"], [0.18, "rgba(255,255,255,0.19)"], [0.36, "rgba(255,255,255,0.085)"], [0.6, "rgba(255,255,255,0.028)"], [0.82, "rgba(255,255,255,0.007)"], [1, "rgba(255,255,255,0)"]]);
+  const rayTex = starburst(mobile ? 256 : 512);
+  const beamTex = beamOnFloor(256, 128);
   const LAMP_WHITE = new THREE.Color(0xeaf6ff);
-  const lampFx = car.lamps.map((lamp) => {
-    const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: glow(LAMP_WHITE, 1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
-    const flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: glow(ICE, 1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
-    core.renderOrder = flare.renderOrder = 12;
-    scene.add(core, flare);
-    const pool = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.5), new THREE.MeshBasicMaterial({ map: poolTex, color: glow(LAMP_WHITE, 0.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const lampSprite = (map: THREE.Texture, color: THREE.Color, order: number) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map, color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    sp.renderOrder = order;
+    sp.visible = false;
+    scene.add(sp);
+    return sp;
+  };
+  const lampFx = car.lamps.map((lamp, li) => {
+    const halo = lampSprite(haloTex, glow(LAMP_WHITE, 1), 11);
+    const rays = lampSprite(rayTex, glow(LAMP_WHITE, 1.2), 11);
+    rays.material.rotation = li * 1.9 + 0.3;
+    const flare = lampSprite(glowTex, glow(ICE, 1.6), 12);
+    const core = lampSprite(glowTex, glow(LAMP_WHITE, 2.6), 12);
+    const BEAM = 11;
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(BEAM, 5), new THREE.MeshBasicMaterial({ map: beamTex, color: glow(LAMP_WHITE, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
     pool.rotation.x = -Math.PI / 2;
-    pool.position.set(lamp.home.x + 2.3, 0.007, lamp.home.z);
+    pool.position.set(lamp.home.x + BEAM / 2 - 0.1, 0.007, lamp.home.z);
     pool.renderOrder = 2;
+    pool.visible = false;
     car.group.add(pool);
-    return { lamp, core, flare, pool };
+    return { lamp, core, halo, rays, flare, pool };
   });
+  // under the dark that hangs behind the words (9), so the light fills the frame and the words still read
+  const veil = lampSprite(haloTex, glow(LAMP_WHITE, 1), 8);
+
+  // ── the logo, for the ending: the wordmark as a solid thing in the room, its "o" left open for the ball. It has a
+  //    lamp of its own in front of it, the head lamps reach it from below, and a patch of dark hangs behind the words.
+  const logo = buildLogo();
+  scene.add(logo.group);
+  const logoKey = new THREE.PointLight(0xffffff, 0, 7, 1.4);
+  const logoUnder = new THREE.PointLight(LAMP_WHITE, 0, 3.2, 1.4);
+  scene.add(logoKey, logoUnder);
+  const shadeTex = softDisc(128, [[0, "rgba(0,0,0,1)"], [0.45, "rgba(0,0,0,0.72)"], [1, "rgba(0,0,0,0)"]]);
+  const shade = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: shadeTex, color: BAY, transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false }));
+  shade.renderOrder = 9;
+  shade.visible = false;
+  scene.add(shade);
 
   // ── post
   const size = new THREE.Vector2();
   const target = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: mobile ? 0 : 4 });
   const composer = new EffectComposer(renderer, target);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), mobile ? 0.42 : 0.5, 0.6, 1.0);
+  const BLOOM = mobile ? 0.42 : 0.5;
+  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), BLOOM, 0.6, 1.0);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
 
@@ -497,6 +590,8 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       .addScaledVector(up, -(fy - 0.5 - cur.shift.y) * 2 * halfH);
   }
 
+  const viewer: Viewer = { at: inFrame, tall: (depth) => 2 * depth * Math.tan((cur.fov * RAD) / 2), quat: camera.quaternion, up };
+
   /** Everything in the room for the current `t`. `time` only adds the breathing; 0 gives the plain still. */
   function pose(time: number) {
     const wave = time * (TAU / 4200); // one breath every 4.2 s
@@ -514,7 +609,32 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     formTop.y += Math.sin(wave + 1.1) * 0.012 * idle;
     con.form.position.copy(formTop);
     con.form.quaternion.copy(camera.quaternion).multiply(yawQ);
-    con.set(t, time);
+    con.set(t, time, viewer);
+
+    // ── the logo: the word stands up where the page keeps its place, swinging round to face you as it does
+    const wordUp = dock ? seg(t, 0.882, 0.955) : 0;
+    logo.set(wordUp);
+    shade.visible = !!dock && t > 0.86;
+    logoKey.intensity = logoUnder.intensity = 0;
+    if (dock && t > 0.86) {
+      const focal = H / 2 / Math.tan((cur.fov * RAD) / 2);
+      inFrame(dock.cx / W, dock.cy / H, DOCK_DEPTH, logo.group.position);
+      logo.group.quaternion.copy(camera.quaternion);
+      logo.group.rotateY(-(1 - smooth(wordUp)) * 0.85 + (time ? Math.sin(time * 0.00055) * 0.11 : 0));
+      logo.group.rotateX(-0.2 + (time ? Math.sin(time * 0.0004 + 1.3) * 0.04 : 0));
+      logo.group.scale.setScalar((dock.w * DOCK_DEPTH) / focal / logo.width);
+      logo.group.updateMatrixWorld(true);
+      logoKey.position.copy(camera.position).addScaledVector(fwd, DOCK_DEPTH * 0.5).addScaledVector(up, 0.75).addScaledVector(right, -0.5);
+      logoKey.intensity = wordUp * 1.5;
+      logoUnder.position.copy(logo.group.position).addScaledVector(up, -0.5).addScaledVector(fwd, 0.35);
+      logoUnder.intensity = seg(t, 0.925, 0.995) * 1.6;
+      // the dark behind the words: wide enough for the logo, tall enough for everything under it
+      const sd = DOCK_DEPTH + 0.6;
+      inFrame(dock.cx / W, dock.by / H, sd, shade.position);
+      shade.quaternion.copy(camera.quaternion);
+      shade.scale.set((Math.max(dock.w * 1.9, W * 0.5) * sd) / focal, (dock.bh * 2.1 * sd) / focal, 1);
+      (shade.material as THREE.MeshBasicMaterial).opacity = seg(t, 0.872, 0.94) * 0.88;
+    }
 
     // ── the ball: where it is
     const toWatch = seg(t, 0.045, 0.165);
@@ -541,25 +661,22 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       scale = lerp(1, DESK_SCALE, toDesk);
     }
     if (toDock > 0) {
-      // into the logo: the same size as its "o", at the place where the page draws it
-      const focal = H / 2 / Math.tan((cur.fov * RAD) / 2);
-      const fx = dock ? dock.x / W : 0.5;
-      const fy = dock ? dock.y / H : 0.2;
-      inFrame(fx, fy, DOCK_DEPTH, va);
+      // into the logo: the word's first "o" is a ring, and the ball settles in it
+      let size = 0.2;
+      if (dock) { va.copy(logo.o).applyMatrix4(logo.group.matrixWorld); size = (logo.ballRadius * logo.group.scale.x) / BOT_R; }
+      else inFrame(0.5, 0.2, DOCK_DEPTH, va);
       ball.lerp(va, toDock);
       ball.addScaledVector(up, Math.sin(toDock * Math.PI) * 0.16);
-      scale = lerp(scale, dock ? (dock.r * DOCK_DEPTH) / (BOT_R * focal) : 0.2, toDock);
+      scale = lerp(scale, size, toDock);
     }
     // it is never quite still; more so when the page is
     ball.y += Math.sin(wave + 0.6) * 0.055 * scale * (time ? 0.4 + 0.6 * breath : 0) * (1 - toDock);
     bot.group.position.copy(ball);
     bot.group.scale.setScalar(scale);
-    // the page's own "o" takes over once the ball has landed on it
-    bot.group.visible = !(dock && t > 0.972);
     // ── what it looks at: the viewer, the slot, the car, the form, the viewer again
     gaze.set(0, 0, 0)
       .addScaledVector(va.copy(cur.pos).lerp(vb.set(0.6, 0.9, 0), 0.22), 1 - toWatch)
-      .addScaledVector(slot, toWatch * (1 - toOrbit))
+      .addScaledVector(vb.copy(slot).lerp(camera.position, 0.45), toWatch * (1 - toOrbit))
       .addScaledVector(va.set(0, lerp(0.75, ball.y, 0.35), 0).lerp(cur.pos, 0.42), toOrbit * (1 - toDesk))
       .addScaledVector(va.copy(formTop).addScaledVector(up, -FORM_H * 0.45).lerp(camera.position, 0.55), toDesk * (1 - toDock))
       .addScaledVector(camera.position, toDock);
@@ -581,8 +698,13 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const done = seg(t, 0.9, 0.99);
     bot.light.color.copy(eyeColour.copy(ICE).lerp(GO, seg(t, 0.862, 0.9) * (1 - toDock)));
     bot.light.intensity = (0.7 + on * 8) * scale * scale;
-    bot.halo.opacity = (0.04 + on * 0.16) * (1 - toDock);
+    bot.halo.opacity = (0.1 + on * 0.14) * (1 - toDock * 0.6);
     bot.halo.color.copy(eyeColour);
+    // its own small lamp stays up and to the viewer's side of it, wherever it goes
+    va.subVectors(camera.position, ball).normalize();
+    bot.key.position.copy(ball).addScaledVector(va, 0.5 * scale).addScaledVector(up, 0.42 * scale).addScaledVector(right, -0.3 * scale);
+    bot.key.distance = 1.5 * Math.max(scale, 0.35);
+    bot.key.intensity = 1.5 * scale * scale * (1 - toDock * 0.85);
 
     // ── scan: the light goes round the car, and the paint under it gives up its motes to the ball
     scan.uOn.value = on;
@@ -668,7 +790,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const dim = seg(t, 0.845, 0.925);
     room.tubes.color.copy(ICE).multiplyScalar(3.2 * (1 - dim));
     room.tubes.visible = dim < 0.995;
-    goLight.intensity = done * 6;
+    for (const l of goLights) l.intensity = done * 4;
     const lit = seg(t, 0.925, 0.995);
     if (car.lampMaterial) car.lampMaterial.emissiveIntensity = 1.5 + lit * 5;
     // a flare only shows to someone the lamp is pointed at
@@ -676,19 +798,38 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     vb.subVectors(camera.position, car.group.position).normalize();
     const facing = Math.pow(clamp01(va.dot(vb)), 3);
     const flick = time ? 1 + Math.sin(time * 0.004) * 0.03 : 1;
+    vd.set(0, 0, 0);
     for (const fx of lampFx) {
       const k = lit * facing * flick;
-      fx.core.visible = fx.flare.visible = fx.pool.visible = k > 0.003;
+      fx.core.visible = fx.halo.visible = fx.rays.visible = fx.flare.visible = fx.pool.visible = k > 0.003;
       if (k <= 0.003) continue;
       vc.copy(fx.lamp.home).add(ve.set(0.06, 0, 0)).applyMatrix4(car.group.matrixWorld);
+      vd.addScaledVector(vc, 1 / lampFx.length);
       fx.core.position.copy(vc);
+      fx.halo.position.copy(vc);
+      fx.rays.position.copy(vc);
       fx.flare.position.copy(vc);
-      fx.core.scale.setScalar(0.3 + 0.12 * k);
-      fx.flare.scale.set(1.5 + 0.9 * k, 0.03, 1);
-      (fx.core.material as THREE.SpriteMaterial).opacity = k;
-      (fx.flare.material as THREE.SpriteMaterial).opacity = k * 0.6;
-      (fx.pool.material as THREE.MeshBasicMaterial).opacity = lit * (mobile ? 0.16 : 0.4);
+      fx.core.scale.setScalar(0.3 + 0.1 * k);
+      fx.halo.scale.setScalar((mobile ? 4.4 : 6.4) * (0.7 + 0.3 * k));
+      // the spikes open as the lamp comes up
+      fx.rays.scale.setScalar((mobile ? 3 : 4.6) * (0.5 + 0.5 * k));
+      fx.flare.scale.set((mobile ? 5 : 10) + 3 * k, 0.03, 1);
+      fx.core.material.opacity = k;
+      fx.halo.material.opacity = k * (mobile ? 0.3 : 0.34);
+      fx.rays.material.opacity = k * 0.5;
+      fx.flare.material.opacity = k * 0.6;
+      (fx.pool.material as THREE.MeshBasicMaterial).opacity = lit * (mobile ? 0.4 : 0.6);
     }
+    // the light fills the room: a wide wash centred between the lamps, reaching every edge of the frame
+    const veilK = lit * facing;
+    veil.visible = veilK > 0.003;
+    if (veil.visible) {
+      veil.position.copy(vd);
+      veil.scale.set(mobile ? 13 : 30, mobile ? 15 : 15, 1);
+      veil.material.opacity = veilK * (mobile ? 0.14 : 0.16);
+    }
+    // lamps in your eyes: everything bright in the picture spreads further
+    bloom.strength = BLOOM * (1 + veilK * 0.35);
   }
 
   function resize() {
@@ -770,7 +911,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       car.dispose();
       holo.dispose();
       amberHolo.dispose();
-      glowTex.dispose(); poolTex.dispose();
+      logo.dispose(); shadeTex.dispose(); glowTex.dispose(); haloTex.dispose(); rayTex.dispose(); beamTex.dispose();
       leadMat.dispose(); dotGeo.dispose(); dotMat.dispose();
       for (const l of leads) l.geo.dispose();
       scene.traverse((o) => {
