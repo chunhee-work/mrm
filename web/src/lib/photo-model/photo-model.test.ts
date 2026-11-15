@@ -19,7 +19,8 @@ test("flag: OFF unless exactly 1, measured, and fully configured", () => {
   assert.equal(photoModelOn({ ...env, PHOTO_MODEL_ENABLED: "true" }, cfg), false);
   assert.equal(photoModelOn({ ...env, PHOTO_MODEL_ENABLED: undefined }, cfg), false);
   assert.equal(photoModelOn(env, { measuredFor: null } as never), false);
-  assert.equal(photoModelOn({ ...env, HF_SPACE_TOKEN: "" }, cfg), false);
+  assert.equal(photoModelOn({ ...env, HF_SPACE_TOKEN: "" }, cfg), true); // the token is only for a private HF Space
+  assert.equal(photoModelOn({ ...env, PHOTO_MODEL_SECRET: "" }, cfg), false);
 });
 
 const job = (o: Partial<PhotoModelJob>): PhotoModelJob => ({

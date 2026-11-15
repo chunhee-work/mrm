@@ -13,7 +13,7 @@ export const photoModelConfig = {
   maxSubmitAttempts: 30,
 } as const;
 
-/** OFF unless PHOTO_MODEL_ENABLED is exactly "1" AND the dry run has set measuredFor. Unset or invalid = OFF. */
+/** OFF unless PHOTO_MODEL_ENABLED is exactly "1", the dry run has set measuredFor, and URL + secret exist (HF_SPACE_TOKEN is only needed for a private Hugging Face Space). Unset or invalid = OFF. */
 export function photoModelOn(env = process.env, cfg = photoModelConfig): boolean {
-  return env.PHOTO_MODEL_ENABLED === "1" && !!cfg.measuredFor && !!env.PHOTO_MODEL_URL && !!env.PHOTO_MODEL_SECRET && !!env.HF_SPACE_TOKEN;
+  return env.PHOTO_MODEL_ENABLED === "1" && !!cfg.measuredFor && !!env.PHOTO_MODEL_URL && !!env.PHOTO_MODEL_SECRET;
 }

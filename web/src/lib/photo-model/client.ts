@@ -5,8 +5,10 @@ import type { ModelResult } from "./rules";
 
 // The only code that talks to the Hugging Face Space. Photo bytes and vehicle text never reach a log or an error message.
 const base = () => (process.env.PHOTO_MODEL_URL ?? "").replace(/\/+$/, "");
+// A private Hugging Face Space also wants a bearer token; a self-hosted service (Oracle VM) does not.
+const bearer = (): Record<string, string> => (process.env.HF_SPACE_TOKEN ? { Authorization: `Bearer ${process.env.HF_SPACE_TOKEN}` } : {});
 const headers = (canonical: string, ts: string) => ({
-  Authorization: `Bearer ${process.env.HF_SPACE_TOKEN ?? ""}`,
+  ...bearer(),
   "X-Photo-Ts": ts,
   "X-Photo-Sig": sign(process.env.PHOTO_MODEL_SECRET ?? "", canonical),
 });
@@ -14,7 +16,7 @@ const now = () => String(Math.floor(Date.now() / 1000));
 
 export async function health(): Promise<{ ok: boolean; waiting: number } | null> {
   try {
-    const r = await fetch(`${base()}/health`, { headers: { Authorization: `Bearer ${process.env.HF_SPACE_TOKEN ?? ""}` }, signal: AbortSignal.timeout(cfg.healthTimeoutMs), cache: "no-store" });
+    const r = await fetch(`${base()}/health`, { headers: bearer(), signal: AbortSignal.timeout(cfg.healthTimeoutMs), cache: "no-store" });
     if (!r.ok) return null;
     const b = (await r.json()) as { ok?: boolean; waiting?: number };
     return b.ok ? { ok: true, waiting: Number(b.waiting ?? 0) } : null;
