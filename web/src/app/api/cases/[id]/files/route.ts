@@ -40,11 +40,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     .where(and(eq(schema.cases.id, id), inArray(schema.cases.status, ["pending_doc", "failed"]))).returning({ id: schema.cases.id });
   if (!moved.length) return NextResponse.json({ error: "not waiting" }, { status: 409 });
 
-  if (files.length) {
-    await db.insert(schema.caseFiles).values(files.map((f) => ({ caseId: id, kind: f.kind, blobUrl: f.url, originalName: f.name, size: f.size })));
+  // The driver in production has no transactions, so if any insert fails the case goes back to how it was and can be retried.
+  try {
+    if (files.length) {
+      await db.insert(schema.caseFiles).values(files.map((f) => ({ caseId: id, kind: f.kind, blobUrl: f.url, originalName: f.name, size: f.size })));
+    }
+    await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" });
+    await db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: files.length ? `Received ${files.length} more file(s)` : "Queued again" });
+    await db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.add_files", detail: id });
+  } catch (e) {
+    await db.update(schema.cases).set({ status: c.status, pendingDoc: c.pendingDoc, error: c.error }).where(eq(schema.cases.id, id)).catch(() => {});
+    await db.delete(schema.jobs).where(and(eq(schema.jobs.caseId, id), eq(schema.jobs.step, "intake"), eq(schema.jobs.state, "queued"))).catch(() => {});
+    throw e;
   }
-  await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" });
-  await db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: files.length ? `Received ${files.length} more file(s)` : "Queued again" });
-  await db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.add_files", detail: id });
   return NextResponse.json({ ok: true });
 }
