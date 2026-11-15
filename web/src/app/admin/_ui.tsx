@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/brand-mark";
 import { requireAdmin } from "@/lib/admin/auth";
+import { day, int, words } from "@/lib/admin/format";
 import type { Scope } from "@/lib/admin/queries";
 import {
   IconBack, IconCases, IconCost, IconErrors, IconExit, IconHealth, IconInfo, IconNext, IconOk, IconOverview, IconUsers,
@@ -17,32 +17,7 @@ export async function readSp(sp: Sp) {
 }
 export const withScope = (href: string, scope: Scope) => (scope.includeInternal ? `${href}?internal=1` : href);
 
-// ---- formats: money to the cent, times in Malaysia time (the owner's), short enough to scan ----
-export const usd = (n: number | null) =>
-  n === null ? "no price" : n === 0 ? "$0" : n < 0.005 ? "<$0.01" : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-export const int = (n: number) => n.toLocaleString("en-US");
-const TZ = "Asia/Kuala_Lumpur";
-const dayTime = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
-const dayOnly = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "numeric", month: "short" });
-/** "14 Nov, 21:21" */
-export const when = (iso: string | null) => (iso ? dayTime.format(new Date(iso)) : "–");
-/** "17 Oct" from a YYYY-MM-DD bucket */
-export const day = (ymd: string | undefined) => (ymd ? dayOnly.format(new Date(ymd + "T00:00:00Z")) : "");
-/** "5 min ago", "3 h ago", "2 d ago"; the full time after a month */
-export function ago(iso: string | null, now = Date.now()) {
-  if (!iso) return "Never";
-  const m = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000));
-  if (m < 1) return "Just now";
-  if (m < 60) return `${m} min ago`;
-  if (m < 60 * 24) return `${Math.round(m / 60)} h ago`;
-  if (m < 60 * 24 * 30) return `${Math.round(m / 1440)} d ago`;
-  return when(iso);
-}
-/** read_docs -> "Read docs": database codes as words */
-export const words = (code: string | null | undefined) => {
-  const s = (code ?? "").replace(/[_-]+/g, " ").trim();
-  return s ? s[0].toUpperCase() + s.slice(1) : "–";
-};
+export { ago, day, int, usd, when, words } from "@/lib/admin/format";
 
 // ---- case status: the same words the adjuster sees in the app ----
 const STATUS: Record<string, { label: string; tone: "run" | "wait" | "done" | "fail" }> = {
@@ -106,15 +81,8 @@ function TestToggle({ scope }: { scope: Scope }) {
   );
 }
 
-/** Design options A / B / C, picked by the `admin_v` cookie while the owner chooses. */
-export async function variant(): Promise<"a" | "b" | "c"> {
-  const v = (await cookies()).get("admin_v")?.value;
-  return v === "b" || v === "c" ? v : "a";
-}
-
 export async function Shell({ current, scope, title, back, children }: { current: string; scope: Scope; title: ReactNode; back?: { href: string; label: string }; children: ReactNode }) {
   const me = await requireAdmin();
-  const v = await variant();
   const href = (slug: string) => withScope(`/admin${slug ? "/" + slug : ""}`, scope);
   const brand = (
     <Link href={href("")} className="flex items-center gap-2.5">
@@ -137,41 +105,17 @@ export async function Shell({ current, scope, title, back, children }: { current
     </div>
   );
 
-  if (v === "b") {
-    // Option B: a side rail on a computer, a tab bar under the thumb on a phone.
-    return (
-      <div className="theme-light min-h-screen bg-bay text-fg lg:grid lg:grid-cols-[264px_1fr]">
-        <aside className="border-b border-hair bg-panel lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
-          <div className="flex h-[60px] items-center justify-between px-4 lg:px-5">{brand}<span className="lg:hidden">{exit}</span></div>
-          <nav aria-label="Admin" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-hair bg-panel lg:static lg:mt-2 lg:block lg:border-t-0 lg:px-3">
-            {NAV.map(([slug, label, Icon]) => (
-              <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined}
-                className={`flex flex-col items-center gap-1 py-2 text-[11px] font-medium lg:mb-0.5 lg:h-11 lg:flex-row lg:gap-3 lg:rounded-[3px] lg:px-3 lg:py-0 lg:text-[15px] ${current === slug ? "text-ice lg:bg-ice lg:text-bay" : "text-mute hover:text-fg lg:hover:bg-panel2"}`}>
-                <Icon />{label}
-              </Link>
-            ))}
-          </nav>
-          <div className="mt-auto hidden border-t border-hair p-3 lg:block">
-            <p className="truncate px-2 pb-1 text-[13px] text-mute">{me.email}</p>
-            {exit}
-          </div>
-        </aside>
-        <main id="main" className="min-w-0 px-4 pb-24 pt-5 sm:px-8 lg:pb-10 lg:pt-7">{head}{children}</main>
-      </div>
-    );
-  }
-
-  // Options A and C: the app's own top bar. A names every tab; C shows icons only.
+  // The app's own top bar: every tab has an icon and its name; on a phone the six sit in one row under it.
   return (
     <div className="theme-light min-h-screen bg-bay text-fg">
       <header className="sticky top-0 z-40 border-b border-hair bg-panel">
         <div className="wrap flex h-[60px] items-center gap-4 lg:h-16 lg:gap-8">
           {brand}
-          <nav aria-label="Admin" className={`hidden self-stretch lg:flex ${v === "c" ? "gap-1" : "gap-6"}`}>
+          <nav aria-label="Admin" className="hidden gap-6 self-stretch lg:flex">
             {NAV.map(([slug, label, Icon]) => (
-              <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined} title={label} aria-label={label}
-                className={`relative flex items-center gap-2 px-1 text-[15px] after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] ${v === "c" ? "w-12 justify-center" : ""} ${current === slug ? "font-semibold text-ice after:bg-ice" : "font-medium text-mute after:bg-transparent hover:text-fg"}`}>
-                <Icon />{v === "c" ? null : label}
+              <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined}
+                className={`relative flex items-center gap-2 px-1 text-[15px] after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] ${current === slug ? "font-semibold text-ice after:bg-ice" : "font-medium text-mute after:bg-transparent hover:text-fg"}`}>
+                <Icon />{label}
               </Link>
             ))}
           </nav>
@@ -182,9 +126,9 @@ export async function Shell({ current, scope, title, back, children }: { current
         </div>
         <nav aria-label="Admin" className="grid grid-cols-6 border-t border-hairsoft lg:hidden">
           {NAV.map(([slug, label, Icon]) => (
-            <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined} aria-label={label}
+            <Link key={slug} href={href(slug)} aria-current={current === slug ? "page" : undefined}
               className={`relative flex flex-col items-center gap-1 py-2 text-[11px] font-medium after:absolute after:inset-x-2 after:-bottom-px after:h-[2px] ${current === slug ? "text-ice after:bg-ice" : "text-mute after:bg-transparent"}`}>
-              <Icon />{v === "c" ? null : label}
+              <Icon />{label}
             </Link>
           ))}
         </nav>

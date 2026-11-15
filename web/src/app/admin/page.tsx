@@ -2,12 +2,12 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { missingConfig } from "@/lib/admin/config";
 import { overview } from "@/lib/admin/queries";
 import { IconCases, IconClock, IconCost, IconErrors, IconHealth, IconMail, IconUsers } from "./_icons";
-import { Attention, Bars, Card, Shell, Stat, StatusBars, int, readSp, usd, variant, withScope, type Sp, type Todo } from "./_ui";
+import { Attention, Bars, Card, Shell, Stat, StatusBars, int, readSp, usd, withScope, type Sp, type Todo } from "./_ui";
 
 export default async function Overview({ searchParams }: { searchParams: Sp }) {
   await requireAdmin();
   const { scope } = await readSp(searchParams);
-  const [o, v] = await Promise.all([overview(scope), variant()]);
+  const o = await overview(scope);
   const to = (p: string) => withScope(`/admin/${p}`, scope);
   const statuses = Object.entries(o.cases.byStatus).map(([status, n]) => ({ status, n }));
   const todo: Todo[] = [
@@ -31,7 +31,7 @@ export default async function Overview({ searchParams }: { searchParams: Sp }) {
   return (
     <Shell current="" scope={scope} title="Overview">
       <div className="grid gap-4">
-        {v === "b" ? <>{stats}{attention}</> : <>{attention}{stats}</>}
+        {attention}{stats}
         <div className="grid gap-4 lg:grid-cols-2">
           <Card icon={<IconUsers />} title="New users, 30 days"><Bars label="Signups per day" data={o.signups.map((s) => ({ date: s.date, v: s.n }))} /></Card>
           <Card icon={<IconCases />} title="Cases by status"><StatusBars rows={statuses} /></Card>
