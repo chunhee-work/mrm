@@ -84,7 +84,7 @@ export const lemonsqueezy: PaymentProvider = {
         type: "checkouts",
         attributes: {
           checkout_options: { discount: false },
-          checkout_data: { email, custom: { order_id: order.id } },
+          checkout_data: { email, billing_address: { country: "MY" }, custom: { order_id: order.id } },
           product_options: { redirect_url: returnUrl },
         },
         relationships: {

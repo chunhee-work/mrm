@@ -126,7 +126,7 @@ export default function Billing(p: Props) {
     <section aria-labelledby="bill-hist">
       <h2 id="bill-hist" className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.history")}</h2>
       {!p.orders.length ? <div className="border border-hair bg-white p-5 text-[14px] text-mute">{t("bill.noHistory")}</div> : (
-        <div className="max-h-[320px] overflow-y-auto border border-hair bg-white">
+        <div className="max-h-[320px] overflow-auto border border-hair bg-white">
           <table className="w-full text-left text-[14px]">
             <thead className="sticky top-0 bg-white text-[12px] uppercase tracking-wide text-mute"><tr><th className="px-4 py-2 font-medium">{t("bill.col.date")}</th><th className="px-2 py-2 font-medium">{t("bill.col.pack")}</th><th className="px-2 py-2 text-right font-medium">{t("bill.col.amount")}</th><th className="px-4 py-2 text-right font-medium">{t("bill.col.status")}</th></tr></thead>
             <tbody>
@@ -149,7 +149,7 @@ export default function Billing(p: Props) {
     <main className="wrap py-8 lg:py-12">
       <h1 className="mb-6 text-[28px] font-semibold text-ink lg:text-[34px]">{t("bill.title")}</h1>
       {Banner}
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-start">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
         <div className="grid gap-6"><h2 className="text-[20px] font-semibold text-ink">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
         <div className="grid gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
       </div>
