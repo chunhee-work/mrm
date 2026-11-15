@@ -27,8 +27,8 @@ export function buildEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
   strip(12, 2.4, [0, 2.4, -9], [0, 0, 0], 1.9); // soft wall on the camera side
   strip(13, 0.3, [0, 2.3, -6.5], [0, 0, 0], 2.6);
   strip(14, 1.6, [0, 0.35, -7.5], [0.5, 0, 0], 0.55); // a low, dim sheet on the camera side, leaning up: what the doors and wings mirror, since the camera looks down on them // one long strip on the camera side: the highlight that runs down the car's shoulder
-  strip(6, 3, [9, 2.5, 0], [0, -Math.PI / 2, 0], 1.5); // ahead of the nose
-  strip(6, 2.4, [-9, 2.4, 0], [0, Math.PI / 2, 0], 0.7); // behind the tail
+  strip(6, 3, [9, 2.5, 0], [0, -Math.PI / 2, 0], 1.2); // ahead of the nose
+  strip(6, 3, [-9, 2.5, 0], [0, Math.PI / 2, 0], 1.2); // behind the tail: the same light as the nose, so neither end of the car falls away
   strip(8, 1, [0, 0.6, 9], [0, Math.PI, 0], 0.5, new THREE.Color(0x6f8aa5)); // far side, low
   const pm = new THREE.PMREMGenerator(renderer);
   const tex = pm.fromScene(s, 0.035).texture;

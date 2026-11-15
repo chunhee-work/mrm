@@ -83,16 +83,19 @@ const PAINTED = ["bonnet", "roof", "tailgate", "bumper", "fender", "door", "quar
  * Paint as on a real car: the scanned colour under a smooth clear coat. The coat ignores the scan's bumpy normal map, so the
  * room's light tubes run over the body as clean lines; the layer under it is calmed down so it does not fight them.
  */
-function lacquer(base: THREE.MeshStandardMaterial): THREE.MeshPhysicalMaterial {
+function lacquer(base: THREE.MeshStandardMaterial, glass = false): THREE.MeshPhysicalMaterial {
   const m = new THREE.MeshPhysicalMaterial();
   THREE.MeshStandardMaterial.prototype.copy.call(m, base);
   m.defines = { STANDARD: "", PHYSICAL: "" };
+  // the scan marks some panels as bare metal and others as plastic, in patches: one car, one paint
+  m.metalnessMap = null;
+  m.roughnessMap = null;
+  m.metalness = glass ? 0 : 0.55;
+  m.roughness = glass ? 0.12 : 0.42;
   m.clearcoat = 1;
-  m.clearcoatRoughness = 0.045;
-  m.roughness = base.roughness * 0.7;
-  m.normalScale.setScalar(0.35);
-  m.envMapIntensity = 1.9;
-  m.emissiveIntensity = 1.25;
+  m.clearcoatRoughness = 0.07;
+  m.normalScale.setScalar(0.3);
+  m.envMapIntensity = glass ? 0.6 : 1.5;
   darkBacks(m);
   return m;
 }
@@ -211,7 +214,7 @@ export function buildCar(gltf: GLTF | null, overlayMaterial: THREE.ShaderMateria
       if (!lampMaterial) { lampMaterial = material.clone(); darkBacks(lampMaterial); }
       mesh.material = lampMaterial;
     } else if (PAINTED.some((prefix) => name.startsWith(prefix)) && material) {
-      if (!paint) { paint = lacquer(material); pane = lacquer(material); pane.envMapIntensity = 0.6; }
+      if (!paint) { paint = lacquer(material); pane = lacquer(material, true); }
       const isGlass = GLASS.some((prefix) => name.startsWith(prefix));
       mesh.material = isGlass ? pane! : paint;
       (isGlass ? glass : panels).push(mesh);
@@ -237,7 +240,7 @@ export function buildCar(gltf: GLTF | null, overlayMaterial: THREE.ShaderMateria
   }
   gltf.scene.updateMatrixWorld(true);
   smoothNormals(panels, 90);
-  smoothNormals(glass, 120);
+  smoothNormals(glass, 320); // a pane is close to flat: its mirror image should not wobble
   group.add(gltf.scene);
   const damaged = DAMAGED.map((n) => parts.find((p) => p.name === n)).filter((p): p is Part => !!p);
 
