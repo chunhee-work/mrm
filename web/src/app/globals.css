@@ -52,6 +52,36 @@
     line-height: 1.2;
   }
   :lang(zh-CN) .display, :lang(zh-CN) .display-2 { line-height: 1.12; letter-spacing: 0; }
+  /* The landing journey's lettering: the wordmark's own face, in sentence case, a light line over a heavy one. */
+  .jd {
+    font-family: theme(fontFamily.brand);
+    font-weight: 600;
+    letter-spacing: -0.028em;
+    line-height: 1.02;
+    color: theme(colors.fg);
+  }
+  .jd-thin { font-weight: 300; color: rgba(238, 242, 246, 0.86); }
+  /* brushed steel with a breath of the scan light in it: the same tones as the car's paint */
+  .jd-steel {
+    background: linear-gradient(180deg, #ffffff 8%, #d9e6ef 46%, #9fb9c9 78%, #c6e6f7 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .jd-go .jd-steel { background: linear-gradient(180deg, #eafff5 6%, #7fe9bd 48%, #3ddc97 100%); -webkit-background-clip: text; background-clip: text; }
+  /* the ending's stamp: small, widely spaced; the padding puts back the space the last letter trails, so it stays centred */
+  .jd-tag { font-weight: 600; letter-spacing: 0.34em; text-transform: uppercase; }
+  .jd-tag-word { padding-left: 0.34em; }
+  :lang(zh-CN) .jd-tag { letter-spacing: 0.5em; }
+  :lang(zh-CN) .jd-tag-word { padding-left: 0.5em; }
+  .jd-slot { display: inline-block; overflow: hidden; padding: 0.1em 0.02em 0.12em; margin: -0.1em -0.02em -0.12em; vertical-align: bottom; }
+  .jd-num { font-family: theme(fontFamily.brand); font-weight: 200; line-height: 0.8; font-variant-numeric: lining-nums; }
+  .jd-num-line { color: transparent; -webkit-text-stroke: 1.5px rgba(191, 233, 255, 0.75); }
+  .jd-num-fill { background: linear-gradient(180deg, #ffffff 0%, #bfe9ff 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  :lang(zh-CN) .jd { line-height: 1.14; letter-spacing: 0.02em; font-weight: 500; }
+  /* Malay's first line is half as long again: a size down, so it stays clear of the car */
+  :lang(ms) .jd-hero { font-size: clamp(2.3rem, 10.4vw, 3.8rem); }
+  @media (min-width: 768px) { :lang(ms) .jd-hero { font-size: clamp(3.1rem, 5.3vw, 6.2rem); } }
   .num { font-variant-numeric: tabular-nums lining-nums; }
   .note {
     font-family: theme(fontFamily.mono);
@@ -67,6 +97,13 @@
   .btn-primary {
     @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] bg-ice px-6 text-[15px] font-semibold text-bay transition-colors duration-150 hover:bg-white;
   }
+  /* the one way in on the landing page: lit from above like the car's paint, with a soft spill of the scan light under it */
+  .btn-hero {
+    @apply inline-flex h-14 items-center justify-center gap-3 whitespace-nowrap rounded-[3px] px-8 text-[16px] font-semibold text-bay transition-[filter,transform] duration-200;
+    background: linear-gradient(180deg, #f6fcff 0%, #bfe9ff 58%, #a3d3ec 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(191, 233, 255, 0.35), 0 18px 44px -18px rgba(191, 233, 255, 0.55);
+  }
+  .btn-hero:hover { filter: brightness(1.08); transform: translateY(-1px); }
   .btn-line {
     @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] border border-ice px-6 text-[15px] font-semibold text-ice transition-colors duration-150 hover:bg-ice hover:text-bay;
   }

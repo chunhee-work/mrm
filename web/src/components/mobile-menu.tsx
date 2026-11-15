@@ -16,7 +16,7 @@ export default function MobileMenu({ label, items }: { label: string; items: Ite
     return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("pointerdown", onDown); };
   }, [open]);
   return (
-    <div ref={ref} className="lg:hidden">
+    <div ref={ref} className="xl:hidden">
       <button
         type="button"
         aria-label={label}

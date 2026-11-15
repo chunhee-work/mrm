@@ -39,44 +39,49 @@ export function buildEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
   return tex;
 }
 
-function markingsTexture(): THREE.CanvasTexture {
+/** The turntable the car stands on: a rim, a degree scale and four index marks. It turns with the car. */
+function turntableTexture(): THREE.CanvasTexture {
   const S = 2048;
-  const M = 16; // metres covered
+  const M = 7; // metres covered
   const c = document.createElement("canvas");
   c.width = c.height = S;
   const g = c.getContext("2d")!;
-  const px = (m: number) => (m / M + 0.5) * S;
+  const k = S / M;
   const r = rng(7);
   g.clearRect(0, 0, S, S);
-  g.strokeStyle = "rgba(150,170,188,0.42)";
-  g.fillStyle = "rgba(150,170,188,0.42)";
-  g.lineCap = "butt";
-  // bay outline: corner brackets, not a full box
-  const hx = 3.25, hz = 1.92, arm = 0.7;
-  g.lineWidth = S * (0.045 / M);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+  g.translate(S / 2, S / 2);
+  const ink = (a: number) => `rgba(160,180,198,${a})`;
+  const ring = (rad: number, w: number, a: number) => { g.strokeStyle = ink(a); g.lineWidth = w * k; g.beginPath(); g.arc(0, 0, rad * k, 0, Math.PI * 2); g.stroke(); };
+  ring(TABLE_R, 0.03, 0.5);
+  ring(TABLE_R - 0.3, 0.008, 0.26);
+  ring(TABLE_R + 0.09, 0.006, 0.2);
+  // the scale: a tick every 2 degrees, longer every 10, longest every 30
+  for (let d = 0; d < 360; d += 2) {
+    const a = (d * Math.PI) / 180;
+    const len = d % 30 === 0 ? 0.24 : d % 10 === 0 ? 0.13 : 0.06;
+    g.strokeStyle = ink(d % 30 === 0 ? 0.62 : 0.36);
+    g.lineWidth = (d % 30 === 0 ? 0.016 : 0.009) * k;
     g.beginPath();
-    g.moveTo(px(sx * (hx - arm)), px(sz * hz));
-    g.lineTo(px(sx * hx), px(sz * hz));
-    g.lineTo(px(sx * hx), px(sz * (hz - arm)));
+    g.moveTo(Math.cos(a) * (TABLE_R - 0.035) * k, Math.sin(a) * (TABLE_R - 0.035) * k);
+    g.lineTo(Math.cos(a) * (TABLE_R - 0.035 - len) * k, Math.sin(a) * (TABLE_R - 0.035 - len) * k);
     g.stroke();
   }
-  // measuring ticks along both long edges, every 25 cm, longer every metre
-  g.lineWidth = S * (0.012 / M);
-  for (let i = -10; i <= 10; i++) {
-    const x = i * 0.25;
-    if (Math.abs(x) > hx - arm - 0.1) continue;
-    const len = i % 4 === 0 ? 0.16 : 0.07;
-    for (const sz of [-1, 1]) { g.beginPath(); g.moveTo(px(x), px(sz * hz)); g.lineTo(px(x), px(sz * (hz - len))); g.stroke(); }
+  // four index marks, and the car's centre line, dashed
+  g.fillStyle = ink(0.6);
+  for (let q = 0; q < 4; q++) {
+    g.save(); g.rotate((q * Math.PI) / 2);
+    g.beginPath(); g.moveTo((TABLE_R - 0.36) * k, 0); g.lineTo((TABLE_R - 0.5) * k, -0.05 * k); g.lineTo((TABLE_R - 0.5) * k, 0.05 * k); g.closePath(); g.fill();
+    g.restore();
   }
-  // centre line, dashed
-  g.lineWidth = S * (0.018 / M);
-  g.setLineDash([S * (0.22 / M), S * (0.16 / M)]);
-  g.beginPath(); g.moveTo(px(-3.2), px(0)); g.lineTo(px(3.2), px(0)); g.stroke();
+  g.strokeStyle = ink(0.34);
+  g.lineWidth = 0.014 * k;
+  g.setLineDash([0.2 * k, 0.15 * k]);
+  g.beginPath(); g.moveTo(-(TABLE_R - 0.6) * k, 0); g.lineTo((TABLE_R - 0.6) * k, 0); g.stroke();
   g.setLineDash([]);
+  g.setTransform(1, 0, 0, 1, 0, 0);
   // wear: knock small holes out of the paint
   g.globalCompositeOperation = "destination-out";
-  for (let i = 0; i < 2600; i++) {
+  for (let i = 0; i < 2200; i++) {
     g.fillStyle = `rgba(0,0,0,${0.25 + r() * 0.6})`;
     const w = 2 + r() * 9;
     g.fillRect(r() * S, r() * S, w, 1 + r() * 4);
@@ -88,10 +93,15 @@ function markingsTexture(): THREE.CanvasTexture {
   return t;
 }
 
+/** Radius of the turntable, in metres. */
+export const TABLE_R = 2.78;
+
 export type Room = {
   group: THREE.Group;
   ring: THREE.Mesh;
   ringMat: THREE.ShaderMaterial;
+  /** everything painted on the turntable, and the car's contact shadow: turn it with the car */
+  table: THREE.Group;
   tubes: THREE.MeshBasicMaterial;
   dust: THREE.Points;
   reflector: Reflector | null;
@@ -117,11 +127,20 @@ export function buildRoom(mobile: boolean): Room {
   floor.receiveShadow = true;
   group.add(floor);
 
-  const marks = new THREE.Mesh(keep(new THREE.PlaneGeometry(16, 16)), keep(new THREE.MeshBasicMaterial({ map: keep(markingsTexture()), transparent: true, depthWrite: false, opacity: 0.85 })));
+  const table = new THREE.Group();
+  group.add(table);
+  const marks = new THREE.Mesh(keep(new THREE.PlaneGeometry(7, 7)), keep(new THREE.MeshBasicMaterial({ map: keep(turntableTexture()), transparent: true, depthWrite: false, opacity: 0.85 })));
   marks.rotation.x = -Math.PI / 2;
   marks.position.y = 0.003;
   marks.renderOrder = 1;
-  group.add(marks);
+  table.add(marks);
+  // the fixed pointer the scale turns past
+  const pointer = new THREE.Mesh(keep(new THREE.CircleGeometry(0.07, 3)), keep(new THREE.MeshBasicMaterial({ color: glow(ICE, 0.75), transparent: true, opacity: 0.8, depthWrite: false })));
+  pointer.rotation.x = -Math.PI / 2;
+  pointer.rotation.z = Math.PI / 2;
+  pointer.position.set(0, 0.004, -(TABLE_R + 0.24));
+  pointer.renderOrder = 1;
+  group.add(pointer);
 
   // the pool of light the tubes throw on the floor round the car
   const poolTex = (() => {
@@ -153,7 +172,7 @@ export function buildRoom(mobile: boolean): Room {
   blob.rotation.x = -Math.PI / 2;
   blob.position.y = 0.005;
   blob.renderOrder = 2;
-  group.add(blob);
+  table.add(blob);
 
   // ── ceiling tubes
   const tubes = keep(lightMat(ICE, 3.2));
@@ -175,28 +194,26 @@ export function buildRoom(mobile: boolean): Room {
   for (let i = 0; i < 44; i++) { mtx.makeTranslation(-11 + i * 0.5, 2.6, 6.2 + (i % 2) * 0.06); ribs.setMatrixAt(i, mtx); }
   group.add(ribs);
 
-  // ── the ring that closes round the car when the case is done
+  // ── the ring that closes round the turntable when the case is done
   const ringMat = keep(new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    uniforms: { uSweep: { value: 0 }, uColor: { value: glow(GO, 2.4) } },
+    uniforms: { uSweep: { value: 0 }, uColor: { value: glow(GO, 2.4) }, uR: { value: TABLE_R } },
     vertexShader: "varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
     fragmentShader: `
-      uniform float uSweep; uniform vec3 uColor; varying vec2 vP;
+      uniform float uSweep; uniform vec3 uColor; uniform float uR; varying vec2 vP;
       void main(){
-        // rounded rectangle outline, drawn clockwise from the nose
-        vec2 h = vec2(3.05, 1.75); float rad = 0.9;
-        vec2 q = abs(vP) - h + rad;
-        float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rad;
+        float d = length(vP) - uR;
         float line = 1.0 - smoothstep(0.012, 0.03, abs(d));
         float halo = (1.0 - smoothstep(0.0, 0.5, abs(d))) * 0.10;
-        float a = atan(vP.y, vP.x) / 6.2831853 + 0.5;
-        float on = 1.0 - smoothstep(uSweep - 0.02, uSweep, a);
+        // drawn both ways round from the far side, so it closes at the viewer's feet
+        float a = abs(atan(vP.x, -vP.y)) / 3.14159265;
+        float on = 1.0 - smoothstep(uSweep - 0.03, uSweep, a);
         on *= step(0.001, uSweep);
         gl_FragColor = vec4(uColor, (line + halo) * on);
       }`,
   }));
-  const ring = new THREE.Mesh(keep(new THREE.PlaneGeometry(8.4, 5.4)), ringMat);
+  const ring = new THREE.Mesh(keep(new THREE.PlaneGeometry(7, 7)), ringMat);
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = 0.006;
   ring.renderOrder = 3;
@@ -213,7 +230,7 @@ export function buildRoom(mobile: boolean): Room {
   group.add(dust);
 
   return {
-    group, ring, ringMat, tubes, dust, reflector,
+    group, ring, ringMat, table, tubes, dust, reflector,
     dispose() {
       for (const d of disposables) d.dispose();
       if (reflector) { reflector.dispose(); }

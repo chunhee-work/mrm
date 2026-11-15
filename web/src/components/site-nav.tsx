@@ -8,7 +8,12 @@ import MobileMenu from "./mobile-menu";
 export default async function SiteNav({ authed, overlay = false }: { authed: boolean; overlay?: boolean }) {
   const { t } = await getT();
   // The bar carries only what a visitor acts on. Everything else is one scroll away or in the footer.
-  const links = [{ href: "/contact", label: t("nav.contact") }];
+  const info = [
+    { href: "/how-it-works", label: t("nav.how") },
+    { href: "/security", label: t("nav.security") },
+    { href: "/faq", label: t("nav.faq") },
+  ];
+  const links = [...info, { href: "/contact", label: t("nav.contact") }];
   const account = authed
     ? [{ href: "/dashboard", label: t("nav.myCases"), primary: true }]
     : [{ href: "/login", label: t("nav.login") }, { href: "/signup", label: t("nav.start"), primary: true }];
@@ -21,6 +26,10 @@ export default async function SiteNav({ authed, overlay = false }: { authed: boo
         <div className="flex items-center gap-1.5 lg:gap-5">
           <LangSwitch />
           <div className="hidden items-center gap-5 lg:flex">
+            {/* the three information pages sit in the bar where there is room for them; narrower, they are in the menu */}
+            {info.map((l) => (
+              <Link key={l.href} href={l.href} className="hidden text-[15px] font-medium text-mute transition-colors hover:text-fg xl:block">{l.label}</Link>
+            ))}
             {authed ? (
               <Link href="/dashboard" className="btn-primary !h-10 !px-5">{t("nav.myCases")}</Link>
             ) : (
