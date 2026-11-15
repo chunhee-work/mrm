@@ -4,7 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import CaseView, { type CaseDetail } from "./view";
-import type { CaseDataT } from "@/lib/read-docs";
+import { normalizeCaseData } from "@/lib/read-docs";
 import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 
 import { pageMeta } from "@/lib/meta";
@@ -27,7 +27,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const stale = c.status === "reading" && Date.now() - since > STALE_MS;
   if (stale) after(() => scanCase(id, "recover", c.error));
   else if (c.status === "uploaded" && Date.now() - c.createdAt.getTime() > 60_000) after(() => scanCase(id, "auto"));
-  const d = (c.caseData ?? null) as CaseDataT | null;
+  const d = normalizeCaseData(c.caseData);
   const detail: CaseDetail = {
     id: c.id,
     plate: c.plate,
@@ -38,11 +38,11 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     fileCount: files.length,
     facts: d && {
       owner: d.client_vehicle.owner.name,
-      policyNo: d.client_policy?.policy_no ?? null,
-      policeReport: d.police.report_no,
-      accidentAt: d.police.accident_datetime,
-      atFaultPlate: d.at_fault.plate ?? d.police.blamed_plate,
-      atFaultInsurer: d.at_fault.policy?.insurer ?? null,
+      policyNo: d.client_policy?.policy_no || null,
+      policeReport: d.police.report_no || null,
+      accidentAt: d.police.accident_datetime || null,
+      atFaultPlate: d.at_fault.plate || d.police.blamed_plate || null,
+      atFaultInsurer: d.at_fault.policy?.insurer || null,
     },
     events: events.map((e) => ({ at: e.at.toISOString(), message: e.message })),
     stale,

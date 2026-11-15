@@ -69,6 +69,11 @@ async function main() {
       const id2 = await newCase("uploaded"); await scanCase(id2, "auto");
       assert.equal((await get(id2)).plate, "ABC123");
     }],
+    ["empty text from the reader is stored as NULL in the insurer and car model columns", async () => {
+      claude = async () => ({ ...(await ok()()), data: { missing: [], plate: "", client_policy: { insurer: "" }, client_vehicle: { model: "" } } });
+      const id = await newCase("uploaded"); await scanCase(id, "auto"); const c = await get(id);
+      assert.equal(c.insurer, null); assert.equal(c.carModel, null); assert.equal(c.status, "phase_a");
+    }],
     ["missing documents -> pending_doc with the list", async () => {
       claude = ok(["Police report"]); const id = await newCase("uploaded");
       await scanCase(id, "auto"); const c = await get(id);
