@@ -34,12 +34,14 @@ export async function overview(scope: Scope, db: Db = defaultDb) {
       FROM "user" u WHERE ${userOk(scope)}`),
     rows(db, sql`SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') d, count(*) n FROM "user" u
       WHERE created_at > now() - interval '30 days' AND ${userOk(scope)} GROUP BY 1`),
-    rows(db, sql`SELECT c.status, count(*) n, count(*) FILTER (WHERE c.status = 'failed' AND c.created_at > now() - interval '7 days') failed7
+    rows(db, sql`SELECT c.status, count(*) n, count(*) FILTER (WHERE c.status = 'failed' AND c.created_at > now() - interval '7 days') failed7,
+      count(*) FILTER (WHERE c.status NOT IN ('done', 'failed', 'pending_doc') AND c.created_at < now() - interval '1 hour') stuck
       FROM cases c WHERE ${idOk(scope, "c.created_by")} GROUP BY c.status`),
     rows(db, sql`SELECT coalesce(sum(cost_usd) FILTER (WHERE at >= date_trunc('day', now())), 0) today,
       coalesce(sum(cost_usd) FILTER (WHERE at > now() - interval '7 days'), 0) d7,
       coalesce(sum(cost_usd) FILTER (WHERE at > now() - interval '30 days'), 0) d30,
-      count(*) calls, count(*) FILTER (WHERE ok AND cost_usd IS NULL) unpriced, count(*) FILTER (WHERE NOT ok) failed
+      count(*) calls, count(*) FILTER (WHERE ok AND cost_usd IS NULL) unpriced, count(*) FILTER (WHERE NOT ok) failed,
+      count(*) FILTER (WHERE NOT ok AND at > now() - interval '7 days') failed7
       FROM llm_calls c WHERE ${idOk(scope, "c.user_id")}`),
     rows(db, sql`SELECT count(*) FILTER (WHERE at > now() - interval '7 days' AND status = 'sent') sent7,
       count(*) FILTER (WHERE at > now() - interval '7 days' AND status = 'failed') failed7, min(at) since FROM email_log`),
@@ -55,8 +57,8 @@ export async function overview(scope: Scope, db: Db = defaultDb) {
   return {
     users: { total: num(u[0]?.total), verified: num(u[0]?.verified), d7: num(u[0]?.d7), d30: num(u[0]?.d30) },
     signups: series,
-    cases: { total: Object.values(statusCounts).reduce((a, b) => a + b, 0), byStatus: statusCounts, failed7: cs.reduce((a, r) => a + num(r.failed7), 0) },
-    cost: { today: num(cost[0]?.today), d7: num(cost[0]?.d7), d30: num(cost[0]?.d30), calls: num(cost[0]?.calls), unpriced: num(cost[0]?.unpriced), failedCalls: num(cost[0]?.failed) },
+    cases: { total: Object.values(statusCounts).reduce((a, b) => a + b, 0), byStatus: statusCounts, failed7: cs.reduce((a, r) => a + num(r.failed7), 0), stuck: cs.reduce((a, r) => a + num(r.stuck), 0) },
+    cost: { today: num(cost[0]?.today), d7: num(cost[0]?.d7), d30: num(cost[0]?.d30), calls: num(cost[0]?.calls), unpriced: num(cost[0]?.unpriced), failedCalls: num(cost[0]?.failed), failedCalls7: num(cost[0]?.failed7) },
     email: { sent7: num(em[0]?.sent7), failed7: num(em[0]?.failed7), since: em[0]?.since ? new Date(em[0].since as string).toISOString() : null },
     conflicts: num(conf[0]?.n),
   };
@@ -84,7 +86,7 @@ export async function usersList(scope: Scope, q: string, page: number, db: Db = 
 
 export async function userDetail(id: string, db: Db = defaultDb) {
   const [u, cases, calls] = await Promise.all([
-    rows(db, sql`SELECT id, email, name, email_verified, created_at FROM "user" WHERE id = ${id}`),
+    rows(db, sql`SELECT id, email, name, email_verified, created_at, (SELECT max(s.updated_at) FROM session s WHERE s.user_id = "user".id) last_seen FROM "user" WHERE id = ${id}`),
     rows(db, sql`SELECT c.id, c.status, c.car_model, c.insurer, c.created_at, coalesce(sum(l.cost_usd), 0) cost
       FROM cases c LEFT JOIN llm_calls l ON l.case_id = c.id WHERE c.created_by = ${id} GROUP BY c.id ORDER BY c.created_at DESC LIMIT 50`),
     rows(db, sql`SELECT at, case_id, purpose, model, input_tokens, output_tokens, cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens, cost_usd, ok
