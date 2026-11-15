@@ -7,21 +7,22 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Values live in globals.css as CSS variables: dark "Night Bay" by default (landing), light "Day Bay" for the working pages.
         // "Night Bay": an inspection bay at night. One cold light (ice) does the looking,
         // amber marks what is damaged or needs attention, green only ever means done.
-        bay: "#07090C", // the room — page
-        panel: "#0E1217", // raised surface — cards, inputs, menus
-        panel2: "#151A21", // second level — hover, wells
-        hair: "#222933", // hairline
-        hairsoft: "#171C24", // faint grid
-        fg: "#EEF2F6", // text
-        mute: "#8A94A3", // secondary text (6.4:1 on bay)
-        ice: "#BFE9FF", // scan light — primary buttons, links, focus
-        icetint: "#0F1A22", // quiet ice fill
-        amber: "#FFB020", // damaged / needs attention / being keyed / error
-        ambertint: "#2A1E08",
-        go: "#3DDC97", // done
-        gotint: "#0C2219",
+        bay: "rgb(var(--c-bay) / <alpha-value>)", // the room — page
+        panel: "rgb(var(--c-panel) / <alpha-value>)", // raised surface — cards, inputs, menus
+        panel2: "rgb(var(--c-panel2) / <alpha-value>)", // second level — hover, wells
+        hair: "rgb(var(--c-hair) / <alpha-value>)", // hairline
+        hairsoft: "rgb(var(--c-hairsoft) / <alpha-value>)", // faint grid
+        fg: "rgb(var(--c-fg) / <alpha-value>)", // text
+        mute: "rgb(var(--c-mute) / <alpha-value>)", // secondary text (6.4:1 on bay)
+        ice: "rgb(var(--c-ice) / <alpha-value>)", // scan light — primary buttons, links, focus
+        icetint: "rgb(var(--c-icetint) / <alpha-value>)", // quiet ice fill
+        amber: "rgb(var(--c-amber) / <alpha-value>)", // damaged / needs attention / being keyed / error
+        ambertint: "rgb(var(--c-ambertint) / <alpha-value>)",
+        go: "rgb(var(--c-go) / <alpha-value>)", // done
+        gotint: "rgb(var(--c-gotint) / <alpha-value>)",
       },
       fontFamily: {
         display: ["var(--font-display)", ...cjk, "system-ui", "sans-serif"],

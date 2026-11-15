@@ -5,7 +5,7 @@ import AppBar from "./app/app-bar";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const me = await getUserOrNull(); // the pages themselves call requireUser()
   return (
-    <div className="flex min-h-screen min-h-dvh flex-col">
+    <div className="day flex min-h-screen min-h-dvh flex-col">
       <AppBar email={me?.user.email ?? ""} />
       <main id="main" className="flex min-h-0 flex-1 flex-col">{children}</main>
     </div>

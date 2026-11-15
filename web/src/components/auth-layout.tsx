@@ -8,7 +8,7 @@ import WhatsAppFab from "./whatsapp-fab";
 
 // The pool of light the sheet stands in.
 const POOL: CSSProperties = {
-  backgroundImage: "radial-gradient(50% 50% at 50% 46%, rgba(191,233,255,0.11), rgba(191,233,255,0.03) 55%, transparent 72%)",
+  backgroundImage: "radial-gradient(50% 50% at 50% 46%, rgb(var(--c-ice) / 0.11), rgb(var(--c-ice) / 0.03) 55%, transparent 72%)",
 };
 
 /** Account pages (log in, sign up, password reset): brand + language, one sheet, three small links. */
@@ -20,7 +20,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
     { href: "/contact", label: t("footer.contact") },
   ];
   return (
-    <div className="flex min-h-screen flex-col supports-[min-height:100dvh]:min-h-[100dvh]">
+    <div className="day flex min-h-screen flex-col supports-[min-height:100dvh]:min-h-[100dvh]">
       <header className="border-b border-hair bg-bay">
         <div className="wrap flex h-[60px] items-center justify-between gap-4 lg:h-16">
           <Link href="/" className="flex h-11 items-center" aria-label={t("nav.home")}>
@@ -34,7 +34,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         {/* wide screens: the bay itself, mid-scan, to the right of the sheet (a still from the landing page's 3D scene) */}
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[64%] lg:block" aria-hidden="true">
           <img src="/landing/bay-2.jpg" alt="" className="h-full w-full object-cover object-[88%_center]" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,#07090C_0%,rgba(7,9,12,0.55)_26%,rgba(7,9,12,0)_52%),linear-gradient(0deg,#07090C_0%,rgba(7,9,12,0)_22%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgb(var(--c-bay))_0%,rgb(var(--c-bay)/0.55)_26%,rgb(var(--c-bay)/0)_52%),linear-gradient(0deg,rgb(var(--c-bay))_0%,rgb(var(--c-bay)/0)_22%)]" />
         </div>
         <div className="relative mx-auto w-full max-w-[440px] sm:my-auto lg:mx-0 lg:ml-[clamp(32px,8.5vw,168px)]">
           <div className="pointer-events-none absolute -inset-x-[320px] -inset-y-[200px] hidden sm:block lg:hidden" style={POOL} aria-hidden="true" />

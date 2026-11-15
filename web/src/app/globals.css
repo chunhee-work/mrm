@@ -3,6 +3,28 @@
 @tailwind utilities;
 
 /* ───────────────────────── base ───────────────────────── */
+/* Colour tokens as "r g b" so Tailwind opacity modifiers work.
+   Night Bay (default): the landing page and its sub-pages.
+   Day Bay: the working pages (app + account). Same hues, the room is white instead of black. A layout opts in with class "day". */
+:root {
+  --c-bay: 7 9 12; --c-panel: 14 18 23; --c-panel2: 21 26 33; --c-hair: 34 41 51; --c-hairsoft: 23 28 36;
+  --c-fg: 238 242 246; --c-mute: 138 148 163;
+  --c-ice: 191 233 255; --c-icetint: 15 26 34;
+  --c-amber: 255 176 32; --c-ambertint: 42 30 8;
+  --c-go: 61 220 151; --c-gotint: 12 34 25;
+  --c-ink: 47 56 68; /* line drawings */
+}
+html:has(.day) {
+  color-scheme: light;
+  --c-bay: 244 246 249; --c-panel: 255 255 255; --c-panel2: 238 242 246; --c-hair: 208 215 224; --c-hairsoft: 228 233 239;
+  --c-fg: 11 18 32; --c-mute: 84 96 112;
+  --c-ice: 10 104 158; --c-icetint: 226 241 250;
+  --c-amber: 176 84 4; --c-ambertint: 253 240 218;
+  --c-go: 10 120 80; --c-gotint: 224 245 235;
+  --c-ink: 170 182 196;
+}
+html:has(.day) .btn-primary:hover, html:has(.day) .btn:hover { background: rgb(7 84 130); }
+
 @layer base {
   html {
     color-scheme: dark;
