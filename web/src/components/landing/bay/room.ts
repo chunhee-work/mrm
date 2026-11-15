@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Reflector } from "three/addons/objects/Reflector.js";
 import { rng } from "./math";
+import { CAPPED } from "./hdr";
 
 export const ICE = new THREE.Color(0xbfe9ff);
 export const AMBER = new THREE.Color(0xffb020);
@@ -203,6 +204,7 @@ export function buildRoom(mobile: boolean): Room {
     vertexShader: "varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
     fragmentShader: `
       uniform float uSweep; uniform vec3 uColor; uniform float uR; varying vec2 vP;
+      ${CAPPED}
       void main(){
         float d = length(vP) - uR;
         float line = 1.0 - smoothstep(0.012, 0.03, abs(d));
@@ -211,7 +213,7 @@ export function buildRoom(mobile: boolean): Room {
         float a = abs(atan(vP.x, -vP.y)) / 3.14159265;
         float on = 1.0 - smoothstep(uSweep - 0.03, uSweep, a);
         on *= step(0.001, uSweep);
-        gl_FragColor = vec4(uColor, (line + halo) * on);
+        gl_FragColor = capped(vec4(uColor, (line + halo) * on));
       }`,
   }));
   const ring = new THREE.Mesh(keep(new THREE.PlaneGeometry(7, 7)), ringMat);
