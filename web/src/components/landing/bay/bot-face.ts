@@ -8,6 +8,7 @@ import { BOT_R, type Bot, type Face } from "./bot";
  * It faces +z (so `group.lookAt(p)` turns its face to p). Its face is a small drawing, redrawn only when it changes.
  *   mode 0  two open eyes        mode 1  one scan bar with a light running along it
  *   mode 2  three working dots   mode 3  done: one eye stays, the other becomes a white tick
+ * With its two eyes open (mode 0) it can also glance: `look` slides the eyes inside the visor.
  * Between two modes the eyes close to two short lines and open again as the next one.
  */
 
@@ -26,6 +27,9 @@ const EYE = "#ffffff";
 const EYE_W = 52;
 const EYE_H = 112;
 const EYE_X = 82;
+// how far a glance moves the eyes, in pixels of the face drawing
+const LOOK_X = 44;
+const LOOK_Y = 20;
 
 function pill(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
   const r = Math.min(w, h) / 2;
@@ -39,7 +43,11 @@ function pill(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   g.fill();
 }
 
-export function buildFaceBot(): Bot {
+/**
+ * `ink`: for a frame that is shown as its own negative (the account pages draw the bay in ink on white paper).
+ * The ball is made bright there, shell and visor both, with dark eyes, so that it comes out dark with light eyes.
+ */
+export function buildFaceBot(ink = false): Bot {
   const group = new THREE.Group();
   const tilt = new THREE.Group();
   tilt.rotation.z = 0.12; // the mascot's head is always a little to one side
@@ -53,6 +61,7 @@ export function buildFaceBot(): Bot {
     keep(new THREE.MeshPhysicalMaterial({ color: 0xd3dae2, roughness: 0.34, metalness: 0.08, clearcoat: 1, clearcoatRoughness: 0.12, emissive: 0xbfd3e6, emissiveIntensity: 0.035, envMapIntensity: 1.25, sheen: 0.4, sheenRoughness: 0.5, sheenColor: 0xbfe9ff })),
   );
   body.castShadow = true;
+  if (ink) { body.material.emissive.set(0xffffff); body.material.emissiveIntensity = 0.62; }
   tilt.add(body);
 
   // a patch of a slightly larger ball, facing +z
@@ -77,6 +86,7 @@ export function buildFaceBot(): Bot {
     keep(new THREE.MeshPhysicalMaterial({ color: 0x020304, roughness: 0.22, metalness: 0, specularIntensity: 0.3, clearcoat: 0.14, clearcoatRoughness: 0.05, alphaMap: mask(0), transparent: true, depthWrite: false })),
   );
   visor.renderOrder = 5;
+  if (ink) { visor.material.emissive.set(0xffffff); visor.material.emissiveIntensity = 0.95; }
   tilt.add(visor);
 
   const eyeCanvas = document.createElement("canvas");
@@ -89,6 +99,8 @@ export function buildFaceBot(): Bot {
     keep(new THREE.MeshBasicMaterial({ map: eyeTex, color: glow(new THREE.Color(0xffffff), 1.25), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })),
   );
   eyes.renderOrder = 6;
+  // in ink the eyes are a dark drawing on the bright glass: the same texture, used as its own cut-out
+  if (ink) { eyes.material.map = null; eyes.material.alphaMap = eyeTex; eyes.material.blending = THREE.NormalBlending; eyes.material.color.set(0x000000); }
   tilt.add(eyes);
 
   const light = new THREE.PointLight(ICE, 1, 5.5, 1.6);
@@ -104,6 +116,7 @@ export function buildFaceBot(): Bot {
   const haloSprite = new THREE.Sprite(halo);
   haloSprite.scale.setScalar(BOT_R * 7);
   haloSprite.renderOrder = 4;
+  haloSprite.visible = !ink; // a glow would come out as a smudge
   group.add(haloSprite);
 
   const EX = [TW / 2 - EYE_X, TW / 2 + EYE_X];
@@ -113,7 +126,10 @@ export function buildFaceBot(): Bot {
 
   function setFace(f: Face) {
     const open = Math.max(0, Math.min(1, f.open));
-    const key = `${f.mode}|${open.toFixed(2)}|${f.mode === 0 || f.mode === 3 ? 0 : f.phase.toFixed(2)}`;
+    // the open eyes can glance: they slide inside the visor, a little, never out of it
+    const lx = f.mode === 0 && f.look ? Math.round(Math.max(-1, Math.min(1, f.look[0])) * LOOK_X) : 0;
+    const ly = f.mode === 0 && f.look ? Math.round(Math.max(-1, Math.min(1, f.look[1])) * LOOK_Y) : 0;
+    const key = `${f.mode}|${open.toFixed(2)}|${f.mode === 0 ? `${lx},${ly}` : f.mode === 3 ? 0 : f.phase.toFixed(2)}`;
     if (key === drawn) return;
     drawn = key;
     g.globalCompositeOperation = "source-over";
@@ -126,9 +142,9 @@ export function buildFaceBot(): Bot {
       pill(g, x - EYE_W / 2, CY - 5, EYE_W, 10);
       g.globalAlpha = 1;
     };
-    const eye = (x: number) => { g.fillStyle = EYE; const h = 10 + (EYE_H - 10) * open; pill(g, x - EYE_W / 2, CY - h / 2, EYE_W, h); };
+    const eye = (x: number, y = CY) => { g.fillStyle = EYE; const h = 10 + (EYE_H - 10) * open; pill(g, x - EYE_W / 2, y - h / 2, EYE_W, h); };
     if (f.mode === 0) {
-      for (const x of EX) eye(x);
+      for (const x of EX) eye(x + lx, CY - ly);
     } else if (f.mode === 1) {
       // the two lines reach for each other and become one bar
       g.fillStyle = EYE;

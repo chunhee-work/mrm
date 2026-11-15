@@ -28,11 +28,11 @@ import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 /** Which ball flies in the bay: the black lens ball (a scanned model) or the white ball with a face (drawn in code). */
 export type BotLook = "lens" | "face";
 export const BOT_LOOK: BotLook = "face";
-export type BayOptions = { mobile: boolean; bot?: BotLook };
+export type BayOptions = { mobile: boolean; bot?: BotLook; /** the frame will be shown as its negative (account pages): the ball is lit so that it comes out dark */ ink?: boolean };
 /** where the logo's "o" is on the page, in CSS pixels from the canvas's top left corner */
 /** Where the page keeps the logo's place at the ending, in canvas pixels: the middle and width of the wordmark, and the middle and height of the whole block of words under it. */
 export type Dock = { cx: number; cy: number; w: number; by: number; bh: number };
-export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; /** where the viewer's mouse is in the frame, -1..1 each way (right and up are positive); the head lamps lean after it at the ending */ setPointer(x: number, y: number): void; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
+export type Bay = { setProgress(t: number): void; setDock(d: Dock | null): void; /** where the viewer's mouse is in the frame, -1..1 each way (right and up are positive); the head lamps lean after it at the ending */ setPointer(x: number, y: number): void; /** turn the turntable by hand, in radians, on top of where the page has it (the account pages let the reader drag the car round) */ setSpin(rad: number): void; /** take the ball off the turntable: it keeps its place in the room while the car is turned by hand under it, `rad` radians round the car from that place, its light still on the car (the account pages let it drift on its own) */ setBotDrift(rad: number): void; /** where the ball is in the frame, as fractions of its width and height from the top left (for a mask that has to follow it) */ botAt(): [number, number]; render(timeMs: number): void; resize(): void; /** drop one step of quality; false when there is nothing left to drop */ degrade(): boolean; dispose(): void };
 
 type V3 = [number, number, number];
 type Key = { pos: V3; look: V3; fov: number; shift: [number, number] };
@@ -77,6 +77,8 @@ const FORM_FRAME_NARROW = { x: 0.69, y: 0.575, depth: 3.5, yaw: -0.22 };
 const DESK_SCALE = 0.46;
 const DOCK_DEPTH = 2.6;
 
+const UP = new THREE.Vector3(0, 1, 0);
+
 function orbit(theta: number, out: THREE.Vector3) {
   const c = Math.cos(theta), s = Math.sin(theta);
   const r = (ORBIT_A * ORBIT_B) / Math.sqrt(ORBIT_B * ORBIT_B * c * c + ORBIT_A * ORBIT_A * s * s);
@@ -86,7 +88,8 @@ function orbit(theta: number, out: THREE.Vector3) {
 
 type Scan = { uDir: THREE.IUniform<THREE.Vector2>; uTheta0: THREE.IUniform<number>; uSwept: THREE.IUniform<number>; uOn: THREE.IUniform<number>; uTime: THREE.IUniform<number>; uSpin: THREE.IUniform<number> };
 
-function overlayMaterial(scan: Scan, amber: boolean) {
+/** `ink`: the frame will be shown as its negative, where the line of light across the car would be a hard black stripe; there the light on the car is only its soft, finer mesh. */
+function overlayMaterial(scan: Scan, amber: boolean, ink = false) {
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -106,6 +109,8 @@ function overlayMaterial(scan: Scan, amber: boolean) {
       uIce: { value: glow(ICE, 1) },
       uAmberCol: { value: glow(AMBER, 1) },
       uIsAmber: { value: amber ? 1 : 0 },
+      uLine: { value: ink ? 0 : 1 },
+      uSoft: { value: ink ? 0.5 : 1 },
     },
     vertexShader: `
       uniform float uSpin;
@@ -122,7 +127,7 @@ function overlayMaterial(scan: Scan, amber: boolean) {
       }`,
     fragmentShader: `
       uniform vec2 uDir; uniform float uTheta0; uniform float uSwept; uniform float uOn; uniform float uTime; uniform float uAmber; uniform float uIsAmber; uniform float uHold; uniform float uSpin;
-      uniform vec3 uIce; uniform vec3 uAmberCol;
+      uniform vec3 uIce; uniform vec3 uAmberCol; uniform float uLine; uniform float uSoft;
       varying vec3 vCar; varying vec3 vN; varying vec3 vV;
       float ln(float c, float k){ float d = abs(fract(c - 0.5) - 0.5); return 1.0 - smoothstep(0.0, fwidth(c) * k, d); }
       float hash(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -164,8 +169,8 @@ function overlayMaterial(scan: Scan, amber: boolean) {
         float cell = step(0.9, hash(floor(pf * 0.5) + floor(uTime * 9.0)));
         float spark = step(0.985, hash(floor(vCar / 0.012) + floor(uTime * 14.0)));
         vec3 col = uIce * (line * 0.3 + dotv * 1.4 + fres * 0.22) * read * uOn;
-        col += uIce * near * (fine * 0.34 + cell * 0.3 + line * 0.3) * uOn;
-        col += uIce * (band * 3.4 + glowband * (0.3 + spark * 2.6)) * uOn;
+        col += uIce * near * (fine * 0.34 + cell * 0.3 + line * 0.3) * uOn * uSoft;
+        col += uIce * (band * 3.4 * uLine + glowband * (0.3 + spark * 2.6) * uSoft) * uOn;
         // while the car is apart every panel keeps a faint survey, so each one reads as a part of its own
         col += uIce * (line * 0.2 + dotv * 0.9 + fres * 0.3) * uHold * (1.0 - uIsAmber);
         // damaged parts hold an amber survey of their own once the scan has found them
@@ -382,8 +387,8 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
 
   // ── things
   const scan: Scan = { uDir: { value: new THREE.Vector2(1, 0) }, uTheta0: { value: SCAN_FROM }, uSwept: { value: 0 }, uOn: { value: 0 }, uTime: { value: 0 }, uSpin: { value: 0 } };
-  const holo = overlayMaterial(scan, false);
-  const amberHolo = overlayMaterial(scan, true);
+  const holo = overlayMaterial(scan, false, opts.ink);
+  const amberHolo = overlayMaterial(scan, true, opts.ink);
   const car = buildCar(carFile, holo, amberHolo);
   const moteGeo = skinPoints(car.parts, mobile ? 5200 : 12000);
   scene.add(car.group);
@@ -392,7 +397,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   scene.add(room.group);
   const con = buildConsole(mobile, consoleFile, casefile, casefileHero);
   scene.add(con.group);
-  const bot = botFile ? buildBot(botFile) : buildFaceBot();
+  const bot = botFile ? buildBot(botFile) : buildFaceBot(opts.ink);
   scene.add(bot.group, bot.key);
 
   // ── the scan light. Everything in it starts at the ball:
@@ -403,10 +408,10 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   fanGeo.setAttribute("aB", new THREE.BufferAttribute(new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), 3));
   const fanMat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
-    uniforms: { uColor: { value: glow(ICE, 1) }, uOn: scan.uOn, uTime: scan.uTime },
+    uniforms: { uColor: { value: glow(ICE, 1) }, uOn: scan.uOn, uTime: scan.uTime, uFace: { value: 1 }, uHot: { value: opts.ink ? 0 : 1 } },
     vertexShader: "attribute vec3 aB; varying vec3 vB; void main(){ vB = aB; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
     fragmentShader: `
-      uniform vec3 uColor; uniform float uOn; uniform float uTime; varying vec3 vB;
+      uniform vec3 uColor; uniform float uOn; uniform float uTime; uniform float uFace; uniform float uHot; varying vec3 vB;
       float hash(float n){ return fract(sin(n * 127.1) * 43758.5453); }
       void main(){
         // rays from the ball: hair-fine threads, a few of them bright, and pulses of light running out along them
@@ -420,7 +425,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
         float edge = smoothstep(0.0, 0.22, ray) * smoothstep(1.0, 0.78, ray) * smoothstep(0.0, 0.42, vB.x);
         float nearBall = pow(vB.x, 2.2);
         float sheet = 0.035 + 0.05 * wide + thread * run * 0.26;
-        gl_FragColor = vec4(uColor * uOn * (sheet * (0.45 + 1.6 * nearBall) + 0.5 * pow(vB.x, 7.0)) * edge, 1.0);
+        gl_FragColor = vec4(uColor * uOn * uFace * (sheet * (0.45 + 1.6 * nearBall) + 0.5 * uHot * pow(vB.x, 7.0)) * edge, 1.0);
       }`,
   });
   const fan = new THREE.Mesh(fanGeo, fanMat);
@@ -434,13 +439,14 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   beamGeo.setIndex([0, 2, 1, 1, 2, 3]);
   const beamMat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
-    uniforms: { uColor: { value: glow(ICE, 1) }, uOn: scan.uOn, uTime: scan.uTime },
+    // drawn as its negative on a white page, the bright core would be a hard black line: there the beam is only its soft body
+    uniforms: { uColor: { value: glow(ICE, 1) }, uOn: scan.uOn, uTime: scan.uTime, uCore: { value: opts.ink ? 0 : 1 } },
     vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
     fragmentShader: `
-      uniform vec3 uColor; uniform float uOn; uniform float uTime; varying vec2 vUv;
+      uniform vec3 uColor; uniform float uOn; uniform float uTime; uniform float uCore; varying vec2 vUv;
       void main(){
         float across = exp(-pow((vUv.y - 0.5) / 0.2, 2.0));
-        float core = exp(-pow((vUv.y - 0.5) / 0.045, 2.0));
+        float core = uCore * exp(-pow((vUv.y - 0.5) / 0.045, 2.0));
         float run = 0.75 + 0.25 * sin(vUv.x * 60.0 - uTime * 9.0);
         float fadeOut = smoothstep(1.0, 0.4, vUv.x) * smoothstep(0.0, 0.03, vUv.x);
         gl_FragColor = vec4(uColor * uOn * (across * 0.16 + core * 0.55 * run) * fadeOut, 1.0);
@@ -657,6 +663,9 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     cur.shift.set(lerp(k(i).shift[0], k(i + 1).shift[0], f), lerp(k(i).shift[1], k(i + 1).shift[1], f));
   }
 
+  let handSpin = 0;
+  let botDrift: number | null = null; // null: the ball goes round with the turntable, as on the landing page
+  const botNdc = new THREE.Vector3();
   function setProgress(tt: number) {
     const next = clamp01(tt);
     if (Math.abs(next - t) > 2e-5) moved = true;
@@ -682,7 +691,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const idle = time ? breath : 0;
 
     // ── the turntable
-    const spin = spinAt(t) * RAD;
+    const spin = spinAt(t) * RAD + handSpin;
     car.group.rotation.y = spin;
     room.table.rotation.y = spin;
     car.group.updateMatrixWorld(true);
@@ -728,7 +737,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const sweptDeg = SCAN_SWEEP * clamp01((t - SCAN_T[0]) / (SCAN_T[1] - SCAN_T[0]));
     // at the Scan stop it has stopped, high, off the nose; after it, it comes down to the damaged corner
     const down = seg(t, 0.455, 0.495);
-    const theta = SCAN_FROM + sweptDeg * RAD + (CORNER * RAD - PERCH) * down;
+    const theta = SCAN_FROM + sweptDeg * RAD + (CORNER * RAD - PERCH) * down + (botDrift ?? 0);
     const perch = seg(t, 0.385, 0.45) * (1 - down);
     orbit(theta, ballCar);
     ballCar.y = lerp(ballCar.y, 1.05, down) + perch * (mobile ? 0.95 : 0.5);
@@ -736,7 +745,12 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     if (mobile) { const tuck = lerp(1, 0.66, perch); ballCar.x *= tuck; ballCar.z *= tuck; }
     ball.set(...REST).lerp(va.set(...(mobile ? WATCH_NARROW : WATCH)), toWatch);
     ball.y += Math.sin(toWatch * Math.PI) * 0.28;
-    if (toOrbit > 0) ball.lerp(va.copy(ballCar).applyMatrix4(car.group.matrixWorld), toOrbit);
+    if (toOrbit > 0) {
+      // on the turntable it goes round with the car; taken off it, only with the page's own turn of the table
+      if (botDrift === null) va.copy(ballCar).applyMatrix4(car.group.matrixWorld);
+      else va.copy(ballCar).applyAxisAngle(UP, spinAt(t) * RAD);
+      ball.lerp(va, toOrbit);
+    }
     let scale = 1;
     if (toDesk > 0) {
       desk.copy(formTop).addScaledVector(up, BOT_R * DESK_SCALE + 0.05);
@@ -774,23 +788,39 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       .addScaledVector(ve, toOrbit * (1 - toDesk))
       .addScaledVector(va.copy(formTop).addScaledVector(up, -FORM_H * 0.45).lerp(camera.position, 0.55), toDesk * (1 - toDock))
       .addScaledVector(camera.position, toDock);
+    // as the logo's "o" it is alive: it turns its head a little after the mouse
+    if (toDock > 0) gaze.addScaledVector(right, aim.x * 1.5 * toDock).addScaledVector(up, aim.y * 0.9 * toDock);
     bot.group.lookAt(gaze);
     // the light comes out of its face: a point just off the glass, where the scan bar (or the lens) is
     muzzle.subVectors(gaze, ball).normalize().multiplyScalar(BOT_R * scale * 1.05).add(ball);
     if (faceBot) muzzle.y += BOT_R * scale * 0.08;
     // ── its eyes
     const on = pulse(t, 0.3, 0.326, 0.488, 0.515);
-    const edges = [0.3, 0.535, 0.862];
+    // two eyes, the scan bar, three dots, the tick; and once it is the logo's "o", its own two eyes again
+    const edges = [0.3, 0.535, 0.862, 0.948];
     let mode = 0;
     let near = 1;
     for (const e of edges) { if (t >= e) mode++; near = Math.min(near, Math.abs(t - e) / 0.014); }
+    const home = mode === 4;
+    if (home) mode = 0;
     let open = smooth(near);
+    let lookX = 0;
+    let lookY = 0;
     if (mode === 0 && time) {
-      // a blink now and then
+      // a blink now and then; in the logo, now and then two in a row
       const b = (time % 4300) / 150;
       if (b < 1) open *= Math.abs(b * 2 - 1);
+      else if (home && b > 1.6 && b < 2.6 && Math.floor(time / 4300) % 3 === 2) open *= Math.abs((b - 1.6) * 2 - 1);
+      if (home) {
+        // its eyes go after the mouse; left alone, it glances to one side, then the other, like the icon in the browser tab
+        const c = (time % 11000) / 11000;
+        const idle = pulse(c, 0.3, 0.33, 0.43, 0.46) - pulse(c, 0.76, 0.79, 0.89, 0.92);
+        const led = Math.min(1, Math.hypot(aim.x, aim.y) * 4);
+        lookX = lerp(idle * 0.8, Math.max(-1, Math.min(1, aim.x * 1.6)), led);
+        lookY = lerp(0, Math.max(-1, Math.min(1, aim.y * 1.6)), led);
+      }
     }
-    const face: Face = { mode: mode as Face["mode"], open, phase: mode === 1 ? (t * 31 + time * 0.0006) % 1 : (t * 60 + time * 0.0011) % 1 };
+    const face: Face = { mode: mode as Face["mode"], open, phase: mode === 1 ? (t * 31 + time * 0.0006) % 1 : (t * 60 + time * 0.0011) % 1, look: [lookX, lookY] };
     bot.setFace(face);
     const done = seg(t, 0.9, 0.99);
     bot.light.color.copy(eyeColour.copy(ICE).lerp(GO, seg(t, 0.862, 0.9) * (1 - toDock)));
@@ -811,6 +841,8 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     car.group.worldToLocal(moteMat.uniforms.uBall.value.copy(muzzle));
     const scanning = on > 0.004;
     fan.visible = trace.visible = beam.visible = motes.visible = spark.visible = scanning;
+    // as a negative, the line of light on the floor is a black line under the car: it is left out there
+    if (opts.ink) trace.visible = false;
     if (scanning) {
       // drawn over the ball, whole: the face is always turned enough to the viewer for it to belong there
       spark.position.copy(muzzle);
@@ -819,6 +851,12 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       const arr = fanGeo.attributes.position.array as Float32Array;
       arr.set([muzzle.x, muzzle.y, muzzle.z, 0, 1.55, 0, 0, 0.03, 0]);
       fanGeo.attributes.position.needsUpdate = true;
+      if (opts.ink) {
+        // the fan is a flat sheet: seen along its own plane it would be one hard line, so there it fades out
+        va.set(-muzzle.z, 0, muzzle.x).normalize(); // the sheet stands upright through the car's middle and the ball
+        vb.subVectors(camera.position, muzzle).normalize();
+        fanMat.uniforms.uFace.value = smooth(clamp01((Math.abs(va.dot(vb)) - 0.12) / 0.4));
+      }
       // the ribbon: from the ball to the car's middle, widening, turned to the viewer
       va.set(0, 0.8, 0);
       vb.subVectors(va, muzzle);
@@ -1024,6 +1062,9 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   return {
     setProgress,
     setDock(d) { dock = d; },
+    setSpin(rad) { handSpin = rad; },
+    setBotDrift(rad) { botDrift = rad; },
+    botAt() { botNdc.setFromMatrixPosition(bot.group.matrixWorld).project(camera); return [botNdc.x * 0.5 + 0.5, 0.5 - botNdc.y * 0.5]; },
     setPointer(x, y) { aimTo.set(THREE.MathUtils.clamp(x, -1, 1), THREE.MathUtils.clamp(y, -1, 1)); },
     render,
     resize,

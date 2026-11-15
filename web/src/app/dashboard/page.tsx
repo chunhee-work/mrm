@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard() {
   const { orgId } = await requireUser();
   const rows = await db.select().from(schema.cases).where(eq(schema.cases.orgId, orgId)).orderBy(desc(schema.cases.createdAt)).limit(200);
+  // only what the list shows: which case, whether it is done, and what (if anything) it is missing
   const list: CaseRow[] = rows.map((c) => ({
     id: c.id,
     plate: c.plate,
@@ -15,8 +16,6 @@ export default async function Dashboard() {
     insurer: c.insurer,
     status: c.status,
     pendingDoc: c.pendingDoc,
-    createdAt: c.createdAt.toISOString(),
-    doneAt: c.doneAt ? c.doneAt.toISOString() : null,
   }));
-  return <CaseList rows={list} now={Date.now()} />;
+  return <CaseList rows={list} orgId={orgId} />;
 }

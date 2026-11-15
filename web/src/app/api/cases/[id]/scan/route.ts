@@ -21,6 +21,8 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       status: data.missing.length ? "pending_doc" : "phase_a",
       pendingDoc: data.missing.join("; ") || null,
       caseData: data,
+      // a case uploaded without a typed plate gets the one read from its documents
+      ...(c.plate ? {} : { plate: (data.plate ?? "").toUpperCase().replace(/\s+/g, "").slice(0, 20) }),
       insurer: data.client_policy?.insurer ?? null,
       carModel: data.client_vehicle.model ?? null,
     }).where(eq(schema.cases.id, id));
