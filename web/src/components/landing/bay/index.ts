@@ -9,7 +9,7 @@ import { BOT_R, buildBot, type Face } from "./bot";
 import { buildLogo } from "./logo";
 import { buildCar, type Part } from "./car";
 import { FORM_H, buildConsole, type Viewer } from "./console";
-import { AMBER, BAY, GO, ICE, buildEnvironment, buildRoom, glow, lightMat } from "./room";
+import { AMBER, BAY, GO, ICE, buildEnvironment, buildRoom, glow } from "./room";
 import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 
 /**
@@ -167,6 +167,8 @@ function overlayMaterial(scan: Scan, amber: boolean) {
         // damaged parts hold an amber survey of their own once the scan has found them
         float a = uAmber * uIsAmber;
         col += uAmberCol * a * (line * 0.55 + dotv * 1.3 + fres * 1.1 + 0.07);
+        // the belly of the car is not surveyed: lit, it showed in the mirror floor as a hard-edged slab of light under the car
+        col *= 1.0 - smoothstep(-0.35, -0.8, n.y) * (1.0 - clamp(uHold * 2.5, 0.0, 1.0));
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -234,8 +236,8 @@ function softDisc(size: number, stops: [number, string][]) {
   return new THREE.CanvasTexture(c);
 }
 
-/** What a lamp does to a lens: a few soft spikes round a point, wide at the lamp and gone by their ends. The same on every load. */
-function starburst(size: number) {
+/** What a bright lamp does to a lens: a corona of very many hair-fine streaks of uneven length, so faint that together they read as a glow with grain, not as spikes. The same on every load. */
+function glare(size: number) {
   const c = document.createElement("canvas");
   c.width = c.height = size;
   const g = c.getContext("2d")!;
@@ -243,24 +245,57 @@ function starburst(size: number) {
   const h = size / 2;
   g.translate(h, h);
   g.globalCompositeOperation = "lighter";
-  const n = 14;
+  const n = 150;
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + (r() - 0.5) * 0.34;
-    const len = h * (0.34 + 0.66 * r());
-    const wide = h * (0.01 + 0.018 * r());
+    const a = r() * Math.PI * 2;
+    const far = r();
+    const len = h * (0.22 + 0.78 * far * far);
+    const w = h * (0.003 + 0.007 * r());
     const cx = Math.cos(a), sy = Math.sin(a);
-    // each spike is a few tapers one over another, so its edges are soft without a blur
-    for (let p = 0; p < 4; p++) {
-      const w = wide * (1 + p * 1.7);
-      const grd = g.createLinearGradient(0, 0, cx * len, sy * len);
-      grd.addColorStop(0, `rgba(255,255,255,${(0.085 / (p + 1)).toFixed(3)})`);
-      grd.addColorStop(0.5, `rgba(255,255,255,${(0.02 / (p + 1)).toFixed(3)})`);
-      grd.addColorStop(1, "rgba(255,255,255,0)");
-      g.fillStyle = grd;
-      g.beginPath(); g.moveTo(-sy * w, cx * w); g.lineTo(cx * len, sy * len); g.lineTo(sy * w, -cx * w); g.closePath(); g.fill();
+    const grd = g.createLinearGradient(0, 0, cx * len, sy * len);
+    const al = 0.03 + 0.07 * r();
+    grd.addColorStop(0, `rgba(255,255,255,${al.toFixed(3)})`);
+    grd.addColorStop(0.35, `rgba(255,255,255,${(al * 0.35).toFixed(3)})`);
+    grd.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grd;
+    g.beginPath(); g.moveTo(-sy * w, cx * w); g.lineTo(cx * len, sy * len); g.lineTo(sy * w, -cx * w); g.closePath(); g.fill();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+/** The ring of light round a lamp seen through glass: a thin soft circle, cool on its inside and warm on its outside,
+ *  and never even all the way round: stretches of it are bright, stretches are almost gone. The same on every load. */
+function haloRing(size: number) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d")!;
+  const h = size / 2;
+  const grd = g.createRadialGradient(h, h, 0, h, h, h);
+  for (const [at, col] of [
+    [0, "rgba(255,255,255,0)"], [0.56, "rgba(170,205,255,0)"], [0.66, "rgba(150,195,255,0.1)"], [0.72, "rgba(255,255,255,0.2)"],
+    [0.78, "rgba(255,216,170,0.1)"], [0.9, "rgba(255,190,140,0.02)"], [1, "rgba(255,190,140,0)"],
+  ] as [number, string][]) grd.addColorStop(at, col);
+  g.fillStyle = grd; g.fillRect(0, 0, size, size);
+  // take light away in soft-sided wedges
+  const r = rng(29);
+  g.globalCompositeOperation = "destination-out";
+  g.translate(h, h);
+  for (let i = 0; i < 26; i++) {
+    const a = r() * Math.PI * 2;
+    const wide = 0.25 + 0.7 * r();
+    const al = 0.1 + 0.2 * r();
+    for (let p = 1; p <= 4; p++) {
+      const w = (wide * p) / 4;
+      g.fillStyle = `rgba(0,0,0,${(al / 2).toFixed(3)})`;
+      g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, size, a - w / 2, a + w / 2); g.closePath(); g.fill();
     }
   }
   return new THREE.CanvasTexture(c);
+}
+
+/** A ghost of the lens opening, as a lamp throws it across the glass: a faint filled disc with a slightly brighter rim. */
+function ghostDisc(size: number) {
+  return softDisc(size, [[0, "rgba(255,255,255,0.1)"], [0.7, "rgba(255,255,255,0.13)"], [0.86, "rgba(255,255,255,0.3)"], [0.93, "rgba(255,255,255,0.06)"], [1, "rgba(255,255,255,0)"]]);
 }
 
 /** A head lamp's beam where it lands on the floor: hot at the car, widening and fading away from it (u runs away from the car). */
@@ -373,7 +408,8 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
         float thread = smoothstep(0.42, 0.5, abs(fract(ray * 150.0) - 0.5) * -1.0 + 0.5) * (0.25 + 0.75 * step(0.72, hash(id)));
         float wide = 0.5 + 0.5 * sin(ray * 46.0 + uTime * 1.3);
         float run = 0.55 + 0.45 * smoothstep(0.6, 1.0, sin(along * 34.0 - uTime * 7.0 + hash(id) * 6.28));
-        float edge = smoothstep(0.0, 0.03, ray) * smoothstep(1.0, 0.97, ray);
+        // no outline anywhere: the light thins out to nothing at both sides and well before its far end
+        float edge = smoothstep(0.0, 0.22, ray) * smoothstep(1.0, 0.78, ray) * smoothstep(0.0, 0.42, vB.x);
         float nearBall = pow(vB.x, 2.2);
         float sheet = 0.035 + 0.05 * wide + thread * run * 0.26;
         gl_FragColor = vec4(uColor * uOn * (sheet * (0.45 + 1.6 * nearBall) + 0.5 * pow(vB.x, 7.0)) * edge, 1.0);
@@ -398,7 +434,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
         float across = exp(-pow((vUv.y - 0.5) / 0.2, 2.0));
         float core = exp(-pow((vUv.y - 0.5) / 0.045, 2.0));
         float run = 0.75 + 0.25 * sin(vUv.x * 60.0 - uTime * 9.0);
-        float fadeOut = smoothstep(1.0, 0.55, vUv.x) * smoothstep(0.0, 0.03, vUv.x);
+        float fadeOut = smoothstep(1.0, 0.4, vUv.x) * smoothstep(0.0, 0.03, vUv.x);
         gl_FragColor = vec4(uColor * uOn * (across * 0.16 + core * 0.55 * run) * fadeOut, 1.0);
       }`,
   });
@@ -406,10 +442,22 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   beam.frustumCulled = false;
   beam.renderOrder = 5;
   scene.add(beam);
-  const traceGeo = new THREE.PlaneGeometry(1, 0.03);
+  // the line on the floor is light too: soft across, and it fades away at both ends
+  const traceGeo = new THREE.PlaneGeometry(1, 0.12);
   traceGeo.rotateX(-Math.PI / 2);
   traceGeo.translate(0.5, 0, 0);
-  const traceMat = lightMat(ICE, 2.6, { transparent: true, opacity: 0, depthWrite: false });
+  const traceMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uColor: { value: glow(ICE, 1.5) }, uA: { value: 0 } },
+    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uA; varying vec2 vUv;
+      void main(){
+        float across = exp(-pow((vUv.y - 0.5) / 0.16, 2.0));
+        float along = smoothstep(0.0, 0.3, vUv.x) * smoothstep(1.0, 0.7, vUv.x);
+        gl_FragColor = vec4(uColor * uA * across * along, 1.0);
+      }`,
+  });
   const trace = new THREE.Mesh(traceGeo, traceMat);
   trace.position.y = 0.008;
   trace.renderOrder = 3;
@@ -472,12 +520,15 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   // parts that stand on the floor slide; everything else is in the air and breathes
   const floats = car.parts.map((p) => !/^(wheel|under)/.test(p.name));
 
-  // ── the head lamps, for the ending. A lamp pointed at a lens does five things, and each is one piece here: a hot
-  //    core, a wide soft glow, fine streaks round it, one long streak across the frame, and its beam on the floor.
+  // ── the head lamps, for the ending. A lamp pointed at a lens does these things, and each is one piece here: a hot
+  //    core, a wide soft glow, a grain of very fine streaks in it, a thin ring of light round it, a short soft streak
+  //    to each side, one faint ghost of the lens, and its beam on the floor.
   //    Between the two lamps a veil of light lifts the whole picture, the way a dark room looks with lamps in your eyes.
   const glowTex = softDisc(128, [[0, "rgba(255,255,255,1)"], [0.18, "rgba(255,255,255,0.55)"], [0.5, "rgba(255,255,255,0.1)"], [1, "rgba(255,255,255,0)"]]);
   const haloTex = softDisc(256, [[0, "rgba(255,255,255,0.5)"], [0.07, "rgba(255,255,255,0.34)"], [0.18, "rgba(255,255,255,0.19)"], [0.36, "rgba(255,255,255,0.085)"], [0.6, "rgba(255,255,255,0.028)"], [0.82, "rgba(255,255,255,0.007)"], [1, "rgba(255,255,255,0)"]]);
-  const rayTex = starburst(mobile ? 256 : 512);
+  const rayTex = glare(mobile ? 256 : 512);
+  const ringTex = haloRing(256);
+  const ghostTex = ghostDisc(128);
   const beamTex = beamOnFloor(256, 128);
   const LAMP_WHITE = new THREE.Color(0xeaf6ff);
   /** how far the beams on the floor swing after the mouse, each way */
@@ -494,6 +545,9 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const rays = lampSprite(rayTex, glow(LAMP_WHITE, 1.2), 11);
     rays.material.rotation = li * 1.9 + 0.3;
     const flare = lampSprite(glowTex, glow(ICE, 1.6), 12);
+    const ring = lampSprite(ringTex, glow(LAMP_WHITE, 1), 11);
+    const ghost = lampSprite(ghostTex, glow(ICE, 1), 11);
+    ring.material.rotation = li * 2.3;
     const core = lampSprite(glowTex, glow(LAMP_WHITE, 2.6), 12);
     const BEAM = 11;
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(BEAM, 5), new THREE.MeshBasicMaterial({ map: beamTex, color: glow(LAMP_WHITE, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -506,7 +560,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     swing.position.set(lamp.home.x - 0.1, 0.007, lamp.home.z);
     swing.add(pool);
     car.group.add(swing);
-    return { lamp, core, halo, rays, flare, pool, swing, turn: li * 1.9 + 0.3 };
+    return { lamp, core, halo, rays, flare, ring, ghost, pool, swing, turn: li * 1.9 + 0.3 };
   });
   // under the dark that hangs behind the words (9), so the light fills the frame and the words still read
   const veil = lampSprite(haloTex, glow(LAMP_WHITE, 1), 8);
@@ -742,7 +796,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       beamGeo.attributes.position.needsUpdate = true;
       trace.rotation.y = -Math.atan2(ball.z, ball.x);
       trace.scale.x = Math.hypot(ball.x, ball.z);
-      traceMat.opacity = on * 0.85;
+      traceMat.uniforms.uA.value = on * 0.85;
     }
 
     // ── the car comes apart, is keyed, and goes back together
@@ -820,7 +874,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       vc.copy(fx.lamp.home).add(ve.set(0.06, 0, 0)).applyMatrix4(car.group.matrixWorld);
       const near = THREE.MathUtils.clamp(vb.subVectors(vc, car.group.position).dot(right) * 1.4, -1, 1) * ax;
       const k = lit * facing * flick * (1 + near * 0.22);
-      fx.core.visible = fx.halo.visible = fx.rays.visible = fx.flare.visible = fx.pool.visible = k > 0.003;
+      fx.core.visible = fx.halo.visible = fx.rays.visible = fx.flare.visible = fx.ring.visible = fx.ghost.visible = fx.pool.visible = k > 0.003;
       if (k <= 0.003) continue;
       vd.addScaledVector(vc, 1 / lampFx.length);
       fx.swing.rotation.y = -ax * side * LAMP_SWING;
@@ -829,16 +883,26 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       fx.rays.position.copy(vc).addScaledVector(lean, 0.12);
       fx.rays.material.rotation = fx.turn - ax * 0.16;
       // the long streak stays on the lamp's own height: it only slides sideways
-      fx.flare.position.copy(vc).addScaledVector(right, ax * 0.5);
+      fx.flare.position.copy(vc).addScaledVector(right, ax * 0.3);
+      // the ring sits round the lamp, and drifts a little further after the mouse than the glow does
+      fx.ring.position.copy(vc).addScaledVector(lean, 0.2);
+      // the ghost lies on the line from the lamp toward the middle of the frame, short of the words, and slides against the mouse
+      const depth = vb.subVectors(vc, camera.position).dot(fwd);
+      inFrame(0.5, 0.5, depth, vb).addScaledVector(lean, -0.9);
+      fx.ghost.position.copy(vc).lerp(vb, 0.4);
       fx.core.scale.setScalar(0.3 + 0.1 * k);
       fx.halo.scale.setScalar((mobile ? 4.4 : 6.4) * (0.7 + 0.3 * k));
-      // the spikes open as the lamp comes up
-      fx.rays.scale.setScalar((mobile ? 3 : 4.6) * (0.5 + 0.5 * k));
-      fx.flare.scale.set((mobile ? 5 : 10) + 3 * k, 0.03, 1);
+      // the grain opens as the lamp comes up
+      fx.rays.scale.setScalar((mobile ? 2.4 : 3.6) * (0.5 + 0.5 * k));
+      fx.flare.scale.set((mobile ? 1.6 : 2.2) + 0.8 * k, 0.07, 1);
+      fx.ring.scale.setScalar((mobile ? 1.7 : 2.4) * (0.8 + 0.2 * k));
+      fx.ghost.scale.setScalar(mobile ? 0.12 : 0.17);
       fx.core.material.opacity = k;
       fx.halo.material.opacity = k * (mobile ? 0.3 : 0.34);
-      fx.rays.material.opacity = k * 0.5;
-      fx.flare.material.opacity = k * 0.6;
+      fx.rays.material.opacity = k * 0.42;
+      fx.flare.material.opacity = k * 0.2;
+      fx.ring.material.opacity = k * 0.6;
+      fx.ghost.material.opacity = k * 0.16;
       (fx.pool.material as THREE.MeshBasicMaterial).opacity = lit * (mobile ? 0.4 : 0.6);
     }
     // the light fills the room: a wide wash centred between the lamps, reaching every edge of the frame
@@ -934,7 +998,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       car.dispose();
       holo.dispose();
       amberHolo.dispose();
-      logo.dispose(); shadeTex.dispose(); glowTex.dispose(); haloTex.dispose(); rayTex.dispose(); beamTex.dispose();
+      logo.dispose(); shadeTex.dispose(); glowTex.dispose(); haloTex.dispose(); rayTex.dispose(); ringTex.dispose(); ghostTex.dispose(); beamTex.dispose();
       leadMat.dispose(); dotGeo.dispose(); dotMat.dispose();
       for (const l of leads) l.geo.dispose();
       scene.traverse((o) => {
