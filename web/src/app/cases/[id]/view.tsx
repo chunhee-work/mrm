@@ -10,7 +10,6 @@ export type CaseDetail = {
   id: string;
   plate: string;
   status: string;
-  error: string | null;
   insurer: string | null;
   carModel: string | null;
   missing: string[];
@@ -38,7 +37,8 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", tick); };
   }, [working, router]);
 
-  const canRetry = c.status === "failed" || c.status === "pending_doc";
+  // pending_doc is not retried here: the same files would give the same missing list (an add-documents flow comes later)
+  const canRetry = c.status === "failed";
 
   async function retry() {
     setBusy(true); setErr(false);
@@ -95,7 +95,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
               <section aria-labelledby="case-missing">
                 <h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2>
                 {c.status === "failed" ? (
-                  <p role="alert" className="field-error">{t("case.failed")}{c.error ? ` (${c.error})` : ""}</p>
+                  <p role="alert" className="field-error">{t("case.failed")}</p>
                 ) : working ? null : c.missing.length ? (
                   <ul className="app-scroll max-h-[148px] overflow-y-auto overscroll-contain rounded-[4px] border border-hair bg-signaltint" tabIndex={0}>
                     {c.missing.map((m) => (

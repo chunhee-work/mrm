@@ -32,7 +32,6 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     id: c.id,
     plate: c.plate,
     status: c.status,
-    error: c.status === "failed" ? c.error : null, // while reading, `error` holds an internal lease
     insurer: c.insurer,
     carModel: c.carModel,
     missing: d?.missing ?? (c.pendingDoc ? c.pendingDoc.split("; ") : []),
