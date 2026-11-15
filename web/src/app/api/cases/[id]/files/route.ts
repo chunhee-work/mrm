@@ -12,11 +12,11 @@ const Body = z.object({
   })).max(300),
 });
 
-/** A blob of the caller's own organisation: https, and stored under `<orgId>/…` (the upload route only signs such paths). */
+/** A blob of the caller's own organisation: https, on the blob store, and stored under `<orgId>/…` (the upload route only signs such paths). */
 function ownBlob(url: string, orgId: string) {
   try {
     const u = new URL(url);
-    return u.protocol === "https:" && u.pathname.startsWith(`/${orgId}/`);
+    return u.protocol === "https:" && u.hostname.endsWith(".blob.vercel-storage.com") && u.pathname.startsWith(`/${orgId}/`);
   } catch {
     return false;
   }
