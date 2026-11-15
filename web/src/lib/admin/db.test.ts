@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { recordCall } from "@/lib/ledger";
 import { sendEmail } from "@/lib/email";
-import { casesPage, costPage, overview, usersList } from "./queries";
+import { casesPage, costPage, overview, userDetail, usersList } from "./queries";
 
 // DESTRUCTIVE: this file TRUNCATEs the application tables. It only runs when ALL of these hold, so it can never wipe a
 // development database by accident: ADMIN_DB_TESTS=1 is set on purpose, DATABASE_URL is on localhost, and the database
@@ -63,6 +63,12 @@ t("users list: search by email or name, newest first, per-user cost and cases", 
   assert.deepEqual((await usersList(ext, "ALI", 0)).rows.map((u) => u.id), ["a"]);
   assert.deepEqual((await usersList(ext, "%", 0)).rows, []); // % is literal, not a wildcard
   assert.equal((await usersList(inc, "", 0)).total, 5);
+});
+t("user page totals match the users list and count calls that belong to no case", async () => {
+  const d = await userDetail("a");
+  assert.deepEqual(d.totals, { cases: 3, cost: 2 });
+  assert.equal(d.cases.length, 3);
+  assert.deepEqual((await userDetail("nobody")).totals, { cases: 0, cost: 0 });
 });
 t("cost page groups by day, model, purpose, user and case", async () => {
   const c = await costPage(ext);
