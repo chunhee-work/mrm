@@ -186,8 +186,7 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
         if (!alive) return;
         // ?still=1&bot=face (or lens): a script may ask for the other ball, to picture the two side by side
         const asked = capture ? new URLSearchParams(window.location.search).get("bot") : null;
-        const file = capture ? Number(new URLSearchParams(window.location.search).get("file") ?? NaN) : NaN;
-        const made = await createBay(canvas, { mobile: window.matchMedia("(max-width: 767px)").matches, bot: asked === "face" || asked === "lens" ? asked : undefined, file: file === 0 || file === 1 || file === 2 || file === 3 ? file : undefined });
+        const made = await createBay(canvas, { mobile: window.matchMedia("(max-width: 767px)").matches, bot: asked === "face" || asked === "lens" ? asked : undefined });
         if (!alive) { made.dispose(); return; }
         bay = made;
         measure();

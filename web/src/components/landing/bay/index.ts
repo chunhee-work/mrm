@@ -9,7 +9,7 @@ import { BOT_R, buildBot, type Face } from "./bot";
 import { buildFaceBot } from "./bot-face";
 import { buildLogo } from "./logo";
 import { buildCar, type Part } from "./car";
-import { FORM_H, buildConsole, type FileLook, type Viewer } from "./console";
+import { FORM_H, buildConsole, type Viewer } from "./console";
 import { AMBER, BAY, GO, ICE, buildEnvironment, buildRoom, glow } from "./room";
 import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 
@@ -28,7 +28,7 @@ import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
 /** Which ball flies in the bay: the black lens ball (a scanned model) or the white ball with a face (drawn in code). */
 export type BotLook = "lens" | "face";
 export const BOT_LOOK: BotLook = "face";
-export type BayOptions = { mobile: boolean; bot?: BotLook; /** how the case file hangs at the Upload stop (see console.ts); for pictures of the choices */ file?: FileLook; /** the frame will be shown as its negative (account pages): the ball is lit so that it comes out dark */ ink?: boolean };
+export type BayOptions = { mobile: boolean; bot?: BotLook; /** the frame will be shown as its negative (account pages): the ball is lit so that it comes out dark */ ink?: boolean };
 /** where the logo's "o" is on the page, in CSS pixels from the canvas's top left corner */
 /** Where the page keeps the logo's place at the ending, in canvas pixels: the middle and width of the wordmark, and the middle and height of the whole block of words under it. */
 export type Dock = { cx: number; cy: number; w: number; by: number; bh: number };
@@ -390,7 +390,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   const frameScale = car.frame ? car.frame.scale.x : 1;
   const room = buildRoom(mobile);
   scene.add(room.group);
-  const con = buildConsole(mobile, consoleFile, casefile, casefileHero, opts.file);
+  const con = buildConsole(mobile, consoleFile, casefile, casefileHero);
   scene.add(con.group);
   const bot = botFile ? buildBot(botFile) : buildFaceBot(opts.ink);
   scene.add(bot.group, bot.key);
