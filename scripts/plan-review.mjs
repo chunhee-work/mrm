@@ -213,6 +213,8 @@ async function review(full, which) {
         body: JSON.stringify({ task: 'plan-review', repo: REPO, issue: n, review_id: id, url: issue.html_url, heading: `Grok plan review ${id}`, instructions: prompt.system }),
       })
       log(`Grok webhook: HTTP ${r.status} for ${id}`)
+      // On a rejection, show only the first 300 chars of the reply (never the URL, secret or our request body).
+      if (!r.ok) log(`Grok webhook reply: ${(await r.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300)}`)
       continue
     }
     if (w === 'grok') {
