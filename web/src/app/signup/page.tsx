@@ -26,7 +26,7 @@ export default function Signup() {
     const email = String(f.get("email") ?? "").trim();
     const password = String(f.get("password") ?? "");
     const confirm = String(f.get("confirm") ?? "");
-    const name = email.split("@")[0].split("+")[0].trim().slice(0, 60) || email; // Better Auth stores a name; the company is no longer asked for
+    const name = email.split("@")[0].split("+")[0].trim().slice(0, 60) || email.slice(0, 60); // Better Auth stores a name; the company is no longer asked for
     const bad: Errors = {};
     if (!email || !el("email").validity.valid) bad.email = true;
     if (password.length < MIN_PASSWORD) bad.password = true;
