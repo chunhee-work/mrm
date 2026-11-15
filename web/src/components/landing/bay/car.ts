@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
+import { buildLooksCar, hasLooks } from "./car-looks";
 
 /**
  * The car: a scanned-quality hatchback cut into its body parts, one mesh per part, around an inner frame.
@@ -36,6 +37,8 @@ export type Car = {
   lampMaterial: THREE.MeshStandardMaterial | null;
   /** the two head lamps, left then right */
   lamps: Part[];
+  /** how far the lamps are turned up, 0 (as the car stands in the bay) to 1 (the ending); cars without lit lamp parts use `lampMaterial` */
+  lit?(amount: number): void;
   dispose(): void;
 };
 
@@ -44,7 +47,7 @@ export const DAMAGED = ["bonnet", "lampL", "grille", "fenderL", "bumperF"] as co
 
 type V3 = [number, number, number];
 // [along the car, up, away from the centre line]: the third number is mirrored for the right-hand part
-const OUT: [string, V3, V3?][] = [
+export const OUT: [string, V3, V3?][] = [
   ["bonnet", [0.25, 0.5, 0], [0, 0, -0.1]],
   ["windscreen", [0.2, 0.64, 0], [0, 0, -0.06]],
   ["roof", [-0.05, 0.84, 0]],
@@ -68,7 +71,7 @@ const OUT: [string, V3, V3?][] = [
 ];
 
 /** Dims the inside of a panel: when the car is apart you see the backs of doors and wings, and they should not shine like paint. */
-function darkBacks(mat: THREE.MeshStandardMaterial) {
+export function darkBacks(mat: THREE.MeshStandardMaterial) {
   mat.side = THREE.DoubleSide;
   mat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n  if (!gl_FrontFacing) diffuseColor.rgb *= 0.22;");
@@ -279,6 +282,8 @@ export function buildCar(gltf: GLTF | null, overlayMaterial: THREE.ShaderMateria
   let pane: THREE.MeshPhysicalMaterial | null = null; // the glass: the same coat, mirroring the room less
   const panels: THREE.Mesh[] = [], glass: THREE.Mesh[] = [];
   if (!gltf) return { group, parts, damaged: [], frame, material, lampMaterial, lamps: [], dispose() {} };
+  // a car modelled in parts, each piece with a named finish, is built by its own module
+  if (hasLooks(gltf)) return buildLooksCar(gltf, overlayMaterial, amberOverlay);
 
   const meshes: THREE.Mesh[] = [];
   gltf.scene.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
