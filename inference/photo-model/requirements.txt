@@ -1,0 +1,10 @@
+# Same pins as typesafe/photo_train/requirements.txt (the original machine), Python 3.9
+torch==2.8.0
+torchvision==0.23.0
+numpy==2.0.2
+pillow==11.3.0
+# the web wrapper and the build-time download
+fastapi==0.115.6
+uvicorn==0.34.0
+python-multipart==0.0.20
+huggingface_hub==0.27.1

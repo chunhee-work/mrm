@@ -55,3 +55,9 @@
 - So `src/middleware.ts` sends log in, sign up, password reset, the case pages, billing and admin asked for on the bare domain to the same path on the app host (`lib/hosts.ts`, tested), and the public top bar and the landing's Sign up button link straight to the app host there. Previews (`*.vercel.app`) and localhost are left alone. No new env variable.
 - Case list (owner, 2026-11-15): one line per case. A case that stopped reads "On hold" and has no button (the team picks it up); the words "Try again" and "rejected" are not shown to users.
 - Dates a signed-in page prints are formatted in `Asia/Kuala_Lumpur`, so the server and the browser write the same day.
+
+## Photo model (plan chunhee-work/mrm#26)
+- The owner's trained model (HF `chunhee00/mrm-photo-model`) names photos, run unchanged in a private HF Docker Space (`inference/photo-model/`). Claude is not a fallback: when the feature is ON, photos are never sent to Anthropic. OFF = the old Claude naming.
+- OFF unless `PHOTO_MODEL_ENABLED=1`, `photoModelConfig.measuredFor` is set (after the dry run) and `PHOTO_MODEL_URL`, `PHOTO_MODEL_SECRET`, `HF_SPACE_TOKEN` exist. Unset or invalid = OFF.
+- Job state is in `cases.photo_model_job` (migration `0005_photo_model.sql`, additive; needs the owner's OK before production). Each desk poll does at most one network attempt; the Space is a stateless worker.
+- Deviations from the plan text: the order hash is made from DB photo ids + image paths; the 900 px copies are sent (check parity in the dry run); a name outside the desk list is stored as "name by hand"; no `llm_calls` row (cost is 0); the optional Vercel Cron reconciler is not added (the desk page's polling drives jobs).

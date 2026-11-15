@@ -89,6 +89,7 @@ export const cases = pgTable("cases", {
   doneAt: timestamp("done_at"),
   photosDoneAt: timestamp("photos_done_at", { withTimezone: true }), // photo naming desk: "done" pressed
   photosRev: integer("photos_rev").notNull().default(0), // bumped on every reorder
+  photoModelJob: jsonb("photo_model_job"), // photo-model naming job (plan #26); null = none
 }, (t) => [index("cases_org_idx").on(t.orgId, t.createdAt)]);
 
 export const caseFiles = pgTable("case_files", {

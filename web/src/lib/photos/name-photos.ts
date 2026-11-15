@@ -7,6 +7,8 @@ import { trackedParse, zodOutputFormat } from "@/lib/claude";
 import { logLine, safeError } from "./log";
 import { costCapUsd, normalizePick, photoModel, sliceCostUsd, sliceMatches, NEIGHBOURS, NONE, PART_NAMES, type ModelPick } from "./rules";
 import { photoBase64 } from "./store";
+import { photoModelOn } from "@/lib/photo-model/config";
+import { advance } from "@/lib/photo-model/job";
 import { claimSlice, failPending, pendingCount, retryFailed, spentUsd, writeFailed, writeName, type CaseRow, type Claimed } from "./server";
 
 // Naming with Claude (plan #9). One slice = up to 8 photos plus neighbours for sequence context, 900 px copies only.
@@ -118,6 +120,8 @@ export type SliceOutcome = { claimed: number; named: number; failed: number; rem
 
 /** Runs one naming slice for a case the caller already checked. */
 export async function runSlice(c: CaseRow, opts: { retryFailed?: boolean; userId?: string | null } = {}): Promise<SliceOutcome> {
+  // The owner's own trained model names the photos when it is ON (plan #26). Photos then never go to Anthropic.
+  if (photoModelOn()) return advance(c, { retryFailed: opts.retryFailed });
   if (opts.retryFailed) await retryFailed(c.id);
 
   if ((await spentUsd(c.id)) >= costCapUsd(process.env.PHOTO_COST_CAP_USD)) {
