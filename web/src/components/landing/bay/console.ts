@@ -69,18 +69,18 @@ const HANG_WIDE: Hang = {
 const HANG_NARROW: Hang = {
   mouth: [0.532, 0.79],
   sheets: [
-    { cell: 11, x: 0.88, y: 0.36, h: 0.05, depth: 5.2, turn: [4, -24, 8], blur: 0.05, dim: 0.26 },
+    { cell: 11, x: 0.88, y: 0.3, h: 0.05, depth: 5.2, turn: [4, -24, 8], blur: 0.05, dim: 0.26 },
     { cell: 4, x: 0.1, y: 0.74, h: 0.09, depth: 5.0, turn: [-6, 30, -7], blur: 0.045, dim: 0.24 },
     { cell: 10, x: 0.9, y: 0.72, h: 0.045, depth: 4.8, turn: [8, -20, 10], blur: 0.045, dim: 0.28 },
     { cell: 1, x: 0.17, y: 0.59, h: 0.13, depth: 4.2, turn: [-3, 20, -4], blur: 0.016, dim: 0.4 },
     { cell: 8, x: 0.3, y: 0.655, h: 0.062, depth: 4.0, turn: [-2, 16, 3], blur: 0.014, dim: 0.44 },
-    { cell: 3, x: 0.87, y: 0.47, h: 0.1, depth: 3.8, turn: [-3, -18, 4], blur: 0.012, dim: 0.46 },
+    { cell: 3, x: 0.87, y: 0.42, h: 0.1, depth: 3.8, turn: [-3, -18, 4], blur: 0.012, dim: 0.46 },
     { cell: 9, x: 0.36, y: 0.715, h: 0.05, depth: 3.6, turn: [-2, 14, 4], blur: 0.01, dim: 0.52 },
-    { cell: 5, x: 0.56, y: 0.716, h: 0.095, depth: 3.3, turn: [-6, 6, -1.5], blur: 0.003, dim: 0.88, shadow: true },
-    { cell: 7, x: 0.665, y: 0.648, h: 0.075, depth: 2.95, turn: [-3, 8, 3], blur: 0.0015, dim: 0.93, shadow: true },
-    { cell: 2, x: 0.685, y: 0.556, h: 0.15, depth: 2.6, turn: [-3, 9, -2], blur: 0, dim: 0.97, shadow: true },
-    { cell: HERO_PHOTO, x: 0.535, y: 0.472, h: 0.1, depth: 2.25, turn: [-2, 9, 2.5], blur: 0, dim: 1, shadow: true },
-    { cell: HERO_PAGE, x: 0.25, y: 0.405, h: 0.205, depth: 2.0, turn: [-3, 11, -3], blur: 0, dim: 1, shadow: true },
+    { cell: 5, x: 0.545, y: 0.716, h: 0.095, depth: 3.3, turn: [-6, 6, -1.5], blur: 0.003, dim: 0.88, shadow: true },
+    { cell: 7, x: 0.555, y: 0.645, h: 0.075, depth: 2.95, turn: [-3, 8, 3], blur: 0.0015, dim: 0.93, shadow: true },
+    { cell: 2, x: 0.57, y: 0.553, h: 0.15, depth: 2.6, turn: [-3, 9, -2], blur: 0, dim: 0.97, shadow: true },
+    { cell: HERO_PHOTO, x: 0.49, y: 0.462, h: 0.1, depth: 2.25, turn: [-2, 9, 2.5], blur: 0, dim: 1, shadow: true },
+    { cell: HERO_PAGE, x: 0.25, y: 0.39, h: 0.205, depth: 2.0, turn: [-3, 11, -3], blur: 0, dim: 1, shadow: true },
   ],
 };
 const PAGE_ASPECT = 880 / 1168;
