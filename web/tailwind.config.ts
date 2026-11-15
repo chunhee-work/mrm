@@ -1,5 +1,8 @@
 import type { Config } from "tailwindcss";
 
+/** A colour token: an "r g b" triplet in a CSS variable, so opacity modifiers keep working. */
+const v = (name: string) => `rgb(var(--c-${name}) / <alpha-value>)`;
+
 const cjk = ['"PingFang SC"', '"Noto Sans SC"', '"Microsoft YaHei"'];
 
 export default {
@@ -7,21 +10,26 @@ export default {
   theme: {
     extend: {
       colors: {
-        // "Night Bay": an inspection bay at night. One cold light (ice) does the looking,
-        // amber marks what is damaged or needs attention, green only ever means done.
-        bay: "#07090C", // the room — page
-        panel: "#0E1217", // raised surface — cards, inputs, menus
-        panel2: "#151A21", // second level — hover, wells
-        hair: "#222933", // hairline
-        hairsoft: "#171C24", // faint grid
-        fg: "#EEF2F6", // text
-        mute: "#8A94A3", // secondary text (6.4:1 on bay)
-        ice: "#BFE9FF", // scan light — primary buttons, links, focus
-        icetint: "#0F1A22", // quiet ice fill
-        amber: "#FFB020", // damaged / needs attention / being keyed / error
-        ambertint: "#2A1E08",
-        go: "#3DDC97", // done
-        gotint: "#0C2219",
+        // Two sets of the same tokens (values in globals.css, as CSS variables):
+        // "Night Bay", an inspection bay at night, for the landing and the public site,
+        // and a white working set (.theme-light) for the signed-in app and the account pages.
+        // One light (ice) does the looking, amber marks what needs attention, green only ever means done.
+        bay: v("bay"), // the room — page
+        panel: v("panel"), // raised surface — cards, inputs, menus
+        panel2: v("panel2"), // second level — hover, wells
+        hair: v("hair"), // hairline
+        hair2: v("hair2"), // a stronger hairline, for line drawings
+        hairsoft: v("hairsoft"), // faint grid
+        fg: v("fg"), // text
+        mute: v("mute"), // secondary text
+        ice: v("ice"), // primary buttons, links, focus (the scan light at night, ink on white)
+        icehi: v("icehi"), // a primary button under the pointer
+        icetint: v("icetint"), // quiet fill
+        scan: v("scan"), // the scan light as a colour accent: progress, the lit edge of a panel
+        amber: v("amber"), // damaged / needs attention / being keyed / error
+        ambertint: v("ambertint"),
+        go: v("go"), // done
+        gotint: v("gotint"),
       },
       fontFamily: {
         display: ["var(--font-display)", ...cjk, "system-ui", "sans-serif"],

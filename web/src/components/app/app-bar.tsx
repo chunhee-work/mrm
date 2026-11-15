@@ -56,7 +56,7 @@ function AccountMenu({ email }: { email: string }) {
           role="menu"
           aria-label={email}
           onKeyDown={(e) => { if (e.key === "Tab") setOpen(false); }}
-          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[220px] rounded-[3px] border border-hair bg-panel p-1 shadow-[0_12px_24px_-16px_rgba(0,0,0,0.8)]"
+          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[220px] rounded-[3px] menu border border-hair bg-panel p-1"
         >
           <button
             ref={item}
@@ -102,7 +102,7 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
         <Burger open={open} />
       </button>
       {open && (
-        <div id="app-menu" className="absolute inset-x-0 top-full border-b border-hair bg-bay shadow-[0_12px_24px_-16px_rgba(0,0,0,0.8)]">
+        <div id="app-menu" className="absolute inset-x-0 top-full menu border-b border-hair bg-panel">
           <div className="wrap pb-3 pt-2">
             <ul>
               {links.map((l) => {
@@ -152,7 +152,7 @@ export default function AppBar({ email }: { email: string }) {
   const onNew = path === "/cases/new";
   const onBilling = path.startsWith("/billing");
   return (
-    <header className="sticky top-0 z-40 border-b border-hair bg-bay">
+    <header className="sticky top-0 z-40 border-b border-hair bg-panel">
       <div className="wrap relative flex h-[60px] items-center gap-4 lg:h-16 lg:gap-10">
         <Link href="/dashboard" className="-my-2 flex items-center py-2">
           <Brand />
@@ -171,7 +171,7 @@ export default function AppBar({ email }: { email: string }) {
             href="/billing"
             aria-current={onBilling ? "page" : undefined}
             className={`relative ml-8 flex items-center px-1 text-[15px] transition-colors duration-150 after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:transition-colors after:duration-150 ${
-              onBilling ? "font-semibold text-ink after:bg-ink" : "font-medium text-deep after:bg-transparent hover:text-ink"
+              onBilling ? "font-semibold text-ice after:bg-ice" : "font-medium text-fg after:bg-transparent hover:text-ice"
             }`}
           >
             {t("nav.billing")}

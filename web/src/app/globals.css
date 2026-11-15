@@ -2,6 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ───────────────────────── colour tokens ───────────────────────── */
+/* Night Bay: the landing and the public site. */
+:root {
+  --c-bay: 7 9 12; /* #07090C */
+  --c-panel: 14 18 23; /* #0E1217 */
+  --c-panel2: 21 26 33; /* #151A21 */
+  --c-hair: 34 41 51; /* #222933 */
+  --c-hair2: 47 56 68; /* #2F3844 */
+  --c-hairsoft: 23 28 36; /* #171C24 */
+  --c-fg: 238 242 246; /* #EEF2F6 */
+  --c-mute: 138 148 163; /* #8A94A3 */
+  --c-ice: 191 233 255; /* #BFE9FF */
+  --c-icehi: 255 255 255; /* #FFFFFF */
+  --c-icetint: 15 26 34; /* #0F1A22 */
+  --c-scan: 191 233 255; /* #BFE9FF */
+  --c-amber: 255 176 32; /* #FFB020 */
+  --c-ambertint: 42 30 8; /* #2A1E08 */
+  --c-go: 61 220 151; /* #3DDC97 */
+  --c-gotint: 12 34 25; /* #0C2219 */
+  --logo-eye: #ffffff;
+}
+/* The white working set: the signed-in app and the account pages wrap themselves in .theme-light.
+   :has() lifts it to the document, so the canvas behind the page (overscroll, scrollbars) is white too. */
+.theme-light,
+:root:has(.theme-light) {
+  --c-bay: 245 247 250; /* #F5F7FA */
+  --c-panel: 255 255 255; /* #FFFFFF */
+  --c-panel2: 238 242 246; /* #EEF2F6 */
+  --c-hair: 213 220 229; /* #D5DCE5 */
+  --c-hair2: 174 185 198; /* #AEB9C6 */
+  --c-hairsoft: 232 236 241; /* #E8ECF1 */
+  --c-fg: 10 14 19; /* #0A0E13 */
+  --c-mute: 86 97 112; /* #566170 */
+  --c-ice: 10 14 19; /* #0A0E13 */
+  --c-icehi: 43 52 64; /* #2B3440 */
+  --c-icetint: 231 245 253; /* #E7F5FD */
+  --c-scan: 29 155 216; /* #1D9BD8 */
+  --c-amber: 217 119 6; /* #D97706 */
+  --c-ambertint: 255 243 223; /* #FFF3DF */
+  --c-go: 12 138 91; /* #0C8A5B */
+  --c-gotint: 227 247 238; /* #E3F7EE */
+  color-scheme: light;
+}
+
 /* ───────────────────────── base ───────────────────────── */
 @layer base {
   html {
@@ -95,7 +139,7 @@
 
   /* buttons */
   .btn-primary {
-    @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] bg-ice px-6 text-[15px] font-semibold text-bay transition-colors duration-150 hover:bg-white;
+    @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] bg-ice px-6 text-[15px] font-semibold text-bay transition-colors duration-150 hover:bg-icehi;
   }
   /* the one way in on the landing page: lit from above like the car's paint, with a soft spill of the scan light under it */
   .btn-hero {
@@ -112,7 +156,7 @@
   }
 
   /* section divider: a hairline that brightens toward the middle, like the floor seam of the bay */
-  .reg-rule { height: 1px; background: linear-gradient(90deg, transparent, theme(colors.hair) 12%, #33404D 50%, theme(colors.hair) 88%, transparent); }
+  .reg-rule { height: 1px; background: linear-gradient(90deg, transparent, theme(colors.hair) 12%, theme(colors.hair2) 50%, theme(colors.hair) 88%, transparent); }
 
   /* the scan light resting on the top edge of a panel */
   .scan-edge {
@@ -122,8 +166,8 @@
     right: -1px;
     top: -1px;
     height: 1px;
-    background: linear-gradient(90deg, transparent, theme(colors.ice) 18%, theme(colors.ice) 82%, transparent);
-    box-shadow: 0 0 14px 0 rgba(191, 233, 255, 0.55);
+    background: linear-gradient(90deg, transparent, theme(colors.scan) 18%, theme(colors.scan) 82%, transparent);
+    box-shadow: 0 0 14px 0 rgb(var(--c-scan) / 0.55);
     border-radius: 1px;
   }
 
@@ -145,8 +189,14 @@
   .status-dot { @apply h-[9px] w-[9px] shrink-0 rounded-full; }
 
   /* legacy helpers kept for any page that still uses them */
-  .btn { @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] bg-ice px-6 text-[15px] font-semibold text-bay transition-colors duration-150 hover:bg-white; }
+  .btn { @apply inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-[3px] bg-ice px-6 text-[15px] font-semibold text-bay transition-colors duration-150 hover:bg-icehi; }
   .card { @apply rounded-[3px] border border-hair bg-panel p-6; }
+
+  /* ── the white working set: what a dark room does with light, a white page does with shadow ── */
+  .theme-light .scan-edge { height: 2px; box-shadow: none; }
+  .theme-light .sheet { box-shadow: 0 1px 2px rgb(10 14 19 / 0.04), 0 14px 32px -18px rgb(10 14 19 / 0.18); }
+  .theme-light .menu { box-shadow: 0 1px 2px rgb(10 14 19 / 0.06), 0 16px 32px -12px rgb(10 14 19 / 0.22); }
+  .menu { box-shadow: 0 12px 24px -16px rgb(0 0 0 / 0.8); }
 }
 
 /* ───────────────────────── landing ───────────────────────── */
@@ -161,6 +211,9 @@
   .armed.inview .draw { stroke-dashoffset: 0; transition: stroke-dashoffset 0.32s ease-out var(--w, 0s); }
   .scroll-hint { animation: hint 1.8s ease-in-out infinite; transform-origin: top; }
 }
+/* the logo's visor: see-through at night, filled in on white, so the two white eyes stay lit */
+.logo-visor { display: none; }
+.theme-light .logo-visor { display: inline; }
 /* the logo's eyes blink now and then */
 .logo-eyes { transform-box: fill-box; transform-origin: center; animation: logo-blink 5.4s ease-in-out infinite; }
 @keyframes logo-blink { 0%, 92%, 100% { transform: scaleY(1); } 95.5% { transform: scaleY(0.1); } }

@@ -22,9 +22,11 @@ function O({ kind, oRef }: { kind: FirstO; oRef?: React.Ref<SVGGElement> }) {
   }
   return (
     <g ref={oRef} transform={`rotate(7 ${W.o.cx} ${W.o.cy})`}>
-      {/* the visor is cut out of the ball, so whatever is behind the logo shows through it */}
+      {/* the visor is cut out of the ball, so whatever is behind the logo shows through it;
+          on a white page there is nothing dark behind it, so there the visor is filled in (see .logo-visor) */}
+      <circle className="logo-visor" cx={W.o.cx} cy={W.o.cy} r={W.o.r - 6} />
       <path fillRule="evenodd" d={W.face} />
-      <g className="logo-eyes" fill="#FFFFFF">
+      <g className="logo-eyes" fill="var(--logo-eye)">
         {W.eyes.map((d) => <path key={d} d={d} />)}
       </g>
     </g>

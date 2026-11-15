@@ -23,8 +23,8 @@ export default async function MockPay({ searchParams }: { searchParams: Promise<
   if (!o || o.provider !== "mock") notFound();
   return (
     <main className="wrap py-12">
-      <h1 className="text-[24px] font-semibold text-ink">Mock payment (local only)</h1>
-      <p className="mt-2 text-deep">{o.credits} credits · {(o.amountMinor / 100).toFixed(2)} {o.currency}</p>
+      <h1 className="text-[24px] font-semibold text-fg">Mock payment (local only)</h1>
+      <p className="mt-2 text-fg">{o.credits} credits · {(o.amountMinor / 100).toFixed(2)} {o.currency}</p>
       <form action={pay} className="mt-6"><input type="hidden" name="order" value={o.id} /><button className="btn-primary">Pay (no money)</button></form>
     </main>
   );

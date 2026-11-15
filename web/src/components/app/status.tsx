@@ -16,7 +16,7 @@ function Strip({ status }: { status: string }) {
   return (
     <span className="inline-flex gap-[2px] align-[-1px]">
       {PIPELINE.map((s, i) => (
-        <span key={s} className={`h-[11px] w-[4px] sm:w-[5px] ${i <= at ? "bg-ice" : "bg-hair"}`} />
+        <span key={s} className={`h-[11px] w-[4px] sm:w-[5px] ${i <= at ? "bg-scan" : "bg-hair"}`} />
       ))}
     </span>
   );
