@@ -22,3 +22,12 @@
 - A new signed-in page gets the white set by using `AppLayout`. Use the tokens (`bg-panel`, `text-fg`, `border-hair`, `bg-ice text-bay` for the primary action…), never a hex colour, so it follows the set it sits in.
 - On white, the primary colour (`ice`) is ink black and the scan blue (`scan`) is the accent (progress, the lit top edge of a sheet). The logo's visor is filled in on white so its two white eyes stay visible.
 - `public/landing/bay-*.jpg` were rendered again with `scripts/landing-posters.mjs`: they now show the white face ball, like the live 3D scene.
+
+## Admin backoffice (plan: issue #4)
+- Lives at `/admin` on app.autopilotclaim.com (not a separate host). A `backoffice.` alias can be added later as a Vercel domain plus a host rewrite.
+- Access: verified email listed in env `ADMIN_EMAILS` (comma list; missing/empty/malformed = nobody) and a session younger than 12 h. Everyone else gets the same 404 as any missing page. No `/api/admin/*` routes exist; all reads happen in server components.
+- Internal accounts (smoke account, `ADMIN_EMAILS`, `ADMIN_EXCLUDE_EMAILS`) are left out of every number unless `?internal=1`.
+- Every Claude call goes through `trackedParse()` in `lib/claude.ts` and lands in `llm_calls` (one row per billed response, unique `request_id`; failures get `ok=false`). Prices live in `lib/pricing.ts` (`PRICES`); an unknown model is stored unpriced, never guessed. Update `PRICES` when `CLAUDE_MODEL` changes.
+- `email_log` stores kind, recipient domain and outcome only.
+- Org-wide spend comes from the Anthropic Admin API (`ANTHROPIC_ADMIN_KEY`), best-effort cached per instance. The response shape was written from the docs and is tested against mocks; confirm it against the first real response.
+- Tests: `npm test` runs unit tests anywhere; the seeded database tests run only when `DATABASE_URL` points at a local Postgres with the migrations applied.

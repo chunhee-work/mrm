@@ -12,6 +12,14 @@ import { z } from "zod";
 const API = "https://api.lemonsqueezy.com/v1";
 const TIMEOUT_MS = 10_000;
 
+/** True only when the login email is in OWNER_FREE_EMAILS and an owner code is configured. */
+export function isOwnerFree(email: string | null | undefined): boolean {
+  const code = process.env.LEMONSQUEEZY_OWNER_CODE;
+  if (!code || !email) return false;
+  const list = (process.env.OWNER_FREE_EMAILS || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  return list.includes(email.trim().toLowerCase());
+}
+
 export const variantEnvName = (pack: Pack) => `LEMONSQUEEZY_VARIANT_${pack.id.toUpperCase()}`;
 const variantId = (pack: Pack) => process.env[variantEnvName(pack)] || "";
 
@@ -79,12 +87,16 @@ export const lemonsqueezy: PaymentProvider = {
   async createCheckout({ order, email, returnUrl }: CheckoutInput) {
     const variant = process.env[`LEMONSQUEEZY_VARIANT_${order.packId.toUpperCase()}`];
     if (!variant) throw new PaymentError("unavailable", "This pack is not available with Lemon Squeezy");
+    const checkoutData: Record<string, unknown> = { email, billing_address: { country: "MY" }, custom: { order_id: order.id } };
+    // Owner-only free code: applied by us for allow-listed login emails; everyone else never sees a discount box.
+    const ownerFree = isOwnerFree(email);
+    if (ownerFree) checkoutData.discount_code = process.env.LEMONSQUEEZY_OWNER_CODE;
     const body = {
       data: {
         type: "checkouts",
         attributes: {
-          checkout_options: { discount: false },
-          checkout_data: { email, billing_address: { country: "MY" }, custom: { order_id: order.id } },
+          checkout_options: { discount: ownerFree },
+          checkout_data: checkoutData,
           product_options: { redirect_url: returnUrl },
         },
         relationships: {
