@@ -184,7 +184,9 @@ export default function Journey({ c, cta, href, poster }: { c: JourneyCopy; cta:
       try {
         const { createBay } = await import("./bay");
         if (!alive) return;
-        const made = await createBay(canvas, { mobile: window.matchMedia("(max-width: 767px)").matches });
+        // ?still=1&bot=face (or lens): a script may ask for the other ball, to picture the two side by side
+        const asked = capture ? new URLSearchParams(window.location.search).get("bot") : null;
+        const made = await createBay(canvas, { mobile: window.matchMedia("(max-width: 767px)").matches, bot: asked === "face" || asked === "lens" ? asked : undefined });
         if (!alive) { made.dispose(); return; }
         bay = made;
         measure();

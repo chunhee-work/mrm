@@ -6,6 +6,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { BOT_R, buildBot, type Face } from "./bot";
+import { buildFaceBot } from "./bot-face";
 import { buildLogo } from "./logo";
 import { buildCar, type Part } from "./car";
 import { FORM_H, buildConsole, type Viewer } from "./console";
@@ -24,7 +25,10 @@ import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
  * moving, a slow rise and fall of everything that is in the air. Pass 0 for a still.
  */
 
-export type BayOptions = { mobile: boolean };
+/** Which ball flies in the bay: the black lens ball (a scanned model) or the white ball with a face (drawn in code). */
+export type BotLook = "lens" | "face";
+export const BOT_LOOK: BotLook = "face";
+export type BayOptions = { mobile: boolean; bot?: BotLook };
 /** where the logo's "o" is on the page, in CSS pixels from the canvas's top left corner */
 /** Where the page keeps the logo's place at the ending, in canvas pixels: the middle and width of the wordmark, and the middle and height of the whole block of words under it. */
 export type Dock = { cx: number; cy: number; w: number; by: number; bh: number };
@@ -167,8 +171,11 @@ function overlayMaterial(scan: Scan, amber: boolean) {
         // damaged parts hold an amber survey of their own once the scan has found them
         float a = uAmber * uIsAmber;
         col += uAmberCol * a * (line * 0.55 + dotv * 1.3 + fres * 1.1 + 0.07);
-        // the belly of the car is not surveyed: lit, it showed in the mirror floor as a hard-edged slab of light under the car
-        col *= 1.0 - smoothstep(-0.35, -0.8, n.y) * (1.0 - clamp(uHold * 2.5, 0.0, 1.0));
+        // the belly of the car shows in the mirror floor as a field of light under the car. It is kept, but it has no
+        // outline: it is brightest under the middle of the car and has thinned to nothing before the belly's own edge.
+        float belly = smoothstep(-0.35, -0.8, n.y) * (1.0 - clamp(uHold * 2.5, 0.0, 1.0));
+        float under = 1.0 - smoothstep(0.42, 0.98, length(vec2(vCar.x / 2.05, vCar.z / 0.86)));
+        col *= mix(1.0, under * 1.5, belly);
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -320,13 +327,14 @@ function beamOnFloor(w: number, h: number) {
 
 export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Promise<Bay> {
   const mobile = opts.mobile;
+  const faceBot = (opts.bot ?? BOT_LOOK) === "face";
   // the two scanned models and the picture of the case file come first: without them there is no scene, and the caller shows the stills instead
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const [carFile, consoleFile, botFile, casefile, casefileHero] = await Promise.all([
     loader.loadAsync("/landing/car.glb"),
     loader.loadAsync("/landing/console.glb"),
-    loader.loadAsync("/landing/bot.glb"),
+    faceBot ? Promise.resolve(null) : loader.loadAsync("/landing/bot.glb"),
     new THREE.TextureLoader().loadAsync("/landing/casefile.webp"),
     new THREE.TextureLoader().loadAsync("/landing/casefile-hero.webp"),
   ]);
@@ -384,7 +392,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   scene.add(room.group);
   const con = buildConsole(mobile, consoleFile, casefile, casefileHero);
   scene.add(con.group);
-  const bot = buildBot(botFile);
+  const bot = botFile ? buildBot(botFile) : buildFaceBot();
   scene.add(bot.group, bot.key);
 
   // ── the scan light. Everything in it starts at the ball:
@@ -548,6 +556,9 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     const ring = lampSprite(ringTex, glow(LAMP_WHITE, 1), 11);
     const ghost = lampSprite(ghostTex, glow(ICE, 1), 11);
     ring.material.rotation = li * 2.3;
+    // a second ring, wider and fainter, behind the dark that hangs behind the words
+    const ring2 = lampSprite(ringTex, glow(LAMP_WHITE, 1), 8);
+    ring2.material.rotation = 1.1 + li * 3.4;
     const core = lampSprite(glowTex, glow(LAMP_WHITE, 2.6), 12);
     const BEAM = 11;
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(BEAM, 5), new THREE.MeshBasicMaterial({ map: beamTex, color: glow(LAMP_WHITE, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -560,7 +571,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     swing.position.set(lamp.home.x - 0.1, 0.007, lamp.home.z);
     swing.add(pool);
     car.group.add(swing);
-    return { lamp, core, halo, rays, flare, ring, ghost, pool, swing, turn: li * 1.9 + 0.3 };
+    return { lamp, core, halo, rays, flare, ring, ring2, ghost, pool, swing, turn: li * 1.9 + 0.3 };
   });
   // under the dark that hangs behind the words (9), so the light fills the frame and the words still read
   const veil = lampSprite(haloTex, glow(LAMP_WHITE, 1), 8);
@@ -768,7 +779,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     va.subVectors(camera.position, ball).normalize();
     bot.key.position.copy(ball).addScaledVector(va, 0.5 * scale).addScaledVector(up, 0.42 * scale).addScaledVector(right, -0.3 * scale);
     bot.key.distance = 1.5 * Math.max(scale, 0.35);
-    bot.key.intensity = 1.5 * scale * scale * (1 - toDock * 0.85);
+    bot.key.intensity = faceBot ? 0 : 1.5 * scale * scale * (1 - toDock * 0.85);
 
     // ── scan: the light goes round the car, and the paint under it gives up its motes to the ball
     scan.uOn.value = on;
@@ -874,7 +885,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       vc.copy(fx.lamp.home).add(ve.set(0.06, 0, 0)).applyMatrix4(car.group.matrixWorld);
       const near = THREE.MathUtils.clamp(vb.subVectors(vc, car.group.position).dot(right) * 1.4, -1, 1) * ax;
       const k = lit * facing * flick * (1 + near * 0.22);
-      fx.core.visible = fx.halo.visible = fx.rays.visible = fx.flare.visible = fx.ring.visible = fx.ghost.visible = fx.pool.visible = k > 0.003;
+      fx.core.visible = fx.halo.visible = fx.rays.visible = fx.flare.visible = fx.ring.visible = fx.ring2.visible = fx.ghost.visible = fx.pool.visible = k > 0.003;
       if (k <= 0.003) continue;
       vd.addScaledVector(vc, 1 / lampFx.length);
       fx.swing.rotation.y = -ax * side * LAMP_SWING;
@@ -886,6 +897,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       fx.flare.position.copy(vc).addScaledVector(right, ax * 0.3);
       // the ring sits round the lamp, and drifts a little further after the mouse than the glow does
       fx.ring.position.copy(vc).addScaledVector(lean, 0.2);
+      fx.ring2.position.copy(vc).addScaledVector(lean, 0.34);
       // the ghost lies on the line from the lamp toward the middle of the frame, short of the words, and slides against the mouse
       const depth = vb.subVectors(vc, camera.position).dot(fwd);
       inFrame(0.5, 0.5, depth, vb).addScaledVector(lean, -0.9);
@@ -896,12 +908,14 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       fx.rays.scale.setScalar((mobile ? 2.4 : 3.6) * (0.5 + 0.5 * k));
       fx.flare.scale.set((mobile ? 1.6 : 2.2) + 0.8 * k, 0.07, 1);
       fx.ring.scale.setScalar((mobile ? 1.7 : 2.4) * (0.8 + 0.2 * k));
+      fx.ring2.scale.setScalar((mobile ? 2.9 : 4.2) * (0.8 + 0.2 * k));
       fx.ghost.scale.setScalar(mobile ? 0.12 : 0.17);
       fx.core.material.opacity = k;
       fx.halo.material.opacity = k * (mobile ? 0.3 : 0.34);
       fx.rays.material.opacity = k * 0.42;
       fx.flare.material.opacity = k * 0.2;
       fx.ring.material.opacity = k * 0.6;
+      fx.ring2.material.opacity = k * 0.3;
       fx.ghost.material.opacity = k * 0.16;
       (fx.pool.material as THREE.MeshBasicMaterial).opacity = lit * (mobile ? 0.4 : 0.6);
     }
