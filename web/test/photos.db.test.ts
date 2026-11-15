@@ -234,12 +234,18 @@ test("upload: only noted, existing files are registered; identical files are ski
   assert.deepEqual(await s.noteUpload(c, orgId, `${orgId}/${id}/photos/zzz-f-COPY.jpg`, hash("a")), { ok: false, reason: "duplicate" });
   assert.deepEqual(await s.noteUpload(c, orgId, a.blobPath, null), { ok: false, reason: "taken" }, "a stored photo is never replaced");
   assert.deepEqual(await s.noteUpload(c, orgId, `other/${id}/photos/x`, null), { ok: false, reason: "path" });
+  // the same entry twice in one request: one photo, and its files stay
+  const twice = await mk("fff", hash("f"));
+  const rt = await s.registerPhotos(await caseNow(orgId, id), orgId, [twice, twice]);
+  assert.deepEqual([(rt.body.added as unknown[]).length, rt.body.duplicates], [1, ["fff.jpg"]]);
+  assert.ok(existsSync(fileOf(twice.blobPath)) && existsSync(fileOf(twice.thumbPath)), "the kept photo's files are not cleaned up");
+
   const e = await mk("eee", null);
   const dup = { ...e, hash: hash("b") };
   const r2 = await s.registerPhotos(await caseNow(orgId, id), orgId, [dup]);
   assert.deepEqual([(r2.body.added as unknown[]).length, r2.body.duplicates], [0, ["eee.jpg"]]);
   assert.ok(!existsSync(fileOf(e.blobPath)), "the identical file's blob is not kept");
-  assert.equal((await rows(id)).length, 2);
+  assert.equal((await rows(id)).length, 3);
 
   // discard
   const stray = `${orgId}/${id}/photos/stray-s-IMG.jpg`;

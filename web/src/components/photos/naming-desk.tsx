@@ -73,7 +73,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
 
   const server = useRef(new Map<number, Photo>()); // last row the server confirmed, per photo
   const writes = useRef(new Map<number, { busy: boolean; next?: { target: string | null; session?: string } }>());
-  const order = useRef({ busy: false, next: false });
+  const order = useRef(new Map<string, { busy: boolean; next: boolean }>()); // one saving queue per case
   const undo = useRef(new UndoStack());
   const clip = useRef("");
   const dragId = useRef<number | null>(null);
@@ -116,7 +116,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       return p;
     });
     let rev = fresh.rev;
-    if (order.current.busy && old) {
+    if (order.current.get(cid)?.busy && old) {
       const pos = new Map(old.photos.map((p, i) => [p.id, i]));
       photos = [...photos].sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
       rev = old.rev;
@@ -242,25 +242,28 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const applyOrder = useCallback((cid: string, next: Photo[]) => {
     patchCase(cid, (c) => ({ ...c, photos: next }));
     setDoneLocal(cid, false);
-    if (order.current.busy) { order.current.next = true; return; }
-    order.current.busy = true;
+    let q = order.current.get(cid);
+    if (!q) { q = { busy: false, next: false }; order.current.set(cid, q); }
+    const o = q;
+    if (o.busy) { o.next = true; return; }
+    o.busy = true;
     void (async () => {
       for (;;) {
-        order.current.next = false;
+        o.next = false;
         const c = statesRef.current[cid];
         if (!c) break;
         const r = await api("PUT", `/api/cases/${cid}/photos/order`, { ids: c.photos.map((p) => p.id), rev: c.rev });
         if (r.ok) {
           patchCase(cid, (x) => ({ ...x, rev: Number(r.body.rev) }));
-          if (order.current.next) continue;
+          if (o.next) continue;
           break;
         }
-        order.current.busy = false;
+        o.busy = false;
         say(tRef.current(r.status === 409 ? "orderElsewhere" : "saveFailed"));
         await load(cid, true);
         return;
       }
-      order.current.busy = false;
+      o.busy = false;
     })();
   }, [patchCase, setDoneLocal, say, load]);
 

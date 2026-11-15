@@ -199,6 +199,7 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
     const fresh: RegisterItem[] = [];
     for (const it of items) {
       if (taken.has(it.blobPath)) { duplicates.push(it.name); continue; }
+      taken.add(it.blobPath); // the same entry twice in one request is one photo
       if (it.hash && hashes.has(it.hash)) { duplicates.push(it.name); strays.push(it.blobPath, it.thumbPath); continue; }
       if (it.hash) hashes.add(it.hash);
       fresh.push(it);
@@ -227,7 +228,9 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
   }
   const consumed = [...items.flatMap((i) => [i.blobPath, i.thumbPath]), ...strays];
   if (consumed.length) await db.delete(schema.photoUploads).where(and(eq(schema.photoUploads.caseId, c.id), inArray(schema.photoUploads.path, consumed)));
-  await Promise.all(strays.map((p) => deletePhoto(p).catch(() => {})));
+  // a file that a photo kept in this request points at is never cleaned up
+  const kept = new Set(added.flatMap((p) => [p.blobPath, p.thumbPath]));
+  await Promise.all([...new Set(strays)].filter((p) => !kept.has(p)).map((p) => deletePhoto(p).catch(() => {})));
   return ok({ added: added.map(photoDto), duplicates, rejected });
 }
 
