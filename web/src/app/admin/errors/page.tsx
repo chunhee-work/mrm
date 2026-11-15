@@ -1,29 +1,36 @@
 import { requireAdmin } from "@/lib/admin/auth";
 import { errorsPage } from "@/lib/admin/queries";
-import { Card, Shell, Table, readSp, when, type Sp } from "../_ui";
+import { IconChip, IconClock, IconMail } from "../_icons";
+import { Card, CaseId, Shell, Table, readSp, when, words, type Sp } from "../_ui";
 
 export default async function Errors({ searchParams }: { searchParams: Sp }) {
   await requireAdmin();
   const { scope } = await readSp(searchParams);
   const e = await errorsPage(scope);
   return (
-    <Shell current="errors" scope={scope}>
+    <Shell current="errors" scope={scope} title="Errors">
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Failed Claude calls">
-          <Table rowKey={(r) => r.at + (r.caseId ?? "")} rows={e.calls} empty="None" height="max-h-[320px]" cols={[
-            { label: "When", cell: (r) => when(r.at) }, { label: "Purpose", cell: (r) => r.purpose }, { label: "Error", cell: (r) => r.errorClass ?? "–" }, { label: "Case", cell: (r) => r.caseId?.slice(0, 8) ?? "–" },
+        <Card icon={<IconChip />} title="Failed AI calls" count={e.calls.length}>
+          <Table rowKey={(r) => r.at + (r.caseId ?? "")} rows={e.calls} empty="No failed AI calls" ok height="max-h-[320px]" cols={[
+            { label: "Task", cell: (r) => <>{words(r.purpose)} <CaseId id={r.caseId} /></> },
+            { label: "Error", cell: (r) => words(r.errorClass) },
+            { label: "When", cell: (r) => when(r.at), right: true },
           ]} />
         </Card>
-        <Card title="Failed emails" note="Only the kind, the recipient’s domain and the error type are stored. Never the subject or the link.">
-          <Table rowKey={(r) => r.at + r.domain} rows={e.mails} empty="None" height="max-h-[320px]" cols={[
-            { label: "When", cell: (r) => when(r.at) }, { label: "Kind", cell: (r) => r.kind }, { label: "Domain", cell: (r) => r.domain }, { label: "Error", cell: (r) => r.errorClass ?? "–" },
+        <Card icon={<IconMail />} title="Failed emails" count={e.mails.length} info="Only the kind of email, the recipient’s domain and the error type are stored. Never the subject or the link.">
+          <Table rowKey={(r) => r.at + r.domain} rows={e.mails} empty="No failed emails" ok height="max-h-[320px]" cols={[
+            { label: "Email", cell: (r) => <>{words(r.kind)} <span className="text-mute">to {r.domain}</span></> },
+            { label: "Error", cell: (r) => words(r.errorClass) },
+            { label: "When", cell: (r) => when(r.at), right: true },
           ]} />
         </Card>
       </div>
       <div className="mt-4">
-        <Card title="Audit log (latest 50)">
-          <Table rowKey={(r) => r.at + r.action + (r.detail ?? "")} rows={e.audit} empty="Empty" height="max-h-[320px]" cols={[
-            { label: "When", cell: (r) => when(r.at) }, { label: "Action", cell: (r) => r.action }, { label: "Detail", cell: (r) => r.detail ?? "–" },
+        <Card icon={<IconClock />} title="Activity log">
+          <Table rowKey={(r) => r.at + r.action + (r.detail ?? "")} rows={e.audit} empty="Nothing logged yet" height="max-h-[320px]" cols={[
+            { label: "Action", cell: (r) => words(r.action) },
+            { label: "Detail", cell: (r) => r.detail ?? "–" },
+            { label: "When", cell: (r) => when(r.at), right: true },
           ]} />
         </Card>
       </div>
