@@ -11,7 +11,6 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const d = await userDetail(id);
   if (!d.user) notFound();
   const u = d.user;
-  const spent = d.cases.reduce((a, c) => a + Number(c.cost), 0);
   return (
     <Shell current="users" scope={scope} title={String(u.name || u.email)} back={{ href: withScope("/admin/users", scope), label: "Users" }}>
       <p className="-mt-3 mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-mute">
@@ -20,8 +19,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       </p>
       <div className="grid gap-4">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Stat icon={<IconCases />} label="Cases" value={int(d.cases.length)} />
-          <Stat icon={<IconCost />} label="AI cost" value={usd(spent)} />
+          <Stat icon={<IconCases />} label="Cases" value={int(d.totals.cases)} />
+          <Stat icon={<IconCost />} label="AI cost" value={usd(d.totals.cost)} />
           <Stat icon={<IconClock />} label="Joined" value={when(new Date(u.created_at).toISOString()).split(",")[0]} />
           <Stat icon={<IconClock />} label="Last seen" value={ago(u.last_seen ? new Date(u.last_seen).toISOString() : null)} />
         </div>

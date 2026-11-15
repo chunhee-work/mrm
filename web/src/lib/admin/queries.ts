@@ -86,13 +86,16 @@ export async function usersList(scope: Scope, q: string, page: number, db: Db = 
 
 export async function userDetail(id: string, db: Db = defaultDb) {
   const [u, cases, calls] = await Promise.all([
-    rows(db, sql`SELECT id, email, name, email_verified, created_at, (SELECT max(s.updated_at) FROM session s WHERE s.user_id = "user".id) last_seen FROM "user" WHERE id = ${id}`),
+    rows(db, sql`SELECT id, email, name, email_verified, created_at, (SELECT max(s.updated_at) FROM session s WHERE s.user_id = "user".id) last_seen,
+      (SELECT count(*) FROM cases c WHERE c.created_by = "user".id) case_count,
+      (SELECT coalesce(sum(l.cost_usd), 0) FROM llm_calls l WHERE l.user_id = "user".id) cost_total FROM "user" WHERE id = ${id}`),
     rows(db, sql`SELECT c.id, c.status, c.car_model, c.insurer, c.created_at, coalesce(sum(l.cost_usd), 0) cost
       FROM cases c LEFT JOIN llm_calls l ON l.case_id = c.id WHERE c.created_by = ${id} GROUP BY c.id ORDER BY c.created_at DESC LIMIT 50`),
     rows(db, sql`SELECT at, case_id, purpose, model, input_tokens, output_tokens, cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens, cost_usd, ok
       FROM llm_calls WHERE user_id = ${id} ORDER BY at DESC LIMIT 50`),
   ]);
-  return { user: u[0] ?? null, cases, calls };
+  // Totals come from their own counts, the same ones the Users list shows; the two lists below stop at 50 rows.
+  return { user: u[0] ?? null, cases, calls, totals: { cases: num(u[0]?.case_count), cost: num(u[0]?.cost_total) } };
 }
 
 // Window = from UTC midnight 30 days ago, the same start the Anthropic cost report uses, so the two totals compare like with like.
