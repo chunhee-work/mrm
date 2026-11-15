@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadGuarded, UploadStalled } from "@/lib/upload-guard";
 import { useT } from "@/components/lang-provider";
 import DropZone, { accepted } from "@/components/app/drop-zone";
 import { Cross, Tick } from "@/components/app/marks";
@@ -29,7 +29,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const [pct, setPct] = useState(0);
   const [msg, setMsg] = useState("");
   const [failed, setFailed] = useState<string | null>(null);
-  const [skipped, setSkipped] = useState(false);
+  const [skipped, setSkipped] = useState(0); // how many chosen files were left out (wrong type)
   const ledger = useRef<HTMLUListElement>(null);
 
   // keep the file being uploaded in view inside the ledger
@@ -39,7 +39,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
 
   function addFiles(list: File[]) {
     const ok = list.filter(accepted);
-    setSkipped(ok.length < list.length);
+    setSkipped(list.length - ok.length);
     if (!ok.length) return;
     setMsg(""); setFailed(null);
     setFiles((cur) => {
@@ -55,26 +55,23 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setBusy(true); setMsg(""); setFailed(null); setSkipped(false);
+    e.preventDefault(); setBusy(true); setMsg(""); setFailed(null); setSkipped(0);
     let at = 0;
     try {
       const batchId = crypto.randomUUID();
       const done = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i]; at = i; setStep(i); setPct(0);
-        const b = await upload(`${orgId}/${batchId}/${f.name}`, f, {
-          access: "private", handleUploadUrl: "/api/upload", multipart: f.size > 20e6,
-          onUploadProgress: (p) => setPct(p.percentage),
-        });
+        const b = await uploadGuarded(`${orgId}/${batchId}/${f.name}`, f, setPct);
         done.push({ kind: kindOf(f), url: b.url, name: f.name, size: f.size });
       }
       at = files.length; setStep(files.length);
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
       if (!r.ok) throw new Error(t("new.fail"));
       window.location.href = "/dashboard";
-    } catch {
+    } catch (e) {
       const inUpload = at < files.length;
-      setMsg(inUpload ? t("new.failUpload") : t("new.fail"));
+      setMsg(e instanceof UploadStalled ? t("new.stalled") : inUpload ? t("new.failUpload") : t("new.fail"));
       setFailed(inUpload ? keyOf(files[at]) : null);
       setStep(-1); setBusy(false);
     }
@@ -112,7 +109,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
               browse={t("new.browse")}
               addMore={t("new.addMore")}
             />
-            {skipped && <p className="hint" role="status">{t("new.onlyTypes")}</p>}
+            {skipped > 0 && <p className="hint" role="status">{skipped === 1 ? t("new.skippedOne") : t("new.skippedMany", { n: String(skipped) })}</p>}
 
             {n > 0 && (
               <ul ref={ledger} tabIndex={0} aria-label={t("new.files")} className="app-scroll mt-1 max-h-[218px] sm:max-h-[266px] overflow-y-auto overscroll-contain rounded-[3px] border border-hair focus-visible:outline-offset-[-2px]">

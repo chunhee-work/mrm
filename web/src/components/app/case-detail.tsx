@@ -1,7 +1,8 @@
 "use client";
 import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
+import Link from "next/link";
+import { uploadGuarded, UploadStalled } from "@/lib/upload-guard";
 import { useT } from "@/components/lang-provider";
 import { kindOf } from "@/lib/file-kind";
 import { accepted } from "./drop-zone";
@@ -39,10 +40,7 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
         const f = files[i];
         const step = { n: i + 1, total: files.length };
         setSending({ ...step, pct: 0 });
-        const b = await upload(`${folder}/${f.name}`, f, {
-          access: "private", handleUploadUrl: "/api/upload", multipart: f.size > 20e6,
-          onUploadProgress: (p) => setSending({ ...step, pct: Math.round(p.percentage) }),
-        });
+        const b = await uploadGuarded(`${folder}/${f.name}`, f, (pct) => setSending({ ...step, pct: Math.round(pct) }));
         done.push({ kind: kindOf(f), url: b.url, name: f.name, size: f.size });
       }
       saving = true;
@@ -50,8 +48,8 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
       if (!r.ok) throw new Error("not saved");
       onSent(row.id, "files");
       router.refresh();
-    } catch {
-      setErr(t(saving ? "dash.d.fail" : "new.failUpload"));
+    } catch (e) {
+      setErr(t(e instanceof UploadStalled ? "new.stalled" : saving ? "dash.d.fail" : "new.failUpload"));
     } finally {
       setSending(null);
     }
@@ -130,7 +128,13 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
     // on hold: nothing for the user to press, the team picks it up
     need = <p className={say}>{t("dash.d.failed")}</p>;
   } else {
+    // the photo names are waiting: the button opens this case on the naming desk
     need = <p className={say}>{t("dash.d.waiting")}</p>;
+    act = (
+      <Link href={`/cases/${row.id}/photos`} aria-labelledby={`${actId} ${titleId}`} className={button}>
+        <span id={actId}>{t("dash.d.photos")}</span>
+      </Link>
+    );
   }
 
   return (

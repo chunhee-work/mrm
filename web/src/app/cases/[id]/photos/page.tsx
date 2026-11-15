@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { getLang } from "@/lib/i18n-server";
+import { getLang, getT } from "@/lib/i18n-server";
 import { caseInOrg } from "@/lib/photos/server";
 import { photoT } from "@/lib/photos/strings";
 import { requireUser } from "@/lib/session";
@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { orgId } = await requireUser();
   const c = await caseInOrg(orgId, id);
   const title = photoT(await getLang())("title");
-  return { title: c ? `${c.plate} · ${title}` : title, robots: { index: false, follow: false } };
+  return { title: c?.plate ? `${c.plate} · ${title}` : title, robots: { index: false, follow: false } };
 }
 
 /** The photo naming desk: every open case of the organisation as a tab, this case in front. */
@@ -35,7 +35,8 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
         .where(inArray(schema.casePhotos.caseId, rows.map((r) => r.id))).groupBy(schema.casePhotos.caseId)
     : [];
   const count = new Map(n.map((x) => [x.caseId, Number(x.n)]));
-  const tabs: DeskTab[] = rows.map((r) => ({ id: r.id, plate: r.plate, carModel: r.carModel, done: r.doneAt != null, photos: count.get(r.id) ?? 0 }));
+  const noPlate = (await getT()).t("photos.noPlate"); // the documents have not been read yet: say so instead of an empty tab
+  const tabs: DeskTab[] = rows.map((r) => ({ id: r.id, plate: r.plate || noPlate, carModel: r.carModel, done: r.doneAt != null, photos: count.get(r.id) ?? 0 }));
 
   return <NamingDesk orgId={orgId} tabs={tabs} initialId={id} />;
 }

@@ -4,7 +4,7 @@ import { HOME } from "@/lib/home-copy";
 import { pageMeta } from "@/lib/meta";
 import { Closing, Keyed, Steps } from "@/components/landing/sections";
 
-export const generateMetadata = () => pageMeta("nav.how");
+export const generateMetadata = () => pageMeta("nav.how", { desc: "meta.d.how" });
 
 export default async function HowItWorks() {
   const me = await getUserOrNull();

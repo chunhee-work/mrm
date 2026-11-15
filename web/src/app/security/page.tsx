@@ -4,7 +4,7 @@ import { HOME } from "@/lib/home-copy";
 import { pageMeta } from "@/lib/meta";
 import { Closing, Security } from "@/components/landing/sections";
 
-export const generateMetadata = () => pageMeta("nav.security");
+export const generateMetadata = () => pageMeta("nav.security", { desc: "meta.d.security" });
 
 export default async function SecurityPage() {
   const me = await getUserOrNull();

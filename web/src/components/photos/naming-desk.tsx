@@ -633,7 +633,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         <div className="wrap grid gap-2.5 py-3 max-sm:px-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8 lg:py-4">
           <div className="min-w-0">
             <div className="flex items-baseline gap-3">
-              <h1 className="font-mono text-[22px] font-semibold leading-none tracking-wide text-fg lg:text-[28px]">{st?.plate ?? tab?.plate ?? ""}</h1>
+              <h1 className="font-mono text-[22px] font-semibold leading-none tracking-wide text-fg lg:text-[28px]">{st?.plate || tab?.plate || ""}</h1>
               <p className="min-w-0 truncate text-[14px] text-mute">{st?.carModel ?? tab?.carModel ?? ""}</p>
             </div>
             <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
