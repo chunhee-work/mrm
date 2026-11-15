@@ -16,3 +16,12 @@
 - Account: `smoke-tester@autoclaim.invalid`, email pre-verified (no mail needed), own empty org. Created with `scripts/seed-smoke-user.ts` (idempotent, touches only that email). Password lives only in the CI/local env `SMOKE_PASSWORD`, never in the repo.
 - Run: `SMOKE_PASSWORD=… node scripts/smoke.mjs https://autoclaim-web.vercel.app` (needs Playwright). It writes nothing, uploads nothing.
 - Not done yet: a GitHub Actions workflow (needs `SMOKE_PASSWORD` as a repo secret, and a workflow file the owner approves).
+
+## Admin backoffice (plan: issue #4)
+- Lives at `/admin` on app.autopilotclaim.com (not a separate host). A `backoffice.` alias can be added later as a Vercel domain plus a host rewrite.
+- Access: verified email listed in env `ADMIN_EMAILS` (comma list; missing/empty/malformed = nobody) and a session younger than 12 h. Everyone else gets the same 404 as any missing page. No `/api/admin/*` routes exist; all reads happen in server components.
+- Internal accounts (smoke account, `ADMIN_EMAILS`, `ADMIN_EXCLUDE_EMAILS`) are left out of every number unless `?internal=1`.
+- Every Claude call goes through `trackedParse()` in `lib/claude.ts` and lands in `llm_calls` (one row per billed response, unique `request_id`; failures get `ok=false`). Prices live in `lib/pricing.ts` (`PRICES`); an unknown model is stored unpriced, never guessed. Update `PRICES` when `CLAUDE_MODEL` changes.
+- `email_log` stores kind, recipient domain and outcome only.
+- Org-wide spend comes from the Anthropic Admin API (`ANTHROPIC_ADMIN_KEY`), best-effort cached per instance. The response shape was written from the docs and is tested against mocks; confirm it against the first real response.
+- Tests: `npm test` runs unit tests anywhere; the seeded database tests run only when `DATABASE_URL` points at a local Postgres with the migrations applied.
