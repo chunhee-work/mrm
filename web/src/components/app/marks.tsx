@@ -37,6 +37,15 @@ export function Tick({ className = "" }: { className?: string }) {
     </svg>
   );
 }
+/** Being worked on: a faint ring with one arc that goes round it (the turning is `.case-spin` in globals.css). */
+export function Working({ className = "" }: { className?: string }) {
+  return (
+    <svg className={`case-spin ${className}`} width="16" height="16" viewBox="0 0 16 16" {...line} strokeWidth={1.75}>
+      <circle cx="8" cy="8" r="6.25" opacity="0.28" />
+      <path d="M8 1.75A6.25 6.25 0 0 1 14.25 8" />
+    </svg>
+  );
+}
 export function Search({ className = "" }: { className?: string }) {
   return (
     <svg className={className} width="18" height="18" viewBox="0 0 18 18" {...line}>
