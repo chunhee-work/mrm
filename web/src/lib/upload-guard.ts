@@ -17,27 +17,32 @@ export function stallTimer(ms: number, onStall: () => void) {
 }
 
 /**
- * One file to private storage, with a watchdog: if no new bytes go up for STALL_MS the upload is cancelled and
- * UploadStalled is thrown, so the page can say so instead of showing "Uploading 0%" forever.
+ * Runs `run` under the stall watchdog. `run` gets the abort signal and a `touch()` to call on real progress.
+ * When nothing has moved for `ms` the signal is aborted AND the returned promise rejects with UploadStalled on its own,
+ * so the wait ends even if `run` ignores the abort (the storage client does not pass it to its token request).
  */
-export async function uploadGuarded(path: string, file: File, onPct: (pct: number) => void) {
+export async function guarded<T>(run: (signal: AbortSignal, touch: () => void) => Promise<T>, ms = STALL_MS): Promise<T> {
   const ac = new AbortController();
-  let last = -1;
   let giveUp!: (e: Error) => void;
-  // raced against the upload, so the wait ends even if the storage client does not answer the abort
   const stall = new Promise<never>((_, reject) => { giveUp = reject; });
-  const timer = stallTimer(STALL_MS, () => { ac.abort(); giveUp(new UploadStalled()); });
-  const sending = upload(path, file, {
-    access: "private", handleUploadUrl: "/api/upload", multipart: file.size > 20e6, abortSignal: ac.signal,
-    onUploadProgress: (p) => {
-      if (p.percentage > last) { last = p.percentage; timer.touch(); } // only real progress resets the clock
-      onPct(p.percentage);
-    },
-  });
-  sending.catch(() => {}); // a cancelled upload rejects later; the race below has already answered
+  const timer = stallTimer(ms, () => { ac.abort(); giveUp(new UploadStalled()); });
+  const work = run(ac.signal, timer.touch);
+  work.catch(() => {}); // a cancelled run may reject later; the race has already answered
   try {
-    return await Promise.race([sending, stall]);
+    return await Promise.race([work, stall]);
   } finally {
     timer.stop();
   }
+}
+
+/** One file to private storage; UploadStalled if no new bytes go up for STALL_MS (instead of "Uploading 0%" forever). */
+export function uploadGuarded(path: string, file: File, onPct: (pct: number) => void) {
+  let last = -1;
+  return guarded((signal, touch) => upload(path, file, {
+    access: "private", handleUploadUrl: "/api/upload", multipart: file.size > 20e6, abortSignal: signal,
+    onUploadProgress: (p) => {
+      if (p.percentage > last) { last = p.percentage; touch(); } // only real progress resets the clock
+      onPct(p.percentage);
+    },
+  }));
 }
