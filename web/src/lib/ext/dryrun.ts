@@ -13,7 +13,7 @@ export function planCase(i: { caseData: unknown; files: number; photos: number; 
   const create = miss([
     ["plate", d?.plate], ["chassis_no", d?.client_vehicle.chassis_no], ["vehicle_model", d?.client_vehicle.model],
     ["police_report_no", d?.police.report_no], ["accident_datetime", d?.police.accident_datetime],
-    ["policy", d?.at_fault.policy ?? d?.client_policy],
+    ["policy", d?.at_fault.policy?.policy_no], // the at-fault insurer's policy; the claimant's own cover is optional and does not count
   ]);
   const report = miss([["police_report_no", d?.police.report_no], ["police_place", d?.police.place], ["accident_datetime", d?.police.accident_datetime]]);
   const docs = miss([["documents", i.files > 0]]);

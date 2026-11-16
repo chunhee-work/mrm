@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
 import type { ExtState } from "@/lib/ext/gate";
 
@@ -20,6 +20,7 @@ export default function Connection({ state: initial, embedded = false, cases = [
   const [view, setView] = useState<View | null>(null);
   const [pick, setPick] = useState("");
   const [plan, setPlan] = useState<Plan | null>(null);
+  const wanted = useRef(""); // the case whose preview we are waiting for; an answer for any other case is dropped
 
   // While the window is open the page asks for its state every 4 seconds (this also keeps it from closing as idle).
   useEffect(() => {
@@ -52,9 +53,11 @@ export default function Connection({ state: initial, embedded = false, cases = [
 
   async function preview() {
     if (!pick || busy) return;
+    const asked = pick; wanted.current = asked;
     setBusy(true); setErr(null); setPlan(null);
     try {
-      const r = await fetch("/api/ext/dryrun", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ caseId: pick }) });
+      const r = await fetch("/api/ext/dryrun", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ caseId: asked }) });
+      if (wanted.current !== asked) return;
       if (r.ok) setPlan(await r.json()); else setErr(t("conn.err"));
     } catch { setErr(t("conn.err")); } finally { setBusy(false); }
   }
@@ -111,7 +114,7 @@ export default function Connection({ state: initial, embedded = false, cases = [
                 <p className="mt-1 text-[14px] text-mute">{t("dry.sub")}</p>
                 {cases.length === 0 ? <p className="mt-3 text-[14px] text-mute">{t("dry.noCases")}</p> : (
                   <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                    <select value={pick} onChange={(e) => { setPick(e.target.value); setPlan(null); }} aria-label={t("dry.pick")} className="h-11 rounded-[3px] border border-hair bg-white px-3 text-[15px] text-fg sm:w-64">
+                    <select value={pick} disabled={busy} onChange={(e) => { wanted.current = e.target.value; setPick(e.target.value); setPlan(null); }} aria-label={t("dry.pick")} className="h-11 rounded-[3px] border border-hair bg-white px-3 text-[15px] text-fg sm:w-64">
                       <option value="">{t("dry.pick")}</option>
                       {cases.map((c) => <option key={c.id} value={c.id}>{c.plate || c.id}</option>)}
                     </select>

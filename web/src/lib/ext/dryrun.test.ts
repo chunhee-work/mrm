@@ -34,3 +34,8 @@ test("a case that has not been read yet is not ready, and does not crash", () =>
   assert.equal(p.allReady, false);
   assert.ok(p.steps[0].missing.includes("plate"));
 });
+test("the claimant's own policy does not satisfy the at-fault policy requirement", () => {
+  const p = planCase({ caseData: { ...full, at_fault: { ...full.at_fault, policy: null }, client_policy: full.at_fault.policy }, files: 1, photos: 1, photosDone: true });
+  assert.deepEqual(p.steps[0].missing, ["policy"]);
+  assert.equal(p.allReady, false);
+});
