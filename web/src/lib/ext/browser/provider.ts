@@ -13,6 +13,7 @@ export interface BrowserProvider {
 }
 
 // ---- Browserbase (the service the schema already names). Needs BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID. ----
+// keepAlive: without it the service ends the session when our short CDP connection closes. We always release explicitly; `timeout` is the hard stop.
 // NOTE: written from the public API description and not yet run against the real service (no key yet). See PR #40's checklist.
 const BB = "https://api.browserbase.com/v1";
 export function browserbase(env: Record<string, string | undefined> = process.env): BrowserProvider | null {
@@ -27,7 +28,7 @@ export function browserbase(env: Record<string, string | undefined> = process.en
   return {
     name: "browserbase",
     async create() {
-      const j = await call("/sessions", { method: "POST", body: JSON.stringify({ projectId, timeout: 3600, browserSettings: { recordSession: false, logSession: false } }) });
+      const j = await call("/sessions", { method: "POST", body: JSON.stringify({ projectId, timeout: 3600, keepAlive: true, browserSettings: { recordSession: false, logSession: false } }) });
       return j.id as string;
     },
     async liveViewUrl(id) {
