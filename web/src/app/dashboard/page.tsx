@@ -19,5 +19,5 @@ export default async function Dashboard() {
     status: c.status,
     pendingDoc: c.pendingDoc,
   }));
-  return <CaseList rows={list} orgId={orgId} above={<Connection embedded state={await getExtState(orgId)} />} />;
+  return <CaseList rows={list} orgId={orgId} below={<Connection embedded state={await getExtState(orgId)} />} />;
 }
