@@ -1,0 +1,19 @@
+# Plan #40: closes idle or expired in-app Merimen browsers without anyone visiting the page.
+# Does nothing until the repo secrets CRON_SECRET and SWEEP_URL are set (and the same CRON_SECRET is set in Vercel).
+name: ext-browser-sweep
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+permissions: {}
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the sweep route
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SWEEP_URL: ${{ secrets.SWEEP_URL }}
+        run: |
+          if [ -z "$CRON_SECRET" ] || [ -z "$SWEEP_URL" ]; then echo "not configured; skipping"; exit 0; fi
+          curl -fsS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SWEEP_URL" >/dev/null && echo done
