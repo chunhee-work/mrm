@@ -9,20 +9,12 @@ test("env switch unset or anything but 'on': always off", () => {
   for (const v of [undefined, "", "1", "true", "ON", "off"]) assert.equal(envOn({ EXT_CONNECT: v }), false, String(v));
   assert.equal(envOn({ EXT_CONNECT: "on" }), true);
 });
-test("env off: disabled even with an enabled org, a consent reference and a consent record", () => {
+test("env off: disabled whatever else is stored", () => {
   assert.equal(decideGate({ envOn: false, setting: on, consented: true }), "off");
 });
-test("org not set up, or switched off: disabled", () => {
-  assert.equal(decideGate({ envOn: true, setting: null, consented: true }), "off");
-  assert.equal(decideGate({ envOn: true, setting: undefined, consented: true }), "off");
-  assert.equal(decideGate({ envOn: true, setting: { enabled: false, consentReference: "x" }, consented: true }), "off");
-});
-test("flag on without a consent reference stays disabled", () => {
-  for (const ref of [null, "", "   "]) assert.equal(decideGate({ envOn: true, setting: { enabled: true, consentReference: ref }, consented: true }), "off");
-});
-test("enabled with a reference: customer must acknowledge first, then ready", () => {
-  assert.equal(decideGate({ envOn: true, setting: on, consented: false }), "needs_consent");
-  assert.equal(decideGate({ envOn: true, setting: on, consented: true }), "ready");
+test("env on: ready for every organisation, no org setting and no tick box needed", () => {
+  assert.equal(decideGate({ envOn: true }), "ready");
+  assert.equal(decideGate({ envOn: true, setting: null, consented: false }), "ready");
 });
 
 test("pairing code: 8 characters from the unambiguous alphabet, and different every time", () => {
