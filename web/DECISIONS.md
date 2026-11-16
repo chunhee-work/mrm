@@ -61,3 +61,9 @@
 - Deviation from the plan text: the per-org switch lives in its own table `ext_org_settings` instead of a column on `organizations`, so an unapplied migration can never break existing org queries.
 - Not in P1: pairing-code exchange, install tokens, jobs, the extension, any Merimen action. Tables for them exist in migration 0005 so the owner approves one migration.
 - Migration 0005 is additive and safe to run again. It is NOT applied in production; the owner approves it first.
+
+## Merimen login in a browser inside the app, P1 (plan #40)
+- Owner asked (2026-11-16) for a browser window inside the app instead of the extension of plan #38. The #38 gate, consent record and `/connection` page are reused; the pairing-code API stays but the page no longer shows it.
+- Plan review was waived by the owner ("just build and pass"); the plan-gate check on this PR is therefore red on purpose. Dots and Grok did leave musts on #40 (session storage, live-view link, allowed origins): P1 avoids them by storing only the session id (no cookies, no connect address), giving the live-view link only to the user who opened it via an authenticated endpoint, and not persisting any login.
+- The remote browser service (Browserbase) adapter is written from its public API description and has NOT run against the real service (no key yet). A test double (`EXT_BROWSER_FAKE=1`, never in production) drives the UI and tests.
+- Migration 0006 (two columns and a unique index on `merimen_connections`) is additive and NOT applied in production.

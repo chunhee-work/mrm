@@ -1,9 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useT } from "@/components/lang-provider";
 import type { ExtState } from "@/lib/ext/gate";
 
 // The Connection card (plan #38, P1). With the feature off it only says "not available yet": no button, no form.
+type View =
+  | { state: "unavailable" } | { state: "idle" } | { state: "in_use" }
+  | { state: "open"; status: "none" | "waiting_login" | "connected" | "expired"; liveView: string };
+
 export default function Connection({ state: initial }: { state: ExtState }) {
   const { t } = useT();
   const [state, setState] = useState<ExtState>(initial);
@@ -11,7 +15,19 @@ export default function Connection({ state: initial }: { state: ExtState }) {
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [code, setCode] = useState<string | null>(null);
+  const [view, setView] = useState<View | null>(null);
+
+  // While the window is open the page asks for its state every 4 seconds (this also keeps it from closing as idle).
+  useEffect(() => {
+    if (state !== "ready") return;
+    let stop = false;
+    const tick = async () => {
+      try { const r = await fetch("/api/ext/browser/status"); if (r.ok && !stop) setView(await r.json()); } catch { /* next tick */ }
+    };
+    tick();
+    const id = setInterval(() => { if (view?.state === "open") tick(); }, 4000);
+    return () => { stop = true; clearInterval(id); };
+  }, [state, view?.state]);
 
   async function consent() {
     if (!ok || busy) return;
@@ -21,18 +37,18 @@ export default function Connection({ state: initial }: { state: ExtState }) {
       if (r.ok) setState("ready"); else setErr(t("conn.err"));
     } catch { setErr(t("conn.err")); } finally { setBusy(false); }
   }
-  async function getCode() {
+  async function act(path: "open" | "close") {
     if (busy) return;
     setBusy(true); setErr(null);
     try {
-      const r = await fetch("/api/ext/pair/code", { method: "POST" });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j.code) setCode(j.code); else setErr(t(r.status === 429 ? "conn.err.rate" : "conn.err"));
+      const r = await fetch(`/api/ext/browser/${path}`, { method: "POST" });
+      if (r.ok) setView(await r.json()); else setErr(t("conn.err"));
     } catch { setErr(t("conn.err")); } finally { setBusy(false); }
   }
 
+  const open = view?.state === "open" ? view : null;
   return (
-    <div className="mx-auto w-full max-w-[640px] px-4 py-8">
+    <div className="mx-auto w-full max-w-[880px] px-4 py-8">
       <h1 className="text-[26px] font-semibold leading-tight text-fg">{t("conn.title")}</h1>
       <p className="mt-2 text-[15px] text-mute">{t("conn.intro")}</p>
       <section aria-labelledby="conn-card" className="mt-5 rounded-[3px] border border-hair bg-panel p-5">
@@ -59,12 +75,31 @@ export default function Connection({ state: initial }: { state: ExtState }) {
         )}
         {state === "ready" && (
           <div className="mt-3">
-            <div className="text-[17px] font-semibold text-fg">{t("conn.ready")}</div>
-            <p className="mt-1 text-[14px] text-mute">{t("conn.desktop")}</p>
-            {code && <div className="mt-4 rounded-[3px] border border-hair bg-white px-4 py-3 text-center font-mono text-[28px] font-semibold tracking-[0.2em] text-fg" aria-live="polite">{code}</div>}
-            {code && <p className="mt-2 text-[13px] text-mute">{t("conn.codeHint")}</p>}
+            <div className="text-[17px] font-semibold text-fg">
+              {view?.state === "unavailable" ? t("conn.unavailable")
+                : view?.state === "in_use" ? t("conn.inUse")
+                : open?.status === "connected" ? t("conn.connected")
+                : open?.status === "expired" ? t("conn.expired")
+                : open ? t("conn.waiting") : t("conn.ready")}
+            </div>
+            <p className="mt-1 text-[14px] text-mute">{view?.state === "unavailable" ? t("conn.unavailableSub") : open?.status === "connected" ? t("conn.connectedHint") : open ? t("conn.loginHint") : t("conn.openHint")}</p>
+            {open && (
+              <iframe
+                title={t("conn.frame")}
+                src={open.liveView}
+                sandbox="allow-same-origin allow-scripts allow-forms"
+                referrerPolicy="no-referrer"
+                className="mt-4 hidden h-[560px] w-full rounded-[3px] border border-hair bg-white md:block"
+              />
+            )}
+            {open && <p className="mt-3 text-[14px] text-mute md:hidden">{t("conn.desktop")}</p>}
             {err && <div role="alert" className="mt-3 text-[14px] font-semibold text-fg">⚠ {err}</div>}
-            <button type="button" onClick={getCode} disabled={busy} className="btn-primary mt-4 !h-12 w-full sm:w-auto sm:px-8">{t("conn.code")}</button>
+            {view?.state !== "unavailable" && view?.state !== "in_use" && (
+              open
+                ? <button type="button" onClick={() => act("close")} disabled={busy} className="mt-4 h-12 w-full rounded-[3px] border border-hair bg-white px-8 text-[15px] font-semibold text-fg sm:w-auto">{t("conn.close")}</button>
+                : <button type="button" onClick={() => act("open")} disabled={busy} className="btn-primary mt-4 !h-12 w-full sm:w-auto sm:px-8">{t("conn.open")}</button>
+            )}
+            {!open && <p className="mt-3 text-[14px] text-mute md:hidden">{t("conn.desktop")}</p>}
           </div>
         )}
       </section>

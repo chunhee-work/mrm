@@ -68,7 +68,9 @@ export const merimenConnections = pgTable("merimen_connections", {
   sessionParamsEnc: text("session_params_enc"),
   connectedAt: timestamp("connected_at"),
   lastCheckAt: timestamp("last_check_at"),
-});
+  openedBy: text("opened_by"), // the user who opened the in-app browser (plan #40); only they get its live view
+  openedAt: timestamp("opened_at"),
+}, (t) => [uniqueIndex("merimen_conn_org").on(t.orgId)]);
 
 export const cases = pgTable("cases", {
   id: text("id").primaryKey(),
