@@ -79,12 +79,12 @@ export function fakeProvider(): BrowserProvider {
     name: "fake",
     async create() { const id = `fake-${Date.now()}`; fakeOpened.set(id, Date.now()); return id; },
     async liveViewUrl(id) {
-      const html = `<body style="font:16px system-ui;margin:0;background:#fff"><div style="background:#eef;padding:8px 12px;border-bottom:1px solid #ccd">www.merimen.com.my/claims/ (test window, ${id.slice(0, 9)})</div><div style="padding:24px"><b>Merimen sign in</b><p>This is a stand-in for the remote browser.</p><div style="border:1px solid #ccd;padding:8px;width:220px">User ID</div><br><div style="border:1px solid #ccd;padding:8px;width:220px">Password</div></div></body>`;
+      const html = `<body style="font:16px system-ui;margin:0;background:#fff"><div style="background:#eef;padding:8px 12px;border-bottom:1px solid #ccd">www.merimen.com.my/claims/index.cfm (test window, ${id.slice(0, 9)})</div><div style="padding:24px"><b>Merimen sign in</b><p>This is a stand-in for the remote browser.</p><div style="border:1px solid #ccd;padding:8px;width:220px">User ID</div><br><div style="border:1px solid #ccd;padding:8px;width:220px">Password</div></div></body>`;
       return `data:text/html,${encodeURIComponent(html)}`;
     },
     async pageUrls(id) {
       const t = fakeOpened.get(id) ?? 0;
-      return [Date.now() - t > 8000 ? "https://www.merimen.com.my/claims/index.cfm?fusebox=MTRadjuster&CFID=1&CFTOKEN=2&RID=3" : "https://www.merimen.com.my/claims/"];
+      return [Date.now() - t > 8000 ? "https://www.merimen.com.my/claims/index.cfm?fusebox=MTRadjuster&CFID=1&CFTOKEN=2&RID=3" : "https://www.merimen.com.my/claims/index.cfm"];
     },
     async navigate() {},
     async release(id) { fakeOpened.delete(id); },

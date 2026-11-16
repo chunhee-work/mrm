@@ -1,7 +1,7 @@
 // Plan #40. Pure rules for the in-app Merimen browser: where it may go, when it counts as logged in, when it must close.
 
 export const MERIMEN_ORIGIN = "https://www.merimen.com.my";
-export const MERIMEN_START_URL = `${MERIMEN_ORIGIN}/claims/`;
+export const MERIMEN_START_URL = `${MERIMEN_ORIGIN}/claims/index.cfm`; // the login page the window opens on
 export const IDLE_MS = 15 * 60 * 1000; // nobody looking at the page
 export const HARD_MS = 60 * 60 * 1000; // one session never lives longer than this
 
