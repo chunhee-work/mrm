@@ -25,7 +25,7 @@ export default function Connection({ state: initial, embedded = false }: { state
       try { const r = await fetch("/api/ext/browser/status"); if (r.ok && !stop) setView(await r.json()); } catch { /* next tick */ }
     };
     tick();
-    const id = setInterval(() => { if (view?.state === "open") tick(); }, 4000);
+    const id = setInterval(() => { if (view?.state === "open" || view?.state === "in_use") tick(); }, 4000);
     return () => { stop = true; clearInterval(id); };
   }, [state, view?.state]);
 

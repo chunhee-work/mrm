@@ -46,9 +46,12 @@ export async function openBrowser(orgId: string, userId: string, provider = getP
   // Only the session id is stored. No address, cookie or password: the connect address is rebuilt from the service key when needed.
   // (Keeping the login between visits, encrypted, is P2 of plan #40.)
   // Claim the org's slot atomically: the update only applies when no session is stored. A request that loses the race releases its own window.
-  const claimed = await db.insert(schema.merimenConnections).values({ orgId, browserbaseSessionId: id, status: "waiting_login", openedBy: userId, openedAt: now, lastCheckAt: now })
+  let claimed: { id: string | null }[];
+  try {
+    claimed = await db.insert(schema.merimenConnections).values({ orgId, browserbaseSessionId: id, status: "waiting_login", openedBy: userId, openedAt: now, lastCheckAt: now })
     .onConflictDoUpdate({ target: schema.merimenConnections.orgId, set: { browserbaseSessionId: id, status: "waiting_login", openedBy: userId, openedAt: now, lastCheckAt: now, connectedAt: null }, setWhere: isNull(schema.merimenConnections.browserbaseSessionId) })
     .returning({ id: schema.merimenConnections.browserbaseSessionId });
+  } catch (e) { try { await provider.release(id); } catch {} throw e; } // a failed claim must not leave a browser nobody can find
   if (!claimed.length) { try { await provider.release(id); } catch {} return currentView(orgId, userId, provider); }
   return { state: "open", status: "waiting_login", liveView: await provider.liveViewUrl(id) };
 }
