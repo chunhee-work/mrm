@@ -1,5 +1,5 @@
 // Plan #40. The in-app Merimen browser, one session per organisation. Callers must already have passed the gate (getExtState === "ready").
-import { eq, isNull, isNotNull } from "drizzle-orm";
+import { and, eq, isNull, isNotNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getProvider, type BrowserProvider } from "./provider";
 import { MERIMEN_START_URL, isLoggedInUrl, nextStatus, sessionVerdict, type BrowserStatus } from "./rules";
@@ -16,7 +16,8 @@ async function closeRow(orgId: string, p: BrowserProvider | null, sessionId: str
   if (p && sessionId) { try { await p.release(sessionId); } catch { /* the service's own timeout ends it */ } }
   await db.update(schema.merimenConnections)
     .set({ browserbaseSessionId: null, status: "none", sessionParamsEnc: null, openedBy: null, openedAt: null, lastCheckAt: null })
-    .where(eq(schema.merimenConnections.orgId, orgId));
+    // only the session we released: a stale close must not erase a replacement that was claimed meanwhile
+    .where(sessionId ? and(eq(schema.merimenConnections.orgId, orgId), eq(schema.merimenConnections.browserbaseSessionId, sessionId)) : eq(schema.merimenConnections.orgId, orgId));
 }
 
 /** Reads the current state for `userId`. Closes the session when it is idle or too old. Touches the idle clock for the opener. */
