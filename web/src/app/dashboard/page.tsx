@@ -1,6 +1,8 @@
 import { desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
+import { getExtState } from "@/lib/ext/gate";
+import Connection from "@/components/app/connection";
 import CaseList, { type CaseRow } from "@/components/app/case-list";
 
 export const dynamic = "force-dynamic";
@@ -17,5 +19,5 @@ export default async function Dashboard() {
     status: c.status,
     pendingDoc: c.pendingDoc,
   }));
-  return <CaseList rows={list} orgId={orgId} />;
+  return <CaseList rows={list} orgId={orgId} above={<Connection embedded state={await getExtState(orgId)} />} />;
 }

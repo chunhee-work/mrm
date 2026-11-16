@@ -27,7 +27,7 @@ const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
  * On top, one card for each case that needs the user, saying what and with the button that does it.
  * Under it every other case on one line: being worked on, or done. Nothing opens; there are no steps.
  */
-export default function CaseList({ rows, orgId }: { rows: CaseRow[]; orgId: string }) {
+export default function CaseList({ rows, orgId, above }: { rows: CaseRow[]; orgId: string; above?: React.ReactNode }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -96,6 +96,8 @@ export default function CaseList({ rows, orgId }: { rows: CaseRow[]; orgId: stri
           </div>
         )}
       </div>
+
+      {above && <div className="mt-5 lg:mt-6">{above}</div>}
 
       {rows.length === 0 ? (
         <div className="relative mt-5 lg:mt-7">

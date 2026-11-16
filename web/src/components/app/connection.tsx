@@ -8,7 +8,7 @@ type View =
   | { state: "unavailable" } | { state: "idle" } | { state: "in_use" }
   | { state: "open"; status: "none" | "waiting_login" | "connected" | "expired"; liveView: string };
 
-export default function Connection({ state: initial }: { state: ExtState }) {
+export default function Connection({ state: initial, embedded = false }: { state: ExtState; embedded?: boolean }) {
   const { t } = useT();
   const [state, setState] = useState<ExtState>(initial);
   const [ok, setOk] = useState(false);
@@ -48,10 +48,10 @@ export default function Connection({ state: initial }: { state: ExtState }) {
 
   const open = view?.state === "open" ? view : null;
   return (
-    <div className="mx-auto w-full max-w-[880px] px-4 py-8">
-      <h1 className="text-[26px] font-semibold leading-tight text-fg">{t("conn.title")}</h1>
-      <p className="mt-2 text-[15px] text-mute">{t("conn.intro")}</p>
-      <section aria-labelledby="conn-card" className="mt-5 rounded-[3px] border border-hair bg-panel p-5">
+    <div className={embedded ? "w-full" : "mx-auto w-full max-w-[880px] px-4 py-8"}>
+      {!embedded && <h1 className="text-[26px] font-semibold leading-tight text-fg">{t("conn.title")}</h1>}
+      {!embedded && <p className="mt-2 text-[15px] text-mute">{t("conn.intro")}</p>}
+      <section aria-labelledby="conn-card" className={(embedded ? "" : "mt-5 ") + "rounded-[3px] border border-hair bg-panel p-5"}>
         <h2 id="conn-card" className="text-[13px] font-semibold uppercase tracking-wide text-mute">{t("conn.card")}</h2>
         {state === "off" && (
           <div className="mt-3">
