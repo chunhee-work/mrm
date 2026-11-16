@@ -16,7 +16,7 @@ export function planCase(i: { caseData: unknown; files: number; photos: number; 
     ["policy", d?.at_fault.policy?.policy_no], // the at-fault insurer's policy; the claimant's own cover is optional and does not count
   ]);
   const report = miss([["police_report_no", d?.police.report_no], ["police_place", d?.police.place], ["accident_datetime", d?.police.accident_datetime]]);
-  const docs = miss([["documents", i.files > 0]]);
+  const docs = miss([["documents", i.files > 0 && !(d?.missing.length)]]); // also blocked while the reader lists documents that are still missing (same rule as scan-case)
   const photos = miss([["photos", i.photos > 0]]);
   const parts: FieldCode[] = [...miss([["photo_naming", i.photosDone]]), ...(create.length ? (["earlier_step"] as FieldCode[]) : [])];
   const est: FieldCode[] = parts.length ? ["earlier_step"] : [];

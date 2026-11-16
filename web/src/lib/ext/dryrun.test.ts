@@ -39,3 +39,8 @@ test("the claimant's own policy does not satisfy the at-fault policy requirement
   assert.deepEqual(p.steps[0].missing, ["policy"]);
   assert.equal(p.allReady, false);
 });
+test("a case whose documents are still missing is not ready even with files uploaded", () => {
+  const p = planCase({ caseData: { ...full, missing: ["police investigation result"] }, files: 3, photos: 5, photosDone: true });
+  assert.deepEqual(p.steps[2].missing, ["documents"]);
+  assert.equal(p.allReady, false);
+});
