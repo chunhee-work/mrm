@@ -8,7 +8,9 @@ type View =
   | { state: "unavailable" } | { state: "idle" } | { state: "in_use" }
   | { state: "open"; status: "none" | "waiting_login" | "connected" | "expired"; liveView: string };
 
-export default function Connection({ state: initial, embedded = false }: { state: ExtState; embedded?: boolean }) {
+type Plan = { steps: { code: string; ok: boolean; missing: string[] }[]; allReady: boolean };
+
+export default function Connection({ state: initial, embedded = false, cases = [] }: { state: ExtState; embedded?: boolean; cases?: { id: string; plate: string }[] }) {
   const { t } = useT();
   const [state, setState] = useState<ExtState>(initial);
   const [ok, setOk] = useState(false);
@@ -16,6 +18,8 @@ export default function Connection({ state: initial, embedded = false }: { state
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [view, setView] = useState<View | null>(null);
+  const [pick, setPick] = useState("");
+  const [plan, setPlan] = useState<Plan | null>(null);
 
   // While the window is open the page asks for its state every 4 seconds (this also keeps it from closing as idle).
   useEffect(() => {
@@ -43,6 +47,15 @@ export default function Connection({ state: initial, embedded = false }: { state
     try {
       const r = await fetch(`/api/ext/browser/${path}`, { method: "POST" });
       if (r.ok) setView(await r.json()); else setErr(t("conn.err"));
+    } catch { setErr(t("conn.err")); } finally { setBusy(false); }
+  }
+
+  async function preview() {
+    if (!pick || busy) return;
+    setBusy(true); setErr(null); setPlan(null);
+    try {
+      const r = await fetch("/api/ext/dryrun", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ caseId: pick }) });
+      if (r.ok) setPlan(await r.json()); else setErr(t("conn.err"));
     } catch { setErr(t("conn.err")); } finally { setBusy(false); }
   }
 
@@ -91,6 +104,39 @@ export default function Connection({ state: initial, embedded = false }: { state
                 referrerPolicy="no-referrer"
                 className="mt-4 hidden h-[560px] w-full rounded-[3px] border border-hair bg-white md:block"
               />
+            )}
+            {open?.status === "connected" && (
+              <div className="mt-5 border-t border-hair pt-4">
+                <h3 className="text-[15px] font-semibold text-fg">{t("dry.title")}</h3>
+                <p className="mt-1 text-[14px] text-mute">{t("dry.sub")}</p>
+                {cases.length === 0 ? <p className="mt-3 text-[14px] text-mute">{t("dry.noCases")}</p> : (
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                    <select value={pick} onChange={(e) => { setPick(e.target.value); setPlan(null); }} aria-label={t("dry.pick")} className="h-11 rounded-[3px] border border-hair bg-white px-3 text-[15px] text-fg sm:w-64">
+                      <option value="">{t("dry.pick")}</option>
+                      {cases.map((c) => <option key={c.id} value={c.id}>{c.plate || c.id}</option>)}
+                    </select>
+                    <button type="button" onClick={preview} disabled={!pick || busy} className="btn-primary !h-11 sm:px-6">{t("dry.go")}</button>
+                  </div>
+                )}
+                {plan && (
+                  <div className="mt-4">
+                    <div className="text-[15px] font-semibold text-fg">{plan.allReady ? t("dry.allReady") : t("dry.blocked")}</div>
+                    <ol className="mt-2 divide-y divide-hair rounded-[3px] border border-hair bg-white">
+                      {plan.steps.map((s, n) => (
+                        <li key={s.code} className="flex items-start gap-3 px-3 py-2.5 text-[15px]">
+                          <span className="mt-0.5 w-5 shrink-0 text-mute">{n + 1}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="text-fg">{t(`dry.step.${s.code}`)}</span>
+                            {!s.ok && <span className="mt-0.5 block text-[14px] text-mute">{t("dry.missing")}: {s.missing.map((m) => t(`dry.f.${m}`)).join(", ")}</span>}
+                          </span>
+                          <span className={s.ok ? "text-fg" : "text-mute"}>{s.ok ? `✓ ${t("dry.ok")}` : "⚠"}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="mt-2 text-[14px] text-mute">{t("dry.nothing")}</p>
+                  </div>
+                )}
+              </div>
             )}
             {open && <p className="mt-3 text-[14px] text-mute md:hidden">{t("conn.desktop")}</p>}
             {err && <div role="alert" className="mt-3 text-[14px] font-semibold text-fg">⚠ {err}</div>}
