@@ -30,7 +30,7 @@ export default function Signup() {
     const bad: Errors = {};
     if (!email || !el("email").validity.valid) bad.email = true;
     if (password.length < MIN_PASSWORD) bad.password = true;
-    if (!bad.password && confirm !== password) bad.confirm = true; // length is checked first; mismatch only matters once the length is fine
+    if (confirm !== password) bad.confirm = true; // U14: every problem is shown at once (too short AND not matching)
     if (!f.get("agree")) bad.agree = true;
     setErrors(bad);
     const first = (["email", "password", "confirm", "agree"] as const).find((k) => bad[k]);

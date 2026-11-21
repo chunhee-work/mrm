@@ -39,3 +39,12 @@ test("the new case-page texts exist in all three languages with the same placeho
     assert.deepEqual(d[k].match(/\{\w+\}/g) ?? [], e[k].match(/\{\w+\}/g) ?? [], `${lang} ${k} placeholders differ`);
   }
 });
+
+import { checkPdf, BadFile } from "./read-docs";
+test("B06/B07 checkPdf: empty, corrupt and oversize PDFs are refused with the file name; a real header passes", () => {
+  const why = (f: () => void) => { try { f(); } catch (e) { return e instanceof BadFile ? e.message : "other"; } return "ok"; };
+  assert.equal(why(() => checkPdf("a.pdf", new Uint8Array(0))), "bad_file:a.pdf|empty");
+  assert.equal(why(() => checkPdf("b.pdf", Buffer.from("not a pdf"))), "bad_file:b.pdf|corrupt");
+  assert.equal(why(() => checkPdf("c.pdf", new Uint8Array(26 * 1024 * 1024).fill(37))), "bad_file:c.pdf|too_big");
+  assert.equal(why(() => checkPdf("d.pdf", Buffer.from("%PDF-1.7 fake"))), "ok");
+});

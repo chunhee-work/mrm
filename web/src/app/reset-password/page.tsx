@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -13,6 +13,16 @@ function Form() {
   const token = useSearchParams().get("token") ?? "";
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<null | "short" | "expired" | "offline">(token ? null : "expired");
+  const [checked, setChecked] = useState(!token); // B14: the link is checked when the page opens, not after a password is typed
+  useEffect(() => {
+    if (!token) return;
+    let live = true;
+    fetch(`/api/reset-token?token=${encodeURIComponent(token)}`, { cache: "no-store" })
+      .then((r) => r.json()).then((j: { valid?: boolean }) => { if (live && !j.valid) setProblem("expired"); })
+      .catch(() => {}) // offline: leave the form, the submit will say what is wrong
+      .finally(() => { if (live) setChecked(true); });
+    return () => { live = false; };
+  }, [token]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -30,6 +40,7 @@ function Form() {
     setBusy(false);
   }
 
+  if (!checked) return <SheetBody><Title>{t("reset.title")}</Title><p className="mt-6 text-[15px] text-mute" role="status">…</p></SheetBody>;
   // the link is missing, used or too old: nothing to fill in, only one way on
   if (problem === "expired")
     return (

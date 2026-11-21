@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Plus, UploadArt } from "./marks";
+import { UPLOAD_EXT } from "@/lib/upload-rules";
 
-const OK_EXT = /\.(zip|pdf|jpe?g|png|webp|heic|heif|gif|bmp|tiff?)$/i;
 export function accepted(f: File) {
-  return f.type.startsWith("image/") || OK_EXT.test(f.name);
+  return UPLOAD_EXT.test(f.name); // the same list the server enforces (a .gif would be refused there anyway)
 }
 const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
 

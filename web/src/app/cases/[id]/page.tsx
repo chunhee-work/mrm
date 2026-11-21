@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import CaseView, { type CaseDetail } from "./view";
@@ -24,7 +24,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId))).limit(1);
   if (!c) notFound();
   const events = await db.select().from(schema.caseEvents).where(eq(schema.caseEvents.caseId, id)).orderBy(asc(schema.caseEvents.at)).limit(100);
-  const files = await db.select({ n: schema.caseFiles.id }).from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
+  const files = await db.select({ name: schema.caseFiles.originalName, kind: schema.caseFiles.kind, size: schema.caseFiles.size }).from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id)).orderBy(asc(schema.caseFiles.id)).limit(400);
+  const [ph] = await db.select({ n: sql<number>`count(*)::int`, todo: sql<number>`count(*) filter (where final_name is null and (name_state <> 'named' or confidence is null or confidence < 0.9))::int` }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id));
   // Self-heal, so no case waits forever: a dead read is started again (max 3 reads per case), and a case that never
   // got its first read (the after-upload trigger did not run) is claimed here.
   const lastEvent = events.length ? events[events.length - 1].at.getTime() : c.createdAt.getTime();
@@ -43,6 +44,11 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     sides: c.status === "done" ? await sidesForCases([c.id]).then((m) => m.get(c.id) ?? []).catch(() => undefined) : undefined,
     missing: d?.missing ?? (c.pendingDoc ? c.pendingDoc.split("; ") : []),
     fileCount: files.length,
+    files: files.map((f) => ({ name: f.name, kind: f.kind, size: Number(f.size) })),
+    orgId,
+    error: c.status === "failed" ? c.error : null,
+    photos: Number(ph?.n ?? 0),
+    photosTodo: Number(ph?.todo ?? 0),
     facts: d && {
       owner: d.client_vehicle.owner.name,
       policyNo: d.client_policy?.policy_no || null,

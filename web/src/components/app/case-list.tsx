@@ -19,6 +19,9 @@ export type CaseRow = {
   pendingDoc: string | null;
   totalRm: string | null; // total of the finished case, null until known
   sides?: Side[]; // sides of the car that were hit; undefined = not known (not loaded), [] = none found
+  error?: string | null; // why a failed case failed (cases.error)
+  createdAt?: string; // ISO
+  firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
 };
 
 const REFRESH_MS = 20_000;
