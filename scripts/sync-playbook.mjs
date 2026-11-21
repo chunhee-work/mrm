@@ -16,6 +16,7 @@ export const FILES = [
 ];
 const NAMES_SRC = "tools/naming-desk/names.json";
 const RULES_SRC = "playbook/photo-rules.json";
+const LABOUR_SRC = "tools/labour_rules.json"; // the labour N/R rules Step 2 plans with (worker only)
 const WEB_TS = "web/src/lib/playbook/generated.ts";
 const WEB_RULES = "web/src/lib/playbook/photo-rules.ts";
 const WEB_NAMES = "web/src/lib/part-names.json";
@@ -28,7 +29,8 @@ export function build() {
   const md = Object.fromEntries(FILES.map((f) => [f, read(`playbook/${f}`)]));
   const names = read(NAMES_SRC);
   const rules = read(RULES_SRC);
-  const hashes = { ...Object.fromEntries(FILES.map((f) => [f, sha(md[f])])), "names.json": sha(names), "photo-rules.json": sha(rules) };
+  const labour = read(LABOUR_SRC);
+  const hashes = { ...Object.fromEntries(FILES.map((f) => [f, sha(md[f])])), "names.json": sha(names), "photo-rules.json": sha(rules), "labour_rules.json": sha(labour) };
   // version = hash of the content, so a copy never "drifts" without the version changing. The repo commit is added at run time.
   const version = sha(Object.keys(hashes).sort().map((k) => `${k}:${hashes[k]}`).join("\n")).slice(0, 12);
   const manifest = { version, files: hashes };
@@ -50,6 +52,7 @@ export function build() {
   for (const f of FILES) out.set(`${WORKER_DIR}/${f}`, md[f]);
   out.set(`${WORKER_DIR}/names.json`, names);
   out.set(`${WORKER_DIR}/photo-rules.json`, rules);
+  out.set(`${WORKER_DIR}/labour_rules.json`, labour);
   out.set(`${WORKER_DIR}/manifest.json`, JSON.stringify(manifest, null, 1) + "\n");
   return out;
 }

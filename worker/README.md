@@ -64,3 +64,10 @@ Phase A / B 在写入 Merimen 之前先做演练。`MERIMEN_WRITES` 和 `WORKER_
 `web/drizzle/0007_worker.sql` 只新增表和 `jobs.not_before`。`web/drizzle/0008_case_screenshots.sql` 只新增表 `case_screenshots`（可重复执行），并在角色 `autopilot_worker` 存在时给它 `SELECT, INSERT, UPDATE`（没有 DELETE）。生产库要等主人点头之后再跑 `npm run db:migrate`。本文件不会替你执行。
 
 如果 PR #31 也要用 0007 这个编号，后合并的那个改号即可（迁移按文件名排序执行，每个文件都可重复执行）。
+
+## Step 2 和学习数据（Phase B）
+
+用户按「完成」之后，Phase B 在照片对齐之后做 Step 2：按**最终照片名字**（加上用 Space 加的、没有照片的部件）从 Merimen 的 catalogue 规划 parts + labour（`step2.py`，移植自 `typesafe/step2_plan.py`），再做照片名字和 Select Parts 的双向核对（`step2_check.py`，移植自 `tools/naming-desk/sync_check.py`）。结果写进 `step2_log`。
+- 没有真实的 Merimen 适配器：默认适配器读不到 catalogue、也不能点选。`MERIMEN_WRITES` 和 `WORKER_SUBMIT` 没有同时是 `on` 时只记录计划（dry run）。
+- `STEP2_AI=on` 且设了 `ANTHROPIC_API_KEY`（可选 `STEP2_MODEL`）时，AI 用 playbook 的 step2 文件复核计划：只能加 catalogue 里有的项、加手工行、去掉伴随件，不能去掉有照片的项。出错就用规则计划。
+- 用户的最终名字写进 `photo_learning`（改过的标 `changed`）。取走：`python -m autopilot_worker.learning export`（JSON lines，取走的行会标记）。

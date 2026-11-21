@@ -407,3 +407,33 @@ export const photoUploadLog = pgTable("photo_upload_log", {
   note: text("note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("photo_upload_log_case_idx").on(t.caseId, t.createdAt)]);
+
+// Step 2 (Select Parts + Labour) from the final photo names: what the worker planned, the two-way check, the AI's review (migration 0010).
+export const step2Log = pgTable("step2_log", {
+  id: serial("id").primaryKey(),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  mode: text("mode").notNull(), // dry | live
+  action: text("action").notNull(), // plan | applied | refused | unreadable | none
+  plan: jsonb("plan").$type<Record<string, unknown>>().notNull().default({}),
+  check: jsonb("check").$type<{ add?: string[]; remove?: string[]; ok?: boolean }>().notNull().default({}),
+  ai: jsonb("ai").$type<Record<string, unknown>>().notNull().default({}),
+  playbook: text("playbook"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("step2_log_case_idx").on(t.caseId, t.createdAt)]);
+
+// The photo model's learning data (migration 0010): every photo's final name at Done, flagged when the adjuster changed the model's name.
+export const photoLearning = pgTable("photo_learning", {
+  id: serial("id").primaryKey(),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  orgId: text("org_id").notNull(),
+  photoId: integer("photo_id").notNull(),
+  contentHash: text("content_hash"),
+  blobPath: text("blob_path").notNull().default(""),
+  modelName: text("model_name"),
+  label: text("label").notNull(), // the final name (the training label)
+  changed: boolean("changed").notNull().default(false), // the adjuster's name differs from the model's
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  exportedAt: timestamp("exported_at", { withTimezone: true }), // null = not yet taken into a training build
+}, (t) => [uniqueIndex("photo_learning_case_photo").on(t.caseId, t.photoId), index("photo_learning_open").on(t.exportedAt)]);

@@ -424,6 +424,27 @@ test("opening order is not applied over an order the adjuster already set, and n
   assert.equal((await caseNow(b.orgId, b.id)).photosArrangedAt, null);
 });
 
+test("learning: Done records every final name, flags the adjuster's changes, and a rename + Done again re-queues the changed row", opts, async () => {
+  const { s, db, sql } = await kit();
+  const { orgId, id } = await newCase("naming", 2);
+  for (const x of await s.claimSlice(id)) await s.writeName(x, named);
+  await s.setDone(await caseNow(orgId, id), true);
+  const get = async () => (await db.execute(sql`SELECT photo_id, label, changed, model_name, exported_at FROM photo_learning WHERE case_id = ${id} ORDER BY photo_id`)).rows as any[];
+  let l = await get();
+  assert.equal(l.length, 2);
+  assert.ok(l.every((r) => r.changed === false && r.label === r.model_name && r.exported_at === null));
+  await db.execute(sql`UPDATE photo_learning SET exported_at = now() WHERE case_id = ${id}`); // a training build took them
+  const p = (await rows(id))[0];
+  await s.renamePhoto(await caseNow(orgId, id), p.id, "Door Mirror RH", p.version);
+  await s.setDone(await caseNow(orgId, id), true);
+  l = await get();
+  const changed = l.find((r) => r.photo_id === p.id), same = l.find((r) => r.photo_id !== p.id);
+  assert.deepEqual([changed.label, changed.changed, changed.exported_at], ["Door Mirror RH", true, null]);
+  assert.notEqual(same.exported_at, null, "an unchanged name is not taken twice");
+  await s.setDone(await caseNow(orgId, id), true);
+  assert.equal((await get()).length, 2, "still one row per photo");
+});
+
 test("check-schema: a database with migration 0010 reports nothing missing", opts, async () => {
   const { missing } = await import("../scripts/check-schema");
   assert.deepEqual(await missing(), []);

@@ -168,6 +168,7 @@ export async function setDone(c: CaseRow, done: unknown): Promise<Result> {
   }
   await db.update(P).set({ confirmed: true }).where(eq(P.caseId, c.id));
   await takeSnapshot(c.id);
+  await recordLearning(c.id, c.orgId);
   return ok({ done: true, status: after.status });
 }
 
@@ -180,6 +181,23 @@ export async function takeSnapshot(caseId: string): Promise<string> {
   const snap = snapshotOf(photos.map((p) => ({ id: p.id, name: p.finalName ?? p.modelName })), extras.map((e) => e.name));
   await db.execute(sql`UPDATE cases SET photos_snapshot = ${snap} WHERE id = ${caseId} AND photos_done_at IS NOT NULL`);
   return snap;
+}
+
+/**
+ * The photo model's learning data: every photo's final name at Done (the label for the next training build), flagged `changed` when the
+ * adjuster's name differs from the model's. One row per photo; Done again after a rename updates the label and puts the row back in the
+ * queue (exported_at null). Own database only. The worker writes the same rows with the same statement when Phase B runs.
+ */
+export async function recordLearning(caseId: string, orgId: string): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO photo_learning (case_id, org_id, photo_id, content_hash, blob_path, model_name, label, changed)
+    SELECT p.case_id, ${orgId}, p.id, p.content_hash, p.blob_path, p.model_name, COALESCE(p.final_name, p.model_name),
+           (p.final_name IS NOT NULL AND p.final_name IS DISTINCT FROM p.model_name)
+    FROM case_photos p
+    WHERE p.case_id = ${caseId} AND COALESCE(p.final_name, p.model_name) IS NOT NULL
+    ON CONFLICT (case_id, photo_id) DO UPDATE
+    SET label = EXCLUDED.label, changed = EXCLUDED.changed, model_name = EXCLUDED.model_name, updated_at = now(),
+        exported_at = CASE WHEN photo_learning.label = EXCLUDED.label THEN photo_learning.exported_at ELSE NULL END`);
 }
 
 // ---- extras (parts with no photo) ----

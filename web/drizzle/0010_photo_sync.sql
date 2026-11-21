@@ -33,3 +33,48 @@ BEGIN
 END
 $$;
 --> statement-breakpoint
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "step2_log" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"case_id" text NOT NULL REFERENCES "cases"("id") ON DELETE cascade,
+	"mode" text NOT NULL,
+	"action" text NOT NULL,
+	"plan" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"check" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"ai" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"playbook" text,
+	"note" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "step2_log_case_idx" ON "step2_log" ("case_id", "created_at");
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "photo_learning" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"case_id" text NOT NULL REFERENCES "cases"("id") ON DELETE cascade,
+	"org_id" text NOT NULL,
+	"photo_id" integer NOT NULL,
+	"content_hash" text,
+	"blob_path" text DEFAULT '' NOT NULL,
+	"model_name" text,
+	"label" text NOT NULL,
+	"changed" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"exported_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "photo_learning_case_photo" ON "photo_learning" ("case_id", "photo_id");
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "photo_learning_open" ON "photo_learning" ("exported_at");
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'autopilot_worker') THEN
+    GRANT SELECT, INSERT ON "step2_log" TO autopilot_worker;
+    GRANT USAGE, SELECT ON SEQUENCE "step2_log_id_seq" TO autopilot_worker;
+    GRANT SELECT, INSERT, UPDATE ON "photo_learning" TO autopilot_worker;
+    GRANT USAGE, SELECT ON SEQUENCE "photo_learning_id_seq" TO autopilot_worker;
+  END IF;
+END
+$$;

@@ -96,7 +96,7 @@ class PgRepo:
             (case_id,),
         )
         desk = self.db.execute(
-            "SELECT id, src_name, final_name, model_name FROM case_photos WHERE case_id = %s ORDER BY position, id",
+            "SELECT id, src_name, final_name, model_name, content_hash, blob_path FROM case_photos WHERE case_id = %s ORDER BY position, id",
             (case_id,),
         )
         extras = self.db.execute("SELECT name FROM case_extras WHERE case_id = %s ORDER BY id", (case_id,))
@@ -109,7 +109,7 @@ class PgRepo:
             "photos": [{"id": p[0], "src_name": p[1], "file": p[1], "blob_path": p[2]} for p in photos],
             "files": [{"id": f[0], "kind": f[1], "url": f[2], "name": f[3]} for f in files],
             # the whole desk in order (photo step of Phase A/B), the parts with no photo, the fingerprint taken at 完成, and the list Phase A uploaded
-            "desk": [{"id": d[0], "src_name": d[1], "final_name": d[2], "model_name": d[3]} for d in desk],
+            "desk": [{"id": d[0], "src_name": d[1], "final_name": d[2], "model_name": d[3], "content_hash": d[4], "blob_path": d[5]} for d in desk],
             "extras": [e[0] for e in extras],
             "photos_snapshot": snapshot,
             "phase_a_photos": a_photos,
@@ -250,9 +250,43 @@ class PgRepo:
                     json.dumps(r.get("would") or {}), json.dumps(r.get("corrections") or []), r.get("snapshot"), r.get("note"),
                 ),
             ))
+        if outcome.step2_log:
+            r = outcome.step2_log
+            st.append((
+                """
+                INSERT INTO step2_log (case_id, mode, action, plan, "check", ai, playbook, note)
+                VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s)
+                """,
+                (job["case_id"], r["mode"], r["action"], json.dumps(r.get("plan") or {}), json.dumps(r.get("check") or {}),
+                 json.dumps(r.get("ai") or {}), r.get("playbook"), r.get("note")),
+            ))
+        for L in outcome.learning or []:
+            # the adjuster's final names for the photo model; a name changed after an undo + Done again is updated and taken again
+            st.append((
+                """
+                INSERT INTO photo_learning (case_id, org_id, photo_id, content_hash, blob_path, model_name, label, changed)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (case_id, photo_id) DO UPDATE
+                SET label = EXCLUDED.label, changed = EXCLUDED.changed, model_name = EXCLUDED.model_name, updated_at = now(),
+                    exported_at = CASE WHEN photo_learning.label = EXCLUDED.label THEN photo_learning.exported_at ELSE NULL END
+                """,
+                (job["case_id"], job["org_id"], L["photo_id"], L.get("content_hash"), L.get("blob_path") or "", L.get("model_name"), L["label"], L["changed"]),
+            ))
         if outcome.browser_minutes and outcome.browser_minutes != "0":
             st.append(("INSERT INTO usage (case_id, browser_minutes) VALUES (%s, %s)", (job["case_id"], outcome.browser_minutes)))
         self.db.batch(st)
+
+    def take_learning(self, limit: int = 5000) -> list[dict]:
+        """The learning rows not yet taken into a training build (oldest first); marks them taken in the same statement."""
+        rows = self.db.execute(
+            """
+            UPDATE photo_learning SET exported_at = now()
+            WHERE id IN (SELECT id FROM photo_learning WHERE exported_at IS NULL ORDER BY id LIMIT %s)
+            RETURNING case_id, org_id, photo_id, content_hash, blob_path, model_name, label, changed
+            """,
+            (limit,),
+        )
+        return [{"case_id": r[0], "org_id": r[1], "photo_id": r[2], "content_hash": r[3], "blob_path": r[4], "model_name": r[5], "label": r[6], "changed": r[7]} for r in rows]
 
     def followup_cases(self) -> list[tuple[dict, list[dict]]]:
         try:
