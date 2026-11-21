@@ -16,7 +16,7 @@ export type CaseDetail = {
   insurer: string | null;
   carModel: string | null;
   totalRm: string | null;
-  sides: Side[];
+  sides?: Side[]; // undefined: could not be loaded
   missing: string[];
   fileCount: number;
   facts: { owner: string; policyNo: string | null; policeReport: string | null; accidentAt: string | null; atFaultPlate: string | null; atFaultInsurer: string | null } | null;

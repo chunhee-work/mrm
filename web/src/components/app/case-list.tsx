@@ -18,7 +18,7 @@ export type CaseRow = {
   status: string;
   pendingDoc: string | null;
   totalRm: string | null; // total of the finished case, null until known
-  sides: Side[]; // sides of the car that were hit
+  sides?: Side[]; // sides of the car that were hit; undefined = not known (not loaded), [] = none found
 };
 
 const REFRESH_MS = 20_000;
@@ -175,12 +175,12 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
                   <ul className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5 ${active.length ? "mt-6" : ""}`}>
                     {done.map((r) => (
                       <li key={r.id} className="sheet relative flex min-w-0 items-center gap-4 rounded-[3px] border border-hair bg-panel p-4 hover:bg-bay/70 lg:p-5">
-                        <CarSides sides={r.sides} className="h-[104px] w-[52px] shrink-0" />
+                        <CarSides sides={r.sides ?? []} className="h-[104px] w-[52px] shrink-0" />
                         <div className="min-w-0 flex-1">
                           <Link href={`/cases/${r.id}`} className="num block truncate font-mono text-[18px] font-medium leading-tight text-fg before:absolute before:inset-0 before:content-[''] hover:underline">{r.plate || t("dash.noPlate")}</Link>
-                          <p className="mt-0.5 truncate text-[13.5px] text-mute">{r.carModel}</p>
+                          <p className="mt-0.5 truncate text-[13.5px] text-mute">{[r.carModel, r.insurer].filter(Boolean).join(" · ")}</p>
                           <p className="num mt-2 font-mono text-[20px] font-medium leading-none text-fg">{money(r.totalRm) ?? "–"}</p>
-                          <div className="mt-2.5"><SideChips sides={r.sides} small /></div>
+                          <div className="mt-2.5">{r.sides && <SideChips sides={r.sides} small />}</div>
                         </div>
                         <Tick className="h-4 w-4 shrink-0 self-start text-go" />
                       </li>

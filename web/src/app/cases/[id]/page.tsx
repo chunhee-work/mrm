@@ -40,7 +40,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     insurer: c.insurer,
     carModel: c.carModel,
     totalRm: c.totalRm,
-    sides: c.status === "done" ? ((await sidesForCases([c.id]).catch(() => new Map())).get(c.id) ?? []) : [],
+    sides: c.status === "done" ? await sidesForCases([c.id]).then((m) => m.get(c.id) ?? []).catch(() => undefined) : undefined,
     missing: d?.missing ?? (c.pendingDoc ? c.pendingDoc.split("; ") : []),
     fileCount: files.length,
     facts: d && {

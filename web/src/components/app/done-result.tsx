@@ -60,7 +60,7 @@ export function SideChips({ sides, small }: { sides: Side[]; small?: boolean }) 
   );
 }
 
-type R = { totalRm: string | null; sides: Side[] };
+type R = { totalRm: string | null; sides?: Side[] };
 
 /** The total on a list row. */
 export function Total({ row, big }: { row: R; big?: boolean }) {
@@ -74,12 +74,12 @@ export function ResultBlock({ carModel, totalRm, sides }: { carModel: string | n
   const { t } = useT();
   return (
     <div className="flex items-center gap-6 border-b border-hair bg-panel2 px-5 py-5 sm:gap-8 sm:px-8">
-      <CarSides sides={sides} className="h-[132px] w-[66px] shrink-0 sm:h-[150px] sm:w-[75px]" />
+      <CarSides sides={sides ?? []} className="h-[132px] w-[66px] shrink-0 sm:h-[150px] sm:w-[75px]" />
       <div className="min-w-0">
         <p className="note text-mute">{t("dash.total")}</p>
         <p className="num font-mono text-[32px] font-medium leading-tight text-fg sm:text-[38px]">{money(totalRm) ?? "–"}</p>
         <p className="mt-1 truncate text-[15px] text-fg">{carModel}</p>
-        <div className="mt-2.5"><SideChips sides={sides} /></div>
+        {sides && <div className="mt-2.5"><SideChips sides={sides} /></div>}
       </div>
     </div>
   );
