@@ -304,6 +304,7 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
     const { p } = await newCasePage();
     const many = Array.from({ length: 60 }, (_, i) => f(`p${String(i).padStart(3, "0")}.png`, fakePng(32, 32, [i * 4, 10, 10])));
     await p.setInputFiles("#case-files", many);
+    await p.waitForSelector("form ul[aria-label] li", { timeout: 8000 }).catch(() => {}); // the picker looks inside the files first
     const folded = await p.locator("form ul[aria-label] li").count();
     const summary = await p.locator("form").innerText();
     await p.getByRole("button", { name: /60 photos/ }).click();

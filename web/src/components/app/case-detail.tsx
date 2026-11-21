@@ -185,7 +185,7 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
       )}
       {/* what is needed, on amber with the amber edge (green once it has been sent): the one place on the card the eye should go.
           Two lines tall at least, and above a button it takes the height the row of cards leaves, so neighbouring buttons stand on one line. */}
-      {need && <div className={`relative mt-5 flex min-h-[76px] flex-col justify-center overflow-hidden rounded-[3px] py-3.5 pl-[19px] pr-4 ${act ? "flex-1" : ""} ${sent ? "bg-gotint" : "bg-ambertint"}`}>
+      {need && <div className={`relative ${compact ? "mt-0" : "mt-5"} flex min-h-[76px] flex-col justify-center overflow-hidden rounded-[3px] py-3.5 pl-[19px] pr-4 ${act ? "flex-1" : ""} ${sent ? "bg-gotint" : "bg-ambertint"}`}>
         <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-[3px] ${sent ? "bg-go" : "bg-amber"}`} />
         {need}
       </div>}
