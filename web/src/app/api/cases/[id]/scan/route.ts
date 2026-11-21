@@ -17,5 +17,5 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   if (!(await debitRetry(me.orgId, id))) return NextResponse.json({ error: "no_credits" }, { status: 402 });
   const r = await scanCase(id, "retry");
   if (!r.claimed) return NextResponse.json({ error: "busy" }, { status: 409 }); // already reading, or nothing to retry
-  return r.ok ? NextResponse.json({ ok: true, missing: r.missing }) : NextResponse.json({ error: "scan failed" }, { status: 500 });
+  return r.ok ? NextResponse.json({ ok: true, missing: r.missing }) : NextResponse.json({ ok: false, failed: true }) /* the read ran and failed: the page shows the new state, this is not a server error */;
 }

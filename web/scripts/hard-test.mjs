@@ -219,7 +219,7 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
   async function fakeUser(id, mail, orgId) {
     await q(`INSERT INTO "user"(id,name,email,email_verified) VALUES ($1,$2,$3,true) ON CONFLICT (email) DO UPDATE SET email_verified=true`, [id, id, mail]);
     await q(`DELETE FROM account WHERE user_id=$1`, [id]);
-    await q(`INSERT INTO account(id,account_id,provider_id,user_id,password) VALUES ($1,$1,'credential',$2,$3)`, [`${id}-acc`, id, await hashPassword(testPw)]);
+    await q(`INSERT INTO account(id,account_id,provider_id,user_id,password) VALUES ($1,$2,'credential',$2,$3)`, [`${id}-acc`, id, await hashPassword(testPw)]);
     if (orgId === "new") { orgId = `${id}-org`; await q(`INSERT INTO organizations(id,name) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [orgId, `${id} org`]); }
     await q(`INSERT INTO memberships(org_id,user_id,role) VALUES ($1,$2,'member') ON CONFLICT (org_id,user_id) DO NOTHING`, [orgId, id]);
     return orgId;
