@@ -3,6 +3,8 @@ import { getUserOrNull } from "@/lib/session";
 import { appOriginFor } from "@/lib/hosts";
 import { getT } from "@/lib/i18n-server";
 import { HOME } from "@/lib/home-copy";
+import { honestCopy } from "@/lib/honest-copy";
+import { workerUiOn } from "@/lib/ext/worker-gate";
 import { JOURNEY } from "@/lib/landing-copy";
 import { SITE } from "@/lib/site";
 import SiteNav from "@/components/site-nav";
@@ -20,7 +22,7 @@ const POSTER = {
 export default async function Home() {
   const me = await getUserOrNull();
   const { lang, t } = await getT();
-  const c = HOME[lang];
+  const c = honestCopy(HOME[lang], lang, workerUiOn());
   const authed = !!me;
   const app = appOriginFor((await headers()).get("host")); // "" on the app host: the links stay inside the site
   const labels = { start: t("nav.start"), cases: t("nav.myCases") };

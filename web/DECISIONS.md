@@ -84,3 +84,11 @@
 - OFF unless `PHOTO_MODEL_ENABLED=1`, `photoModelConfig.measuredFor` is set (after the dry run) and `PHOTO_MODEL_URL`, `PHOTO_MODEL_SECRET`, `HF_SPACE_TOKEN` exist. Unset or invalid = OFF.
 - Job state is in `cases.photo_model_job` (migration `0009_photo_model.sql`, additive; needs the owner's OK before production). Each desk poll does at most one network attempt; the Space is a stateless worker.
 - Deviations from the plan text: the order hash is made from DB photo ids + image paths; the 900 px copies are sent (check parity in the dry run); a name outside the desk list is stored as "name by hand"; no `llm_calls` row (cost is 0); the optional Vercel Cron reconciler is not added (the desk page's polling drives jobs).
+
+## Hard test and QC round 1 (2026-11-21)
+- Credits per case: 1,000 credits are taken when a case is created, only when `CREDITS_ENFORCE=on`. It is OFF by default, so production behaviour does not change until the owner sets it. `CREDITS_EXEMPT_ORGS` (comma-separated org ids) skips the charge for the owner's own orgs. A zero balance answers 402 before any file is uploaded. A failure on our side (not a bad file) refunds the case; a retry of a failed case takes 1,000 again only if it was refunded.
+- Migration `0011_case_credit_once.sql` is one idempotent unique index (one case charge per case) and is NOT applied in production.
+- Upload rules (types, 500 MB per file, 25 MB per PDF, 300 files, 2 GB total) live in one client-safe file shared by the form, the upload route and the case API.
+- Zip bundles are unzipped on the server (limits: 300 entries, 250 MB total, ratio 200); photos in them go to the photo desk.
+- Case events keep their English text in the database (the retry counter reads it) and are translated at render time.
+- When `WORKER_UI` is on, the privacy and FAQ copy says the Merimen password is stored encrypted; when off, the old "we never store it" copy stays.
