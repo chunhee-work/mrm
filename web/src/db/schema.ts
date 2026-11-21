@@ -91,6 +91,7 @@ export const cases = pgTable("cases", {
   doneAt: timestamp("done_at"),
   photosDoneAt: timestamp("photos_done_at", { withTimezone: true }), // photo naming desk: "done" pressed
   photosRev: integer("photos_rev").notNull().default(0), // bumped on every reorder
+  photoModelJob: jsonb("photo_model_job"), // photo-model naming job (plan #26); null = none
   photosSnapshot: text("photos_snapshot"), // fingerprint of names + order + extras when 完成 was pressed (null = not done)
   photosArrangedAt: timestamp("photos_arranged_at", { withTimezone: true }), // opening order applied once after naming
 }, (t) => [index("cases_org_idx").on(t.orgId, t.createdAt)]);

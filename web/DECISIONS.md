@@ -79,6 +79,12 @@
 - Progress screenshots are taken only with `WORKER_UI=on`, only from a logged-in claims page (never a page with a password box), and go to the private Blob store at `screenshots/{userId}/{caseId}/…`. Only the user who submitted the case can see them: other users in the same organisation and other organisations get 404 from the route. Retention `SCREENSHOT_RETENTION_DAYS` (default 90); the cleanup sets `deleted_at`, no SQL DELETE.
 - Migration `0008_case_screenshots.sql` is additive and idempotent and is NOT applied in production. It numbers after this PR's own 0007.
 
+## Photo model (plan chunhee-work/mrm#26)
+- The owner's trained model (HF `chunhee00/mrm-photo-model`) names photos, run unchanged in a private HF Docker Space (`inference/photo-model/`). Claude is not a fallback: when the feature is ON, photos are never sent to Anthropic. OFF = the old Claude naming.
+- OFF unless `PHOTO_MODEL_ENABLED=1`, `photoModelConfig.measuredFor` is set (after the dry run) and `PHOTO_MODEL_URL`, `PHOTO_MODEL_SECRET`, `HF_SPACE_TOKEN` exist. Unset or invalid = OFF.
+- Job state is in `cases.photo_model_job` (migration `0009_photo_model.sql`, additive; needs the owner's OK before production). Each desk poll does at most one network attempt; the Space is a stateless worker.
+- Deviations from the plan text: the order hash is made from DB photo ids + image paths; the 900 px copies are sent (check parity in the dry run); a name outside the desk list is stored as "name by hand"; no `llm_calls` row (cost is 0); the optional Vercel Cron reconciler is not added (the desk page's polling drives jobs).
+
 ## Hard test and QC round 1 (2026-11-21)
 - Credits per case: 1,000 credits are taken when a case is created, only when `CREDITS_ENFORCE=on`. It is OFF by default, so production behaviour does not change until the owner sets it. `CREDITS_EXEMPT_ORGS` (comma-separated org ids) skips the charge for the owner's own orgs. A zero balance answers 402 before any file is uploaded. A failure on our side (not a bad file) refunds the case; a retry of a failed case takes 1,000 again only if it was refunded.
 - Migration `0011_case_credit_once.sql` is one idempotent unique index (one case charge per case) and is NOT applied in production.
