@@ -2,6 +2,8 @@ import { desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import { getExtState } from "@/lib/ext/gate";
+import { workerUiOn } from "@/lib/ext/worker-gate";
+import { credView, getWorkerState } from "@/lib/ext/worker-store";
 import Connection from "@/components/app/connection";
 import CaseList, { type CaseRow } from "@/components/app/case-list";
 
@@ -19,5 +21,6 @@ export default async function Dashboard() {
     status: c.status,
     pendingDoc: c.pendingDoc,
   }));
-  return <CaseList rows={list} orgId={orgId} below={<Connection embedded state={await getExtState(orgId)} cases={list.map((c) => ({ id: c.id, plate: c.plate }))} />} />;
+  const worker = workerUiOn();
+  return <CaseList rows={list} orgId={orgId} below={<Connection embedded mode={worker ? "worker" : "browser"} cred={worker ? await credView(orgId) : null} state={worker ? await getWorkerState(orgId) : await getExtState(orgId)} cases={list.map((c) => ({ id: c.id, plate: c.plate }))} />} />;
 }

@@ -1,0 +1,16 @@
+# Example only. 8 vCPU and 16 GB is a large Fly machine; pick the size in the dashboard.
+# Do not put secrets in this file. `fly secrets set` them on the app.
+app = "autopilot-worker"
+primary_region = "sin"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  cpu_kind = "performance"
+  cpus = 8
+  memory_mb = 16384

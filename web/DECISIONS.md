@@ -67,3 +67,14 @@
 - Plan review was waived by the owner ("just build and pass"); the plan-gate check on this PR is therefore red on purpose. Dots and Grok did leave musts on #40 (session storage, live-view link, allowed origins): P1 avoids them by storing only the session id (no cookies, no connect address), giving the live-view link only to the user who opened it via an authenticated endpoint, and not persisting any login.
 - The remote browser service (Browserbase) adapter is written from its public API description and has NOT run against the real service (no key yet). A test double (`EXT_BROWSER_FAKE=1`, never in production) drives the UI and tests.
 - Migration 0006 (two columns and a unique index on `merimen_connections`) is additive and NOT applied in production.
+
+## Linux worker (2026-11-21)
+- Browserbase stays in the code and stays off unless `WORKER_UI` is unset. `WORKER_UI=on` shows the worker on `/connection` and on the case page instead of the live view.
+- Saving a Merimen login uses the PR #39 gate (env `EXT_CONNECT=on`, `ext_org_settings.enabled` with a consent reference, and a row in `ext_consents`). The password is sealed with AES-256-GCM under `MERIMEN_CRED_KEY` and is not written to logs or returned to the browser.
+- The worker tries that login once (`MERIMEN_LOGIN=on`). A wrong password, a lock (`locktime=15`), or a page it cannot read blocks the org: Merimen jobs pause, cases go to `waiting_user`, and the case log plus the banner (Chinese and English) ask for a new login. A later success queues the paused jobs again. There is no automatic second try.
+- Migration `0007_worker.sql` is additive and is NOT applied in production.
+
+## Linux worker: database over HTTPS and progress screenshots (2026-11-21)
+- The worker box cannot reach Neon on port 5432. `DB_TRANSPORT=http` (default) uses Neon's SQL-over-HTTPS endpoint; `tcp` keeps psycopg. Job claim is one atomic `UPDATE … RETURNING` with a lease that the holder renews; a stale lease puts the job back.
+- Progress screenshots are taken only with `WORKER_UI=on`, only from a logged-in claims page (never a page with a password box), and go to the private Blob store at `screenshots/{userId}/{caseId}/…`. Only the user who submitted the case can see them: other users in the same organisation and other organisations get 404 from the route. Retention `SCREENSHOT_RETENTION_DAYS` (default 90); the cleanup sets `deleted_at`, no SQL DELETE.
+- Migration `0008_case_screenshots.sql` is additive and idempotent and is NOT applied in production. It numbers after this PR's own 0007.
