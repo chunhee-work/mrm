@@ -26,3 +26,8 @@ test("B05 body: file type must match its kind and the allow-list", () => {
 test("B06 body: photos only (no PDF and no zip) is refused before a case is made", () => {
   assert.equal(bodyProblem(CaseBody.parse(ok({ kind: "photo", name: "a.jpg", url: "https://x/org1/b/a.jpg" })), "org1"), "no_docs");
 });
+
+test("B07 body: a PDF over the reader's limit is refused with its own reason", () => {
+  assert.equal(bodyProblem(CaseBody.parse(ok({ size: 30 * 1024 * 1024 })), "org1"), "pdf_big");
+  assert.equal(bodyProblem(CaseBody.parse(ok({ size: 24 * 1024 * 1024 })), "org1"), null);
+});

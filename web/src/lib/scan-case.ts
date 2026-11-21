@@ -1,9 +1,10 @@
 import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { readCaseDocs } from "@/lib/read-docs";
+import { readCaseDocs, BadFile } from "@/lib/read-docs";
 import { expandBundles } from "@/lib/expand-bundles";
 import { importCasePhotos } from "@/lib/photos/import-files";
+import { userFixable } from "@/lib/case-text";
 import { refundCase } from "@/lib/payments/case-credit";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
@@ -74,13 +75,20 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
       cacheTokens: usage.cache_read_input_tokens ?? 0, costUsd: costUsd.toFixed(4),
     });
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
+    await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
     return { ok: done.length > 0, missing: data.missing, claimed: true };
   } catch (e) {
     const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, 500) }).where(mine).returning({ id: cid });
     if (failed.length) {
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
-      await refundCase(claimed[0].orgId, id).catch(() => {}); // nothing was read, so the credit goes back
+      if (!(e instanceof BadFile) && !userFixable((e as Error).message)) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
     }
+    await closeIntakeJobs(id);
     return { ok: false, missing: [], claimed: true };
   }
+}
+
+/** The web read is the case's intake. Any `intake` job still queued for the case is closed, so a worker never reads it a second time. */
+export async function closeIntakeJobs(caseId: string) {
+  await db.update(schema.jobs).set({ state: "done" }).where(and(eq(schema.jobs.caseId, caseId), eq(schema.jobs.step, "intake"), eq(schema.jobs.state, "queued"))).catch(() => {});
 }

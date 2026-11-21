@@ -186,6 +186,7 @@ export const creditsLedger = pgTable("credits_ledger", {
 }, (t) => [
   // One purchase row and one refund row per order, even from a manual script (plan #12, DPR-12-2 D8).
   uniqueIndex("credits_ledger_order_reason_uq").on(t.reason).where(sql`${t.reason} LIKE 'purchase:%' OR ${t.reason} LIKE 'refund:%'`),
+  uniqueIndex("credits_ledger_case_once").on(t.reason).where(sql`${t.reason} LIKE 'case:%'`), // migration 0009
 ]);
 
 // Payments (plan chunhee-work/mrm#12). Money in: one row per checkout attempt.

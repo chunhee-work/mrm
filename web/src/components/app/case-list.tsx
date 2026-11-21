@@ -15,6 +15,9 @@ export type CaseRow = {
   insurer: string | null;
   status: string;
   pendingDoc: string | null;
+  error?: string | null; // why a failed case failed (cases.error)
+  createdAt?: string; // ISO
+  firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
 };
 
 const REFRESH_MS = 20_000;

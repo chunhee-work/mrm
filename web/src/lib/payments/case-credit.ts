@@ -5,7 +5,7 @@ import { creditBalance } from "./credit";
 // One credit per case. Same constraint as credit.ts: no transactions on neon-http, so every step is one statement.
 // Charging is OFF unless CREDITS_ENFORCE=on (nothing changes for existing accounts until the owner decides);
 // organisations in CREDITS_EXEMPT_ORGS (comma-separated ids, e.g. the smoke account's) never pay.
-export const CASE_COST = 1;
+export const CASE_COST = 1000; // 1,000 credits = 1 case (packs.ts)
 
 export const enforcing = () => process.env.CREDITS_ENFORCE === "on";
 export const exempt = (orgId: string) => (process.env.CREDITS_EXEMPT_ORGS ?? "").split(",").map((s) => s.trim()).filter(Boolean).includes(orgId);
@@ -19,7 +19,8 @@ const rowsOf = (res: unknown): unknown[] => { const r = res as { rows?: unknown[
 export async function debitCase(orgId: string, caseId: string): Promise<boolean> {
   if (!enforcing() || exempt(orgId)) return true;
   await db.execute(sql`INSERT INTO credits_ledger (org_id, delta, reason, case_id) SELECT ${orgId}, ${-CASE_COST}, ${"case:" + caseId}, ${caseId}
-    WHERE NOT EXISTS (SELECT 1 FROM credits_ledger WHERE reason = ${"case:" + caseId})`);
+    WHERE NOT EXISTS (SELECT 1 FROM credits_ledger WHERE reason = ${"case:" + caseId})
+    ON CONFLICT DO NOTHING`); // 0009 adds a unique index on the reason, so two racing requests cannot both debit
   if ((await creditBalance(orgId)) >= 0) return true;
   await refundCase(orgId, caseId, "nsf");
   return false;
