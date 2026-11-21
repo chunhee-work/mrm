@@ -1,3 +1,4 @@
+import { honestString } from "./honest-copy";
 export const LANGS = ["en", "zh", "ms"] as const;
 export type Lang = (typeof LANGS)[number];
 export const LANG_LABEL: Record<Lang, string> = { en: "English", zh: "中文", ms: "Bahasa Melayu" };
@@ -981,8 +982,9 @@ const ms: Dict = {
 };
 
 export const DICTS: Record<Lang, Dict> = { en, zh, ms };
-export function translate(lang: Lang, key: string, vars?: Record<string, string>): string {
+export function translate(lang: Lang, key: string, vars?: Record<string, string>, worker = false): string {
   let s = DICTS[lang][key] ?? DICTS.en[key] ?? key;
+  if (worker) s = honestString(s, lang, true);
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, v);
   return s;
 }

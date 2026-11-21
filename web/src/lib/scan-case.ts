@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { readCaseDocs } from "@/lib/read-docs";
 import { expandBundles } from "@/lib/expand-bundles";
 import { importCasePhotos } from "@/lib/photos/import-files";
+import { refundCase } from "@/lib/payments/case-credit";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
@@ -76,7 +77,10 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     return { ok: done.length > 0, missing: data.missing, claimed: true };
   } catch (e) {
     const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, 500) }).where(mine).returning({ id: cid });
-    if (failed.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
+    if (failed.length) {
+      await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
+      await refundCase(claimed[0].orgId, id).catch(() => {}); // nothing was read, so the credit goes back
+    }
     return { ok: false, missing: [], claimed: true };
   }
 }
