@@ -8,10 +8,11 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { BOT_R, buildBot, type Face } from "./bot";
 import { buildFaceBot } from "./bot-face";
 import { buildLogo } from "./logo";
-import { buildCar, type Part } from "./car";
+import { buildCar, soundNormals, type Part } from "./car";
 import { FORM_H, buildConsole, type Viewer } from "./console";
 import { AMBER, BAY, GO, ICE, buildEnvironment, buildRoom, glow } from "./room";
 import { clamp01, lerp, pulse, rng, seg, smooth } from "./math";
+import { CAPPED, capSurfaces, guardBloom, guardMirror, guardOutput } from "./hdr";
 
 /**
  * The night bay. One function of `t`:
@@ -117,7 +118,9 @@ function overlayMaterial(scan: Scan, amber: boolean, ink = false) {
       varying vec3 vCar; varying vec3 vN; varying vec3 vV;
       void main(){
         vec4 w = modelMatrix * vec4(position, 1.0);
-        vec3 n = normalize(mat3(modelMatrix) * normal);
+        // a scanned mesh has the odd point with no direction at all: it is given one, or the whole face comes out "not a number"
+        vec3 n = mat3(modelMatrix) * normal;
+        n = dot(n, n) > 1e-12 ? normalize(n) : vec3(0.0, 1.0, 0.0);
         vV = normalize(cameraPosition - w.xyz);
         // back onto the turntable: the survey belongs to the car, not to the room
         float c = cos(uSpin), s = sin(uSpin);
@@ -131,10 +134,14 @@ function overlayMaterial(scan: Scan, amber: boolean, ink = false) {
       varying vec3 vCar; varying vec3 vN; varying vec3 vV;
       float ln(float c, float k){ float d = abs(fract(c - 0.5) - 0.5); return 1.0 - smoothstep(0.0, fwidth(c) * k, d); }
       float hash(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+      // a square is written as a square: pow() of a number below zero is not defined, and some graphics cards answer "not a number"
+      float sq(float x){ return x * x; }
+      ${CAPPED}
       void main(){
         // a survey mesh in the car's own coordinates: a line every 10 cm along, across and up the car
         vec3 p = vCar / 0.1;
-        vec3 n = normalize(vN);
+        // between two points that face opposite ways the direction passes through nothing
+        vec3 n = dot(vN, vN) > 1e-10 ? normalize(vN) : vec3(0.0, 1.0, 0.0);
         // a family of lines fades out where the surface lies flat against it
         vec3 keep = smoothstep(0.03, 0.45, 1.0 - n * n);
         vec3 l = vec3(ln(p.x, 1.2), ln(p.y, 1.2), ln(p.z, 1.2)) * keep;
@@ -145,7 +152,7 @@ function overlayMaterial(scan: Scan, amber: boolean, ink = false) {
         float cs = cos(uSpin), sn = sin(uSpin);
         vec3 v = normalize(vV);
         v = vec3(v.x * cs - v.z * sn, v.y, v.x * sn + v.z * cs);
-        float fres = pow(1.0 - abs(dot(n, v)), 2.0);
+        float fres = sq(max(0.0, 1.0 - abs(dot(n, v))));
         // the scan goes round the car: a point has been read once the light has passed its bearing
         float th = mod(atan(vCar.z, vCar.x) - uTheta0, 6.2831853);
         // no edge of the survey is a drawn line: where it has not been read yet the mesh thins out cell by cell,
@@ -159,13 +166,13 @@ function overlayMaterial(scan: Scan, amber: boolean, ink = false) {
         // the light itself: the upright sheet from the ball to the middle of the car
         float off = dot(vCar.xz, vec2(-uDir.y, uDir.x));
         float facing = step(0.0, dot(vCar.xz, uDir));
-        float band = exp(-pow(off / 0.022, 2.0)) * facing;
-        float glowband = exp(-pow(off / 0.14, 2.0)) * facing;
+        float band = exp(-sq(off / 0.022)) * facing;
+        float glowband = exp(-sq(off / 0.14)) * facing;
         // close to the light the survey is four times finer, and single cells of it flash as they are read
         vec3 pf = vCar / 0.025;
         vec3 lf = vec3(ln(pf.x, 1.1), ln(pf.y, 1.1), ln(pf.z, 1.1)) * keep;
         float fine = max(lf.x, max(lf.y, lf.z));
-        float near = exp(-pow(off / 0.42, 2.0)) * facing;
+        float near = exp(-sq(off / 0.42)) * facing;
         float cell = step(0.9, hash(floor(pf * 0.5) + floor(uTime * 9.0)));
         float spark = step(0.985, hash(floor(vCar / 0.012) + floor(uTime * 14.0)));
         vec3 col = uIce * (line * 0.3 + dotv * 1.4 + fres * 0.22) * read * uOn;
@@ -181,7 +188,7 @@ function overlayMaterial(scan: Scan, amber: boolean, ink = false) {
         float belly = smoothstep(-0.35, -0.8, n.y) * (1.0 - clamp(uHold * 2.5, 0.0, 1.0));
         float under = 1.0 - smoothstep(0.42, 0.98, length(vec2(vCar.x / 2.05, vCar.z / 0.86)));
         col *= mix(1.0, under * 1.5, belly);
-        gl_FragColor = vec4(col, 1.0);
+        gl_FragColor = capped(vec4(col, 1.0));
       }`,
   });
 }
@@ -337,33 +344,34 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const [carFile, consoleFile, botFile, casefile, casefileHero] = await Promise.all([
-    loader.loadAsync("/landing/car.glb"),
+    loader.loadAsync("/landing/car-sedan.glb"),
     loader.loadAsync("/landing/console.glb"),
     faceBot ? Promise.resolve(null) : loader.loadAsync("/landing/bot.glb"),
     new THREE.TextureLoader().loadAsync("/landing/casefile.webp"),
     new THREE.TextureLoader().loadAsync("/landing/casefile-hero.webp"),
   ]);
 
+  capSurfaces();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: "high-performance" });
   let maxRatio = mobile ? 1.5 : 2;
   renderer.setClearColor(BAY, 1);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.16;
+  renderer.toneMappingExposure = 1.25;
 
   const scene = new THREE.Scene();
   scene.background = BAY.clone();
   scene.fog = new THREE.FogExp2(BAY.getHex(), 0.07);
   const env = buildEnvironment(renderer);
   scene.environment = env;
-  scene.environmentIntensity = 1.2;
+  scene.environmentIntensity = 1.6;
 
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 80);
 
   // ── lights: the room is lit by its reflections (the environment); the key only casts the shadow
   scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x0a0c10, 0.4));
-  const key = new THREE.DirectionalLight(0xdff3ff, 0.06);
+  const key = new THREE.DirectionalLight(0xdff3ff, 0.2);
   key.position.set(2.2, 6.5, -3.2);
   key.castShadow = true;
   key.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
@@ -371,7 +379,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   key.shadow.camera.near = 1; key.shadow.camera.far = 14;
   key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0xbfe9ff, 0.04);
+  const rim = new THREE.DirectionalLight(0xbfe9ff, 0.3);
   rim.position.set(-5, 3, 5);
   scene.add(rim);
   const amberLight = new THREE.PointLight(AMBER, 0, 4.5, 1.6);
@@ -413,6 +421,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     fragmentShader: `
       uniform vec3 uColor; uniform float uOn; uniform float uTime; uniform float uFace; uniform float uHot; varying vec3 vB;
       float hash(float n){ return fract(sin(n * 127.1) * 43758.5453); }
+      ${CAPPED}
       void main(){
         // rays from the ball: hair-fine threads, a few of them bright, and pulses of light running out along them
         float ray = vB.z / max(1e-4, vB.y + vB.z);
@@ -423,9 +432,11 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
         float run = 0.55 + 0.45 * smoothstep(0.6, 1.0, sin(along * 34.0 - uTime * 7.0 + hash(id) * 6.28));
         // no outline anywhere: the light thins out to nothing at both sides and well before its far end
         float edge = smoothstep(0.0, 0.22, ray) * smoothstep(1.0, 0.78, ray) * smoothstep(0.0, 0.42, vB.x);
-        float nearBall = pow(vB.x, 2.2);
+        // at the very edge of the triangle the rasteriser may hand over a hair less than zero
+        float bx = max(vB.x, 0.0);
+        float nearBall = pow(bx, 2.2);
         float sheet = 0.035 + 0.05 * wide + thread * run * 0.26;
-        gl_FragColor = vec4(uColor * uOn * uFace * (sheet * (0.45 + 1.6 * nearBall) + 0.5 * uHot * pow(vB.x, 7.0)) * edge, 1.0);
+        gl_FragColor = capped(vec4(uColor * uOn * uFace * (sheet * (0.45 + 1.6 * nearBall) + 0.5 * uHot * pow(bx, 7.0)) * edge, 1.0));
       }`,
   });
   const fan = new THREE.Mesh(fanGeo, fanMat);
@@ -444,12 +455,14 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
     fragmentShader: `
       uniform vec3 uColor; uniform float uOn; uniform float uTime; uniform float uCore; varying vec2 vUv;
+      ${CAPPED}
       void main(){
-        float across = exp(-pow((vUv.y - 0.5) / 0.2, 2.0));
-        float core = uCore * exp(-pow((vUv.y - 0.5) / 0.045, 2.0));
+        float ya = (vUv.y - 0.5) / 0.2, yc = (vUv.y - 0.5) / 0.045;
+        float across = exp(-ya * ya);
+        float core = uCore * exp(-yc * yc);
         float run = 0.75 + 0.25 * sin(vUv.x * 60.0 - uTime * 9.0);
         float fadeOut = smoothstep(1.0, 0.4, vUv.x) * smoothstep(0.0, 0.03, vUv.x);
-        gl_FragColor = vec4(uColor * uOn * (across * 0.16 + core * 0.55 * run) * fadeOut, 1.0);
+        gl_FragColor = capped(vec4(uColor * uOn * (across * 0.16 + core * 0.55 * run) * fadeOut, 1.0));
       }`,
   });
   const beam = new THREE.Mesh(beamGeo, beamMat);
@@ -472,10 +485,12 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
     fragmentShader: `
       uniform vec3 uColor; uniform float uA; varying vec2 vUv;
+      ${CAPPED}
       void main(){
-        float across = exp(-pow((vUv.y - 0.5) / 0.16, 2.0));
+        float ya = (vUv.y - 0.5) / 0.16;
+        float across = exp(-ya * ya);
         float along = smoothstep(0.0, 0.3, vUv.x) * smoothstep(1.0, 0.7, vUv.x);
-        gl_FragColor = vec4(uColor * uA * across * along, 1.0);
+        gl_FragColor = capped(vec4(uColor * uA * across * along, 1.0));
       }`,
   });
   const trace = new THREE.Mesh(traceGeo, traceMat);
@@ -492,7 +507,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       void main(){
         // only the paint under the light gives off motes: how near this point's bearing is to the ball's
         float d = abs(mod(atan(position.z, position.x) - atan(uDir.y, uDir.x) + 3.14159265, 6.2831853) - 3.14159265);
-        float w = exp(-pow(d / 0.2, 2.0)) * step(d, 0.6);
+        float w = exp(-(d / 0.2) * (d / 0.2)) * step(d, 0.6);
         // each mote lives one short flight, over and over, at its own pace: off the paint, a little way out, then into the eye
         float k = fract(aSeed.x + uTime * (0.16 + 0.2 * aSeed.y));
         float e = k * k * (3.0 - 2.0 * k);
@@ -508,9 +523,10 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
       }`,
     fragmentShader: `
       uniform vec3 uColor; varying float vA;
+      ${CAPPED}
       void main(){
         float r = length(gl_PointCoord - 0.5);
-        gl_FragColor = vec4(uColor * vA * smoothstep(0.5, 0.08, r), 1.0);
+        gl_FragColor = capped(vec4(uColor * vA * smoothstep(0.5, 0.08, r), 1.0));
       }`,
   });
   const motes = new THREE.Points(moteGeo, moteMat);
@@ -602,6 +618,9 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   shade.visible = false;
   scene.add(shade);
 
+  // every scanned mesh in the room, once it has its final normals: no point is left without a direction
+  scene.traverse((o) => { const g = (o as THREE.Mesh).geometry; if (g && g.isBufferGeometry) soundNormals(g); });
+
   // ── post
   const size = new THREE.Vector2();
   const target = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: mobile ? 0 : 4 });
@@ -610,7 +629,12 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
   const BLOOM = mobile ? 0.42 : 0.5;
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), BLOOM, 0.6, 1.0);
   composer.addPass(bloom);
-  composer.addPass(new OutputPass());
+  const output = new OutputPass();
+  composer.addPass(output);
+  // one pixel that is not a number must stay one pixel: see hdr.ts
+  guardBloom(bloom);
+  guardOutput(output);
+  if (room.reflector) guardMirror(room.reflector);
 
   const keys = mobile ? MOBILE : DESKTOP;
   const formAt = mobile ? FORM_FRAME_NARROW : FORM_FRAME;
@@ -932,6 +956,7 @@ export async function createBay(canvas: HTMLCanvasElement, opts: BayOptions): Pr
     for (const l of goLights) l.intensity = done * 4;
     const lit = seg(t, 0.925, 0.995);
     if (car.lampMaterial) car.lampMaterial.emissiveIntensity = 1.5 + lit * 5;
+    car.lit?.(lit);
     // a flare only shows to someone the lamp is pointed at
     va.set(1, 0, 0).transformDirection(car.group.matrixWorld);
     vb.subVectors(camera.position, car.group.position).normalize();

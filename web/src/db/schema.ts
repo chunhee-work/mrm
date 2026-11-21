@@ -68,7 +68,9 @@ export const merimenConnections = pgTable("merimen_connections", {
   sessionParamsEnc: text("session_params_enc"),
   connectedAt: timestamp("connected_at"),
   lastCheckAt: timestamp("last_check_at"),
-});
+  openedBy: text("opened_by"), // the user who opened the in-app browser (plan #40); only they get its live view
+  openedAt: timestamp("opened_at"),
+}, (t) => [uniqueIndex("merimen_conn_org").on(t.orgId)]);
 
 export const cases = pgTable("cases", {
   id: text("id").primaryKey(),
@@ -258,3 +260,65 @@ export const emailLog = pgTable("email_log", {
   status: text("status").notNull(), // sent | failed | skipped
   errorClass: text("error_class"),
 }, (t) => [index("email_log_at_idx").on(t.at)]);
+
+// ---- Merimen connection by browser extension (plan #38, P1). Additive; nothing outside src/lib/ext reads these. ----
+// Per-org switch. A row with enabled = true needs a consent reference (the owner's written consent from Merimen or the firm).
+export const extOrgSettings = pgTable("ext_org_settings", {
+  orgId: text("org_id").primaryKey().references(() => organizations.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").notNull().default(false),
+  consentAuthority: text("consent_authority"), // merimen_general | firm
+  consentReference: text("consent_reference"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+// The customer's acknowledgement: user, org, time, wording version, optional firm label (never a password).
+export const extConsents = pgTable("ext_consents", {
+  id: serial("id").primaryKey(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  wordingVersion: text("wording_version").notNull(),
+  firmLabel: text("firm_label"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+// One-time pairing code, stored hashed. 10 minutes, single use.
+export const extPairingCodes = pgTable("ext_pairing_codes", {
+  id: serial("id").primaryKey(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull().unique(),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  hourBucket: bigint("hour_bucket", { mode: "number" }).notNull(), // floor(epoch / 1 h): the rate-limit window
+  slot: integer("slot").notNull(), // 1..5 inside the window; the unique index below makes the limit race-proof
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("ext_pairing_user_slot").on(t.userId, t.hourBucket, t.slot)]);
+// Used from P2 on (install tokens, jobs, step checkpoints). Created now so the owner approves one migration.
+export const extInstalls = pgTable("ext_installs", {
+  id: text("id").primaryKey(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  refreshHash: text("refresh_hash").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at"),
+});
+export const extJobs = pgTable("ext_jobs", {
+  id: text("id").primaryKey(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  state: text("state").notNull().default("queued"), // queued | claimed | running | done | failed | needs_user | cancelled
+  leaseId: text("lease_id"),
+  installId: text("install_id"),
+  tabId: text("tab_id"),
+  leaseUntil: timestamp("lease_until"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export const extJobSteps = pgTable("ext_job_steps", {
+  id: serial("id").primaryKey(),
+  jobId: text("job_id").notNull().references(() => extJobs.id, { onDelete: "cascade" }),
+  stepCode: text("step_code").notNull(),
+  status: text("status").notNull(),
+  errorCode: text("error_code"),
+  actorUserId: text("actor_user_id"),
+  at: timestamp("at").notNull().defaultNow(),
+});

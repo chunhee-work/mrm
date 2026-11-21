@@ -56,8 +56,20 @@
 - Case list (owner, 2026-11-15): one line per case. A case that stopped reads "On hold" and has no button (the team picks it up); the words "Try again" and "rejected" are not shown to users.
 - Dates a signed-in page prints are formatted in `Asia/Kuala_Lumpur`, so the server and the browser write the same day.
 
+## Merimen connection by browser extension, P1 (plan #38)
+- App side only, off by default at three levels: env `EXT_CONNECT=on`, a per-org row in `ext_org_settings` with `enabled`, and a stored consent reference. With the env switch unset nothing touches the database, so production works before migration 0005 is applied.
+- Deviation from the plan text: the per-org switch lives in its own table `ext_org_settings` instead of a column on `organizations`, so an unapplied migration can never break existing org queries.
+- Not in P1: pairing-code exchange, install tokens, jobs, the extension, any Merimen action. Tables for them exist in migration 0005 so the owner approves one migration.
+- Migration 0005 is additive and safe to run again. It is NOT applied in production; the owner approves it first.
+
+## Merimen login in a browser inside the app, P1 (plan #40)
+- Owner asked (2026-11-16) for a browser window inside the app instead of the extension of plan #38. The #38 gate, consent record and `/connection` page are reused; the pairing-code API stays but the page no longer shows it.
+- Plan review was waived by the owner ("just build and pass"); the plan-gate check on this PR is therefore red on purpose. Dots and Grok did leave musts on #40 (session storage, live-view link, allowed origins): P1 avoids them by storing only the session id (no cookies, no connect address), giving the live-view link only to the user who opened it via an authenticated endpoint, and not persisting any login.
+- The remote browser service (Browserbase) adapter is written from its public API description and has NOT run against the real service (no key yet). A test double (`EXT_BROWSER_FAKE=1`, never in production) drives the UI and tests.
+- Migration 0006 (two columns and a unique index on `merimen_connections`) is additive and NOT applied in production.
+
 ## Photo model (plan chunhee-work/mrm#26)
 - The owner's trained model (HF `chunhee00/mrm-photo-model`) names photos, run unchanged in a private HF Docker Space (`inference/photo-model/`). Claude is not a fallback: when the feature is ON, photos are never sent to Anthropic. OFF = the old Claude naming.
 - OFF unless `PHOTO_MODEL_ENABLED=1`, `photoModelConfig.measuredFor` is set (after the dry run) and `PHOTO_MODEL_URL`, `PHOTO_MODEL_SECRET`, `HF_SPACE_TOKEN` exist. Unset or invalid = OFF.
-- Job state is in `cases.photo_model_job` (migration `0005_photo_model.sql`, additive; needs the owner's OK before production). Each desk poll does at most one network attempt; the Space is a stateless worker.
+- Job state is in `cases.photo_model_job` (migration `0007_photo_model.sql`, additive; needs the owner's OK before production). Each desk poll does at most one network attempt; the Space is a stateless worker.
 - Deviations from the plan text: the order hash is made from DB photo ids + image paths; the 900 px copies are sent (check parity in the dry run); a name outside the desk list is stored as "name by hand"; no `llm_calls` row (cost is 0); the optional Vercel Cron reconciler is not added (the desk page's polling drives jobs).

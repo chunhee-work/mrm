@@ -26,6 +26,19 @@ const AWAKE: Step[] = [[OPEN, 2600], ...blink, [OPEN, 2200], ...glance(1), [OPEN
 /** While the tab is behind others the browser only lets a page tick about once a second: slow glances only. */
 const ASIDE: Step[] = [[OPEN, 5000], [{ open: 1, look: LOOK }, 1000], [OPEN, 5000], [{ open: 1, look: -LOOK }, 1000]];
 
+/** /admin only: the admin layout flips this so the icon is black on white and tells itself apart from the dark site tabs. */
+let inverted = false;
+const ADMIN_STILL = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%229%22 fill=%22%23FFFFFF%22/%3E%3Cg transform=%22translate%2824.0 24.0%29 scale%280.07283 -0.07283%29 translate%28-1795.6 -241.5%29 rotate%287 1795.6 241.5%29%22%3E%3Cpath fill=%22%2307090C%22 fill-rule=%22evenodd%22 d=%22M1541.6 241.5A254.0 254.0 0 1 0 2049.6 241.5A254.0 254.0 0 1 0 1541.6 241.5ZM1732.1 147.5L1859.1 147.5A109.2 109.2 0 0 1 1859.1 366.0L1732.1 366.0A109.2 109.2 0 0 1 1732.1 147.5Z%22/%3E%3Cpath fill=%22%2307090C%22 d=%22M1687.0 226.9A29.8 29.8 0 0 1 1746.7 226.9L1746.7 286.6A29.8 29.8 0 0 1 1687.0 286.6ZM1844.5 226.9A29.8 29.8 0 0 1 1904.2 226.9L1904.2 286.6A29.8 29.8 0 0 1 1844.5 286.6Z%22/%3E%3C/g%3E%3C/svg%3E";
+export function AdminTabIcon() {
+  inverted = true; // set while rendering, so the very first frame is already inverted
+  useEffect(() => {
+    // Still version for browsers that do not animate the tab icon (reduced motion, Safari).
+    for (const link of document.head.querySelectorAll<HTMLLinkElement>('link[rel="icon"]')) { link.type = "image/svg+xml"; link.href = ADMIN_STILL; }
+    return () => { inverted = false; };
+  }, []);
+  return null;
+}
+
 function paint(pose: Pose): string | null {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = SIZE;
@@ -35,7 +48,7 @@ function paint(pose: Pose): string | null {
   const eyeY = 256.75; // the middle of the eyes, so they shut toward their own centre
 
   c.scale(SIZE / 48, SIZE / 48);
-  c.fillStyle = "#07090C";
+  c.fillStyle = inverted ? "#FFFFFF" : "#07090C";
   c.beginPath();
   if (c.roundRect) c.roundRect(0, 0, 48, 48, 9);
   else c.rect(0, 0, 48, 48);
@@ -49,13 +62,13 @@ function paint(pose: Pose): string | null {
   c.rotate((7 * Math.PI) / 180);
   c.translate(-cx, -cy);
 
-  c.fillStyle = "#EEF2F6";
+  c.fillStyle = inverted ? "#07090C" : "#EEF2F6";
   c.fill(new Path2D(W.face), "evenodd");
 
   c.translate(pose.look, eyeY);
   c.scale(1, pose.open);
   c.translate(0, -eyeY);
-  c.fillStyle = "#FFFFFF";
+  c.fillStyle = inverted ? "#07090C" : "#FFFFFF";
   for (const eye of W.eyes) c.fill(new Path2D(eye));
 
   return canvas.toDataURL("image/png");
@@ -67,7 +80,7 @@ export function TabIcon() {
 
     const frames = new Map<string, string | null>();
     const frame = (p: Pose) => {
-      const key = `${p.open}|${p.look}`;
+      const key = `${p.open}|${p.look}|${inverted}`;
       if (!frames.has(key)) frames.set(key, paint(p));
       return frames.get(key) ?? null;
     };
