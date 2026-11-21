@@ -79,10 +79,24 @@ ${playbookBlock("read_docs")}`;
 
 type Block = Anthropic.Messages.ContentBlockParam;
 
-async function blobBase64(url: string): Promise<string> {
+/** An empty, corrupt or oversize PDF: the user fixes it by sending another file. The message is `bad_file:<name>|<why>` (see case-text.ts). */
+export class BadFile extends Error {
+  constructor(name: string, why: "empty" | "corrupt" | "too_big") { super(`bad_file:${name.replace(/[|\n]/g, " ").slice(0, 120)}|${why}`); this.name = "BadFile"; }
+}
+const MAX_PDF = 25 * 1024 * 1024;
+/** Checks the bytes of one PDF before it is sent to the model (B06/B07). */
+export function checkPdf(name: string, buf: Uint8Array) {
+  if (!buf.length) throw new BadFile(name, "empty");
+  if (buf.length > MAX_PDF) throw new BadFile(name, "too_big");
+  const head = Buffer.from(buf.subarray(0, 1024)).toString("latin1");
+  if (!head.includes("%PDF-")) throw new BadFile(name, "corrupt");
+}
+
+async function blobBase64(url: string, name = "file.pdf"): Promise<string> {
   const r = await get(url, { access: "private" });
   if (!r || r.statusCode !== 200) throw new Error("blob not found");
   const buf = Buffer.from(await new Response(r.stream).arrayBuffer());
+  checkPdf(name, buf);
   return buf.toString("base64");
 }
 
@@ -92,7 +106,7 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
   const content: Block[] = [];
   for (const f of pdfs) {
     content.push({ type: "text", text: `File: ${f.originalName}` });
-    content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: await blobBase64(f.blobUrl) } });
+    content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: await blobBase64(f.blobUrl, f.originalName) } });
   }
   content.push({ type: "text", text: "Extract the case data from the files above." });
 

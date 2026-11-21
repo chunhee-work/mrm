@@ -5,6 +5,7 @@ import Link from "next/link";
 import { uploadGuarded, UploadStalled } from "@/lib/upload-guard";
 import { useT } from "@/components/lang-provider";
 import { kindOf } from "@/lib/file-kind";
+import { docKey, failTr, userFixable } from "@/lib/case-text";
 import { accepted } from "./drop-zone";
 import { Photo, Tick, Upload } from "./marks";
 import type { CaseRow } from "./case-list";
@@ -18,7 +19,7 @@ export type Sent = "files";
  * `sent` comes from the list, which keeps the card in place for a moment after it went through, so the user sees it was received.
  */
 export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState<{ n: number; total: number; pct: number } | null>(null);
@@ -54,6 +55,16 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
       setSending(null);
     }
   }
+  async function again() {
+    if (sending) return;
+    setErr(""); setSending({ n: 0, total: 0, pct: 0 });
+    try {
+      const r = await fetch(`/api/cases/${row.id}/scan`, { method: "POST" });
+      if (r.status === 402) { setErr(t("new.noCredits")); return; }
+      if (!r.ok && r.status !== 409) throw new Error("retry");
+      router.refresh();
+    } catch { setErr(t("case.retryFail")); } finally { setSending(null); }
+  }
   function onChosen(list: File[]) {
     const ok = list.filter(accepted);
     if (ok.length) void send(ok);
@@ -76,15 +87,23 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
         {t("dash.d.received")}
       </p>
     );
-  } else if (row.status === "pending_doc") {
-    need = docs.length ? (
+  } else if (row.status === "pending_doc" || (row.status === "failed" && userFixable(row.error ?? null))) {
+    need = row.status === "failed" ? (
+      <p className={say}>{t(failTr(row.error ?? null).key, failTr(row.error ?? null).vars)}</p>
+    ) : docs.length ? (
       <>
         <p className="text-[13px] leading-none text-mute">{t("dash.d.missing")}</p>
-        <ul className="mt-2 grid gap-1">
-          {docs.map((d) => (
-            <li key={d} className="text-[17px] font-semibold leading-snug text-fg [overflow-wrap:anywhere]">{d}</li>
+        <ol className="mt-2 grid gap-2">
+          {docs.map((d, i) => (
+            <li key={d} className="flex items-baseline gap-3 leading-snug [overflow-wrap:anywhere]">
+              <span className="num w-5 shrink-0 text-[17px] font-bold text-fg">{i + 1}.</span>
+              <span className="min-w-0">
+                <span className="text-[17px] font-semibold text-fg">{t(`doc.${docKey(d)}`)}</span>
+                {docKey(d) === "other" && <span className="mt-0.5 block text-[13px] text-mute">{d}</span>}
+              </span>
+            </li>
           ))}
-        </ul>
+        </ol>
       </>
     ) : (
       <p className={say}>{t("dash.d.missingAny")}</p>
@@ -110,7 +129,7 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
           ) : (
             <>
               <Upload />
-              <span id={actId}>{t("dash.d.upload")}</span>
+              <span id={actId}>{t(row.status === "failed" ? "case.replace" : "dash.d.upload")}</span>
             </>
           )}
           {/* how much has gone up: a line of the scan blue along the button's bottom edge */}
@@ -125,8 +144,13 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
       </>
     );
   } else if (row.status === "failed") {
-    // on hold: nothing for the user to press, the team picks it up
-    need = <p className={say}>{t("dash.d.failed")}</p>;
+    // our side failed: say so, with the reason, and offer Read again (one credit is not taken twice)
+    need = <p className={say}>{t(failTr(row.error ?? null).key, failTr(row.error ?? null).vars)}</p>;
+    act = (
+      <button type="button" aria-labelledby={`${actId} ${titleId}`} onClick={() => void again()} aria-disabled={busy} className={button}>
+        <span id={actId}>{t("case.retry")}</span>
+      </button>
+    );
   } else {
     // the photo names are waiting: the button opens this case on the naming desk
     need = <p className={say}>{t("dash.d.waiting")}</p>;
@@ -141,9 +165,17 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
   return (
     <li className="sheet flex min-w-0 flex-col rounded-[3px] border border-hair bg-panel p-5 lg:p-6">
       <h3 id={titleId} className="num truncate font-mono text-[24px] font-medium leading-[1.15] tracking-[0.01em] text-fg">
-        {row.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
+        <Link href={`/cases/${row.id}`} className="underline-offset-4 hover:underline">
+          {row.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
+        </Link>
       </h3>
       {vehicle && <p className="mt-1 truncate text-[14px] leading-snug text-mute">{vehicle}</p>}
+      {!row.plate && row.createdAt && (
+        <p className="mt-1 truncate text-[14px] leading-snug text-mute" suppressHydrationWarning>
+          <time dateTime={row.createdAt}>{new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : lang === "ms" ? "ms-MY" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kuala_Lumpur" }).format(new Date(row.createdAt))}</time>
+          {row.firstFile ? ` · ${row.firstFile}` : ""}
+        </p>
+      )}
       {/* what is needed, on amber with the amber edge (green once it has been sent): the one place on the card the eye should go.
           Two lines tall at least, and above a button it takes the height the row of cards leaves, so neighbouring buttons stand on one line. */}
       <div className={`relative mt-5 flex min-h-[76px] flex-col justify-center overflow-hidden rounded-[3px] py-3.5 pl-[19px] pr-4 ${act ? "flex-1" : ""} ${sent ? "bg-gotint" : "bg-ambertint"}`}>

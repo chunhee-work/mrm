@@ -4,6 +4,7 @@ import { Hanken_Grotesk, IBM_Plex_Mono, Outfit, Saira } from "next/font/google";
 import { getT } from "@/lib/i18n-server";
 import { htmlLang, localeOf } from "@/lib/i18n";
 import { SITE } from "@/lib/site";
+import { workerUiOn } from "@/lib/ext/worker-gate";
 import { LangProvider } from "@/components/lang-provider";
 import { TabIcon } from "@/components/tab-icon";
 
@@ -40,7 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-[3px] focus:bg-ice focus:px-4 focus:py-3 focus:text-[15px] focus:font-semibold focus:text-bay">
           {t("nav.skip")}
         </a>
-        <LangProvider lang={lang}>{children}</LangProvider>
+        <LangProvider lang={lang} worker={workerUiOn()}>{children}</LangProvider>
         <TabIcon />
       </body>
     </html>
