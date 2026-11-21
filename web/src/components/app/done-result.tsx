@@ -46,8 +46,9 @@ export function CarSides({ sides, className = "h-[96px] w-[48px]" }: { sides: Si
 }
 
 /** Solid amber chips, one per hit side: the words must be seen at a glance. */
-export function SideChips({ sides, small }: { sides: Side[]; small?: boolean }) {
+export function SideChips({ sides, small }: { sides?: Side[]; small?: boolean }) {
   const { t } = useT();
+  if (!sides) return <span className="text-[13px] text-mute">{t("side.unavailable")}</span>;
   if (!sides.length) return <span className="text-[13px] text-mute">{t("side.none")}</span>;
   return (
     <ul className="flex flex-wrap gap-1.5">
@@ -79,7 +80,7 @@ export function ResultBlock({ carModel, totalRm, sides }: { carModel: string | n
         <p className="note text-mute">{t("dash.total")}</p>
         <p className="num font-mono text-[32px] font-medium leading-tight text-fg sm:text-[38px]">{money(totalRm) ?? "–"}</p>
         <p className="mt-1 truncate text-[15px] text-fg">{carModel}</p>
-        {sides && <div className="mt-2.5"><SideChips sides={sides} /></div>}
+        <div className="mt-2.5"><SideChips sides={sides} /></div>
       </div>
     </div>
   );

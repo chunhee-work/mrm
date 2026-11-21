@@ -22,7 +22,7 @@ test("Malay words, mixed case and separators; no match inside other words", () =
 });
 test("every label key exists in EN, 中文 and BM", async () => {
   const { DICTS } = await import("./i18n");
-  for (const k of ["dash.total", "dash.hit", "side.front", "side.rear", "side.left", "side.right", "side.none", "case.result"]) {
+  for (const k of ["dash.total", "dash.hit", "side.front", "side.rear", "side.left", "side.right", "side.none", "side.unavailable", "case.result"]) {
     for (const l of ["en", "zh", "ms"] as const) assert.ok(DICTS[l][k], `${l} ${k}`);
   }
 });

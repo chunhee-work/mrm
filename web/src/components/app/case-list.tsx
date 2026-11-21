@@ -183,7 +183,7 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
                           <Link href={`/cases/${r.id}`} className="num block truncate font-mono text-[18px] font-medium leading-tight text-fg before:absolute before:inset-0 before:content-[''] hover:underline">{r.plate || t("dash.noPlate")}</Link>
                           <p className="mt-0.5 truncate text-[13.5px] text-mute">{[r.carModel, r.insurer].filter(Boolean).join(" · ")}</p>
                           <p className="num mt-2 font-mono text-[20px] font-medium leading-none text-fg">{money(r.totalRm) ?? "–"}</p>
-                          <div className="mt-2.5">{r.sides && <SideChips sides={r.sides} small />}</div>
+                          <div className="mt-2.5"><SideChips sides={r.sides} small /></div>
                         </div>
                         <Tick className="h-4 w-4 shrink-0 self-start text-go" />
                       </li>
