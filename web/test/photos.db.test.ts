@@ -424,51 +424,6 @@ test("opening order is not applied over an order the adjuster already set, and n
   assert.equal((await caseNow(b.orgId, b.id)).photosArrangedAt, null);
 });
 
-test("case upload photos: listed once, served only for this case, and marked imported", opts, async () => {
-  const { s, db, schema } = await kit();
-  const a = await newCase("phase_a", 0);
-  const b = await newCase("phase_a", 0);
-  await db.insert(schema.caseFiles).values([
-    { caseId: a.id, kind: "photo", blobUrl: "https://x.blob.vercel-storage.com/a/1.jpg", originalName: "IMG_1.jpg", size: 10 },
-    { caseId: a.id, kind: "bundle_zip", blobUrl: "https://x.blob.vercel-storage.com/a/b.zip", originalName: "bundle.zip", size: 99 },
-    { caseId: a.id, kind: "pdf", blobUrl: "https://x.blob.vercel-storage.com/a/r.pdf", originalName: "r.pdf", size: 5 },
-  ]);
-  const list = await s.importableFiles(a.id);
-  assert.deepEqual(list.map((f) => f.kind), ["photo", "bundle_zip"]);
-  assert.equal((await s.photoState(await caseNow(a.orgId, a.id))).status, 200);
-  assert.equal((await s.fileBlobUrl(b.id, list[0].id)), null, "another case's file is not served");
-  assert.ok(await s.fileBlobUrl(a.id, list[0].id));
-  assert.equal(await s.markImported(b.id, list[0].id), false);
-  assert.equal(await s.markImported(a.id, list[0].id), true);
-  assert.deepEqual((await s.importableFiles(a.id)).map((f) => f.kind), ["bundle_zip"]);
-});
-
-test("import: the desk's own uploads are never offered again, a re-import is not offered, a file over the cap is flagged", opts, async () => {
-  const { s, db, schema } = await kit();
-  const a = await newCase("naming", 0);
-  // a desk upload registers a photo and its case_files row (kind photo, blob url = the photo's blob path)
-  const c0 = await caseNow(a.orgId, a.id);
-  const blobPath = `${a.orgId}/${a.id}/photos/own-f-IMG.jpg`, thumbPath = `${a.orgId}/${a.id}/photos/own-s-IMG.jpg`;
-  for (const p of [blobPath, thumbPath]) { assert.deepEqual(await s.noteUpload(c0, a.orgId, p, "e".repeat(64)), { ok: true }); writeFileSync(fileOf(p), "jpeg"); }
-  const r = await s.registerPhotos(c0, a.orgId, [{ blobPath, thumbPath, name: "own.jpg", size: 4, hash: "e".repeat(64) }]);
-  assert.equal(r.status, 200);
-  assert.deepEqual(await s.importableFiles(a.id), [], "own upload is not importable");
-  await db.insert(schema.caseFiles).values({ caseId: a.id, kind: "bundle_zip", blobUrl: "https://x.blob.vercel-storage.com/a/big.zip", originalName: "big.zip", size: s.MAX_IMPORT_BYTES + 1 });
-  const [big] = await s.importableFiles(a.id);
-  const f = await s.fileBlobUrl(a.id, big.id);
-  assert.ok(f && f.size > s.MAX_IMPORT_BYTES, "the route refuses it with 413");
-  await s.markImported(a.id, big.id);
-  assert.deepEqual(await s.importableFiles(a.id), [], "imported once, never again");
-});
-
-test("import: a desk upload registered before the fix (photos_imported_at NULL, url = blob path) is still not offered", opts, async () => {
-  const { s, db, schema } = await kit();
-  const a = await newCase("naming", 1);
-  const [p] = await rows(a.id);
-  await db.insert(schema.caseFiles).values({ caseId: a.id, kind: "photo", blobUrl: p.blobPath, originalName: "IMG_1.jpg", size: 4 });
-  assert.deepEqual(await s.importableFiles(a.id), []);
-});
-
 test("check-schema: a database with migration 0010 reports nothing missing", opts, async () => {
   const { missing } = await import("../scripts/check-schema");
   assert.deepEqual(await missing(), []);

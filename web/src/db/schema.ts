@@ -103,7 +103,6 @@ export const caseFiles = pgTable("case_files", {
   originalName: text("original_name").notNull(),
   size: bigint("size", { mode: "number" }).notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  photosImportedAt: timestamp("photos_imported_at", { withTimezone: true }), // the desk took this file's photos in (migration 0010)
 });
 
 // Photo naming desk (plan #9). Shown name = finalName ?? modelName.

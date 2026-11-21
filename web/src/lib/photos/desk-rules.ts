@@ -7,8 +7,7 @@ export type Photo = {
   alts: string[]; finalName: string | null; error: string | null; version: number;
 };
 export type Extra = { id: number; name: string };
-export type ImportFile = { id: number; name: string; kind: string; size: number };
-export type CaseState = { caseId: string; plate: string; carModel: string | null; status: string; done: boolean; rev: number; photos: Photo[]; extras: Extra[]; imports?: ImportFile[] };
+export type CaseState = { caseId: string; plate: string; carModel: string | null; status: string; done: boolean; rev: number; photos: Photo[]; extras: Extra[] };
 export type Filter = "all" | "confirm" | "edited";
 
 export const shownName = (p: Photo) => p.finalName ?? p.modelName;

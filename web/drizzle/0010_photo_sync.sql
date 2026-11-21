@@ -33,5 +33,3 @@ BEGIN
 END
 $$;
 --> statement-breakpoint
--- The desk imports the photos of the case upload (loose files and zip bundles) once; this marks the file as done.
-ALTER TABLE "case_files" ADD COLUMN IF NOT EXISTS "photos_imported_at" timestamp with time zone;

@@ -1,8 +1,8 @@
 // Build gate: refuses to build (so nothing deploys) when the database is behind this code. The photo desk reads columns from migration
-// 0010 (cases.photos_snapshot, cases.photos_arranged_at, case_files.photos_imported_at, table photo_upload_log); `select *` on cases fails without them.
+// 0010 (cases.photos_snapshot, cases.photos_arranged_at, table photo_upload_log); `select *` on cases fails without them.
 // Runs before `next build`. No DATABASE_URL (a plain local build): nothing to check. Apply migrations first: `npm run db:migrate`.
 const url = process.env.DATABASE_URL;
-const NEED_COLUMNS = [["cases", "photos_snapshot"], ["cases", "photos_arranged_at"], ["case_files", "photos_imported_at"]] as const;
+const NEED_COLUMNS = [["cases", "photos_snapshot"], ["cases", "photos_arranged_at"]] as const;
 const NEED_TABLES = ["photo_upload_log"];
 
 async function run(q: string): Promise<{ rows: Record<string, string>[] }> {

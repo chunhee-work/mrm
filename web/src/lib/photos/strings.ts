@@ -119,10 +119,6 @@ const en: Dict = {
   noName: "no name yet",
   openingMissing: "Opening photos missing: {list}",
   planLine: "Merimen photo plan: {n} photos · {types}",
-  importing: "Importing the photos of your upload ({done}/{total})",
-  imported: "{n} photos from your upload are on the desk",
-  importHeic: "{n} HEIC photos were skipped. Save them as JPEG and add them again",
-  importFailed: "Some photos of your upload could not be imported. Open this page again to retry",
   fileType: "Merimen type",
 };
 
@@ -242,10 +238,6 @@ const zh: Dict = {
   noName: "还没有名称",
   openingMissing: "缺少开头照片：{list}",
   planLine: "Merimen 照片计划：{n} 张 · {types}",
-  importing: "正在导入你上传的照片 ({done}/{total})",
-  imported: "已把你上传的 {n} 张照片放到命名台",
-  importHeic: "{n} 张 HEIC 照片没有导入，请先另存为 JPEG 再加",
-  importFailed: "你上传的部分照片没能导入，重新打开这个页面会再试一次",
   fileType: "Merimen 类型",
 };
 
@@ -365,10 +357,6 @@ const ms: Dict = {
   noName: "belum ada nama",
   openingMissing: "Gambar pembukaan tiada: {list}",
   planLine: "Pelan gambar Merimen: {n} gambar · {types}",
-  importing: "Mengimport gambar muat naik anda ({done}/{total})",
-  imported: "{n} gambar daripada muat naik anda sudah di meja",
-  importHeic: "{n} gambar HEIC dilangkau. Simpan sebagai JPEG dan tambah semula",
-  importFailed: "Sebahagian gambar muat naik anda tidak dapat diimport. Buka halaman ini semula untuk cuba lagi",
   fileType: "Jenis Merimen",
 };
 

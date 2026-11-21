@@ -1,5 +1,4 @@
 import "server-only";
-import { MAX_IMPORT_BYTES } from "./import-limits";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import {
@@ -40,44 +39,15 @@ export type PhotoDto = ReturnType<typeof photoDto>;
 
 export async function photoState(c0: CaseRow): Promise<Result> {
   const c = (await finalizeNaming(c0)) ?? c0;
-  const [photos, extras, imports] = await Promise.all([
+  const [photos, extras] = await Promise.all([
     db.select().from(P).where(eq(P.caseId, c.id)).orderBy(asc(P.position), asc(P.id)),
     db.select().from(schema.caseExtras).where(eq(schema.caseExtras.caseId, c.id)).orderBy(asc(schema.caseExtras.createdAt), asc(schema.caseExtras.id)),
-    importableFiles(c.id),
   ]);
   return ok({
     caseId: c.id, plate: c.plate, carModel: c.carModel, status: c.status,
     done: c.photosDoneAt != null, rev: c.photosRev,
     photos: photos.map(photoDto), extras: extras.map((e) => ({ id: e.id, name: e.name })),
-    imports,
   });
-}
-
-/** Files of the case upload that hold photos (loose photos and zip bundles) and have not been taken onto the desk yet. */
-export async function importableFiles(caseId: string): Promise<{ id: number; name: string; kind: string; size: number }[]> {
-  const rows = await db.select({ id: schema.caseFiles.id, name: schema.caseFiles.originalName, kind: schema.caseFiles.kind, size: schema.caseFiles.size, url: schema.caseFiles.blobUrl })
-    .from(schema.caseFiles)
-    .where(and(eq(schema.caseFiles.caseId, caseId), inArray(schema.caseFiles.kind, ["photo", "bundle_zip"]), sql`${schema.caseFiles.photosImportedAt} IS NULL`))
-    .orderBy(asc(schema.caseFiles.id)).limit(60);
-  // photos the desk itself uploaded are also stored as case files (kind photo) and are already registered: they are not importable
-  const own = await db.select({ b: P.blobPath }).from(P).where(eq(P.caseId, caseId));
-  const have = new Set(own.map((o) => o.b));
-  return rows.filter((r) => r.kind === "bundle_zip" || !have.has(r.url)).map(({ url: _u, ...r }) => ({ ...r, size: Number(r.size) }));
-}
-
-/** The web path of one importable file of this case: only the file's blob url, never exposed. */
-export { MAX_IMPORT_BYTES };
-export async function fileBlobUrl(caseId: string, fileId: number): Promise<{ url: string; kind: string; name: string; size: number } | null> {
-  if (!Number.isInteger(fileId)) return null;
-  const [f] = await db.select({ url: schema.caseFiles.blobUrl, kind: schema.caseFiles.kind, name: schema.caseFiles.originalName, size: schema.caseFiles.size })
-    .from(schema.caseFiles).where(and(eq(schema.caseFiles.id, fileId), eq(schema.caseFiles.caseId, caseId), inArray(schema.caseFiles.kind, ["photo", "bundle_zip"]))).limit(1);
-  return f ? { ...f, size: Number(f.size) } : null;
-}
-export async function markImported(caseId: string, fileId: number): Promise<boolean> {
-  if (!Number.isInteger(fileId)) return false;
-  const r = await db.update(schema.caseFiles).set({ photosImportedAt: sql`now()` })
-    .where(and(eq(schema.caseFiles.id, fileId), eq(schema.caseFiles.caseId, caseId), inArray(schema.caseFiles.kind, ["photo", "bundle_zip"]))).returning({ id: schema.caseFiles.id });
-  return r.length > 0;
 }
 
 /**
@@ -318,7 +288,7 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
   }
 
   if (added.length) {
-    await db.insert(schema.caseFiles).values(items.map((it) => ({ caseId: c.id, kind: "photo", blobUrl: it.blobPath, originalName: it.name, size: it.size, photosImportedAt: sql`now()` }))); // the desk's own uploads are already on the desk
+    await db.insert(schema.caseFiles).values(items.map((it) => ({ caseId: c.id, kind: "photo", blobUrl: it.blobPath, originalName: it.name, size: it.size })));
     const next = statusAfterRegister(c.status);
     if (next !== c.status) await db.update(schema.cases).set({ status: next }).where(and(eq(schema.cases.id, c.id), eq(schema.cases.status, c.status)));
     await db.execute(sql`UPDATE cases SET photos_arranged_at = NULL WHERE id = ${c.id}`); // new photos: the opening order is looked at again once they are named

@@ -12,7 +12,6 @@ import { photoT } from "@/lib/photos/strings";
 import { PhotoCard, type CardActions, type Editing } from "./photo-card";
 import { ExtraChip, HelpSheet, MoveSheet, Palette } from "./sheets";
 import { uploadPhotos } from "./upload";
-import { importCaseFiles } from "./import-files";
 
 export type DeskTab = { id: string; plate: string; carModel: string | null; done: boolean; photos: number };
 type Reply = { ok: boolean; status: number; body: Record<string, unknown> };
@@ -67,8 +66,6 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const lastJump = useRef<number | null>(null);
   const lastEnter = useRef(0); // Enter, Enter within 700 ms = 完成 and on to the next case
   const focusName = useRef<(id: number) => void>(() => {});
-  const [imp, setImp] = useState<{ done: number; total: number } | null>(null);
-  const tried = useRef(new Set<string>()); // cases whose upload photos were already offered to the importer in this page
   const [palette, setPalette] = useState(false);
   const [moveId, setMoveId] = useState<number | null>(null);
   const [help, setHelp] = useState(false);
@@ -543,29 +540,6 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     return () => window.removeEventListener("beforeunload", warn);
   }, [up]);
 
-  // photos that came with the case upload (loose files, zip bundles) are taken onto the desk once
-  const toImport = st?.imports;
-  useEffect(() => {
-    if (!toImport?.length || tried.current.has(caseId) || up) return;
-    tried.current.add(caseId);
-    const cid = caseId;
-    const list = toImport;
-    (async () => {
-      setImp({ done: 0, total: list.length });
-      const rep = await importCaseFiles(cid, orgId, list, (done, total) => setImp({ done, total }));
-      setImp(null);
-      await load(cid, true);
-      setCapped((c) => ({ ...c, [cid]: false }));
-      setKick((k) => k + 1);
-      const tt = tRef.current;
-      const parts: string[] = [];
-      if (rep.added.length) parts.push(tt("imported", { n: rep.added.length }));
-      if (rep.heic) parts.push(tt("importHeic", { n: rep.heic }));
-      if (rep.filesFailed) parts.push(tt("importFailed"));
-      if (parts.length) say(parts.join(" · "));
-    })();
-  }, [toImport, caseId, orgId, up, load, say]);
-
   const retryNaming = useCallback(async () => {
     const cid = caseRef.current;
     setCapped((c) => ({ ...c, [cid]: false }));
@@ -758,11 +732,6 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       {head}
       <div className="shrink-0">
         {/* what is going on: naming progress, or what needs a second try */}
-        {imp && (
-          <div className="wrap pb-2.5 max-sm:px-3" role="status">
-            <span className="font-mono text-[12.5px] text-ice">{t("importing", { done: imp.done, total: imp.total })}</span>
-          </div>
-        )}
         {st && n && !n.naming && n.total > 0 && missingOpen.length > 0 && (
           <div className="wrap pb-2.5 max-sm:px-3" role="status">
             <span className="flex items-center gap-2 text-[13.5px] font-medium text-fg">
