@@ -25,16 +25,25 @@ function useDismiss(open: boolean, close: (refocus: boolean) => void, ref: React
   }, [open, close, ref]);
 }
 
+function Gear({ className = "" }: { className?: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h0a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5h0a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v0a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" />
+    </svg>
+  );
+}
+
 function AccountMenu({ email }: { email: string }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const item = useRef<HTMLButtonElement>(null);
+  const settingsItem = useRef<HTMLAnchorElement>(null);
   const close = useRef((refocus: boolean) => { setOpen(false); if (refocus) trigger.current?.focus(); }).current;
   useDismiss(open, close, ref);
-  useEffect(() => { if (open) item.current?.focus(); }, [open]);
+  useEffect(() => { if (open) settingsItem.current?.focus(); }, [open]);
   return (
     <div ref={ref} className="relative hidden lg:block">
       <button
@@ -58,8 +67,17 @@ function AccountMenu({ email }: { email: string }) {
           onKeyDown={(e) => { if (e.key === "Tab") setOpen(false); }}
           className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[220px] rounded-[3px] menu border border-hair bg-panel p-1"
         >
+          <Link
+            ref={settingsItem}
+            href="/settings"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex h-11 w-full items-center gap-3 rounded-[2px] px-3 text-left text-[15px] font-medium text-fg transition-colors duration-150 hover:bg-icetint hover:text-ice focus-visible:bg-icetint focus-visible:outline-offset-0"
+          >
+            <Gear className="shrink-0 text-ice" />
+            {t("nav.settings")}
+          </Link>
           <button
-            ref={item}
             type="button"
             role="menuitem"
             disabled={busy}
@@ -86,6 +104,7 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
   const links = [
     { href: "/dashboard", label: t("nav.cases") },
     { href: "/billing", label: t("nav.billing") },
+    { href: "/settings", label: t("nav.settings") },
     { href: "/cases/new", label: t("nav.newCase"), plus: true },
   ];
   return (

@@ -40,8 +40,15 @@ export function failTr(error: string | null): Tr {
   if (/no PDF/i.test(e)) return { key: "case.err.noPdf" };
   if (/zip/i.test(e) && /(cannot|corrupt|empty|too|suspicious|many)/i.test(e)) return { key: "case.err.zip" };
   if (/timed out/i.test(e)) return { key: "case.err.timeout" };
+  if (/request_too_large|too large|exceeds? (the )?(maximum|limit)|32 ?MB|too many (pages|tokens)/i.test(e)) return { key: "case.err.tooBigAny" }; // cases failed before the size check existed
   return { key: "case.err.other" };
 }
 
 /** A failure the user can fix by sending other files (so "Replace files" is the action), as against one on our side ("Read again"). */
-export const userFixable = (error: string | null) => /^bad_file:|no PDF|zip/i.test(error ?? "") && !/timed out/i.test(error ?? "");
+export const userFixable = (error: string | null) => /^bad_file:|no PDF|zip|request_too_large|too large|exceeds? (the )?(maximum|limit)|32 ?MB|too many (pages|tokens)/i.test(error ?? "") && !/timed out/i.test(error ?? "");
+
+/** The files named in a `bad_file:<names>|<why>` error (several names are joined with "; "). */
+export function badFileNames(error: string | null): string[] {
+  const m = (error ?? "").match(/^bad_file:([^|]+)\|/);
+  return m ? m[1].split("; ").map((x) => x.trim()).filter(Boolean) : [];
+}

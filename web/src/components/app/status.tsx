@@ -10,6 +10,15 @@ export function groupOf(status: string): Group {
   return NEEDS.has(status) ? "needs" : "active";
 }
 
+/**
+ * R2-B05: does this case need the user? Beyond the status list: a case whose photos still need names waits for the user,
+ * whatever step it is on (it used to show as "In progress" with a spinner and no button).
+ */
+export function needsUser(r: { status: string; deskConfirm?: number }): boolean {
+  if (groupOf(r.status) === "needs") return true;
+  return !!r.deskConfirm && r.deskConfirm > 0 && ["naming", "phase_a"].includes(r.status);
+}
+
 /** The pipeline with its end. The case list no longer shows the steps (owner 2026-11-15: done or not, that is all); the order is kept for the tests. */
 export const TRACK = [...PIPELINE, "done"] as const;
 /** Which stop a case is at (0 to 7). A case missing a document stopped while reading; a failed case has no place (-1). */

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { localeOf } from "@/lib/i18n";
+import { Working } from "./marks";
 import { useT } from "@/components/lang-provider";
 
 export type OrderView = {
@@ -39,7 +40,10 @@ export default function Billing(p: Props) {
   const [allOrders, setAllOrders] = useState(false); // U7: checkouts that were never completed are folded away
 
   // A pending order the customer just came back to: refresh until it settles (max ~2 min).
-  const waiting = p.watching?.status === "pending" || p.orders.some((o) => o.status === "pending" && Date.now() - new Date(o.createdAt).getTime() < 3600_000);
+  // R2-B06: the clock is read after mount, never while rendering, so the server HTML and the first client render are the same
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), []);
+  const waiting = p.watching?.status === "pending" || (now !== null && p.orders.some((o) => o.status === "pending" && now - new Date(o.createdAt).getTime() < 3600_000));
   useEffect(() => {
     if (!waiting) return;
     let n = 0;
@@ -130,7 +134,7 @@ export default function Billing(p: Props) {
   const History = (
     <section aria-labelledby="bill-hist">
       <h2 id="bill-hist" className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.history")}</h2>
-      {!shownOrders.length ? <div className="rounded-[3px] border border-hair bg-panel p-5 text-[14px] text-mute">{t("bill.noHistory")}</div> : (
+      {!shownOrders.length ? <div className="rounded-[3px] border border-hair bg-panel p-5 text-[14px] text-mute">{abandoned > 0 ? t("bill.noPaid", { n: String(abandoned) }) : t("bill.noHistory")}</div> : (
         <ul tabIndex={0} aria-labelledby="bill-hist" className="app-scroll max-h-[320px] overflow-y-auto overscroll-contain rounded-[3px] border border-hair bg-panel focus-visible:outline-offset-[-2px]">
           {shownOrders.map((o) => (
             <li key={o.id} className="flex items-center justify-between gap-4 border-b border-hairsoft px-4 py-3 last:border-b-0">
@@ -155,6 +159,15 @@ export default function Billing(p: Props) {
 
   return (
     <div className="wrap py-8 lg:py-12">
+      {/* R2-U08: once the checkout link is ready the browser leaves for the payment page, which can take several seconds to draw:
+          keep our own page up with a clear message instead of letting it fall to a blank screen */}
+      {busy && (
+        <div role="status" className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-panel px-6 text-center">
+          <Working className="h-7 w-7 text-scan" />
+          <p className="text-[17px] font-semibold text-fg">{t("bill.going")}</p>
+          <p className="max-w-[360px] text-[14px] text-mute">{t("bill.goingSub")}</p>
+        </div>
+      )}
       <h1 className="display-2 mb-6 text-[30px] text-fg lg:text-[36px]">{t("bill.title")}</h1>
       {Banner}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">

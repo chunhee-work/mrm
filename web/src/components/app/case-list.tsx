@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Cross, EmptySheetArt, NoMatchArt, Plus, Search, Tick } from "./marks";
 import ScanEdge from "@/components/scan-edge";
-import { groupOf, StateMark } from "./status";
+import { groupOf, needsUser, StateMark } from "./status";
 import NeedCard, { type Sent } from "./case-detail";
+import { whenOf } from "@/lib/fmt-when";
 
 export type CaseRow = {
   id: string;
@@ -17,6 +18,7 @@ export type CaseRow = {
   pendingDoc: string | null;
   error?: string | null; // why a failed case failed (cases.error)
   createdAt?: string; // ISO
+  deskConfirm?: number; // photos still to name (R2-B05)
   firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
 };
 
@@ -31,7 +33,7 @@ const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
  * Under it every other case on one line: being worked on, or done. Nothing opens; there are no steps.
  */
 export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgId: string; below?: React.ReactNode }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
   const [held, setHeld] = useState<Record<string, Sent>>({}); // cards that have just sent something: kept on top for a moment
@@ -39,7 +41,7 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Live: while anything is still being worked on, re-read the list every 20 s (not in a hidden tab).
-  const live = rows.some((r) => groupOf(r.status) === "active");
+  const live = rows.some((r) => groupOf(r.status) === "active" && !needsUser(r));
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => { if (!document.hidden) router.refresh(); }, REFRESH_MS);
@@ -54,9 +56,9 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
 
   const needle = squash(q);
   const shown = rows.filter((r) => !needle || squash(r.plate ?? "").includes(needle));
-  const onTop = (r: CaseRow) => groupOf(r.status) === "needs" || r.id in held;
+  const onTop = (r: CaseRow) => needsUser(r) || r.id in held;
   const cards = shown.filter(onTop);
-  const waiting = cards.filter((r) => groupOf(r.status) === "needs").length;
+  const waiting = cards.filter((r) => needsUser(r)).length;
   // the quiet list: what is being worked on first, then what is finished (newest first inside each)
   const rest = shown.filter((r) => !onTop(r));
   const active = rest.filter((r) => r.status !== "done");
@@ -153,6 +155,7 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
                 <ul className="sheet overflow-hidden rounded-[3px] border border-hair bg-panel">
                   {[...active, ...done].map((r) => {
                     const vehicle = [r.carModel, r.insurer].filter(Boolean).join(" · ");
+                    const when = r.createdAt ? whenOf(r.createdAt, lang) : "";
                     return (
                       <li key={r.id} className="relative flex min-h-[64px] items-center gap-4 border-b border-hairsoft px-4 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-bay/70 lg:min-h-[56px] lg:px-6 lg:py-2">
                         {/* phones: the vehicle under its number; from lg the two sit side by side, on two columns */}
@@ -162,7 +165,7 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
                               {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{t("dash.noPlate")}</span>}
                             </Link>
                           </span>
-                          {vehicle && <span className="mt-1 block truncate text-[14px] leading-snug text-mute lg:mt-0 lg:text-[15px]">{vehicle}</span>}
+                          {(vehicle || when) && <span className="mt-1 block truncate text-[14px] leading-snug text-mute lg:mt-0 lg:text-[15px]" suppressHydrationWarning>{[vehicle, when].filter(Boolean).join(" · ")}</span>}
                         </div>
                         <StateMark done={r.status === "done"} label={t(r.status === "done" ? "dash.done" : "dash.active")} />
                       </li>

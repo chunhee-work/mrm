@@ -41,3 +41,15 @@ test("B04 flag on: the FAQ answer to 'Do you need my Merimen password?' is no lo
   const en = JSON.stringify(honestCopy(HOME.en.faq, "en", true));
   assert.match(en, /saved login/);
 });
+
+test("R2-B13 both switches off: the FAQ no longer promises a secure browser window that does not exist; other copy is untouched", () => {
+  for (const lang of LANGS) {
+    const before = flat(HOME[lang].faq).join(" ");
+    assert.match(before, /secure browser window|安全的浏览器窗口|tetingkap pelayar yang selamat/);
+    const out = honestCopy(HOME[lang], lang, false, true);
+    const faq = flat(out.faq).join(" ");
+    assert.ok(!/secure browser window|安全的浏览器窗口|tetingkap pelayar yang selamat/i.test(faq), lang);
+    assert.deepEqual(out.faq.items.filter((x) => !/Merimen/.test(x.q)), HOME[lang].faq.items.filter((x) => !/Merimen/.test(x.q)));
+  }
+  assert.equal(honestCopy(HOME.en, "en", false, false), HOME.en);
+});

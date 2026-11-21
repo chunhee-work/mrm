@@ -86,14 +86,15 @@ export async function hard({ chromium, origin, local, email, password, add, shot
 
   /** Page-level checks: layout, raw keys, language leakage. enText = visible text of the same page in English. */
   async function inspect(page, lang, enText) {
-    const info = await page.evaluate(() => {
-      const over = document.documentElement.scrollWidth - innerWidth;
-      const wide = [...document.querySelectorAll("body *")].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > innerWidth + 2 && getComputedStyle(e).position !== "fixed" && !e.closest("[class*=overflow-x],[class*=overflow-auto],[class*=overflow-y],pre,table"); }).slice(0, 3).map((e) => e.tagName.toLowerCase() + "." + String(e.className).slice(0, 30));
+    const W = page.viewportSize()?.width ?? 0; // the real width of the window: innerWidth grows with the page on a phone and hid R2-B04
+    const info = await page.evaluate((W) => {
+      const over = document.documentElement.scrollWidth - W;
+      const wide = [...document.querySelectorAll("body *")].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > W + 2 && getComputedStyle(e).position !== "fixed" && !e.closest("[class*=overflow-x],[class*=overflow-auto],[class*=overflow-y],pre,table"); }).slice(0, 3).map((e) => e.tagName.toLowerCase() + "." + String(e.className).slice(0, 30));
       const blocks = [...document.querySelectorAll("h1,h2,h3,p,li,button,a,label,th,td,dt,dd,span")].filter((e) => !e.children.length).map((e) => e.innerText?.trim()).filter(Boolean);
       const imgsNoAlt = [...document.querySelectorAll("img:not([alt])")].length;
       const brokenImgs = [...document.images].filter((i) => i.complete && i.naturalWidth === 0 && i.src).map((i) => i.src.slice(-40));
       return { over, wide, blocks, imgsNoAlt, brokenImgs, lang: document.documentElement.lang, title: document.title };
-    });
+    }, W);
     const problems = [], warns = [];
     if (info.over > 1) problems.push(`page scrolls sideways by ${info.over}px (${info.wide.join(", ")})`);
     if (info.brokenImgs.length) problems.push(`broken image ${info.brokenImgs[0]}`);
@@ -246,6 +247,18 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
     verdict("upload: wrong file types are refused with a message", [...(rows ? [`${rows} wrong-type file(s) were listed`] : []), ...(msg ? [] : ["no message shown"])]);
     await p.close();
   }
+  { // R2-B10: what is inside counts: a text file called .jpg is left out, and a zip with only photos is refused before any upload
+    const { p } = await newCasePage();
+    const { zipSync, strToU8 } = await import("fflate");
+    await p.setInputFiles("#case-files", [f("notes-renamed.jpg", "this is just text"), f("photos-only.zip", Buffer.from(zipSync({ "a.png": new Uint8Array(fakePng()), "b.png": new Uint8Array(fakePng(40, 40)) })))]);
+    await p.waitForTimeout(400);
+    const note = await p.locator('[role=status]').first().innerText().catch(() => "");
+    await p.locator("form button.btn-primary").click().catch(() => {});
+    await p.waitForTimeout(500);
+    const alert = await p.locator('[role=alert]').first().innerText().catch(() => "");
+    verdict("upload: a text file renamed .jpg is left out by name; a photos-only zip says 'add the claim PDF' at once", [...(/notes-renamed\.jpg/.test(note) ? [] : [`no note naming the fake photo: "${note.slice(0, 80)}"`]), ...(/photos-only\.zip/.test(alert) ? [] : [`no zip message: "${alert.slice(0, 80)}"`]), ...(new URL(p.url()).pathname === "/cases/new" ? [] : ["left the page"])]);
+    await p.close();
+  }
   { // unsupported-but-image types: the picker accepts them, the server must not fail halfway
     const { p, problems } = await newCasePage();
     await p.setInputFiles("#case-files", [f("scan.gif", Buffer.from("GIF89a\x01\x00\x01\x00\x00\x00\x00;")), f("scan.bmp", Buffer.from("BM" + "\0".repeat(60)))]);
@@ -262,11 +275,13 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
     await p.waitForTimeout(300);
     const before = Number((await q(`SELECT count(*) FROM cases WHERE org_id=$1`, [A.org_id])).rows[0].count);
     const btn = p.locator("form button.btn-primary");
+    const prompts = []; p.on("dialog", (d) => { prompts.push(d.type()); d.dismiss().catch(() => {}); }); // R2-B01: pressing Stay would leave the user stuck on "Uploading 7/7"
     await Promise.all([p.waitForURL(/\/cases\/[0-9a-f-]{36}$/, { timeout: 60000 }).catch(() => {}), btn.dblclick().catch(() => {})]);
     const after = Number((await q(`SELECT count(*) FROM cases WHERE org_id=$1`, [A.org_id])).rows[0].count);
     verdict("upload: fake claim (PDFs, photos, Chinese/Malay/180-char names) creates exactly one case even on double click", [
       ...(new URL(p.url()).pathname.startsWith("/cases/") ? [] : [`did not reach the case page: ${new URL(p.url()).pathname}`]),
       ...(after - before === 1 ? [] : [`${after - before} cases created`]),
+      ...(prompts.length ? [`a "${prompts[0]}" prompt appeared after a successful upload (R2-B01)`] : []),
     ], problems.filter((x) => !/HTTP 4|sentinel/.test(x)));
     const id = new URL(p.url()).pathname.split("/")[2];
     await p.waitForTimeout(1500);
@@ -289,10 +304,14 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
     const { p } = await newCasePage();
     const many = Array.from({ length: 60 }, (_, i) => f(`p${String(i).padStart(3, "0")}.png`, fakePng(32, 32, [i * 4, 10, 10])));
     await p.setInputFiles("#case-files", many);
+    const folded = await p.locator("form ul[aria-label] li").count();
+    const summary = await p.locator("form").innerText();
+    await p.getByRole("button", { name: /60 photos/ }).click();
     const listed = await p.locator("form ul[aria-label] li").count();
     const box = await p.locator("form ul[aria-label]").evaluate((e) => ({ h: e.clientHeight, sh: e.scrollHeight })).catch(() => ({ h: 0, sh: 0 }));
-    const over = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-    verdict("upload: 60 files are listed inside a scrolling box, no sideways scroll", [...(listed === 60 ? [] : [`${listed} of 60 listed`]), ...(box.sh > box.h ? [] : ["list is not a fixed scroll box"]), ...(over > 1 ? ["sideways scroll"] : [])]);
+    const W = p.viewportSize().width;
+    const over = await p.evaluate((W) => document.documentElement.scrollWidth - W, W);
+    verdict("upload: 60 photos fold into one row ('60 photos'), open to 60 rows that grow with the page (no inner scroll box), no sideways scroll", [...(folded === 1 ? [] : [`${folded} rows while folded`]), ...(/60 photos/.test(summary) ? [] : ["no '60 photos' summary"]), ...(listed === 60 ? [] : [`${listed} of 60 listed`]), ...(box.sh <= box.h + 1 ? [] : ["list is a fixed scroll box"]), ...(over > 1 ? ["sideways scroll"] : [])]);
     await p.close();
   }
   { // very large (multipart path); the fake blob keeps it in memory, 30 MB is enough to cross the 20 MB multipart limit
@@ -342,7 +361,7 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
       const p = await c2.newPage(); const problems = []; watch(p, problems);
       await p.goto(origin + "/connection", { waitUntil: "networkidle" });
       const t = await p.locator("body").innerText();
-      const over = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      const over = await p.evaluate((W) => document.documentElement.scrollWidth - W, p.viewportSize().width);
       verdict(`merimen login: rejected-login message shown on /connection (${lang}, phone)`, [...problems, ...(/w\.(bad|banner)/.test(t) ? ["raw key shown"] : []), ...(over > 1 ? ["sideways scroll"] : []), ...(t.length > 80 ? [] : ["page is nearly empty"])]);
       await shot(p, `connection-bad-${lang}`);
       await c2.close();

@@ -13,7 +13,7 @@ import { PhotoCard, type CardActions, type Editing } from "./photo-card";
 import { ExtraChip, HelpSheet, MoveSheet, Palette } from "./sheets";
 import { uploadPhotos } from "./upload";
 
-export type DeskTab = { id: string; plate: string; carModel: string | null; done: boolean; photos: number };
+export type DeskTab = { id: string; plate: string; carModel: string | null; done: boolean; photos: number; when?: string };
 type Reply = { ok: boolean; status: number; body: Record<string, unknown> };
 
 async function api(method: string, url: string, body?: unknown): Promise<Reply> {
@@ -707,7 +707,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
                     key={x.id} type="button" aria-current={here ? "true" : undefined} onClick={() => switchCase(x.id)}
                     className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-3.5 font-mono text-[13px] tracking-wide transition-colors duration-150 ${here ? "bg-icetint font-semibold text-fg ring-[1.5px] ring-inset ring-scan" : "bg-panel2 text-fg hover:bg-hair"}`}
                   >
-                    {x.plate}{tabMark(x)}
+                    {x.plate}{x.when && <span className="text-[11.5px] font-normal text-mute">{x.when}</span>}{tabMark(x)}
                   </button>
                 );
               })}

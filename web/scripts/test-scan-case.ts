@@ -54,7 +54,17 @@ async function main() {
   await pg.exec("set session_replication_role = replica"); // no org/user rows needed for these tests
 
   const { scanCase, leaseTime } = await import("../src/lib/scan-case");
+  const { dropBadFiles } = await import("../src/lib/drop-bad-files");
   const tests: [string, () => Promise<void>][] = [
+    ["R2-B02 Replace files: the bad file leaves the case, the good ones stay; other failures remove nothing", async () => {
+      const id = await newCase("failed", "bad_file:a.pdf|corrupt");
+      await db.insert(schema.caseFiles).values({ caseId: id, kind: "pdf", blobUrl: "y", originalName: "good.pdf" });
+      assert.equal(await dropBadFiles(id, "pending_doc", "bad_file:a.pdf|corrupt"), 0); // not failed: untouched
+      assert.equal(await dropBadFiles(id, "failed", "Reading timed out"), 0);
+      assert.equal(await dropBadFiles(id, "failed", "bad_file:a.pdf|corrupt"), 1);
+      const left = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.originalName);
+      assert.deepEqual(left, ["good.pdf"]);
+    }],
     ["auto: uploaded -> phase_a, one usage row, fields saved", async () => {
       claude = ok(); const id = await newCase("uploaded");
       const r = await scanCase(id, "auto");
