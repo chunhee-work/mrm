@@ -1,7 +1,7 @@
 import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { get, del, head, BlobNotFoundError } from "@vercel/blob";
+import { get, put, del, head, BlobNotFoundError } from "@vercel/blob";
 
 // Photos live in the private Vercel Blob store under `<org>/<case>/photos/…`. Only pathnames are kept in the database.
 // Outside production, PHOTO_STORE_DIR swaps the store for a local folder (tests and local screenshots only).
@@ -38,4 +38,11 @@ export async function deletePhoto(p: string): Promise<void> {
   const dir = localDir();
   if (dir) { await fs.rm(localFile(dir, p), { force: true }); return; }
   try { await del(p); } catch (e) { if (!(e instanceof BlobNotFoundError)) throw e; }
+}
+
+/** Server-side write into the same store the desk reads (a local folder outside production when PHOTO_STORE_DIR is set). */
+export async function savePhoto(p: string, bytes: Buffer, contentType: string): Promise<void> {
+  const dir = localDir();
+  if (dir) { await fs.mkdir(dir, { recursive: true }); await fs.writeFile(localFile(dir, p), bytes); return; }
+  await put(p, bytes, { access: "private", contentType, addRandomSuffix: false, allowOverwrite: true });
 }

@@ -2,6 +2,8 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { readCaseDocs } from "@/lib/read-docs";
+import { expandBundles } from "@/lib/expand-bundles";
+import { importCasePhotos } from "@/lib/photos/import-files";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
@@ -51,6 +53,8 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   const mine = and(eq(cid, id), eq(schema.cases.status, "reading"), eq(schema.cases.error, lease));
   await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Reading documents" });
   try {
+    await expandBundles(id, claimed[0].orgId); // zip bundles: their PDFs and photos become case files first
+    await importCasePhotos(id, claimed[0].orgId).catch(() => {}); // photos go to the naming desk; a problem here must not stop the read
     const files = await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
     const { data, usage, costUsd } = await readCaseDocs(files, { userId: claimed[0].createdBy, orgId: claimed[0].orgId, caseId: id });
     const done = await db.update(schema.cases).set({
