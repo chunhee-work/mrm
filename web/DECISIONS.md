@@ -82,5 +82,5 @@
 ## Photo model (plan chunhee-work/mrm#26)
 - The owner's trained model (HF `chunhee00/mrm-photo-model`) names photos, run unchanged in a private HF Docker Space (`inference/photo-model/`). Claude is not a fallback: when the feature is ON, photos are never sent to Anthropic. OFF = the old Claude naming.
 - OFF unless `PHOTO_MODEL_ENABLED=1`, `photoModelConfig.measuredFor` is set (after the dry run) and `PHOTO_MODEL_URL`, `PHOTO_MODEL_SECRET`, `HF_SPACE_TOKEN` exist. Unset or invalid = OFF.
-- Job state is in `cases.photo_model_job` (migration `0007_photo_model.sql`, additive; needs the owner's OK before production). Each desk poll does at most one network attempt; the Space is a stateless worker.
+- Job state is in `cases.photo_model_job` (migration `0009_photo_model.sql`, additive; needs the owner's OK before production). Each desk poll does at most one network attempt; the Space is a stateless worker.
 - Deviations from the plan text: the order hash is made from DB photo ids + image paths; the 900 px copies are sent (check parity in the dry run); a name outside the desk list is stored as "name by hand"; no `llm_calls` row (cost is 0); the optional Vercel Cron reconciler is not added (the desk page's polling drives jobs).
