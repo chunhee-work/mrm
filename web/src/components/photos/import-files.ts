@@ -11,20 +11,27 @@ const IMAGE = /\.(jpe?g|png|webp)$/i;
 const HEIC = /\.(heic|heif)$/i;
 const TYPE: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 const typeOf = (name: string) => TYPE[(name.split(".").pop() ?? "").toLowerCase()] ?? "image/jpeg";
+/** A bundle bigger than this, or holding more images or more unpacked bytes than this, is not opened in the browser (phones, zip bombs). */
+export const MAX_ZIP_BYTES = 300 * 1024 * 1024;
+export const MAX_ZIP_ENTRIES = 400;
+export const MAX_UNPACKED_BYTES = 600 * 1024 * 1024;
 const base = (path: string) => path.split("/").pop() || path;
 
 /** Image entries of a zip, in the order the folder lists them (natural order: IMG_2 before IMG_10). Folders, hidden and macOS resource files are skipped. */
 export function unzipImages(buf: Uint8Array): Promise<{ files: File[]; heic: number }> {
   return new Promise((resolve, reject) => {
-    let heic = 0;
+    let heic = 0, entries = 0, unpacked = 0;
     unzip(buf, {
       filter: (f) => {
         if (/(^|\/)(__MACOSX|\.)/.test(f.name) || f.name.endsWith("/")) return false;
         if (HEIC.test(f.name)) { heic++; return false; }
-        return IMAGE.test(f.name);
+        if (!IMAGE.test(f.name)) return false;
+        entries++; unpacked += f.originalSize;
+        return entries <= MAX_ZIP_ENTRIES && unpacked <= MAX_UNPACKED_BYTES; // past the limit nothing more is unpacked; the check below refuses the file
       },
     }, (err, out) => {
       if (err) return reject(err);
+      if (entries > MAX_ZIP_ENTRIES || unpacked > MAX_UNPACKED_BYTES) return reject(new Error("too_big"));
       const names = Object.keys(out).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
       resolve({ files: names.map((n) => new File([out[n] as BlobPart], base(n), { type: typeOf(n) })), heic });
     });
@@ -48,6 +55,7 @@ export async function importCaseFiles(
     try {
       let files: File[];
       if (f.kind === "bundle_zip") {
+        if (f.size > MAX_ZIP_BYTES) throw new Error("too_big");
         const z = await unzipImages(await bytesOf(caseId, f));
         files = z.files; rep.heic += z.heic;
       } else if (HEIC.test(f.name)) { rep.heic++; files = []; }

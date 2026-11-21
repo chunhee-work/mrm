@@ -32,7 +32,7 @@ def shown_name(row: dict) -> str | None:
 def snapshot_of(rows: list[dict], extras: list[str]) -> str:
     """The fingerprint the site stores when 完成 is pressed. rows are in desk order (position, id)."""
     lines = "\n".join(f"{r['id']}\t{shown_name(r) or ''}" for r in rows)
-    ex = "\n".join(sorted(e.lower() for e in extras))
+    ex = "\n".join(sorted((e.lower() for e in extras), key=lambda e: e.encode("utf-16-be")))  # JS sorts by UTF-16 code unit
     return hashlib.sha256(f"{lines}\n--\n{ex}".encode()).hexdigest()
 
 

@@ -276,3 +276,57 @@ def test_migration_0010_is_idempotent_and_grants_no_delete():
     assert not re.search(r"GRANT[^;]*DELETE", mig, re.I)
     assert "IF NOT EXISTS" in mig.upper()
     assert "autopilot_worker" in mig
+
+
+# ---------- review round 1 (plan #48) ----------
+def test_snapshot_golden_with_non_ascii_matches_the_web():
+    rs = [{"id": 1, "final_name": "Bonnet"}, {"id": 2, "model_name": None}, {"id": 3, "final_name": "Pintu Kereta İ"}, {"id": 4, "model_name": "😀 Lamp"}]
+    assert snapshot_of(rs, ["Ünder Tray", "😀 Clip", "Zebra", "éclat", "Ａ wide"]) == "6a87cfb036917649e85c8c8758e362eab2f8838b7492de2957c224c7b310c428"
+
+
+def test_still_final_needs_a_snapshot_and_done():
+    from autopilot_worker.store import PgRepo
+
+    class Db:
+        def __init__(self, row): self.row = row
+        def execute(self, sql, params=()): return [self.row]
+
+    def repo(row):
+        r = PgRepo.__new__(PgRepo); r.db = Db(row); return r
+
+    assert repo((True, "abc")).still_final("c", "abc") is True
+    assert repo((True, "abc")).still_final("c", None) is False  # no fingerprint: never final
+    assert repo((True, None)).still_final("c", None) is False
+    assert repo((True, "abd")).still_final("c", "abc") is False  # edited
+    assert repo((False, "abc")).still_final("c", "abc") is False  # undone
+
+
+def test_only_a_missing_0010_table_is_tolerated():
+    from autopilot_worker.store import PgRepo, _missing_0010
+
+    assert _missing_0010(Exception('relation "photo_upload_log" does not exist'))
+    assert _missing_0010(Exception('column "photos_snapshot" does not exist'))
+    assert not _missing_0010(Exception("connection reset by peer"))
+
+    class Db:
+        def __init__(self, err): self.err = err
+        def execute(self, sql, params=()): raise self.err
+
+    r = PgRepo.__new__(PgRepo)
+    r.db = Db(Exception('relation "photo_upload_log" does not exist'))
+    assert r._photo_sync_state("c") == (None, [])
+    r.db = Db(Exception("connection reset by peer"))
+    try:
+        r._photo_sync_state("c")
+        raise AssertionError("a transient DB error must fail the job")
+    except Exception as e:
+        assert "connection reset" in str(e)
+
+
+def test_undo_after_a_live_phase_a_relabels_instead_of_uploading_again():
+    """G8: Phase A uploaded under the model's names; the adjuster later presses Done with other names: relabel/reorder, never a second upload."""
+    old = a_plan(THREE)
+    new = final(THREE, **{"a.jpg": "Bonnet Lock"})
+    m = Fake(held=[x["name"] for x in old])
+    rep = ps.phase_b({}, new, [], stored_snapshot=snapshot_of(new, []), phase_a_photos=old, writes=True, merimen=m)
+    assert rep.action == "relabel_reorder" and not any(c.startswith("upload") for c in m.calls)

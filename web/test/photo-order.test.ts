@@ -119,3 +119,9 @@ test("playbook copy in the site: the files the prompts use are there and carry a
     assert.ok((PLAYBOOK_FILES[f] ?? "").length > 500, f);
   }
 });
+
+// review round 1 (plan #48): the same fixture, with non-ASCII names, gives the same hash in worker/tests/test_photo_sync.py
+test("snapshot: non-ASCII golden value shared with the worker", () => {
+  const h = snapshotOf([{ id: 1, name: "Bonnet" }, { id: 2, name: null }, { id: 3, name: "Pintu Kereta İ" }, { id: 4, name: "😀 Lamp" }], ["Ünder Tray", "😀 Clip", "Zebra", "éclat", "Ａ wide"]);
+  assert.equal(h, "6a87cfb036917649e85c8c8758e362eab2f8838b7492de2957c224c7b310c428");
+});

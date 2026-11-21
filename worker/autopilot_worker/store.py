@@ -20,6 +20,13 @@ def clean_detail(detail: str | None) -> str | None:
     return detail[:80]
 
 
+def _missing_0010(e: Exception) -> bool:
+    """True only when migration 0010's table or column does not exist yet (Postgres 42P01 / 42703)."""
+    code = getattr(e, "sqlstate", None) or getattr(getattr(e, "diag", None), "sqlstate", None) or ""
+    text = str(e).lower()
+    return code in ("42P01", "42703") or ("does not exist" in text and ("photo_upload_log" in text or "photos_snapshot" in text))
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -116,7 +123,9 @@ class PgRepo:
                 "SELECT photos FROM photo_upload_log WHERE case_id = %s AND phase = 'A' AND mode = 'live' ORDER BY created_at DESC, id DESC LIMIT 1",
                 (case_id,),
             )
-        except Exception:
+        except Exception as e:  # only "the 0010 table/column is not there yet" is tolerated; a transient DB error fails the job instead of skipping the check
+            if not _missing_0010(e):
+                raise
             return None, []
         photos = logged[0][0] if logged else []
         if isinstance(photos, str):
@@ -126,7 +135,8 @@ class PgRepo:
     def still_final(self, case_id: str, snapshot: str | None) -> bool:
         """Asked before every Merimen photo write: Done still pressed and nothing edited since the fingerprint was taken."""
         rows = self.db.execute("SELECT photos_done_at IS NOT NULL, photos_snapshot FROM cases WHERE id = %s", (case_id,))
-        return bool(rows) and bool(rows[0][0]) and (snapshot is None or rows[0][1] == snapshot)
+        # a missing snapshot is "not final": a case with no fingerprint (done before 0010, or never snapshotted) is never written to
+        return bool(rows) and bool(rows[0][0]) and snapshot is not None and rows[0][1] == snapshot
 
     def session_status(self, org_id: str) -> str:
         rows = self.db.execute("SELECT status FROM worker_sessions WHERE org_id = %s", (org_id,))
