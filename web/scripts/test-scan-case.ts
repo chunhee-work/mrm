@@ -9,7 +9,7 @@ import path from "node:path";
 import Module from "node:module";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 
 const root = path.resolve(__dirname, "..");
@@ -21,7 +21,9 @@ let claude: () => Promise<any> = async () => { throw new Error("claude not set")
 const stubs: Record<string, unknown> = {
   "server-only": {},
   "@/db": { db, schema },
-  "@/lib/read-docs": { readCaseDocs: () => claude() },
+  "@/lib/read-docs": { readCaseDocs: () => claude(), BadFile: class BadFile extends Error {} },
+  "@/lib/expand-bundles": { expandBundles: async () => 0 },
+  "@/lib/photos/import-files": { importCasePhotos: async () => ({ added: 0, skipped: [] }) },
 };
 const origLoad = (Module as any)._load;
 (Module as any)._load = function (request: string, ...rest: unknown[]) {
@@ -146,6 +148,46 @@ async function main() {
       const c = await get(id);
       assert.equal(old.ok, false); assert.equal(c.status, "phase_a"); assert.equal(c.pendingDoc, null);
       assert.equal(await usageRows(id), 2); // both reads were paid for
+    }],
+    ["B15: a queued intake job is closed when the web read finishes (ok or failed), so a worker never reads the case again", async () => {
+      claude = ok(["police report"]); const id = await newCase("uploaded");
+      await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" });
+      await db.insert(schema.jobs).values({ caseId: id, step: "photo_model", state: "queued" });
+      await scanCase(id, "auto");
+      const js = await db.select().from(schema.jobs).where(eq(schema.jobs.caseId, id));
+      assert.deepEqual(js.map((j) => [j.step, j.state]).sort(), [["intake", "done"], ["photo_model", "queued"]]);
+      claude = async () => { throw new Error("boom"); };
+      const id2 = await newCase("uploaded"); await db.insert(schema.jobs).values({ caseId: id2, step: "intake", state: "queued" });
+      await scanCase(id2, "auto");
+      assert.equal((await db.select().from(schema.jobs).where(eq(schema.jobs.caseId, id2)))[0].state, "done");
+    }],
+    ["B03: our failure gives the credit back once; a bad file does not", async () => {
+      process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
+      const { debitCase, refundCase } = await import("../src/lib/payments/case-credit");
+      await db.insert(schema.creditsLedger).values({ orgId: "o", delta: 2000, reason: "purchase:x" });
+      const bal = async () => Number(((await db.execute(sql`SELECT COALESCE(SUM(delta),0)::int AS b FROM credits_ledger WHERE org_id = 'o'`)) as any).rows[0].b);
+      const before = await bal();
+      claude = async () => { throw new Error("Connection error"); };
+      const id = await newCase("uploaded"); assert.equal(await debitCase("o", id), true); assert.equal(await bal(), before - 1000);
+      await scanCase(id, "auto"); assert.equal(await bal(), before); // failed on our side: refunded
+      assert.equal(await refundCase("o", id), false); assert.equal(await bal(), before); // never twice
+      claude = async () => { throw new (stubs["@/lib/read-docs"] as any).BadFile("bad_file:a.pdf|empty"); };
+      const id2 = await newCase("uploaded"); await debitCase("o", id2); const mid = await bal();
+      await scanCase(id2, "auto"); assert.equal(await bal(), mid); // customer's bad file: no refund
+      delete process.env.CREDITS_ENFORCE;
+    }],
+    ["B03: no balance -> no debit and false; enough -> exactly one debit even if asked twice; exempt orgs never pay", async () => {
+      process.env.CREDITS_ENFORCE = "on"; process.env.CREDITS_EXEMPT_ORGS = "free-org, other";
+      const { debitCase, hasCredit } = await import("../src/lib/payments/case-credit");
+      const bal = async (o: string) => Number(((await db.execute(sql`SELECT COALESCE(SUM(delta),0)::int AS b FROM credits_ledger WHERE org_id = ${o}`)) as any).rows[0].b);
+      assert.equal(await hasCredit("poor"), false);
+      assert.equal(await debitCase("poor", "c-poor"), false); assert.equal(await bal("poor"), 0);
+      await db.insert(schema.creditsLedger).values({ orgId: "rich", delta: 1000, reason: "purchase:r" });
+      assert.equal(await hasCredit("rich"), true);
+      const [a, b] = await Promise.all([debitCase("rich", "c-rich"), debitCase("rich", "c-rich")]);
+      assert.ok(a || b); assert.equal(await bal("rich"), 0); // one debit, never two
+      assert.equal(await debitCase("free-org", "c-free"), true); assert.equal(await bal("free-org"), 0);
+      delete process.env.CREDITS_ENFORCE; delete process.env.CREDITS_EXEMPT_ORGS;
     }],
     ["leaseTime reads the lease time, ignores other text", async () => {
       assert.equal(leaseTime("lease:2026-01-01T00:00:00.000Z|abc"), Date.parse("2026-01-01T00:00:00.000Z"));

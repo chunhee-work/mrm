@@ -7,6 +7,8 @@
  *   SMOKE_EMAIL=… SMOKE_PASSWORD=… node scripts/smoke.mjs https://autoclaim-web.vercel.app [--report f.md] [--shots dir]
  *   node scripts/smoke.mjs http://127.0.0.1:3100            (public pages only when no SMOKE_PASSWORD)
  *
+ *   add --hard for the hard test (scripts/hard-test.mjs); its write part runs on a LOCAL origin only.
+ *
  * Exit: 0 all pass (WARN allowed), 1 any FAIL, 2 bad usage / environment.
  * Needs Playwright (`npm i --no-save playwright && npx playwright install chromium`).
  */
@@ -103,8 +105,10 @@ async function run() {
     problems.length ? add("FAIL", name, problems.join("; ")) : warns.length ? add("WARN", name, warns.join("; ")) : add("PASS", name);
   }
 
+  if (args.includes("--hard-only")) args.push("--hard"); // hard test without the plain smoke pass in front of it
+
   // 1. public pages, signed out
-  for (const size of Object.keys(SIZES)) for (const lang of LANGS) {
+  if (!args.includes("--hard-only")) for (const size of Object.keys(SIZES)) for (const lang of LANGS) {
     const ctx = await ctxFor(size, lang);
     for (const p of PUBLIC) await check(ctx, p, { size, lang });
     // signed-out gate: protected pages must send you to /login
@@ -113,19 +117,20 @@ async function run() {
   }
 
   // 2. signed in as the smoke account
-  if (!password) add("WARN", "signed-in checks", "SMOKE_PASSWORD not set, skipped");
+  if (args.includes("--hard-only")) { /* skipped */ }
+  else if (!password) add("WARN", "signed-in checks", "SMOKE_PASSWORD not set, skipped");
   else for (const size of Object.keys(SIZES)) for (const lang of LANGS) {
     const ctx = await ctxFor(size, lang);
     const page = await ctx.newPage();
     let ok = false;
-    for (let attempt = 0; attempt < 2 && !ok; attempt++) { // one retry: a cold start can swallow the first submit
+    for (let attempt = 0; attempt < 3 && !ok; attempt++) { // one retry: a cold start can swallow the first submit
       try {
         await page.goto(origin + "/login", { waitUntil: "load", timeout: 30000 });
         await page.fill('input[type="email"]', email);
         await page.fill('input[type="password"]', password);
         await Promise.all([page.waitForURL("**/dashboard", { timeout: 20000 }), page.press('input[type="password"]', "Enter")]);
         ok = true;
-      } catch { /* retried, then reported below */ }
+      } catch { await new Promise((r) => setTimeout(r, 11000)); /* sign-in is rate-limited (3 per 10 s); retried, then reported below */ }
     }
     await page.close();
     if (!ok) { add("FAIL", `${size} ${lang} log in as smoke account`, "did not reach /dashboard"); await ctx.close(); continue; }
@@ -134,6 +139,12 @@ async function run() {
     await ctx.close();
   }
   await browser.close();
+
+  // --hard: crawl everything, click every button, fake uploads, fake Merimen login, screenshot isolation (see hard-test.mjs)
+  if (args.includes("--hard")) {
+    const { hard } = await import("./hard-test.mjs");
+    await hard({ chromium, origin, local: target.local, email, password, add, shotsDir });
+  }
 
   const n = (l) => rows.filter((r) => r.level === l).length;
   const md = [`# Autopilotclaim smoke: ${n("PASS")} pass, ${n("WARN")} warn, ${n("FAIL")} fail`, `Target: ${origin}`, "",
