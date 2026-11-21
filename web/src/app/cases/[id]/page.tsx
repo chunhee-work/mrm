@@ -7,6 +7,7 @@ import CaseView, { type CaseDetail } from "./view";
 import { normalizeCaseData } from "@/lib/read-docs";
 import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 
+import { sidesForCases } from "@/lib/case-sides";
 import { pageMeta } from "@/lib/meta";
 import { workerUiOn } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
@@ -45,6 +46,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     status: c.status,
     insurer: c.insurer,
     carModel: c.carModel,
+    totalRm: c.totalRm,
+    sides: c.status === "done" ? await sidesForCases([c.id]).then((m) => m.get(c.id) ?? []).catch(() => undefined) : undefined,
     missing: d?.missing ?? (c.pendingDoc ? c.pendingDoc.split("; ") : []),
     fileCount: files.length,
     files: files.map((f) => ({ name: f.name, kind: f.kind, size: Number(f.size) })),

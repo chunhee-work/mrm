@@ -7,6 +7,8 @@ import { Cross, EmptySheetArt, NoMatchArt, Plus, Search, Tick } from "./marks";
 import ScanEdge from "@/components/scan-edge";
 import { groupOf, StateMark } from "./status";
 import NeedCard, { type Sent } from "./case-detail";
+import { CarSides, money, SideChips } from "./done-result";
+import type { Side } from "@/lib/damage-sides";
 
 export type CaseRow = {
   id: string;
@@ -15,6 +17,8 @@ export type CaseRow = {
   insurer: string | null;
   status: string;
   pendingDoc: string | null;
+  totalRm?: string | null; // total of the finished case, null until known
+  sides?: Side[]; // sides of the car that were hit; undefined = not known (not loaded), [] = none found
   error?: string | null; // why a failed case failed (cases.error)
   createdAt?: string; // ISO
   firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
@@ -151,10 +155,11 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
               <div className="relative mt-4">
                 <ScanEdge />
                 <ul className="sheet overflow-hidden rounded-[3px] border border-hair bg-panel">
-                  {[...active, ...done].map((r) => {
+                  {active.map((r) => {
+                    const isDone = r.status === "done";
                     const vehicle = [r.carModel, r.insurer].filter(Boolean).join(" · ");
                     return (
-                      <li key={r.id} className="relative flex min-h-[64px] items-center gap-4 border-b border-hairsoft px-4 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-bay/70 lg:min-h-[56px] lg:px-6 lg:py-2">
+                      <li key={r.id} className={`relative flex items-center gap-4 border-b border-hairsoft px-4 transition-colors duration-150 last:border-b-0 hover:bg-bay/70 lg:px-6 min-h-[64px] py-2.5 lg:min-h-[56px] lg:py-2`}>
                         {/* phones: the vehicle under its number; from lg the two sit side by side, on two columns */}
                         <div className="min-w-0 flex-1 lg:flex lg:items-baseline lg:gap-6">
                           <span className="num block truncate font-mono text-[15.5px] font-medium leading-snug tracking-[0.01em] text-fg lg:w-[168px] lg:shrink-0">
@@ -162,13 +167,30 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
                               {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{t("dash.noPlate")}</span>}
                             </Link>
                           </span>
-                          {vehicle && <span className="mt-1 block truncate text-[14px] leading-snug text-mute lg:mt-0 lg:text-[15px]">{vehicle}</span>}
+                          {vehicle && <span className="mt-1 block truncate text-[14px] leading-snug text-mute lg:mt-0 lg:min-w-0 lg:flex-1 lg:text-[15px]">{vehicle}</span>}
                         </div>
-                        <StateMark done={r.status === "done"} label={t(r.status === "done" ? "dash.done" : "dash.active")} />
+                        <StateMark done={isDone} label={t(isDone ? "dash.done" : "dash.active")} />
                       </li>
                     );
                   })}
                 </ul>
+                {done.length > 0 && (
+                  <ul className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5 ${active.length ? "mt-6" : ""}`}>
+                    {done.map((r) => (
+                      <li key={r.id} className="sheet relative flex min-w-0 items-center gap-4 rounded-[3px] border border-hair bg-panel p-4 hover:bg-bay/70 lg:p-5">
+                        <CarSides sides={r.sides ?? []} className="h-[104px] w-[52px] shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/cases/${r.id}`} className="num block truncate font-mono text-[18px] font-medium leading-tight text-fg before:absolute before:inset-0 before:content-[''] hover:underline">{r.plate || t("dash.noPlate")}</Link>
+                          <p className="mt-0.5 truncate text-[13.5px] text-mute">{[r.carModel, r.insurer].filter(Boolean).join(" · ")}</p>
+                          <p className="mt-2 text-[12px] leading-none text-mute">{t("dash.total")}</p>
+                          <p className="num mt-1 font-mono text-[20px] font-medium leading-none text-fg">{money(r.totalRm) ?? "–"}</p>
+                          <div className="mt-2.5"><SideChips sides={r.sides} small /></div>
+                        </div>
+                        <Tick className="h-4 w-4 shrink-0 self-start text-go" />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </section>
           )}
