@@ -15,12 +15,15 @@ export type Side = (typeof SIDES)[number];
 // Not damage: documents, interior items and whole-car overview shots. Anchored, so real parts such as
 // "LH Side View Mirror" or "Rear View Camera" still count.
 const SKIP = [
-  /\b(odometer|chassis|vin|(number|registration|licen[cs]e|reg) plate|plate (no|number)|seat|seatbelt|interior|dashboard|document|licence|license)\b/i,
+  // the whole name is a document or plate shot ("Odometer", "Number Plate", "Chassis No"); a part that merely contains
+  // such a word ("Front Chassis Rail LH", "Rear Number Plate Garnish") is still a part
+  /^\s*(odometer|chassis( no\.?| number)?|vin|(number|registration|licen[cs]e|reg)? ?plate|documents?|licen[cs]e|dashboard|interior)\s*$/i,
+  /\b(seat|seatbelt|interior|dashboard)\b/i,
   /\baccident (damages? )?photo\b/i,
   /\boverview\b|\bwhole car\b/i,
   /^\s*((front|rear|left|right|lh|rh)\s+)*(side\s*)?(view|45\s*(deg|°)?(\s*view)?)(\s+(front|rear|left|right|lh|rh))*\s*$/i,
 ];
-const FRONT = /\b(front|bonnet|hood|grille|grill|headlamp|headlight|head lamp|windscreen|windshield|radiator|depan)\b/i;
+const FRONT = /\b(front|bonnet|hood|grille|grill|headlamp|headlight|head lamp|windscreen|windshield|radiator|fog ?lamp|depan)\b/i;
 const REAR = /\b(rear|tail ?lamp|tail ?light|tail ?gate|boot|trunk|back ?glass|back ?door|back ?bumper|back ?panel|belakang)\b/i;
 const LEFT = /\b(lh|left|nearside|kiri)\b/i;
 const RIGHT = /\b(rh|right|offside|kanan)\b/i;
@@ -39,7 +42,9 @@ export function sidesOf(names: Iterable<string | null | undefined>): Side[] {
     if (SIDE_PART.test(n) && !/\b(tail ?gate|back ?door)\b/i.test(n)) continue;
     // "Rear Windscreen" is the rear, not the front
     const rearWord = REAR.test(n);
-    if (FRONT.test(n) && !(rearWord && /\b(windscreen|windshield)\b/i.test(n) && !/\b(front|bonnet|hood)\b/i.test(n))) hit.add("front");
+    // a word that is only a front part when nothing says rear: "Rear Windscreen", "Rear Fog Lamp"
+    const rearOnly = rearWord && !/\b(front|bonnet|hood)\b/i.test(n) && /\b(windscreen|windshield|fog ?lamp)\b/i.test(n);
+    if (FRONT.test(n) && !rearOnly) hit.add("front");
     if (rearWord) hit.add("rear");
   }
   return SIDES.filter((s) => hit.has(s));

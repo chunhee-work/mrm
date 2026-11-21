@@ -32,6 +32,7 @@ test("a position word on a side part is not an end: door swipe is left/right onl
 });
 test("fog lamps and mirrors", () => {
   assert.deepEqual(sidesOf(["Rear Fog Lamp"]), ["rear"]);
+  assert.deepEqual(sidesOf(["Fog Lamp LH"]), ["front", "left"]);
   assert.deepEqual(sidesOf(["LH Side View Mirror"]), ["left"]);
   assert.deepEqual(sidesOf(["Rear View Camera"]), ["rear"]);
 });
@@ -44,7 +45,9 @@ test("rear windscreen, side parts without LH/RH, back parts, plates", () => {
   assert.deepEqual(sidesOf(["Windscreen"]), ["front"]);
   assert.deepEqual(sidesOf(["Front Door", "Rear Quarter", "Front Wheel"]), []);
   assert.deepEqual(sidesOf(["Tail Gate", "Back Bumper"]), ["rear"]);
-  assert.deepEqual(sidesOf(["Rear Bumper Skid Plate"]), ["rear"]);
+  assert.deepEqual(sidesOf(["Rear Bumper Skid Plate", "Rear Number Plate Garnish"]), ["rear"]);
+  assert.deepEqual(sidesOf(["Front Chassis Rail LH"]), ["front", "left"]);
+  assert.deepEqual(sidesOf(["Licence Plate Lamp"]), []);
   assert.deepEqual(sidesOf(["Number Plate"]), []);
 });
 test("overview shots with the position after the word", () => {
