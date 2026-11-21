@@ -97,7 +97,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     for case, jobs in repo.followup_cases():
         if repo.gate(case["org_id"], env_on=cfg.ext_connect) != "ready":
             continue
-        for step in followup_steps(case, jobs, writes=cfg.merimen_writes):
+        for step in followup_steps(case, jobs, writes=cfg.live_writes):
             repo.enqueue(case["id"], step)
     job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit)
     if not job:
@@ -124,12 +124,14 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         if job["step"] == "phase_a" and gate == "ready" and session == "connected":
             shoot("login_verified")
         driver.progress = lambda code: shoot(CODE_TO_STEP.get(code, ""))
+        # asked before every photo write in Merimen: Done must still be pressed on the same version of the names
+        driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
         with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
             outcome = handle_job(
                 job, case, case["photos"], gate=gate, session=session,
-                photo_worker=cfg.photo_worker, writes=cfg.merimen_writes, namer=namer, driver=driver,
+                photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
             )
-        for step in milestones_after(job["step"], outcome, saved=cfg.merimen_writes):
+        for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
             shoot(step)
     except Exception:
         outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")

@@ -9,6 +9,7 @@ import { costCapUsd, normalizePick, photoModel, sliceCostUsd, sliceMatches, NEIG
 import { photoBase64 } from "./store";
 import { photoModelOn } from "@/lib/photo-model/config";
 import { advance } from "@/lib/photo-model/job";
+import { playbookBlock, playbookTag } from "@/lib/playbook/prompt";
 import { claimSlice, failPending, pendingCount, retryFailed, spentUsd, writeFailed, writeName, type CaseRow, type Claimed } from "./server";
 
 // Naming with Claude (plan #9). One slice = up to 8 photos plus neighbours for sequence context, 900 px copies only.
@@ -50,6 +51,8 @@ How to pick the name
 - One-piece rear lamp = Rear Lamp LH/RH. Split lamp: the piece on the body = Rear Lamp Outer LH/RH, the piece on the boot lid or tailgate = Rear Lamp Inner.
 - Marked damage on the painted front bumper skin (around the grille opening or beside the headlamp) is "Front Bumper", not the grille or the fender.
 - Only a PERODUA has "Bonnet Latch Stud Plate" and "Fender Inner LH/RH"; other makes use "Front Panel Assembly" for that area. A PERODUA has no "Front Panel Assembly".
+
+${playbookBlock("name_photos")}
 
 Answer
 - Give every photo marked NAME exactly one entry, with the same n. Do not answer for photos marked CONTEXT.
@@ -100,7 +103,7 @@ export async function callModel(vehicle: string, shots: { n: number; name: boole
     content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: s.jpegBase64 } });
   }
   try {
-    const res = await trackedParse({ ...who, purpose: "name_photos" }, {
+    const res = await trackedParse({ ...who, purpose: "name_photos", playbook: playbookTag() }, {
       model,
       max_tokens: MAX_TOKENS,
       thinking: { type: "adaptive" },

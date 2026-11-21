@@ -20,6 +20,13 @@ def clean_detail(detail: str | None) -> str | None:
     return detail[:80]
 
 
+def _missing_0010(e: Exception) -> bool:
+    """True only when migration 0010's table or column does not exist yet (Postgres 42P01 / 42703)."""
+    code = str(getattr(e, "sqlstate", None) or getattr(getattr(e, "diag", None), "sqlstate", None) or getattr(e, "code", None) or "")  # psycopg, or the HTTP transport's DbError.code
+    text = str(e).lower()
+    return code in ("42P01", "42703") or ("does not exist" in text and ("photo_upload_log" in text or "photos_snapshot" in text))
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -88,6 +95,12 @@ class PgRepo:
             "SELECT id, kind, blob_url, original_name FROM case_files WHERE case_id = %s ORDER BY id",
             (case_id,),
         )
+        desk = self.db.execute(
+            "SELECT id, src_name, final_name, model_name, content_hash, blob_path FROM case_photos WHERE case_id = %s ORDER BY position, id",
+            (case_id,),
+        )
+        extras = self.db.execute("SELECT name FROM case_extras WHERE case_id = %s ORDER BY id", (case_id,))
+        snapshot, a_photos = self._photo_sync_state(case_id)
         return {
             "id": c[0], "org_id": c[1], "status": c[2], "plate": c[3], "case_data": c[4],
             "photos_done_at": c[5].isoformat() if c[5] else None,
@@ -95,7 +108,35 @@ class PgRepo:
             "created_by": c[10],
             "photos": [{"id": p[0], "src_name": p[1], "file": p[1], "blob_path": p[2]} for p in photos],
             "files": [{"id": f[0], "kind": f[1], "url": f[2], "name": f[3]} for f in files],
+            # the whole desk in order (photo step of Phase A/B), the parts with no photo, the fingerprint taken at 完成, and the list Phase A uploaded
+            "desk": [{"id": d[0], "src_name": d[1], "final_name": d[2], "model_name": d[3], "content_hash": d[4], "blob_path": d[5]} for d in desk],
+            "extras": [e[0] for e in extras],
+            "photos_snapshot": snapshot,
+            "phase_a_photos": a_photos,
         }
+
+    def _photo_sync_state(self, case_id: str):
+        """(fingerprint taken at 完成, the list Phase A uploaded). Before migration 0010 there is neither: (None, [])."""
+        try:
+            snap = self.db.execute("SELECT photos_snapshot FROM cases WHERE id = %s", (case_id,))
+            logged = self.db.execute(
+                "SELECT photos FROM photo_upload_log WHERE case_id = %s AND phase = 'A' AND mode = 'live' ORDER BY created_at DESC, id DESC LIMIT 1",
+                (case_id,),
+            )
+        except Exception as e:  # only "the 0010 table/column is not there yet" is tolerated; a transient DB error fails the job instead of skipping the check
+            if not _missing_0010(e):
+                raise
+            return None, []
+        photos = logged[0][0] if logged else []
+        if isinstance(photos, str):
+            photos = json.loads(photos)
+        return (snap[0][0] if snap else None), [{"id": p["id"], "src": p["src"], "name": p["name"], "ftype": p.get("fileType") or p.get("ftype"), "position": p.get("position")} for p in photos]
+
+    def still_final(self, case_id: str, snapshot: str | None) -> bool:
+        """Asked before every Merimen photo write: Done still pressed and nothing edited since the fingerprint was taken."""
+        rows = self.db.execute("SELECT photos_done_at IS NOT NULL, photos_snapshot FROM cases WHERE id = %s", (case_id,))
+        # a missing snapshot is "not final": a case with no fingerprint (done before 0010, or never snapshotted) is never written to
+        return bool(rows) and bool(rows[0][0]) and snapshot is not None and rows[0][1] == snapshot
 
     def session_status(self, org_id: str) -> str:
         rows = self.db.execute("SELECT status FROM worker_sessions WHERE org_id = %s", (org_id,))
@@ -197,27 +238,81 @@ class PgRepo:
                 """,
                 (outcome.photo_fail[:200], job["case_id"]),
             ))
+        if outcome.photo_log:
+            r = outcome.photo_log
+            st.append((
+                """
+                INSERT INTO photo_upload_log (case_id, phase, mode, action, merimen_count, photos, would, corrections, snapshot, note)
+                VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s)
+                """,
+                (
+                    job["case_id"], r["phase"], r["mode"], r["action"], r.get("merimen_count"), json.dumps(r.get("photos") or []),
+                    json.dumps(r.get("would") or {}), json.dumps(r.get("corrections") or []), r.get("snapshot"), r.get("note"),
+                ),
+            ))
+        if outcome.step2_log:
+            r = outcome.step2_log
+            st.append((
+                """
+                INSERT INTO step2_log (case_id, mode, action, plan, "check", ai, playbook, note)
+                VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s)
+                """,
+                (job["case_id"], r["mode"], r["action"], json.dumps(r.get("plan") or {}), json.dumps(r.get("check") or {}),
+                 json.dumps(r.get("ai") or {}), r.get("playbook"), r.get("note")),
+            ))
+        for L in outcome.learning or []:
+            # the adjuster's final names for the photo model; a name changed after an undo + Done again is updated and taken again
+            st.append((
+                """
+                INSERT INTO photo_learning (case_id, org_id, photo_id, content_hash, blob_path, model_name, label, changed)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (case_id, photo_id) DO UPDATE
+                SET label = EXCLUDED.label, changed = EXCLUDED.changed, model_name = EXCLUDED.model_name, updated_at = now(),
+                    exported_at = CASE WHEN photo_learning.label = EXCLUDED.label THEN photo_learning.exported_at ELSE NULL END
+                """,
+                (job["case_id"], job["org_id"], L["photo_id"], L.get("content_hash"), L.get("blob_path") or "", L.get("model_name"), L["label"], L["changed"]),
+            ))
         if outcome.browser_minutes and outcome.browser_minutes != "0":
             st.append(("INSERT INTO usage (case_id, browser_minutes) VALUES (%s, %s)", (job["case_id"], outcome.browser_minutes)))
         self.db.batch(st)
 
-    def followup_cases(self) -> list[tuple[dict, list[dict]]]:
-        cases = self.db.execute(
+    def take_learning(self, limit: int = 5000) -> list[dict]:
+        """The learning rows not yet taken into a training build (oldest first); marks them taken in the same statement."""
+        rows = self.db.execute(
             """
-            SELECT id, org_id, status, photos_done_at, merimen_caseid
-            FROM cases
-            WHERE status IN ('phase_a', 'waiting_user', 'phase_b')
-            """
+            UPDATE photo_learning SET exported_at = now()
+            WHERE id IN (SELECT id FROM photo_learning WHERE exported_at IS NULL ORDER BY id LIMIT %s)
+            RETURNING case_id, org_id, photo_id, content_hash, blob_path, model_name, label, changed
+            """,
+            (limit,),
         )
+        return [{"case_id": r[0], "org_id": r[1], "photo_id": r[2], "content_hash": r[3], "blob_path": r[4], "model_name": r[5], "label": r[6], "changed": r[7]} for r in rows]
+
+    def followup_cases(self) -> list[tuple[dict, list[dict]]]:
+        try:
+            cases = self.db.execute(
+                """
+                SELECT id, org_id, status, photos_done_at, merimen_caseid, photos_snapshot, extract(epoch from photos_done_at)
+                FROM cases
+                WHERE status IN ('phase_a', 'waiting_user', 'phase_b')
+                """
+            )
+        except Exception as e:  # before migration 0010: no snapshot, no photo log; any other error fails the job
+            if not _missing_0010(e):
+                raise
+            cases = [tuple(c[:5]) + (None, c[5]) for c in self.db.execute(
+                "SELECT id, org_id, status, photos_done_at, merimen_caseid, extract(epoch from photos_done_at) FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b')"
+            )]
         if not cases:
             return []
         by_case: dict[str, list[dict]] = {c[0]: [] for c in cases}
-        for case_id, step, state in self.db.execute(
-            "SELECT case_id, step, state FROM jobs WHERE case_id IN (SELECT id FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b'))"
+        for case_id, step, state, created in self.db.execute(
+            "SELECT case_id, step, state, extract(epoch from created_at) FROM jobs WHERE case_id IN (SELECT id FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b'))"
         ):
-            by_case.setdefault(case_id, []).append({"step": step, "state": state})
+            by_case.setdefault(case_id, []).append({"step": step, "state": state, "created_epoch": float(created) if created is not None else None})
         return [
-            ({"id": c[0], "org_id": c[1], "status": c[2], "photos_done_at": c[3].isoformat() if c[3] else None, "merimen_caseid": c[4]}, by_case[c[0]])
+            ({"id": c[0], "org_id": c[1], "status": c[2], "photos_done_at": c[3].isoformat() if c[3] else None, "merimen_caseid": c[4],
+              "photos_snapshot": c[5], "done_epoch": float(c[6]) if c[6] is not None else None}, by_case[c[0]])
             for c in cases
         ]
 

@@ -138,6 +138,9 @@ def main() -> None:
     repo = PgRepo(cfg.database_url, cfg.db_transport)
     script = os.path.join(os.path.dirname(__file__), "..", "cdp.mjs")
     driver = _CdpDriver(script)
+    from . import step2_ai
+
+    driver.step2_reviewer = step2_ai.from_env(dict(os.environ))  # None unless STEP2_AI=on and ANTHROPIC_API_KEY is set
     namer = _namer_factory(cfg)
 
     def download(url: str, name: str) -> None:

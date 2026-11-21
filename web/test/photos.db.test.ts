@@ -342,3 +342,110 @@ test("done and new photos at the same moment: the tick never sits on a case that
     assert.equal(after.photosDoneAt, null, "a case with a photo still to name is not done");
   }
 });
+
+// ───────── photo sync (owner 2026-11-22): snapshot, cancel, opening order, case rules, import ─────────
+async function nameAll(id: string, names: (string | null)[], conf = 0.95) {
+  const { s } = await kit();
+  const cl = await s.claimSlice(id, 40);
+  for (let i = 0; i < cl.length; i++) {
+    if (names[i] == null) { await s.writeFailed([cl[i]], "x"); continue; }
+    await s.writeName(cl[i], { modelName: names[i], confidence: conf, alts: [], how: "model" });
+  }
+}
+
+test("done takes a snapshot; any edit afterwards clears done AND the snapshot and cancels a queued Phase B", opts, async () => {
+  const { s, db, sql, schema, eq } = await kit();
+  const { id, orgId, c } = await newCase("naming", 3);
+  await nameAll(id, ["Bonnet", "Front Bumper", "Fender LH"]);
+  assert.equal((await s.setDone(c, true)).status, 200);
+  let now = await caseNow(orgId, id);
+  assert.match(now.photosSnapshot ?? "", /^[0-9a-f]{64}$/);
+  const { snapshotOf } = await import("../src/lib/photos/snapshot");
+  const rs = await rows(id);
+  assert.equal(now.photosSnapshot, snapshotOf(rs.map((r) => ({ id: r.id, name: r.finalName ?? r.modelName })), []));
+  await db.insert(schema.jobs).values({ caseId: id, step: "phase_b", state: "queued" });
+  const r = await s.renamePhoto(now, rs[0].id, "Cowl Panel", rs[0].version);
+  assert.equal(r.status, 200);
+  now = await caseNow(orgId, id);
+  assert.equal(now.photosDoneAt, null);
+  assert.equal(now.photosSnapshot, null);
+  const jobs = await db.select().from(schema.jobs).where(eq(schema.jobs.caseId, id));
+  assert.deepEqual(jobs.map((j) => j.state), ["cancelled"]);
+  // pressing done again takes a NEW snapshot that includes the edit
+  assert.equal((await s.setDone(now, true)).status, 200);
+  const again = await caseNow(orgId, id);
+  assert.notEqual(again.photosSnapshot, null);
+  assert.notEqual(again.photosSnapshot, snapshotOf(rs.map((x) => ({ id: x.id, name: x.finalName ?? x.modelName })), []));
+  void sql;
+});
+
+test("a running Phase B is left to the worker, which checks the case before each write (only queued/paused jobs are cancelled)", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  const { id, c } = await newCase("naming", 1);
+  await nameAll(id, ["Bonnet"]);
+  await s.setDone(c, true);
+  await db.insert(schema.jobs).values([{ caseId: id, step: "phase_b", state: "running" }, { caseId: id, step: "phase_b", state: "paused" }]);
+  await s.clearDone(id);
+  const jobs = await db.select().from(schema.jobs).where(eq(schema.jobs.caseId, id));
+  assert.deepEqual(jobs.map((j) => j.state).sort(), ["cancelled", "running"]);
+});
+
+test("after naming, the case rules and the opening order are applied once; a name the adjuster set is never touched", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  const { id, orgId, c } = await newCase("naming", 6);
+  await db.update(schema.cases).set({ carModel: "PERODUA MYVI 1.3 5 Dr Hatch" }).where(eq(schema.cases.id, id));
+  await nameAll(id, ["Bonnet", "Tailgate Badge (LOGO)", "Rear View Right", "Front View Right", "Rear Lamp Inner LH", "Rear Lamp RH"]);
+  const first = await rows(id);
+  await s.renamePhoto(c, first[0].id, "Front Bumper", first[0].version); // the adjuster named photo 1 himself
+  const st = await s.photoState(await caseNow(orgId, id));
+  assert.equal(st.status, 200);
+  const after = await rows(id);
+  const shown = after.map((r) => r.finalName ?? r.modelName);
+  assert.deepEqual(shown.slice(0, 2), ["Front View Right", "Rear View Right"]); // corners first, in the corner order
+  assert.ok(shown.includes("Tailgate Badge (PERODUA)"), "LOGO badge became the brand");
+  assert.ok(shown.includes("Rear Lamp Outer RH"), "plain Rear Lamp became the missing half of the pair");
+  assert.equal(after.find((r) => r.id === first[0].id)!.finalName, "Front Bumper");
+  assert.equal((await caseNow(orgId, id)).photosRev, 1);
+  assert.notEqual((await caseNow(orgId, id)).photosArrangedAt, null);
+  // second look: nothing moves again
+  await s.photoState(await caseNow(orgId, id));
+  assert.deepEqual((await rows(id)).map((r) => r.id), after.map((r) => r.id));
+});
+
+test("opening order is not applied over an order the adjuster already set, and not while photos are still being named", opts, async () => {
+  const { s, db, sql } = await kit();
+  const a = await newCase("naming", 3);
+  await nameAll(a.id, ["Bonnet", "Front View Right", "Fender LH"]);
+  await db.execute(sql`UPDATE cases SET photos_rev = 2 WHERE id = ${a.id}`);
+  await s.photoState(await caseNow(a.orgId, a.id));
+  assert.equal((await rows(a.id))[0].modelName, "Bonnet", "the adjuster's order wins");
+  const b = await newCase("naming", 2);
+  await s.photoState(await caseNow(b.orgId, b.id)); // still pending
+  assert.equal((await caseNow(b.orgId, b.id)).photosArrangedAt, null);
+});
+
+test("learning: Done records every final name, flags the adjuster's changes, and a rename + Done again re-queues the changed row", opts, async () => {
+  const { s, db, sql } = await kit();
+  const { orgId, id } = await newCase("naming", 2);
+  for (const x of await s.claimSlice(id)) await s.writeName(x, named);
+  await s.setDone(await caseNow(orgId, id), true);
+  const get = async () => (await db.execute(sql`SELECT photo_id, label, changed, model_name, exported_at FROM photo_learning WHERE case_id = ${id} ORDER BY photo_id`)).rows as any[];
+  let l = await get();
+  assert.equal(l.length, 2);
+  assert.ok(l.every((r) => r.changed === false && r.label === r.model_name && r.exported_at === null));
+  await db.execute(sql`UPDATE photo_learning SET exported_at = now() WHERE case_id = ${id}`); // a training build took them
+  const p = (await rows(id))[0];
+  await s.renamePhoto(await caseNow(orgId, id), p.id, "Door Mirror RH", p.version);
+  await s.setDone(await caseNow(orgId, id), true);
+  l = await get();
+  const changed = l.find((r) => r.photo_id === p.id), same = l.find((r) => r.photo_id !== p.id);
+  assert.deepEqual([changed.label, changed.changed, changed.exported_at], ["Door Mirror RH", true, null]);
+  assert.notEqual(same.exported_at, null, "an unchanged name is not taken twice");
+  await s.setDone(await caseNow(orgId, id), true);
+  assert.equal((await get()).length, 2, "still one row per photo");
+});
+
+test("check-schema: a database with migration 0010 reports nothing missing", opts, async () => {
+  const { missing } = await import("../scripts/check-schema");
+  assert.deepEqual(await missing(), []);
+});

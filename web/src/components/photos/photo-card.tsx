@@ -1,5 +1,6 @@
 "use client";
 import { memo, useEffect, useRef, useState } from "react";
+import { fileTypeOf } from "@/lib/photos/order-rules";
 import { altsOf, isEdited, isFixed, isLow, isNaming, needsName, shownName, type Photo } from "@/lib/photos/desk-rules";
 import type { PT } from "@/lib/photos/strings";
 
@@ -35,11 +36,11 @@ function Mark({ p, t }: { p: Photo; t: PT }) {
 
 type Props = {
   p: Photo; n: number; total: number; src: string;
-  current: boolean; editing: Editing | null; canDrag: boolean; flash: boolean;
+  current: boolean; editing: Editing | null; canDrag: boolean; flash: boolean; hl: boolean;
   a: CardActions; t: PT;
 };
 
-function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, a, t }: Props) {
+function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, hl, a, t }: Props) {
   const [over, setOver] = useState(false);
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -60,12 +61,13 @@ function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, a,
   return (
     <article
       data-pid={p.id}
+      data-unnamed={needsName(p) ? "1" : undefined}
       aria-current={current ? "true" : undefined}
       onClick={() => a.select(p.id)}
       onDragOver={canDrag ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (!over) setOver(true); } : undefined}
       onDragLeave={canDrag ? () => setOver(false) : undefined}
       onDrop={canDrag ? (e) => { e.preventDefault(); setOver(false); a.dropOn(p.id); } : undefined}
-      className={`relative flex min-w-0 flex-col overflow-hidden rounded-[3px] border bg-panel transition-[border-color,box-shadow,opacity] duration-150 [contain-intrinsic-size:auto_420px] [content-visibility:auto] ${tone} ${dragging ? "opacity-40" : ""} ${over ? "outline-dashed outline-2 -outline-offset-2 outline-ice" : ""} ${flash ? "motion-safe:animate-[deskflash_0.9s_ease-out]" : ""}`}
+      className={`relative flex min-w-0 flex-col overflow-hidden rounded-[3px] border bg-panel transition-[border-color,box-shadow,opacity] duration-150 [contain-intrinsic-size:auto_420px] [content-visibility:auto] ${tone} ${dragging ? "opacity-40" : ""} ${over ? "outline-dashed outline-2 -outline-offset-2 outline-ice" : ""} ${flash ? "motion-safe:animate-[deskflash_0.9s_ease-out]" : ""} ${hl ? "outline outline-[3px] outline-offset-2 outline-amber motion-safe:animate-[deskpulse_1s_ease-in-out_3]" : ""}`}
     >
       {(warn || edited) && <span aria-hidden="true" className={`absolute inset-y-0 left-0 z-[1] w-[3px] ${warn ? "bg-amber" : "bg-ice"}`} />}
 
@@ -142,6 +144,12 @@ function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, a,
             className="h-11 rounded-[3px] border border-hair px-3 text-[14px] font-semibold text-ice transition-colors duration-150 hover:border-ice active:translate-y-px sm:h-auto sm:min-h-[48px] sm:px-4"
           >{t("paste")}</button>
         </div>
+
+        {name && (
+          <p className="truncate font-mono text-[11px] leading-none text-mute" title={`${t("fileType")}: ${fileTypeOf(name)}`} data-testid="file-type">
+            {t("fileType")}: {fileTypeOf(name)}
+          </p>
+        )}
 
         {(edited || p.srcName) && (
           <div className={`min-h-6 items-center gap-2 ${edited ? "flex" : "hidden sm:flex"}`}>

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import learning, photo_sync, step2_run
 from .photos import ModelError
 from .plan import plan_case, steps_for
 
@@ -19,8 +20,48 @@ class DriveResult:
     minutes: str = "0"
 
 
+class _NoMerimenPhotos:
+    """The default: Merimen's photo list cannot be read and nothing can be written. A dry run still records what it would do."""
+
+    def labels(self, case):
+        return None
+
+    def upload(self, case, plan, chunks):
+        raise photo_sync.NotPorted("upload")
+
+    def relabel(self, case, mapping):
+        raise photo_sync.NotPorted("relabel")
+
+    def reorder(self, case, mapping):
+        raise photo_sync.NotPorted("reorder")
+
+    def verify(self, case, plan):
+        raise photo_sync.NotPorted("verify")
+
+
+class _NoMerimenStep2:
+    """The default: the catalogue cannot be read and nothing can be ticked. A dry run records no plan; a live run stops with "unreadable"."""
+
+    def catalogue(self, case):
+        return None
+
+    def apply(self, case, plan):
+        raise photo_sync.NotPorted("step2")
+
+    def selected(self, case):
+        return None
+
+
 class Driver:
+    step2_reviewer = None  # the AI that reviews the Step 2 plan with the playbook's "step2" files; None = the rule plan stands
     progress = None  # set per job: a driver that ports a Merimen step calls progress("create_case") after it
+    guard = staticmethod(lambda: True)  # set per job: False once Done was undone or the names changed, asked before every photo write
+
+    def merimen_photos(self, case: dict):
+        return _NoMerimenPhotos()
+
+    def merimen_step2(self, case: dict):
+        return _NoMerimenStep2()
 
     def dry_run(self, phase: str, steps: tuple) -> DriveResult:
         return DriveResult(ok=True)
@@ -46,6 +87,9 @@ class Outcome:
     browser_minutes: str | None = None
     invalidate: bool = False
     verify_state: str | None = None
+    photo_log: dict | None = None  # one photo_upload_log row: what the photo step did, or in a dry run would do
+    step2_log: dict | None = None  # one step2_log row: the parts + labour plan from the final names, the two-way check, the AI review
+    learning: list[dict] | None = None  # the adjuster's final names for the photo model (photo_learning rows)
 
 
 def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcome:
@@ -62,27 +106,99 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             return Outcome("failed", case_status="pending_doc", pending_doc="documents", event="Phase stopped: document missing", error="documents")
         miss = ", ".join(blocked[0].missing)[:180]
         return Outcome("failed", case_status="failed", error=f"missing {miss}", event=f"Phase {phase} blocked: {miss}")
+    # the photo step: B before the parts (they are chosen from the names Merimen holds), A after the case exists
+    desk = case.get("desk")
+    merimen = driver.merimen_photos(case)
+
+    def photo_b():
+        return photo_sync.phase_b(
+            case, desk, case.get("extras") or [], stored_snapshot=case.get("photos_snapshot"),
+            phase_a_photos=case.get("phase_a_photos") or [], writes=writes, merimen=merimen, guard=driver.guard,
+        )
+
+    def photo_a(c):
+        return photo_sync.phase_a(c, desk, writes=writes, merimen=merimen, guard=driver.guard)
+
+    rep = None
+    s2 = None
+    side: dict = {}  # what Phase B adds to every outcome from here on: the Step 2 log and the learning rows
+
+    def _o(*a, **k):
+        return Outcome(*a, **{**side, **k})
+
+    if desk is not None and phase == "B":
+        try:
+            rep = photo_b()
+        except photo_sync.NotPorted:
+            return Outcome("done", event=f"Phase {phase} checked. Merimen was not changed.")
+        stop = _photo_stop(phase, rep)
+        if stop:
+            return stop
+        if rep.snapshot:  # the names went through at Done: they are the photo model's learning data (our own database, no Merimen)
+            side["learning"] = learning.rows_for(case, desk)
+        try:
+            s2 = step2_run.run(case, desk, case.get("extras") or [], writes=writes, merimen=driver.merimen_step2(case), reviewer=driver.step2_reviewer, guard=driver.guard)
+        except photo_sync.NotPorted:
+            s2 = None
+        if s2 is not None and (s2.plan or not s2.ok):
+            side["step2_log"] = s2.row()
+        if s2 is not None and not s2.ok:
+            ev = f"Phase {phase} stopped. {s2.line()}"
+            if s2.code == "undone":
+                return _o("cancelled", event=ev)
+            return _o("failed", case_status="waiting_user", error="step2", event=ev)
     dry = driver.dry_run(phase, steps)
     if not dry.ok:
-        return Outcome("failed" if dry.fatal else "requeue", error=dry.error or "dry_run", event=f"Phase {phase} dry-run failed")
+        return _o("failed" if dry.fatal else "requeue", error=dry.error or "dry_run", event=f"Phase {phase} dry-run failed")
     if not writes:
-        return Outcome("done", event=f"Phase {phase} dry-run only. Merimen was not changed.")
+        if desk is not None and phase == "A":
+            rep = photo_a(case)
+        note = (f" {rep.line()}" if rep and (rep.photos or not rep.ok) else "") + (f" {s2.line()}" if s2 and s2.plan else "")
+        return _o("done", event=f"Phase {phase} dry-run only. Merimen was not changed.{note}", photo_log=_log(rep))
     saved = driver.save(phase, steps)
     if not saved.ok:
         if saved.error == "step_not_ported":
-            return Outcome("done", event=f"Phase {phase} checked. Merimen was not changed.")
-        return Outcome("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
+            return _o("done", event=f"Phase {phase} checked. Merimen was not changed.", photo_log=_log(rep) if not (rep and rep.mode == "live") else None)
+        return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
     if phase == "A":
+        if desk is not None:
+            try:
+                rep = photo_a({**case, "merimen_caseid": saved.case_id or case.get("merimen_caseid")})
+            except photo_sync.NotPorted:
+                rep = None
+            stop = _photo_stop(phase, rep) if rep else None
+            if stop:
+                return stop
         nxt = "phase_b" if case.get("photos_done_at") else "waiting_user"
         extra = ["phase_b"] if case.get("photos_done_at") else []
-        return Outcome(
-            "done", case_status=nxt, enqueue=extra, event="Phase A saved",
-            merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes,
+        suffix = f". {rep.line()}" if rep and (rep.photos or not rep.ok) else ""
+        return _o(
+            "done", case_status=nxt, enqueue=extra, event="Phase A saved" + suffix,
+            merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes, photo_log=_log(rep),
         )
-    return Outcome(
-        "done", case_status="checking", event="Checking", enqueue=["checks"],
-        total_rm=saved.total_rm, browser_minutes=saved.minutes,
+    suffix = (f". {rep.line()}" if rep and (rep.photos or not rep.ok) else "") + (f". {s2.line()}" if s2 and s2.plan else "")
+    return _o(
+        "done", case_status="checking", event="Checking" + suffix, enqueue=["checks"],
+        total_rm=saved.total_rm, browser_minutes=saved.minutes, photo_log=_log(rep),
     )
+
+
+def _log(rep):
+    return rep.row() if rep is not None and (rep.photos or not rep.ok) else None
+
+
+def _photo_stop(phase: str, rep) -> "Outcome | None":
+    """A photo step that must not go on: the names are no longer final (job cancelled, a new Phase B follows the next Done), Merimen cannot be
+    read (try again later), or Merimen does not match the plan (stop for a hand fix, say so on the case)."""
+    if rep is None or rep.ok:
+        return None
+    event = f"Phase {phase} stopped. {rep.line()}"
+    row = rep.row()
+    if rep.code in ("edited", "undone"):
+        return Outcome("cancelled", event=event, photo_log=row)
+    if rep.code == "unreadable":
+        return Outcome("requeue", event=event)
+    return Outcome("failed", case_status="waiting_user", error="photos", event=event, photo_log=row)
 
 
 def handle_job(job: dict, case: dict, photos: list[dict], *, gate: str, session: str, photo_worker: bool, writes: bool, namer, driver: Driver, login_result: str = "connected", cred_blocked: bool = False) -> Outcome:
@@ -130,11 +246,19 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     """phase_b after the desk is done; a second phase_a only once writes are allowed and the first pass did not save."""
     open_steps = {j["step"] for j in jobs if j["state"] in ("queued", "running")}
     out = []
+    # one Phase B per Done press: due when the newest Done is later than the newest phase_b job, whatever state that job ended in.
+    # Undo + Done again (also after a hand fix in Merimen) is a new press and queues a new one; a finished, failed or cancelled job is not
+    # re-queued by itself. The snapshot is only the guard inside the step (photo_sync.phase_b), never what decides "due".
+    b_jobs = [j for j in jobs if j["step"] == "phase_b"]
+    newest = max((j.get("created_epoch") for j in b_jobs if j.get("created_epoch") is not None), default=None)
+    done_at = case.get("done_epoch")
+    due = not b_jobs or (newest is not None and done_at is not None and done_at > newest)
     if (
         case.get("status") in ("waiting_user", "phase_b")
         and case.get("photos_done_at")
+        and case.get("photos_snapshot") is not None  # Done and its snapshot are two writes: never start in the gap (nor before migration 0010)
         and "phase_b" not in open_steps
-        and not any(j["step"] == "phase_b" and j["state"] == "done" for j in jobs)
+        and due
     ):
         out.append("phase_b")
     dry_done = any(j["step"] == "phase_a" and j["state"] == "done" for j in jobs)

@@ -199,7 +199,7 @@ class SavingDriver(Driver):
 def run_tick(page, *, step="phase_a", flag="on", writes=True):
     from autopilot_worker import loop
     loop._last_cleanup[0] = 1e12
-    cfg = Config.from_env({"WORKER_UI": flag, "EXT_CONNECT": "on", "MERIMEN_WRITES": "on" if writes else ""})
+    cfg = Config.from_env({"WORKER_UI": flag, "EXT_CONNECT": "on", "MERIMEN_WRITES": "on" if writes else "", "WORKER_SUBMIT": "on" if writes else ""})
     repo, puts = FakeRepo(step), []
     plan_ok = {"plate": "A1", "client_vehicle": {"chassis_no": "c", "model": "m"}, "police": {"report_no": "r", "accident_datetime": "d", "place": "p"}, "at_fault": {"policy": {"policy_no": "p"}}}
     repo.load = (lambda orig: (lambda cid: {**orig(cid), "case_data": plan_ok, "file_count": 1, "photo_count": 1}))(repo.load)

@@ -1,0 +1,204 @@
+# 03 · Photo naming + 照片命名台 (step 3)
+
+Start as soon as the Merimen model variant is chosen; don't wait for the user's review. [case-workflow-order] [merimen-batch-workflow]
+
+⭐⭐ **The user's review of the 照片命名台 is the gate for Step 2 (user 2026-10-23).** After Phase A, tell the user `照片命名台 ready: <PLATES>` and wait. When they say done: dump db `names`, relabel every changed photo (06), update `~/mrm-bot/photoplan.json`, and only then start Select Parts / Labour / Misc from those final names. If the user edits names again later, run the two-way `tools/naming-desk/sync_check.py` (09).
+
+## Run the model
+- Pending cases (missing document) that have photos also get a tab in Phase A (user 2026-10-28); see 00.
+- Run `typesafe/photo_train/case_report.py` and add a tab for the case to the 照片命名台 artifact. [merimen-batch-workflow]
+- Model: `photo_train/predict_case.py models/dinov2_b_big10a.pt <photos in order>` with `VEHICLE=<full Merimen model variant>` (needs "4 Dr"/"Sal"/"5 Dr"/"Hatch"/"MPV" in it, not just the JPJ line). [case-photo-naming-artifact] [photo-center-crosshair-rule]
+- Production = big10a + seq_best.pt + seq_best_crop.pt averaged (default; `SEQ=0` turns seq off); photos under 60% also get a Jev second opinion (`JEV=0` off); vehicle priors are OFF (`PRIOR=1` only on request; user decided not to use). [photo-naming-two-step-jev]
+- Sure = confidence ≥ 0.60 (was: 0.80). Under 60% = orange frame / unsure. [photo-confirm-workflow] [case-photo-naming-artifact]
+- VEHICLE drives: PERODUA split front-panel names, LORRY side-less chassis member, Boot Lid ↔ Tailgate by doors. [perodua-front-panel-rule] [lorry-front-chassis-member] [photo-center-crosshair-rule]
+- Motorcycle cases are not trained and never go into the labelling tool. [photo-center-crosshair-rule]
+
+## Order + opening shots
+- ⭐⭐ **When the folder order is wrong, Claude arranges it in the 照片命名台 BEFORE the user reviews** (user 2026-10-30, PRY826: the user had to drag the 4 corner views + Chassis/Odometer/Engine to the front). `case_report.py arrange()` now reorders whenever the opening block is not already first: 4 corner views (searched through ALL photos, first to last — user 2026-10-30; sorted FVR, FVL, RVR, RVL) → Interior View/Road Tax → Odometer → Chassis → every Engine Compartment shot (also searched through all photos) → the rest in file order. The upload follows that order. [case-photo-naming-artifact]
+- Opening rule: 1–4 = Front View Right, Front View Left, Rear View Right, Rear View Left; 5 = Interior View (windscreen shot) or Road Tax (paper slip/disc at the centre). Then Odometer Reading, Chassis Number, Engine Compartment. [case-photo-naming-artifact] [car-part-item-names]
+- INSPECTION DISC photo → Road Tax. [photo-center-crosshair-rule]
+- Missing opening shots: corner views = the photos before the first ID shot; fewer than 4 → use the model's own view guess, mark unsure, never force corner names onto damage photos; add `<PLATE> pending <photo> photo`. [case-photo-naming-artifact]
+- Rear-impact cars: the first straight-from-behind shot = "Rear View" (no Left/Right). [photo-center-crosshair-rule]
+
+## 照片命名台 artifact
+- ⭐⭐⭐ **Only the user's COMBINED names, everywhere (user 2026-11-09):** every name shown in any artifact, report or chat = the current combined name (name_map.final + name_decisions + the user's merges) and must be in tools/naming-desk/names.json. Never show an old/raw training label (e.g. "Suspension Arm Front LH", "Rear RH Bootlid Backup Lamp"). daily_pick.py enforces it.
+- ⭐⭐ **Space = add a part with NO photo (user 2026-11-06, option A):** on the page Space opens a palette (type, ↑↓, Enter adds, Esc closes); the parts show as purple chips under the plate (× deletes) and go to db collection `extras` {id, case, name, at}. In Phase B ALSO dump `extras` (ArtifactData list extras → <db_dir>/extras/); `naming.py final` writes `report/extras_<PLATE>.json`, `step2_plan.py` treats each as a photo name, `sync_check.py` (FULL, BATCH_DIR) checks they are on the estimate. Editing extras undoes that case's 完成.
+- ⭐ **Publish BOTH `pics/<PLATE>.json` and `pics/<PLATE>_s.json` for every case** (user 2026-11-04 "load quite long"): naming.py build writes small 320 px copies (~1 MB/case) the page shows in ~1 s, then swaps in the full ones and preloads the other cases (tab switch instant).
+- ONE artifact for all cases: https://claude.ai/artifact/K6yLWFN8XChRKRVHUFcUBR, one tab per case (template scratchpad `sinar/report/tpl.html` + `cases.json`; photos `photos/<PLATE>/NN.jpg`; ≤255 files per publish). [case-photo-naming-artifact]
+- Page: Merimen report layout "n/N: Name", % chip, orange frame = unsure, big clickable name box (datalist), Paste button (click then ⌘V), one-line "其他可能", 还原; drag to reorder (names follow the photo). [case-photo-naming-artifact]
+- db `names`: doc `<PLATE>-NN` {case, n, src, model, name}. db `orders/<PLATE>`: {order:[original n…]}. [case-photo-naming-artifact]
+- Re-read `names` and `orders` right before the photo upload (06) and again before Step 2 (07); learn from every edit. [merimen-batch-workflow]
+- ⭐⭐ **Phase B ALWAYS dumps BOTH `names` AND `orders`** (user 2026-10-30, PRY826: the user's new photo order was never uploaded because only `names` was dumped — never again). Then `touch <db>/orders/.listed`; `naming.py final` stops without it. If an `orders/<PLATE>` doc exists, the photos in Merimen must be REORDERED to it (not only relabelled), then `chkorder.mjs` must show mismatch 0 against the new plan.
+- The upload follows the artifact EXACTLY: order from `orders` (else page order), names from `names` (else model name). [case-photo-naming-artifact]
+- ⭐ **Layout: always 2 columns, left + right, every photo the same size — views and parts alike, on every screen** (user 2026-10-30). Set in `tools/naming-desk/template.html` (`.grid` = `repeat(2,minmax(0,1fr))`); never change it back to auto-fill. The name box + Copy + Paste buttons stay on ONE row and every card keeps the DESKTOP proportions on every screen (phone = a scaled-down desktop card: name box wide, Copy/Paste compact, ~18% of the card each; done with container units `cqw` on `.card`). Check with a 390 px and a 1280 px screenshot before publishing.
+- ⭐ **Phone (user 2026-11-09: "when I click it, it will jump every time"; "其他可能 hard to click, need to scroll left and right"):** no `scrollIntoView` anywhere (it moves the whole page / the app around the artifact) — the tab strip scrolls itself; every redraw keeps the card in the middle of the screen in place (`anchor()`/`restore()`); `focus({preventScroll:true})`; on touch, buttons act on click, not pointerdown (a swipe over a button must not save); input font ≥ 16 px on touch (iOS zooms otherwise); 拖动排序 pill hidden on touch; 其他可能 = one full-width button per line on narrow cards (no side scrolling); phone only: name box on its own line, Copy + Paste bigger on one line below it; 完成 top right (short text, no plate) so the case tabs get the whole second row (user 2026-11-09). Test: `node ~/mrm-bot/phone_test_naming.mjs <dir> <page.html>` (iPhone 13 emulation, own headless Chrome, measures how far the card moves).
+
+## Core naming principles
+- ⭐ **Capitals (user 2026-10-23):** never write a name in ALL CAPITALS. Every word starts with one capital, the rest small: QUARTER PILLAR LH → **Quarter Pillar LH**, SPARE WHEEL FOAM → Spare Wheel Foam. Only LH, RH and real abbreviations (A/C, ECU, ABS, SRS, LED, MPV, 4WD) stay capital. `name_map.final()` applies this to every name; the ALL-CAPS spellings quoted in this playbook are only the wrong forms to replace.
+- The named item = the part under the image centre (crosshair of the vertical + horizontal midlines); edge content is context only. [photo-center-crosshair-rule]
+- A hand/finger holding, lifting or pointing at a part → that part is the name; overrides the crosshair. [photo-center-crosshair-rule]
+  - ⭐ **"Door Front/Rear Window LH/RH" = the door GLASS, never the regulator** (2026-11-12: an old name_decisions entry turned the user's "Door Rear Window RH" into "Door Window Regulator Rear RH" — removed).
+  - ⭐ **Finger pointing at scratch lines ON the glass = Door <Front/Rear> Window LH/RH** (user 2026-11-12, TCP2136 #48-54: finger touches the glass just above the beltline; the model said Outer Weatherstrip / Window Regulator). Look at what the fingertip touches: glass scratches → Window; the black beltline strip itself → Outer Weatherstrip.
+- ⭐ **Rear Suspension Crossmember is ONE part — never LH/RH** (user 2026-11-12, TCP2136): name it "Rear Suspension Crossmember" with no side; "Suspension Crossmember Rear RH/LH" is removed from names.json and mapped in name_decisions.json. On the estimate the row gets no side comment.
+- Every new item starts with a zoom-out shot; a close-up belongs to the part of the zoom-out before it. Same angle, closer = same part, even if another part looks central; a new part starts when angle/position changes. [photo-center-crosshair-rule]
+- Side (LH/RH) carries over from the most recent zoom-out (which tyre/lamp/door is visible). Always check the first LH/RH view before the zoom-ins. [photo-center-crosshair-rule]
+- Crosshair on a boundary → look at the neighbouring zoom-out/zoom-in shots to see which part the sequence is about. [photo-center-crosshair-rule]
+- Decide the shooting area first (FRONT / REAR / SIDE / UNDER from the photo ± 2 neighbours) and use only that area's names; one case can have several damaged sides, so decide per photo group. [photo-center-crosshair-rule]
+- One image = ONE item. Never a name with "&" or joined by " n " ("Bonnet & Fender Front LH", "BOOT FLOOR N RR END PANEL"); single items with a comma are fine ("Number plate, rear" → Rear Number Plate). [photo-center-crosshair-rule]
+- Merimen captions are noisy; when the model's pick matches what sits at the crosshair, prefer it over a conflicting caption. [photo-center-crosshair-rule]
+- Word order `<Zone> <Part> <Sub-part> <LH/RH>`, LH/RH always last: Front Bumper (not Bumper Front), Door Front RH (not Front Door RH), Front Shock Absorber RH, Front Stabiliser Bar Link Rod RH, Door Front Regulator Motor RH, Driveshaft RH, Door Front Trimboard RH, Door Front Check Strap RH, Door Front Hinge Upper/Lower RH. [car-part-item-names]
+- Badges: see **playbook 11** — only `Grille Badge (X)` / `Boot Lid Badge (X)` / `Tailgate Badge (X)`, X ALWAYS CAPITALS (brand for a logo, the written text for a model/grade badge), e.g. Grille Badge (PERODUA), Tailgate Badge (MYVI), Boot Lid Badge (I-VTEC). [car-part-item-names]
+- LH = the car's left = the right side of the photo when facing the front. [photo-center-crosshair-rule]
+- Only LH or RH as side: LHF/LHR/RHF/RHR are typos (WHEEL RIM ALLOY RHR → Rear Wheel Rim RH; DOOR LHF → Door Front LH; CHASSIS MEMBER RHF → Front Chassis Member RH; ABSORBER LHF → Front Shock Absorber LH). NS = LH, OS = RH. [photo-center-crosshair-rule]
+- Drop a needless "Front"/"Rear" on: Tailgate, Bonnet (+Lock/Hinge), Fender, Headlamp, Driveshaft, Steering Tie Rod (End), Trailing Arm, Engine Splash Shield, Fender Liner, Fender Signal Lamp, Quarter Pillar. [photo-center-crosshair-rule]
+- Drop names with no side/position: DOOR LH/RH, Chassis Member LH/RH, SUSPENSION LOWER ARM LH/RH, Kangaroo Bar (no front/rear), Sensor LH / SENSOR REAR LH, Reflector (Rear) LH/RH, side-less Bumper Rear Bracket/Retainer, Tailgate/Boot Lid Hinge without side. [photo-center-crosshair-rule]
+- Never pure numbers ("24", "60") as names. Same words in a different order/case/abbreviation (FRT, RR, ASSY) = one name (most common spelling). Always run `name_map.final()`. [photo-center-crosshair-rule] [mistakes-log-sinar-batch2]
+
+## Views + ID shots
+- Never "General View" → Front View, Rear View or Side View. REAR/RR GENERAL VIEW = Rear View; FRT/FRONT GENERAL VIEW, FRT PANEL VIEW, Front Full View = Front View. [photo-center-crosshair-rule]
+- Overview shots of the whole front (incl. bumper removed) = Front View, not Bonnet / Front Panel Upper / Front Chassis Member / Front Bumper Reinforcement / Washer Tank. Far shot of the quarter = Side View RH/LH. [photo-center-crosshair-rule] [photo-naming-two-step-jev]
+- Never Rear Panel View → **Rear View** (user 2026-10-29).
+- Never "Front RH Tie Rod" (or Front Tie Rod RH / RH Tie Rod) → **Steering Tie Rod RH** (End → Steering Tie Rod End RH) (user 2026-10-30).
+- Never "Fender Frt Inner Reinforcement RH" → **Fender Inner Reinforcement RH** (no "Frt"; Fender needs no Front) (user 2026-10-30).
+- Never "Front RH Lower Arm" (or Front Lower Arm RH) → **Front Suspension Lower Arm RH**; same for Rear and Upper Arm (user 2026-10-30).
+- Never "Bumper Rear Absorber & Bumper Rear Absorber" or "Bumper Rear Absorber" → **Rear Bumper Shock Absorber** (user 2026-10-29).
+- Never Rear End View, Rear Damage View, Rear End Assembly, DAMAGES PART / DAMAGES PHOTO / DAMAGE PART PHOTO. [photo-center-crosshair-rule]
+- Engine Compartment (not Engine Compartment View / engine bay / ENGINEVIEW); **Dashboard / Dashboard View / Dashboard Panel → Interior View** (user 2026-11-03); Chassis Number (= CHASSIS NO / 1ST SUPPLE-CHASSIS NO); Tyre Size (not Size Of The Tyre); Front/Rear Suspension View LH/RH; Rear/Front Tyre LH/RH (not Tyre View). [photo-center-crosshair-rule]
+
+## Model-dependent names
+- ⭐ **Bonnet Latch Stud Plate is a PERODUA-only name** (user 2026-11-03). On any other make the same photo = **Front Panel Assembly** (naming.py MODEL_SWAPS does it).
+- PERODUA (Myvi, Axia, Bezza, Alza, Aruz, Ativa, Viva, Kancil…): NEVER Front Panel Assembly → Front Panel Upper / Fender Inner LH/RH / Front Crossmember / Front Panel Lower (whichever is at the crosshair). Every other make → Front Panel Assembly. [perodua-front-panel-rule]
+- "Front Panel" = Front Panel Assembly. Front Panel Upper ≠ Front Panel Upper Cover (the plastic on top). [perodua-front-panel-rule] [photo-center-crosshair-rule]
+- Front Panel Radiator Support = Headlamp Panel LH/RH. **Front Panel Support Panel LH/RH = Headlamp Panel LH/RH → always Headlamp Panel** (user 2026-11-03).
+- **Rear Panel Garnish = Rear Panel Inner Trim → always Rear Panel Inner Trim** (user 2026-11-03).
+- **Never Quarter Panel Inner Shield LH/RH → Quarter Liner LH/RH** (user 2026-11-03).
+- **Never Exhaust Tailpipe Trim** (user 2026-11-03): banned; the page gives the photo its next allowed name (usually Rear Exhaust Pipe / Exhaust Tailpipe), marked unsure. [photo-center-crosshair-rule]
+- LORRY models (HINO 300 / ISUZU NPR / CANTER / FUSO LORRY…): "Front Chassis Member" with NO side; cars keep LH/RH. [lorry-front-chassis-member]
+- Boot Lid and Tailgate never on the same car: 4-door saloon (Sal/Sedan: Lancer, Civic, Saga, Bezza) = Boot Lid… names; 5-door/hatch/MPV/SUV (Myvi, Grand Livina) = Tailgate… names; Hinge/Lock/Strut/Trim/Weatherstrip/Striker follow (was: merge Boot Lid Striker → Tailgate Striker). [photo-center-crosshair-rule]
+- ⭐ Never use any "Lamp Assembly Rear …" catalogue spelling as a photo name, e.g. **"[inner] Lamp Assembly Rear LH (tts)" → Rear Lamp Inner LH** (user 2026-10-29). Photo names are Rear Lamp (Inner/Outer) LH/RH only; "Lamp Assembly Rear LH (tts)" is Merimen's catalogue/labour label, not a photo name.
+- Rear lamps: never TAIL LAMP (Taillamp/Body/NS/OS) → one-piece lamp = Rear Lamp LH/RH; split lamp (body + boot-lid piece, e.g. Civic FD) = Rear Lamp Outer LH/RH + Rear Lamp Inner. Mixed models: piece that moves with the boot lid/tailgate = Inner, fixed on body = Outer. Rear Lamp ≠ Rear Lamp Outer. Lamp Assembly Rear (tts) / [outer] … → Rear Lamp; "Outer Lamp LH" → Rear Lamp Outer LH; Tail Lamp Panel → Rear Lamp Panel LH/RH. Table: `photo_train/lamp_table.json`. [photo-center-crosshair-rule]
+- ⭐⭐ **Rear Lamp Inner ⇄ Outer come as a pair (user 2026-11-03):** a case with any Rear Lamp Inner photo also has Rear Lamp Outer, and a case with Rear Lamp Outer also has Inner. `naming.py build` turns every plain "Rear Lamp LH/RH" in such a case into the missing one (Inner present → Outer; Outer present → Inner) and marks it unsure. Step 2 selects both.
+- ⭐ **Inner/Outer consistency (user 2026-10-23, NDG4731):** once a car is known to have Inner + Outer lamps or Inner + Outer sensors, EVERY lamp/sensor photo of that car carries Inner or Outer — never plain "Rear Lamp LH" / "Rear Bumper Sensor LH". Lamp fixed on the body = Outer; piece on the tailgate/boot lid = Inner. Sensors: corner ones = Outer, middle ones = Inner. Check this on every case before upload.
+- Bumper parking sensors by count (count holes in the wide bumper shot): 2 = Sensor LH/RH; 4 = Inner + Outer (each side); 6 = Inner + Outer + Centre. Name: Rear/Front Bumper Sensor Inner/Outer/Centre LH/RH. Rear Bumper Sensor RH ≠ Rear Bumper Sensor Outer RH. [photo-center-crosshair-rule]
+
+## Batch 3 review (user 2026-10-23) — names the user set in the 照片命名台
+- **Badge format:** `Boot Lid Badge (<MODEL>)` / `Tailgate Badge (<MODEL>)`, e.g. Boot Lid Badge (CITY), Boot Lid Badge (PROTON), Tailgate Badge (JAZZ), Tailgate Badge (I-VTEC) — brackets always CAPITALS (user 2026-10-31, playbook 11). Never "Badge", "Boot Lid Emblem", "Tailgate Emblem", "Badge Boot Lid [..]", "Badge Tailgate [..]", "Bootlid Finisher [chrome]" for a badge. Each badge photo gets the model word printed on it.
+- Rear bumper side spoiler pieces = **Spoiler Bumper Rear LH/RH** (BMN7769 Altis), not "Bumper Rear Finisher" / "Rear Bumper Spoiler" when the piece sits at one side.
+- **Door Rear Weatherstrip Outer LH/RH** (user's spelling, KCM8604); **Door Front/Rear Run Felt LH/RH**; **Door Front/Rear Window LH/RH**; **Door Front Handle Outer Release LH/RH**; **Door Rear Regulator Motor LH/RH**; **Door Rear Aperture Weatherstrip LH/RH**.
+- Never "NUMBER PLATE FRT HOLDER" → **Number Plate Front Holder** (user 2026-10-23).
+- **Rear Panel Upper** (KER815 #113–119 were wrongly "Rear Windscreen"); **Spare Wheel Foam**; **Boot Storagetray**; **Cowl Panel**; **Front Suspension View** (no side); **Front Chassis Member RH**; **Subframe**→ the arm shown (Front Suspension Lower Arm RH); **Rear Wheel Rim LH** (not "Wheel Rim Alloy").
+- Corrections of the model to remember: corner/overview shots of the rear bumper = Rear Bumper (not Rear Lamp Panel / Sensor / Finisher); a fog-lamp-named photo that shows the headlamp = Headlamp RH; photos named Front/Rear Windscreen on a side hit were the door windows; Rear Lamp Inner vs Outer by where it sits (Inner = on the boot lid/tailgate); underside crumple behind the boot = Rear Chassis Member RH (KER815 #108–109).
+
+## Batch 4 review (user 2026-10-29) — 82 names changed in the 照片命名台
+- **Rear Bumper Spoiler → Rear Bumper** (9 photos) and Front Bumper Spoiler → Front Bumper: these cars had NO spoiler; the model calls bumper corners/lower edges "spoiler". Only use Rear/Front Bumper Spoiler when an extra add-on piece is really there.
+- **Floor Panel → Boot Floor** (8 photos): the ribbed steel floor inside the boot is Boot Floor; Floor Panel is the cabin floor. Boot floor corner arches → Rear Wheelhouse LH/RH.
+- **Boot Storagetray → Spare Wheel Well** (Mazda CX-5 QS6559M).
+- **Bootlid Finisher** = the garnish/number-plate area on the boot lid (Proton Saga TAU5446, Wira JJL6007): not Rear Number Plate Garnish, Number Plate Holder Rear or Rear Number Plate.
+- New name **Rear Lamp Mask Panel Inner / Outer (LH/RH)** = the body-colour strip panel under/between the rear lamps (Proton Wira JJL6007; reference BE6133 "Rear Lamp Mask Panel Inner RH / Outer RH"). Not Boot Lid, not Bootlid Finisher.
+- **Rear Bumper Shock Absorber** = the energy absorber behind the rear bumper (TAU5446); not "Shock Absorber Rear" (suspension) and not "Bumper Rear Absorber".
+- Tailgate Badge on Preve = **Tailgate Badge (PREVE)**.
+
+- **Never "Front RH Door Inner Trim"** (user 2026-10-31) → **Door Front Trimboard RH** (same for Rear / LH). Enforced in name_map + 部位标注台.
+
+- **"Extractor Lower Vent" = Boot Extractor Vent** (user 2026-10-31) — always the name Boot Extractor Vent (no LH/RH, rule of 2026-10-21).
+
+## Naming alignment (user 2026-10-31, enforced in name_map.py)
+- [..]/(..) notes are dropped (brand, colour, repair, damage, type: Tailgate [with Spoiler] → Tailgate, Radiator [denso] → Radiator); a POSITION note goes into the name before LH/RH: Rear Lamp Panel RH [lower] → Rear Lamp Panel Lower RH; Bumper Rear Sensor LH (in)/(out) → Inner/Outer.
+- Badge text is kept as written (1.5, VVT-I, TURBO…), CAPITALS, typos fixed (PRONTON→PROTON, PEORDUA→PERODUA, MVYI→MYVI, AIXA→AXIA, EILTE→ELITE, VOIS→VIOS, ALPHARE→ALPHARD); a bare logo badge = the car's brand.
+- Tailgate Tailgate → Tailgate · Log Lamp Front LH/RH → Front Bumper Fog Lamp LH/RH · Stab Bar Link RH → Front Stabiliser Bar Link Rod RH · Stab Bar Frt → Front Stabiliser Bar · Bumper Frt Absorber → Front Bumper Shock Absorber · Number Plate Lamps → Number Plate Lamp · Retainer Rear RH → Bumper Rear Retainer RH · Bumper Front Retainer RH → Front Bumper Bracket RH · Wheel Arch Rear LH → Moulding Wheel Arch Rear LH · Boot Lid Weatherseal → Boot Lid Aperture Weatherstrip · Chassis Panel Front LH → Front Chassis Member LH · Rear Panel Upper [RH (below Rear Lamp)] → Rear Panel Upper Section RH · Front Panel Upper Support Panel LH → Front Panel Support Panel LH · Suspension Arm Front [lower/upper Arm] → Front Suspension Lower/Upper Arm · any Bumper Spoiler variant → Front/Rear Bumper Spoiler · Lock Bootlid → Boot Lid Lock · Chassis Rhr → Rear Chassis Member RH · Shock Absorber Front RH → Front Shock Absorber RH.
+- **Never "Door Glass Weatherstrip Outer Front LH"** → **Door Front Outer Weatherstrip LH/RH** (Rear the same) (user 2026-10-31).
+- **Headlamp Mounting Bracket LH/RH = Headlamp Lower Bracket LH/RH** → always Headlamp Lower Bracket (user 2026-10-31).
+- **Door Front/Rear Lower Moulding LH/RH = Door Front/Rear Moulding LH/RH** → always Door Front Moulding RH etc. (user 2026-10-31).
+- **Never "Front LH Chassis Frame" / any "Chassis Frame" name** — removed from the name list (user 2026-10-31).
+- ⭐ **部位标注台 follows ALL naming rules** (user 2026-10-31: never show a banned/old name; merged names add up their %): after any name_map.py change or a new task batch run `python3 tools/naming-desk/label_fix.py <label.html> <task json dirs…>` and republish the page.
+- **Runningboard Moulding LH/RH** = the finisher/trim ON TOP of the Runningboard Spoiler (Merimen: Runningboard Outer Trim) — not the spoiler itself (user 2026-10-31).
+- Door Mirror Glass → Door Mirror · Door Handle Outer Release Lever Rear RH → Door Rear Handle Outer Release RH · Fog Lamp Rear [centre] → Fog Lamp Rear (no Centre) (user 2026-10-31).
+- **Exhaust Assembly = Exhaust Rear Pipe = Rear Exhaust Pipe** → always **Rear Exhaust Pipe** (user 2026-10-31: same part → use the MOST USED name).
+- ⭐ **General rule (user 2026-10-31): when two names are the same part, keep the name with the most photos.**
+- ⭐ **名称对齐台 decisions (user 2026-10-31) live in `typesafe/photo_train/name_decisions.json`** (name → chosen name, null = never use) and are applied by name_map.final() after every other rule. Round 1: 109 groups merged, 38 never-use, all 118 undecided groups = never use (user: "others in 未决定 all don't use").
+- ⭐⭐ **Front panel by make (user 2026-11-04, again): PERODUA → Fender Inner LH/RH (and Front Panel Upper / Front Crossmember); every OTHER make → Front Panel Assembly.** naming.py enforces it (MODEL_SWAPS non-Perodua Fender Inner → Front Panel Assembly; MODEL_BANS Perodua Front Panel Assembly → next allowed name). The model does not know the make, so it mixes them — any label clean-up must keep this rule (7 wrong relabels reverted).
+- **Tailgate Striker ≠ Tailgate Lock** (user 2026-11-04, BPR7678 #48 Lock + #49 Striker named separately): the round-3 merge "Tailgate Striker → Tailgate Lock" is removed.
+- 标签核对台 round 5 (2026-11-04, Claude checked every pair from the photos + these rules — user: "u check all instead and make the changes"): merged (both sides) Side Skirt → Runningboard Spoiler; Extension Spoiler Runningboard Panel → Runningboard Spoiler; Suspension Arm Front → Front Suspension Lower Arm; Bootlid Lamp / Tailgate Lamp / Rear Bootlid Backup Lamp → Rear Lamp Inner; Rear Ventilation → Boot Extractor Vent; Daytime Run Light → Lamp Daytime Running; Front Side Lamp → Front Indicator Lamp; Steering Knuckle → Knuckle Arm Front; Cooling Fan Cowl → Cooling Fan Cover; Rear Panel Inner Trim Upper → Rear Panel Inner Trim; Exhaust Silencer Rr → Rear Exhaust Pipe; Tailgate Rear → Tailgate. NOT merged (the user's own earlier choice or < 70% sure): Bumper Bracket Rear, Lamp Assembly Rear Reverse, Rear Axle RH, Exhaust Tailpipe, Exhaust Silencer Trim, Tailgate Moulding Upper, Quarter Panel Inner Trim. 252 training photos relabelled (label_fixes_audit5.json, make rule respected).
+- ⚠️ Never let a script merge names by spelling alone: round-3 "auto typo merges" had 51 wrong ones (Boot Lid Badge (PROTON)→(PERSONA), (1.6)→(1.5), Striker→Sticker, Frt View→Rr View, Floor Panel→Floor Pan …) — removed 2026-11-04.
+- **Bumper sensors (user note)**: when the car model HAS Inner + Outer sensors → name them Rear/Front Bumper Sensor Inner/Outer LH/RH; when the model does not → plain Rear/Front Bumper Sensor LH/RH. Front and rear same logic.
+- **Cowl Panel** = the steel panel; **Cowl Panel Grille** = the plastic on top of the Cowl Panel — two different parts (user 2026-10-31).
+- Rear Exhaust Pipe ≠ Exhaust Rear Mounting (different parts).
+- **Front Crossmember** = Front Panel Lower (same part, use Front Crossmember, the most used). **Front Suspension Crossmember** is a different part (user 2026-10-31, 名称对齐台 round 4).
+- Round 4: Rear Bumper Spoiler (not Spoiler Rear); Tailgate Support Strut LH/RH; Rear/Front Wheel Rim LH/RH (steel rims too); Fender Liner LH/RH = FRONT wheel arch ("Liner LH/RH" → Fender Liner); **Quarter Liner LH/RH = REAR wheel arch, a different part — never merge it into Fender Liner** (user 2026-11-03: round 4 had merged them by mistake); Front Pillar LH/RH; Rear Camera; **A/C Condenser**; Quarter Panel Ns/Os → LH/RH. Different parts, keep apart: Fender Inner Wheelhouse vs Fender Inner, Door Window Regulator vs Door Window, Rear Bumper vs Bumper Rear Finisher vs Rear Bumper Moulding.
+- A Door Mirror with no side: decide LH/RH from the photo (no automatic rule).
+
+## Part rules — front
+- Marked damage (X / finger) on the painted bumper skin under the bonnet, round the lower grille opening, or at the bumper corner beside the headlamp = Front Bumper (not Grille Front / Bonnet Finisher / Grille Front Lower / Fender). [photo-center-crosshair-rule]
+- Grille Front Moulding = one name in the middle; the end piece over a headlamp = Grille Front Moulding LH/RH. [photo-center-crosshair-rule]
+- FOGLAMP LH/RH = Front Bumper Fog Lamp LH/RH. [photo-center-crosshair-rule]
+- Lamp strip in the front bumper (Myvi) = Lamp Daytime Running LH/RH, not a sensor or bracket. [photo-center-crosshair-rule]
+- Chrome strip under the headlamp (Saga) = Bumper Front Moulding RH; front-panel side-member shots ("Headlamp Panel RH" on a Saga) are covered by Front Panel. [merimen-step2-estimate-detail-fill]
+- Headlamp Mounting Bracket = the piece BELOW the headlamp. [photo-center-crosshair-rule]
+- Front bumper brackets: Bumper Front Bracket Support / Side Retainer / Retainer-Guide / Bracket Front [side] = Front Bumper Bracket LH/RH; [upper] = Bumper Front Bracket Support Upper LH/RH. [photo-center-crosshair-rule]
+- Bumper Front Reinforcement Panel = Front Bumper Reinforcement. [photo-center-crosshair-rule]
+- Washer tank captions (Screen / Windscreen / Front / plain) = Windscreen Washer Tank; pump, filler pipe, cap, motor, hose, bracket stay separate. [photo-center-crosshair-rule]
+- Bonnet Hinge = a different layer from the bonnet. [photo-center-crosshair-rule]
+
+## Part rules — rear
+- **Bumper Rear Treadplate LH / RH** (user 2026-10-31): the step plate ON TOP of the rear bumper (black ribbed plastic/rubber, sometimes chrome), normally on 4x4 / pickups / SUVs (Hilux, D-Max, Triton, Navara, Ranger, Fortuner, Pajero…). Middle piece = Bumper Rear Treadplate Centre. Spellings Rear Bumper Tread Plate / Bumper Rear Tread Plate → Bumper Rear Treadplate.
+- Rear Bumper = the main cover; Rear Bumper Spoiler = extra piece at the LOW part (only some models); Rear Bumper Moulding = finisher strip on the UPPER part. A strip at the edge never beats the part at the centre. [photo-center-crosshair-rule]
+- Close-ups of the bumper under a tailgate = Rear Bumper, not Tailgate. [photo-center-crosshair-rule]
+- Bumper Rear Cover LH/RH / Bumper Rear LH [cover] = Rear Bumper; Rear Bumper LH/RH stays separate (some cars have side pieces); Bumper Rear Section → Rear Bumper LH/RH; BUMPER REAR LOWER → Bumper Rear Lower Cover. [photo-center-crosshair-rule]
+- Rear bumper brackets: only Rear Bumper Bracket Side LH/RH (vertical, by the wheel arch) and Rear Bumper Bracket Upper LH/RH (horizontal, under the rear lamp). Plain Rear Bumper Bracket / Mounting Bracket / [support] / [side - Outer] = Side; Bumper Rear Retainer / Guide = Upper. [photo-center-crosshair-rule]
+- Rear Bumper Reflector = always the RED, small, long, horizontal piece; not red → not a reflector. [photo-center-crosshair-rule]
+- **Rear Panel Upper** (confirmed by user 2026-10-23) = the top horizontal section of the rear panel, above the rear bumper and between the rear lamps; the boot lid/tailgate closes onto it and the striker sits there. Some catalogues split it: Rear Panel Upper Section LH/RH.
+- Rear Panel (= Rear Panel Outer, RR END PANEL, END PANEL, Rear End Panel); rear end panel inner trim → Rear Panel Inner Trim; Rear Panel LH/RH → Rear Lamp Panel. [photo-center-crosshair-rule]
+- Boot Floor = steel floor with stamped ribs (BOOTFLOOR); Spare Wheel Well = the plastic/concave corner well (not Boot Side Trim); Spare Wheel Cover Board (never SPARE WHEEL BOARD); Floor Panel (not Rear Floor Panel); Boot Floor ≠ Floor Panel. [photo-center-crosshair-rule]
+- Rear Wheelhouse = the curved arch bulge at the boot side/corner (only the left part with the strength line); the arch seen from inside the boot = Rear Wheelhouse LH, not Boot Floor. [photo-center-crosshair-rule]
+- Rear Panel Inner Trim = plastic; Boot Lid Hinge = steel; Boot Lid Striker vs Lock often mistyped (check which is at the centre). [photo-center-crosshair-rule]
+- Boot Lid / Tailgate Aperture Weatherstrip; Tailgate Emblem; Spoiler Rear [bootlid]; Tailgate Spare Wheel Carrier (MPV tailgate bracket, Avanza). [photo-center-crosshair-rule]
+- Other rear names to use: Number Plate Holder Rear, Rear Exhaust Pipe, Exhaust Rear Mounting, Exhaust Silencer, Rear Axle, Rear Seat Back, Spare Wheel Retainer, Rear Number Plate Lamp (LH/RH), Parcel Shelf Rear. [photo-center-crosshair-rule]
+
+## Part rules — side
+- Front door = the door next to the front wheel (handle just behind the front wheel / mirror); the rear door ends where the rear wheel arch starts; outer handle release at the rear of the door tells front vs rear. [photo-center-crosshair-rule]
+- Panel round the rear wheel arch, behind the rear-door line = Quarter Panel LH/RH, not Door Rear. [photo-center-crosshair-rule]
+- Every quarter name starts with "Quarter Panel" (Quarter Pnl / Quater → Quarter Panel; Quarter Panel Outer = Quarter Panel; Rear LH Quarter Panel → Quarter Panel LH; Quarter Inner Trim → Quarter Panel Inner Trim). [photo-center-crosshair-rule]
+- Rear lower diffuser piece on models whose catalogue has no spoiler item (e.g. CCQ6119 Toyota Vios 2023 To 2026, NGC102): photo name **Rear Bumper Spoiler** (user 2026-10-23); in Select Parts it is the catalogue item "Bumper Rear Lower Cover". [photo-center-crosshair-rule]
+- REAR RADAR DISTANCE SENSOR LH/RH = **Blind Sport ECU LH/RH** (user's spelling; there is a left and a right one) (user 2026-10-23). Plain "REAR RADAR LH/RH" stays Rear Bumper Sensor. [photo-center-crosshair-rule]
+- Never "RR PANEL TRIM" → **Rear Panel Inner Trim**; never "RR BUMPER AFTER DISMANTLE" or "REAR PANEL BOOT FLOOR" → name the part at the crosshair (user 2026-10-23). [photo-center-crosshair-rule]
+- Front LH/RH Bumper Lamp = **Front Bumper Fog Lamp LH/RH** (user 2026-10-21). Spoiler Runningboard Extension LH/RH (any case) = **Runningboard Spoiler LH/RH**, never the Extension name (user 2026-10-21). [photo-center-crosshair-rule]
+- Never "REAR RADAR LH/RH": it is **Rear Bumper Sensor LH/RH** (user 2026-10-21). [photo-center-crosshair-rule]
+- **Boot Extractor Vent** = Extractor Lower Vent = Boot Extractor Vent LH/RH: one name, never LH or RH (user 2026-10-21). [photo-center-crosshair-rule]
+- ⭐ **A liner is ALWAYS black** (user 2026-10-29): Fender Liner / Quarter Liner = the black plastic shell inside the wheel arch. Anything body-coloured or painted is never a liner → name the panel (Fender, Quarter Panel, Rear Wheelhouse, Wheel Arch Extension…). A black, non-plastic steel arch seen from inside = Front/Rear Wheelhouse, not a liner.
+- Exception: the liner is **Quarter Liner LH/RH**, never "Quarter Panel Liner" (Quarter Panel Liner / Quarter Panel Liner Rear → Quarter Liner) (user 2026-10-20). [photo-center-crosshair-rule]
+- Door Mirror LH/RH for every door/side-mirror caption; Mirror Glass, Base Capping, cover, signal lamp stay separate. [photo-center-crosshair-rule]
+- Door Window Regulator Front/Rear LH/RH for every regulator caption; Regulator Motor/switch/handle stay separate. [photo-center-crosshair-rule]
+- Door hinges: Door Front/Rear Hinge Upper/Lower LH/RH (Rear LH Door Hinge → Door Rear Hinge Upper LH). [photo-center-crosshair-rule]
+- Door weatherstrips: Door Front Outer Weatherstrip LH/RH = black strip along the bottom of the window, outside (Door Front Weatherstrip merges here); Door Front Aperture Weatherstrip LH/RH = rubber seal round the door opening (often pulled out by fingers). Same for rear doors. [photo-center-crosshair-rule]
+- Door Lower Moulding LH/RH → Door Rear Lower Moulding LH/RH. [photo-center-crosshair-rule]
+- Tailgate Moulding = **Tailgate Finisher** (same item, user 2026-10-23).
+- Foam tray in the spare-wheel well = **Spare Wheel Foam** (exactly this format, not SPARE WHEEL FOAM) (user 2026-10-23).
+- Never "Tailgate Strut": always the full name **Tailgate Support Strut LH/RH** (user 2026-10-23).
+- Door Glass Front Window LH/RH = **Door Front Window LH/RH** (photo name; same for Rear) (user 2026-10-23). Merimen's labour label "Door Glass Front Window" stays as Merimen writes it.
+- New name (user 2026-10-23): **Door Front Run Felt LH** (the rubber channel the window glass runs in); same pattern for Door Front/Rear Run Felt LH/RH. Not sure → ask the user with the photo.
+- Front Pillar = pillar between windscreen and front door (= Front Pillar Outer; Outer Trim / Inner stay separate); Centre Pillar = Centre Pillar Outer. [photo-center-crosshair-rule]
+- Runningboard Panel = metal, flat sill (= Runningboard Panel Outer); Runningboard Spoiler LH/RH = plastic add-on skirt with raised bits + black rubber seal (Spoiler Runningboard Panel / Extension → Runningboard Spoiler); no add-on → Runningboard Panel. Runningboard Panel Extension = Runningboard Extension. [photo-center-crosshair-rule] [car-part-item-names]
+- Bodyside LH/RH (merges Bodyside Rear / Section). [photo-center-crosshair-rule]
+
+## Part rules — under / suspension
+- Chassis member side: ONLY by the tyres (far-right tyre in the photo = RH, far-left = LH) plus where the spare-wheel recess sits; never by the exhaust (withdrawn rule). A chassis member is a long straight beam. [photo-center-crosshair-rule]
+- Rear/Front Chassis Member LH/RH (not "Chassis Member … Section"; Rear LH Chassis Frame → Rear Chassis Member LH); Chassis Assembly. [photo-center-crosshair-rule]
+- Rear Crossmember = straight member UNDER the boot floor supporting it (not a suspension arm). [car-part-item-names]
+- Stabiliser link rod (thin vertical rod) = Front Stabiliser Bar Link Rod RH, not the stabiliser bar. [photo-center-crosshair-rule]
+- Front Wheel LH/RH → Front Wheel Rim LH/RH. [photo-center-crosshair-rule]
+
+## Keep separate (not the same part)
+- Front Wheelhouse ≠ Fender Inner Wheelhouse; Radiator Air Deflector ≠ …Lower; Boot Floor ≠ Floor Panel; Rear Wheel Arc Finisher ≠ Door Lower Finisher; Rear Lamp ≠ Rear Lamp Outer; Rear Bumper Sensor RH ≠ …Outer RH; Front Panel Upper ≠ Front Panel Upper Cover. [photo-center-crosshair-rule]
+
+## Labelling tool / quick-confirm (部位标注台)
+- https://claude.ai/artifact/BS7auqjnbs6Y7SZvzL4Vnh — collections `tasks` and `labels`. When the user says a name is wrong or Claude is unsure, add those photos as a new batch (photo + previous 2 as assets; task {img, vehicle, guess[3], probs[3], cid, seq, nb, order}). [photo-confirm-workflow] [photo-center-crosshair-rule]
+- No polling: read `labels` only when the user says the batch is done. Answers → `photo_train/user_corrections.json` (cid:seq → name); regions → `photo_train/user_regions.jsonl`. [photo-confirm-workflow]
+- ★ marks the photo's one item; "Background" (floor) and "Finger" are non-parts and never the answer; what the finger points at is usually the name. [photo-confirm-workflow] [photo-center-crosshair-rule]
+- Keep mixing rare items into labelling batches. [photo-confirm-workflow]
+
+## Learning loop after the user reviews 照片命名台
+- List every change (name or order), study the photos, work out the rule, and write it into photo-center-crosshair-rule + `name_map.FINAL`. [case-photo-naming-artifact] [merimen-batch-workflow]
+- When a reason is unclear, ASK the user and SEND THE PHOTO itself (SendUserFile, `photo_train/user_photos/<PLATE>/NN_*.jpg`), not just the number; never guess silently. (This is the one allowed question; it never blocks the batch.) [case-photo-naming-artifact]
+- When the user says a case is done: write every final name to `photo_train/user_photo_names.jsonl` and copy the photos to `user_photos/<PLATE>/` for training. [case-photo-naming-artifact]
+- Then re-sync Merimen (relabel + parts), see 09. [merimen-batch-workflow]
+- Training: after name-rule changes only retrain seq (minutes); when a training batch finishes, start the next without asking, warm-start from the BEST checkpoint, keep only the best; don't cap well-known items; rare items need labels, not more raw photos. [photo-naming-two-step-jev]

@@ -1,5 +1,6 @@
 // Pure rules of the photo naming desk (plan #9). No I/O here, so everything is unit-tested (test/photos.test.ts).
 import NAMES_JSON from "../part-names.json";
+import { PHOTO_RULES } from "../playbook/photo-rules";
 
 /** The closed list: Merimen part names in the owner's combined spelling. */
 export const PART_NAMES: readonly string[] = NAMES_JSON as string[];
@@ -29,17 +30,11 @@ export function canonName(raw: unknown): string | null {
   return BY_LOWER.get(s.toLowerCase()) ?? s;
 }
 
-// Names a car model does not have (owner's rules, playbook 10): [vehicle regex, name regex].
-const MODEL_BANS: [RegExp, RegExp][] = [
-  [/\bViva\b/i, /^Quarter Liner/],
-  [/^PERODUA\b/i, /^Front Panel Assembly$/],
-];
+// Names a car model does not have (owner's rules, playbook 10). Data lives in playbook/photo-rules.json, shared with the worker.
+const MODEL_BANS: [RegExp, RegExp][] = PHOTO_RULES.modelBans.map((b) => [new RegExp(b.vehicle, "i"), new RegExp(b.name)]);
 // [vehicle must NOT match, name regex, replacement]: only Perodua has these.
-const MODEL_SWAPS: [RegExp, RegExp, string][] = [
-  [/^PERODUA\b/i, /^Bonnet Latch Stud Plate/, "Front Panel Assembly"],
-  [/^PERODUA\b/i, /^Fender Inner (LH|RH)$/, "Front Panel Assembly"],
-];
-const BANNED = /general view/i;
+const MODEL_SWAPS: [RegExp, RegExp, string][] = PHOTO_RULES.modelSwaps.map((b) => [new RegExp(b.notVehicle, "i"), new RegExp(b.name), b.to]);
+const BANNED = new RegExp(PHOTO_RULES.bannedNames, "i");
 
 function allowed(name: string, vehicle: string): string | null {
   const n = BY_LOWER.get(name.trim().toLowerCase());
@@ -54,8 +49,8 @@ function allowed(name: string, vehicle: string): string | null {
 export type ModelPick = { n: number; name: string; confidence: number; alts: string[] };
 export type Named = { modelName: string | null; confidence: number | null; alts: string[]; how: "rule" | "model" };
 
-const OPENING = new Set(["Front View Right", "Front View Left", "Rear View Right", "Rear View Left", "Interior View", "Road Tax"]);
-const OPENING_WINDOW = 8; // the opening block sits within the first photos of a case
+const OPENING = new Set<string>([...PHOTO_RULES.opening.corners, ...PHOTO_RULES.opening.idShots]);
+const OPENING_WINDOW = PHOTO_RULES.opening.window; // the opening block sits within the first photos of a case
 
 /** Turns one raw model answer into what is stored. Names outside the list are dropped; the next valid alt takes over. */
 export function normalizePick(p: ModelPick, vehicle: string, origN: number): Named {

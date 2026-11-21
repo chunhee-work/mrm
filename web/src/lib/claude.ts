@@ -26,7 +26,7 @@ function client(): Anthropic {
 }
 
 /** Who and what a call is for. userId/orgId/caseId are null for system calls (cron, admin, webhooks). */
-export type CallCtx = { userId: string | null; orgId: string | null; caseId: string | null; purpose: "read_docs" | "name_photos" | "system_other" };
+export type CallCtx = { userId: string | null; orgId: string | null; caseId: string | null; purpose: "read_docs" | "name_photos" | "system_other"; playbook?: string };
 export type ParseParams = MessageCreateParamsNonStreaming;
 
 /** request: per-call limits (a shorter timeout, fewer tries) for calls that sit inside a time-boxed route. */
@@ -44,6 +44,8 @@ export async function trackedParse<P extends ParseParams>(ctx: CallCtx, params: 
   const record = deps.record ?? recordCall;
   const callId = randomUUID();
   const started = Date.now();
+  // which playbook the prompt carried, so a wrong answer can be traced to the rules that were in force (a log line, not a column)
+  if (ctx.playbook) console.info(JSON.stringify({ ev: "ai_call", purpose: ctx.purpose, model: String(params.model), playbook: ctx.playbook, call: callId }));
   const base = { userId: ctx.userId, orgId: ctx.orgId, caseId: ctx.caseId, purpose: ctx.purpose, model: String(params.model) };
   let billed = false;
   try {

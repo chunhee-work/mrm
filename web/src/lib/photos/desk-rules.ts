@@ -29,6 +29,20 @@ export function counts(photos: Photo[]) {
     failed: photos.filter((p) => p.state === "failed").length,
   };
 }
+/**
+ * The photo a click on 完成 walks to while photos are unnamed: the first unnamed one, and on the next click the next one
+ * (wrapping round). `last` is the photo the previous click went to; one that has been named since is not in the list, so the walk starts again at the top.
+ */
+export function nextUnnamed(photos: Photo[], last: number | null): Photo | null {
+  const un = photos.filter(needsName);
+  if (!un.length) return null;
+  const at = un.findIndex((p) => p.id === last);
+  return un[(at + 1) % un.length];
+}
+/** Enter, Enter within this many ms = 完成 the case and go on to the next. */
+export const ENTER_PAIR_MS = 700;
+export const isEnterPair = (prev: number, now: number) => prev > 0 && now - prev < ENTER_PAIR_MS;
+
 /** The cards to show. "To confirm" puts the ones without any name first. */
 export function visible(photos: Photo[], f: Filter): Photo[] {
   if (f === "edited") return photos.filter(isEdited);

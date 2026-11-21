@@ -27,6 +27,8 @@ export type CaseDetail = {
   stale: boolean; // reading, but no news for 6 minutes: the server is already restarting it
   cred?: { blocked: boolean; verifyState: string } | null;
   shots?: Shot[] | null; // null: flag off, table not there yet, or not the submitter
+  desk?: { total: number; confirm: number } | null; // the photo desk: how many photos, how many still to confirm
+  photoPlan?: { mode: string; action: string; upload: number; relabel: number; reorder: number } | null; // latest photo step of Phase A/B
 };
 
 const REFRESH_MS = 5_000;
@@ -158,10 +160,25 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     </details>
   ) : null;
 
-  const PhotosButton = () => c.photos > 0 || c.status === "naming" || c.status === "waiting_user" ? (
-    <Link href={`/cases/${c.id}/photos`} className="btn-primary self-start">
-      {t("case.photosBtn")}{c.photosTodo > 0 ? ` (${c.photosTodo})` : ""}
-    </Link>
+  // the photo desk: one link, with how many photos still need a look
+  const deskOpen = !working && !failed && c.desk != null && c.desk.total > 0 && !["done", "uploaded", "reading", "failed"].includes(c.status);
+  const DeskLink = () => (deskOpen || c.photoPlan) ? (
+    <section aria-labelledby="case-photos" className="lg:col-span-2">
+      <h2 id="case-photos" className="label mb-3">{t("case.photoPlan")}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[4px] border border-hair px-4 py-3">
+        <p className="min-w-0 text-[14.5px] text-fg" data-testid="photo-plan-line">
+          {c.photoPlan
+            ? c.photoPlan.action === "refused" ? t("case.photoPlan.refused")
+              : t(c.photoPlan.mode === "live" ? "case.photoPlan.live" : "case.photoPlan.dry", { upload: String(c.photoPlan.upload), relabel: String(c.photoPlan.relabel), reorder: String(c.photoPlan.reorder) })
+            : ""}
+        </p>
+        {deskOpen && (
+          <Link href={`/cases/${c.id}/photos`} className="btn-primary" data-testid="desk-link">
+            {c.desk!.confirm > 0 ? t("case.namePhotosN", { n: String(c.desk!.confirm) }) : t("case.namePhotos")}
+          </Link>
+        )}
+      </div>
+    </section>
   ) : null;
 
   const sub = working ? (c.stale ? t("case.stale") : t("case.reading")) : failed ? t(failTr(c.error).key, failTr(c.error).vars) : pending ? t("case.missing") : "";
@@ -208,9 +225,9 @@ export default function CaseView({ c }: { c: CaseDetail }) {
         <div className="grid content-start gap-6">
           {facts.length > 0 && <section aria-labelledby="case-found"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2>{Facts()}</section>}
           {needsFiles && <section aria-labelledby="case-missing"><h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2>{MissingList()}</section>}
-          {PhotosButton()}
         </div>
         <section aria-labelledby="case-log" className="grid content-start gap-6"><div id="case-log">{Log()}</div>{Files()}</section>
+        {DeskLink()}
         {c.shots && <div className="lg:col-span-2"><ShotTimeline caseId={c.id} shots={c.shots} /></div>}
       </div>
     </>

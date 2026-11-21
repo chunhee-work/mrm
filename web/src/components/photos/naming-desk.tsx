@@ -3,10 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
 import { Chevron, Plus, Tick, UploadArt } from "@/components/app/marks";
 import {
-  classifyPaste, counts, moved, shownName, visible, UndoStack,
+  classifyPaste, counts, isEnterPair, moved, nextUnnamed, shownName, visible, UndoStack,
   type CaseState, type Extra, type Filter, type Photo,
 } from "@/lib/photos/desk-rules";
 import { canonName, inList, PART_NAMES } from "@/lib/photos/rules";
+import { fileTypeOf, openingMissing, photoPlan } from "@/lib/photos/order-rules";
 import { photoT } from "@/lib/photos/strings";
 import { PhotoCard, type CardActions, type Editing } from "./photo-card";
 import { ExtraChip, HelpSheet, MoveSheet, Palette } from "./sheets";
@@ -52,6 +53,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   }, []);
   const [loadFailed, setLoadFailed] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
+  const filterRef = useRef<Filter>("all");
   const [frozen, setFrozen] = useState<number[] | null>(null);
   const [cur, setCur] = useState<number | null>(null);
   const curRef = useRef(cur); curRef.current = cur;
@@ -59,9 +61,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const editingRef = useRef(editing);
   const setEditing = useCallback((e: (Editing & { guard?: string }) | null) => { editingRef.current = e; setEditingRaw(e); }, []);
   const [toast, setToast] = useState<{ msg: string; key: number } | null>(null);
-  const [armed, setArmedRaw] = useState(false);
-  const armedRef = useRef(false);
-  const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hl, setHl] = useState<number | null>(null); // the unnamed photo the last 完成 click jumped to
+  const hlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastJump = useRef<number | null>(null);
+  const lastEnter = useRef(0); // Enter, Enter within 700 ms = 完成 and on to the next case
+  const focusName = useRef<(id: number) => void>(() => {});
   const [palette, setPalette] = useState(false);
   const [moveId, setMoveId] = useState<number | null>(null);
   const [help, setHelp] = useState(false);
@@ -84,6 +88,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
 
   const st = states[caseId];
   const tab = tabs.find((x) => x.id === caseId);
+  const tabsRef = useRef(tabs); tabsRef.current = tabs;
 
   const say = useCallback((msg: string) => setToast({ msg, key: Date.now() }), []);
   useEffect(() => {
@@ -102,7 +107,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     patchCase(cid, (c) => (c.done === done ? c : { ...c, done }));
     setTabs((ts) => ts.map((x) => (x.id === cid && x.done !== done ? { ...x, done } : x)));
   }, [patchCase]);
-  const disarm = useCallback(() => { armedRef.current = false; setArmedRaw(false); if (armTimer.current) clearTimeout(armTimer.current); }, []);
+  const disarm = useCallback(() => { lastEnter.current = 0; }, []);
 
   // ───────────── load / refresh ─────────────
   const load = useCallback(async (cid: string, quiet: boolean) => {
@@ -298,14 +303,37 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     reveal(id);
   }, [applyOrder]);
 
-  // ───────────── done ─────────────
+  // ───────────── done: ONE click. Unnamed photos block it and the page walks you to them ─────────────
+  const jumpUnnamed = useCallback(() => {
+    const cid = caseRef.current;
+    const c = statesRef.current[cid];
+    if (!c) return;
+    const target = nextUnnamed(c.photos, lastJump.current); // first click: the first unnamed photo; the next click: the next one
+    if (!target) return;
+    lastJump.current = target.id;
+    say(tRef.current("block.unnamed", { n: c.photos.filter((p) => !shownName(p) && p.state !== "pending" && p.state !== "running").length }));
+    if (filterRef.current !== "all") pickFilter("all");
+    setTimeout(() => {
+      const f = frame.current;
+      const el = f?.querySelector<HTMLElement>(`[data-pid="${target.id}"]`);
+      if (f && el) {
+        const a = el.getBoundingClientRect(), b = f.getBoundingClientRect();
+        f.scrollTo({ top: Math.max(0, f.scrollTop + (a.top - b.top) - Math.max(8, (b.height - a.height) / 2)), behavior: "smooth" });
+      }
+      setCur(target.id);
+      setHl(target.id);
+      if (hlTimer.current) clearTimeout(hlTimer.current);
+      hlTimer.current = setTimeout(() => setHl(null), 3200);
+      focusName.current(target.id);
+    }, 90);
+  }, [say]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const pressDone = useCallback(async (): Promise<boolean> => {
     const cid = caseRef.current;
     const c = statesRef.current[cid];
     const tt = tRef.current;
     if (!c) return false;
     if (c.done) {
-      disarm();
       setDoneLocal(cid, false);
       const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: false });
       if (r.ok) say(tt("undone")); else void load(cid, true);
@@ -314,21 +342,21 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     const n = counts(c.photos);
     if (!n.total) { say(tt("block.empty")); return false; }
     if (n.naming) { say(tt("block.naming", { n: n.naming })); return false; }
-    if (n.unnamed) { say(tt("block.unnamed", { n: n.unnamed })); pickFilter("confirm"); return false; }
-    if (!armedRef.current) {
-      armedRef.current = true; setArmedRaw(true);
-      if (armTimer.current) clearTimeout(armTimer.current);
-      armTimer.current = setTimeout(disarm, 4000);
-      return false;
-    }
-    disarm();
+    if (n.unnamed) { jumpUnnamed(); return false; }
+    lastJump.current = null;
+    setHl(null);
     const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: true });
-    if (r.ok) { setDoneLocal(cid, true); say(tt("doneToast", { plate: c.plate })); return true; }
+    if (r.ok) {
+      setDoneLocal(cid, true);
+      const left = tabsRef.current.filter((x) => x.id !== cid && !x.done).length;
+      say(left ? tt("doneToast", { plate: c.plate }) : tt("allDoneToast"));
+      return true;
+    }
     const reason = r.body.reason as string | undefined;
     say(r.body.error === "status" ? tt("block.status") : reason ? tt(`block.${reason}`, { n: Number(r.body.count ?? 0) }) : tt("saveFailed"));
     void load(cid, true);
     return false;
-  }, [disarm, setDoneLocal, say, load]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setDoneLocal, say, load, jumpUnnamed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ───────────── cases ─────────────
   const switchCase = useCallback((id: string) => {
@@ -336,6 +364,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     if (idle.current) clearTimeout(idle.current);
     setEditing(null);
     disarm();
+    lastJump.current = null;
+    setHl(null);
     setCur(null);
     setMoveId(null);
     setLoadFailed(false);
@@ -359,6 +389,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
 
   // ───────────── filter: the cards on screen stay put until the filter is pressed again ─────────────
   function pickFilter(f: Filter) {
+    filterRef.current = f;
     setFilter(f);
     const c = statesRef.current[caseRef.current];
     setFrozen(f === "all" || !c ? null : visible(c.photos, f).map((p) => p.id));
@@ -458,6 +489,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     },
   }), [commitEdit, rename, say, setEditing, moveTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  focusName.current = (id) => actions.startEdit(id);
+
   // ───────────── parts with no photo ─────────────
   const addExtra = useCallback(async (name: string) => {
     const cid = caseRef.current;
@@ -548,11 +581,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         case "e": case "E": if (id != null) { e.preventDefault(); actions.startEdit(id); } break;
         case "c": case "C": if (id != null) { e.preventDefault(); actions.copy(id); } break;
         case "v": case "V": if (id != null) { e.preventDefault(); void actions.paste(id); } break;
-        case "Enter":
+        case "Enter": {
           if (onControl) break;
           e.preventDefault();
-          void pressDone().then((ok) => { if (ok) goCase(1); });
+          const now = Date.now();
+          if (!isEnterPair(lastEnter.current, now)) { lastEnter.current = now; break; } // the first Enter only starts the pair
+          lastEnter.current = 0;
+          if (statesRef.current[caseRef.current]?.done) goCase(1);
+          else void pressDone().then((ok) => { if (ok) goCase(1); });
           break;
+        }
         case " ": case "Spacebar":
           if (onControl) break;
           e.preventDefault(); setPalette(true);
@@ -560,7 +598,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         case "?": e.preventDefault(); setHelp(true); break;
         case "<": case ",": case "ArrowLeft": e.preventDefault(); goCase(-1); break;
         case ">": case ".": case "ArrowRight": e.preventDefault(); goCase(1); break;
-        case "Escape": disarm(); break;
+        case "Escape": disarm(); setHl(null); break;
       }
     };
     window.addEventListener("keydown", onKey);
@@ -572,6 +610,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const photoNames = useMemo(() => new Set((st?.photos ?? []).map(shownName).filter((x): x is string => !!x)), [st]);
   const indexOf = useMemo(() => new Map((st?.photos ?? []).map((p, i) => [p.id, i + 1])), [st]);
   const tabIndex = tabs.findIndex((x) => x.id === caseId);
+  const missingOpen = useMemo(() => (st && st.photos.length ? openingMissing(st.photos.map(shownName)) : []), [st]);
+  const plan = useMemo(() => (st ? photoPlan(st.photos.map((p) => ({ id: p.id, srcName: p.srcName, name: shownName(p) }))) : null), [st]);
   const blocked = !st || !n || !n.total ? tRef.current("block.empty") : n.naming ? t("block.naming", { n: n.naming }) : n.unnamed ? t("block.unnamed", { n: n.unnamed }) : null;
   const movePhoto = moveId != null ? st?.photos.find((p) => p.id === moveId) : null;
   const img = (id: number) => `/api/cases/${caseId}/photos/${id}/img?size=s`;
@@ -584,16 +624,17 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const stepBtn = "flex h-9 w-8 shrink-0 items-center justify-center rounded-[3px] text-mute transition-colors duration-150 hover:bg-panel2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent";
   const prev = <button type="button" className={stepBtn} aria-label={t("prevCase")} disabled={tabIndex <= 0} onClick={() => goCase(-1)}><Chevron className="rotate-90" /></button>;
   const next = <button type="button" className={stepBtn} aria-label={t("nextCase")} disabled={tabIndex < 0 || tabIndex >= tabs.length - 1} onClick={() => goCase(1)}><Chevron className="-rotate-90" /></button>;
+  const doneCount = tabs.filter((x) => x.done).length;
   const doneBtn = (
     <button
-      type="button" onClick={() => void pressDone()} aria-pressed={!!st?.done}
-      aria-disabled={!st?.done && !!blocked} title={st?.done ? undefined : blocked ?? t("doneHint")}
-      className={`flex h-9 shrink-0 items-center gap-2 rounded-[3px] px-4 text-[13.5px] font-semibold transition-colors duration-150 active:translate-y-px ${
-        st?.done ? "bg-go text-bay" : armed ? "bg-amber text-bay" : blocked ? "bg-panel2 text-mute" : "bg-ice text-bay hover:bg-icehi"
+      type="button" data-testid="done-btn" onClick={() => void pressDone()} aria-pressed={!!st?.done}
+      title={st?.done ? undefined : blocked ?? t("doneHint")}
+      className={`flex h-12 min-w-[12rem] shrink-0 items-center justify-center gap-2.5 rounded-[4px] px-7 text-[17px] font-bold leading-none tracking-wide shadow-[0_6px_16px_-8px_rgba(10,14,19,0.55)] outline-offset-2 transition-[background-color,transform] duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-scan active:translate-y-px max-sm:h-14 max-sm:w-full max-sm:text-[18px] ${
+        st?.done ? "bg-go text-bay" : "bg-ice text-bay hover:bg-icehi"
       }`}
     >
-      {st?.done && <Tick className="h-4 w-4" />}
-      {st?.done ? t("doneOn") : armed ? t("doneAgain") : t("done")}
+      {st?.done && <Tick className="h-5 w-5" />}
+      {st?.done ? t("doneOn") : t("doneBtn", { plate: st?.plate || tab?.plate || "", d: doneCount, n: tabs.length })}
     </button>
   );
   const quiet = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[3px] px-3 text-[13.5px] font-semibold text-fg transition-colors duration-150 hover:bg-panel2 disabled:opacity-40";
@@ -626,9 +667,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     </div>
   );
   const title = (
-    <div className="flex min-w-0 items-baseline gap-3">
-      <h1 className="font-mono text-[20px] font-semibold leading-none tracking-wide text-fg lg:text-[22px]">{st?.plate || tab?.plate || ""}</h1>
-      <p className="min-w-0 truncate text-[14px] text-mute">{st?.carModel ?? tab?.carModel ?? ""}</p>
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-baseline gap-3">
+        <h1 className="font-mono text-[20px] font-semibold leading-none tracking-wide text-fg lg:text-[22px]">{st?.plate || tab?.plate || ""}</h1>
+        <p className="min-w-0 truncate text-[14px] text-mute">{st?.carModel ?? tab?.carModel ?? ""}</p>
+      </div>
+      {plan && plan.photos > 0 && (
+        <p className="mt-1.5 max-w-[68ch] font-mono text-[11.5px] leading-snug text-mute" data-testid="photo-plan">
+          {t("planLine", { n: plan.photos, types: Object.entries(plan.types).map(([k, v]) => `${k} ×${v}`).join(" · ") })}
+        </p>
+      )}
     </div>
   );
   const extrasRow = (
@@ -669,10 +717,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3.5 lg:px-5">
             {title}
             <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:basis-full">
-              {filterSoft}{addBtn}<span className="flex-1 sm:hidden" />{helpBtn}{doneBtn}
+              {filterSoft}{addBtn}<span className="flex-1 sm:hidden" />{helpBtn}
             </div>
           </div>
           <div className="border-t border-hair px-4 py-2 lg:px-5">{extrasRow}</div>
+          <div className="flex border-t border-hair p-3 lg:justify-end lg:px-5">{doneBtn}</div>
         </div>
       </div>
     </div>
@@ -683,6 +732,14 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       {head}
       <div className="shrink-0">
         {/* what is going on: naming progress, or what needs a second try */}
+        {st && n && !n.naming && n.total > 0 && missingOpen.length > 0 && (
+          <div className="wrap pb-2.5 max-sm:px-3" role="status">
+            <span className="flex items-center gap-2 text-[13.5px] font-medium text-fg">
+              <span className="h-[9px] w-[9px] shrink-0 bg-amber" aria-hidden="true" />
+              {t("openingMissing", { list: missingOpen.join(", ") })}
+            </span>
+          </div>
+        )}
         {st && n && (n.naming > 0 || n.failed > 0 || capped[caseId]) && (
           <div className="wrap pb-2.5 max-sm:px-3" role="status">
             {n.naming > 0 ? (
@@ -744,7 +801,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
               <PhotoCard
                 key={p.id} p={p} n={indexOf.get(p.id) ?? 0} total={st.photos.length} src={img(p.id)}
                 current={cur === p.id} editing={editing?.id === p.id ? editing : null}
-                canDrag={filter === "all" && !editing} flash={flashId === p.id} a={actions} t={t}
+                canDrag={filter === "all" && !editing} flash={flashId === p.id} hl={hl === p.id} a={actions} t={t}
               />
             ))}
           </div>

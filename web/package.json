@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "tsx scripts/check-schema.ts && next build",
     "start": "next start",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --conditions=react-server --test \"src/**/*.test.ts\" && node --import tsx --test tests/*.test.ts && node --conditions=react-server --import tsx --test \"test/*.test.ts\" && tsx scripts/test-scan-case.ts && tsx scripts/test-bundle-photos.ts"
+    "test": "tsx --conditions=react-server --test \"src/**/*.test.ts\" && node --import tsx --test tests/*.test.ts && node --conditions=react-server --import tsx --test \"test/*.test.ts\" && tsx scripts/test-scan-case.ts && tsx scripts/test-bundle-photos.ts",
+    "e2e": "node e2e/desk.e2e.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
