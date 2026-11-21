@@ -9,8 +9,8 @@ from dataclasses import replace
 import sys
 import time
 
-from .cdp_client import Driver
-from .config import Config
+from .config import Config, account_for
+from .pipeline import Driver
 from .loop import tick
 from .photos import ModelError, names_for_photos, parse_predict_stdout, predict_command
 from .store import PgRepo
@@ -100,9 +100,42 @@ def _mail(to: str, subject: str, html: str) -> None:
         return
 
 
+def _page_provider(cfg: Config):
+    """The Merimen tab of the worker Chrome for an org, through Playwright over the local debugging port.
+    Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
+    state: dict = {}
+
+    def page_for(org_id: str):
+        account = account_for(org_id, cfg.accounts, cfg.org_accounts)
+        if not account:
+            return None
+        port = cfg.accounts[account]
+        try:
+            if port not in state:
+                from playwright.sync_api import sync_playwright
+
+                pw = sync_playwright().start()
+                state[port] = (pw, pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}"))
+            browser = state[port][1]
+            for ctx in browser.contexts:
+                for page in ctx.pages:
+                    if "merimen.com.my" in (page.url or ""):
+                        return page
+        except Exception:
+            old = state.pop(port, None)
+            if old:
+                try:
+                    old[0].stop()
+                except Exception:
+                    pass
+        return None
+
+    return page_for
+
+
 def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
-    repo = PgRepo(cfg.database_url)
+    repo = PgRepo(cfg.database_url, cfg.db_transport)
     script = os.path.join(os.path.dirname(__file__), "..", "cdp.mjs")
     driver = _CdpDriver(script)
     namer = _namer_factory(cfg)
@@ -152,6 +185,19 @@ def main() -> None:
             return {"offline": True}
         return data
 
+    page_for = _page_provider(cfg)
+
+    def put_blob(path: str, data: bytes) -> None:
+        from .blobstore import blob_put
+
+        blob_put(cfg.blob_token, path, data)
+
+    def delete_blob(path: str) -> None:
+        from .blobstore import blob_delete
+
+        blob_delete(cfg.blob_token, path)
+
+    shots = bool(cfg.worker_ui and cfg.blob_token)
     port = int(os.environ.get("WORKER_HEALTH_PORT") or "8080")
     if port > 0:
         try:
@@ -162,7 +208,8 @@ def main() -> None:
 
     while True:
         try:
-            tick(cfg, repo, launch=_launch, inspect=_inspect, namer=namer, driver=driver, download=download, keep=_keep, fetch_page=fetch_page, master=master)
+            tick(cfg, repo, launch=_launch, inspect=_inspect, namer=namer, driver=driver, download=download, keep=_keep, fetch_page=fetch_page, master=master,
+                 page_for=page_for if shots else None, put_blob=put_blob if shots else None, delete_blob=delete_blob if shots else None)
         except Exception as e:
             print(f"tick {type(e).__name__}", file=sys.stderr)
         time.sleep(cfg.poll_seconds)

@@ -10,13 +10,15 @@ import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 import { pageMeta } from "@/lib/meta";
 import { workerUiOn } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
+import { timelineFor } from "@/lib/screenshots/server";
+import { missingRelation } from "@/lib/ext/worker-gate";
 
 export const generateMetadata = () => pageMeta("case.title", { index: false });
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a recovery read runs after the page is sent
 
 export default async function CasePage({ params }: { params: Promise<{ id: string }> }) {
-  const { orgId } = await requireUser();
+  const { orgId, user } = await requireUser();
   const { id } = await params;
   const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId))).limit(1);
   if (!c) notFound();
@@ -49,6 +51,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     events: events.map((e) => ({ at: e.at.toISOString(), message: e.message })),
     stale,
     cred: workerUiOn() ? await credView(orgId) : null,
+    // only the user who submitted the case gets this list; anyone else in the organisation gets none
+    shots: workerUiOn() ? await timelineFor(id, user.id, c.createdBy).catch((e) => { if (missingRelation(e)) return null; throw e; }) : null,
   };
   return <CaseView c={detail} />;
 }

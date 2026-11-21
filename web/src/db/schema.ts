@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, index, uniqueIndex, check } from "drizzle-orm/pg-core";
+import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, uuid, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 
 // ---- Better Auth tables (names/fields required by Better Auth) ----
 export const user = pgTable("user", {
@@ -372,3 +372,19 @@ export const merimenOtp = pgTable("merimen_otp", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   expiresAt: timestamp("expires_at").notNull(),
 });
+
+// Progress screenshots of the Merimen tab (not applied in production until the owner approves). Private Blob pathname only.
+// userId = the user who submitted the case; only that user can see a row.
+export const caseScreenshots = pgTable("case_screenshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  jobId: integer("job_id"),
+  step: text("step").notNull(), // login_verified | case_opened | photos_named | documents_uploaded | case_complete | failed
+  captionZh: text("caption_zh").notNull(),
+  captionEn: text("caption_en").notNull(),
+  blobPathname: text("blob_pathname").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+}, (t) => [index("case_screenshots_case_idx").on(t.caseId, t.userId, t.createdAt)]);

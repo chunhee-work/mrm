@@ -20,6 +20,8 @@ class DriveResult:
 
 
 class Driver:
+    progress = None  # set per job: a driver that ports a Merimen step calls progress("create_case") after it
+
     def dry_run(self, phase: str, steps: tuple) -> DriveResult:
         return DriveResult(ok=True)
 

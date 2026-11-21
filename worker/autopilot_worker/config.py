@@ -10,6 +10,13 @@ def _on(env: dict[str, str], name: str) -> bool:
     return env.get(name, "") == "on"
 
 
+def _transport(raw: str | None) -> str:
+    v = (raw or "http").strip().lower()
+    if v not in ("http", "tcp"):
+        raise ValueError("DB_TRANSPORT must be http or tcp")
+    return v
+
+
 def parse_accounts(spec: str) -> dict[str, int]:
     """`default:9222,sinar:9223` -> {account: port}. Empty is one profile on 9222."""
     out: dict[str, int] = {}
@@ -72,6 +79,10 @@ class Config:
     pred_bs: int
     poll_seconds: float
     model_dir: str
+    db_transport: str = "http"
+    lease_seconds: int = 900
+    worker_ui: bool = False
+    retention_days: int = 90
     mailer: object | None = None
 
     @classmethod
@@ -98,4 +109,8 @@ class Config:
             pred_bs=max(1, int(e.get("PRED_BS") or "4")),
             poll_seconds=float(e.get("POLL_SECONDS") or "2"),
             model_dir=e.get("PHOTO_MODEL_DIR") or os.path.join(state, "photo-model"),
+            db_transport=_transport(e.get("DB_TRANSPORT")),
+            lease_seconds=max(60, int(e.get("JOB_LEASE_SECONDS") or "900")),
+            worker_ui=_on(e, "WORKER_UI"),
+            retention_days=max(1, int(e.get("SCREENSHOT_RETENTION_DAYS") or "90")),
         )
