@@ -1,0 +1,11871 @@
+{
+ "Bumper Rear Cover": {
+  "n": 107,
+  "N": [
+   [
+    "Bumper Rear",
+    0.85
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.82
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.8
+   ],
+   [
+    "Suspension Rear R&R",
+    0.79
+   ],
+   [
+    "Fuel Tank R&R",
+    0.76
+   ],
+   [
+    "Bumper Rear R&R",
+    0.75
+   ],
+   [
+    "Boot Floor",
+    0.65
+   ],
+   [
+    "Rear Panel Assembly",
+    0.62
+   ],
+   [
+    "Quarter Panel LH",
+    0.53
+   ],
+   [
+    "Quarter Panel RH",
+    0.51
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Lamp Assembly Rear RH": {
+  "n": 93,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.98
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.85
+   ],
+   [
+    "Bumper Rear",
+    0.85
+   ],
+   [
+    "Suspension Rear R&R",
+    0.83
+   ],
+   [
+    "Fuel Tank R&R",
+    0.77
+   ],
+   [
+    "Boot Floor",
+    0.73
+   ],
+   [
+    "Bumper Rear R&R",
+    0.71
+   ],
+   [
+    "Rear Panel Assembly",
+    0.65
+   ],
+   [
+    "Quarter Panel RH",
+    0.58
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.56
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.53
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.51
+   ]
+  ]
+ },
+ "Lamp Assembly Rear LH": {
+  "n": 87,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.99
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.87
+   ],
+   [
+    "Suspension Rear R&R",
+    0.83
+   ],
+   [
+    "Bumper Rear",
+    0.83
+   ],
+   [
+    "Fuel Tank R&R",
+    0.82
+   ],
+   [
+    "Boot Floor",
+    0.78
+   ],
+   [
+    "Bumper Rear R&R",
+    0.7
+   ],
+   [
+    "Rear Panel Assembly",
+    0.64
+   ],
+   [
+    "Quarter Panel LH",
+    0.59
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.55
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.55
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.53
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.52
+   ]
+  ]
+ },
+ "Bumper Rear Sensor": {
+  "n": 75,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.93
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.88
+   ],
+   [
+    "Suspension Rear R&R",
+    0.8
+   ],
+   [
+    "Bumper Rear",
+    0.8
+   ],
+   [
+    "Fuel Tank R&R",
+    0.76
+   ],
+   [
+    "Boot Floor",
+    0.75
+   ],
+   [
+    "Bumper Rear R&R",
+    0.72
+   ],
+   [
+    "Rear Panel Assembly",
+    0.68
+   ],
+   [
+    "Quarter Panel RH",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.52
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.52
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.52
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.51
+   ]
+  ]
+ },
+ "Quarter Panel Liner Rear RH": {
+  "n": 64,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.91
+   ],
+   [
+    "Suspension Rear R&R",
+    0.81
+   ],
+   [
+    "Bumper Rear",
+    0.8
+   ],
+   [
+    "Fuel Tank R&R",
+    0.78
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.78
+   ],
+   [
+    "Bumper Rear R&R",
+    0.73
+   ],
+   [
+    "Boot Floor",
+    0.72
+   ],
+   [
+    "Quarter Panel RH",
+    0.61
+   ],
+   [
+    "Rear Panel Assembly",
+    0.59
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Clips": {
+  "n": 64,
+  "N": [
+   [
+    "Bumper Rear",
+    0.62
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.55
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.53
+   ],
+   [
+    "Bumper Rear R&R",
+    0.52
+   ],
+   [
+    "Fuel Tank R&R",
+    0.5
+   ],
+   [
+    "Suspension Rear R&R",
+    0.5
+   ]
+  ],
+  "R": []
+ },
+ "Boot Floor": {
+  "n": 61,
+  "N": [
+   [
+    "Boot Floor",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.98
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.97
+   ],
+   [
+    "Suspension Rear R&R",
+    0.95
+   ],
+   [
+    "Fuel Tank R&R",
+    0.92
+   ],
+   [
+    "Bumper Rear",
+    0.82
+   ],
+   [
+    "Rear Panel Assembly",
+    0.77
+   ],
+   [
+    "Bumper Rear R&R",
+    0.75
+   ],
+   [
+    "Quarter Panel LH",
+    0.61
+   ],
+   [
+    "Quarter Panel RH",
+    0.57
+   ],
+   [
+    "Boot Lid",
+    0.51
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.61
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.52
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.51
+   ]
+  ]
+ },
+ "Quarter Panel Liner Rear LH": {
+  "n": 59,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.97
+   ],
+   [
+    "Fuel Tank R&R",
+    0.85
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.85
+   ],
+   [
+    "Suspension Rear R&R",
+    0.83
+   ],
+   [
+    "Boot Floor",
+    0.78
+   ],
+   [
+    "Bumper Rear",
+    0.78
+   ],
+   [
+    "Bumper Rear R&R",
+    0.73
+   ],
+   [
+    "Rear Panel Assembly",
+    0.64
+   ],
+   [
+    "Quarter Panel LH",
+    0.59
+   ],
+   [
+    "Tailgate",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.58
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.53
+   ]
+  ]
+ },
+ "- as above -": {
+  "n": 56,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.73
+   ],
+   [
+    "Bumper Rear",
+    0.73
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.66
+   ],
+   [
+    "Suspension Rear R&R",
+    0.64
+   ],
+   [
+    "Fuel Tank R&R",
+    0.59
+   ],
+   [
+    "Boot Floor",
+    0.59
+   ],
+   [
+    "Bumper Rear R&R",
+    0.57
+   ],
+   [
+    "Rear Panel Assembly",
+    0.55
+   ],
+   [
+    "Quarter Panel LH",
+    0.52
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ]
+  ],
+  "R": []
+ },
+ "Rear Panel Inner Trim": {
+  "n": 55,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.98
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.98
+   ],
+   [
+    "Bumper Rear",
+    0.95
+   ],
+   [
+    "Suspension Rear R&R",
+    0.87
+   ],
+   [
+    "Boot Floor",
+    0.85
+   ],
+   [
+    "Fuel Tank R&R",
+    0.84
+   ],
+   [
+    "Rear Panel Assembly",
+    0.76
+   ],
+   [
+    "Bumper Rear R&R",
+    0.67
+   ],
+   [
+    "Quarter Panel RH",
+    0.64
+   ],
+   [
+    "Quarter Panel LH",
+    0.62
+   ],
+   [
+    "Boot Lid",
+    0.58
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.69
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.69
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.58
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.58
+   ]
+  ]
+ },
+ "Bumper Reflector Rear LH": {
+  "n": 54,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.98
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.93
+   ],
+   [
+    "Bumper Rear",
+    0.91
+   ],
+   [
+    "Suspension Rear R&R",
+    0.83
+   ],
+   [
+    "Fuel Tank R&R",
+    0.81
+   ],
+   [
+    "Boot Floor",
+    0.81
+   ],
+   [
+    "Rear Panel Assembly",
+    0.72
+   ],
+   [
+    "Bumper Rear R&R",
+    0.63
+   ],
+   [
+    "Quarter Panel LH",
+    0.61
+   ],
+   [
+    "Tailgate",
+    0.56
+   ],
+   [
+    "Quarter Panel RH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.63
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.63
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.56
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Reflector Rear RH": {
+  "n": 52,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.98
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.94
+   ],
+   [
+    "Bumper Rear",
+    0.94
+   ],
+   [
+    "Suspension Rear R&R",
+    0.87
+   ],
+   [
+    "Fuel Tank R&R",
+    0.81
+   ],
+   [
+    "Boot Floor",
+    0.81
+   ],
+   [
+    "Rear Panel Assembly",
+    0.71
+   ],
+   [
+    "Bumper Rear R&R",
+    0.63
+   ],
+   [
+    "Quarter Panel RH",
+    0.6
+   ],
+   [
+    "Quarter Panel LH",
+    0.58
+   ],
+   [
+    "Tailgate",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.63
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.58
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.56
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.52
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.52
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Rear Panel Assembly": {
+  "n": 50,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.92
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.92
+   ],
+   [
+    "Boot Floor",
+    0.88
+   ],
+   [
+    "Suspension Rear R&R",
+    0.86
+   ],
+   [
+    "Fuel Tank R&R",
+    0.84
+   ],
+   [
+    "Rear Panel Assembly",
+    0.84
+   ],
+   [
+    "Bumper Rear",
+    0.78
+   ],
+   [
+    "Bumper Rear R&R",
+    0.74
+   ],
+   [
+    "Quarter Panel LH",
+    0.54
+   ],
+   [
+    "Boot Lid",
+    0.52
+   ],
+   [
+    "Quarter Panel RH",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.56
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.52
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.52
+   ]
+  ]
+ },
+ "Bumper Bracket Rear RH": {
+  "n": 48,
+  "N": [
+   [
+    "Bumper Rear",
+    0.92
+   ],
+   [
+    "Fuel Tank R&R",
+    0.88
+   ],
+   [
+    "Suspension Rear R&R",
+    0.88
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.88
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.88
+   ],
+   [
+    "Bumper Rear R&R",
+    0.73
+   ],
+   [
+    "Quarter Panel LH",
+    0.69
+   ],
+   [
+    "Boot Floor",
+    0.67
+   ],
+   [
+    "Rear Panel Assembly",
+    0.62
+   ],
+   [
+    "Quarter Panel RH",
+    0.62
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.71
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.67
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.6
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.52
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.52
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.5
+   ]
+  ]
+ },
+ "Tailgate": {
+  "n": 48,
+  "N": [
+   [
+    "Tailgate",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.96
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.92
+   ],
+   [
+    "Bumper Rear",
+    0.9
+   ],
+   [
+    "Suspension Rear R&R",
+    0.77
+   ],
+   [
+    "Boot Floor",
+    0.77
+   ],
+   [
+    "Fuel Tank R&R",
+    0.75
+   ],
+   [
+    "Bumper Rear R&R",
+    0.69
+   ],
+   [
+    "Rear Panel Assembly",
+    0.58
+   ],
+   [
+    "Quarter Panel LH",
+    0.56
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.56
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.56
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.56
+   ],
+   [
+    "Windscreen Rear",
+    0.56
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.52
+   ]
+  ]
+ },
+ "Bumper Bracket Rear LH": {
+  "n": 47,
+  "N": [
+   [
+    "Suspension Rear R&R",
+    0.89
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.89
+   ],
+   [
+    "Bumper Rear",
+    0.89
+   ],
+   [
+    "Fuel Tank R&R",
+    0.87
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.85
+   ],
+   [
+    "Bumper Rear R&R",
+    0.72
+   ],
+   [
+    "Quarter Panel LH",
+    0.7
+   ],
+   [
+    "Boot Floor",
+    0.66
+   ],
+   [
+    "Rear Panel Assembly",
+    0.64
+   ],
+   [
+    "Quarter Panel RH",
+    0.6
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.68
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.66
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.55
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.53
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.53
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.51
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.51
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.51
+   ]
+  ]
+ },
+ "Wheel Rim Alloy": {
+  "n": 46,
+  "N": [
+   [
+    "Bumper Front",
+    0.5
+   ],
+   [
+    "Bumper Front R&R",
+    0.5
+   ]
+  ],
+  "R": []
+ },
+ "Spare Wheel Cover Board": {
+  "n": 46,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.96
+   ],
+   [
+    "Fuel Tank R&R",
+    0.89
+   ],
+   [
+    "Boot Floor",
+    0.89
+   ],
+   [
+    "Suspension Rear R&R",
+    0.87
+   ],
+   [
+    "Bumper Rear",
+    0.83
+   ],
+   [
+    "Bumper Rear R&R",
+    0.8
+   ],
+   [
+    "Rear Panel Assembly",
+    0.76
+   ],
+   [
+    "Quarter Panel RH",
+    0.59
+   ],
+   [
+    "Quarter Panel LH",
+    0.59
+   ],
+   [
+    "Boot Lid",
+    0.59
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.61
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.61
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.61
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.59
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.59
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.59
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Front Cover": {
+  "n": 44,
+  "N": [
+   [
+    "Bumper Front",
+    0.95
+   ],
+   [
+    "Bumper Front R&R",
+    0.82
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.7
+   ],
+   [
+    "Bonnet",
+    0.59
+   ],
+   [
+    "Fender Front RH",
+    0.57
+   ],
+   [
+    "Fender Front LH",
+    0.55
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.68
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.55
+   ]
+  ]
+ },
+ "Boot Lid": {
+  "n": 43,
+  "N": [
+   [
+    "Boot Lid",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.98
+   ],
+   [
+    "Suspension Rear R&R",
+    0.93
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.91
+   ],
+   [
+    "Boot Floor",
+    0.91
+   ],
+   [
+    "Rear Panel Assembly",
+    0.88
+   ],
+   [
+    "Fuel Tank R&R",
+    0.86
+   ],
+   [
+    "Bumper Rear",
+    0.81
+   ],
+   [
+    "Bumper Rear R&R",
+    0.79
+   ],
+   [
+    "Quarter Panel RH",
+    0.65
+   ],
+   [
+    "Quarter Panel LH",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.67
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.65
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.6
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.6
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.58
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.58
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.56
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.56
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Extension RH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Extension LH",
+    0.51
+   ]
+  ]
+ },
+ "Tailgate Striker": {
+  "n": 42,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.98
+   ],
+   [
+    "Tailgate",
+    0.95
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.95
+   ],
+   [
+    "Bumper Rear",
+    0.88
+   ],
+   [
+    "Boot Floor",
+    0.81
+   ],
+   [
+    "Fuel Tank R&R",
+    0.76
+   ],
+   [
+    "Suspension Rear R&R",
+    0.76
+   ],
+   [
+    "Bumper Rear R&R",
+    0.62
+   ],
+   [
+    "Quarter Panel LH",
+    0.6
+   ],
+   [
+    "Rear Panel Assembly",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.62
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.6
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.6
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.57
+   ],
+   [
+    "Windscreen Rear",
+    0.55
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.52
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.5
+   ]
+  ]
+ },
+ "Boot Lid Aperture Weatherstrip": {
+  "n": 39,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.97
+   ],
+   [
+    "Boot Lid",
+    0.92
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.9
+   ],
+   [
+    "Suspension Rear R&R",
+    0.85
+   ],
+   [
+    "Fuel Tank R&R",
+    0.82
+   ],
+   [
+    "Rear Panel Assembly",
+    0.82
+   ],
+   [
+    "Bumper Rear R&R",
+    0.82
+   ],
+   [
+    "Boot Floor",
+    0.82
+   ],
+   [
+    "Bumper Rear",
+    0.77
+   ],
+   [
+    "Quarter Panel RH",
+    0.59
+   ],
+   [
+    "Quarter Panel LH",
+    0.51
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.69
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.59
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.59
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.59
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner Extension RH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner Extension LH",
+    0.51
+   ]
+  ]
+ },
+ "Tailgate Lock": {
+  "n": 39,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Tailgate",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.95
+   ],
+   [
+    "Bumper Rear",
+    0.87
+   ],
+   [
+    "Suspension Rear R&R",
+    0.77
+   ],
+   [
+    "Boot Floor",
+    0.77
+   ],
+   [
+    "Fuel Tank R&R",
+    0.74
+   ],
+   [
+    "Bumper Rear R&R",
+    0.69
+   ],
+   [
+    "Rear Panel Assembly",
+    0.62
+   ],
+   [
+    "Quarter Panel LH",
+    0.56
+   ],
+   [
+    "Quarter Panel RH",
+    0.51
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.59
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.56
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.56
+   ],
+   [
+    "Windscreen Rear",
+    0.56
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.56
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.51
+   ]
+  ]
+ },
+ "Boot Lid Striker": {
+  "n": 38,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.95
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.95
+   ],
+   [
+    "Boot Lid",
+    0.95
+   ],
+   [
+    "Suspension Rear R&R",
+    0.92
+   ],
+   [
+    "Boot Floor",
+    0.92
+   ],
+   [
+    "Fuel Tank R&R",
+    0.89
+   ],
+   [
+    "Rear Panel Assembly",
+    0.89
+   ],
+   [
+    "Bumper Rear R&R",
+    0.79
+   ],
+   [
+    "Bumper Rear",
+    0.76
+   ],
+   [
+    "Quarter Panel RH",
+    0.58
+   ],
+   [
+    "Quarter Panel LH",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.66
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.63
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.55
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Extension RH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner Extension LH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.5
+   ]
+  ]
+ },
+ "Tailgate Support Strut LH": {
+  "n": 37,
+  "N": [
+   [
+    "Tailgate",
+    0.95
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.95
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.92
+   ],
+   [
+    "Bumper Rear",
+    0.86
+   ],
+   [
+    "Suspension Rear R&R",
+    0.76
+   ],
+   [
+    "Boot Floor",
+    0.76
+   ],
+   [
+    "Fuel Tank R&R",
+    0.7
+   ],
+   [
+    "Bumper Rear R&R",
+    0.68
+   ],
+   [
+    "Rear Panel Assembly",
+    0.51
+   ],
+   [
+    "Quarter Panel LH",
+    0.51
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.7
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.68
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.68
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.68
+   ],
+   [
+    "Windscreen Rear",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.51
+   ]
+  ]
+ },
+ "Tailgate Support Strut RH": {
+  "n": 36,
+  "N": [
+   [
+    "Tailgate",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.92
+   ],
+   [
+    "Bumper Rear",
+    0.86
+   ],
+   [
+    "Suspension Rear R&R",
+    0.78
+   ],
+   [
+    "Boot Floor",
+    0.75
+   ],
+   [
+    "Fuel Tank R&R",
+    0.72
+   ],
+   [
+    "Bumper Rear R&R",
+    0.69
+   ],
+   [
+    "Rear Panel Assembly",
+    0.53
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.69
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.69
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.69
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.67
+   ],
+   [
+    "Windscreen Rear",
+    0.64
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.56
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.53
+   ]
+  ]
+ },
+ "Boot Lid Hinge RH": {
+  "n": 36,
+  "N": [
+   [
+    "Rear Panel Assembly",
+    0.94
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.94
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.94
+   ],
+   [
+    "Boot Lid",
+    0.92
+   ],
+   [
+    "Suspension Rear R&R",
+    0.89
+   ],
+   [
+    "Boot Floor",
+    0.89
+   ],
+   [
+    "Fuel Tank R&R",
+    0.83
+   ],
+   [
+    "Bumper Rear R&R",
+    0.81
+   ],
+   [
+    "Bumper Rear",
+    0.78
+   ],
+   [
+    "Quarter Panel RH",
+    0.53
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel Inner LH",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.67
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.64
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.61
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.58
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.58
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner Extension LH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Extension RH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner Striker Reinforcement Panel RH",
+    0.5
+   ]
+  ]
+ },
+ "Boot Lid Lock": {
+  "n": 35,
+  "N": [
+   [
+    "Boot Lid",
+    0.97
+   ],
+   [
+    "Suspension Rear R&R",
+    0.94
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.94
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.94
+   ],
+   [
+    "Fuel Tank R&R",
+    0.91
+   ],
+   [
+    "Boot Floor",
+    0.91
+   ],
+   [
+    "Rear Panel Assembly",
+    0.89
+   ],
+   [
+    "Bumper Rear R&R",
+    0.83
+   ],
+   [
+    "Bumper Rear",
+    0.77
+   ],
+   [
+    "Quarter Panel RH",
+    0.63
+   ],
+   [
+    "Quarter Panel LH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.69
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.66
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.57
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.57
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner Extension RH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.51
+   ],
+   [
+    "Quarter Panel Inner Extension LH",
+    0.51
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.51
+   ]
+  ]
+ },
+ "Quarter Panel RH": {
+  "n": 35,
+  "N": [
+   [
+    "Quarter Panel RH",
+    0.97
+   ],
+   [
+    "Bumper Rear",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.89
+   ],
+   [
+    "Fuel Tank R&R",
+    0.83
+   ],
+   [
+    "Suspension Rear R&R",
+    0.77
+   ],
+   [
+    "Bumper Rear R&R",
+    0.74
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.71
+   ],
+   [
+    "Boot Floor",
+    0.69
+   ],
+   [
+    "Quarter Panel LH",
+    0.66
+   ],
+   [
+    "Rear Panel Assembly",
+    0.54
+   ],
+   [
+    "Boot Lid",
+    0.51
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.71
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.57
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.51
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.51
+   ]
+  ]
+ },
+ "Quarter Panel LH": {
+  "n": 34,
+  "N": [
+   [
+    "Quarter Panel LH",
+    0.97
+   ],
+   [
+    "Bumper Rear",
+    0.91
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.88
+   ],
+   [
+    "Fuel Tank R&R",
+    0.85
+   ],
+   [
+    "Suspension Rear R&R",
+    0.82
+   ],
+   [
+    "Boot Floor",
+    0.76
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.76
+   ],
+   [
+    "Bumper Rear R&R",
+    0.71
+   ],
+   [
+    "Quarter Panel RH",
+    0.68
+   ],
+   [
+    "Rear Panel Assembly",
+    0.59
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.65
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.56
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.53
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Tailgate Finisher": {
+  "n": 33,
+  "N": [
+   [
+    "Tailgate",
+    0.94
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.94
+   ],
+   [
+    "Bumper Rear",
+    0.94
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.94
+   ],
+   [
+    "Boot Floor",
+    0.79
+   ],
+   [
+    "Fuel Tank R&R",
+    0.73
+   ],
+   [
+    "Suspension Rear R&R",
+    0.7
+   ],
+   [
+    "Rear Panel Assembly",
+    0.61
+   ],
+   [
+    "Bumper Rear R&R",
+    0.58
+   ],
+   [
+    "Quarter Panel LH",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.64
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.64
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.61
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.61
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.58
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.55
+   ],
+   [
+    "Windscreen Rear",
+    0.52
+   ]
+  ]
+ },
+ "Tailgate Trimboard": {
+  "n": 33,
+  "N": [
+   [
+    "Tailgate",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.94
+   ],
+   [
+    "Bumper Rear",
+    0.91
+   ],
+   [
+    "Boot Floor",
+    0.82
+   ],
+   [
+    "Fuel Tank R&R",
+    0.79
+   ],
+   [
+    "Suspension Rear R&R",
+    0.79
+   ],
+   [
+    "Bumper Rear R&R",
+    0.64
+   ],
+   [
+    "Quarter Panel LH",
+    0.55
+   ],
+   [
+    "Rear Panel Assembly",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.64
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.61
+   ],
+   [
+    "Windscreen Rear",
+    0.61
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.61
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.58
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.58
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.52
+   ]
+  ]
+ },
+ "Door Striker": {
+  "n": 32,
+  "N": [
+   [
+    "Bumper Front",
+    0.5
+   ]
+  ],
+  "R": []
+ },
+ "Fender Front Liner LH": {
+  "n": 32,
+  "N": [
+   [
+    "Fender Front LH",
+    0.84
+   ],
+   [
+    "Bumper Front",
+    0.81
+   ],
+   [
+    "Bumper Front R&R",
+    0.75
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.75
+   ],
+   [
+    "Bonnet",
+    0.69
+   ],
+   [
+    "Door Front LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Fender Front Inner LH",
+    0.62
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.62
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.62
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.59
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.56
+   ]
+  ]
+ },
+ "Headlamp Assy RH": {
+  "n": 31,
+  "N": [
+   [
+    "Bumper Front",
+    0.97
+   ],
+   [
+    "Bumper Front R&R",
+    0.81
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.74
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.71
+   ],
+   [
+    "Fender Front RH",
+    0.71
+   ],
+   [
+    "Bonnet",
+    0.71
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.9
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.71
+   ],
+   [
+    "Fender Front Inner RH",
+    0.52
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.52
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.52
+   ]
+  ]
+ },
+ "Quarter Panel Outer LH": {
+  "n": 30,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.97
+   ],
+   [
+    "Suspension Rear R&R",
+    0.9
+   ],
+   [
+    "Fuel Tank R&R",
+    0.87
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.83
+   ],
+   [
+    "Bumper Rear R&R",
+    0.77
+   ],
+   [
+    "Boot Floor",
+    0.77
+   ],
+   [
+    "Bumper Rear",
+    0.77
+   ],
+   [
+    "Rear Panel Assembly",
+    0.73
+   ],
+   [
+    "Quarter Panel LH",
+    0.63
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.63
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.53
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.5
+   ]
+  ]
+ },
+ "Quarter Panel Outer RH": {
+  "n": 30,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.93
+   ],
+   [
+    "Suspension Rear R&R",
+    0.87
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.8
+   ],
+   [
+    "Boot Floor",
+    0.8
+   ],
+   [
+    "Rear Panel Assembly",
+    0.77
+   ],
+   [
+    "Fuel Tank R&R",
+    0.73
+   ],
+   [
+    "Bumper Rear R&R",
+    0.67
+   ],
+   [
+    "Bumper Rear",
+    0.67
+   ],
+   [
+    "Boot Lid",
+    0.57
+   ],
+   [
+    "Quarter Panel RH",
+    0.57
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.5
+   ]
+  ]
+ },
+ "Fender Front LH": {
+  "n": 30,
+  "N": [
+   [
+    "Fender Front LH",
+    0.97
+   ],
+   [
+    "Bumper Front",
+    0.83
+   ],
+   [
+    "Bumper Front R&R",
+    0.73
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.7
+   ],
+   [
+    "Bonnet",
+    0.67
+   ],
+   [
+    "Door Front LH",
+    0.53
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Fender Front Inner LH",
+    0.63
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.6
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.57
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.57
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.53
+   ]
+  ]
+ },
+ "Fender Front Liner RH": {
+  "n": 30,
+  "N": [
+   [
+    "Bumper Front",
+    0.93
+   ],
+   [
+    "Bumper Front R&R",
+    0.8
+   ],
+   [
+    "Fender Front RH",
+    0.8
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.73
+   ],
+   [
+    "Bonnet",
+    0.67
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.6
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.9
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.67
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.6
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.57
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.53
+   ],
+   [
+    "Fender Front Inner RH",
+    0.5
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.5
+   ]
+  ]
+ },
+ "Tailgate Aperture Weatherstrip": {
+  "n": 29,
+  "N": [
+   [
+    "Tailgate",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.93
+   ],
+   [
+    "Bumper Rear",
+    0.93
+   ],
+   [
+    "Boot Floor",
+    0.83
+   ],
+   [
+    "Fuel Tank R&R",
+    0.72
+   ],
+   [
+    "Suspension Rear R&R",
+    0.69
+   ],
+   [
+    "Rear Panel Assembly",
+    0.69
+   ],
+   [
+    "Bumper Rear R&R",
+    0.59
+   ],
+   [
+    "Quarter Panel RH",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.59
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.55
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.52
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.52
+   ]
+  ]
+ },
+ "Door Rear RH": {
+  "n": 29,
+  "N": [
+   [
+    "Door Rear RH",
+    1.0
+   ],
+   [
+    "Bumper Rear R&R",
+    0.69
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.62
+   ],
+   [
+    "Suspension Rear R&R",
+    0.59
+   ],
+   [
+    "Quarter Panel RH",
+    0.55
+   ]
+  ],
+  "R": []
+ },
+ "Bonnet Hinge LH": {
+  "n": 29,
+  "N": [
+   [
+    "Bumper Front",
+    0.97
+   ],
+   [
+    "Bonnet",
+    0.93
+   ],
+   [
+    "Bumper Front R&R",
+    0.86
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.79
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.69
+   ],
+   [
+    "Fender Front LH",
+    0.62
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.62
+   ],
+   [
+    "Fender Front RH",
+    0.55
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.55
+   ],
+   [
+    "Crossmember Front",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.86
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.86
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.52
+   ]
+  ]
+ },
+ "Bonnet Hinge RH": {
+  "n": 29,
+  "N": [
+   [
+    "Bumper Front",
+    0.97
+   ],
+   [
+    "Bonnet",
+    0.93
+   ],
+   [
+    "Bumper Front R&R",
+    0.86
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.79
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.69
+   ],
+   [
+    "Fender Front LH",
+    0.62
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.62
+   ],
+   [
+    "Fender Front RH",
+    0.55
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.55
+   ],
+   [
+    "Crossmember Front",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.86
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.86
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.52
+   ]
+  ]
+ },
+ "Headlamp Assy LH": {
+  "n": 29,
+  "N": [
+   [
+    "Bumper Front",
+    0.9
+   ],
+   [
+    "Bonnet",
+    0.76
+   ],
+   [
+    "Bumper Front R&R",
+    0.76
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.76
+   ],
+   [
+    "Fender Front LH",
+    0.76
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.62
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.72
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.69
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.55
+   ],
+   [
+    "Fender Front Inner LH",
+    0.52
+   ]
+  ]
+ },
+ "Tailgate Hinge": {
+  "n": 29,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Tailgate",
+    0.97
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.97
+   ],
+   [
+    "Bumper Rear",
+    0.86
+   ],
+   [
+    "Boot Floor",
+    0.79
+   ],
+   [
+    "Fuel Tank R&R",
+    0.72
+   ],
+   [
+    "Suspension Rear R&R",
+    0.72
+   ],
+   [
+    "Rear Panel Assembly",
+    0.66
+   ],
+   [
+    "Bumper Rear R&R",
+    0.66
+   ],
+   [
+    "Quarter Panel LH",
+    0.55
+   ],
+   [
+    "Quarter Panel RH",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.55
+   ],
+   [
+    "Windscreen Rear",
+    0.52
+   ]
+  ]
+ },
+ "Bumper Rear Retainer/Guide LH": {
+  "n": 28,
+  "N": [
+   [
+    "Bumper Rear",
+    0.93
+   ],
+   [
+    "Fuel Tank R&R",
+    0.86
+   ],
+   [
+    "Suspension Rear R&R",
+    0.86
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.82
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.82
+   ],
+   [
+    "Boot Floor",
+    0.71
+   ],
+   [
+    "Bumper Rear R&R",
+    0.68
+   ],
+   [
+    "Rear Panel Assembly",
+    0.61
+   ],
+   [
+    "Quarter Panel RH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.61
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.61
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.54
+   ]
+  ]
+ },
+ "Bumper Rear Retainer LH": {
+  "n": 28,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    0.82
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.79
+   ],
+   [
+    "Suspension Rear R&R",
+    0.71
+   ],
+   [
+    "Rear Panel Assembly",
+    0.71
+   ],
+   [
+    "Bumper Rear R&R",
+    0.68
+   ],
+   [
+    "Boot Floor",
+    0.68
+   ],
+   [
+    "Quarter Panel RH",
+    0.61
+   ],
+   [
+    "Fuel Tank R&R",
+    0.57
+   ],
+   [
+    "Boot Lid",
+    0.57
+   ]
+  ],
+  "R": []
+ },
+ "Bumper Rear Reinforcement": {
+  "n": 28,
+  "N": [
+   [
+    "Bumper Rear",
+    0.96
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.86
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.82
+   ],
+   [
+    "Boot Floor",
+    0.75
+   ],
+   [
+    "Fuel Tank R&R",
+    0.75
+   ],
+   [
+    "Suspension Rear R&R",
+    0.68
+   ],
+   [
+    "Bumper Rear R&R",
+    0.68
+   ],
+   [
+    "Quarter Panel RH",
+    0.64
+   ],
+   [
+    "Quarter Panel LH",
+    0.54
+   ],
+   [
+    "Rear Panel Assembly",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel Inner LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.5
+   ]
+  ]
+ },
+ "Door Rear LH": {
+  "n": 27,
+  "N": [
+   [
+    "Door Rear LH",
+    1.0
+   ],
+   [
+    "Bumper Rear R&R",
+    0.81
+   ],
+   [
+    "Fuel Tank R&R",
+    0.74
+   ],
+   [
+    "Suspension Rear R&R",
+    0.74
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.7
+   ],
+   [
+    "Quarter Panel LH",
+    0.56
+   ],
+   [
+    "Door Front LH",
+    0.52
+   ],
+   [
+    "Bumper Rear",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.67
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.52
+   ]
+  ]
+ },
+ "Bonnet": {
+  "n": 27,
+  "N": [
+   [
+    "Bonnet",
+    1.0
+   ],
+   [
+    "Bumper Front",
+    0.96
+   ],
+   [
+    "Bumper Front R&R",
+    0.85
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.85
+   ],
+   [
+    "Fender Front LH",
+    0.67
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.63
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.59
+   ],
+   [
+    "Fender Front RH",
+    0.56
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.56
+   ],
+   [
+    "Crossmember Front",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.85
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.81
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.59
+   ],
+   [
+    "Fender Front Inner LH",
+    0.52
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.52
+   ]
+  ]
+ },
+ "Fender Front RH": {
+  "n": 27,
+  "N": [
+   [
+    "Fender Front RH",
+    0.96
+   ],
+   [
+    "Bumper Front",
+    0.93
+   ],
+   [
+    "Bumper Front R&R",
+    0.85
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.7
+   ],
+   [
+    "Bonnet",
+    0.63
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.63
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.85
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.63
+   ],
+   [
+    "Fender Front Inner RH",
+    0.56
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.56
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.56
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.52
+   ]
+  ]
+ },
+ "Suspension Crossmember Rear": {
+  "n": 27,
+  "N": [
+   [
+    "Bumper Rear",
+    0.78
+   ],
+   [
+    "Bumper Rear R&R",
+    0.74
+   ],
+   [
+    "Suspension Rear R&R",
+    0.63
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.56
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.56
+   ]
+  ],
+  "R": []
+ },
+ "Bumper Rear Retainer/Guide RH": {
+  "n": 26,
+  "N": [
+   [
+    "Bumper Rear",
+    0.96
+   ],
+   [
+    "Suspension Rear R&R",
+    0.88
+   ],
+   [
+    "Fuel Tank R&R",
+    0.85
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.85
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.81
+   ],
+   [
+    "Boot Floor",
+    0.73
+   ],
+   [
+    "Bumper Rear R&R",
+    0.65
+   ],
+   [
+    "Quarter Panel RH",
+    0.58
+   ],
+   [
+    "Rear Panel Assembly",
+    0.58
+   ],
+   [
+    "Boot Lid",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.54
+   ]
+  ]
+ },
+ "Bootlid Finisher": {
+  "n": 26,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.96
+   ],
+   [
+    "Boot Lid",
+    0.92
+   ],
+   [
+    "Suspension Rear R&R",
+    0.88
+   ],
+   [
+    "Boot Floor",
+    0.88
+   ],
+   [
+    "Fuel Tank R&R",
+    0.85
+   ],
+   [
+    "Rear Panel Assembly",
+    0.85
+   ],
+   [
+    "Bumper Rear",
+    0.73
+   ],
+   [
+    "Bumper Rear R&R",
+    0.65
+   ],
+   [
+    "Quarter Panel RH",
+    0.54
+   ],
+   [
+    "Quarter Panel LH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Rear Retainer RH": {
+  "n": 26,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    0.81
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.77
+   ],
+   [
+    "Suspension Rear R&R",
+    0.73
+   ],
+   [
+    "Rear Panel Assembly",
+    0.73
+   ],
+   [
+    "Bumper Rear R&R",
+    0.69
+   ],
+   [
+    "Boot Floor",
+    0.65
+   ],
+   [
+    "Quarter Panel RH",
+    0.62
+   ],
+   [
+    "Fuel Tank R&R",
+    0.58
+   ],
+   [
+    "Boot Lid",
+    0.58
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel Inner RH",
+    0.5
+   ]
+  ]
+ },
+ "Chassis Member Rear LH": {
+  "n": 25,
+  "N": [
+   [
+    "Fuel Tank R&R",
+    0.96
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.96
+   ],
+   [
+    "Suspension Rear R&R",
+    0.92
+   ],
+   [
+    "Bumper Rear R&R",
+    0.92
+   ],
+   [
+    "Boot Floor",
+    0.88
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.88
+   ],
+   [
+    "Rear Panel Assembly",
+    0.84
+   ],
+   [
+    "Bumper Rear",
+    0.6
+   ],
+   [
+    "Boot Lid",
+    0.56
+   ],
+   [
+    "Quarter Panel LH",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.64
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.6
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.52
+   ],
+   [
+    "Quarter Panel (B) RH",
+    0.52
+   ]
+  ]
+ },
+ "Rear Panel": {
+  "n": 25,
+  "N": [
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.96
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.92
+   ],
+   [
+    "Fuel Tank R&R",
+    0.72
+   ],
+   [
+    "Suspension Rear R&R",
+    0.72
+   ],
+   [
+    "Boot Floor",
+    0.68
+   ],
+   [
+    "Tailgate",
+    0.68
+   ],
+   [
+    "Bumper Rear R&R",
+    0.64
+   ],
+   [
+    "Quarter Panel RH",
+    0.6
+   ],
+   [
+    "Quarter Panel LH",
+    0.56
+   ],
+   [
+    "Rear Panel Assembly",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.52
+   ]
+  ]
+ },
+ "Chassis Member Rear RH": {
+  "n": 23,
+  "N": [
+   [
+    "Fuel Tank R&R",
+    1.0
+   ],
+   [
+    "Suspension Rear R&R",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear R&R",
+    0.96
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.96
+   ],
+   [
+    "Boot Floor",
+    0.91
+   ],
+   [
+    "Rear Panel Assembly",
+    0.83
+   ],
+   [
+    "Bumper Rear",
+    0.65
+   ],
+   [
+    "Boot Lid",
+    0.57
+   ],
+   [
+    "Quarter Panel RH",
+    0.57
+   ],
+   [
+    "Quarter Panel LH",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.7
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.7
+   ],
+   [
+    "Quarter Panel (B) RH",
+    0.61
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.57
+   ]
+  ]
+ },
+ "Bonnet Lock": {
+  "n": 23,
+  "N": [
+   [
+    "Bumper Front",
+    0.96
+   ],
+   [
+    "Bonnet",
+    0.91
+   ],
+   [
+    "Bumper Front R&R",
+    0.87
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.78
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.78
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.65
+   ],
+   [
+    "Fender Front RH",
+    0.65
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.61
+   ],
+   [
+    "Fender Front LH",
+    0.57
+   ],
+   [
+    "Front Panel Upper",
+    0.52
+   ],
+   [
+    "Chassis Member Front RH",
+    0.52
+   ],
+   [
+    "Crossmember Front",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.91
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.91
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.57
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.57
+   ],
+   [
+    "Front Panel",
+    0.52
+   ],
+   [
+    "Headlamp Panel LH",
+    0.52
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.52
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.52
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.52
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.52
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.52
+   ]
+  ]
+ },
+ "Door Front LH": {
+  "n": 22,
+  "N": [
+   [
+    "Door Front LH",
+    1.0
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.73
+   ],
+   [
+    "Fender Front LH",
+    0.68
+   ],
+   [
+    "Door Rear LH",
+    0.64
+   ],
+   [
+    "Bumper Front",
+    0.55
+   ],
+   [
+    "Bumper Front R&R",
+    0.5
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window LH (tts)",
+    0.77
+   ],
+   [
+    "Doorskin Front LH",
+    0.64
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.5
+   ],
+   [
+    "Fender Front Inner LH",
+    0.5
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.5
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Mirror LH": {
+  "n": 22,
+  "N": [
+   [
+    "Door Front LH",
+    0.91
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.73
+   ],
+   [
+    "Fender Front LH",
+    0.68
+   ],
+   [
+    "Bumper Front",
+    0.59
+   ],
+   [
+    "Door Rear LH",
+    0.59
+   ],
+   [
+    "Bumper Front R&R",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window LH (tts)",
+    0.73
+   ],
+   [
+    "Doorskin Front LH",
+    0.59
+   ],
+   [
+    "Fender Front Inner LH",
+    0.55
+   ]
+  ]
+ },
+ "Lamp Assembly Rear Inner LH": {
+  "n": 21,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Fuel Tank R&R",
+    0.95
+   ],
+   [
+    "Suspension Rear R&R",
+    0.95
+   ],
+   [
+    "Boot Floor",
+    0.9
+   ],
+   [
+    "Bumper Rear R&R",
+    0.76
+   ],
+   [
+    "Bumper Rear",
+    0.71
+   ],
+   [
+    "Rear Panel Assembly",
+    0.57
+   ],
+   [
+    "Tailgate",
+    0.52
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.76
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.71
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.52
+   ],
+   [
+    "Windscreen Rear",
+    0.52
+   ]
+  ]
+ },
+ "Chassis Member Rear Assembly LH": {
+  "n": 21,
+  "N": [
+   [
+    "Fuel Tank R&R",
+    1.0
+   ],
+   [
+    "Suspension Rear R&R",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.95
+   ],
+   [
+    "Bumper Rear R&R",
+    0.95
+   ],
+   [
+    "Bumper Rear",
+    0.9
+   ],
+   [
+    "Boot Floor",
+    0.81
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.81
+   ],
+   [
+    "Quarter Panel LH",
+    0.76
+   ],
+   [
+    "Rear Panel Assembly",
+    0.67
+   ],
+   [
+    "Quarter Panel RH",
+    0.57
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel Inner LH",
+    0.86
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.86
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.86
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.81
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.81
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.76
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.76
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.71
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.71
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.67
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.67
+   ],
+   [
+    "Quarter Panel Inner Striker Reinforcement Panel RH",
+    0.67
+   ],
+   [
+    "Towing Eye Bracket Rear RH",
+    0.67
+   ],
+   [
+    "Rear Panel Reinforcement LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.62
+   ],
+   [
+    "Quarter Panel (B) RH",
+    0.57
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.57
+   ]
+  ]
+ },
+ "Bumper Reinforcement Front": {
+  "n": 21,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Bumper Front R&R",
+    0.9
+   ],
+   [
+    "Bonnet",
+    0.9
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.81
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.76
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.67
+   ],
+   [
+    "Fender Front RH",
+    0.62
+   ],
+   [
+    "Fender Front LH",
+    0.62
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.62
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.95
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.9
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.57
+   ],
+   [
+    "Headlamp Panel LH",
+    0.52
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.52
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.52
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.52
+   ]
+  ]
+ },
+ "Shock Absorber Rear": {
+  "n": 20,
+  "N": [
+   [
+    "Bumper Rear",
+    0.8
+   ],
+   [
+    "Suspension Rear R&R",
+    0.7
+   ],
+   [
+    "Bumper Rear R&R",
+    0.65
+   ],
+   [
+    "Fuel Tank R&R",
+    0.55
+   ],
+   [
+    "Rear Panel Assembly",
+    0.55
+   ],
+   [
+    "Quarter Panel LH",
+    0.55
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.55
+   ]
+  ],
+  "R": []
+ },
+ "Boot Side Trim LH": {
+  "n": 20,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.95
+   ],
+   [
+    "Bumper Rear",
+    0.9
+   ],
+   [
+    "Boot Floor",
+    0.75
+   ],
+   [
+    "Fuel Tank R&R",
+    0.65
+   ],
+   [
+    "Suspension Rear R&R",
+    0.6
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ],
+   [
+    "Rear Panel Assembly",
+    0.5
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ],
+   [
+    "Tailgate",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel Inner LH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.5
+   ]
+  ]
+ },
+ "Chassis Member Rear Assembly RH": {
+  "n": 19,
+  "N": [
+   [
+    "Fuel Tank R&R",
+    1.0
+   ],
+   [
+    "Suspension Rear R&R",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear R&R",
+    0.95
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.89
+   ],
+   [
+    "Boot Floor",
+    0.89
+   ],
+   [
+    "Bumper Rear",
+    0.89
+   ],
+   [
+    "Rear Panel Assembly",
+    0.74
+   ],
+   [
+    "Quarter Panel RH",
+    0.74
+   ],
+   [
+    "Quarter Panel LH",
+    0.63
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.89
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.89
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.79
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.79
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.74
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.74
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.74
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.74
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.74
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.74
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.68
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.68
+   ],
+   [
+    "Quarter Panel Inner Striker Reinforcement Panel RH",
+    0.68
+   ],
+   [
+    "Towing Eye Bracket Rear RH",
+    0.68
+   ],
+   [
+    "Quarter Panel (B) RH",
+    0.68
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.63
+   ],
+   [
+    "Rear Panel Reinforcement LH",
+    0.63
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.53
+   ]
+  ]
+ },
+ "Rear Lamp Panel LH": {
+  "n": 19,
+  "N": [
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.95
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.95
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.84
+   ],
+   [
+    "Fuel Tank R&R",
+    0.79
+   ],
+   [
+    "Suspension Rear R&R",
+    0.79
+   ],
+   [
+    "Quarter Panel LH",
+    0.79
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.79
+   ],
+   [
+    "Boot Floor",
+    0.79
+   ],
+   [
+    "Rear Panel Assembly",
+    0.74
+   ],
+   [
+    "Quarter Panel RH",
+    0.63
+   ],
+   [
+    "Tailgate",
+    0.58
+   ],
+   [
+    "Bumper Rear R&R",
+    0.58
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.68
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.68
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.58
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.58
+   ]
+  ]
+ },
+ "Radiator": {
+  "n": 19,
+  "N": [
+   [
+    "Bumper Front",
+    0.95
+   ],
+   [
+    "Bonnet",
+    0.89
+   ],
+   [
+    "Bumper Front R&R",
+    0.84
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.79
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.79
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.74
+   ],
+   [
+    "Fender Front LH",
+    0.68
+   ],
+   [
+    "Fender Front RH",
+    0.68
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.68
+   ],
+   [
+    "Chassis Member Front LH",
+    0.58
+   ],
+   [
+    "Front Panel Upper",
+    0.53
+   ],
+   [
+    "Front Panel Assembly",
+    0.53
+   ],
+   [
+    "Crossmember Front",
+    0.53
+   ],
+   [
+    "Chassis Member Front RH",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.95
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.95
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.63
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.58
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.58
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.58
+   ],
+   [
+    "Front Panel",
+    0.53
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.53
+   ],
+   [
+    "Fender Front Inner LH",
+    0.53
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.53
+   ]
+  ]
+ },
+ "Boot Side Trim RH": {
+  "n": 19,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.95
+   ],
+   [
+    "Bumper Rear",
+    0.89
+   ],
+   [
+    "Boot Floor",
+    0.74
+   ],
+   [
+    "Fuel Tank R&R",
+    0.68
+   ],
+   [
+    "Suspension Rear R&R",
+    0.63
+   ],
+   [
+    "Bumper Rear R&R",
+    0.53
+   ],
+   [
+    "Rear Panel Assembly",
+    0.53
+   ],
+   [
+    "Quarter Panel RH",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel Inner LH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.53
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.53
+   ]
+  ]
+ },
+ "Door Rear Hinge Lower RH": {
+  "n": 18,
+  "N": [
+   [
+    "Door Rear RH",
+    0.94
+   ],
+   [
+    "Quarter Panel RH",
+    0.72
+   ],
+   [
+    "Door Front RH",
+    0.61
+   ],
+   [
+    "Bumper Rear",
+    0.5
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Rear RH",
+    0.67
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.61
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.56
+   ],
+   [
+    "Doorskin Front RH",
+    0.5
+   ]
+  ]
+ },
+ "Rear Lamp Panel RH": {
+  "n": 18,
+  "N": [
+   [
+    "Rear Lamp Panel RH",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.89
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.83
+   ],
+   [
+    "Fuel Tank R&R",
+    0.78
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.78
+   ],
+   [
+    "Suspension Rear R&R",
+    0.72
+   ],
+   [
+    "Rear Panel Assembly",
+    0.72
+   ],
+   [
+    "Quarter Panel RH",
+    0.72
+   ],
+   [
+    "Boot Floor",
+    0.72
+   ],
+   [
+    "Quarter Panel LH",
+    0.67
+   ],
+   [
+    "Tailgate",
+    0.56
+   ],
+   [
+    "Bumper Rear R&R",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.72
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.72
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Tailgate Hinge LH": {
+  "n": 17,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Tailgate",
+    0.94
+   ],
+   [
+    "Bumper Rear",
+    0.94
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.94
+   ],
+   [
+    "Fuel Tank R&R",
+    0.82
+   ],
+   [
+    "Suspension Rear R&R",
+    0.82
+   ],
+   [
+    "Boot Floor",
+    0.76
+   ],
+   [
+    "Bumper Rear R&R",
+    0.65
+   ],
+   [
+    "Quarter Panel LH",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.82
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.76
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.71
+   ],
+   [
+    "Windscreen Rear",
+    0.65
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.59
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.53
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.53
+   ]
+  ]
+ },
+ "Tailgate Hinge RH": {
+  "n": 17,
+  "N": [
+   [
+    "Tailgate",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    0.94
+   ],
+   [
+    "Fuel Tank R&R",
+    0.88
+   ],
+   [
+    "Suspension Rear R&R",
+    0.88
+   ],
+   [
+    "Boot Floor",
+    0.76
+   ],
+   [
+    "Bumper Rear R&R",
+    0.71
+   ],
+   [
+    "Quarter Panel LH",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.82
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.82
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.71
+   ],
+   [
+    "Windscreen Rear",
+    0.71
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.65
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.59
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.59
+   ]
+  ]
+ },
+ "Wheel Hub Front": {
+  "n": 17,
+  "N": [
+   [
+    "Bumper Front",
+    0.94
+   ],
+   [
+    "Bumper Front R&R",
+    0.82
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.65
+   ],
+   [
+    "Fender Front RH",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.53
+   ]
+  ]
+ },
+ "Suspension Spring Rear": {
+  "n": 17,
+  "N": [
+   [
+    "Bumper Rear",
+    0.82
+   ],
+   [
+    "Bumper Rear R&R",
+    0.76
+   ],
+   [
+    "Fuel Tank R&R",
+    0.65
+   ],
+   [
+    "Suspension Rear R&R",
+    0.65
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.53
+   ]
+  ],
+  "R": []
+ },
+ "Air Conditioning Condenser": {
+  "n": 17,
+  "N": [
+   [
+    "Bonnet",
+    1.0
+   ],
+   [
+    "Bumper Front",
+    0.94
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.88
+   ],
+   [
+    "Bumper Front R&R",
+    0.82
+   ],
+   [
+    "Fender Front LH",
+    0.76
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.76
+   ],
+   [
+    "Fender Front RH",
+    0.71
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.71
+   ],
+   [
+    "Crossmember Front",
+    0.65
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.65
+   ],
+   [
+    "Chassis Member Front LH",
+    0.65
+   ],
+   [
+    "Front Panel Upper",
+    0.59
+   ],
+   [
+    "Front Panel Assembly",
+    0.59
+   ],
+   [
+    "Chassis Member Front RH",
+    0.59
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.65
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.65
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.65
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.65
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.59
+   ],
+   [
+    "Fender Front Inner RH",
+    0.59
+   ],
+   [
+    "Fender Front Inner LH",
+    0.59
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.59
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.53
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.53
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.53
+   ],
+   [
+    "Chassis Member Front Closing LH",
+    0.53
+   ]
+  ]
+ },
+ "Emblem Boot/Tailgate": {
+  "n": 17,
+  "N": [
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.94
+   ],
+   [
+    "Tailgate",
+    0.65
+   ],
+   [
+    "Boot Floor",
+    0.59
+   ],
+   [
+    "Fuel Tank R&R",
+    0.53
+   ],
+   [
+    "Suspension Rear R&R",
+    0.53
+   ]
+  ],
+  "R": []
+ },
+ "Fog Lamp Front LH": {
+  "n": 16,
+  "N": [
+   [
+    "Bumper Front",
+    0.94
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.88
+   ],
+   [
+    "Fender Front LH",
+    0.88
+   ],
+   [
+    "Bumper Front R&R",
+    0.75
+   ],
+   [
+    "Bonnet",
+    0.69
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.62
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.69
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.62
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.62
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.62
+   ],
+   [
+    "Fender Front Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Spare Wheel Retainer": {
+  "n": 16,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    0.88
+   ],
+   [
+    "Rear Panel Assembly",
+    0.69
+   ],
+   [
+    "Boot Floor",
+    0.69
+   ],
+   [
+    "Fuel Tank R&R",
+    0.56
+   ],
+   [
+    "Suspension Rear R&R",
+    0.56
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.75
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.75
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.69
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.69
+   ],
+   [
+    "Rear Panel Reinforcement LH",
+    0.5
+   ]
+  ]
+ },
+ "Wheel House Inner Rear LH": {
+  "n": 16,
+  "N": [
+   [
+    "Fuel Tank R&R",
+    0.94
+   ],
+   [
+    "Suspension Rear R&R",
+    0.94
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.94
+   ],
+   [
+    "Bumper Rear R&R",
+    0.94
+   ],
+   [
+    "Boot Floor",
+    0.88
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.81
+   ],
+   [
+    "Rear Panel Assembly",
+    0.75
+   ],
+   [
+    "Quarter Panel LH",
+    0.69
+   ],
+   [
+    "Bumper Rear",
+    0.69
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.75
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.69
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.62
+   ],
+   [
+    "Rear Panel Reinforcement LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner Striker Reinforcement Panel RH",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.62
+   ],
+   [
+    "Towing Eye Bracket Rear RH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.56
+   ],
+   [
+    "Quarter Panel (B) RH",
+    0.56
+   ]
+  ]
+ },
+ "Door Front RH": {
+  "n": 16,
+  "N": [
+   [
+    "Door Front RH",
+    1.0
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.75
+   ],
+   [
+    "Door Rear RH",
+    0.75
+   ],
+   [
+    "Bumper Front",
+    0.69
+   ],
+   [
+    "Fender Front RH",
+    0.69
+   ],
+   [
+    "Bumper Front R&R",
+    0.62
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window RH",
+    0.88
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.69
+   ],
+   [
+    "Doorskin Front RH",
+    0.69
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.56
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.5
+   ],
+   [
+    "Doorskin Rear RH",
+    0.5
+   ],
+   [
+    "Front Pillar Outer RH",
+    0.5
+   ]
+  ]
+ },
+ "Door Rear Hinge Upper RH": {
+  "n": 16,
+  "N": [
+   [
+    "Door Rear RH",
+    0.94
+   ],
+   [
+    "Quarter Panel RH",
+    0.69
+   ],
+   [
+    "Door Front RH",
+    0.62
+   ],
+   [
+    "Runningboard Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Rear Window RH",
+    0.69
+   ],
+   [
+    "Doorskin Rear RH",
+    0.62
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.56
+   ],
+   [
+    "Doorskin Front RH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Front Bracket Support RH": {
+  "n": 16,
+  "N": [
+   [
+    "Bumper Front",
+    0.88
+   ],
+   [
+    "Bumper Front R&R",
+    0.81
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.69
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.69
+   ],
+   [
+    "Bonnet",
+    0.62
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.56
+   ],
+   [
+    "Fender Front RH",
+    0.56
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.5
+   ],
+   [
+    "Chassis Member Front RH",
+    0.5
+   ],
+   [
+    "Front Panel Assembly",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.94
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.75
+   ],
+   [
+    "Front Panel Upper",
+    0.5
+   ],
+   [
+    "Front Panel",
+    0.5
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.5
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.5
+   ],
+   [
+    "Headlamp Panel RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Upper RH",
+    0.5
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.5
+   ]
+  ]
+ },
+ "Wheel Centre": {
+  "n": 16,
+  "N": [
+   [
+    "Bumper Front R&R",
+    0.5
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.5
+   ],
+   [
+    "Bumper Front",
+    0.5
+   ]
+  ],
+  "R": []
+ },
+ "Door Lock Rear RH": {
+  "n": 16,
+  "N": [
+   [
+    "Door Rear RH",
+    0.88
+   ],
+   [
+    "Quarter Panel RH",
+    0.75
+   ],
+   [
+    "Door Front RH",
+    0.56
+   ],
+   [
+    "Bumper Rear",
+    0.56
+   ],
+   [
+    "Bumper Rear R&R",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Rear RH",
+    0.75
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.62
+   ],
+   [
+    "Doorskin Front RH",
+    0.62
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.56
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.5
+   ],
+   [
+    "Front Pillar Outer RH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.5
+   ]
+  ]
+ },
+ "Grille Front": {
+  "n": 16,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Bonnet",
+    0.94
+   ],
+   [
+    "Bumper Front R&R",
+    0.81
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.81
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.69
+   ],
+   [
+    "Front Panel Assembly",
+    0.69
+   ],
+   [
+    "Fender Front LH",
+    0.62
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.62
+   ],
+   [
+    "Fender Front RH",
+    0.62
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.62
+   ],
+   [
+    "Chassis Member Front LH",
+    0.56
+   ],
+   [
+    "Crossmember Front",
+    0.56
+   ],
+   [
+    "Chassis Member Front RH",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.94
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.88
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.69
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.62
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.62
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.62
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.62
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.56
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.56
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.56
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.56
+   ],
+   [
+    "Chassis Member Front Closing LH",
+    0.56
+   ],
+   [
+    "Front Panel Upper",
+    0.5
+   ],
+   [
+    "Fender Front Inner Upper LH",
+    0.5
+   ],
+   [
+    "Fender Front Inner RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner LH",
+    0.5
+   ],
+   [
+    "Headlamp Panel LH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Rear Mounting Bracket RH": {
+  "n": 16,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.94
+   ],
+   [
+    "Fuel Tank R&R",
+    0.88
+   ],
+   [
+    "Suspension Rear R&R",
+    0.88
+   ],
+   [
+    "Bumper Rear R&R",
+    0.81
+   ],
+   [
+    "Boot Floor",
+    0.81
+   ],
+   [
+    "Bumper Rear",
+    0.62
+   ],
+   [
+    "Rear Panel Assembly",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.56
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.56
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.56
+   ]
+  ]
+ },
+ "Rear Panel Garnish": {
+  "n": 15,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.93
+   ],
+   [
+    "Fuel Tank R&R",
+    0.87
+   ],
+   [
+    "Bumper Rear R&R",
+    0.87
+   ],
+   [
+    "Boot Floor",
+    0.87
+   ],
+   [
+    "Suspension Rear R&R",
+    0.8
+   ],
+   [
+    "Rear Panel Assembly",
+    0.67
+   ],
+   [
+    "Bumper Rear Cover",
+    0.67
+   ],
+   [
+    "Rooflining R&R",
+    0.53
+   ]
+  ],
+  "R": []
+ },
+ "Door Front Aperture Weatherstrip LH": {
+  "n": 15,
+  "N": [
+   [
+    "Door Front LH",
+    0.93
+   ],
+   [
+    "Door Rear LH",
+    0.67
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.6
+   ],
+   [
+    "Fender Front LH",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window LH (tts)",
+    0.8
+   ],
+   [
+    "Doorskin Front LH",
+    0.73
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.67
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.6
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.6
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.6
+   ],
+   [
+    "Doorskin Rear LH",
+    0.53
+   ]
+  ]
+ },
+ "Steering Tie Rod": {
+  "n": 15,
+  "N": [
+   [
+    "Bumper Front",
+    0.93
+   ],
+   [
+    "Bumper Front R&R",
+    0.87
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.6
+   ],
+   [
+    "Fender Front RH",
+    0.53
+   ]
+  ],
+  "R": []
+ },
+ "Grille Front Moulding": {
+  "n": 15,
+  "N": [
+   [
+    "Bumper Front R&R",
+    0.93
+   ],
+   [
+    "Bumper Front",
+    0.87
+   ],
+   [
+    "Bonnet",
+    0.8
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.73
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.73
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.73
+   ],
+   [
+    "Fender Front RH",
+    0.73
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.6
+   ],
+   [
+    "Fender Front LH",
+    0.53
+   ],
+   [
+    "Chassis Member Front RH",
+    0.53
+   ],
+   [
+    "Chassis Member Front LH",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.6
+   ],
+   [
+    "Front Panel",
+    0.6
+   ],
+   [
+    "Fender Front Inner LH",
+    0.53
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.53
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.53
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.53
+   ]
+  ]
+ },
+ "Bumper Rear Mounting Bracket LH": {
+  "n": 15,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.93
+   ],
+   [
+    "Fuel Tank R&R",
+    0.87
+   ],
+   [
+    "Suspension Rear R&R",
+    0.87
+   ],
+   [
+    "Bumper Rear R&R",
+    0.8
+   ],
+   [
+    "Boot Floor",
+    0.8
+   ],
+   [
+    "Bumper Rear",
+    0.6
+   ],
+   [
+    "Rear Panel Assembly",
+    0.53
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.6
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.6
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.53
+   ]
+  ]
+ },
+ "Door Lock Front LH": {
+  "n": 14,
+  "N": [
+   [
+    "Door Front LH",
+    0.93
+   ],
+   [
+    "Door Rear LH",
+    0.71
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.64
+   ],
+   [
+    "Bumper Rear R&R",
+    0.57
+   ],
+   [
+    "Fender Front LH",
+    0.5
+   ],
+   [
+    "Fuel Tank R&R",
+    0.5
+   ],
+   [
+    "Suspension Rear R&R",
+    0.5
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ],
+   [
+    "Bumper Rear",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window LH (tts)",
+    0.79
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.71
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.71
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.64
+   ],
+   [
+    "Doorskin Front LH",
+    0.64
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.57
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.57
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ],
+   [
+    "Doorskin Rear LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Window Regulator Front LH": {
+  "n": 14,
+  "N": [
+   [
+    "Door Front LH",
+    1.0
+   ],
+   [
+    "Fender Front LH",
+    0.71
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.64
+   ],
+   [
+    "Door Rear LH",
+    0.64
+   ],
+   [
+    "Bumper Front",
+    0.5
+   ],
+   [
+    "Bumper Front R&R",
+    0.5
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ],
+   [
+    "Bumper Rear",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Front LH",
+    0.86
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.79
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.64
+   ],
+   [
+    "Doorskin Rear LH",
+    0.64
+   ],
+   [
+    "Fender Front Inner LH",
+    0.57
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.57
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.5
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.5
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Front Hinge Lower RH": {
+  "n": 14,
+  "N": [
+   [
+    "Door Front RH",
+    0.86
+   ],
+   [
+    "Door Rear RH",
+    0.79
+   ],
+   [
+    "Bumper Front",
+    0.64
+   ],
+   [
+    "Fender Front RH",
+    0.64
+   ],
+   [
+    "Bumper Front R&R",
+    0.57
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.57
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window RH",
+    0.71
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.71
+   ],
+   [
+    "Doorskin Front RH",
+    0.64
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.57
+   ],
+   [
+    "Doorskin Rear RH",
+    0.57
+   ]
+  ]
+ },
+ "Door Front Hinge Upper RH": {
+  "n": 14,
+  "N": [
+   [
+    "Door Front RH",
+    0.86
+   ],
+   [
+    "Door Rear RH",
+    0.79
+   ],
+   [
+    "Bumper Front",
+    0.64
+   ],
+   [
+    "Fender Front RH",
+    0.64
+   ],
+   [
+    "Bumper Front R&R",
+    0.57
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.57
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window RH",
+    0.71
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.71
+   ],
+   [
+    "Doorskin Front RH",
+    0.64
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.57
+   ],
+   [
+    "Doorskin Rear RH",
+    0.57
+   ]
+  ]
+ },
+ "Door Mirror RH": {
+  "n": 14,
+  "N": [
+   [
+    "Door Front RH",
+    0.93
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.86
+   ],
+   [
+    "Bumper Front",
+    0.71
+   ],
+   [
+    "Door Rear RH",
+    0.71
+   ],
+   [
+    "Fender Front RH",
+    0.64
+   ],
+   [
+    "Bumper Front R&R",
+    0.57
+   ],
+   [
+    "Runningboard Panel RH",
+    0.5
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window RH",
+    0.86
+   ],
+   [
+    "Doorskin Front RH",
+    0.79
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.64
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.57
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.57
+   ],
+   [
+    "Doorskin Rear RH",
+    0.57
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.5
+   ],
+   [
+    "Front Pillar Outer RH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Front Bracket Support LH": {
+  "n": 14,
+  "N": [
+   [
+    "Bumper Front R&R",
+    0.86
+   ],
+   [
+    "Bumper Front",
+    0.86
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.71
+   ],
+   [
+    "Bonnet",
+    0.71
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.64
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.64
+   ],
+   [
+    "Fender Front LH",
+    0.57
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.57
+   ],
+   [
+    "Fender Front RH",
+    0.5
+   ],
+   [
+    "Chassis Member Front RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.86
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.86
+   ],
+   [
+    "Front Panel Upper",
+    0.5
+   ],
+   [
+    "Front Panel",
+    0.5
+   ]
+  ]
+ },
+ "Grille Badge": {
+  "n": 14,
+  "N": [
+   [
+    "Bonnet",
+    0.93
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.86
+   ],
+   [
+    "Bumper Front",
+    0.86
+   ],
+   [
+    "Bumper Front R&R",
+    0.79
+   ],
+   [
+    "Fender Front LH",
+    0.79
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.57
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.57
+   ],
+   [
+    "Front Panel Upper",
+    0.57
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.5
+   ],
+   [
+    "Front Panel Assembly",
+    0.5
+   ],
+   [
+    "Chassis Member Front LH",
+    0.5
+   ],
+   [
+    "Crossmember Front",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.93
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.93
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.64
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.64
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.57
+   ],
+   [
+    "Chassis Member Front End Closing LH",
+    0.5
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.5
+   ]
+  ]
+ },
+ "Door Lock Rear LH": {
+  "n": 14,
+  "N": [
+   [
+    "Door Rear LH",
+    0.93
+   ],
+   [
+    "Suspension Rear R&R",
+    0.86
+   ],
+   [
+    "Quarter Panel LH",
+    0.79
+   ],
+   [
+    "Bumper Rear R&R",
+    0.79
+   ],
+   [
+    "Bumper Rear",
+    0.79
+   ],
+   [
+    "Fuel Tank R&R",
+    0.71
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.71
+   ],
+   [
+    "Door Front LH",
+    0.57
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.79
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.64
+   ],
+   [
+    "Doorskin Front LH",
+    0.57
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.57
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.5
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.5
+   ],
+   [
+    "Doorskin Rear LH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Bracket Front LH": {
+  "n": 14,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Bumper Front R&R",
+    0.79
+   ],
+   [
+    "Fender Front LH",
+    0.79
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.71
+   ],
+   [
+    "Bonnet",
+    0.71
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.64
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.57
+   ],
+   [
+    "Front Panel Upper",
+    0.57
+   ],
+   [
+    "Door Front LH",
+    0.57
+   ],
+   [
+    "Headlamp Panel LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.64
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.64
+   ],
+   [
+    "Fender Front Inner LH",
+    0.64
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.57
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Bracket Front RH": {
+  "n": 14,
+  "N": [
+   [
+    "Bumper Front",
+    0.93
+   ],
+   [
+    "Bumper Front R&R",
+    0.79
+   ],
+   [
+    "Fender Front LH",
+    0.79
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.64
+   ],
+   [
+    "Bonnet",
+    0.64
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.5
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.5
+   ],
+   [
+    "Front Panel Upper",
+    0.5
+   ],
+   [
+    "Door Front LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.64
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.57
+   ],
+   [
+    "Fender Front Inner LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Reinforcement Section LH",
+    0.5
+   ]
+  ]
+ },
+ "Front Panel Upper": {
+  "n": 14,
+  "N": [
+   [
+    "Front Panel Upper",
+    1.0
+   ],
+   [
+    "Bonnet",
+    1.0
+   ],
+   [
+    "Bumper Front",
+    0.93
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.93
+   ],
+   [
+    "Bumper Front R&R",
+    0.86
+   ],
+   [
+    "Fender Front LH",
+    0.79
+   ],
+   [
+    "Fender Front RH",
+    0.71
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.64
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.57
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.57
+   ],
+   [
+    "Headlamp Panel LH",
+    0.5
+   ],
+   [
+    "Crossmember Front",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.93
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.86
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner LH",
+    0.57
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.57
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Rear Finisher LH": {
+  "n": 13,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Boot Floor",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Rear Panel Assembly",
+    0.92
+   ],
+   [
+    "Suspension Rear R&R",
+    0.92
+   ],
+   [
+    "Fuel Tank R&R",
+    0.85
+   ],
+   [
+    "Boot Lid",
+    0.85
+   ],
+   [
+    "Bumper Rear R&R",
+    0.77
+   ],
+   [
+    "Rooflining R&R",
+    0.69
+   ],
+   [
+    "Bumper Rear Cover",
+    0.69
+   ],
+   [
+    "Boot Lid R&R",
+    0.54
+   ],
+   [
+    "Bumper Rear",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.62
+   ]
+  ]
+ },
+ "Bumper Rear Finisher RH": {
+  "n": 13,
+  "N": [
+   [
+    "Rear Panel Assembly",
+    1.0
+   ],
+   [
+    "Suspension Rear R&R",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Boot Floor",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Fuel Tank R&R",
+    0.92
+   ],
+   [
+    "Bumper Rear R&R",
+    0.85
+   ],
+   [
+    "Boot Lid",
+    0.85
+   ],
+   [
+    "Rooflining R&R",
+    0.69
+   ],
+   [
+    "Bumper Rear Cover",
+    0.69
+   ],
+   [
+    "Boot Lid R&R",
+    0.54
+   ],
+   [
+    "Bumper Rear",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.69
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.54
+   ]
+  ]
+ },
+ "Suspension Spring Front": {
+  "n": 13,
+  "N": [
+   [
+    "Bumper Front",
+    0.92
+   ],
+   [
+    "Bumper Front R&R",
+    0.69
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.62
+   ],
+   [
+    "Bonnet",
+    0.54
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.54
+   ],
+   [
+    "Fender Front RH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.77
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.54
+   ]
+  ]
+ },
+ "Wheel House Inner Rear RH": {
+  "n": 13,
+  "N": [
+   [
+    "Fuel Tank R&R",
+    0.85
+   ],
+   [
+    "Suspension Rear R&R",
+    0.77
+   ],
+   [
+    "Bumper Rear R&R",
+    0.77
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.77
+   ],
+   [
+    "Rear Panel Assembly",
+    0.69
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.69
+   ],
+   [
+    "Boot Floor",
+    0.69
+   ],
+   [
+    "Bumper Rear",
+    0.62
+   ],
+   [
+    "Quarter Panel RH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.54
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.54
+   ]
+  ]
+ },
+ "Rear Panel Inner": {
+  "n": 13,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.85
+   ],
+   [
+    "Bumper Rear R&R",
+    0.77
+   ],
+   [
+    "Bumper Rear",
+    0.77
+   ],
+   [
+    "Suspension Rear R&R",
+    0.69
+   ],
+   [
+    "Rear Panel Assembly",
+    0.62
+   ],
+   [
+    "Boot Floor",
+    0.62
+   ],
+   [
+    "Fuel Tank R&R",
+    0.54
+   ],
+   [
+    "Tailgate",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.69
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.69
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.69
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.69
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.54
+   ]
+  ]
+ },
+ "Door Lock Front RH": {
+  "n": 13,
+  "N": [
+   [
+    "Door Front RH",
+    0.85
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.69
+   ],
+   [
+    "Door Rear RH",
+    0.69
+   ],
+   [
+    "Bumper Front",
+    0.62
+   ],
+   [
+    "Fender Front RH",
+    0.62
+   ],
+   [
+    "Bumper Front R&R",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window RH",
+    0.69
+   ],
+   [
+    "Doorskin Front RH",
+    0.69
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.62
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.54
+   ],
+   [
+    "Doorskin Rear RH",
+    0.54
+   ]
+  ]
+ },
+ "Door Rear Weatherstrip RH": {
+  "n": 13,
+  "N": [
+   [
+    "Door Rear RH",
+    0.92
+   ],
+   [
+    "Door Front RH",
+    0.62
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.54
+   ],
+   [
+    "Quarter Panel RH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window RH",
+    0.54
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.54
+   ],
+   [
+    "Doorskin Rear RH",
+    0.54
+   ]
+  ]
+ },
+ "Wheel Hub Rear": {
+  "n": 13,
+  "N": [
+   [
+    "Bumper Rear",
+    0.69
+   ],
+   [
+    "Suspension Rear R&R",
+    0.54
+   ],
+   [
+    "Bumper Rear R&R",
+    0.54
+   ]
+  ],
+  "R": []
+ },
+ "Front Panel Assembly": {
+  "n": 13,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Bonnet",
+    0.92
+   ],
+   [
+    "Bumper Front R&R",
+    0.77
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.77
+   ],
+   [
+    "Front Panel Assembly",
+    0.69
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.62
+   ],
+   [
+    "Fender Front RH",
+    0.62
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.62
+   ],
+   [
+    "Chassis Member Front RH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.92
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.85
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.62
+   ],
+   [
+    "Fender Front Inner RH",
+    0.62
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.62
+   ],
+   [
+    "Front Panel Upper",
+    0.54
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.54
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.54
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.54
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.54
+   ],
+   [
+    "Headlamp Panel LH",
+    0.54
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.54
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.54
+   ]
+  ]
+ },
+ "Number Plate Lamp/Lamps": {
+  "n": 13,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.92
+   ],
+   [
+    "Bumper Rear",
+    0.85
+   ],
+   [
+    "Boot Floor",
+    0.54
+   ],
+   [
+    "Tailgate",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.54
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.54
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.54
+   ]
+  ]
+ },
+ "Shock Absorber Front RH": {
+  "n": 13,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Bumper Front R&R",
+    0.92
+   ],
+   [
+    "Fender Front RH",
+    0.77
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.69
+   ],
+   [
+    "Door Front RH",
+    0.62
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.77
+   ],
+   [
+    "Doorskin Front RH",
+    0.62
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.62
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.54
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.54
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.54
+   ]
+  ]
+ },
+ "Door Rear Hinge Lower LH": {
+  "n": 13,
+  "N": [
+   [
+    "Door Rear LH",
+    1.0
+   ],
+   [
+    "Door Front LH",
+    0.77
+   ],
+   [
+    "Bumper Rear R&R",
+    0.77
+   ],
+   [
+    "Bumper Rear",
+    0.77
+   ],
+   [
+    "Suspension Rear R&R",
+    0.69
+   ],
+   [
+    "Quarter Panel LH",
+    0.69
+   ],
+   [
+    "Fuel Tank R&R",
+    0.62
+   ],
+   [
+    "Runningboard Panel LH",
+    0.54
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Rear Window LH",
+    0.85
+   ],
+   [
+    "Doorskin Rear LH",
+    0.77
+   ],
+   [
+    "Doorskin Front LH",
+    0.77
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.77
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.69
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.69
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.69
+   ],
+   [
+    "Runningboard Panel Section Rear LH",
+    0.62
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.62
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.54
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.54
+   ]
+  ]
+ },
+ "Knuckle Arm Front RH": {
+  "n": 12,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Bumper Front R&R",
+    0.83
+   ],
+   [
+    "Fender Front RH",
+    0.83
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.75
+   ],
+   [
+    "Door Front RH",
+    0.67
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.67
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.67
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.92
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.67
+   ],
+   [
+    "Chassis Member Front RH",
+    0.67
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.67
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.58
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Assembly RH",
+    0.5
+   ],
+   [
+    "Chassis Member Front End Closing RH",
+    0.5
+   ],
+   [
+    "Doorskin Front RH",
+    0.5
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.5
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.5
+   ],
+   [
+    "Front Panel Upper",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Front Fog Lamp Finisher LH": {
+  "n": 12,
+  "N": [
+   [
+    "Engine and Suspension R&R",
+    1.0
+   ],
+   [
+    "Fender Front LH",
+    0.92
+   ],
+   [
+    "Bumper Front",
+    0.92
+   ],
+   [
+    "Bumper Front R&R",
+    0.83
+   ],
+   [
+    "Bonnet",
+    0.67
+   ],
+   [
+    "Front Panel Assembly",
+    0.5
+   ],
+   [
+    "Door Front LH",
+    0.5
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    0.67
+   ],
+   [
+    "Fender Front Inner LH",
+    0.58
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.58
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.58
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.5
+   ]
+  ]
+ },
+ "Badge Boot Lid": {
+  "n": 12,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.92
+   ],
+   [
+    "Bumper Rear",
+    0.83
+   ],
+   [
+    "Fuel Tank R&R",
+    0.75
+   ],
+   [
+    "Rear Panel Assembly",
+    0.75
+   ],
+   [
+    "Boot Lid",
+    0.75
+   ],
+   [
+    "Boot Floor",
+    0.75
+   ],
+   [
+    "Suspension Rear R&R",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.58
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.75
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.75
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.67
+   ]
+  ]
+ },
+ "Number Plate Holder Rear": {
+  "n": 12,
+  "N": [
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.92
+   ],
+   [
+    "Bumper Rear R&R",
+    0.58
+   ],
+   [
+    "Boot Floor",
+    0.58
+   ],
+   [
+    "Fuel Tank R&R",
+    0.58
+   ],
+   [
+    "Suspension Rear R&R",
+    0.58
+   ],
+   [
+    "Rear Panel Assembly",
+    0.5
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.5
+   ],
+   [
+    "Boot Lid",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.75
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.67
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Rear Finisher/s": {
+  "n": 12,
+  "N": [
+   [
+    "Rear Panel Assembly",
+    1.0
+   ],
+   [
+    "Suspension Rear R&R",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Boot Floor",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Fuel Tank R&R",
+    0.92
+   ],
+   [
+    "Boot Lid",
+    0.92
+   ],
+   [
+    "Bumper Rear R&R",
+    0.75
+   ],
+   [
+    "Rooflining R&R",
+    0.58
+   ],
+   [
+    "Bumper Rear Cover",
+    0.58
+   ],
+   [
+    "Boot Lid R&R",
+    0.5
+   ],
+   [
+    "Bumper Rear",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Rear Hinge Upper LH": {
+  "n": 12,
+  "N": [
+   [
+    "Door Rear LH",
+    1.0
+   ],
+   [
+    "Door Front LH",
+    0.75
+   ],
+   [
+    "Bumper Rear R&R",
+    0.75
+   ],
+   [
+    "Bumper Rear",
+    0.75
+   ],
+   [
+    "Suspension Rear R&R",
+    0.67
+   ],
+   [
+    "Quarter Panel LH",
+    0.67
+   ],
+   [
+    "Fuel Tank R&R",
+    0.58
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.5
+   ],
+   [
+    "Runningboard Panel LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Rear Window LH",
+    0.83
+   ],
+   [
+    "Doorskin Rear LH",
+    0.75
+   ],
+   [
+    "Doorskin Front LH",
+    0.75
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.75
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.67
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.67
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.67
+   ],
+   [
+    "Runningboard Panel Section Rear LH",
+    0.58
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.58
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.5
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Window Regulator Rear LH": {
+  "n": 12,
+  "N": [
+   [
+    "Door Rear LH",
+    1.0
+   ],
+   [
+    "Bumper Rear R&R",
+    0.83
+   ],
+   [
+    "Bumper Rear",
+    0.83
+   ],
+   [
+    "Fuel Tank R&R",
+    0.75
+   ],
+   [
+    "Suspension Rear R&R",
+    0.75
+   ],
+   [
+    "Quarter Panel LH",
+    0.75
+   ],
+   [
+    "Door Front LH",
+    0.67
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.58
+   ],
+   [
+    "Runningboard Panel LH",
+    0.58
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.5
+   ],
+   [
+    "Fender Front LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.83
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.83
+   ],
+   [
+    "Doorskin Rear LH",
+    0.83
+   ],
+   [
+    "Doorskin Front LH",
+    0.83
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.75
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.75
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.75
+   ],
+   [
+    "Runningboard Panel Section Rear LH",
+    0.67
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.67
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.67
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.58
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.58
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.58
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.58
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.5
+   ],
+   [
+    "Door Rear Weatherstrip Retainer Panel LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Front Hinge Lower LH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Front LH",
+    1.0
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.64
+   ],
+   [
+    "Door Rear LH",
+    0.64
+   ],
+   [
+    "Bumper Front R&R",
+    0.55
+   ],
+   [
+    "Fender Front LH",
+    0.55
+   ],
+   [
+    "Suspension Rear R&R",
+    0.55
+   ],
+   [
+    "Bumper Rear R&R",
+    0.55
+   ],
+   [
+    "Bumper Rear",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window LH (tts)",
+    0.91
+   ],
+   [
+    "Doorskin Front LH",
+    0.64
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.64
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.55
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.55
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.55
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.55
+   ]
+  ]
+ },
+ "Door Front Hinge Upper LH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Front LH",
+    1.0
+   ],
+   [
+    "Door Rear LH",
+    0.73
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.64
+   ],
+   [
+    "Bumper Rear R&R",
+    0.64
+   ],
+   [
+    "Fuel Tank R&R",
+    0.55
+   ],
+   [
+    "Suspension Rear R&R",
+    0.55
+   ],
+   [
+    "Quarter Panel LH",
+    0.55
+   ],
+   [
+    "Bumper Rear",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window LH (tts)",
+    0.91
+   ],
+   [
+    "Doorskin Front LH",
+    0.64
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.64
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.64
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.55
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.55
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.55
+   ]
+  ]
+ },
+ "Door Regulator Motor Front LH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Front LH",
+    1.0
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.73
+   ],
+   [
+    "Bumper Front R&R",
+    0.64
+   ],
+   [
+    "Fender Front LH",
+    0.64
+   ],
+   [
+    "Door Rear LH",
+    0.64
+   ],
+   [
+    "Fuel Tank R&R",
+    0.55
+   ],
+   [
+    "Quarter Panel LH",
+    0.55
+   ],
+   [
+    "Bumper Rear R&R",
+    0.55
+   ],
+   [
+    "Runningboard Panel LH",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window LH (tts)",
+    1.0
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.73
+   ],
+   [
+    "Doorskin Front LH",
+    0.73
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.64
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.55
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.55
+   ]
+  ]
+ },
+ "Knuckle Arm Front LH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Front LH",
+    0.91
+   ],
+   [
+    "Fender Front LH",
+    0.91
+   ],
+   [
+    "Bumper Front",
+    0.82
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.73
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.73
+   ],
+   [
+    "Bumper Front R&R",
+    0.64
+   ],
+   [
+    "Bonnet",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.82
+   ],
+   [
+    "Fender Front Inner LH",
+    0.73
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.64
+   ],
+   [
+    "Doorskin Front LH",
+    0.55
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.55
+   ]
+  ]
+ },
+ "Weather Sheeting Door Front LH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Front LH",
+    1.0
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.73
+   ],
+   [
+    "Fender Front LH",
+    0.64
+   ],
+   [
+    "Door Rear LH",
+    0.64
+   ],
+   [
+    "Bumper Front R&R",
+    0.55
+   ],
+   [
+    "Suspension Rear R&R",
+    0.55
+   ],
+   [
+    "Quarter Panel LH",
+    0.55
+   ],
+   [
+    "Bumper Rear R&R",
+    0.55
+   ],
+   [
+    "Bumper Rear",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window LH (tts)",
+    0.91
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.64
+   ],
+   [
+    "Doorskin Front LH",
+    0.64
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.64
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.64
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.64
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.55
+   ]
+  ]
+ },
+ "Door Front Aperture Weatherstrip RH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Front RH",
+    0.91
+   ],
+   [
+    "Fender Front RH",
+    0.73
+   ],
+   [
+    "Bumper Front",
+    0.64
+   ],
+   [
+    "Door Rear RH",
+    0.64
+   ],
+   [
+    "Bumper Front R&R",
+    0.55
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window RH",
+    0.82
+   ],
+   [
+    "Doorskin Front RH",
+    0.73
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.64
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.64
+   ],
+   [
+    "Fender Front Inner Side Reinforcement RH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.55
+   ],
+   [
+    "Doorskin Rear RH",
+    0.55
+   ]
+  ]
+ },
+ "Weather Sheeting Door Rear RH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Rear RH",
+    1.0
+   ],
+   [
+    "Quarter Panel RH",
+    0.82
+   ],
+   [
+    "Door Front RH",
+    0.73
+   ],
+   [
+    "Bumper Rear R&R",
+    0.64
+   ],
+   [
+    "Fender Front RH",
+    0.55
+   ],
+   [
+    "Suspension Rear R&R",
+    0.55
+   ],
+   [
+    "Bumper Rear",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Rear Window RH",
+    0.82
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.73
+   ],
+   [
+    "Doorskin Rear RH",
+    0.73
+   ]
+  ]
+ },
+ "Radiator Air Deflector LH": {
+  "n": 11,
+  "N": [
+   [
+    "Bumper Front R&R",
+    0.82
+   ],
+   [
+    "Bumper Front",
+    0.82
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.73
+   ],
+   [
+    "Bonnet",
+    0.73
+   ],
+   [
+    "Front Panel Upper",
+    0.64
+   ],
+   [
+    "Fender Front LH",
+    0.55
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.55
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.55
+   ],
+   [
+    "Fender Front RH",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Crossmember Front",
+    0.55
+   ],
+   [
+    "Front Panel Assembly",
+    0.55
+   ]
+  ]
+ },
+ "Radiator Air Deflector RH": {
+  "n": 11,
+  "N": [
+   [
+    "Bumper Front R&R",
+    0.82
+   ],
+   [
+    "Bumper Front",
+    0.82
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.73
+   ],
+   [
+    "Bonnet",
+    0.73
+   ],
+   [
+    "Front Panel Upper",
+    0.64
+   ],
+   [
+    "Fender Front LH",
+    0.55
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.55
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.55
+   ],
+   [
+    "Fender Front RH",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Crossmember Front",
+    0.55
+   ],
+   [
+    "Front Panel Assembly",
+    0.55
+   ]
+  ]
+ },
+ "Suspension Arm Front LH": {
+  "n": 11,
+  "N": [
+   [
+    "Fender Front LH",
+    0.91
+   ],
+   [
+    "Door Front LH",
+    0.82
+   ],
+   [
+    "Bumper Front",
+    0.82
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.73
+   ],
+   [
+    "Bumper Front R&R",
+    0.64
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Fender Front Inner LH",
+    0.73
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.64
+   ],
+   [
+    "Doorskin Front LH",
+    0.55
+   ]
+  ]
+ },
+ "Spoiler Bumper Rear": {
+  "n": 11,
+  "N": [
+   [
+    "Fuel Tank R&R",
+    1.0
+   ],
+   [
+    "Suspension Rear R&R",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.91
+   ],
+   [
+    "Boot Floor",
+    0.91
+   ],
+   [
+    "Quarter Panel RH",
+    0.82
+   ],
+   [
+    "Quarter Panel LH",
+    0.73
+   ],
+   [
+    "Bumper Rear R&R",
+    0.73
+   ],
+   [
+    "Rear Panel Assembly",
+    0.73
+   ],
+   [
+    "Boot Lid",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner RH",
+    0.91
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.82
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.73
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.73
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.64
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.55
+   ]
+  ]
+ },
+ "Tailgate Weatherstrip": {
+  "n": 11,
+  "N": [
+   [
+    "Quarter Panel LH",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Tailgate",
+    0.91
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.91
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.82
+   ],
+   [
+    "Suspension Rear R&R",
+    0.73
+   ],
+   [
+    "Boot Floor",
+    0.73
+   ],
+   [
+    "Fuel Tank R&R",
+    0.64
+   ],
+   [
+    "Quarter Panel RH",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel LH",
+    0.64
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.64
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.55
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.55
+   ],
+   [
+    "Windscreen Rear",
+    0.55
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.55
+   ]
+  ]
+ },
+ "Door Front Weatherstrip RH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Front RH",
+    0.73
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.64
+   ],
+   [
+    "Door Rear RH",
+    0.64
+   ],
+   [
+    "Bumper Front",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Front RH",
+    0.73
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.64
+   ],
+   [
+    "Doorskin Rear RH",
+    0.55
+   ]
+  ]
+ },
+ "Door Outer Release Handle": {
+  "n": 11,
+  "N": [],
+  "R": []
+ },
+ "Driveshaft Front RH": {
+  "n": 11,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Bumper Front R&R",
+    0.91
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.73
+   ],
+   [
+    "Fender Front RH",
+    0.73
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.64
+   ],
+   [
+    "Bonnet",
+    0.55
+   ],
+   [
+    "Door Front RH",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.82
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.64
+   ],
+   [
+    "Doorskin Front RH",
+    0.55
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.55
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.55
+   ]
+  ]
+ },
+ "Badge": {
+  "n": 11,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.91
+   ],
+   [
+    "Bumper Rear",
+    0.91
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.91
+   ],
+   [
+    "Rear Panel Assembly",
+    0.55
+   ],
+   [
+    "Boot Floor",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.82
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.82
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.73
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.73
+   ]
+  ]
+ },
+ "Chassis Member Front Assembly LH": {
+  "n": 11,
+  "N": [
+   [
+    "Bonnet",
+    1.0
+   ],
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Engine and Suspension R&R",
+    1.0
+   ],
+   [
+    "Bumper Front R&R",
+    0.91
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.73
+   ],
+   [
+    "Fender Front RH",
+    0.73
+   ],
+   [
+    "Chassis Member Front RH",
+    0.73
+   ],
+   [
+    "Front Panel Assembly",
+    0.73
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.73
+   ],
+   [
+    "Fender Front LH",
+    0.64
+   ],
+   [
+    "Crossmember Front",
+    0.64
+   ],
+   [
+    "Chassis Member Front LH",
+    0.64
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.64
+   ],
+   [
+    "Front Panel Upper",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.82
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.82
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.82
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.82
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.82
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.82
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.73
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.64
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.64
+   ],
+   [
+    "Chassis Member Front Closing LH",
+    0.64
+   ],
+   [
+    "Fender Front Inner Reinforcement Section LH",
+    0.64
+   ],
+   [
+    "Front Panel",
+    0.55
+   ],
+   [
+    "Fender Front Inner RH",
+    0.55
+   ],
+   [
+    "Fender Front Inner LH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Upper LH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Upper RH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Reinforcement Section RH",
+    0.55
+   ],
+   [
+    "Headlamp Panel RH",
+    0.55
+   ]
+  ]
+ },
+ "Chassis Member Front Assembly RH": {
+  "n": 11,
+  "N": [
+   [
+    "Bonnet",
+    1.0
+   ],
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Engine and Suspension R&R",
+    1.0
+   ],
+   [
+    "Bumper Front R&R",
+    0.91
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.82
+   ],
+   [
+    "Chassis Member Front RH",
+    0.82
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.82
+   ],
+   [
+    "Fender Front RH",
+    0.73
+   ],
+   [
+    "Front Panel Assembly",
+    0.73
+   ],
+   [
+    "Crossmember Front",
+    0.64
+   ],
+   [
+    "Chassis Member Front LH",
+    0.64
+   ],
+   [
+    "Fender Front LH",
+    0.55
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.91
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.91
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.91
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.73
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.73
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.73
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.73
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.73
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.64
+   ],
+   [
+    "Fender Front Inner RH",
+    0.64
+   ],
+   [
+    "Chassis Member Front Closing LH",
+    0.64
+   ],
+   [
+    "Fender Front Inner Upper RH",
+    0.64
+   ],
+   [
+    "Fender Front Inner Reinforcement Section RH",
+    0.64
+   ],
+   [
+    "Front Panel",
+    0.55
+   ],
+   [
+    "Fender Front Inner LH",
+    0.55
+   ],
+   [
+    "Front Panel Upper",
+    0.55
+   ],
+   [
+    "Headlamp Panel LH",
+    0.55
+   ],
+   [
+    "Headlamp Panel RH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Upper LH",
+    0.55
+   ],
+   [
+    "Fender Front Inner Reinforcement Section LH",
+    0.55
+   ]
+  ]
+ },
+ "Door Rear Aperture Weatherstrip LH": {
+  "n": 11,
+  "N": [
+   [
+    "Door Rear LH",
+    1.0
+   ],
+   [
+    "Bumper Rear R&R",
+    0.82
+   ],
+   [
+    "Fuel Tank R&R",
+    0.73
+   ],
+   [
+    "Suspension Rear R&R",
+    0.73
+   ],
+   [
+    "Quarter Panel LH",
+    0.73
+   ],
+   [
+    "Door Front LH",
+    0.73
+   ],
+   [
+    "Bumper Rear",
+    0.73
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.64
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Rear Window LH",
+    0.82
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.82
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.73
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.73
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.64
+   ],
+   [
+    "Doorskin Front LH",
+    0.64
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.55
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.55
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.55
+   ],
+   [
+    "Doorskin Rear LH",
+    0.55
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.55
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.55
+   ]
+  ]
+ },
+ "Weather Sheeting Door Rear": {
+  "n": 11,
+  "N": [
+   [
+    "Bumper Rear R&R",
+    0.82
+   ],
+   [
+    "Bumper Rear",
+    0.82
+   ],
+   [
+    "Fuel Tank R&R",
+    0.64
+   ],
+   [
+    "Suspension Rear R&R",
+    0.64
+   ],
+   [
+    "Quarter Panel LH",
+    0.55
+   ],
+   [
+    "Door Rear LH",
+    0.55
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.55
+   ],
+   [
+    "Door Rear RH",
+    0.55
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.64
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.55
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.55
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.55
+   ]
+  ]
+ },
+ "Door Front Weatherstrip LH": {
+  "n": 10,
+  "N": [
+   [
+    "Door Front LH",
+    1.0
+   ],
+   [
+    "Fender Front LH",
+    0.8
+   ],
+   [
+    "Door Rear LH",
+    0.8
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.7
+   ],
+   [
+    "Bumper Front",
+    0.5
+   ],
+   [
+    "Bumper Front R&R",
+    0.5
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.5
+   ],
+   [
+    "Suspension Rear R&R",
+    0.5
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ],
+   [
+    "Bumper Rear",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Front LH",
+    0.8
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.8
+   ],
+   [
+    "Doorskin Rear LH",
+    0.6
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.6
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.5
+   ],
+   [
+    "Front Pillar Outer LH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.5
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.5
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.5
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.5
+   ]
+  ]
+ },
+ "Driveshaft Front LH": {
+  "n": 10,
+  "N": [
+   [
+    "Fender Front LH",
+    0.9
+   ],
+   [
+    "Door Front LH",
+    0.8
+   ],
+   [
+    "Bumper Front",
+    0.8
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.8
+   ],
+   [
+    "Bumper Front R&R",
+    0.6
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.5
+   ],
+   [
+    "Bonnet",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Front LH",
+    0.7
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.7
+   ],
+   [
+    "Fender Front Inner LH",
+    0.6
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.5
+   ]
+  ]
+ },
+ "Wheel Bearing Front": {
+  "n": 10,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Bumper Front R&R",
+    0.9
+   ],
+   [
+    "Fender Front RH",
+    0.7
+   ],
+   [
+    "Bonnet",
+    0.5
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.5
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.5
+   ],
+   [
+    "Door Front RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.6
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    0.6
+   ],
+   [
+    "Fender Front Inner RH",
+    0.5
+   ]
+  ]
+ },
+ "Suspension Arm Front RH": {
+  "n": 10,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.9
+   ],
+   [
+    "Bumper Front R&R",
+    0.9
+   ],
+   [
+    "Fender Front RH",
+    0.7
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.6
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.6
+   ],
+   [
+    "Door Front RH",
+    0.5
+   ],
+   [
+    "Bonnet",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.9
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.7
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.7
+   ],
+   [
+    "Chassis Member Front RH",
+    0.6
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.6
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.6
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner RH",
+    0.5
+   ],
+   [
+    "Doorskin Front RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Upper RH",
+    0.5
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.5
+   ]
+  ]
+ },
+ "Weather Sheeting Door Front RH": {
+  "n": 10,
+  "N": [
+   [
+    "Door Front RH",
+    1.0
+   ],
+   [
+    "Door Rear RH",
+    0.9
+   ],
+   [
+    "Fender Front RH",
+    0.7
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.7
+   ],
+   [
+    "Rooflining R&R",
+    0.6
+   ],
+   [
+    "Bumper Front",
+    0.6
+   ],
+   [
+    "Bumper Front R&R",
+    0.6
+   ],
+   [
+    "Quarter Panel RH",
+    0.6
+   ],
+   [
+    "Runningboard Panel RH",
+    0.6
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Front Window RH",
+    1.0
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.9
+   ],
+   [
+    "Doorskin Front RH",
+    0.7
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.6
+   ],
+   [
+    "Doorskin Rear RH",
+    0.6
+   ],
+   [
+    "Front Pillar Outer RH",
+    0.6
+   ],
+   [
+    "Centre Pillar Inner RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Side Reinforcement RH",
+    0.5
+   ],
+   [
+    "Front Pillar Reinforcement RH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Rear Lower Cover": {
+  "n": 10,
+  "N": [
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.9
+   ],
+   [
+    "Fuel Tank R&R",
+    0.8
+   ],
+   [
+    "Suspension Rear R&R",
+    0.8
+   ],
+   [
+    "Bumper Rear R&R",
+    0.8
+   ],
+   [
+    "Boot Floor",
+    0.8
+   ],
+   [
+    "Quarter Panel RH",
+    0.7
+   ],
+   [
+    "Tailgate",
+    0.7
+   ],
+   [
+    "Quarter Panel LH",
+    0.6
+   ],
+   [
+    "Rear Panel Assembly",
+    0.6
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel RH",
+    0.6
+   ],
+   [
+    "Windscreen Rear",
+    0.6
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.5
+   ]
+  ]
+ },
+ "Tailgate Upper Trim": {
+  "n": 10,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.9
+   ],
+   [
+    "Tailgate",
+    0.8
+   ],
+   [
+    "Boot Floor",
+    0.7
+   ],
+   [
+    "Quarter Panel LH",
+    0.6
+   ]
+  ],
+  "R": []
+ },
+ "Badge Tailgate": {
+  "n": 10,
+  "N": [
+   [
+    "Tailgate",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Quarter Panel LH",
+    0.7
+   ],
+   [
+    "Boot Floor",
+    0.7
+   ],
+   [
+    "Fuel Tank R&R",
+    0.6
+   ],
+   [
+    "Suspension Rear R&R",
+    0.6
+   ],
+   [
+    "Quarter Panel RH",
+    0.6
+   ],
+   [
+    "Bumper Rear R&R",
+    0.6
+   ],
+   [
+    "Rear Panel",
+    0.6
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Rear Aperture Weatherstrip RH": {
+  "n": 10,
+  "N": [
+   [
+    "Door Rear RH",
+    0.9
+   ],
+   [
+    "Quarter Panel RH",
+    0.7
+   ],
+   [
+    "Bumper Rear",
+    0.6
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Rear Window RH",
+    0.6
+   ],
+   [
+    "Doorskin Rear RH",
+    0.6
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.5
+   ],
+   [
+    "Door Rear Weatherstrip Retainer Panel RH",
+    0.5
+   ]
+  ]
+ },
+ "Door Trim Board Finisher Front RH": {
+  "n": 10,
+  "N": [
+   [
+    "Door Mirror RH (tts)",
+    0.8
+   ],
+   [
+    "Door Front RH",
+    0.7
+   ],
+   [
+    "Door Rear RH",
+    0.6
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.5
+   ],
+   [
+    "Bumper Front",
+    0.5
+   ],
+   [
+    "Runningboard Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Front RH",
+    0.8
+   ],
+   [
+    "Doorskin Rear RH",
+    0.6
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.6
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.5
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.5
+   ]
+  ]
+ },
+ "Door Trim Board Finisher Rear RH": {
+  "n": 10,
+  "N": [
+   [
+    "Door Rear RH",
+    0.8
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ],
+   [
+    "Door Front RH",
+    0.5
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Rear RH",
+    0.6
+   ],
+   [
+    "Doorskin Front RH",
+    0.5
+   ]
+  ]
+ },
+ "Fog Lamp Front RH": {
+  "n": 10,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.9
+   ],
+   [
+    "Bonnet",
+    0.8
+   ],
+   [
+    "Bumper Front R&R",
+    0.8
+   ],
+   [
+    "Fender Front RH",
+    0.8
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.7
+   ],
+   [
+    "Front Panel Upper",
+    0.7
+   ],
+   [
+    "Fender Front LH",
+    0.6
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.6
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.9
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.7
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.7
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.6
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.5
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.5
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.5
+   ]
+  ]
+ },
+ "Runningboard Panel RH": {
+  "n": 10,
+  "N": [
+   [
+    "Runningboard Panel RH",
+    0.9
+   ],
+   [
+    "Quarter Panel RH",
+    0.8
+   ],
+   [
+    "Door Rear RH",
+    0.7
+   ],
+   [
+    "Bumper Front",
+    0.6
+   ],
+   [
+    "Bumper Rear",
+    0.6
+   ],
+   [
+    "Bumper Rear R&R",
+    0.6
+   ],
+   [
+    "Door Front RH",
+    0.6
+   ],
+   [
+    "Bumper Front R&R",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Rear RH",
+    0.7
+   ],
+   [
+    "Doorskin Front RH",
+    0.7
+   ],
+   [
+    "Front Pillar Outer RH",
+    0.7
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.6
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.6
+   ],
+   [
+    "Centre Pillar Inner RH",
+    0.5
+   ],
+   [
+    "Front Pillar Reinforcement RH",
+    0.5
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.5
+   ]
+  ]
+ },
+ "Shock Absorber Front LH": {
+  "n": 9,
+  "N": [
+   [
+    "Fender Front LH",
+    1.0
+   ],
+   [
+    "Door Front LH",
+    0.89
+   ],
+   [
+    "Bumper Front",
+    0.78
+   ],
+   [
+    "Bumper Front R&R",
+    0.78
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.78
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.67
+   ],
+   [
+    "Bonnet",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Fender Front Inner LH",
+    0.78
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.78
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.67
+   ],
+   [
+    "Doorskin Front LH",
+    0.67
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.56
+   ]
+  ]
+ },
+ "Tailgate Outer Release Handle": {
+  "n": 9,
+  "N": [
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Tailgate",
+    0.89
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.89
+   ],
+   [
+    "Boot Floor",
+    0.78
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.78
+   ],
+   [
+    "Quarter Panel LH",
+    0.67
+   ],
+   [
+    "Fuel Tank R&R",
+    0.56
+   ],
+   [
+    "Quarter Panel RH",
+    0.56
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.67
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.67
+   ]
+  ]
+ },
+ "Bumper Front Lower Grille": {
+  "n": 9,
+  "N": [
+   [
+    "Bumper Front",
+    0.89
+   ],
+   [
+    "Bumper Front R&R",
+    0.78
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.78
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.67
+   ],
+   [
+    "Bonnet",
+    0.67
+   ],
+   [
+    "Fender Front LH",
+    0.56
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.56
+   ],
+   [
+    "Front Panel Assembly",
+    0.56
+   ],
+   [
+    "Fender Front RH",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    0.78
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.67
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.56
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.56
+   ],
+   [
+    "Front Panel Upper",
+    0.56
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.56
+   ]
+  ]
+ },
+ "Fender Front Inner Wheel House RH": {
+  "n": 9,
+  "N": [
+   [
+    "Bumper Front",
+    1.0
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.89
+   ],
+   [
+    "Bonnet",
+    0.89
+   ],
+   [
+    "Bumper Front R&R",
+    0.78
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.67
+   ],
+   [
+    "Fender Front RH",
+    0.67
+   ],
+   [
+    "Crossmember Front",
+    0.67
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.56
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.89
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.67
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.67
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.67
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.67
+   ],
+   [
+    "Fender Front Inner RH",
+    0.56
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.56
+   ],
+   [
+    "Fender Front Inner Reinforcement Section RH",
+    0.56
+   ],
+   [
+    "Fender Front Inner Upper RH",
+    0.56
+   ]
+  ]
+ },
+ "Radiator Air Deflector": {
+  "n": 9,
+  "N": [
+   [
+    "Bumper Front",
+    0.89
+   ],
+   [
+    "Bumper Front R&R",
+    0.89
+   ],
+   [
+    "Bonnet",
+    0.89
+   ],
+   [
+    "Engine and Suspension R&R",
+    0.89
+   ],
+   [
+    "Chassis Member Front LH",
+    0.78
+   ],
+   [
+    "Chassis Member Front RH",
+    0.78
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.67
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.67
+   ],
+   [
+    "Front Panel Assembly",
+    0.67
+   ],
+   [
+    "Headlamp Assembly LH (tts)",
+    0.56
+   ],
+   [
+    "Fender Front RH",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front LH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Front Panel Upper",
+    0.67
+   ],
+   [
+    "Headlamp Panel LH",
+    0.67
+   ],
+   [
+    "Headlamp Panel RH",
+    0.67
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.67
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.67
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.67
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.67
+   ],
+   [
+    "Front Panel",
+    0.56
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.56
+   ],
+   [
+    "Chassis Member Front Closing LH",
+    0.56
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.56
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.56
+   ]
+  ]
+ },
+ "Exhaust Silencer": {
+  "n": 9,
+  "N": [
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Quarter Panel RH",
+    0.89
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.78
+   ],
+   [
+    "Fuel Tank R&R",
+    0.67
+   ],
+   [
+    "Suspension Rear R&R",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.67
+   ],
+   [
+    "Boot Floor",
+    0.67
+   ],
+   [
+    "Rear Panel Assembly",
+    0.56
+   ],
+   [
+    "Quarter Panel LH",
+    0.56
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.56
+   ],
+   [
+    "Boot Lid",
+    0.56
+   ]
+  ],
+  "R": []
+ },
+ "Towing Eye Front": {
+  "n": 9,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Boot Floor",
+    0.89
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.78
+   ],
+   [
+    "Fuel Tank R&R",
+    0.67
+   ],
+   [
+    "Suspension Rear R&R",
+    0.67
+   ],
+   [
+    "Rear Panel Assembly",
+    0.67
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.67
+   ],
+   [
+    "Quarter Panel LH",
+    0.67
+   ],
+   [
+    "Tailgate",
+    0.67
+   ],
+   [
+    "Quarter Panel RH",
+    0.56
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.78
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.78
+   ]
+  ]
+ },
+ "Door Trim Board Front LH": {
+  "n": 8,
+  "N": [
+   [
+    "Door Front LH",
+    1.0
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.75
+   ],
+   [
+    "Door Rear LH",
+    0.62
+   ],
+   [
+    "Bumper Front",
+    0.5
+   ],
+   [
+    "Fender Front LH",
+    0.5
+   ],
+   [
+    "Fuel Tank R&R",
+    0.5
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Front LH",
+    0.88
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.88
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.62
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.5
+   ],
+   [
+    "Runningboard Panel LH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.5
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.5
+   ],
+   [
+    "Doorskin Rear LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Regulator Motor Rear RH": {
+  "n": 8,
+  "N": [
+   [
+    "Door Rear RH",
+    1.0
+   ],
+   [
+    "Door Front RH",
+    0.88
+   ],
+   [
+    "Quarter Panel RH",
+    0.75
+   ],
+   [
+    "Fender Front RH",
+    0.62
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.62
+   ],
+   [
+    "Rooflining R&R",
+    0.5
+   ],
+   [
+    "Bumper Front",
+    0.5
+   ],
+   [
+    "Bumper Front R&R",
+    0.5
+   ],
+   [
+    "Suspension Rear R&R",
+    0.5
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Rear Window RH",
+    1.0
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.88
+   ],
+   [
+    "Doorskin Rear RH",
+    0.62
+   ],
+   [
+    "Centre Pillar Inner RH",
+    0.5
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Side Reinforcement RH",
+    0.5
+   ],
+   [
+    "Doorskin Front RH",
+    0.5
+   ],
+   [
+    "Front Pillar Reinforcement RH",
+    0.5
+   ],
+   [
+    "Front Pillar Outer RH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Front Fog Lamp Finisher RH": {
+  "n": 8,
+  "N": [
+   [
+    "Bumper Front R&R",
+    1.0
+   ],
+   [
+    "Engine and Suspension R&R",
+    1.0
+   ],
+   [
+    "Bumper Front Reinforcement Panel",
+    0.88
+   ],
+   [
+    "Bumper Front",
+    0.88
+   ],
+   [
+    "Front Panel Assembly",
+    0.75
+   ],
+   [
+    "Bonnet",
+    0.75
+   ],
+   [
+    "Fender Front RH",
+    0.62
+   ],
+   [
+    "Headlamp Assembly RH (tts)",
+    0.62
+   ],
+   [
+    "Fender Front LH",
+    0.5
+   ],
+   [
+    "Crossmember Front",
+    0.5
+   ],
+   [
+    "Chassis Member Front LH",
+    0.5
+   ],
+   [
+    "Chassis Member Front RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Front RH Front Section",
+    1.0
+   ],
+   [
+    "Chassis Member Front LH Front Section",
+    0.88
+   ],
+   [
+    "Chassis Member Front Closing Section LH",
+    0.62
+   ],
+   [
+    "Fender Front Inner LH",
+    0.62
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.62
+   ],
+   [
+    "Fender Front Inner Reinforcement RH",
+    0.62
+   ],
+   [
+    "Fender Front Inner RH",
+    0.62
+   ],
+   [
+    "Chassis Member Front Closing Section RH",
+    0.62
+   ],
+   [
+    "Chassis Member Front Closing RH",
+    0.62
+   ],
+   [
+    "Fender Front Inner Section RH",
+    0.62
+   ],
+   [
+    "Front Panel Upper",
+    0.5
+   ],
+   [
+    "Chassis Member Front Closing LH",
+    0.5
+   ],
+   [
+    "Chassis Member Front & Inner Fender LH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Section LH",
+    0.5
+   ],
+   [
+    "Chassis Member Front & Inner Fender RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Upper RH",
+    0.5
+   ],
+   [
+    "Fender Front Inner Reinforcement Section RH",
+    0.5
+   ]
+  ]
+ },
+ "Windscreen Rear": {
+  "n": 8,
+  "N": [
+   [
+    "Tailgate",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Suspension Rear R&R",
+    0.88
+   ],
+   [
+    "Quarter Panel RH",
+    0.88
+   ],
+   [
+    "Windscreen Rear",
+    0.88
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.88
+   ],
+   [
+    "Quarter Panel LH",
+    0.75
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.75
+   ],
+   [
+    "Boot Floor",
+    0.75
+   ],
+   [
+    "Fuel Tank R&R",
+    0.62
+   ],
+   [
+    "Rear Panel Assembly",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.62
+   ],
+   [
+    "Bumper Rear R&R",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.75
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.75
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Trim Board Finisher Front LH": {
+  "n": 8,
+  "N": [
+   [
+    "Door Front LH",
+    0.88
+   ],
+   [
+    "Fender Front LH",
+    0.88
+   ],
+   [
+    "Door Rear LH",
+    0.75
+   ],
+   [
+    "Runningboard Panel LH",
+    0.62
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.62
+   ],
+   [
+    "Bumper Front R&R",
+    0.5
+   ],
+   [
+    "Bumper Front",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Fender Front Inner LH",
+    0.75
+   ],
+   [
+    "Doorskin Rear LH",
+    0.75
+   ],
+   [
+    "Doorskin Front LH",
+    0.75
+   ],
+   [
+    "Runningboard Panel Section Rear LH",
+    0.62
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.62
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.62
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.62
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.62
+   ],
+   [
+    "Fender Front Inner Reinforcement LH",
+    0.5
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.5
+   ],
+   [
+    "Centre Pillar Reinforcement LH Upper",
+    0.5
+   ],
+   [
+    "Door Rear Weatherstrip Retainer Panel LH",
+    0.5
+   ],
+   [
+    "Door Front Weatherstrip Retainer Panel LH",
+    0.5
+   ]
+  ]
+ },
+ "Quarter Panel Inner RH": {
+  "n": 8,
+  "N": [
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Rooflining R&R",
+    0.88
+   ],
+   [
+    "Suspension Rear R&R",
+    0.88
+   ],
+   [
+    "Bumper Rear R&R",
+    0.88
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.88
+   ],
+   [
+    "Rear Panel Assembly",
+    0.75
+   ],
+   [
+    "Quarter Panel RH",
+    0.75
+   ],
+   [
+    "Door Rear RH",
+    0.62
+   ],
+   [
+    "Bumper Rear",
+    0.62
+   ],
+   [
+    "Fuel Tank R&R",
+    0.5
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.5
+   ],
+   [
+    "Boot Floor",
+    0.5
+   ],
+   [
+    "Boot Lid",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner Reinforcement Upper RH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower RH",
+    0.5
+   ]
+  ]
+ },
+ "Door Window Regulator Rear RH": {
+  "n": 8,
+  "N": [
+   [
+    "Door Rear RH",
+    1.0
+   ],
+   [
+    "Quarter Panel RH",
+    0.75
+   ],
+   [
+    "Fuel Tank R&R",
+    0.5
+   ],
+   [
+    "Door Front RH",
+    0.5
+   ],
+   [
+    "Bumper Rear",
+    0.5
+   ],
+   [
+    "Runningboard Panel RH",
+    0.5
+   ],
+   [
+    "Door Mirror RH (tts)",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Doorskin Rear RH",
+    0.88
+   ],
+   [
+    "Doorskin Front RH",
+    0.62
+   ],
+   [
+    "Quarter Glass Rear RH (tts)",
+    0.5
+   ],
+   [
+    "Door Glass Rear Window RH",
+    0.5
+   ],
+   [
+    "Door Glass Front Window RH",
+    0.5
+   ],
+   [
+    "Centre Pillar Reinforcement RH",
+    0.5
+   ],
+   [
+    "Front Pillar Outer RH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.5
+   ]
+  ]
+ },
+ "Door Rear Weatherstrip LH": {
+  "n": 8,
+  "N": [
+   [
+    "Door Rear LH",
+    1.0
+   ],
+   [
+    "Bumper Rear R&R",
+    0.88
+   ],
+   [
+    "Bumper Rear",
+    0.88
+   ],
+   [
+    "Suspension Rear R&R",
+    0.75
+   ],
+   [
+    "Quarter Panel LH",
+    0.75
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.75
+   ],
+   [
+    "Fuel Tank R&R",
+    0.62
+   ],
+   [
+    "Fender Front LH",
+    0.62
+   ],
+   [
+    "Door Front LH",
+    0.62
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.62
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.88
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.88
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.75
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.75
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.75
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.62
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.62
+   ],
+   [
+    "Doorskin Rear LH",
+    0.62
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.62
+   ],
+   [
+    "Doorskin Front LH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.5
+   ],
+   [
+    "Rear Panel Reinforcement LH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner Striker Reinforcement Panel RH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.5
+   ],
+   [
+    "Towing Eye Bracket Rear RH",
+    0.5
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.5
+   ],
+   [
+    "Door Front Weatherstrip Retainer Panel LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Trim Board Finisher Rear LH": {
+  "n": 8,
+  "N": [
+   [
+    "Door Rear LH",
+    1.0
+   ],
+   [
+    "Quarter Panel LH",
+    0.75
+   ],
+   [
+    "Bumper Rear R&R",
+    0.75
+   ],
+   [
+    "Bumper Rear",
+    0.75
+   ],
+   [
+    "Runningboard Panel LH",
+    0.75
+   ],
+   [
+    "Fuel Tank R&R",
+    0.62
+   ],
+   [
+    "Suspension Rear R&R",
+    0.62
+   ],
+   [
+    "Lamp Assembly Rear LH (tts)",
+    0.62
+   ],
+   [
+    "Fender Front LH",
+    0.62
+   ],
+   [
+    "Door Front LH",
+    0.5
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Quarter Panel Inner LH",
+    0.75
+   ],
+   [
+    "Quarter Panel (B) LH",
+    0.75
+   ],
+   [
+    "Runningboard Panel Section Rear LH",
+    0.75
+   ],
+   [
+    "Door Glass Rear Window LH",
+    0.75
+   ],
+   [
+    "Doorskin Rear LH",
+    0.75
+   ],
+   [
+    "Doorskin Front LH",
+    0.75
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.62
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Upper LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner Reinforcement Lower LH",
+    0.62
+   ],
+   [
+    "Door Rear Weatherstrip Retainer Panel LH",
+    0.62
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.62
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.5
+   ],
+   [
+    "Rear Panel Reinforcement LH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner Striker Reinforcement Panel RH",
+    0.5
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.5
+   ],
+   [
+    "Towing Eye Bracket Rear RH",
+    0.5
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.5
+   ],
+   [
+    "Centre Pillar Reinforcement LH Upper",
+    0.5
+   ],
+   [
+    "Fender Front Inner LH",
+    0.5
+   ],
+   [
+    "Door Front Weatherstrip Retainer Panel LH",
+    0.5
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.5
+   ]
+  ]
+ },
+ "Boot Floor Side Extension LH": {
+  "n": 8,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Tailgate",
+    0.5
+   ],
+   [
+    "Fuel Tank R&R",
+    0.5
+   ],
+   [
+    "Suspension Rear R&R",
+    0.5
+   ],
+   [
+    "Rear Panel Assembly",
+    0.5
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.5
+   ],
+   [
+    "Boot Floor",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.88
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.88
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.62
+   ],
+   [
+    "Suspension Rear R&R",
+    0.5
+   ],
+   [
+    "Rear Panel Assembly",
+    0.5
+   ],
+   [
+    "Boot Floor",
+    0.5
+   ],
+   [
+    "Rear Panel Reinforcement LH",
+    0.5
+   ]
+  ]
+ },
+ "Boot Floor Side Extension RH": {
+  "n": 8,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    0.88
+   ],
+   [
+    "Fuel Tank R&R",
+    0.62
+   ],
+   [
+    "Suspension Rear R&R",
+    0.62
+   ],
+   [
+    "Boot Floor",
+    0.62
+   ],
+   [
+    "Tailgate",
+    0.5
+   ],
+   [
+    "Rear Panel Assembly",
+    0.5
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ],
+   [
+    "Quarter Panel LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.75
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.75
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Bumper Rear Sensor Bracket": {
+  "n": 8,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    0.88
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    0.88
+   ],
+   [
+    "Fuel Tank R&R",
+    0.75
+   ],
+   [
+    "Bumper Rear R&R",
+    0.75
+   ],
+   [
+    "Suspension Rear R&R",
+    0.75
+   ],
+   [
+    "Boot Floor",
+    0.75
+   ],
+   [
+    "Rooflining R&R",
+    0.62
+   ],
+   [
+    "Rear Panel Assembly",
+    0.62
+   ],
+   [
+    "Quarter Panel RH",
+    0.5
+   ],
+   [
+    "Boot Lid",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Rear Lamp Panel RH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner RH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.5
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.5
+   ]
+  ]
+ },
+ "Door Regulator Motor Rear LH": {
+  "n": 8,
+  "N": [
+   [
+    "Door Rear LH",
+    1.0
+   ],
+   [
+    "Door Front LH",
+    0.88
+   ],
+   [
+    "Bumper Rear R&R",
+    0.75
+   ],
+   [
+    "Fuel Tank R&R",
+    0.62
+   ],
+   [
+    "Suspension Rear R&R",
+    0.62
+   ],
+   [
+    "Quarter Panel LH",
+    0.62
+   ],
+   [
+    "Bumper Rear",
+    0.62
+   ],
+   [
+    "Runningboard Panel LH",
+    0.62
+   ],
+   [
+    "Door Mirror LH (tts)",
+    0.62
+   ]
+  ],
+  "R": [
+   [
+    "Door Glass Rear Window LH",
+    1.0
+   ],
+   [
+    "Door Glass Front Window LH (tts)",
+    0.88
+   ],
+   [
+    "Quarter Glass Rear LH (tts)",
+    0.75
+   ],
+   [
+    "Centre Pillar Inner LH",
+    0.75
+   ],
+   [
+    "Centre Pillar Reinforcement LH",
+    0.62
+   ],
+   [
+    "Quarter Panel Inner LH",
+    0.62
+   ],
+   [
+    "Doorskin Rear LH",
+    0.62
+   ],
+   [
+    "Doorskin Front LH",
+    0.62
+   ],
+   [
+    "Centre Pillar & Runningboard LH",
+    0.62
+   ],
+   [
+    "Runningboard Panel Section Centre LH",
+    0.5
+   ],
+   [
+    "Runningboard Panel Section Rear LH",
+    0.5
+   ]
+  ]
+ },
+ "Towing Eye Rear": {
+  "n": 8,
+  "N": [
+   [
+    "Lamp Assembly Rear LH (tts)",
+    1.0
+   ],
+   [
+    "Boot Floor",
+    1.0
+   ],
+   [
+    "Bumper Rear",
+    1.0
+   ],
+   [
+    "Lamp Assembly Rear RH (tts)",
+    1.0
+   ],
+   [
+    "Fuel Tank R&R",
+    0.88
+   ],
+   [
+    "Suspension Rear R&R",
+    0.88
+   ],
+   [
+    "Rear Lamp Panel LH",
+    0.75
+   ],
+   [
+    "Rear Lamp Panel RH",
+    0.75
+   ],
+   [
+    "Rear Panel Assembly",
+    0.75
+   ],
+   [
+    "Quarter Panel RH",
+    0.75
+   ],
+   [
+    "Quarter Panel LH",
+    0.62
+   ],
+   [
+    "Tailgate",
+    0.5
+   ],
+   [
+    "Boot Lid",
+    0.5
+   ]
+  ],
+  "R": [
+   [
+    "Chassis Member Rear Section Rear LH",
+    0.62
+   ],
+   [
+    "Chassis Member Rear Section Rear RH",
+    0.62
+   ],
+   [
+    "Rear Lamp Panel Inner LH",
+    0.5
+   ],
+   [
+    "Rear Lamp Panel Inner RH",
+    0.5
+   ]
+  ]
+ }
+}

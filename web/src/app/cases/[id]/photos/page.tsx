@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { notFound, redirect } from "next/navigation";
+import { and, desc, eq, inArray, ne, notInArray, or, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getLang, getT } from "@/lib/i18n-server";
 import { caseInOrg } from "@/lib/photos/server";
@@ -9,6 +9,9 @@ import { requireUser } from "@/lib/session";
 import NamingDesk, { type DeskTab } from "@/components/photos/naming-desk";
 
 export const dynamic = "force-dynamic";
+
+/** Cases that are not on the desk: the documents are not read yet (or being read), or reading failed. */
+const NO_DESK = ["uploaded", "reading", "failed"];
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -24,10 +27,11 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
   const { orgId } = await requireUser();
   const c = await caseInOrg(orgId, id);
   if (!c) notFound(); // another organisation's case looks exactly like a case that does not exist
+  if (NO_DESK.includes(c.status)) redirect(`/cases/${id}`); // not read yet, being read, or failed: nothing to name
 
   const rows = await db.select({ id: schema.cases.id, plate: schema.cases.plate, carModel: schema.cases.carModel, doneAt: schema.cases.photosDoneAt, status: schema.cases.status })
     .from(schema.cases)
-    .where(and(eq(schema.cases.orgId, orgId), or(ne(schema.cases.status, "done"), eq(schema.cases.id, id))))
+    .where(and(eq(schema.cases.orgId, orgId), or(and(ne(schema.cases.status, "done"), notInArray(schema.cases.status, NO_DESK)), eq(schema.cases.id, id))))
     .orderBy(desc(schema.cases.createdAt)).limit(40);
   if (!rows.some((r) => r.id === id)) rows.unshift({ id: c.id, plate: c.plate, carModel: c.carModel, doneAt: c.photosDoneAt, status: c.status });
   const n = rows.length

@@ -32,6 +32,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: playbook copies match the repo
+        run: node scripts/sync-playbook.mjs --check
       - name: install and check
         run: |
           if [ ! -f web/package.json ]; then echo "No web/package.json yet; nothing to check."; exit 0; fi

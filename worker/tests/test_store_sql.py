@@ -67,3 +67,40 @@ def test_every_statement_apply_and_finish_verify_build_runs_on_postgres():
     r = run(steps, seed=seed)
     assert r[-2][0][0] >= 3
     assert r[-1] == [["queued"]]  # paused by the first failure, put back by the later success
+
+
+def test_step2_log_and_learning_rows_go_out_in_the_same_batch():
+    rec = Rec()
+    PgRepo("", db=rec).apply(
+        {**JOB, "step": "phase_b"},
+        Outcome("done", step2_log={"mode": "dry", "action": "plan", "plan": {"parts": 3}, "check": {"ok": True}, "ai": {}, "playbook": "v@local", "note": "n"},
+                learning=[{"photo_id": 1, "content_hash": "h", "blob_path": "p", "model_name": "A", "label": "B", "changed": True}]),
+    )
+    assert len(rec.batches) == 1 and rec.calls == []
+    sqls = [s[0] for s in rec.batches[0]]
+    assert any("INSERT INTO step2_log" in s for s in sqls) and any("INSERT INTO photo_learning" in s for s in sqls)
+
+
+@needs_pg
+def test_step2_log_learning_upsert_and_export_run_on_postgres():
+    rec = Rec()
+    repo = PgRepo("", db=rec)
+    job = {**JOB, "id": 100, "step": "phase_b"}
+    one = lambda label, changed: Outcome("done", step2_log={"mode": "dry", "action": "plan", "plan": {"parts": 1}, "check": {}, "ai": {}, "playbook": "v@x", "note": "n"},
+                                         learning=[{"photo_id": 1, "content_hash": "h", "blob_path": "p", "model_name": "Bonnet", "label": label, "changed": changed}])
+    repo.apply(job, one("Door Mirror RH", True))
+    repo.apply(job, one("Door Mirror RH", True))  # Done again with the same name: still one row
+    steps = []
+    for st in [s for b in rec.batches for s in b]:
+        text, args = to_numbered(*st)
+        steps.append({"sql": text, "params": args})
+    take, targs = to_numbered("UPDATE photo_learning SET exported_at = now() WHERE exported_at IS NULL RETURNING label, changed", ())
+    steps += [
+        {"sql": "SELECT count(*), max(label) FROM photo_learning"},
+        {"sql": "SELECT count(*) FROM step2_log"},
+        {"sql": take},
+    ]
+    seed = SEED[:2] + ["INSERT INTO jobs (id, case_id, step, state) VALUES (100,'c1','phase_b','running')",
+                       "INSERT INTO case_photos (id, case_id, position, orig_n, src_name, blob_path, thumb_path) VALUES (1,'c1',0,1,'a.jpg','p','t')"]
+    r = run(steps, seed=seed)
+    assert r[-3] == [[1, "Door Mirror RH"]] and r[-2] == [[2]] and r[-1] == [["Door Mirror RH", True]]

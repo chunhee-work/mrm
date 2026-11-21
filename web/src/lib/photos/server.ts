@@ -6,6 +6,8 @@ import {
   MAX_PHOTOS, MAX_REGISTER, SLICE,
 } from "./rules";
 import { deletePhoto, photoExists } from "./store";
+import { applyCaseRules, arrangeOpening, sameOrder } from "./order-rules";
+import { snapshotOf } from "./snapshot";
 
 // Database side of the photo naming desk (plan #9). Every function takes a case that the caller already
 // checked against the signed-in member's organisation (see caseInOrg), so nothing here trusts an id from the client.
@@ -35,7 +37,8 @@ export function photoDto(p: PhotoRow) {
 }
 export type PhotoDto = ReturnType<typeof photoDto>;
 
-export async function photoState(c: CaseRow): Promise<Result> {
+export async function photoState(c0: CaseRow): Promise<Result> {
+  const c = (await finalizeNaming(c0)) ?? c0;
   const [photos, extras] = await Promise.all([
     db.select().from(P).where(eq(P.caseId, c.id)).orderBy(asc(P.position), asc(P.id)),
     db.select().from(schema.caseExtras).where(eq(schema.caseExtras.caseId, c.id)).orderBy(asc(schema.caseExtras.createdAt), asc(schema.caseExtras.id)),
@@ -47,13 +50,48 @@ export async function photoState(c: CaseRow): Promise<Result> {
   });
 }
 
+/**
+ * Once every photo has a name (and nobody has touched the order): the case rules on the model's names (Badge (LOGO) to Badge (BRAND),
+ * Rear Lamp Inner/Outer pairing) and the opening order (four corners, Interior/Road Tax, Odometer, Chassis, Engine). Runs once per round of
+ * photos: one statement claims it, so two open pages cannot both do it. Never touches a name the adjuster set. Returns the fresh case row.
+ */
+export async function finalizeNaming(c: CaseRow): Promise<CaseRow | null> {
+  if (c.photosDoneAt || c.photosArrangedAt) return null;
+  if ((await pendingCount(c.id)) > 0) return null;
+  const claim = await db.execute(sql`
+    UPDATE cases SET photos_arranged_at = now()
+    WHERE id = ${c.id} AND photos_arranged_at IS NULL AND photos_done_at IS NULL
+      AND EXISTS (SELECT 1 FROM case_photos WHERE case_id = ${c.id})
+      AND NOT EXISTS (SELECT 1 FROM case_photos WHERE case_id = ${c.id} AND name_state IN ('pending', 'running'))
+    RETURNING photos_rev`);
+  const won = rowsOf<{ photos_rev: number }>(claim)[0];
+  if (!won) return null;
+  const rows = await db.select().from(P).where(eq(P.caseId, c.id)).orderBy(asc(P.position), asc(P.id));
+  const vehicle = c.carModel || (c.caseData as { client_vehicle?: { model?: string | null } } | null)?.client_vehicle?.model || "";
+  const changes = applyCaseRules(rows.filter((r) => !r.finalName).map((r) => ({ id: r.id, modelName: r.modelName, confidence: r.confidence == null ? null : Number(r.confidence) })), vehicle);
+  const model = new Map(rows.map((r) => [r.id, r.modelName]));
+  for (const ch of changes) {
+    await db.execute(sql`
+      UPDATE case_photos SET model_name = ${ch.modelName}, confidence = ${ch.confidence == null ? null : ch.confidence.toFixed(4)}
+      WHERE id = ${ch.id} AND case_id = ${c.id} AND final_name IS NULL`);
+    model.set(ch.id, ch.modelName);
+  }
+  const shown = rows.map((r) => ({ id: r.id, name: r.finalName ?? model.get(r.id) ?? null }));
+  const next = arrangeOpening(shown);
+  if (Number(won.photos_rev) === 0 && !sameOrder(shown, next)) await reorderPhotos(c, next.map((p) => p.id), 0);
+  return (await caseInOrg(c.orgId, c.id)) ?? c;
+}
+
 /** Any edit after "done" takes the tick away again (plan, section D). Status only moves back from phase_b. */
 export async function clearDone(caseId: string): Promise<boolean> {
   const r = await db.execute(sql`
-    UPDATE cases SET photos_done_at = NULL, status = CASE WHEN status = 'phase_b' THEN 'waiting_user' ELSE status END
+    UPDATE cases SET photos_done_at = NULL, photos_snapshot = NULL, status = CASE WHEN status = 'phase_b' THEN 'waiting_user' ELSE status END
     WHERE id = ${caseId} AND photos_done_at IS NOT NULL RETURNING id`);
   if (!rowsOf(r).length) return false;
   await db.update(P).set({ confirmed: false }).where(eq(P.caseId, caseId));
+  // A Phase B that is still waiting in the queue must not run on names that are no longer final. One that is already running
+  // checks the case before each Merimen write (worker photo_sync) and stops by itself.
+  await db.execute(sql`UPDATE jobs SET state = 'cancelled', locked_by = NULL, locked_at = NULL WHERE case_id = ${caseId} AND step = 'phase_b' AND state IN ('queued', 'paused')`);
   return true;
 }
 
@@ -129,7 +167,37 @@ export async function setDone(c: CaseRow, done: unknown): Promise<Result> {
     return fail(409, "blocked", doneBlock(now) ?? { reason: "naming", count: 0 });
   }
   await db.update(P).set({ confirmed: true }).where(eq(P.caseId, c.id));
+  await takeSnapshot(c.id);
+  await recordLearning(c.id, c.orgId);
   return ok({ done: true, status: after.status });
+}
+
+/** The fingerprint of what was pressed 完成 on. Written only while the case is still done: an edit that slipped in has already cleared it. */
+export async function takeSnapshot(caseId: string): Promise<string> {
+  const [photos, extras] = await Promise.all([
+    db.select({ id: P.id, finalName: P.finalName, modelName: P.modelName }).from(P).where(eq(P.caseId, caseId)).orderBy(asc(P.position), asc(P.id)),
+    db.select({ name: schema.caseExtras.name }).from(schema.caseExtras).where(eq(schema.caseExtras.caseId, caseId)),
+  ]);
+  const snap = snapshotOf(photos.map((p) => ({ id: p.id, name: p.finalName ?? p.modelName })), extras.map((e) => e.name));
+  await db.execute(sql`UPDATE cases SET photos_snapshot = ${snap} WHERE id = ${caseId} AND photos_done_at IS NOT NULL`);
+  return snap;
+}
+
+/**
+ * The photo model's learning data: every photo's final name at Done (the label for the next training build), flagged `changed` when the
+ * adjuster's name differs from the model's. One row per photo; Done again after a rename updates the label and puts the row back in the
+ * queue (exported_at null). Own database only. The worker writes the same rows with the same statement when Phase B runs.
+ */
+export async function recordLearning(caseId: string, orgId: string): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO photo_learning (case_id, org_id, photo_id, content_hash, blob_path, model_name, label, changed)
+    SELECT p.case_id, ${orgId}, p.id, p.content_hash, p.blob_path, p.model_name, COALESCE(p.final_name, p.model_name),
+           (p.final_name IS NOT NULL AND p.final_name IS DISTINCT FROM p.model_name)
+    FROM case_photos p
+    WHERE p.case_id = ${caseId} AND COALESCE(p.final_name, p.model_name) IS NOT NULL
+    ON CONFLICT (case_id, photo_id) DO UPDATE
+    SET label = EXCLUDED.label, changed = EXCLUDED.changed, model_name = EXCLUDED.model_name, updated_at = now(),
+        exported_at = CASE WHEN photo_learning.label = EXCLUDED.label THEN photo_learning.exported_at ELSE NULL END`);
 }
 
 // ---- extras (parts with no photo) ----
@@ -241,6 +309,7 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
     await db.insert(schema.caseFiles).values(items.map((it) => ({ caseId: c.id, kind: "photo", blobUrl: it.blobPath, originalName: it.name, size: it.size })));
     const next = statusAfterRegister(c.status);
     if (next !== c.status) await db.update(schema.cases).set({ status: next }).where(and(eq(schema.cases.id, c.id), eq(schema.cases.status, c.status)));
+    await db.execute(sql`UPDATE cases SET photos_arranged_at = NULL WHERE id = ${c.id}`); // new photos: the opening order is looked at again once they are named
     await clearDone(c.id);
   }
   const consumed = [...items.flatMap((i) => [i.blobPath, i.thumbPath]), ...strays];
