@@ -28,7 +28,11 @@ export async function missing(): Promise<string[]> {
 }
 
 if (process.argv[1]?.endsWith("check-schema.ts")) {
-  if (!url) { console.log("check-schema: no DATABASE_URL, skipped"); process.exit(0); }
+  if (!url) {
+    // fail closed where a deploy can happen (Vercel, CI); only a plain local build may skip
+    if (process.env.VERCEL || process.env.CI) { console.error("check-schema: DATABASE_URL is not set on this build (VERCEL/CI), so the schema cannot be checked"); process.exit(1); }
+    console.log("check-schema: no DATABASE_URL, skipped"); process.exit(0);
+  }
   missing().then((m) => {
     if (m.length) { console.error(`check-schema: the database is missing ${m.join(", ")} (migration 0010_photo_sync.sql). Apply it, then build again.`); process.exit(1); }
     console.log("check-schema: ok");

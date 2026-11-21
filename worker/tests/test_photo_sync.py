@@ -406,3 +406,40 @@ def test_a_refused_phase_b_does_not_log_a_snapshot():
     m.after_write = lambda: alive.update(on=False)
     rep = ps.phase_b({}, new, [], stored_snapshot=snapshot_of(new, []), phase_a_photos=old, writes=True, merimen=m, guard=lambda: alive["on"])
     assert rep.code == "undone" and rep.row()["snapshot"] is None
+
+
+# ---------- review round 5 ----------
+def test_no_phase_b_is_queued_while_done_has_no_snapshot_yet():
+    from autopilot_worker.pipeline import followup_steps
+
+    gap = {"status": "waiting_user", "photos_done_at": "x", "done_epoch": 100, "photos_snapshot": None}
+    assert followup_steps(gap, [], writes=False) == []
+    assert followup_steps(dict(gap, photos_snapshot="s"), [], writes=False) == ["phase_b"]
+
+
+def test_with_the_default_adapter_no_live_path_can_write():
+    """D1: MERIMEN_WRITES + WORKER_SUBMIT on, but no real adapter is wired: nothing is written, the step is refused as unreadable."""
+    from autopilot_worker.pipeline import _NoMerimenPhotos
+
+    a = _NoMerimenPhotos()
+    rep = ps.phase_a({}, THREE, writes=True, merimen=a)
+    assert rep.code == "unreadable" and rep.row()["snapshot"] is None
+    old = a_plan(THREE)
+    rep = ps.phase_b({}, THREE, [], stored_snapshot=snapshot_of(THREE, []), phase_a_photos=old, writes=True, merimen=a)
+    assert rep.code == "unreadable"
+
+
+def test_followup_cases_pre_0010_keeps_the_done_epoch():
+    from autopilot_worker.store import PgRepo
+
+    class Db:
+        def execute(self, sql, params=()):
+            if "photos_snapshot" in sql:
+                raise Exception('column "photos_snapshot" does not exist')
+            if sql.lstrip().upper().startswith("SELECT ID"):
+                return [("c1", "o", "waiting_user", None, None, 123.0)]
+            return []
+
+    r = PgRepo.__new__(PgRepo); r.db = Db()
+    (case, _), = r.followup_cases()
+    assert case["done_epoch"] == 123.0 and case["photos_snapshot"] is None

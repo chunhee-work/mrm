@@ -266,8 +266,8 @@ class PgRepo:
         except Exception as e:  # before migration 0010: no snapshot, no photo log; any other error fails the job
             if not _missing_0010(e):
                 raise
-            cases = [tuple(c) + (None, None) for c in self.db.execute(
-                "SELECT id, org_id, status, photos_done_at, merimen_caseid FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b')"
+            cases = [tuple(c[:5]) + (None, c[5]) for c in self.db.execute(
+                "SELECT id, org_id, status, photos_done_at, merimen_caseid, extract(epoch from photos_done_at) FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b')"
             )]
         if not cases:
             return []

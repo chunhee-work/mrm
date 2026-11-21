@@ -218,6 +218,7 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     if (
         case.get("status") in ("waiting_user", "phase_b")
         and case.get("photos_done_at")
+        and case.get("photos_snapshot") is not None  # Done and its snapshot are two writes: never start in the gap (nor before migration 0010)
         and "phase_b" not in open_steps
         and due
     ):
