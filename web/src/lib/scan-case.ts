@@ -54,9 +54,11 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   // Only the attempt that still holds the lease may write the outcome.
   const mine = and(eq(cid, id), eq(schema.cases.status, "reading"), eq(schema.cases.error, lease));
   await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Reading documents" });
+  let photos: Promise<unknown> = Promise.resolve();
   try {
     await expandBundles(id, claimed[0].orgId); // zip bundles: their PDFs and photos become case files first
-    await importCasePhotos(id, claimed[0].orgId).catch(() => {}); // photos go to the naming desk; a problem here must not stop the read
+    // photos go to the naming desk in the background while the documents are read (R2-B14); a problem here must not stop the read
+    photos = importCasePhotos(id, claimed[0].orgId).catch(() => {});
     const files = await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
     const { data, usage, costUsd } = await readCaseDocs(files, { userId: claimed[0].createdBy, orgId: claimed[0].orgId, caseId: id });
     const done = await db.update(schema.cases).set({
@@ -75,9 +77,11 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
       cacheTokens: usage.cache_read_input_tokens ?? 0, costUsd: costUsd.toFixed(4),
     });
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
+    await photos; // the result is shown first; the case page and the desk pick the photos up when they are in
     await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
     return { ok: done.length > 0, missing: data.missing, claimed: true };
   } catch (e) {
+    await photos; // never leave the import running behind a failed read
     const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, 500) }).where(mine).returning({ id: cid });
     if (failed.length) {
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });

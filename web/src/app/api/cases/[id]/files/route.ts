@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
+import { dropBadFiles } from "@/lib/drop-bad-files";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
@@ -39,6 +40,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const moved = await db.update(schema.cases).set({ status: "uploaded", pendingDoc: null, error: null })
     .where(and(eq(schema.cases.id, id), inArray(schema.cases.status, ["pending_doc", "failed"]))).returning({ id: schema.cases.id });
   if (!moved.length) return NextResponse.json({ error: "not waiting" }, { status: 409 });
+
+  // R2-B02: "Replace files" must replace. The file the last read could not open is taken out of the case (the blob stays), so the
+  // new read starts from the good files plus what was just sent. Without this the same bad file failed every read.
+  await dropBadFiles(id, c.status, c.error).catch(() => {});
 
   // The driver in production has no transactions, so if any insert fails the case goes back to how it was and can be retried.
   try {

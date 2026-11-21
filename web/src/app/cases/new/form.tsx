@@ -8,6 +8,7 @@ import ScanEdge from "@/components/scan-edge";
 import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
 import { MAX_FILE_BYTES, MAX_PDF_BYTES } from "@/lib/upload-rules";
 import { runPool } from "@/lib/pool";
+import { headOf, looksLikePhoto, zipHasPdf } from "@/lib/peek-files";
 import Link from "next/link";
 
 const keyOf = (f: File) => `${f.name}:${f.size}`;
@@ -31,11 +32,14 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const [step, setStep] = useState(-1); // index of the file being uploaded; files.length = all up, creating the case
   const [msg, setMsg] = useState("");
   const [failed, setFailed] = useState<string | null>(null);
-  const [skipped, setSkipped] = useState(0); // how many chosen files were left out (wrong type)
+  const [skipped, setSkipped] = useState<string[]>([]); // names of chosen files left out (wrong type)
+  const [showPhotos, setShowPhotos] = useState(false); // many photos fold into one row (R2-U07)
   const [notes, setNotes] = useState<string[]>([]); // why some chosen files were left out (empty, too large)
   const [noCredit, setNoCredit] = useState(false);
   const [ups, setUps] = useState<Record<number, number>>({}); // per-file progress while several upload at once
   const ledger = useRef<HTMLUListElement>(null);
+  const zipPdf = useRef<Map<string, boolean | null>>(new Map()); // R2-B10: does each chosen zip hold a PDF (null: cannot tell)
+  const leaving = useRef(false); // R2-B01: set once the case exists, so our own redirect never trips the leave guard
 
   // keep the file being uploaded in view inside the ledger
 
@@ -43,8 +47,9 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   // B11: leaving or reloading while files go up throws the upload away, so ask first (links inside the app too)
   useEffect(() => {
     if (!busy) return;
-    const stop = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const stop = (e: BeforeUnloadEvent) => { if (leaving.current) return; e.preventDefault(); e.returnValue = ""; };
     const click = (e: MouseEvent) => {
+      if (leaving.current) return;
       const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
       if (a && a.target !== "_blank" && !a.href.startsWith("javascript:") && a.origin === location.origin && a.pathname !== location.pathname && !window.confirm(t("new.leave"))) {
         e.preventDefault(); e.stopPropagation();
@@ -55,16 +60,24 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     return () => { window.removeEventListener("beforeunload", stop); document.removeEventListener("click", click, true); };
   }, [busy, t]);
 
-  function addFiles(list: File[]) {
+  async function addFiles(list: File[]) {
     const typed = list.filter(accepted);
     const why: string[] = [];
+    // R2-B10: what is inside counts, not the name: a text file called .jpg is left out, and a zip is looked into
+    const fake = new Set<File>();
+    await Promise.all(typed.map(async (f) => {
+      const k = kindOf(f);
+      if (k === "photo" && f.size > 0 && !looksLikePhoto(await headOf(f))) fake.add(f);
+      if (k === "bundle_zip" && f.size > 0) zipPdf.current.set(keyOf(f), await zipHasPdf(f));
+    }));
     const ok = typed.filter((f) => {
+      if (fake.has(f)) { why.push(t("new.notPhoto", { name: f.name })); return false; }
       if (f.size === 0) { why.push(t("new.empty", { name: f.name })); return false; }
       if (f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES)) { why.push(t("new.tooBig", { name: f.name, mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })); return false; }
       return true;
     });
     setNotes(why.slice(0, 5));
-    setSkipped(list.length - typed.length);
+    setSkipped(list.filter((f) => !accepted(f)).map((f) => f.name));
     if (!ok.length) return;
     setMsg(""); setFailed(null); setNoCredit(false);
     setFiles((cur) => {
@@ -82,8 +95,11 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return; // a second click while uploading does nothing
-    if (!files.some((f) => kindOf(f) !== "photo")) { setMsg(t("new.noDocs")); return; }
-    setBusy(true); setMsg(""); setFailed(null); setSkipped(0); setNotes([]); setNoCredit(false); setUps({});
+    if (!files.some((f) => kindOf(f) === "pdf" || (kindOf(f) === "bundle_zip" && zipPdf.current.get(keyOf(f)) !== false))) {
+      const photoZip = files.find((f) => kindOf(f) === "bundle_zip");
+      setMsg(photoZip ? t("new.zipNoPdf", { name: photoZip.name }) : t("new.noDocs")); return;
+    }
+    setBusy(true); setMsg(""); setFailed(null); setSkipped([]); setNotes([]); setNoCredit(false); setUps({});
     let at = 0;
     try {
       // check the balance before a single byte goes up
@@ -104,6 +120,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
       const { id } = (await r.json()) as { id: string };
+      leaving.current = true;
       window.location.href = `/cases/${id}`; // Claude starts reading the files by itself
     } catch (e) {
       const inUpload = at < files.length;
@@ -115,6 +132,11 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
 
   const n = files.length;
   const total = files.reduce((s, f) => s + f.size, 0);
+  const nZip = files.filter((f) => kindOf(f) === "bundle_zip").length;
+  const nPdf = files.filter((f) => kindOf(f) === "pdf").length;
+  const nPhoto = files.filter((f) => kindOf(f) === "photo").length;
+  const fold = nPhoto > 5 && !showPhotos; // many photos: one row "60 photos" instead of 60 rows
+  const sent = files.reduce((sum, f, i) => sum + (f.size * Math.min(100, ups[i] ?? 0)) / 100, 0);
 
   return (
     <form onSubmit={onSubmit} aria-busy={busy} className="relative mx-auto w-full max-w-[720px]">
@@ -152,19 +174,42 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
               addMore={t("new.addMore")}
             />
             <p className="hint">{t("new.limit", { mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })}</p>
-            {notes.map((x) => <p key={x} className="hint" role="status">{x}</p>)}
-            {skipped > 0 && <p className="hint" role="status">{skipped === 1 ? t("new.skippedOne") : t("new.skippedMany", { n: String(skipped) })}</p>}
-
-            {n > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-[14px] text-mute">
-                <p className="num">{[`${files.filter((f) => kindOf(f) === "bundle_zip").length ? files.filter((f) => kindOf(f) === "bundle_zip").length + " zip" : ""}`, `${files.filter((f) => kindOf(f) === "pdf").length ? files.filter((f) => kindOf(f) === "pdf").length + " PDF" : ""}`, `${files.filter((f) => kindOf(f) === "photo").length ? files.filter((f) => kindOf(f) === "photo").length + " " + t("new.kind.photo") : ""}`].filter(Boolean).join(" · ")}</p>
-                {!busy && <button type="button" className="btn-quiet" onClick={() => { setFiles([]); setNotes([]); setMsg(""); setFailed(null); }}>{t("new.removeAll")}</button>}
+            {(notes.length > 0 || skipped.length > 0) && (
+              <div role="status" className="rounded-[3px] border border-hair bg-ambertint px-4 py-3 text-[14px] text-fg">
+                <p className="font-semibold">{t("new.leftOutTitle")}</p>
+                <ul className="mt-1 grid gap-1">
+                  {notes.map((x) => <li key={x}>{x}</li>)}
+                  {skipped.slice(0, 8).map((x) => <li key={x}>{t("new.wrongType", { name: x })}</li>)}
+                  {skipped.length > 8 && <li>{t("new.skippedMany", { n: String(skipped.length - 8) })}</li>}
+                </ul>
               </div>
             )}
 
             {n > 0 && (
-              <ul ref={ledger} tabIndex={0} aria-label={t("new.files")} className="app-scroll mt-1 max-h-[218px] sm:max-h-[266px] overflow-y-auto overscroll-contain rounded-[3px] border border-hair focus-visible:outline-offset-[-2px]">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-[14px] text-mute">
+                <p className="num">{[nZip ? `${nZip} zip` : "", nPdf ? `${nPdf} PDF` : "", nPhoto ? t(nPhoto === 1 ? "new.photosOne" : "new.photosN", { n: String(nPhoto) }) : ""].filter(Boolean).join(" · ")}</p>
+                {!busy && <button type="button" className="btn-quiet" onClick={() => { setFiles([]); setNotes([]); setMsg(""); setFailed(null); }}>{t("new.removeAll")}</button>}
+              </div>
+            )}
+
+            {n > 0 && busy && (
+              <div aria-live="polite">
+                <div className="h-[6px] w-full overflow-hidden rounded-full bg-hairsoft" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((sent / Math.max(total, 1)) * 100)}>
+                  <div className="h-full bg-scan transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${(sent / Math.max(total, 1)) * 100}%` }} />
+                </div>
+                <p className="num mt-1 text-[13px] text-mute">{sizeOf(sent)} / {sizeOf(total)} · {Math.max(step, 0)}/{n}</p>
+              </div>
+            )}
+
+            {n > 0 && (
+              <ul ref={ledger} aria-label={t("new.files")} className="mt-1 rounded-[3px] border border-hair">
+                {fold && (
+                  <li className="flex h-12 items-center gap-3 border-b border-hair pl-3 sm:pl-4">
+                    <button type="button" className="btn-quiet !h-11" aria-expanded={false} onClick={() => setShowPhotos(true)}>▸ {t("new.photosN", { n: String(nPhoto) })}</button>
+                  </li>
+                )}
                 {files.map((f, i) => {
+                  if (fold && kindOf(f) === "photo") return null;
                   const k = keyOf(f);
                   const kind = kindOf(f);
                   const cut = f.name.length > TAIL + 8 ? f.name.length - TAIL : f.name.length;

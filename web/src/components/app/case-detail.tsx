@@ -7,6 +7,7 @@ import { useT } from "@/components/lang-provider";
 import { kindOf } from "@/lib/file-kind";
 import { docKey, failTr, userFixable } from "@/lib/case-text";
 import { accepted } from "./drop-zone";
+import { whenOf } from "@/lib/fmt-when";
 import { Photo, Tick, Upload } from "./marks";
 import type { CaseRow } from "./case-list";
 
@@ -18,7 +19,7 @@ export type Sent = "files";
  * A missing document is uploaded right here: choosing the files sends them, there is no second button.
  * `sent` comes from the list, which keeps the card in place for a moment after it went through, so the user sees it was received.
  */
-export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void }) {
+export default function NeedCard({ row, orgId, sent, onSent, compact = false }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void; compact?: boolean }) {
   const { t, lang } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -88,7 +89,7 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
       </p>
     );
   } else if (row.status === "pending_doc" || (row.status === "failed" && userFixable(row.error ?? null))) {
-    need = row.status === "failed" ? (
+    need = row.status === "failed" ? (compact ? null : // the case page already says why in its banner: one error block, not three (R2-U01)
       <p className={say}>{t(failTr(row.error ?? null).key, failTr(row.error ?? null).vars)}</p>
     ) : docs.length ? (
       <>
@@ -109,7 +110,7 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
       <p className={say}>{t("dash.d.missingAny")}</p>
     );
     act = (
-      <>
+      <div className="grid gap-3">
         <input
           ref={input}
           type="file"
@@ -141,7 +142,13 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
             />
           )}
         </button>
-      </>
+        {!!row.deskConfirm && row.deskConfirm > 0 && (
+          <Link href={`/cases/${row.id}/photos`} className="btn-quiet !w-full sm:!w-auto">
+            <Photo />
+            <span>{t("dash.d.photosN", { n: String(row.deskConfirm) })}</span>
+          </Link>
+        )}
+      </div>
     );
   } else if (row.status === "failed") {
     // our side failed: say so, with the reason, and offer Read again (one credit is not taken twice)
@@ -157,31 +164,31 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
     act = (
       <Link href={`/cases/${row.id}/photos`} aria-labelledby={`${actId} ${titleId}`} className={button}>
         <Photo />
-        <span id={actId}>{t("dash.d.photos")}</span>
+        <span id={actId}>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : t("dash.d.photos")}</span>
       </Link>
     );
   }
 
   return (
-    <li className="sheet flex min-w-0 flex-col rounded-[3px] border border-hair bg-panel p-5 lg:p-6">
-      <h3 id={titleId} className="num truncate font-mono text-[24px] font-medium leading-[1.15] tracking-[0.01em] text-fg">
+    <li className="sheet flex min-w-0 max-w-full flex-col rounded-[3px] border border-hair bg-panel p-5 lg:p-6">
+      <h3 id={titleId} className={compact ? "sr-only" : "num truncate font-mono text-[24px] font-medium leading-[1.15] tracking-[0.01em] text-fg"}>
         <Link href={`/cases/${row.id}`} className="underline-offset-4 hover:underline">
           {row.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
         </Link>
       </h3>
-      {vehicle && <p className="mt-1 truncate text-[14px] leading-snug text-mute">{vehicle}</p>}
-      {!row.plate && row.createdAt && (
+      {!compact && vehicle && <p className="mt-1 truncate text-[14px] leading-snug text-mute">{vehicle}</p>}
+      {!compact && row.createdAt && (
         <p className="mt-1 truncate text-[14px] leading-snug text-mute" suppressHydrationWarning>
-          <time dateTime={row.createdAt}>{new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : lang === "ms" ? "ms-MY" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kuala_Lumpur" }).format(new Date(row.createdAt))}</time>
-          {row.firstFile ? ` · ${row.firstFile}` : ""}
+          <time dateTime={row.createdAt} suppressHydrationWarning>{whenOf(row.createdAt, lang)}</time>
+          {!row.plate && row.firstFile ? ` · ${row.firstFile}` : ""}
         </p>
       )}
       {/* what is needed, on amber with the amber edge (green once it has been sent): the one place on the card the eye should go.
           Two lines tall at least, and above a button it takes the height the row of cards leaves, so neighbouring buttons stand on one line. */}
-      <div className={`relative mt-5 flex min-h-[76px] flex-col justify-center overflow-hidden rounded-[3px] py-3.5 pl-[19px] pr-4 ${act ? "flex-1" : ""} ${sent ? "bg-gotint" : "bg-ambertint"}`}>
+      {need && <div className={`relative ${compact ? "mt-0" : "mt-5"} flex min-h-[76px] flex-col justify-center overflow-hidden rounded-[3px] py-3.5 pl-[19px] pr-4 ${act ? "flex-1" : ""} ${sent ? "bg-gotint" : "bg-ambertint"}`}>
         <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-[3px] ${sent ? "bg-go" : "bg-amber"}`} />
         {need}
-      </div>
+      </div>}
       {!sent && act && <div className="mt-4">{act}</div>}
       {err && !sent && <p role="alert" className="field-error mt-3">{err}</p>}
     </li>

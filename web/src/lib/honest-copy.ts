@@ -21,6 +21,14 @@ const FAQ: Record<Lang, string> = {
   ms: "Hanya jika anda memilih log masuk tersimpan. Anda memasukkannya sekali; ia disimpan secara tersulit dan hanya digunakan oleh worker kami. Anda boleh memadamnya bila-bila masa.",
 };
 
+// R2-B13: with the saved-login worker off AND the secure browser window off, "you log in yourself in a secure browser window"
+// describes something that does not exist. Until one of them is on, the FAQ answer says plainly that it is coming.
+const SOON: Record<Lang, string> = {
+  en: "Not right now: we do not ask for it. Connecting to Merimen from inside the app is coming soon.",
+  zh: "目前不需要：我们不会向你索取。在应用里连接 Merimen 的功能即将推出。",
+  ms: "Buat masa ini tidak: kami tidak memintanya. Sambungan ke Merimen dari dalam aplikasi akan datang tidak lama lagi.",
+};
+
 /** [phrase that makes a string a "no password" claim, what replaces it]. */
 const RULES: [RegExp, Record<Lang, string>][] = [
   [/never (ask for|receive|see|store)|never ask|never see|not store/i, SAVED],
@@ -38,14 +46,14 @@ export function honestString(s: string, lang: Lang, worker: boolean, shortForm =
 }
 
 /** Deep version for page copy (arrays/objects of strings). FAQ pairs {q, a}: the answer is rewritten as a whole. */
-export function honestCopy<T>(data: T, lang: Lang, worker: boolean): T {
-  if (!worker) return data;
+export function honestCopy<T>(data: T, lang: Lang, worker: boolean, soon = false): T {
+  if (!worker && !soon) return data;
   const walk = (v: unknown): unknown => {
-    if (typeof v === "string") return honestString(v, lang, true);
+    if (typeof v === "string") return worker ? honestString(v, lang, true) : v;
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === "object") {
       const o = v as Record<string, unknown>;
-      if (typeof o.q === "string" && FAQ_RULE.test(o.q)) return { ...o, a: FAQ[lang] };
+      if (typeof o.q === "string" && FAQ_RULE.test(o.q)) return { ...o, a: worker ? FAQ[lang] : SOON[lang] };
       return Object.fromEntries(Object.entries(o).map(([k, x]) => [k, walk(x)]));
     }
     return v;

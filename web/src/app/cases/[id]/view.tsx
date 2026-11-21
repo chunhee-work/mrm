@@ -31,6 +31,8 @@ export type CaseDetail = {
   stale: boolean; // reading, but no news for 6 minutes: the server is already restarting it
   cred?: { blocked: boolean; verifyState: string } | null;
   shots?: Shot[] | null; // null: flag off, table not there yet, or not the submitter
+  sameCount?: number; // other cases of this org with the same plate (R2-U02)
+  createdAt?: string;
   desk?: { total: number; confirm: number } | null; // the photo desk: how many photos, how many still to confirm
   photoPlan?: { mode: string; action: string; upload: number; relabel: number; reorder: number } | null; // latest photo step of Phase A/B
 };
@@ -107,8 +109,8 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   // what is missing, in the fixed names, with the upload button right here (the same card as on the dashboard)
   const needsFiles = c.status === "pending_doc" || (c.status === "failed" && userFixable(c.error));
   const MissingList = () => needsFiles ? (
-    <ul>
-      <NeedCard row={{ id: c.id, plate: c.plate, carModel: c.carModel, insurer: c.insurer, status: c.status, pendingDoc: c.missing.join("; "), error: c.error }} orgId={c.orgId} onSent={() => router.refresh()} />
+    <ul className="min-w-0">
+      <NeedCard compact row={{ id: c.id, plate: c.plate, carModel: c.carModel, insurer: c.insurer, status: c.status, pendingDoc: c.missing.join("; "), error: c.error, deskConfirm: c.desk?.confirm }} orgId={c.orgId} onSent={() => router.refresh()} />
     </ul>
   ) : null;
 
@@ -129,7 +131,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const shownLog = allLog ? newest : newest.slice(0, LOG_SHORT);
   const Log = () => (
     <details open className="group">
-      <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2">{t("case.log")}<span className="note text-mute">· {c.events.length}</span></summary>
+      <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.log")}<span className="note text-mute">· {c.events.length}</span></summary>
       <ul className="rounded-[4px] border border-hair">
         {shownLog.map((e, i) => {
           const tr = eventTr(e.message);
@@ -152,7 +154,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
 
   const Files = () => c.files.length ? (
     <details className="group">
-      <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2">{t("case.files")}<span className="note text-mute">· {c.files.length}</span></summary>
+      <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.files")}<span className="note text-mute">· {c.files.length}</span></summary>
       <ul className="rounded-[4px] border border-hair">
         {c.files.map((f, i) => (
           <li key={i} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 py-2.5 text-[14px] text-fg last:border-b-0">
@@ -209,6 +211,9 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   return shell(
     <>
       {Header()}
+      {(c.sameCount ?? 0) > 0 && (
+        <p className="border-b border-hair px-5 py-2.5 text-[14px] text-mute sm:px-8" data-testid="same-plate">{t("case.samePlate", { n: String(c.sameCount) })}</p>
+      )}
       {c.cred && (c.cred.blocked || c.cred.verifyState === "bad_credentials" || c.cred.verifyState === "locked" || c.cred.verifyState === "otp" || c.cred.verifyState === "unknown") && (
         <div role="alert" className="border-b border-hair bg-ambertint px-5 py-3 text-[15px] text-fg sm:px-8">
           <p>{t("w.banner")}</p>
@@ -226,12 +231,12 @@ export default function CaseView({ c }: { c: CaseDetail }) {
         {Retry()}
       </div>
       {c.status === "done" && <ResultBlock carModel={c.carModel} totalRm={c.totalRm} sides={c.sides} />}
-      <div className="grid gap-6 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-2">
-        <div className="grid content-start gap-6">
-          {facts.length > 0 && <section aria-labelledby="case-found"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2>{Facts()}</section>}
-          {needsFiles && <section aria-labelledby="case-missing"><h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2>{MissingList()}</section>}
+      <div className="grid grid-cols-1 gap-6 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 content-start gap-6">
+          {facts.length > 0 && <section aria-labelledby="case-found" className="min-w-0"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2>{Facts()}</section>}
+          {needsFiles && <section aria-labelledby="case-missing" className="min-w-0">{!failed && <h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2>}{MissingList()}</section>}
         </div>
-        <section aria-labelledby="case-log" className="grid content-start gap-6"><div id="case-log">{Log()}</div>{Files()}</section>
+        <section aria-labelledby="case-log" className="grid min-w-0 grid-cols-1 content-start gap-6"><div id="case-log">{Log()}</div>{Files()}</section>
         {DeskLink()}
         {c.shots && <div className="lg:col-span-2"><ShotTimeline caseId={c.id} shots={c.shots} /></div>}
       </div>

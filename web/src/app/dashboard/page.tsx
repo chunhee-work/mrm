@@ -5,7 +5,7 @@ import { workerUiOn } from "@/lib/ext/worker-gate";
 import { credView, getWorkerState } from "@/lib/ext/worker-store";
 import Connection from "@/components/app/connection";
 import { sidesForCases } from "@/lib/case-sides";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import CaseList, { type CaseRow } from "@/components/app/case-list";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,15 @@ export default async function Dashboard() {
   const firsts = ids.length ? await db.select({ caseId: schema.caseFiles.caseId, name: schema.caseFiles.originalName }).from(schema.caseFiles).where(inArray(schema.caseFiles.caseId, ids)).orderBy(asc(schema.caseFiles.id)) : [];
   const first = new Map<string, string>();
   for (const f of firsts) if (!first.has(f.caseId)) first.set(f.caseId, f.name);
+  // R2-B05: how many photos of each open case still wait for the user (the same count the case page shows)
+  const open = rows.filter((c) => c.status !== "done" && c.status !== "failed").map((c) => c.id);
+  const todo = open.length ? await db.select({
+    caseId: schema.casePhotos.caseId,
+    n: sql<number>`(count(*) filter (where final_name is null and ((model_name is null and name_state not in ('pending', 'running')) or (name_state = 'named' and model_name is not null and coalesce(confidence, 0) < 0.9 and coalesce(how, '') <> 'rule')))::int)`,
+  }).from(schema.casePhotos).where(inArray(schema.casePhotos.caseId, open)).groupBy(schema.casePhotos.caseId) : [];
+  const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
   const list: CaseRow[] = rows.map((c) => ({
+    deskConfirm: confirm.get(c.id) ?? 0,
     error: c.status === "failed" ? c.error : null,
     createdAt: c.createdAt.toISOString(),
     firstFile: first.get(c.id) ?? null,

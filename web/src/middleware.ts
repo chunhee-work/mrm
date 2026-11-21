@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { accountRedirect } from "@/lib/hosts";
 
-const GATED = /^\/(dashboard|cases|billing)(\/|$)/;
+const GATED = /^\/(dashboard|cases|billing|settings)(\/|$)/;
 
 export function middleware(req: NextRequest) {
   // Log in, sign up and the system itself live on the app host: asked for on the bare domain, send them there
@@ -16,5 +16,5 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 export const config = {
-  matcher: ["/dashboard/:path*", "/cases/:path*", "/billing/:path*", "/admin/:path*", "/login", "/signup", "/forgot-password", "/reset-password"],
+  matcher: ["/dashboard/:path*", "/cases/:path*", "/billing/:path*", "/settings/:path*", "/admin/:path*", "/login", "/signup", "/forgot-password", "/reset-password"],
 };

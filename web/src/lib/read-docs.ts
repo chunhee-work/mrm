@@ -90,6 +90,17 @@ export function checkPdf(name: string, buf: Uint8Array) {
   if (buf.length > MAX_PDF) throw new BadFile(name, "too_big");
   const head = Buffer.from(buf.subarray(0, 1024)).toString("latin1");
   if (!head.includes("%PDF-")) throw new BadFile(name, "corrupt");
+  // R2-B03: a real header followed by garbage. A PDF always has objects and a cross-reference table or trailer.
+  const all = Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength).toString("latin1");
+  if (!all.includes("endobj") && !all.includes("startxref")) throw new BadFile(name, "corrupt");
+}
+
+/** R2-B03: the model refused the PDF itself (HTTP 400 "could not process PDF" and the like): that is the customer's file, not our fault. */
+export function asBadFile(e: unknown, names: string[]): BadFile | null {
+  const err = e as { status?: number; message?: string } | null;
+  if (!err || err.status !== 400 || !names.length) return null;
+  if (!/pdf|document|could not process|invalid|corrupt|password|encrypt/i.test(err.message ?? "")) return null;
+  return new BadFile(names.join("; "), "corrupt");
 }
 
 async function blobBase64(url: string, name = "file.pdf"): Promise<string> {
@@ -117,7 +128,7 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
     output_config: { effort: "high", format: zodOutputFormat(CaseData) },
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content }],
-  });
+  }).catch((e) => { throw asBadFile(e, pdfs.map((f) => f.originalName)) ?? e; });
   if (res.stop_reason === "refusal") throw new Error("Claude declined this request");
   if (!res.parsed_output) throw new Error("no structured output (stop_reason: " + res.stop_reason + ")");
   return { data: normalizeCaseData(res.parsed_output) as CaseDataT, usage: res.usage, costUsd: costOf(String(res.model || MODEL), tokensOf(res.usage as never)) ?? 0 };

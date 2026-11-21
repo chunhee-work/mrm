@@ -34,3 +34,18 @@ test("B06/U6 failures: bad files and zip problems are fixable by the user; our o
   assert.ok(!userFixable("Reading timed out") && !userFixable("Connection error"));
   for (const l of ["en", "zh", "ms"] as const) for (const k of ["empty", "corrupt", "too_big", "noPdf", "zip", "timeout", "other"]) assert.ok((DICTS[l] as Record<string, string>)[`case.err.${k}`], `${l} ${k}`);
 });
+
+import { badFileNames } from "./case-text";
+test("R2-B02 badFileNames reads one or several names out of a bad_file error", () => {
+  assert.deepEqual(badFileNames("bad_file:fake.pdf|corrupt"), ["fake.pdf"]);
+  assert.deepEqual(badFileNames("bad_file:a.pdf; b.pdf|corrupt"), ["a.pdf", "b.pdf"]);
+  assert.deepEqual(badFileNames("Reading timed out"), []);
+  assert.deepEqual(badFileNames(null), []);
+});
+
+test("R2-B12 an old failed case with a size error now says the file is too large, and the user can replace it", () => {
+  assert.equal(failTr("request_too_large: Request exceeds the maximum size").key, "case.err.tooBigAny");
+  assert.equal(userFixable("request_too_large: Request exceeds the maximum size"), true);
+  assert.equal(failTr("Something odd").key, "case.err.other");
+  assert.equal(userFixable("Reading timed out"), false);
+});

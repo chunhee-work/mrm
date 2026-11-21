@@ -40,7 +40,10 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id));
   const [plan] = await db.select().from(schema.photoUploadLog).where(eq(schema.photoUploadLog.caseId, id)).orderBy(desc(schema.photoUploadLog.createdAt), desc(schema.photoUploadLog.id)).limit(1)
     .catch((e) => { if (missingRelation(e)) return []; throw e; }); // the table comes with migration 0010
+  const [same] = c.plate ? await db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), eq(schema.cases.plate, c.plate), sql`${schema.cases.id} <> ${id}`)) : [];
   const detail: CaseDetail = {
+    sameCount: Number(same?.n ?? 0),
+    createdAt: c.createdAt.toISOString(),
     id: c.id,
     plate: c.plate,
     status: c.status,

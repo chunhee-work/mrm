@@ -102,6 +102,18 @@ async function main() {
       const r = await importCasePhotos(id, ORG);
       assert.equal(r.added, 1); assert.deepEqual(r.skipped.sort(), ["bad.jpg", "x.heic"]);
     }],
+    ["R2-B09/B14: photos come onto the desk in file-name order (zip-entry order is not used), many at once, none lost or doubled", async () => {
+      const id = await newCase();
+      const names = ["03_bonnet.jpg", "01_front.jpg", "10_roof.jpg", "02_lamp.jpg", "06_plate.jpg"];
+      const zipFiles: Record<string, Uint8Array> = { "r.pdf": strToU8("%PDF-1.4") };
+      for (const [i, nm] of names.entries()) zipFiles[nm] = new Uint8Array(await jpeg([i * 50, 20 * i, 255 - i * 40]));
+      await addFile(id, "bundle_zip", "z.zip", Buffer.from(zipSync(zipFiles)));
+      await expandBundles(id, ORG);
+      assert.equal((await importCasePhotos(id, ORG)).added, 5);
+      const ph = (await desk(id)).sort((a, b) => a.position - b.position);
+      assert.deepEqual(ph.map((p) => p.srcName), ["01_front.jpg", "02_lamp.jpg", "03_bonnet.jpg", "06_plate.jpg", "10_roof.jpg"]);
+      assert.deepEqual(ph.map((p) => p.origN), [1, 2, 3, 4, 5]);
+    }],
   ];
   let failed = 0;
   for (const [name, fn] of tests) {

@@ -46,5 +46,16 @@ test("B06/B07 checkPdf: empty, corrupt and oversize PDFs are refused with the fi
   assert.equal(why(() => checkPdf("a.pdf", new Uint8Array(0))), "bad_file:a.pdf|empty");
   assert.equal(why(() => checkPdf("b.pdf", Buffer.from("not a pdf"))), "bad_file:b.pdf|corrupt");
   assert.equal(why(() => checkPdf("c.pdf", new Uint8Array(26 * 1024 * 1024).fill(37))), "bad_file:c.pdf|too_big");
-  assert.equal(why(() => checkPdf("d.pdf", Buffer.from("%PDF-1.7 fake"))), "ok");
+  assert.equal(why(() => checkPdf("d.pdf", Buffer.from("%PDF-1.7\n1 0 obj<<>>endobj\ntrailer<<>>\nstartxref\n0\n%%EOF"))), "ok");
+  // R2-B03: a valid header followed by garbage is the customer's file too
+  assert.equal(why(() => checkPdf("e.pdf", Buffer.from("%PDF-1.7\n\u0000\u0001garbage garbage"))), "bad_file:e.pdf|corrupt");
+});
+
+import { asBadFile } from "./read-docs";
+test("R2-B03 a 400 from the model about the PDF is the customer's file; other errors stay ours", () => {
+  const e400 = Object.assign(new Error("400 invalid_request_error: Could not process PDF"), { status: 400 });
+  assert.equal(asBadFile(e400, ["a.pdf", "b.pdf"])?.message, "bad_file:a.pdf; b.pdf|corrupt");
+  assert.equal(asBadFile(Object.assign(new Error("overloaded"), { status: 529 }), ["a.pdf"]), null);
+  assert.equal(asBadFile(Object.assign(new Error("400 max_tokens too large"), { status: 400 }), ["a.pdf"]), null);
+  assert.equal(asBadFile(new Error("network"), ["a.pdf"]), null);
 });
