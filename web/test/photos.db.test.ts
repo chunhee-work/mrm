@@ -468,3 +468,8 @@ test("import: a desk upload registered before the fix (photos_imported_at NULL, 
   await db.insert(schema.caseFiles).values({ caseId: a.id, kind: "photo", blobUrl: p.blobPath, originalName: "IMG_1.jpg", size: 4 });
   assert.deepEqual(await s.importableFiles(a.id), []);
 });
+
+test("check-schema: a database with migration 0010 reports nothing missing", opts, async () => {
+  const { missing } = await import("../scripts/check-schema");
+  assert.deepEqual(await missing(), []);
+});

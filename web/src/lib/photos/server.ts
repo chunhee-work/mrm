@@ -1,4 +1,5 @@
 import "server-only";
+import { MAX_IMPORT_BYTES } from "./import-limits";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import {
@@ -65,7 +66,7 @@ export async function importableFiles(caseId: string): Promise<{ id: number; nam
 }
 
 /** The web path of one importable file of this case: only the file's blob url, never exposed. */
-export const MAX_IMPORT_BYTES = 150 * 1024 * 1024; // the route refuses bigger files (the browser unpacks bundles in memory; phones)
+export { MAX_IMPORT_BYTES };
 export async function fileBlobUrl(caseId: string, fileId: number): Promise<{ url: string; kind: string; name: string; size: number } | null> {
   if (!Number.isInteger(fileId)) return null;
   const [f] = await db.select({ url: schema.caseFiles.blobUrl, kind: schema.caseFiles.kind, name: schema.caseFiles.originalName, size: schema.caseFiles.size })

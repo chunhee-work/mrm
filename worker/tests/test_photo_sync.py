@@ -354,46 +354,6 @@ def test_followup_cases_only_tolerates_a_missing_0010():
         assert "connection reset" in str(e)
 
 
-def test_a_cancelled_phase_b_is_not_run_again_until_done_is_pressed_again():
-    from autopilot_worker.pipeline import followup_steps
-
-    case = {"status": "waiting_user", "photos_done_at": None, "photos_snapshot": None, "last_b_snapshot": None}
-    assert followup_steps(case, [{"step": "phase_b", "state": "cancelled"}], writes=False) == []  # not Done: nothing
-    again = dict(case, photos_done_at="2026-11-21T00:00:00", photos_snapshot="new", last_b_snapshot="old")
-    assert followup_steps(again, [{"step": "phase_b", "state": "cancelled"}], writes=False) == ["phase_b"]  # Done again with new names
-    assert followup_steps(again, [{"step": "phase_b", "state": "queued"}], writes=False) == []  # never two at once
-
-
-# ---------- review round 3 (plan #48) ----------
-def test_a_refused_or_stopped_phase_b_is_not_logged_as_seen_so_done_again_retries():
-    from autopilot_worker.pipeline import followup_steps
-
-    old = a_plan(THREE)
-    new = [THREE[2], dict(THREE[0], final_name="Bonnet Lock"), THREE[1]]
-    snap = snapshot_of(new, [])
-    m = Fake(held=[x["name"] for x in old])
-    alive = {"on": True}
-    m.after_write = lambda: alive.update(on=False)
-    rep = ps.phase_b({}, new, [], stored_snapshot=snap, phase_a_photos=old, writes=True, merimen=m, guard=lambda: alive["on"])
-    assert rep.code == "undone" and rep.row()["snapshot"] is None
-    # Done again with the SAME names: the log has no finished snapshot, the earlier job was cancelled -> a new Phase B is queued
-    case = {"status": "waiting_user", "photos_done_at": "2026-11-21T00:00:00", "photos_snapshot": snap, "last_b_snapshot": rep.row()["snapshot"]}
-    assert followup_steps(case, [{"step": "phase_b", "state": "cancelled"}], writes=False) == ["phase_b"]
-    # a finished step is "seen": nothing is queued again for the same names
-    m2 = Fake(held=[x["name"] for x in old])
-    ok = ps.phase_b({}, new, [], stored_snapshot=snap, phase_a_photos=old, writes=True, merimen=m2)
-    assert ok.ok and ok.row()["snapshot"] == snap
-    done_case = dict(case, last_b_snapshot=snap)
-    assert followup_steps(done_case, [{"step": "phase_b", "state": "done"}], writes=False) == []
-
-
-def test_a_failed_phase_b_is_not_queued_again_in_a_loop():
-    from autopilot_worker.pipeline import followup_steps
-
-    case = {"status": "waiting_user", "photos_done_at": "2026-11-21T00:00:00", "photos_snapshot": "s", "last_b_snapshot": None}
-    assert followup_steps(case, [{"step": "phase_b", "state": "failed"}], writes=False) == []
-
-
 def test_missing_0010_is_recognised_on_the_http_transport_too():
     from autopilot_worker.store import _missing_0010
 
@@ -403,3 +363,46 @@ def test_missing_0010_is_recognised_on_the_http_transport_too():
     assert _missing_0010(DbError("boom", "42703"))
     assert _missing_0010(DbError("boom", "42P01"))
     assert not _missing_0010(DbError("boom", "08006"))
+
+
+# ---------- review round 4: one Phase B per Done press ----------
+def _case(done_epoch, done=True):
+    return {"status": "waiting_user", "photos_done_at": "x" if done else None, "done_epoch": done_epoch, "photos_snapshot": "s"}
+
+
+def _job(state, created):
+    return {"step": "phase_b", "state": state, "created_epoch": created}
+
+
+def test_one_phase_b_per_done_press():
+    from autopilot_worker.pipeline import followup_steps
+
+    assert followup_steps(_case(100), [], writes=False) == ["phase_b"]  # Done, no job yet
+    assert followup_steps(_case(100), [_job("queued", 101)], writes=False) == []  # never two at once
+    assert followup_steps(_case(100), [_job("done", 101)], writes=False) == []  # finished for this press
+    assert followup_steps(_case(100), [_job("failed", 101)], writes=False) == []  # a failed job is not re-queued by itself
+    assert followup_steps(_case(None, done=False), [_job("cancelled", 101)], writes=False) == []  # undone: nothing
+
+
+def test_done_pressed_again_queues_a_new_phase_b_whatever_happened_before():
+    from autopilot_worker.pipeline import followup_steps
+
+    again = _case(200)  # a newer press than every job below
+    for history in (
+        [_job("done", 101), _job("cancelled", 150)],  # finished S1, then stopped by an undo
+        [_job("done", 101), _job("failed", 150)],  # finished S1, then S2 failed with no log row
+        [_job("failed", 101)],  # hand_fix refusal, fixed by hand in Merimen, then undo + Done
+        [_job("cancelled", 101)],
+    ):
+        assert followup_steps(again, history, writes=False) == ["phase_b"], history
+        assert followup_steps(again, history + [_job("queued", 201)], writes=False) == []
+
+
+def test_a_refused_phase_b_does_not_log_a_snapshot():
+    old = a_plan(THREE)
+    new = [THREE[2], dict(THREE[0], final_name="Bonnet Lock"), THREE[1]]
+    m = Fake(held=[x["name"] for x in old])
+    alive = {"on": True}
+    m.after_write = lambda: alive.update(on=False)
+    rep = ps.phase_b({}, new, [], stored_snapshot=snapshot_of(new, []), phase_a_photos=old, writes=True, merimen=m, guard=lambda: alive["on"])
+    assert rep.code == "undone" and rep.row()["snapshot"] is None

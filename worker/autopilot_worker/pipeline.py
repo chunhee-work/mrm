@@ -208,10 +208,13 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     """phase_b after the desk is done; a second phase_a only once writes are allowed and the first pass did not save."""
     open_steps = {j["step"] for j in jobs if j["state"] in ("queued", "running")}
     out = []
-    snap, last = case.get("photos_snapshot"), case.get("last_b_snapshot")
-    # a Phase B is due when Done is pressed and the Merimen photo step has not yet seen THIS version of the names: never before, or the
-    # fingerprint changed since (Done undone and pressed again). A step that was refused logs the fingerprint it refused, so it does not loop.
-    due = (last is None and not any(j["step"] == "phase_b" and j["state"] in ("done", "failed") for j in jobs)) or (snap is not None and last is not None and snap != last)
+    # one Phase B per Done press: due when the newest Done is later than the newest phase_b job, whatever state that job ended in.
+    # Undo + Done again (also after a hand fix in Merimen) is a new press and queues a new one; a finished, failed or cancelled job is not
+    # re-queued by itself. The snapshot is only the guard inside the step (photo_sync.phase_b), never what decides "due".
+    b_jobs = [j for j in jobs if j["step"] == "phase_b"]
+    newest = max((j.get("created_epoch") for j in b_jobs if j.get("created_epoch") is not None), default=None)
+    done_at = case.get("done_epoch")
+    due = not b_jobs or (newest is not None and done_at is not None and done_at > newest)
     if (
         case.get("status") in ("waiting_user", "phase_b")
         and case.get("photos_done_at")

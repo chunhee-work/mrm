@@ -22,3 +22,13 @@ test("a bundle with too many images is refused", async () => {
 test("a corrupt zip is refused, not half imported", async () => {
   await assert.rejects(unzipImages(new Uint8Array([1, 2, 3, 4, 5])));
 });
+
+import { MAX_IMPORT_BYTES, importSizeOk } from "../src/lib/photos/import-limits";
+test("the import route's size rule: unknown, zero and over the cap are refused", () => {
+  assert.equal(importSizeOk(null), false);
+  assert.equal(importSizeOk(undefined), false);
+  assert.equal(importSizeOk(0), false);
+  assert.equal(importSizeOk(1), true);
+  assert.equal(importSizeOk(MAX_IMPORT_BYTES), true);
+  assert.equal(importSizeOk(MAX_IMPORT_BYTES + 1), false);
+});

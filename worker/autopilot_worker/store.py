@@ -258,8 +258,7 @@ class PgRepo:
         try:
             cases = self.db.execute(
                 """
-                SELECT id, org_id, status, photos_done_at, merimen_caseid, photos_snapshot,
-                  (SELECT l.snapshot FROM photo_upload_log l WHERE l.case_id = cases.id AND l.phase = 'B' ORDER BY l.created_at DESC, l.id DESC LIMIT 1)
+                SELECT id, org_id, status, photos_done_at, merimen_caseid, photos_snapshot, extract(epoch from photos_done_at)
                 FROM cases
                 WHERE status IN ('phase_a', 'waiting_user', 'phase_b')
                 """
@@ -273,13 +272,13 @@ class PgRepo:
         if not cases:
             return []
         by_case: dict[str, list[dict]] = {c[0]: [] for c in cases}
-        for case_id, step, state in self.db.execute(
-            "SELECT case_id, step, state FROM jobs WHERE case_id IN (SELECT id FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b'))"
+        for case_id, step, state, created in self.db.execute(
+            "SELECT case_id, step, state, extract(epoch from created_at) FROM jobs WHERE case_id IN (SELECT id FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b'))"
         ):
-            by_case.setdefault(case_id, []).append({"step": step, "state": state})
+            by_case.setdefault(case_id, []).append({"step": step, "state": state, "created_epoch": float(created) if created is not None else None})
         return [
             ({"id": c[0], "org_id": c[1], "status": c[2], "photos_done_at": c[3].isoformat() if c[3] else None, "merimen_caseid": c[4],
-              "photos_snapshot": c[5], "last_b_snapshot": c[6]}, by_case[c[0]])
+              "photos_snapshot": c[5], "done_epoch": float(c[6]) if c[6] is not None else None}, by_case[c[0]])
             for c in cases
         ]
 
