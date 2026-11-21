@@ -60,7 +60,7 @@ export function SideChips({ sides, small }: { sides: Side[]; small?: boolean }) 
   );
 }
 
-type R = { totalRm: string | null; sides?: Side[] };
+type R = { totalRm?: string | null; sides?: Side[] };
 
 /** The total on a list row. */
 export function Total({ row, big }: { row: R; big?: boolean }) {

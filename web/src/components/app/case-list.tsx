@@ -17,7 +17,7 @@ export type CaseRow = {
   insurer: string | null;
   status: string;
   pendingDoc: string | null;
-  totalRm: string | null; // total of the finished case, null until known
+  totalRm?: string | null; // total of the finished case, null until known
   sides?: Side[]; // sides of the car that were hit; undefined = not known (not loaded), [] = none found
   error?: string | null; // why a failed case failed (cases.error)
   createdAt?: string; // ISO
