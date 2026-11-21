@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import CaseView, { type CaseDetail } from "./view";
@@ -32,6 +32,12 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   if (stale) after(() => scanCase(id, "recover", c.error));
   else if (c.status === "uploaded" && Date.now() - c.createdAt.getTime() > 60_000) after(() => scanCase(id, "auto"));
   const d = normalizeCaseData(c.caseData);
+  const [ph] = await db.select({
+    total: sql<number>`count(*)::int`,
+    confirm: sql<number>`(count(*) filter (where final_name is null and ((model_name is null and name_state not in ('pending', 'running')) or (name_state = 'named' and model_name is not null and coalesce(confidence, 0) < 0.9 and coalesce(how, '') <> 'rule')))::int)`,
+  }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id));
+  const [plan] = await db.select().from(schema.photoUploadLog).where(eq(schema.photoUploadLog.caseId, id)).orderBy(desc(schema.photoUploadLog.createdAt), desc(schema.photoUploadLog.id)).limit(1)
+    .catch((e) => { if (missingRelation(e)) return []; throw e; }); // the table comes with migration 0010
   const detail: CaseDetail = {
     id: c.id,
     plate: c.plate,
@@ -48,6 +54,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
       atFaultPlate: d.at_fault.plate || d.police.blamed_plate || null,
       atFaultInsurer: d.at_fault.policy?.insurer || null,
     },
+    photos: ph ? { total: Number(ph.total), confirm: Number(ph.confirm) } : null,
+    photoPlan: plan ? { mode: plan.mode, action: plan.action, upload: plan.would.upload ?? 0, relabel: plan.would.relabel ?? 0, reorder: plan.would.reorder ?? 0 } : null,
     events: events.map((e) => ({ at: e.at.toISOString(), message: e.message })),
     stale,
     cred: workerUiOn() ? await credView(orgId) : null,

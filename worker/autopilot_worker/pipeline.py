@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import photo_sync
 from .photos import ModelError
 from .plan import plan_case, steps_for
 
@@ -19,8 +20,31 @@ class DriveResult:
     minutes: str = "0"
 
 
+class _NoMerimenPhotos:
+    """The default: Merimen's photo list cannot be read and nothing can be written. A dry run still records what it would do."""
+
+    def labels(self, case):
+        return None
+
+    def upload(self, case, plan, chunks):
+        raise photo_sync.NotPorted("upload")
+
+    def relabel(self, case, mapping):
+        raise photo_sync.NotPorted("relabel")
+
+    def reorder(self, case, mapping):
+        raise photo_sync.NotPorted("reorder")
+
+    def verify(self, case, plan):
+        raise photo_sync.NotPorted("verify")
+
+
 class Driver:
     progress = None  # set per job: a driver that ports a Merimen step calls progress("create_case") after it
+    guard = staticmethod(lambda: True)  # set per job: False once Done was undone or the names changed, asked before every photo write
+
+    def merimen_photos(self, case: dict):
+        return _NoMerimenPhotos()
 
     def dry_run(self, phase: str, steps: tuple) -> DriveResult:
         return DriveResult(ok=True)
@@ -46,6 +70,7 @@ class Outcome:
     browser_minutes: str | None = None
     invalidate: bool = False
     verify_state: str | None = None
+    photo_log: dict | None = None  # one photo_upload_log row: what the photo step did, or in a dry run would do
 
 
 def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcome:
@@ -62,27 +87,80 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             return Outcome("failed", case_status="pending_doc", pending_doc="documents", event="Phase stopped: document missing", error="documents")
         miss = ", ".join(blocked[0].missing)[:180]
         return Outcome("failed", case_status="failed", error=f"missing {miss}", event=f"Phase {phase} blocked: {miss}")
+    # the photo step: B before the parts (they are chosen from the names Merimen holds), A after the case exists
+    desk = case.get("desk")
+    merimen = driver.merimen_photos(case)
+
+    def photo_b():
+        return photo_sync.phase_b(
+            case, desk, case.get("extras") or [], stored_snapshot=case.get("photos_snapshot"),
+            phase_a_photos=case.get("phase_a_photos") or [], writes=writes, merimen=merimen, guard=driver.guard,
+        )
+
+    def photo_a(c):
+        return photo_sync.phase_a(c, desk, writes=writes, merimen=merimen, guard=driver.guard)
+
+    rep = None
+    if desk is not None and phase == "B":
+        try:
+            rep = photo_b()
+        except photo_sync.NotPorted:
+            return Outcome("done", event=f"Phase {phase} checked. Merimen was not changed.")
+        stop = _photo_stop(phase, rep)
+        if stop:
+            return stop
     dry = driver.dry_run(phase, steps)
     if not dry.ok:
         return Outcome("failed" if dry.fatal else "requeue", error=dry.error or "dry_run", event=f"Phase {phase} dry-run failed")
     if not writes:
-        return Outcome("done", event=f"Phase {phase} dry-run only. Merimen was not changed.")
+        if desk is not None and phase == "A":
+            rep = photo_a(case)
+        note = f" {rep.line()}" if rep and (rep.photos or not rep.ok) else ""
+        return Outcome("done", event=f"Phase {phase} dry-run only. Merimen was not changed.{note}", photo_log=_log(rep))
     saved = driver.save(phase, steps)
     if not saved.ok:
         if saved.error == "step_not_ported":
-            return Outcome("done", event=f"Phase {phase} checked. Merimen was not changed.")
+            return Outcome("done", event=f"Phase {phase} checked. Merimen was not changed.", photo_log=_log(rep) if not (rep and rep.mode == "live") else None)
         return Outcome("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
     if phase == "A":
+        if desk is not None:
+            try:
+                rep = photo_a({**case, "merimen_caseid": saved.case_id or case.get("merimen_caseid")})
+            except photo_sync.NotPorted:
+                rep = None
+            stop = _photo_stop(phase, rep) if rep else None
+            if stop:
+                return stop
         nxt = "phase_b" if case.get("photos_done_at") else "waiting_user"
         extra = ["phase_b"] if case.get("photos_done_at") else []
+        suffix = f". {rep.line()}" if rep and (rep.photos or not rep.ok) else ""
         return Outcome(
-            "done", case_status=nxt, enqueue=extra, event="Phase A saved",
-            merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes,
+            "done", case_status=nxt, enqueue=extra, event="Phase A saved" + suffix,
+            merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes, photo_log=_log(rep),
         )
+    suffix = f". {rep.line()}" if rep and (rep.photos or not rep.ok) else ""
     return Outcome(
-        "done", case_status="checking", event="Checking", enqueue=["checks"],
-        total_rm=saved.total_rm, browser_minutes=saved.minutes,
+        "done", case_status="checking", event="Checking" + suffix, enqueue=["checks"],
+        total_rm=saved.total_rm, browser_minutes=saved.minutes, photo_log=_log(rep),
     )
+
+
+def _log(rep):
+    return rep.row() if rep is not None and (rep.photos or not rep.ok) else None
+
+
+def _photo_stop(phase: str, rep) -> "Outcome | None":
+    """A photo step that must not go on: the names are no longer final (job cancelled, a new Phase B follows the next Done), Merimen cannot be
+    read (try again later), or Merimen does not match the plan (stop for a hand fix, say so on the case)."""
+    if rep is None or rep.ok:
+        return None
+    event = f"Phase {phase} stopped. {rep.line()}"
+    row = rep.row()
+    if rep.code in ("edited", "undone"):
+        return Outcome("cancelled", event=event, photo_log=row)
+    if rep.code == "unreadable":
+        return Outcome("requeue", event=event)
+    return Outcome("failed", case_status="waiting_user", error="photos", event=event, photo_log=row)
 
 
 def handle_job(job: dict, case: dict, photos: list[dict], *, gate: str, session: str, photo_worker: bool, writes: bool, namer, driver: Driver, login_result: str = "connected", cred_blocked: bool = False) -> Outcome:
@@ -130,11 +208,15 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     """phase_b after the desk is done; a second phase_a only once writes are allowed and the first pass did not save."""
     open_steps = {j["step"] for j in jobs if j["state"] in ("queued", "running")}
     out = []
+    snap, last = case.get("photos_snapshot"), case.get("last_b_snapshot")
+    # a Phase B is due when Done is pressed and the Merimen photo step has not yet seen THIS version of the names: never before, or the
+    # fingerprint changed since (Done undone and pressed again). A step that was refused logs the fingerprint it refused, so it does not loop.
+    due = (last is None and not any(j["step"] == "phase_b" and j["state"] == "done" for j in jobs)) or (snap is not None and last is not None and snap != last)
     if (
         case.get("status") in ("waiting_user", "phase_b")
         and case.get("photos_done_at")
         and "phase_b" not in open_steps
-        and not any(j["step"] == "phase_b" and j["state"] == "done" for j in jobs)
+        and due
     ):
         out.append("phase_b")
     dry_done = any(j["step"] == "phase_a" and j["state"] == "done" for j in jobs)

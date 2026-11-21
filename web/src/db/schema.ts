@@ -91,6 +91,8 @@ export const cases = pgTable("cases", {
   doneAt: timestamp("done_at"),
   photosDoneAt: timestamp("photos_done_at", { withTimezone: true }), // photo naming desk: "done" pressed
   photosRev: integer("photos_rev").notNull().default(0), // bumped on every reorder
+  photosSnapshot: text("photos_snapshot"), // fingerprint of names + order + extras when 完成 was pressed (null = not done)
+  photosArrangedAt: timestamp("photos_arranged_at", { withTimezone: true }), // opening order applied once after naming
 }, (t) => [index("cases_org_idx").on(t.orgId, t.createdAt)]);
 
 export const caseFiles = pgTable("case_files", {
@@ -101,6 +103,7 @@ export const caseFiles = pgTable("case_files", {
   originalName: text("original_name").notNull(),
   size: bigint("size", { mode: "number" }).notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  photosImportedAt: timestamp("photos_imported_at", { withTimezone: true }), // the desk took this file's photos in (migration 0010)
 });
 
 // Photo naming desk (plan #9). Shown name = finalName ?? modelName.
@@ -150,7 +153,7 @@ export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
   caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
   step: text("step").notNull(), // intake | read_docs | photo_model | phase_a | phase_b | checks | report
-  state: text("state").notNull().default("queued"), // queued | running | done | failed | paused
+  state: text("state").notNull().default("queued"), // queued | running | done | failed | paused | cancelled
   attempts: integer("attempts").notNull().default(0),
   lockedBy: text("locked_by"),
   lockedAt: timestamp("locked_at"),
@@ -388,3 +391,19 @@ export const caseScreenshots = pgTable("case_screenshots", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),
 }, (t) => [index("case_screenshots_case_idx").on(t.caseId, t.userId, t.createdAt)]);
+
+// Photo sync (migration 0010): what a Phase A / Phase B photo step uploaded to Merimen, or, in a dry run, would do.
+export const photoUploadLog = pgTable("photo_upload_log", {
+  id: serial("id").primaryKey(),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  phase: text("phase").notNull(), // A | B
+  mode: text("mode").notNull(), // dry | live
+  action: text("action").notNull(), // upload | relabel_reorder | none | refused
+  merimenCount: integer("merimen_count"),
+  photos: jsonb("photos").$type<{ id: number; src: string; name: string; fileType: string; position: number }[]>().notNull().default([]),
+  would: jsonb("would").$type<{ upload?: number; relabel?: number; reorder?: number }>().notNull().default({}),
+  corrections: jsonb("corrections").$type<{ src: string; model: string | null; final: string }[]>().notNull().default([]),
+  snapshot: text("snapshot"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("photo_upload_log_case_idx").on(t.caseId, t.createdAt)]);

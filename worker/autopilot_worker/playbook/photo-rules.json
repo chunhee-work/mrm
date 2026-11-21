@@ -1,0 +1,45 @@
+{
+  "_about": "Machine-readable photo rules, the single source for the website (web/src/lib/photos) and the worker (worker/autopilot_worker/photo_rules.py). Prose lives in 03-photo-naming.md, 06-upload-docs-and-photos.md and 11-car-logos.md. Edit here, then run `node scripts/sync-playbook.mjs`.",
+  "opening": {
+    "corners": ["Front View Right", "Front View Left", "Rear View Right", "Rear View Left"],
+    "idShots": ["Interior View", "Road Tax"],
+    "odometer": "Odometer Reading",
+    "chassis": "Chassis Number",
+    "engine": "Engine Compartment",
+    "window": 8
+  },
+  "fileTypes": {
+    "corner": "4 angles of vehicle photos",
+    "byName": {
+      "Odometer Reading": "Odometer Reading",
+      "Chassis Number": "Chassis Number",
+      "Engine Compartment": "Engine view"
+    },
+    "default": "Photographs of Damaged Parts"
+  },
+  "modelBans": [
+    { "vehicle": "\\bViva\\b", "name": "^Quarter Liner" },
+    { "vehicle": "^PERODUA\\b", "name": "^Front Panel Assembly$" }
+  ],
+  "modelSwaps": [
+    { "notVehicle": "^PERODUA\\b", "name": "^Bonnet Latch Stud Plate", "to": "Front Panel Assembly" },
+    { "notVehicle": "^PERODUA\\b", "name": "^Fender Inner (LH|RH)$", "to": "Front Panel Assembly" }
+  ],
+  "bannedNames": "general view",
+  "badge": {
+    "families": ["Grille Badge", "Boot Lid Badge", "Tailgate Badge"],
+    "logoWords": ["LOGO"],
+    "twoWordBrands": ["LAND ROVER", "GREAT WALL", "KING LONG", "DONG FENG"]
+  },
+  "rearLamp": {
+    "plain": "^Rear Lamp (LH|RH)$",
+    "pair": "^Rear Lamp (Inner|Outer) (LH|RH)$",
+    "unsure": 0.59
+  },
+  "photoUpload": {
+    "oneShot": true,
+    "originalFiles": true,
+    "chunkSize": 25,
+    "skipWhenMerimenHasPhotos": 1
+  }
+}

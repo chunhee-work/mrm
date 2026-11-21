@@ -9,7 +9,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --conditions=react-server --test \"src/**/*.test.ts\" && node --import tsx --test tests/*.test.ts && node --conditions=react-server --import tsx --test \"test/*.test.ts\" && tsx scripts/test-scan-case.ts"
+    "test": "tsx --conditions=react-server --test \"src/**/*.test.ts\" && node --import tsx --test tests/*.test.ts && node --conditions=react-server --import tsx --test \"test/*.test.ts\" && tsx scripts/test-scan-case.ts",
+    "e2e": "node e2e/desk.e2e.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
@@ -17,6 +18,7 @@
     "@vercel/blob": "^2.9.0",
     "better-auth": "^1.7.23",
     "drizzle-orm": "^0.45.4",
+    "fflate": "^0.8.3",
     "next": "^15.5.29",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

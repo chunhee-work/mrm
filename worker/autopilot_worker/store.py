@@ -88,6 +88,12 @@ class PgRepo:
             "SELECT id, kind, blob_url, original_name FROM case_files WHERE case_id = %s ORDER BY id",
             (case_id,),
         )
+        desk = self.db.execute(
+            "SELECT id, src_name, final_name, model_name FROM case_photos WHERE case_id = %s ORDER BY position, id",
+            (case_id,),
+        )
+        extras = self.db.execute("SELECT name FROM case_extras WHERE case_id = %s ORDER BY id", (case_id,))
+        snapshot, a_photos = self._photo_sync_state(case_id)
         return {
             "id": c[0], "org_id": c[1], "status": c[2], "plate": c[3], "case_data": c[4],
             "photos_done_at": c[5].isoformat() if c[5] else None,
@@ -95,7 +101,32 @@ class PgRepo:
             "created_by": c[10],
             "photos": [{"id": p[0], "src_name": p[1], "file": p[1], "blob_path": p[2]} for p in photos],
             "files": [{"id": f[0], "kind": f[1], "url": f[2], "name": f[3]} for f in files],
+            # the whole desk in order (photo step of Phase A/B), the parts with no photo, the fingerprint taken at 完成, and the list Phase A uploaded
+            "desk": [{"id": d[0], "src_name": d[1], "final_name": d[2], "model_name": d[3]} for d in desk],
+            "extras": [e[0] for e in extras],
+            "photos_snapshot": snapshot,
+            "phase_a_photos": a_photos,
         }
+
+    def _photo_sync_state(self, case_id: str):
+        """(fingerprint taken at 完成, the list Phase A uploaded). Before migration 0010 there is neither: (None, [])."""
+        try:
+            snap = self.db.execute("SELECT photos_snapshot FROM cases WHERE id = %s", (case_id,))
+            logged = self.db.execute(
+                "SELECT photos FROM photo_upload_log WHERE case_id = %s AND phase = 'A' AND mode = 'live' ORDER BY created_at DESC, id DESC LIMIT 1",
+                (case_id,),
+            )
+        except Exception:
+            return None, []
+        photos = logged[0][0] if logged else []
+        if isinstance(photos, str):
+            photos = json.loads(photos)
+        return (snap[0][0] if snap else None), [{"id": p["id"], "src": p["src"], "name": p["name"], "ftype": p.get("fileType") or p.get("ftype"), "position": p.get("position")} for p in photos]
+
+    def still_final(self, case_id: str, snapshot: str | None) -> bool:
+        """Asked before every Merimen photo write: Done still pressed and nothing edited since the fingerprint was taken."""
+        rows = self.db.execute("SELECT photos_done_at IS NOT NULL, photos_snapshot FROM cases WHERE id = %s", (case_id,))
+        return bool(rows) and bool(rows[0][0]) and (snapshot is None or rows[0][1] == snapshot)
 
     def session_status(self, org_id: str) -> str:
         rows = self.db.execute("SELECT status FROM worker_sessions WHERE org_id = %s", (org_id,))
@@ -197,18 +228,36 @@ class PgRepo:
                 """,
                 (outcome.photo_fail[:200], job["case_id"]),
             ))
+        if outcome.photo_log:
+            r = outcome.photo_log
+            st.append((
+                """
+                INSERT INTO photo_upload_log (case_id, phase, mode, action, merimen_count, photos, would, corrections, snapshot, note)
+                VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s)
+                """,
+                (
+                    job["case_id"], r["phase"], r["mode"], r["action"], r.get("merimen_count"), json.dumps(r.get("photos") or []),
+                    json.dumps(r.get("would") or {}), json.dumps(r.get("corrections") or []), r.get("snapshot"), r.get("note"),
+                ),
+            ))
         if outcome.browser_minutes and outcome.browser_minutes != "0":
             st.append(("INSERT INTO usage (case_id, browser_minutes) VALUES (%s, %s)", (job["case_id"], outcome.browser_minutes)))
         self.db.batch(st)
 
     def followup_cases(self) -> list[tuple[dict, list[dict]]]:
-        cases = self.db.execute(
-            """
-            SELECT id, org_id, status, photos_done_at, merimen_caseid
-            FROM cases
-            WHERE status IN ('phase_a', 'waiting_user', 'phase_b')
-            """
-        )
+        try:
+            cases = self.db.execute(
+                """
+                SELECT id, org_id, status, photos_done_at, merimen_caseid, photos_snapshot,
+                  (SELECT l.snapshot FROM photo_upload_log l WHERE l.case_id = cases.id AND l.phase = 'B' ORDER BY l.created_at DESC, l.id DESC LIMIT 1)
+                FROM cases
+                WHERE status IN ('phase_a', 'waiting_user', 'phase_b')
+                """
+            )
+        except Exception:  # before migration 0010: no snapshot, no photo log
+            cases = [tuple(c) + (None, None) for c in self.db.execute(
+                "SELECT id, org_id, status, photos_done_at, merimen_caseid FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b')"
+            )]
         if not cases:
             return []
         by_case: dict[str, list[dict]] = {c[0]: [] for c in cases}
@@ -217,7 +266,8 @@ class PgRepo:
         ):
             by_case.setdefault(case_id, []).append({"step": step, "state": state})
         return [
-            ({"id": c[0], "org_id": c[1], "status": c[2], "photos_done_at": c[3].isoformat() if c[3] else None, "merimen_caseid": c[4]}, by_case[c[0]])
+            ({"id": c[0], "org_id": c[1], "status": c[2], "photos_done_at": c[3].isoformat() if c[3] else None, "merimen_caseid": c[4],
+              "photos_snapshot": c[5], "last_b_snapshot": c[6]}, by_case[c[0]])
             for c in cases
         ]
 

@@ -1,0 +1,14 @@
+{
+ "version": "c50f2e848f33",
+ "files": {
+  "01-read-documents.md": "d1ee64dc6d37683fdb6fdce4cce057c6798f27e9a485488579bd5a2ce6dfd99c",
+  "03-photo-naming.md": "20fbbe33f2dcb949c8d2b5f8819685d619e61cf9de1a49b66e2c09cc4820ac31",
+  "06-upload-docs-and-photos.md": "832fa68d2d13d4c71ecf91c69c399b955bd956452c8541535fa551d76554c4cb",
+  "07-select-parts-and-labour.md": "b2fbe5afe3aebbec307b5151e8f38277f38fb4852eb99493235c66564e08d23c",
+  "08-estimate-details.md": "74613ee58ae60028fa827b4f7cc6a722f959c0ed256b9c7c22b1d76297ecac58",
+  "10-car-models.md": "ffee346aab53b8b7249303e29deecff772bd0989572fd021a82683c690aeef70",
+  "11-car-logos.md": "67b05a71a018bed9c3371c94aa5ba8c03602541ab84bb955d9ec675b012556f5",
+  "names.json": "d64c76f5958f6e1f1fc7a7e37f9d1af5f65705789878e8862561b7346ce17567",
+  "photo-rules.json": "8947553ea5e4fd0c2f585eb948d95de9f0ae12400ecc813b60d69deff05a2a52"
+ }
+}

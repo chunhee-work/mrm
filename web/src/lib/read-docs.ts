@@ -3,6 +3,7 @@ import { z } from "zod";
 import { get } from "@vercel/blob";
 import type Anthropic from "@anthropic-ai/sdk";
 import { trackedParse, zodOutputFormat, MODEL, type CallCtx } from "./claude";
+import { playbookBlock, playbookTag } from "@/lib/playbook/prompt";
 import { costOf, tokensOf } from "./pricing";
 
 // Step 1 of the workflow (playbook 01): read the case bundle and return the case data.
@@ -72,7 +73,9 @@ Rules:
 - Lock the at-fault party: the police result names the "disalahkan" plate; the at-fault insurer is the I-SEARCH page for that exact plate. An insurance page naming a different plate is misfiled: ignore it. In a chain collision, claim against the vehicle that directly hit our client, whose insurance is in the bundle.
 - Several policies on the I-SEARCH: pick the one whose period covers the accident date.
 - Unclear digit or word that IS in the bundle: zoom mentally and give your best reading.
-- When a text field is not in the bundle, return exactly "" (empty text). Never write N/A, -, none, unknown or similar; null only where the field allows it. Dates as YYYY-MM-DD.`;
+- When a text field is not in the bundle, return exactly "" (empty text). Never write N/A, -, none, unknown or similar; null only where the field allows it. Dates as YYYY-MM-DD.
+
+${playbookBlock("read_docs")}`;
 
 type Block = Anthropic.Messages.ContentBlockParam;
 
@@ -93,12 +96,12 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
   }
   content.push({ type: "text", text: "Extract the case data from the files above." });
 
-  const res = await trackedParse({ ...ctx, purpose: "read_docs" }, {
+  const res = await trackedParse({ ...ctx, purpose: "read_docs", playbook: playbookTag() }, {
     model: MODEL,
     max_tokens: 16000,
     thinking: { type: "adaptive" },
     output_config: { effort: "high", format: zodOutputFormat(CaseData) },
-    system: SYSTEM,
+    system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content }],
   });
   if (res.stop_reason === "refusal") throw new Error("Claude declined this request");
