@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
 import type { ExtState } from "@/lib/ext/gate";
+import WorkerLogin, { type Cred } from "./worker-login";
 
 // The Connection card (plan #38, P1). With the feature off it only says "not available yet": no button, no form.
 type View =
@@ -10,7 +11,7 @@ type View =
 
 type Plan = { steps: { code: string; ok: boolean; missing: string[] }[]; allReady: boolean };
 
-export default function Connection({ state: initial, embedded = false, cases = [] }: { state: ExtState; embedded?: boolean; cases?: { id: string; plate: string }[] }) {
+export default function Connection({ state: initial, embedded = false, cases = [], mode = "browser", cred = null }: { state: ExtState; embedded?: boolean; cases?: { id: string; plate: string }[]; mode?: "browser" | "worker"; cred?: Cred | null }) {
   const { t } = useT();
   const [state, setState] = useState<ExtState>(initial);
   const [ok, setOk] = useState(false);
@@ -89,7 +90,8 @@ export default function Connection({ state: initial, embedded = false, cases = [
             <button type="button" onClick={consent} disabled={!ok || busy} className="btn-primary mt-4 !h-12 w-full sm:w-auto sm:px-8">{t("conn.consentGo")}</button>
           </div>
         )}
-        {state === "ready" && (
+        {state === "ready" && mode === "worker" && cred && <WorkerLogin initial={cred} />}
+        {state === "ready" && mode !== "worker" && (
           <div className="mt-3">
             <div className="text-[17px] font-semibold text-fg">
               {view?.state === "unavailable" ? t("conn.unavailable")

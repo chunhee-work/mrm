@@ -1,0 +1,14 @@
+[Unit]
+Description=Autopilot case worker
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mrm/worker
+EnvironmentFile=-/etc/autopilot-worker.env
+ExecStart=/opt/mrm/worker/run.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

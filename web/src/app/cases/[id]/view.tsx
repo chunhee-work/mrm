@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import ScanEdge from "@/components/scan-edge";
 import { Tick, Working } from "@/components/app/marks";
+import ShotTimeline, { type Shot } from "@/components/app/shot-timeline";
 
 export type CaseDetail = {
   id: string;
@@ -17,6 +18,8 @@ export type CaseDetail = {
   facts: { owner: string; policyNo: string | null; policeReport: string | null; accidentAt: string | null; atFaultPlate: string | null; atFaultInsurer: string | null } | null;
   events: { at: string; message: string }[];
   stale: boolean; // reading, but no news for 6 minutes: the server is already restarting it
+  cred?: { blocked: boolean; verifyState: string } | null;
+  shots?: Shot[] | null; // null: flag off, table not there yet, or not the submitter
 };
 
 const REFRESH_MS = 5_000;
@@ -148,6 +151,12 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   return shell(
     <>
       {Header()}
+      {c.cred && (c.cred.blocked || c.cred.verifyState === "bad_credentials" || c.cred.verifyState === "locked" || c.cred.verifyState === "otp" || c.cred.verifyState === "unknown") && (
+        <div role="alert" className="border-b border-hair bg-ambertint px-5 py-3 text-[15px] text-fg sm:px-8">
+          <p>{t("w.banner")}</p>
+          <Link href="/connection" className="mt-1 inline-block font-semibold text-fg underline">{t("conn.title")}</Link>
+        </div>
+      )}
       <div className={`flex flex-wrap items-center justify-between gap-4 border-b border-hair px-5 py-4 sm:px-8 ${failed || pending ? "bg-ambertint" : working ? "bg-panel2" : ""}`} role={failed ? "alert" : "status"}>
         <div className="flex min-w-0 items-start gap-3">
           <span className="mt-[3px]">{Mark()}</span>
@@ -164,6 +173,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
           {pending && c.missing.length > 0 && <section aria-labelledby="case-missing"><h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2>{MissingList()}</section>}
         </div>
         <section aria-labelledby="case-log"><div id="case-log">{Log()}</div></section>
+        {c.shots && <div className="lg:col-span-2"><ShotTimeline caseId={c.id} shots={c.shots} /></div>}
       </div>
     </>
   );

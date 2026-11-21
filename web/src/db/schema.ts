@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, index, uniqueIndex, check } from "drizzle-orm/pg-core";
+import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, uuid, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 
 // ---- Better Auth tables (names/fields required by Better Auth) ----
 export const user = pgTable("user", {
@@ -151,10 +151,11 @@ export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
   caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
   step: text("step").notNull(), // intake | read_docs | photo_model | phase_a | phase_b | checks | report
-  state: text("state").notNull().default("queued"), // queued | running | done | failed
+  state: text("state").notNull().default("queued"), // queued | running | done | failed | paused
   attempts: integer("attempts").notNull().default(0),
   lockedBy: text("locked_by"),
   lockedAt: timestamp("locked_at"),
+  notBefore: timestamp("not_before"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [index("jobs_state_idx").on(t.state, t.createdAt)]);
 
@@ -322,3 +323,69 @@ export const extJobSteps = pgTable("ext_job_steps", {
   actorUserId: text("actor_user_id"),
   at: timestamp("at").notNull().defaultNow(),
 });
+
+// Linux worker (not applied in production until the owner approves). Passwords are ciphertext only.
+export const workerRuntimes = pgTable("worker_runtimes", {
+  id: text("id").primaryKey(),
+  seenAt: timestamp("seen_at").notNull().defaultNow(),
+  photoModel: text("photo_model"),
+  chromeOk: boolean("chrome_ok").notNull().default(false),
+});
+export const workerSessions = pgTable("worker_sessions", {
+  orgId: text("org_id").primaryKey().references(() => organizations.id, { onDelete: "cascade" }),
+  accountKey: text("account_key").notNull().default("default"),
+  port: integer("port"),
+  status: text("status").notNull().default("idle"),
+  wanted: text("wanted").notNull().default("none"),
+  startedBy: text("started_by"),
+  lastSeenAt: timestamp("last_seen_at"),
+  detail: text("detail"),
+});
+export const merimenCredentials = pgTable("merimen_credentials", {
+  orgId: text("org_id").primaryKey().references(() => organizations.id, { onDelete: "cascade" }),
+  usernameHint: text("username_hint").notNull(),
+  wrappedDek: text("wrapped_dek").notNull(),
+  dekNonce: text("dek_nonce").notNull(),
+  usernameCt: text("username_ct").notNull(),
+  usernameNonce: text("username_nonce").notNull(),
+  passwordCt: text("password_ct").notNull(),
+  passwordNonce: text("password_nonce").notNull(),
+  verifyState: text("verify_state").notNull().default("queued"), // queued | checking | ok | bad_credentials | locked | otp | unknown
+  loginAttempts: integer("login_attempts").notNull().default(0),
+  blocked: boolean("blocked").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
+export const merimenCredAudit = pgTable("merimen_cred_audit", {
+  id: serial("id").primaryKey(),
+  orgId: text("org_id").notNull(),
+  userId: text("user_id"),
+  action: text("action").notNull(),
+  at: timestamp("at").notNull().defaultNow(),
+});
+export const merimenOtp = pgTable("merimen_otp", {
+  id: serial("id").primaryKey(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  caseId: text("case_id").references(() => cases.id, { onDelete: "cascade" }),
+  state: text("state").notNull().default("waiting"),
+  codeCt: text("code_ct"),
+  codeNonce: text("code_nonce"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+// Progress screenshots of the Merimen tab (not applied in production until the owner approves). Private Blob pathname only.
+// userId = the user who submitted the case; only that user can see a row.
+export const caseScreenshots = pgTable("case_screenshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  caseId: text("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  jobId: integer("job_id"),
+  step: text("step").notNull(), // login_verified | case_opened | photos_named | documents_uploaded | case_complete | failed
+  captionZh: text("caption_zh").notNull(),
+  captionEn: text("caption_en").notNull(),
+  blobPathname: text("blob_pathname").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+}, (t) => [index("case_screenshots_case_idx").on(t.caseId, t.userId, t.createdAt)]);

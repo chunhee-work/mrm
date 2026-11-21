@@ -1,0 +1,17 @@
+# One box for a trial. Production runs several of these behind the same Neon queue.
+services:
+  worker:
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+    env_file:
+      - /etc/autopilot-worker.env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    shm_size: "1gb"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
