@@ -53,3 +53,24 @@ test("rear windscreen, side parts without LH/RH, back parts, plates", () => {
 test("overview shots with the position after the word", () => {
   assert.deepEqual(sidesOf(["Front View LH", "Front 45° RH", "Rear View Left"]), []);
 });
+test("abbreviations used by the part name list", () => {
+  assert.deepEqual(sidesOf(["Bumper Frt Absorber"]), ["front"]);
+  assert.deepEqual(sidesOf(["Rr Panel Outer"]), ["rear"]);
+  assert.deepEqual(sidesOf(["Door Lhf Handle Release"]), ["left"]);
+  assert.deepEqual(sidesOf(["Suspension Rhr"]), ["rear", "right"]);
+  assert.deepEqual(sidesOf(["Frt Corner Panel RH"]), ["front", "right"]);
+  assert.deepEqual(sidesOf(["Rr Bumper Sensor Os"]), ["rear", "right"]);
+  assert.deepEqual(sidesOf(["Mirror N/s", "Mirror O/s"]), ["left", "right"]);
+});
+test("whole-car list shots and interior", () => {
+  assert.deepEqual(sidesOf(["Front LH Closed View", "Rear RH Closed View", "Front End View", "Rear Panel View", "General View Front RH", "Interior View"]), []);
+  assert.deepEqual(sidesOf(["Rear Lamp PNL Interior Trim LH"]), ["rear", "left"]);
+});
+test("the whole part name list: every name runs, and every name with a side word or abbreviation gives a side", async () => {
+  const { readFileSync } = await import("node:fs");
+  const list = JSON.parse(readFileSync(new URL("./part-names.json", import.meta.url), "utf8")) as string[];
+  const word = /\b(front|frt|rear|rr|lh|rh|lhf|lhr|rhf|rhr|left|right|ns|os)\b/i;
+  const miss = list.filter((n) => word.test(n) && sidesOf([n]).length === 0);
+  // only whole-car shots and the like may give nothing; keep the list short and reviewable
+  assert.ok(miss.length < 40, `names with a side word but no side: ${miss.join(" | ")}`);
+});

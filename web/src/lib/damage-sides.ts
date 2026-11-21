@@ -18,15 +18,18 @@ const SKIP = [
   // the whole name is a document or plate shot ("Odometer", "Number Plate", "Chassis No"); a part that merely contains
   // such a word ("Front Chassis Rail LH", "Rear Number Plate Garnish") is still a part
   /^\s*(odometer|chassis( no\.?| number)?|vin|(number|registration|licen[cs]e|reg)? ?plate|documents?|licen[cs]e|dashboard|interior)\s*$/i,
-  /\b(seat|seatbelt|interior|dashboard)\b/i,
+  /\b(seat|seatbelt)\b/i,
+  /^\s*((vehicle|car) )?interior( view| room)?\s*$/i,
+  // whole-car shots from the photo desk list: "Front LH Closed View", "Front End View", "Rear Panel View", "General View Front RH"
+  /\b(closed view|end view|panel view|general view|full view)\b/i,
   /\baccident (damages? )?photo\b/i,
   /\boverview\b|\bwhole car\b/i,
   /^\s*((front|rear|left|right|lh|rh)\s+)*(side\s*)?(view|45\s*(deg|°)?(\s*view)?)(\s+(front|rear|left|right|lh|rh))*\s*$/i,
 ];
-const FRONT = /\b(front|bonnet|hood|grille|grill|headlamp|headlight|head lamp|windscreen|windshield|radiator|fog ?lamp|depan)\b/i;
-const REAR = /\b(rear|tail ?lamp|tail ?light|tail ?gate|boot|trunk|back ?glass|back ?door|back ?bumper|back ?panel|belakang)\b/i;
-const LEFT = /\b(lh|left|nearside|kiri)\b/i;
-const RIGHT = /\b(rh|right|offside|kanan)\b/i;
+const FRONT = /\b(front|frt|fr|lhf|rhf|bonnet|hood|grille|grill|headlamp|headlight|head lamp|windscreen|windshield|radiator|fog ?lamp|depan)\b/i;
+const REAR = /\b(rear|rr|lhr|rhr|tail ?lamp|tail ?light|tail ?gate|boot|trunk|back ?glass|back ?door|back ?bumper|back ?panel|belakang)\b/i;
+const LEFT = /\b(lh|lhf|lhr|left|nearside|ns|kiri)\b|\bn\/s\b/i;
+const RIGHT = /\b(rh|rhf|rhr|right|offside|os|kanan)\b|\bo\/s\b/i;
 // parts that sit on a side of the car: a front/rear word on them is a position (which door), not the hit end
 const SIDE_PART = /\b(door|fender|wing|quarter|wheel|tyre|tire|rim|mirror|pillar|sill|rocker|side ?panel|bodyside|pintu)\b/i;
 
