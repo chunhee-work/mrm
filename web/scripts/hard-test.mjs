@@ -56,7 +56,7 @@ export async function hard({ chromium, origin, local, email, password, add, shot
   const ownHost = new URL(origin).hostname;
   const browser = await chromium.launch();
   const newCtx = async (size, lang) => {
-    const ctx = await browser.newContext({ ...SIZES[size], acceptDownloads: false });
+    const ctx = await browser.newContext({ ...SIZES[size], acceptDownloads: false, ignoreHTTPSErrors: true });
     await ctx.addCookies([{ name: "lang", value: lang, url: origin }]);
     return ctx;
   };
