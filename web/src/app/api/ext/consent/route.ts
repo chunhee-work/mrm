@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { getExtState } from "@/lib/ext/gate";
+import { workerUiOn } from "@/lib/ext/worker-gate";
+import { getWorkerState } from "@/lib/ext/worker-store";
 import { CONSENT_WORDING_VERSION, cleanFirmLabel } from "@/lib/ext/pairing";
 
 const Body = z.object({ confirm: z.literal(true), firmLabel: z.string().max(200).optional() });
@@ -11,7 +13,7 @@ const Body = z.object({ confirm: z.literal(true), firmLabel: z.string().max(200)
 export async function POST(req: Request) {
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const state = await getExtState(me.orgId);
+  const state = workerUiOn() ? await getWorkerState(me.orgId) : await getExtState(me.orgId);
   if (state === "off") return NextResponse.json({ error: "disabled" }, { status: 403 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });

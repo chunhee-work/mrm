@@ -8,6 +8,8 @@ import { normalizeCaseData } from "@/lib/read-docs";
 import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 
 import { pageMeta } from "@/lib/meta";
+import { workerUiOn } from "@/lib/ext/worker-gate";
+import { credView } from "@/lib/ext/worker-store";
 
 export const generateMetadata = () => pageMeta("case.title", { index: false });
 export const dynamic = "force-dynamic";
@@ -46,6 +48,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     },
     events: events.map((e) => ({ at: e.at.toISOString(), message: e.message })),
     stale,
+    cred: workerUiOn() ? await credView(orgId) : null,
   };
   return <CaseView c={detail} />;
 }
