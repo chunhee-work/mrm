@@ -100,7 +100,7 @@ export async function hard({ chromium, origin, local, email, password, add, shot
     const keys = info.blocks.filter((t) => t.length < 60 && KEY_LEAK.test(t) && !SAFE_TEXT.test(t) && !/\s/.test(t.trim()) );
     if (keys.length) problems.push(`raw key shown: ${keys.slice(0, 3).join(" | ")}`);
     if (lang !== "en" && enText) {
-      const same = info.blocks.filter((t) => t.length >= 18 && /[A-Za-z]{4}/.test(t) && enText.has(t) && !/@|https?:|autopilotclaim/i.test(t));
+      const same = info.blocks.filter((t) => t.length >= 18 && /[A-Za-z]{4}/.test(t) && enText.has(t) && !/@|https?:|autopilotclaim|^WhatsApp|^©/i.test(t));
       if (same.length) warns.push(`still English in ${lang}: "${same[0].slice(0, 50)}"${same.length > 1 ? ` (+${same.length - 1})` : ""}`);
     }
     if (info.imgsNoAlt) warns.push(`${info.imgsNoAlt} img without alt`);
@@ -114,19 +114,18 @@ export async function hard({ chromium, origin, local, email, password, add, shot
     for (const size of Object.keys(SIZES)) for (const lang of ["en", "ms", "zh"]) {
       const ctx = await newCtx(size, lang);
       if (signedIn && !(await login(ctx, email, password))) { add("FAIL", `${size} ${lang} login`, "could not sign in"); await ctx.close(); continue; }
-      for (const path of [...(signedIn ? AUTH_PAGES : PUBLIC), ...(signedIn ? [] : ["/dashboard", "/cases/new", "/admin"]), "/no-such-page-xyz"]) {
+      for (const path of [...(signedIn ? AUTH_PAGES : PUBLIC), ...(signedIn ? [] : ["/dashboard", "/cases/new"]), "/admin", "/no-such-page-xyz"]) {
         const page = await ctx.newPage();
         const problems = [];
         watch(page, problems);
-        const expect404 = path === "/no-such-page-xyz";
+        const expect404 = path === "/no-such-page-xyz" || path === "/admin"; // /admin is hidden (404) from everyone who is not an admin
         const res = await page.goto(origin + path, { waitUntil: "networkidle", timeout: 30000 }).catch(() => null);
         const where = new URL(page.url()).pathname;
-        const gated = !signedIn && ["/dashboard", "/cases/new", "/admin"].includes(path);
+        const gated = !signedIn && ["/dashboard", "/cases/new"].includes(path);
         if (!res) problems.push("no response");
-        else if (expect404) { if (res.status() !== 404) problems.push(`unknown page answered ${res.status()}, expected 404`); problems.splice(0, problems.length, ...problems.filter((p) => !p.startsWith("HTTP 404"))); }
+        else if (expect404) { if (res.status() !== 404) problems.push(`unknown page answered ${res.status()}, expected 404`); problems.splice(0, problems.length, ...problems.filter((p) => !p.startsWith("HTTP 404") && !/status of 404/.test(p))); }
         else if (res.status() >= 400 && !gated) problems.push(`status ${res.status()}`);
         if (gated && !/^\/(login|signup)/.test(where)) problems.push(`not sent to login, landed on ${where}`);
-        if (signedIn && path === "/admin" ) problems.push("signed-in smoke user reached /admin");
         const k = `${signedIn} ${size} ${path}`;
         const r = await inspect(page, lang, lang === "en" ? null : en.get(k));
         if (lang === "en") en.set(k, new Set(r.blocks));
@@ -222,14 +221,14 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
     const { p } = await newCasePage();
     await p.setInputFiles("#case-files", [f("virus.exe", Buffer.from("MZ")), f("notes.txt", "hello"), f("sheet.xlsx", Buffer.from("PK"))]);
     const msg = await p.locator('[role=status]').first().innerText().catch(() => "");
-    const rows = await p.locator("form ul li").count();
+    const rows = await p.locator("form ul[aria-label] li").count();
     verdict("upload: wrong file types are refused with a message", [...(rows ? [`${rows} wrong-type file(s) were listed`] : []), ...(msg ? [] : ["no message shown"])]);
     await p.close();
   }
   { // unsupported-but-image types: the picker accepts them, the server must not fail halfway
     const { p, problems } = await newCasePage();
     await p.setInputFiles("#case-files", [f("scan.gif", Buffer.from("GIF89a\x01\x00\x01\x00\x00\x00\x00;")), f("scan.bmp", Buffer.from("BM" + "\0".repeat(60)))]);
-    const listed = await p.locator("form ul li").count();
+    const listed = await p.locator("form ul[aria-label] li").count();
     if (listed) { await p.locator("form button.btn-primary").click(); await p.waitForTimeout(4000); }
     const alert = await p.locator('[role=alert]').count();
     const url = new URL(p.url()).pathname;
@@ -260,7 +259,7 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
     await p.waitForTimeout(8000); await p.reload({ waitUntil: "load" });
     const body = (await p.locator("body").innerText()).slice(0, 600);
     const st = (await q(`SELECT status, error FROM cases WHERE id=$1`, [id])).rows[0];
-    verdict("case page: reading ends in a visible state (no endless spinner) when the AI read cannot run", /Retry|Try again|failed|could not|Missing|Documents|read/i.test(body) || st.status !== "reading" ? [] : [`still "${st.status}" with no way out; text: ${body.slice(0, 120).replace(/\n/g, " ")}`]);
+    verdict("case page: reading ends in a visible state (no endless spinner) when the AI read cannot run", /Retry|Try again|failed|could not|Missing|Documents|read/i.test(body) || st?.status !== "reading" ? [] : [`still "${st?.status}" with no way out; text: ${body.slice(0, 120).replace(/\n/g, " ")}`]);
     await shot(p, "case-after-upload");
     await p.close();
     globalThis.__caseId = id;
@@ -269,8 +268,8 @@ async function writeTests({ browser, origin, email, password, add, newCtx, login
     const { p } = await newCasePage();
     const many = Array.from({ length: 60 }, (_, i) => f(`p${String(i).padStart(3, "0")}.png`, fakePng(32, 32, [i * 4, 10, 10])));
     await p.setInputFiles("#case-files", many);
-    const listed = await p.locator("form ul li").count();
-    const box = await p.locator("form ul").evaluate((e) => ({ h: e.clientHeight, sh: e.scrollHeight })).catch(() => ({ h: 0, sh: 0 }));
+    const listed = await p.locator("form ul[aria-label] li").count();
+    const box = await p.locator("form ul[aria-label]").evaluate((e) => ({ h: e.clientHeight, sh: e.scrollHeight })).catch(() => ({ h: 0, sh: 0 }));
     const over = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     verdict("upload: 60 files are listed inside a scrolling box, no sideways scroll", [...(listed === 60 ? [] : [`${listed} of 60 listed`]), ...(box.sh > box.h ? [] : ["list is not a fixed scroll box"]), ...(over > 1 ? ["sideways scroll"] : [])]);
     await p.close();

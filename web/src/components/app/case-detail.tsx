@@ -93,14 +93,17 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
     ) : docs.length ? (
       <>
         <p className="text-[13px] leading-none text-mute">{t("dash.d.missing")}</p>
-        <ul className="mt-2 grid gap-1">
-          {docs.map((d) => (
-            <li key={d} className="leading-snug [overflow-wrap:anywhere]">
-              <span className="text-[17px] font-semibold text-fg">{t(`doc.${docKey(d)}`)}</span>
-              {docKey(d) === "other" && <span className="mt-0.5 block text-[13px] text-mute">{d}</span>}
+        <ol className="mt-2 grid gap-2">
+          {docs.map((d, i) => (
+            <li key={d} className="flex items-baseline gap-3 leading-snug [overflow-wrap:anywhere]">
+              <span className="num w-5 shrink-0 text-[17px] font-bold text-fg">{i + 1}.</span>
+              <span className="min-w-0">
+                <span className="text-[17px] font-semibold text-fg">{t(`doc.${docKey(d)}`)}</span>
+                {docKey(d) === "other" && <span className="mt-0.5 block text-[13px] text-mute">{d}</span>}
+              </span>
             </li>
           ))}
-        </ul>
+        </ol>
       </>
     ) : (
       <p className={say}>{t("dash.d.missingAny")}</p>
