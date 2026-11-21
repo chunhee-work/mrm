@@ -20,7 +20,7 @@ export async function debitCase(orgId: string, caseId: string): Promise<boolean>
   if (!enforcing() || exempt(orgId)) return true;
   await db.execute(sql`INSERT INTO credits_ledger (org_id, delta, reason, case_id) SELECT ${orgId}, ${-CASE_COST}, ${"case:" + caseId}, ${caseId}
     WHERE NOT EXISTS (SELECT 1 FROM credits_ledger WHERE reason = ${"case:" + caseId})
-    ON CONFLICT DO NOTHING`); // 0009 adds a unique index on the reason, so two racing requests cannot both debit
+    ON CONFLICT DO NOTHING`); // 0011 adds a unique index on the reason, so two racing requests cannot both debit
   if ((await creditBalance(orgId)) >= 0) return true;
   await refundCase(orgId, caseId, "nsf");
   return false;
