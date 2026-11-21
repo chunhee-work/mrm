@@ -36,6 +36,7 @@ export default function Billing(p: Props) {
   const [packId, setPackId] = useState<string>(p.packs[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [allOrders, setAllOrders] = useState(false); // U7: checkouts that were never completed are folded away
 
   // A pending order the customer just came back to: refresh until it settles (max ~2 min).
   const waiting = p.watching?.status === "pending" || p.orders.some((o) => o.status === "pending" && Date.now() - new Date(o.createdAt).getTime() < 3600_000);
@@ -124,12 +125,14 @@ export default function Billing(p: Props) {
 
   // Each payment is one row of two lines (date + pack on the left, amount + state on the right), so nothing is cut off
   // in the narrow side column or on a phone. The box has a fixed height and scrolls inside.
+  const abandoned = p.orders.filter((o) => o.status === "expired").length;
+  const shownOrders = allOrders ? p.orders : p.orders.filter((o) => o.status !== "expired");
   const History = (
     <section aria-labelledby="bill-hist">
       <h2 id="bill-hist" className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.history")}</h2>
-      {!p.orders.length ? <div className="rounded-[3px] border border-hair bg-panel p-5 text-[14px] text-mute">{t("bill.noHistory")}</div> : (
+      {!shownOrders.length ? <div className="rounded-[3px] border border-hair bg-panel p-5 text-[14px] text-mute">{t("bill.noHistory")}</div> : (
         <ul tabIndex={0} aria-labelledby="bill-hist" className="app-scroll max-h-[320px] overflow-y-auto overscroll-contain rounded-[3px] border border-hair bg-panel focus-visible:outline-offset-[-2px]">
-          {p.orders.map((o) => (
+          {shownOrders.map((o) => (
             <li key={o.id} className="flex items-center justify-between gap-4 border-b border-hairsoft px-4 py-3 last:border-b-0">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-medium text-fg">
@@ -146,6 +149,7 @@ export default function Billing(p: Props) {
           ))}
         </ul>
       )}
+      {abandoned > 0 && <button type="button" className="btn-quiet mt-2" onClick={() => setAllOrders((v) => !v)}>{allOrders ? t("case.showLess") : `${t("case.showAll")} (${abandoned})`}</button>}
     </section>
   );
 

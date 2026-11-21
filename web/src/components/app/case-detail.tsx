@@ -165,7 +165,9 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
   return (
     <li className="sheet flex min-w-0 flex-col rounded-[3px] border border-hair bg-panel p-5 lg:p-6">
       <h3 id={titleId} className="num truncate font-mono text-[24px] font-medium leading-[1.15] tracking-[0.01em] text-fg">
-        {row.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
+        <Link href={`/cases/${row.id}`} className="underline-offset-4 hover:underline">
+          {row.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
+        </Link>
       </h3>
       {vehicle && <p className="mt-1 truncate text-[14px] leading-snug text-mute">{vehicle}</p>}
       {!row.plate && row.createdAt && (

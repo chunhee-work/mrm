@@ -64,10 +64,13 @@ export default function Connection({ state: initial, embedded = false, cases = [
   }
 
   const open = view?.state === "open" ? view : null;
+  // U10: while the feature is off there is nothing to do here. On the dashboard it is a small line, not a card, and the
+  // Connection page shows only the card text (its intro describes a window that does not exist yet).
+  if (embedded && state === "off") return <p className="note text-mute">{t("conn.card")} · {t("conn.off")}</p>;
   return (
     <div className={embedded ? "w-full" : "mx-auto w-full max-w-[880px] px-4 py-8"}>
       {!embedded && <h1 className="text-[26px] font-semibold leading-tight text-fg">{t("conn.title")}</h1>}
-      {!embedded && <p className="mt-2 text-[15px] text-mute">{t("conn.intro")}</p>}
+      {!embedded && state !== "off" && <p className="mt-2 text-[15px] text-mute">{t("conn.intro")}</p>}
       <section aria-labelledby="conn-card" className={(embedded ? "" : "mt-5 ") + "rounded-[3px] border border-hair bg-panel p-5"}>
         <h2 id="conn-card" className="text-[13px] font-semibold uppercase tracking-wide text-mute">{t("conn.card")}</h2>
         {state === "off" && (

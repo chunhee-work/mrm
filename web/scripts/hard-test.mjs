@@ -138,6 +138,27 @@ export async function hard({ chromium, origin, local, email, password, add, shot
     }
   }
 
+  // ================= 1b. hydration (QC B10: React #418 on about 1 in 6 loads of these pages) =================
+  if (password) {
+    for (const path of ["/forgot-password", "/reset-password?token=bogus-token-123456", "/billing"]) {
+      const signed = path === "/billing";
+      let bad = 0, firstMsg = "";
+      for (let i = 0; i < 8; i++) {
+        const ctx = await newCtx(i % 2 ? "phone" : "desktop", ["en", "ms", "zh"][i % 3]);
+        if (signed && !(await login(ctx, email, password))) { await ctx.close(); break; }
+        const page = await ctx.newPage();
+        const seen = [];
+        page.on("console", (m) => { if (m.type() === "error" && /hydrat|#418|Minified React error|did not match/i.test(m.text())) seen.push(m.text().slice(0, 140)); });
+        page.on("pageerror", (e) => { if (/hydrat|#418|Minified React error/i.test(String(e.message))) seen.push(String(e.message).slice(0, 140)); });
+        await page.goto(origin + path, { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+        await page.waitForTimeout(400);
+        if (seen.length) { bad++; firstMsg ||= seen[0]; }
+        await ctx.close();
+      }
+      verdict(`hydration: ${path} loads 8 times without a React hydration error`, bad ? [`${bad}/8 loads: ${firstMsg}`] : []);
+    }
+  }
+
   // ================= 2. every button and link =================
   if (password) for (const size of Object.keys(SIZES)) {
     const ctx = await newCtx(size, "en");
