@@ -10,6 +10,7 @@ import type { Side } from "@/lib/damage-sides";
 import ShotTimeline, { type Shot } from "@/components/app/shot-timeline";
 import NeedCard from "@/components/app/case-detail";
 import { docKey, eventTr, failTr, userFixable } from "@/lib/case-text";
+import { whenOf } from "@/lib/fmt-when";
 
 export type CaseDetail = {
   id: string;
@@ -33,14 +34,14 @@ export type CaseDetail = {
   shots?: Shot[] | null; // null: flag off, table not there yet, or not the submitter
   sameCount?: number; // other cases of this org with the same plate (R2-U02)
   createdAt?: string;
-  desk?: { total: number; confirm: number } | null; // the photo desk: how many photos, how many still to confirm
+  desk?: { total: number; confirm: number; edited: number; doneAt: string | null } | null; // the photo desk: how many photos, how many still to confirm
   photoPlan?: { mode: string; action: string; upload: number; relabel: number; reorder: number } | null; // latest photo step of Phase A/B
 };
 
 const REFRESH_MS = 5_000;
 
 export default function CaseView({ c }: { c: CaseDetail }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
@@ -166,21 +167,29 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     </details>
   ) : null;
 
-  // the photo desk: one link, with how many photos still need a look
-  const deskOpen = !working && !failed && c.desk != null && c.desk.total > 0 && !["done", "uploaded", "reading", "failed"].includes(c.status);
-  const DeskLink = () => (deskOpen || c.photoPlan) ? (
+  // the photo desk: ONE link and ONE status line, never an empty box (R3-B01, R3-U01)
+  const deskShown = !working && !failed && c.desk != null && c.desk.total > 0 && !["done", "uploaded", "reading", "failed"].includes(c.status);
+  const deskStatus = (): string => {
+    const d = c.desk!;
+    if (c.photoPlan) {
+      return c.photoPlan.action === "refused" ? t("case.photoPlan.refused")
+        : t(c.photoPlan.mode === "live" ? "case.photoPlan.live" : "case.photoPlan.dry", { upload: String(c.photoPlan.upload), relabel: String(c.photoPlan.relabel), reorder: String(c.photoPlan.reorder) });
+    }
+    if (!d.doneAt) return d.confirm > 0 ? t("case.pp.todo", { n: String(d.confirm) }) : t("case.pp.press");
+    // 完成 was pressed and the worker has not written a plan yet: say what was confirmed and what happens next, in the real state
+    const next = c.status === "pending_doc" ? "case.pp.next.pending_doc" : c.status === "phase_b" ? "case.pp.next.phase_b" : c.status === "checking" ? "case.pp.next.checking" : "case.pp.next.early";
+    return `${t("case.pp.confirmed", { when: whenOf(d.doneAt, lang) })} · ${t("case.pp.summary", { n: String(d.total), edited: String(d.edited) })}. ${t(next)}`;
+  };
+  const DeskLink = () => (deskShown || c.photoPlan) ? (
     <section aria-labelledby="case-photos" className="lg:col-span-2">
       <h2 id="case-photos" className="label mb-3">{t("case.photoPlan")}</h2>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-[4px] border border-hair px-4 py-3">
-        <p className="min-w-0 text-[14.5px] text-fg" data-testid="photo-plan-line">
-          {c.photoPlan
-            ? c.photoPlan.action === "refused" ? t("case.photoPlan.refused")
-              : t(c.photoPlan.mode === "live" ? "case.photoPlan.live" : "case.photoPlan.dry", { upload: String(c.photoPlan.upload), relabel: String(c.photoPlan.relabel), reorder: String(c.photoPlan.reorder) })
-            : ""}
+        <p className="min-w-0 text-[14.5px] text-fg [text-wrap:pretty]" data-testid="photo-plan-line" suppressHydrationWarning>
+          {c.desk ? deskStatus() : c.photoPlan ? t("case.photoPlan.dry", { upload: String(c.photoPlan.upload), relabel: String(c.photoPlan.relabel), reorder: String(c.photoPlan.reorder) }) : ""}
         </p>
-        {deskOpen && (
+        {deskShown && (
           <Link href={`/cases/${c.id}/photos`} className="btn-primary" data-testid="desk-link">
-            {c.desk!.confirm > 0 ? t("case.namePhotosN", { n: String(c.desk!.confirm) }) : t("case.namePhotos")}
+            {c.desk!.confirm > 0 ? t("case.namePhotosN", { n: String(c.desk!.confirm) }) : c.desk!.doneAt ? t("case.namePhotosDone") : t("case.namePhotosPress")}
           </Link>
         )}
       </div>

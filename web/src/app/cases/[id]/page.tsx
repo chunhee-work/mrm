@@ -8,6 +8,7 @@ import { normalizeCaseData } from "@/lib/read-docs";
 import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 
 import { sidesForCases } from "@/lib/case-sides";
+import { CONFIRM_COUNT } from "@/lib/photos/confirm-sql";
 import { pageMeta } from "@/lib/meta";
 import { workerUiOn } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
@@ -36,7 +37,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const d = normalizeCaseData(c.caseData);
   const [dk] = await db.select({
     total: sql<number>`count(*)::int`,
-    confirm: sql<number>`(count(*) filter (where final_name is null and ((model_name is null and name_state not in ('pending', 'running')) or (name_state = 'named' and model_name is not null and coalesce(confidence, 0) < 0.9 and coalesce(how, '') <> 'rule')))::int)`,
+    confirm: CONFIRM_COUNT,
+    edited: sql<number>`(count(*) filter (where final_name is not null))::int`,
   }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id));
   const [plan] = await db.select().from(schema.photoUploadLog).where(eq(schema.photoUploadLog.caseId, id)).orderBy(desc(schema.photoUploadLog.createdAt), desc(schema.photoUploadLog.id)).limit(1)
     .catch((e) => { if (missingRelation(e)) return []; throw e; }); // the table comes with migration 0010
@@ -66,7 +68,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
       atFaultPlate: d.at_fault.plate || d.police.blamed_plate || null,
       atFaultInsurer: d.at_fault.policy?.insurer || null,
     },
-    desk: dk ? { total: Number(dk.total), confirm: Number(dk.confirm) } : null,
+    desk: dk ? { total: Number(dk.total), confirm: Number(dk.confirm), edited: Number(dk.edited), doneAt: c.photosDoneAt ? c.photosDoneAt.toISOString() : null } : null,
     photoPlan: plan ? { mode: plan.mode, action: plan.action, upload: plan.would.upload ?? 0, relabel: plan.would.relabel ?? 0, reorder: plan.would.reorder ?? 0 } : null,
     events: events.map((e) => ({ at: e.at.toISOString(), message: e.message })),
     stale,

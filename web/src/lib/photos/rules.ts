@@ -27,7 +27,11 @@ export function canonName(raw: unknown): string | null {
   // eslint-disable-next-line no-control-regex
   const s = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
   if (!s || s.length > MAX_NAME) return null;
-  return BY_LOWER.get(s.toLowerCase()) ?? s;
+  return BY_LOWER.get(s.toLowerCase()) ?? titleCase(s);
+}
+/** R3-B10: a name that is not in the catalogue is kept as typed, except that every word that starts in lower case gets a capital ("bumper cl" becomes "Bumper Cl"). Brackets and capitals are left alone. */
+export function titleCase(s: string): string {
+  return s.replace(/(^|\s)(\p{Ll})/gu, (_m, sp: string, c: string) => sp + c.toUpperCase());
 }
 
 // Names a car model does not have (owner's rules, playbook 10). Data lives in playbook/photo-rules.json, shared with the worker.

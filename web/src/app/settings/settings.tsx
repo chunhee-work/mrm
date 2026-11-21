@@ -11,19 +11,23 @@ export default function Settings({ email, company }: { email: string; company: s
   const router = useRouter();
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // the message is kept as a key, so it is written again in the new language when the page language changes (R3-B09)
+  const [msg, setMsg] = useState<{ ok: boolean; key: string } | null>(null);
 
   async function changePw(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
-    if (next.length < 8) { setMsg({ ok: false, text: t("set.pwShort") }); return; }
+    if (!cur) { setMsg({ ok: false, key: "set.pwNoCurrent" }); return; }
+    if (next.length < 8) { setMsg({ ok: false, key: "set.pwShort" }); return; }
+    if (next !== again) { setMsg({ ok: false, key: "set.pwMismatch" }); return; }
     setBusy(true); setMsg(null);
     try {
       const { error } = await authClient.changePassword({ currentPassword: cur, newPassword: next, revokeOtherSessions: true });
-      if (error) setMsg({ ok: false, text: t("set.pwWrong") });
-      else { setMsg({ ok: true, text: t("set.pwDone") }); setCur(""); setNext(""); }
-    } catch { setMsg({ ok: false, text: t("set.pwWrong") }); }
+      if (error) setMsg({ ok: false, key: "set.pwWrong" });
+      else { setMsg({ ok: true, key: "set.pwDone" }); setCur(""); setNext(""); setAgain(""); }
+    } catch { setMsg({ ok: false, key: "set.pwWrong" }); }
     setBusy(false);
   }
   function pick(l: string) {
@@ -62,12 +66,14 @@ export default function Settings({ email, company }: { email: string; company: s
 
         <section aria-labelledby="set-pw">
           <h2 id="set-pw" className="label mb-3">{t("set.password")}</h2>
-          <form onSubmit={changePw} className="grid gap-4 rounded-[4px] border border-hair bg-panel p-4">
+          <form onSubmit={changePw} noValidate className="grid gap-4 rounded-[4px] border border-hair bg-panel p-4">
             <label className="field"><span className="label">{t("set.pwCurrent")}</span>
-              <input type="password" autoComplete="current-password" required value={cur} onChange={(e) => setCur(e.target.value)} className="input" /></label>
+              <input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} className="input" /></label>
             <label className="field"><span className="label">{t("set.pwNew")}</span>
-              <input type="password" autoComplete="new-password" required minLength={8} value={next} onChange={(e) => setNext(e.target.value)} className="input" /></label>
-            {msg && <p role={msg.ok ? "status" : "alert"} className={msg.ok ? "text-[14px] font-semibold text-go" : "field-error"}>{msg.text}</p>}
+              <input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} className="input" /></label>
+            <label className="field"><span className="label">{t("set.pwConfirm")}</span>
+              <input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} className="input" data-testid="pw-confirm" /></label>
+            {msg && <p role={msg.ok ? "status" : "alert"} className={msg.ok ? "text-[14px] font-semibold text-go" : "field-error"}>{t(msg.key)}</p>}
             <div><button className="btn-primary" disabled={busy}>{busy ? t("set.saving") : t("set.pwSave")}</button></div>
           </form>
         </section>

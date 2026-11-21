@@ -102,7 +102,7 @@ function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, hl
           {editing ? (
             <div className="col-span-2 min-w-0 sm:col-span-1">
               <input
-                ref={input}
+                ref={input} data-pname
                 value={editing.text}
                 list="desk-part-names"
                 aria-label={t("editName", { n })}
@@ -125,7 +125,7 @@ function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, hl
             </div>
           ) : (
             <button
-              type="button"
+              type="button" data-pname
               aria-label={t("editName", { n })}
               onClick={(e) => { e.stopPropagation(); a.startEdit(p.id); }}
               className={`col-span-2 min-h-[48px] min-w-0 cursor-text rounded-[3px] border border-hair bg-panel2 px-2.5 py-2 text-left text-[15px] font-semibold leading-snug transition-colors duration-150 [overflow-wrap:anywhere] hover:border-ice sm:col-span-1 sm:px-3.5 sm:text-[16px] ${name ? "text-fg" : naming ? "text-mute" : "text-amber"}`}
@@ -160,6 +160,8 @@ function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, hl
                 className="inline-flex min-h-[44px] items-center gap-2 text-[13px] font-semibold text-ice underline decoration-hair decoration-1 underline-offset-4 transition-colors hover:decoration-ice sm:min-h-[28px]"
               >{t("restore")}</button>
             )}
+            {/* R3-U03: what the model suggested, next to the way back to it */}
+            {edited && p.modelName && <span className="min-w-0 truncate text-[12.5px] text-mute" data-testid="was-name">{t("was", { name: p.modelName })}</span>}
             <span className="ml-auto hidden min-w-0 truncate font-mono text-[11.5px] text-mute sm:block">{p.srcName}</span>
           </div>
         )}

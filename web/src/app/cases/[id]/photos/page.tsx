@@ -29,24 +29,29 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
   if (!c) notFound(); // another organisation's case looks exactly like a case that does not exist
   if (NO_DESK.includes(c.status)) redirect(`/cases/${id}`); // not read yet, being read, or failed: nothing to name
 
-  const rows = await db.select({ id: schema.cases.id, plate: schema.cases.plate, carModel: schema.cases.carModel, doneAt: schema.cases.photosDoneAt, status: schema.cases.status, createdAt: schema.cases.createdAt })
+  const rows = await db.select({ id: schema.cases.id, plate: schema.cases.plate, carModel: schema.cases.carModel, doneAt: schema.cases.photosDoneAt, status: schema.cases.status, createdAt: schema.cases.createdAt, data: schema.cases.caseData })
     .from(schema.cases)
     .where(and(eq(schema.cases.orgId, orgId), or(and(ne(schema.cases.status, "done"), notInArray(schema.cases.status, NO_DESK)), eq(schema.cases.id, id))))
     .orderBy(desc(schema.cases.createdAt)).limit(40);
-  if (!rows.some((r) => r.id === id)) rows.unshift({ id: c.id, plate: c.plate, carModel: c.carModel, doneAt: c.photosDoneAt, status: c.status, createdAt: c.createdAt });
+  if (!rows.some((r) => r.id === id)) rows.unshift({ id: c.id, plate: c.plate, carModel: c.carModel, doneAt: c.photosDoneAt, status: c.status, createdAt: c.createdAt, data: c.caseData });
   const n = rows.length
-    ? await db.select({ caseId: schema.casePhotos.caseId, n: sql<number>`count(*)::int` }).from(schema.casePhotos)
+    ? await db.select({ caseId: schema.casePhotos.caseId, n: sql<number>`count(*)::int`, edited: sql<number>`(count(*) filter (where final_name is not null))::int` }).from(schema.casePhotos)
         .where(inArray(schema.casePhotos.caseId, rows.map((r) => r.id))).groupBy(schema.casePhotos.caseId)
     : [];
   const count = new Map(n.map((x) => [x.caseId, Number(x.n)]));
+  const editedBy = new Map(n.map((x) => [x.caseId, Number(x.edited)]));
   const noPlate = (await getT()).t("photos.noPlate"); // the documents have not been read yet: say so instead of an empty tab
   // U12: only cases that can be named: this one, and the others that have photos and did not fail
   const naming = rows.filter((r) => r.id === id || ((count.get(r.id) ?? 0) > 0 && r.status !== "failed"));
-  // R2-U02: tabs with the same plate are told apart by the upload time (formatted here, in Malaysia time, so server and browser agree)
+  // R2-U02: tabs with the same plate are told apart by the upload time; the browser writes it in the page language (R3-B08)
   const samePlate = new Map<string, number>();
   for (const r of naming) samePlate.set(r.plate, (samePlate.get(r.plate) ?? 0) + 1);
-  const when = (d: Date) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kuala_Lumpur" }).format(d);
-  const tabs: DeskTab[] = naming.map((r) => ({ id: r.id, plate: r.plate || noPlate, carModel: r.carModel, done: r.doneAt != null, photos: count.get(r.id) ?? 0, when: (samePlate.get(r.plate) ?? 0) > 1 || !r.plate ? when(r.createdAt) : undefined }));
+  // the workshop shows when the case data has one (the documents sometimes name it)
+  const workshopOf = (d: unknown) => { const w = d && typeof d === "object" ? (d as Record<string, unknown>).workshop : null; return typeof w === "string" && w.trim() ? w.trim() : null; };
+  const tabs: DeskTab[] = naming.map((r) => ({
+    id: r.id, plate: r.plate || noPlate, carModel: r.carModel, done: r.doneAt != null, photos: count.get(r.id) ?? 0,
+    at: r.createdAt.toISOString(), dup: (samePlate.get(r.plate) ?? 0) > 1 || !r.plate, edited: editedBy.get(r.id) ?? 0, workshop: workshopOf(r.data),
+  }));
 
   return <NamingDesk orgId={orgId} tabs={tabs} initialId={id} />;
 }

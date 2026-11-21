@@ -376,7 +376,6 @@ test("done takes a snapshot; any edit afterwards clears done AND the snapshot an
   const again = await caseNow(orgId, id);
   assert.notEqual(again.photosSnapshot, null);
   assert.notEqual(again.photosSnapshot, snapshotOf(rs.map((x) => ({ id: x.id, name: x.finalName ?? x.modelName })), []));
-  void sql;
 });
 
 test("a running Phase B is left to the worker, which checks the case before each write (only queued/paused jobs are cancelled)", opts, async () => {
@@ -448,4 +447,23 @@ test("learning: Done records every final name, flags the adjuster's changes, and
 test("check-schema: a database with migration 0010 reports nothing missing", opts, async () => {
   const { missing } = await import("../scripts/check-schema");
   assert.deepEqual(await missing(), []);
+});
+
+test("R3-B01: after Done nothing is left to check (case page, dashboard); an edit after Done brings the count back; R3-B02 pending_doc keeps its status", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  const { CONFIRM_COUNT } = await import("../src/lib/photos/confirm-sql");
+  const { orgId, id, c } = await newCase("pending_doc", 3);
+  const count = async () => Number((await db.select({ n: CONFIRM_COUNT }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id)))[0].n);
+  const slice = await s.claimSlice(id);
+  await s.writeName(slice[0], { ...named, confidence: 0.55 }); // low: must be checked
+  await s.writeName(slice[1], { ...named, confidence: 0.97 });
+  await s.writeName(slice[2], { ...named, confidence: 0.6 });
+  assert.equal(await count(), 2, "two photos are under 90 %");
+  const d = await s.setDone(c, true);
+  assert.deepEqual([d.status, d.body.status], [200, "pending_doc"], "a case waiting for documents is not moved to phase_b, and the answer says so");
+  assert.equal(await count(), 0, "after Done: 0 to check");
+  assert.equal((await caseNow(orgId, id)).status, "pending_doc");
+  const p = (await rows(id))[0];
+  await s.renamePhoto(await caseNow(orgId, id), p.id, "Front Bumper", p.version);
+  assert.equal(await count(), 1, "the renamed photo has a name of the adjuster; the other low one counts again (Done was taken back)");
 });

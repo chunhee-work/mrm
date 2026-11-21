@@ -22,7 +22,9 @@ export type CaseRow = {
   sides?: Side[]; // sides of the car that were hit; undefined = not known (not loaded), [] = none found
   error?: string | null; // why a failed case failed (cases.error)
   createdAt?: string; // ISO
-  deskConfirm?: number; // photos still to name (R2-B05)
+  deskConfirm?: number; // photos still to name (R2-B05); 0 once 完成 was pressed (R3-B01)
+  deskTotal?: number; // photos of the case
+  photosDone?: boolean; // 完成 was pressed on the desk
   firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
 };
 

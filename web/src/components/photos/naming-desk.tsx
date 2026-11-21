@@ -9,11 +9,13 @@ import {
 import { canonName, inList, PART_NAMES } from "@/lib/photos/rules";
 import { fileTypeOf, openingMissing, photoPlan } from "@/lib/photos/order-rules";
 import { photoT } from "@/lib/photos/strings";
+import { whenOf } from "@/lib/fmt-when";
 import { PhotoCard, type CardActions, type Editing } from "./photo-card";
 import { ExtraChip, HelpSheet, MoveSheet, Palette } from "./sheets";
 import { uploadPhotos } from "./upload";
 
-export type DeskTab = { id: string; plate: string; carModel: string | null; done: boolean; photos: number; when?: string };
+/** `at` = when the case was uploaded (ISO); `dup` = another tab has the same plate, so the time tells them apart (shown in the page language, R3-B08). */
+export type DeskTab = { id: string; plate: string; carModel: string | null; done: boolean; photos: number; at: string; dup: boolean; edited: number; workshop?: string | null };
 type Reply = { ok: boolean; status: number; body: Record<string, unknown> };
 
 async function api(method: string, url: string, body?: unknown): Promise<Reply> {
@@ -74,6 +76,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const [flashId, setFlashId] = useState<number | null>(null);
   const [shown, setShown] = useState(true); // browser tab visible
   const [kick, setKick] = useState(0);
+  const [legendOpen, setLegendOpen] = useState(false); // R3-U04: the legend inside the page
+  const [bannerOpen, setBannerOpen] = useState(false); // R3-U06: "opening photos missing" is one line until opened
 
   const server = useRef(new Map<number, Photo>()); // last row the server confirmed, per photo
   const writes = useRef(new Map<number, { busy: boolean; next?: { target: string | null; session?: string } }>());
@@ -107,6 +111,12 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     patchCase(cid, (c) => (c.done === done ? c : { ...c, done }));
     setTabs((ts) => ts.map((x) => (x.id === cid && x.done !== done ? { ...x, done } : x)));
   }, [patchCase]);
+  /** R3-U02: an edit after 完成 takes the 完成 back. Say so, so the adjuster knows to press it again. */
+  const cancelDone = useCallback((cid: string, first?: string) => {
+    if (!statesRef.current[cid]?.done) { if (first) say(first); return; }
+    setDoneLocal(cid, false);
+    say([first, tRef.current("doneCancelled")].filter(Boolean).join(". "));
+  }, [setDoneLocal, say]);
   const disarm = useCallback(() => { lastEnter.current = 0; }, []);
 
   // ───────────── load / refresh ─────────────
@@ -178,7 +188,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     writes.current.set(id, w);
     if (p.finalName === target && !w.busy) return;
     patchPhoto(cid, id, (x) => ({ ...x, finalName: target }));
-    if (c.done) setDoneLocal(cid, false);
+    if (c.done) cancelDone(cid);
     if (w.busy) { w.next = { target, session }; return; } // latest wins; it goes out when the save in flight returns
     w.busy = true;
     let job: { target: string | null; session?: string } = { target, session };
@@ -209,7 +219,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       break;
     }
     w.busy = false;
-  }, [patchPhoto, setDoneLocal, say, load]);
+  }, [patchPhoto, cancelDone, say, load]);
 
   const undoLast = useCallback(async () => {
     const e = undo.current.peek();
@@ -229,9 +239,10 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       undo.current.done(e, row.version);
       server.current.set(row.id, row);
       patchPhoto(e.caseId, row.id, () => row);
+      const wasDone = !!statesRef.current[e.caseId]?.done;
       setDoneLocal(e.caseId, false);
       if (caseRef.current === e.caseId) { setCur(row.id); reveal(row.id); }
-      say(`${tRef.current("undoDone")}: ${shownName(row) ?? tRef.current("nameNeeded")}`);
+      say(`${tRef.current("undoDone")}: ${shownName(row) ?? tRef.current("nameNeeded")}${wasDone ? `. ${tRef.current("doneCancelled")}` : ""}`);
     } else if (r.status === 409 && r.body.photo) {
       const row = r.body.photo as Photo;
       server.current.set(row.id, row);
@@ -253,7 +264,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   // ───────────── order ─────────────
   const applyOrder = useCallback((cid: string, next: Photo[]) => {
     patchCase(cid, (c) => ({ ...c, photos: next }));
-    setDoneLocal(cid, false);
+    cancelDone(cid);
     let q = order.current.get(cid);
     if (!q) { q = { busy: false, next: false }; order.current.set(cid, q); }
     const o = q;
@@ -277,7 +288,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       }
       o.busy = false;
     })();
-  }, [patchCase, setDoneLocal, say, load]);
+  }, [patchCase, cancelDone, say, load]);
 
   function reveal(id: number) {
     requestAnimationFrame(() => {
@@ -315,7 +326,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     if (filterRef.current !== "all") pickFilter("all");
     setTimeout(() => {
       const f = frame.current;
-      const el = f?.querySelector<HTMLElement>(`[data-pid="${target.id}"]`);
+      // R3-B11: the name field is put in the middle of the frame (the card is taller than the field, so centring the card left it at the bottom edge)
+      const el = f?.querySelector<HTMLElement>(`[data-pid="${target.id}"] [data-pname]`) ?? f?.querySelector<HTMLElement>(`[data-pid="${target.id}"]`);
       if (f && el) {
         const a = el.getBoundingClientRect(), b = f.getBoundingClientRect();
         f.scrollTo({ top: Math.max(0, f.scrollTop + (a.top - b.top) - Math.max(8, (b.height - a.height) / 2)), behavior: "smooth" });
@@ -349,7 +361,10 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     if (r.ok) {
       setDoneLocal(cid, true);
       const left = tabsRef.current.filter((x) => x.id !== cid && !x.done).length;
-      say(left ? tt("doneToast", { plate: c.plate }) : tt("allDoneToast"));
+      // R3-B02: say what really happens: only a case that is already at the photo step is queued for the worker
+      const status = String(r.body.status ?? "");
+      const what = tt(status === "phase_b" ? "doneToast.phase_b" : status === "pending_doc" ? "doneToast.pending_doc" : "doneToast.other", { plate: c.plate });
+      say(left ? what : `${what}. ${tt("allDoneToast")}`);
       return true;
     }
     const reason = r.body.reason as string | undefined;
@@ -378,6 +393,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     const next = tabs[i + dir];
     if (next) switchCase(next.id);
   }, [tabs, switchCase]);
+  /** R3-B07: Enter, Enter goes to the next case that is not finished yet (wrapping round), not to the next tab. */
+  const goNextOpen = useCallback((): boolean => {
+    const all = tabsRef.current;
+    const i = all.findIndex((x) => x.id === caseRef.current);
+    for (let k = 1; k < all.length; k++) {
+      const x = all[(i + k) % all.length];
+      if (!x.done) { switchCase(x.id); return true; }
+    }
+    return false;
+  }, [switchCase]);
   useEffect(() => {
     const strip = tabStrip.current;
     const el = strip?.querySelector<HTMLElement>('[aria-current="true"]');
@@ -399,7 +424,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const list = useMemo(() => {
     if (!st) return [];
     if (filter === "all") return st.photos;
-    const now = visible(st.photos, filter);
+    const now = filter === "confirm" && st.done ? [] : visible(st.photos, filter); // R3-B01: after 完成 nothing is left to confirm
     if (!frozen) return now;
     const byId = new Map(st.photos.map((p) => [p.id, p]));
     const kept = frozen.map((id) => byId.get(id)).filter((p): p is Photo => !!p);
@@ -498,17 +523,15 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     if (!r.ok) { say(tRef.current(r.body.error === "name" ? "nameTooLong" : "saveFailed")); return; }
     const extra = r.body.extra as Extra;
     patchCase(cid, (c) => (c.extras.some((e) => e.id === extra.id) ? c : { ...c, extras: [...c.extras, extra] }));
-    setDoneLocal(cid, false);
-    say(tRef.current("partAdded", { name: extra.name }));
-  }, [patchCase, setDoneLocal, say]);
+    cancelDone(cid, tRef.current("partAdded", { name: extra.name }));
+  }, [patchCase, cancelDone, say]);
   const removeExtra = useCallback(async (e: Extra) => {
     const cid = caseRef.current;
     patchCase(cid, (c) => ({ ...c, extras: c.extras.filter((x) => x.id !== e.id) }));
-    setDoneLocal(cid, false);
     const r = await api("DELETE", `/api/cases/${cid}/photos/extras/${e.id}`);
-    if (r.ok) say(tRef.current("partRemoved", { name: e.name }));
+    if (r.ok) cancelDone(cid, tRef.current("partRemoved", { name: e.name }));
     else { say(tRef.current("saveFailed")); void load(cid, true); }
-  }, [patchCase, setDoneLocal, say, load]);
+  }, [patchCase, cancelDone, say, load]);
 
   // ───────────── add photos ─────────────
   const onFiles = useCallback(async (files: File[]) => {
@@ -587,8 +610,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
           const now = Date.now();
           if (!isEnterPair(lastEnter.current, now)) { lastEnter.current = now; break; } // the first Enter only starts the pair
           lastEnter.current = 0;
-          if (statesRef.current[caseRef.current]?.done) goCase(1);
-          else void pressDone().then((ok) => { if (ok) goCase(1); });
+          if (statesRef.current[caseRef.current]?.done) { if (!goNextOpen()) say(tRef.current("allDoneToast")); }
+          else void pressDone().then((ok) => { if (ok) goNextOpen(); });
           break;
         }
         case " ": case "Spacebar":
@@ -603,10 +626,12 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [palette, moveId, help, undoLast, pressDone, goCase, actions, disarm]);
+  }, [palette, moveId, help, undoLast, pressDone, goCase, goNextOpen, say, actions, disarm]);
 
   // ───────────── draw ─────────────
   const n = useMemo(() => (st ? counts(st.photos) : null), [st]);
+  // what the header shows: once 完成 was pressed nothing is left to confirm (R3-B01)
+  const nUi = n && st?.done ? { ...n, confirm: 0 } : n;
   const photoNames = useMemo(() => new Set((st?.photos ?? []).map(shownName).filter((x): x is string => !!x)), [st]);
   const indexOf = useMemo(() => new Map((st?.photos ?? []).map((p, i) => [p.id, i + 1])), [st]);
   const tabIndex = tabs.findIndex((x) => x.id === caseId);
@@ -621,6 +646,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const tabMark = (x: DeskTab) => x.done
     ? <Tick className="h-3.5 w-3.5 text-go" />
     : <span className="text-[12px] font-normal text-mute">{x.photos}</span>;
+  // the changed count of this case is live; the other cases show what the page was opened with
+  const tabEdited = (x: DeskTab) => (x.id === caseId && n ? n.edited : x.edited);
   const stepBtn = "flex h-9 w-8 shrink-0 items-center justify-center rounded-[3px] text-mute transition-colors duration-150 hover:bg-panel2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent";
   const prev = <button type="button" className={stepBtn} aria-label={t("prevCase")} disabled={tabIndex <= 0} onClick={() => goCase(-1)}><Chevron className="rotate-90" /></button>;
   const next = <button type="button" className={stepBtn} aria-label={t("nextCase")} disabled={tabIndex < 0 || tabIndex >= tabs.length - 1} onClick={() => goCase(1)}><Chevron className="-rotate-90" /></button>;
@@ -628,13 +655,14 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const doneBtn = (
     <button
       type="button" data-testid="done-btn" onClick={() => void pressDone()} aria-pressed={!!st?.done}
-      title={st?.done ? undefined : blocked ?? t("doneHint")}
+      title={st?.done ? t("doneUndo") : blocked ?? t("doneHint")}
       className={`flex h-12 min-w-[12rem] shrink-0 items-center justify-center gap-2.5 rounded-[4px] px-7 text-[17px] font-bold leading-none tracking-wide shadow-[0_6px_16px_-8px_rgba(10,14,19,0.55)] outline-offset-2 transition-[background-color,transform] duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-scan active:translate-y-px max-sm:h-14 max-sm:w-full max-sm:text-[18px] ${
         st?.done ? "bg-go text-bay" : "bg-ice text-bay hover:bg-icehi"
       }`}
     >
       {st?.done && <Tick className="h-5 w-5" />}
-      {st?.done ? t("doneOn") : t("doneBtn", { plate: st?.plate || tab?.plate || "", d: doneCount, n: tabs.length })}
+      {st?.done ? t("doneOn") : t("doneBtn", { plate: st?.plate || tab?.plate || "" })}
+      <span className="text-[12px] font-medium tracking-normal opacity-70" data-testid="done-count">{t("doneCount", { d: doneCount, n: tabs.length })}</span>
     </button>
   );
   const quiet = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[3px] px-3 text-[13.5px] font-semibold text-fg transition-colors duration-150 hover:bg-panel2 disabled:opacity-40";
@@ -645,7 +673,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void onFiles(f); }}
       />
       <button type="button" disabled={!st || !!up} onClick={() => fileInput.current?.click()} className={quiet}>
-        <Plus className="h-3.5 w-3.5" />{up ? t("uploading", { done: up.done, total: up.total }) : t("addPhotos")}
+        <Plus className="h-3.5 w-3.5" />{up ? t("uploading", { done: up.done, total: up.total }) : <span className="max-sm:sr-only">{t("addPhotos")}</span>}
       </button>
     </>
   );
@@ -660,9 +688,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     </button>
   );
   const filterSoft = (
-    <div role="group" aria-label={t("filter")} className="flex min-w-0 rounded-[4px] bg-panel2 p-0.5 max-sm:basis-full">
+    <div role="group" aria-label={t("filter")} className="flex min-w-0 rounded-[4px] bg-panel2 p-0.5 max-sm:flex-1">
       {soft("all", t("f.all"), n?.total ?? null, false)}
-      {soft("confirm", t("f.confirm"), n?.confirm ?? null, !!n?.confirm)}
+      {soft("confirm", t("f.confirm"), nUi?.confirm ?? null, !!nUi?.confirm)}
       {soft("edited", t("f.edited"), n?.edited ?? null, false)}
     </div>
   );
@@ -670,15 +698,26 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     <div className="min-w-0">
       <div className="flex min-w-0 items-baseline gap-3">
         <h1 className="font-mono text-[20px] font-semibold leading-none tracking-wide text-fg lg:text-[22px]">{st?.plate || tab?.plate || ""}</h1>
-        <p className="min-w-0 truncate text-[14px] text-mute">{st?.carModel ?? tab?.carModel ?? ""}</p>
+        <p className="min-w-0 truncate text-[14px] text-mute" data-testid="vehicle-line">{[st?.carModel ?? tab?.carModel, tab?.workshop].filter(Boolean).join(" · ")}</p>
       </div>
       {plan && plan.photos > 0 && (
-        <p className="mt-1.5 max-w-[68ch] font-mono text-[11.5px] leading-snug text-mute" data-testid="photo-plan">
+        <p className="mt-1.5 hidden max-w-[68ch] font-mono text-[11.5px] leading-snug text-mute sm:block" data-testid="photo-plan">
           {t("planLine", { n: plan.photos, types: Object.entries(plan.types).map(([k, v]) => `${k} ×${v}`).join(" · ") })}
         </p>
       )}
     </div>
   );
+  // R3-U04: the three numbers of the prototype, always in view on a wide screen (on a phone the filter buttons carry the same numbers)
+  const kpi = nUi ? (
+    <dl className="hidden items-stretch divide-x divide-hair overflow-hidden rounded-[4px] border border-hair sm:flex" data-testid="kpi">
+      {([["k.photos", nUi.total, false], ["k.confirm", nUi.confirm, nUi.confirm > 0], ["k.edited", nUi.edited, false]] as const).map(([k, v, hot]) => (
+        <div key={k} className="flex min-w-[78px] flex-col items-center px-3 py-1.5">
+          <dd className={`order-1 font-mono text-[18px] font-semibold leading-none ${hot ? "text-amber" : "text-fg"}`}>{v}</dd>
+          <dt className="order-2 mt-1 text-[11.5px] leading-none text-mute">{t(k)}</dt>
+        </div>
+      ))}
+    </dl>
+  ) : null;
   const extrasRow = (
     <div className={`flex items-center gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible ${noBar}`}>
       <span className="shrink-0 pr-1 text-[12.5px] text-mute">{t("extras")}</span>
@@ -690,11 +729,15 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         <Plus className="h-3 w-3" />{t("addPart")}
         <kbd className="ml-1 hidden rounded-[2px] border border-hair px-1 font-mono text-[10.5px] font-normal text-mute lg:inline">Space</kbd>
       </button>
+      <button
+        type="button" aria-expanded={legendOpen} aria-controls="desk-legend" onClick={() => setLegendOpen((v) => !v)} data-testid="legend-toggle"
+        className="ml-auto hidden h-7 shrink-0 items-center gap-1.5 rounded-[3px] px-2 text-[13px] font-semibold text-mute transition-colors duration-150 hover:bg-panel2 hover:text-fg sm:inline-flex"
+      >{t("legendOpen")}<Chevron className={legendOpen ? "rotate-180" : ""} /></button>
     </div>
   );
   const head = (
     // one raised card holds everything about this case: the cases, the case, its extra parts
-    <div className="shrink-0 pb-3 pt-3 lg:pt-4">
+    <div className="shrink-0 pb-3 pt-3 max-sm:pb-2 max-sm:pt-2 lg:pt-4">
       <div className="wrap max-sm:px-3">
         <div className="rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(10,14,19,0.06),0_10px_28px_-14px_rgba(10,14,19,0.22)] ring-1 ring-hair">
           <div className="flex items-center gap-1.5 border-b border-hair px-2.5 py-2">
@@ -707,21 +750,38 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
                     key={x.id} type="button" aria-current={here ? "true" : undefined} onClick={() => switchCase(x.id)}
                     className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-3.5 font-mono text-[13px] tracking-wide transition-colors duration-150 ${here ? "bg-icetint font-semibold text-fg ring-[1.5px] ring-inset ring-scan" : "bg-panel2 text-fg hover:bg-hair"}`}
                   >
-                    {x.plate}{x.when && <span className="text-[11.5px] font-normal text-mute">{x.when}</span>}{tabMark(x)}
+                    {x.plate}
+                    {x.dup && <span className="text-[11.5px] font-normal text-mute" suppressHydrationWarning>{whenOf(x.at, lang)}</span>}
+                    {tabEdited(x) > 0 && <span className="rounded-[2px] bg-ice px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-bay" data-testid="tab-edited">{t("tabEdited", { n: tabEdited(x) })}</span>}
+                    {tabMark(x)}
                   </button>
                 );
               })}
             </nav>
             {next}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3.5 lg:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3.5 max-sm:py-2.5 lg:px-5">
             {title}
-            <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:basis-full">
-              {filterSoft}{addBtn}<span className="flex-1 sm:hidden" />{helpBtn}
+            {kpi}
+            <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full max-sm:flex-nowrap">
+              {filterSoft}{addBtn}{helpBtn}
             </div>
           </div>
-          <div className="border-t border-hair px-4 py-2 lg:px-5">{extrasRow}</div>
-          <div className="flex border-t border-hair p-3 lg:justify-end lg:px-5">{doneBtn}</div>
+          <div className="border-t border-hair px-4 py-2 max-sm:py-1 lg:px-5">{extrasRow}</div>
+          {legendOpen && (
+            <div id="desk-legend" className="hidden border-t border-hair px-4 py-3 sm:block lg:px-5" data-testid="legend">
+              <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13.5px] text-fg">
+                <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] bg-bay px-2 font-mono text-[11.5px] font-semibold text-go">96%</span>{t("lg.sure")}</li>
+                <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] bg-amber px-2 font-mono text-[11.5px] font-semibold text-bay">72%</span>{t("lg.low")}</li>
+                <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] border border-ice/70 px-2 font-mono text-[11.5px] font-semibold uppercase text-ice">{t("fixed")}</span>{t("lg.fixed")}</li>
+                <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] bg-ice px-2 font-mono text-[11.5px] font-semibold text-bay">{t("edited")}</span>{t("lg.edited")}</li>
+                <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] border border-hair bg-panel2 px-2 font-mono text-[11.5px] font-semibold tracking-wide text-fg">TypeSafe</span>{t("lg.typesafe")}</li>
+                <li className="flex items-center gap-2 text-mute"><kbd className="rounded-[2px] border border-hair px-1.5 font-mono text-[11.5px] text-fg">Enter</kbd><kbd className="rounded-[2px] border border-hair px-1.5 font-mono text-[11.5px] text-fg">Enter</kbd>{t("lg.enter")}</li>
+              </ul>
+            </div>
+          )}
+          {/* a phone gets the big 完成 button as a bar along the bottom edge, so the header leaves the screen to the photos (R3-B03) */}
+          <div className="flex border-t border-hair p-3 lg:justify-end lg:px-5 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-40 max-sm:bg-panel max-sm:pb-[calc(12px+env(safe-area-inset-bottom))] max-sm:shadow-[0_-8px_20px_-12px_rgba(10,14,19,0.35)]">{doneBtn}</div>
         </div>
       </div>
     </div>
@@ -733,15 +793,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       <div className="shrink-0">
         {/* what is going on: naming progress, or what needs a second try */}
         {st && n && !n.naming && n.total > 0 && missingOpen.length > 0 && (
-          <div className="wrap pb-2.5 max-sm:px-3" role="status">
-            <span className="flex items-center gap-2 text-[13.5px] font-medium text-fg">
-              <span className="h-[9px] w-[9px] shrink-0 bg-amber" aria-hidden="true" />
-              {t("openingMissing", { list: missingOpen.join(", ") })}
+          <div className="wrap pb-2.5 max-sm:px-3 max-sm:pb-1" role="status" data-testid="opening-banner">
+            <span className={`flex items-center gap-2 text-[13.5px] font-medium text-fg ${bannerOpen ? "items-start" : ""}`}>
+              <span className={`h-[9px] w-[9px] shrink-0 bg-amber ${bannerOpen ? "mt-[5px]" : ""}`} aria-hidden="true" />
+              <span className={`min-w-0 ${bannerOpen ? "" : "truncate"}`}>{bannerOpen ? t("openingMissing", { list: missingOpen.join(", ") }) : t("openingMissingShort", { n: missingOpen.length })}</span>
+              <button type="button" aria-expanded={bannerOpen} onClick={() => setBannerOpen((v) => !v)} className="link shrink-0 text-[13px] font-semibold">{bannerOpen ? t("hideMore") : t("showMore")}</button>
             </span>
           </div>
         )}
         {st && n && (n.naming > 0 || n.failed > 0 || capped[caseId]) && (
-          <div className="wrap pb-2.5 max-sm:px-3" role="status">
+          <div className="wrap pb-2.5 max-sm:px-3 max-sm:pb-1" role="status">
             {n.naming > 0 ? (
               <div className="flex items-center gap-3">
                 <span className="shrink-0 font-mono text-[12.5px] text-ice">{t("naming", { n: n.naming })}</span>
@@ -810,7 +871,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
 
       <datalist id="desk-part-names">{PART_NAMES.map((name) => <option key={name} value={name} />)}</datalist>
 
-      {palette && st && <Palette extras={st.extras} photoNames={photoNames} onAdd={(name) => void addExtra(name)} onRemove={removeExtra} onClose={() => setPalette(false)} t={t} />}
+      {palette && st && <Palette extras={st.extras} photoNames={photoNames} onAdd={(name) => addExtra(name)} onRemove={removeExtra} onClose={() => setPalette(false)} t={t} />}
       {movePhoto && st && (
         <MoveSheet
           n={indexOf.get(movePhoto.id) ?? 1} total={st.photos.length} name={shownName(movePhoto)} src={img(movePhoto.id)}
@@ -819,7 +880,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
       )}
       {help && <HelpSheet onClose={() => setHelp(false)} t={t} />}
 
-      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(16px+env(safe-area-inset-bottom))] z-[60] flex justify-center px-4">
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-[60] sm:bottom-[calc(16px+env(safe-area-inset-bottom))] flex justify-center px-4">
         {toast && (
           <div key={toast.key} className="max-w-[560px] rounded-[3px] border border-hair bg-fg px-4 py-2.5 text-[14px] font-medium leading-snug text-bay shadow-[0_12px_24px_-12px_rgba(0,0,0,0.8)] motion-safe:animate-[deskrise_0.18s_ease-out]">
             {toast.msg}

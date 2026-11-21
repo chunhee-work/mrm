@@ -12,10 +12,13 @@ const Kbd = ({ children }: { children: React.ReactNode }) => (
 /** A dialog over the desk. `place` = where it sits: top (palette), bottom (phone sheet) or centre. Escape and a press on the dark area close it. */
 function Sheet({ label, place, onClose, children }: { label: string; place: "top" | "bottom" | "center"; onClose: () => void; children: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
+  // R3-B05: onClose is a new function on every render of the desk. In the effect's dependencies it re-ran the cleanup (which gives the focus back
+  // to the page) each time a part was added, so the palette lost its cursor. Held in a ref, the effect runs once.
+  const closeRef = useRef(onClose); closeRef.current = onClose;
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.stopPropagation(); onClose(); return; }
+      if (e.key === "Escape") { e.stopPropagation(); closeRef.current(); return; }
       if (e.key !== "Tab" || !box.current) return;
       const f = box.current.querySelectorAll<HTMLElement>("button:not([disabled]), input, [tabindex='0']");
       if (!f.length) return;
@@ -25,10 +28,10 @@ function Sheet({ label, place, onClose, children }: { label: string; place: "top
     };
     window.addEventListener("keydown", onKey, true);
     return () => { window.removeEventListener("keydown", onKey, true); before?.focus?.({ preventScroll: true }); };
-  }, [onClose]);
+  }, []);
   const pos = place === "top" ? "items-start justify-center px-3 pt-[10vh]" : place === "bottom" ? "items-end justify-center sm:items-center sm:px-4" : "items-center justify-center px-3";
   return (
-    <div className={`fixed inset-0 z-50 flex bg-[#04060A]/75 ${pos}`} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className={`fixed inset-0 z-50 flex bg-[#04060A]/75 ${pos}`} onPointerDown={(e) => { if (e.target === e.currentTarget) closeRef.current(); }}>
       <div
         ref={box} role="dialog" aria-modal="true" aria-label={label}
         className={`relative flex max-h-[80dvh] w-full flex-col border border-hair bg-panel shadow-[0_24px_48px_-24px_rgba(0,0,0,0.9)] motion-safe:animate-[deskrise_0.18s_ease-out] ${place === "bottom" ? "max-w-[520px] rounded-t-[3px] pb-[env(safe-area-inset-bottom)] sm:rounded-[3px]" : "max-w-[560px] rounded-[3px]"}`}
@@ -42,7 +45,7 @@ function Sheet({ label, place, onClose, children }: { label: string; place: "top
 
 // ───────────── parts with no photo: the Space palette ─────────────
 export function Palette({ extras, photoNames, onAdd, onRemove, onClose, t }: {
-  extras: Extra[]; photoNames: Set<string>; onAdd: (name: string) => void; onRemove: (e: Extra) => void; onClose: () => void; t: PT;
+  extras: Extra[]; photoNames: Set<string>; onAdd: (name: string) => void | Promise<void>; onRemove: (e: Extra) => void; onClose: () => void; t: PT;
 }) {
   const [q, setQ] = useState("");
   const [at, setAt] = useState(0);
@@ -66,7 +69,12 @@ export function Palette({ extras, photoNames, onAdd, onRemove, onClose, t }: {
   useEffect(() => { input.current?.focus(); }, []);
   useEffect(() => { list.current?.querySelector<HTMLElement>(`[data-i="${at}"]`)?.scrollIntoView({ block: "nearest" }); }, [at]);
 
-  const add = (name: string) => { if (!have.has(name.toLowerCase())) onAdd(name); setQ(""); input.current?.focus(); };
+  // the cursor goes back to the box at once and again when the save returns (R3-B05)
+  const add = (name: string) => {
+    setQ(""); input.current?.focus();
+    if (have.has(name.toLowerCase())) return;
+    void Promise.resolve(onAdd(name)).finally(() => input.current?.focus());
+  };
 
   return (
     <Sheet label={t("pal.title")} place="top" onClose={onClose}>
