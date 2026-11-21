@@ -264,7 +264,9 @@ class PgRepo:
                 WHERE status IN ('phase_a', 'waiting_user', 'phase_b')
                 """
             )
-        except Exception:  # before migration 0010: no snapshot, no photo log
+        except Exception as e:  # before migration 0010: no snapshot, no photo log; any other error fails the job
+            if not _missing_0010(e):
+                raise
             cases = [tuple(c) + (None, None) for c in self.db.execute(
                 "SELECT id, org_id, status, photos_done_at, merimen_caseid FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b')"
             )]

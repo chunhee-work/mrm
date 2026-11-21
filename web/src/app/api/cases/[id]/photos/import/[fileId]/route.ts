@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { photoRoute } from "@/lib/photos/route";
-import { fileBlobUrl, markImported } from "@/lib/photos/server";
+import { MAX_IMPORT_BYTES, fileBlobUrl, markImported } from "@/lib/photos/server";
 import { openPhoto } from "@/lib/photos/store";
 
 // Taking the photos of the case upload (loose photos, zip bundles) onto the desk. The browser asks for the file here, because the
@@ -9,6 +9,7 @@ import { openPhoto } from "@/lib/photos/store";
 export const GET = photoRoute("photos.import.read", async ({ c, params }) => {
   const f = await fileBlobUrl(c.id, Number(params.fileId));
   if (!f) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (f.size > MAX_IMPORT_BYTES) return NextResponse.json({ error: "too_big" }, { status: 413 });
   const headers = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Type": "application/octet-stream" };
   if (!/^https:/.test(f.url)) { // local test store only (PHOTO_STORE_DIR, never in production)
     const o = await openPhoto(f.url);

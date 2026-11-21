@@ -330,3 +330,35 @@ def test_undo_after_a_live_phase_a_relabels_instead_of_uploading_again():
     m = Fake(held=[x["name"] for x in old])
     rep = ps.phase_b({}, new, [], stored_snapshot=snapshot_of(new, []), phase_a_photos=old, writes=True, merimen=m)
     assert rep.action == "relabel_reorder" and not any(c.startswith("upload") for c in m.calls)
+
+
+def test_followup_cases_only_tolerates_a_missing_0010():
+    from autopilot_worker.store import PgRepo
+
+    class Db:
+        def __init__(self, err): self.err = err; self.n = 0
+        def execute(self, sql, params=()):
+            self.n += 1
+            if "photos_snapshot" in sql:
+                raise self.err
+            return []
+
+    r = PgRepo.__new__(PgRepo)
+    r.db = Db(Exception('column "photos_snapshot" does not exist'))
+    assert r.followup_cases() == []
+    r.db = Db(Exception("connection reset by peer"))
+    try:
+        r.followup_cases()
+        raise AssertionError("a transient DB error must fail")
+    except Exception as e:
+        assert "connection reset" in str(e)
+
+
+def test_a_cancelled_phase_b_is_not_run_again_until_done_is_pressed_again():
+    from autopilot_worker.pipeline import followup_steps
+
+    case = {"status": "waiting_user", "photos_done_at": None, "photos_snapshot": None, "last_b_snapshot": None}
+    assert followup_steps(case, [{"step": "phase_b", "state": "cancelled"}], writes=False) == []  # not Done: nothing
+    again = dict(case, photos_done_at="2026-11-21T00:00:00", photos_snapshot="new", last_b_snapshot="old")
+    assert followup_steps(again, [{"step": "phase_b", "state": "cancelled"}], writes=False) == ["phase_b"]  # Done again with new names
+    assert followup_steps(again, [{"step": "phase_b", "state": "queued"}], writes=False) == []  # never two at once

@@ -12,9 +12,9 @@ const HEIC = /\.(heic|heif)$/i;
 const TYPE: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 const typeOf = (name: string) => TYPE[(name.split(".").pop() ?? "").toLowerCase()] ?? "image/jpeg";
 /** A bundle bigger than this, or holding more images or more unpacked bytes than this, is not opened in the browser (phones, zip bombs). */
-export const MAX_ZIP_BYTES = 300 * 1024 * 1024;
+export const MAX_ZIP_BYTES = 150 * 1024 * 1024;
 export const MAX_ZIP_ENTRIES = 400;
-export const MAX_UNPACKED_BYTES = 600 * 1024 * 1024;
+export const MAX_UNPACKED_BYTES = 300 * 1024 * 1024;
 const base = (path: string) => path.split("/").pop() || path;
 
 /** Image entries of a zip, in the order the folder lists them (natural order: IMG_2 before IMG_10). Folders, hidden and macOS resource files are skipped. */
