@@ -7,6 +7,8 @@ import { Cross, EmptySheetArt, NoMatchArt, Plus, Search, Tick } from "./marks";
 import ScanEdge from "@/components/scan-edge";
 import { groupOf, StateMark } from "./status";
 import NeedCard, { type Sent } from "./case-detail";
+import { SideChips, Total } from "./done-result";
+import type { Side } from "@/lib/damage-sides";
 
 export type CaseRow = {
   id: string;
@@ -15,6 +17,8 @@ export type CaseRow = {
   insurer: string | null;
   status: string;
   pendingDoc: string | null;
+  totalRm: string | null; // total of the finished case, null until known
+  sides: Side[]; // sides of the car that were hit
 };
 
 const REFRESH_MS = 20_000;
@@ -149,9 +153,10 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
                 <ScanEdge />
                 <ul className="sheet overflow-hidden rounded-[3px] border border-hair bg-panel">
                   {[...active, ...done].map((r) => {
-                    const vehicle = [r.carModel, r.insurer].filter(Boolean).join(" · ");
+                    const isDone = r.status === "done";
+                    const vehicle = [r.carModel, isDone ? null : r.insurer].filter(Boolean).join(" · ");
                     return (
-                      <li key={r.id} className="relative flex min-h-[64px] items-center gap-4 border-b border-hairsoft px-4 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-bay/70 lg:min-h-[56px] lg:px-6 lg:py-2">
+                      <li key={r.id} className={`relative flex items-center gap-4 border-b border-hairsoft px-4 transition-colors duration-150 last:border-b-0 hover:bg-bay/70 lg:px-6 min-h-[64px] py-2.5 lg:min-h-[56px] lg:py-2`}>
                         {/* phones: the vehicle under its number; from lg the two sit side by side, on two columns */}
                         <div className="min-w-0 flex-1 lg:flex lg:items-baseline lg:gap-6">
                           <span className="num block truncate font-mono text-[15.5px] font-medium leading-snug tracking-[0.01em] text-fg lg:w-[168px] lg:shrink-0">
@@ -159,9 +164,11 @@ export default function CaseList({ rows, orgId, below }: { rows: CaseRow[]; orgI
                               {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{t("dash.noPlate")}</span>}
                             </Link>
                           </span>
-                          {vehicle && <span className="mt-1 block truncate text-[14px] leading-snug text-mute lg:mt-0 lg:text-[15px]">{vehicle}</span>}
+                          {vehicle && <span className="mt-1 block truncate text-[14px] leading-snug text-mute lg:mt-0 lg:min-w-0 lg:flex-1 lg:text-[15px]">{vehicle}</span>}
+                          {isDone && <div className="mt-2 lg:mt-0"><SideChips sides={r.sides} small /></div>}
                         </div>
-                        <StateMark done={r.status === "done"} label={t(r.status === "done" ? "dash.done" : "dash.active")} />
+                        {isDone && <Total row={r} />}
+                        <StateMark done={isDone} label={t(isDone ? "dash.done" : "dash.active")} />
                       </li>
                     );
                   })}

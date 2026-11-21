@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import ScanEdge from "@/components/scan-edge";
 import { Tick, Working } from "@/components/app/marks";
+import { ResultBlock } from "@/components/app/done-result";
+import type { Side } from "@/lib/damage-sides";
 import ShotTimeline, { type Shot } from "@/components/app/shot-timeline";
 
 export type CaseDetail = {
@@ -13,6 +15,8 @@ export type CaseDetail = {
   status: string;
   insurer: string | null;
   carModel: string | null;
+  totalRm: string | null;
+  sides: Side[];
   missing: string[];
   fileCount: number;
   facts: { owner: string; policyNo: string | null; policeReport: string | null; accidentAt: string | null; atFaultPlate: string | null; atFaultInsurer: string | null } | null;
@@ -167,6 +171,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
         </div>
         {Retry()}
       </div>
+      {c.status === "done" && <ResultBlock carModel={c.carModel} totalRm={c.totalRm} sides={c.sides} />}
       <div className="grid gap-6 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-2">
         <div className="grid content-start gap-6">
           {facts.length > 0 && <section aria-labelledby="case-found"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2>{Facts()}</section>}
