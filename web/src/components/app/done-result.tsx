@@ -17,7 +17,7 @@ export function CarSides({ sides, className = "h-[96px] w-[48px]" }: { sides: Si
   const body = "M50 5C72 5 82 17 84 40L86 70C87 90 87 112 86 135L84 168C82 188 70 195 50 195C30 195 18 188 16 168L14 135C13 112 13 90 14 70L16 40C18 17 28 5 50 5Z";
   const hit = (s: Side) => sides.includes(s);
   return (
-    <svg viewBox="0 0 100 200" className={className} role="img" aria-label={sides.join(", ")}>
+    <svg viewBox="0 0 100 200" className={className} aria-hidden="true">
       <defs><clipPath id={uid}><path d={body} /></clipPath></defs>
       {/* wheels */}
       {[[3, 34], [3, 136], [89, 34], [89, 136]].map(([x, y]) => <rect key={`${x}${y}`} x={x} y={y} width="8" height="30" rx="3" className="fill-fg" />)}

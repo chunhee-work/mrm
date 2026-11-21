@@ -39,3 +39,14 @@ test("whole-car shots are skipped, real parts with the same words are not", () =
   assert.deepEqual(sidesOf(["Front 45", "Rear Left View", "Left Side View", "Accident Photo"]), []);
   assert.deepEqual(sidesOf(["Accident Damages Photo", "Front Bumper"]), ["front"]);
 });
+test("rear windscreen, side parts without LH/RH, back parts, plates", () => {
+  assert.deepEqual(sidesOf(["Rear Windscreen"]), ["rear"]);
+  assert.deepEqual(sidesOf(["Windscreen"]), ["front"]);
+  assert.deepEqual(sidesOf(["Front Door", "Rear Quarter", "Front Wheel"]), []);
+  assert.deepEqual(sidesOf(["Tail Gate", "Back Bumper"]), ["rear"]);
+  assert.deepEqual(sidesOf(["Rear Bumper Skid Plate"]), ["rear"]);
+  assert.deepEqual(sidesOf(["Number Plate"]), []);
+});
+test("overview shots with the position after the word", () => {
+  assert.deepEqual(sidesOf(["Front View LH", "Front 45° RH", "Rear View Left"]), []);
+});
