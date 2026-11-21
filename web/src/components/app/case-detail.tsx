@@ -142,10 +142,11 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
             />
           )}
         </button>
-        {!!row.deskConfirm && row.deskConfirm > 0 && (
-          <Link href={`/cases/${row.id}/photos`} className="btn-quiet !w-full sm:!w-auto">
-            <Photo />
-            <span>{t("dash.d.photosN", { n: String(row.deskConfirm) })}</span>
+        {/* R3-B01 / B06: always one line about the photo names: how many to check, "press 完成", or confirmed */}
+        {(row.deskTotal ?? 0) > 0 && (
+          <Link href={`/cases/${row.id}/photos`} className="btn-quiet !w-full sm:!w-auto" data-testid="photos-link">
+            {row.photosDone && !row.deskConfirm ? <Tick className="h-4 w-4 text-go" /> : <Photo />}
+            <span>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : row.photosDone ? t("dash.d.photosDone") : t("dash.d.photosPress")}</span>
           </Link>
         )}
       </div>
@@ -164,7 +165,7 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
     act = (
       <Link href={`/cases/${row.id}/photos`} aria-labelledby={`${actId} ${titleId}`} className={button}>
         <Photo />
-        <span id={actId}>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : t("dash.d.photos")}</span>
+        <span id={actId}>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : row.photosDone ? t("dash.d.photosDone") : (row.deskTotal ?? 0) > 0 ? t("dash.d.photosPress") : t("dash.d.photos")}</span>
       </Link>
     );
   }

@@ -10,6 +10,8 @@ import { logLine, safeError } from "../src/lib/photos/log";
 import { assertTextOnly, buildJevRequest, TypeSafeImageError } from "../src/lib/typesafe";
 import { pickContext, SYSTEM } from "../src/lib/photos/name-photos";
 import { PHOTO_DICTS } from "../src/lib/photos/strings";
+import { titleCase } from "../src/lib/photos/rules";
+import { whenOf } from "../src/lib/fmt-when";
 
 const photo = (o: Partial<Photo> = {}): Photo => ({
   id: 1, origN: 9, position: 0, srcName: "a.jpg", state: "named", how: "model", modelName: "Bonnet", confidence: 0.95,
@@ -73,7 +75,7 @@ test("context: the claimed photos plus two neighbours each side, in order, at mo
 
 test("names: one canonical form (trim, inner spaces, control characters, list spelling, 120 max)", () => {
   assert.equal(canonName("  front   bumper \n"), "Front Bumper");
-  assert.equal(canonName("My own\tpart"), "My own part");
+  assert.equal(canonName("My own\tpart"), "My Own Part");
   assert.equal(canonName(""), null);
   assert.equal(canonName("   "), null);
   assert.equal(canonName("x".repeat(121)), null);
@@ -237,4 +239,41 @@ test("strings: Chinese and Malay have every key English has", () => {
   const keys = Object.keys(PHOTO_DICTS.en).sort();
   assert.deepEqual(Object.keys(PHOTO_DICTS.zh).sort(), keys);
   assert.deepEqual(Object.keys(PHOTO_DICTS.ms).sort(), keys);
+});
+
+// ---- QC round 3 ----
+test("R3-B10: a part name that is not in the catalogue gets a capital on every word; catalogue spelling and capitals stay", () => {
+  assert.equal(titleCase("bumper cl"), "Bumper Cl");
+  assert.equal(canonName("  bumper   cl "), "Bumper Cl");
+  assert.equal(canonName("front bumper"), "Front Bumper"); // the catalogue spelling wins
+  assert.equal(canonName("my RH bracket (proton)"), "My RH Bracket (proton)"); // capitals and brackets are not touched
+  assert.equal(titleCase("Bumper Cl"), "Bumper Cl");
+});
+
+test("R3-B02: no done message claims that the AI started anything; the case that waits for documents says so", () => {
+  for (const l of ["en", "zh", "ms"] as const) {
+    const d = PHOTO_DICTS[l];
+    for (const k of ["doneToast", "doneToast.phase_b", "doneToast.pending_doc", "doneToast.other", "allDoneToast", "doneHint"]) {
+      assert.ok(d[k], `${l} ${k}`);
+      assert.ok(!/started|已通知|telah mula|mula Step 2 untuk|马上做/i.test(d[k]), `${l} ${k}: ${d[k]}`);
+    }
+  }
+  assert.match(PHOTO_DICTS.en["doneToast.pending_doc"], /missing documents/);
+  assert.match(PHOTO_DICTS.zh["doneToast.pending_doc"], /缺的文件/);
+});
+
+test("R3-U07: the finished state is not the same word as the button; U02 says why Done was cancelled", () => {
+  for (const l of ["en", "zh", "ms"] as const) {
+    const d = PHOTO_DICTS[l];
+    assert.notEqual(d.doneOn, d.done, l);
+    assert.ok(d.doneCancelled && d.doneUndo && d.was && d.tabEdited && d.legendOpen, l);
+  }
+  assert.equal(PHOTO_DICTS.en.doneOn, "Finished ✓");
+});
+
+test("R3-B08: the desk tab time is written in the page language (not always English)", () => {
+  const iso = "2026-11-21T19:10:00Z";
+  assert.match(whenOf(iso, "en"), /Nov/);
+  assert.doesNotMatch(whenOf(iso, "zh"), /Nov/);
+  assert.match(whenOf(iso, "zh"), /03:10/); // Malaysia time
 });

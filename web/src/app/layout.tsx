@@ -36,7 +36,7 @@ export const viewport: Viewport = { themeColor: "#07090C", colorScheme: "dark" }
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { lang, t } = await getT();
   return (
-    <html lang={htmlLang(lang)} className={`${display.variable} ${sans.variable} ${mono.variable} ${brand.variable}`}>
+    <html lang={htmlLang(lang)} suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable} ${brand.variable}`}>
       <body>
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-[3px] focus:bg-ice focus:px-4 focus:py-3 focus:text-[15px] focus:font-semibold focus:text-bay">
           {t("nav.skip")}

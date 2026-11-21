@@ -40,9 +40,9 @@ await db.query(`UPDATE "user" SET email_verified = true WHERE email = $1`, [emai
 const { rows: [m] } = await db.query(`SELECT m.org_id FROM memberships m JOIN "user" u ON u.id = m.user_id WHERE u.email = $1`, [email]);
 const orgId = m.org_id;
 
-async function seed(plate, specs, ageSec) {
+async function seed(plate, specs, ageSec, status = "naming", data = null, doneAlready = false) {
   const id = `e2e_${plate}_${stamp}`;
-  await db.query(`INSERT INTO cases (id, org_id, plate, status, created_at) VALUES ($1,$2,$3,'naming', now() - ($4 || ' seconds')::interval)`, [id, orgId, plate, String(ageSec)]);
+  await db.query(`INSERT INTO cases (id, org_id, plate, status, created_at, case_data, photos_done_at) VALUES ($1,$2,$3,$4, now() - ($5 || ' seconds')::interval, $6, ${doneAlready ? "now()" : "NULL"})`, [id, orgId, plate, status, String(ageSec), data ? JSON.stringify(data) : null]);
   let i = 0;
   for (const [name, conf] of specs) {
     i++;
@@ -57,7 +57,10 @@ async function seed(plate, specs, ageSec) {
 }
 // A: two photos have no name. B: three named photos for the Enter,Enter flow. B is the newest tab.
 const A = await seed("E2EA1111", [["Front Bumper", 0.97], ["Bonnet", 0.97], [null], [null], ["Grille", 0.97]], 60);
-const B = await seed("E2EB2222", [["Front Bumper", 0.97], ["Bonnet", 0.97], ["Grille", 0.97]], 0);
+const B = await seed("E2EB2222", [["Front Bumper", 0.97], ["Bonnet", 0.97], ["Grille", 0.97]], 0, "naming", { workshop: "Bengkel Maju" });
+// C is finished already (Enter,Enter must skip it); D waits for a missing document and has one photo under 90 %
+const C = await seed("E2EC3333", [["Front Bumper", 0.97]], 30, "pending_doc", null, true);
+const D = await seed("E2ED4444", [["Bumper", 0.5], ["Bonnet", 0.97]], 90, "pending_doc");
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 1 });
@@ -88,7 +91,8 @@ try {
     const box = await b.boundingBox();
     assert.ok(box.height >= 48, `height ${box.height}`);
     assert.match(await b.innerText(), /E2EA1111/);
-    assert.match(await b.innerText(), /\(\d+\/\d+\)/);
+    assert.match(await b.innerText(), /\d+\/\d+/);
+    assert.doesNotMatch(await b.innerText(), /\(\d+\/\d+\)/, "the counter is not a photo count in brackets");
     await shot("desk-done-button");
   });
 
@@ -130,12 +134,38 @@ try {
     await shot("desk-done");
   });
 
+  await step("R3-U07 + B02: the finished button says Finished, and the toast tells the truth (queued for the worker, no 'AI started')", async () => {
+    assert.match(await page.getByTestId("done-btn").first().innerText(), /Finished|已完成|Siap/);
+    const toast = await page.locator("[aria-live=polite]").first().innerText();
+    assert.match(toast, /queued for the worker|已排到后台|giliran pekerja/);
+    assert.doesNotMatch(toast, /AI/);
+  });
+
   await step("editing a name after Done undoes Done and clears the snapshot", async () => {
     await rename(1, "Bonnet Lock");
     await page.waitForTimeout(1500);
     const row = await caseRow(A);
     assert.equal(row.photos_done_at, null);
     assert.equal(row.photos_snapshot, null);
+  });
+
+  await step("R3-U02 + U03 + tab badge: a name changed after Done says Done was cancelled; the card shows 'Was: …'; the tab counts the change", async () => {
+    // (the toast of the rename above may be gone: change a name once more, with Done pressed first)
+    await page.getByTestId("done-btn").first().click();
+    await page.waitForTimeout(800);
+    await rename(5, "Grille Lower");
+    await page.getByText(/Done was cancelled|完成已取消|Selesai dibatalkan/).first().waitFor({ timeout: 4000 });
+    await page.waitForTimeout(1500);
+    const was = await card(5).getByTestId("was-name").innerText();
+    assert.match(was, /Grille/);
+    const badge = await page.getByTestId("tab-edited").first().innerText();
+    assert.match(badge, /[1-9]/);
+    const kpi = await page.getByTestId("kpi").innerText();
+    assert.match(kpi, /\b5\b/, "KPI shows the number of photos");
+    await page.getByTestId("legend-toggle").click();
+    await page.getByTestId("legend").waitFor();
+    assert.match(await page.getByTestId("legend").innerText(), /TypeSafe/);
+    await page.getByTestId("legend-toggle").click();
   });
 
   await step("a queued Phase B is cancelled when Done is undone", async () => {
@@ -167,10 +197,26 @@ try {
     const input = page.getByRole("combobox");
     await input.fill("Cowl Panel");
     await input.press("Enter");
-    await page.waitForTimeout(1200);
-    const { rows } = await db.query(`SELECT name FROM case_extras WHERE case_id=$1`, [B]);
+    let rows = [];
+    for (let i = 0; i < 20 && !rows.length; i++) { await page.waitForTimeout(400); rows = (await db.query(`SELECT name FROM case_extras WHERE case_id=$1`, [B])).rows; } // the first call compiles the route in dev
+
     assert.deepEqual(rows.map((x) => x.name), ["Cowl Panel"]);
+    // R3-B05: the cursor is still in the box after adding, and a second part can be typed at once
+    await page.waitForTimeout(800);
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("role")), "combobox", "focus stays in the palette box");
+    await page.keyboard.type("bumper cl"); // goes into the box because it kept the focus
+    await page.waitForTimeout(150);
+    await page.getByRole("option", { name: /Bumper Cl/ }).last().click();
+    let again = [];
+    for (let i = 0; i < 15 && !again.includes("Bumper Cl"); i++) { await page.waitForTimeout(300); again = (await db.query(`SELECT name FROM case_extras WHERE case_id=$1 ORDER BY id`, [B])).rows.map((x) => x.name); }
+    assert.ok(again.includes("Bumper Cl"), `R3-B10: custom name in title case: ${again.join()}`);
     await page.keyboard.press("Escape");
+  });
+
+  await step("R3-U04/B03/workshop: vehicle line shows the workshop; the opening-photos banner is one line", async () => {
+    assert.match(await page.getByTestId("vehicle-line").innerText(), /Bengkel Maju/);
+    const banner = page.getByTestId("opening-banner");
+    if (await banner.count()) assert.ok((await banner.boundingBox()).height < 40, "one line");
   });
 
   await step("reorder: move photo 3 to the front with the move sheet", async () => {
@@ -195,6 +241,9 @@ try {
     const row = await caseRow(B);
     assert.ok(row.photos_done_at, "done by Enter,Enter");
     assert.match(row.photos_snapshot ?? "", /^[0-9a-f]{64}$/);
+    // R3-B07: C is finished already, so the desk goes on to A (the next case that is not finished), not to C
+    const here = await page.locator('nav [aria-current="true"]').innerText();
+    assert.match(here, /E2EA1111/, `now on: ${here}`);
   });
 
   await step("Ctrl+Z undoes the last name change", async () => {
@@ -210,6 +259,57 @@ try {
     assert.deepEqual(await shown(B), before);
   });
 
+  // ───────── D: a case that waits for a missing document ─────────
+  await step("R3-B01/B06/B02: D (1 photo under 90 %) shows '1 to check' on the dashboard; after Done: 0 to check, 'confirmed', and an honest toast", async () => {
+    await page.goto(`${BASE}/dashboard`);
+    const dLink = () => page.locator("li", { has: page.getByText("E2ED4444") }).getByTestId("photos-link");
+    const link = dLink();
+    await link.waitFor();
+    assert.match(await link.innerText(), /1 to check|1 张待核对|1 perlu disemak/);
+    await page.goto(`${BASE}/cases/${D}/photos`);
+    await page.locator("article[data-pid]").first().waitFor();
+    assert.match(await page.getByRole("button", { name: /^(To confirm|要确认|Perlu semak)/ }).innerText(), /1/);
+    await page.getByTestId("done-btn").first().click();
+    await page.getByText(/missing documents are in|缺的文件补齐|dokumen yang hilang/).first().waitFor({ timeout: 5000 });
+    assert.doesNotMatch(await page.locator("[aria-live=polite]").first().innerText(), /AI/);
+    assert.match(await page.getByRole("button", { name: /^(To confirm|要确认|Perlu semak)/ }).innerText(), /0/);
+    await page.goto(`${BASE}/dashboard`);
+    const after = dLink();
+    await after.waitFor();
+    assert.match(await after.innerText(), /confirmed|已确认|disahkan/, "no more '1 to check'");
+    await page.goto(`${BASE}/cases/${D}`);
+    const line = await page.getByTestId("photo-plan-line").innerText();
+    assert.ok(line.trim().length > 20, "the Merimen photo plan box is never empty");
+    assert.match(line, /missing documents|缺的文件|dokumen yang hilang/);
+    assert.equal(await page.getByRole("link", { name: /Name photos|给照片命名|Namakan gambar|Open photo names|打开照片名称/ }).count(), 1, "one link to the desk, not two");
+    await shot("case-page-photo-status");
+  });
+
+  await step("R3-B09: the password form has no browser bubble, a confirm field, and the error follows the page language", async () => {
+    await page.goto(`${BASE}/settings`);
+    assert.equal(await page.locator("form[novalidate]").count(), 1);
+    await page.getByTestId("pw-confirm").waitFor();
+    const inputs = page.locator("form[novalidate] input[type=password]");
+    await inputs.nth(0).fill("something-old");
+    await inputs.nth(1).fill("abcdefgh1");
+    await inputs.nth(2).fill("abcdefgh2");
+    await page.locator("form[novalidate] button").click();
+    await page.getByText(/not the same/).waitFor();
+    await page.getByRole("button", { name: "中文" }).click();
+    await page.getByText(/不一样/).waitFor({ timeout: 5000 });
+    await ctx.addCookies([{ name: "lang", value: "en", url: BASE }]);
+  });
+
+  await step("R3-B04: the tab icon is not touched during hydration (it starts only after the page has loaded and settled)", async () => {
+    const early = await ctx.newPage();
+    await early.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
+    await early.waitForTimeout(600);
+    const href = await early.evaluate(() => document.head.querySelector('link[rel="icon"]')?.getAttribute("href") ?? "");
+    assert.ok(!href.startsWith("data:"), `icon already swapped at 600 ms: ${href.slice(0, 30)}`);
+    await early.waitForFunction(() => document.head.querySelector('link[rel="icon"]')?.getAttribute("href")?.startsWith("data:"), null, { timeout: 9000 });
+    await early.close();
+  });
+
   // ───────── phone width ─────────
   await step("phone: the Done button fills the width and is at least 56px tall", async () => {
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -221,12 +321,17 @@ try {
     const b = p.getByTestId("done-btn").first();
     const box = await b.boundingBox();
     assert.ok(box.height >= 56 && box.width >= 300, JSON.stringify(box));
+    // R3-B03: the header leaves at least 60 % of the screen to the photos, and Done is a bar along the bottom edge
+    if (SHOTS) await p.screenshot({ path: path.join(SHOTS, "desk-mobile.png") });
+    const firstTop = (await p.locator("article[data-pid]").first().boundingBox()).y;
+    assert.ok(firstTop <= 844 * 0.4, `photos start at ${firstTop}px of 844`);
+    assert.ok(box.y + box.height >= 844 - 24, `done bar at the bottom: ${box.y + box.height}`);
     if (SHOTS) await p.screenshot({ path: path.join(SHOTS, "desk-mobile.png") });
     await mobile.close();
   });
 } finally {
   await browser.close();
-  await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [[A, B]]);
+  await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [[A, B, C, D]]);
   await db.end();
   console.log(`${ok} steps passed${process.exitCode ? ", some FAILED" : ""}`);
 }

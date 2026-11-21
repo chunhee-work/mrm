@@ -26,6 +26,28 @@ const AWAKE: Step[] = [[OPEN, 2600], ...blink, [OPEN, 2200], ...glance(1), [OPEN
 /** While the tab is behind others the browser only lets a page tick about once a second: slow glances only. */
 const ASIDE: Step[] = [[OPEN, 5000], [{ open: 1, look: LOOK }, 1000], [OPEN, 5000], [{ open: 1, look: -LOOK }, 1000]];
 
+/**
+ * R3-B04 (React error #418, about 2 to 3 % of loads, on every page): the icon links live in <head>, which React hydrates together with the page.
+ * This file used to change them (and add one) the moment it mounted, which on some loads happened before React had matched <head> against the
+ * server's HTML: "Hydration failed because the server rendered HTML didn't match the client". So nothing here touches <head> until the page has
+ * finished loading and has been idle for a moment (HYDRATED_MS after the load event; hydration of this page takes a few hundred ms).
+ * `after(fn)` runs fn then, and returns the way to cancel.
+ */
+export const HYDRATED_MS = 2500;
+export function afterHydration(fn: () => void | (() => void)): () => void {
+  let cancel: (() => void) | void;
+  let timer = 0;
+  let waiting = false;
+  const go = () => { waiting = false; timer = window.setTimeout(() => { cancel = fn(); }, HYDRATED_MS); };
+  if (document.readyState === "complete") go();
+  else { waiting = true; window.addEventListener("load", go, { once: true }); }
+  return () => {
+    window.clearTimeout(timer);
+    if (waiting) window.removeEventListener("load", go);
+    if (cancel) cancel();
+  };
+}
+
 /** /admin only: the admin layout flips this so the icon is black on white and tells itself apart from the dark site tabs. */
 let inverted = false;
 const ADMIN_STILL = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%229%22 fill=%22%23FFFFFF%22/%3E%3Cg transform=%22translate%2824.0 24.0%29 scale%280.07283 -0.07283%29 translate%28-1795.6 -241.5%29 rotate%287 1795.6 241.5%29%22%3E%3Cpath fill=%22%2307090C%22 fill-rule=%22evenodd%22 d=%22M1541.6 241.5A254.0 254.0 0 1 0 2049.6 241.5A254.0 254.0 0 1 0 1541.6 241.5ZM1732.1 147.5L1859.1 147.5A109.2 109.2 0 0 1 1859.1 366.0L1732.1 366.0A109.2 109.2 0 0 1 1732.1 147.5Z%22/%3E%3Cpath fill=%22%2307090C%22 d=%22M1687.0 226.9A29.8 29.8 0 0 1 1746.7 226.9L1746.7 286.6A29.8 29.8 0 0 1 1687.0 286.6ZM1844.5 226.9A29.8 29.8 0 0 1 1904.2 226.9L1904.2 286.6A29.8 29.8 0 0 1 1844.5 286.6Z%22/%3E%3C/g%3E%3C/svg%3E";
@@ -33,8 +55,10 @@ export function AdminTabIcon() {
   inverted = true; // set while rendering, so the very first frame is already inverted
   useEffect(() => {
     // Still version for browsers that do not animate the tab icon (reduced motion, Safari).
-    for (const link of document.head.querySelectorAll<HTMLLinkElement>('link[rel="icon"]')) { link.type = "image/svg+xml"; link.href = ADMIN_STILL; }
-    return () => { inverted = false; };
+    const stop = afterHydration(() => {
+      for (const link of document.head.querySelectorAll<HTMLLinkElement>('link[rel="icon"]')) { link.type = "image/svg+xml"; link.href = ADMIN_STILL; }
+    });
+    return () => { stop(); inverted = false; };
   }, []);
   return null;
 }
@@ -77,7 +101,12 @@ function paint(pose: Pose): string | null {
 export function TabIcon() {
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    return afterHydration(start);
+  }, []);
+  return null;
+}
 
+function start(): void | (() => void) {
     const frames = new Map<string, string | null>();
     const frame = (p: Pose) => {
       const key = `${p.open}|${p.look}|${inverted}`;
@@ -132,7 +161,4 @@ export function TabIcon() {
         if (was.href) link.href = was.href;
       }
     };
-  }, []);
-
-  return null;
 }
