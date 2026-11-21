@@ -262,3 +262,11 @@ def test_the_site_and_the_worker_read_the_same_step2_files():
     ts = (Path(__file__).resolve().parents[2] / "web/src/lib/playbook/prompt.ts").read_text()
     m = re.search(r"step2:\s*\[([^\]]*)\]", ts)
     assert re.findall(r'"([^"]+)"', m.group(1)) == playbook.SECTIONS["step2"]
+
+
+# ---------- the switches ----------
+def test_merimen_may_only_be_changed_when_both_switches_are_on():
+    from autopilot_worker.config import Config
+
+    for env, want in (({}, False), ({"MERIMEN_WRITES": "on"}, False), ({"WORKER_SUBMIT": "on"}, False), ({"MERIMEN_WRITES": "on", "WORKER_SUBMIT": "on"}, True)):
+        assert Config.from_env({"WORKER_STATE": "/var/lib/x", **env}).live_writes is want

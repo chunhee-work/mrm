@@ -84,6 +84,12 @@ class Config:
     worker_ui: bool = False
     retention_days: int = 90
     mailer: object | None = None
+    worker_submit: bool = False
+
+    @property
+    def live_writes(self) -> bool:
+        """Merimen may be changed only when BOTH switches are on (README): a photo, Step 2 or save step never writes with one alone."""
+        return self.merimen_writes and self.worker_submit
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "Config":
@@ -113,4 +119,5 @@ class Config:
             lease_seconds=max(60, int(e.get("JOB_LEASE_SECONDS") or "900")),
             worker_ui=_on(e, "WORKER_UI"),
             retention_days=max(1, int(e.get("SCREENSHOT_RETENTION_DAYS") or "90")),
+            worker_submit=_on(e, "WORKER_SUBMIT"),
         )
