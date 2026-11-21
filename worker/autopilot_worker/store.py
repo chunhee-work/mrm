@@ -22,7 +22,7 @@ def clean_detail(detail: str | None) -> str | None:
 
 def _missing_0010(e: Exception) -> bool:
     """True only when migration 0010's table or column does not exist yet (Postgres 42P01 / 42703)."""
-    code = getattr(e, "sqlstate", None) or getattr(getattr(e, "diag", None), "sqlstate", None) or ""
+    code = str(getattr(e, "sqlstate", None) or getattr(getattr(e, "diag", None), "sqlstate", None) or getattr(e, "code", None) or "")  # psycopg, or the HTTP transport's DbError.code
     text = str(e).lower()
     return code in ("42P01", "42703") or ("does not exist" in text and ("photo_upload_log" in text or "photos_snapshot" in text))
 

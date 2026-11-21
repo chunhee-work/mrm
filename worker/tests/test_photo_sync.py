@@ -362,3 +362,44 @@ def test_a_cancelled_phase_b_is_not_run_again_until_done_is_pressed_again():
     again = dict(case, photos_done_at="2026-11-21T00:00:00", photos_snapshot="new", last_b_snapshot="old")
     assert followup_steps(again, [{"step": "phase_b", "state": "cancelled"}], writes=False) == ["phase_b"]  # Done again with new names
     assert followup_steps(again, [{"step": "phase_b", "state": "queued"}], writes=False) == []  # never two at once
+
+
+# ---------- review round 3 (plan #48) ----------
+def test_a_refused_or_stopped_phase_b_is_not_logged_as_seen_so_done_again_retries():
+    from autopilot_worker.pipeline import followup_steps
+
+    old = a_plan(THREE)
+    new = [THREE[2], dict(THREE[0], final_name="Bonnet Lock"), THREE[1]]
+    snap = snapshot_of(new, [])
+    m = Fake(held=[x["name"] for x in old])
+    alive = {"on": True}
+    m.after_write = lambda: alive.update(on=False)
+    rep = ps.phase_b({}, new, [], stored_snapshot=snap, phase_a_photos=old, writes=True, merimen=m, guard=lambda: alive["on"])
+    assert rep.code == "undone" and rep.row()["snapshot"] is None
+    # Done again with the SAME names: the log has no finished snapshot, the earlier job was cancelled -> a new Phase B is queued
+    case = {"status": "waiting_user", "photos_done_at": "2026-11-21T00:00:00", "photos_snapshot": snap, "last_b_snapshot": rep.row()["snapshot"]}
+    assert followup_steps(case, [{"step": "phase_b", "state": "cancelled"}], writes=False) == ["phase_b"]
+    # a finished step is "seen": nothing is queued again for the same names
+    m2 = Fake(held=[x["name"] for x in old])
+    ok = ps.phase_b({}, new, [], stored_snapshot=snap, phase_a_photos=old, writes=True, merimen=m2)
+    assert ok.ok and ok.row()["snapshot"] == snap
+    done_case = dict(case, last_b_snapshot=snap)
+    assert followup_steps(done_case, [{"step": "phase_b", "state": "done"}], writes=False) == []
+
+
+def test_a_failed_phase_b_is_not_queued_again_in_a_loop():
+    from autopilot_worker.pipeline import followup_steps
+
+    case = {"status": "waiting_user", "photos_done_at": "2026-11-21T00:00:00", "photos_snapshot": "s", "last_b_snapshot": None}
+    assert followup_steps(case, [{"step": "phase_b", "state": "failed"}], writes=False) == []
+
+
+def test_missing_0010_is_recognised_on_the_http_transport_too():
+    from autopilot_worker.store import _missing_0010
+
+    class DbError(Exception):
+        def __init__(self, msg, code): super().__init__(msg); self.code = code
+
+    assert _missing_0010(DbError("boom", "42703"))
+    assert _missing_0010(DbError("boom", "42P01"))
+    assert not _missing_0010(DbError("boom", "08006"))

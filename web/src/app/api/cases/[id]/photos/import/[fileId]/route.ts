@@ -9,7 +9,7 @@ import { openPhoto } from "@/lib/photos/store";
 export const GET = photoRoute("photos.import.read", async ({ c, params }) => {
   const f = await fileBlobUrl(c.id, Number(params.fileId));
   if (!f) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  if (f.size > MAX_IMPORT_BYTES) return NextResponse.json({ error: "too_big" }, { status: 413 });
+  if (!f.size || f.size > MAX_IMPORT_BYTES) return NextResponse.json({ error: "too_big" }, { status: 413 });
   const headers = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Type": "application/octet-stream" };
   if (!/^https:/.test(f.url)) { // local test store only (PHOTO_STORE_DIR, never in production)
     const o = await openPhoto(f.url);

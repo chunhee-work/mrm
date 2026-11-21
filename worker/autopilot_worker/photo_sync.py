@@ -178,6 +178,7 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
 
 def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhotos, guard: Guard) -> PhotoReport:
     if not guard():
+        rep.snapshot = None
         rep.action, rep.upload, rep.note, rep.code = "refused", 0, "the case changed before the upload", "undone"
         return rep
     merimen.upload(case, plan, chunked(plan))
@@ -187,13 +188,14 @@ def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhot
         if not miss:
             break
         if not guard():
+            rep.snapshot = None
             rep.action, rep.note, rep.code = "refused", "the case changed during the upload", "undone"
             return rep
         part = [plan[i] for i in miss if 0 <= i < len(plan)]
         merimen.upload(case, part, chunked(part))
         check = merimen.verify(case, plan)
     if check.get("count") != len(plan) or check.get("mismatch"):
-        rep.action, rep.code = "refused", "hand_fix"
+        rep.action, rep.code, rep.snapshot = "refused", "hand_fix", None
         rep.note = f"after the upload Merimen has {check.get('count')} photos and {check.get('mismatch')} mismatches (plan {len(plan)})"
     return rep
 
@@ -205,21 +207,22 @@ def phase_b(
     """Read Merimen first; upload with the final names when it has no photos, else relabel + reorder; verify zero mismatches."""
     snap = snapshot_of(rows, extras)
     new = plan_rows(rows)
-    rep = PhotoReport("B", "live" if writes else "dry", "none", photos=new, corrections=corrections(rows), snapshot=stored_snapshot)
+    rep = PhotoReport("B", "live" if writes else "dry", "none", photos=new, corrections=corrections(rows), snapshot=None)
     # 1 refuse when anything was edited after the snapshot (or there is none): the names are not final
     if not stored_snapshot or stored_snapshot != snap:
         rep.action, rep.note, rep.code = "refused", "the photo names or order changed after Done (press Done again)", "edited"
         return rep
+    rep.snapshot = stored_snapshot  # logged only for a step that went through: a refused or stopped step is not "seen", so the next Done retries it
     if not new:
         rep.note = "no named photos"
         return rep
     if len(new) != len([r for r in rows if shown_name(r)]):
-        rep.action, rep.note, rep.code = "refused", "a photo has no name", "edited"
+        rep.action, rep.note, rep.code, rep.snapshot = "refused", "a photo has no name", "edited", None
         return rep
     have = _read_labels(merimen, case)
     rep.merimen_count = None if have is None else len(have)
     if have is None and writes:
-        rep.action, rep.note, rep.code = "unreadable", "could not read the photos in Merimen", "unreadable"
+        rep.action, rep.note, rep.code, rep.snapshot = "unreadable", "could not read the photos in Merimen", "unreadable", None
         return rep
     # 2 nothing in Merimen yet (Done was pressed before Phase A reached the upload): upload with the final names and order
     empty = (have is not None and len(have) == 0) or (have is None and not phase_a_photos)
@@ -231,7 +234,7 @@ def phase_b(
     # 3 photos are there: relabel + reorder against the Phase A list
     old = phase_a_photos
     if not old:
-        rep.action, rep.note, rep.code = "refused", "no Phase A photo list to compare with: fix by hand (playbook 06)", "hand_fix"
+        rep.action, rep.note, rep.code, rep.snapshot = "refused", "no Phase A photo list to compare with: fix by hand (playbook 06)", "hand_fix", None
         return rep
     rep.action = "relabel_reorder"
     if have is None:  # dry run: assume Merimen = the Phase A list
@@ -245,7 +248,7 @@ def phase_b(
     else:
         healed = heal(old, new, have)
         if healed is None:
-            rep.action, rep.code = "refused", "hand_fix"
+            rep.action, rep.code, rep.snapshot = "refused", "hand_fix", None
             rep.note = f"Merimen has {len(have)} photos that do not match the Phase A list: not relabelled, fix by hand (playbook 06)"
             return rep
         lab, ordm = healed
@@ -264,11 +267,12 @@ def phase_b(
         merimen.reorder(case, ordm)
     check = merimen.verify(case, new)
     if check.get("count") != len(new) or check.get("mismatch"):
-        rep.action, rep.code = "refused", "hand_fix"
+        rep.action, rep.code, rep.snapshot = "refused", "hand_fix", None
         rep.note = f"after relabel/reorder Merimen has {check.get('count')} photos and {check.get('mismatch')} mismatches (plan {len(new)})"
     return rep
 
 
 def _stopped(rep: PhotoReport) -> PhotoReport:
+    rep.snapshot = None
     rep.action, rep.note, rep.code = "refused", "Done was undone: stopped before the next Merimen write", "undone"
     return rep

@@ -211,7 +211,7 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     snap, last = case.get("photos_snapshot"), case.get("last_b_snapshot")
     # a Phase B is due when Done is pressed and the Merimen photo step has not yet seen THIS version of the names: never before, or the
     # fingerprint changed since (Done undone and pressed again). A step that was refused logs the fingerprint it refused, so it does not loop.
-    due = (last is None and not any(j["step"] == "phase_b" and j["state"] == "done" for j in jobs)) or (snap is not None and last is not None and snap != last)
+    due = (last is None and not any(j["step"] == "phase_b" and j["state"] in ("done", "failed") for j in jobs)) or (snap is not None and last is not None and snap != last)
     if (
         case.get("status") in ("waiting_user", "phase_b")
         and case.get("photos_done_at")

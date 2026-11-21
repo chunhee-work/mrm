@@ -460,3 +460,11 @@ test("import: the desk's own uploads are never offered again, a re-import is not
   await s.markImported(a.id, big.id);
   assert.deepEqual(await s.importableFiles(a.id), [], "imported once, never again");
 });
+
+test("import: a desk upload registered before the fix (photos_imported_at NULL, url = blob path) is still not offered", opts, async () => {
+  const { s, db, schema } = await kit();
+  const a = await newCase("naming", 1);
+  const [p] = await rows(a.id);
+  await db.insert(schema.caseFiles).values({ caseId: a.id, kind: "photo", blobUrl: p.blobPath, originalName: "IMG_1.jpg", size: 4 });
+  assert.deepEqual(await s.importableFiles(a.id), []);
+});
