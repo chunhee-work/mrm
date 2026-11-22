@@ -393,6 +393,64 @@ try {
     if (SHOTS) await p.screenshot({ path: path.join(SHOTS, "desk-mobile-r4.png") });
     await mobile.close();
   });
+  await step("speed (hard test): the open case's photos come with the page (no extra list request) and the first screen of photos loads at once", async () => {
+    const p = await ctx.newPage();
+    const asked = [];
+    p.on("request", (r) => { if (new URL(r.url()).pathname === `/api/cases/${A}/photos` && r.method() === "GET") asked.push(r.url()); });
+    await p.goto(`${BASE}/cases/${A}/photos`);
+    await p.locator("article[data-pid]").first().waitFor();
+    await p.waitForTimeout(800);
+    assert.equal(asked.length, 0, "the page asked for the photo list again");
+    const first = await p.locator("article[data-pid] img").first();
+    assert.equal(await first.getAttribute("loading"), "eager");
+    assert.equal(await first.getAttribute("fetchpriority"), "high");
+    const later = await p.locator("article[data-pid] img").nth(6);
+    if (await later.count()) assert.equal(await later.getAttribute("loading"), "lazy");
+    await p.close();
+  });
+  await step("speed (hard test): a click on another page shows the top bar at once, and it goes away when the page is there", async () => {
+    const p = await ctx.newPage();
+    await p.route(/_rsc=/, async (r) => { await new Promise((res) => setTimeout(res, 900)); await r.continue(); }); // a slow phone line
+    await p.goto(`${BASE}/dashboard`);
+    const link = p.locator("a[href='/billing']:visible").first();
+    await link.waitFor();
+    await p.evaluate(() => { window.__barSeen = 0; new MutationObserver(() => { if (document.querySelector("[data-testid=nav-progress]")) window.__barSeen ||= performance.now(); }).observe(document.body, { childList: true, subtree: true }); });
+    const t0 = await p.evaluate(() => performance.now());
+    await link.click();
+    await p.waitForURL("**/billing");
+    await p.getByTestId("nav-progress").waitFor({ state: "detached", timeout: 3000 });
+    const seen = await p.evaluate(() => window.__barSeen);
+    assert.ok(seen > 0, "the top bar never showed");
+    assert.ok(seen - t0 < 300, `the top bar showed ${Math.round(seen - t0)} ms after the click`);
+    await p.close();
+  });
+  await step("speed (hard test): saying No to 'leave while uploading?' keeps you on the page and leaves no top bar running", async () => {
+    const p = await ctx.newPage();
+    await p.route("**/api/cases/credit", () => {}); // never answers: the upload stays busy
+    await p.goto(`${BASE}/cases/new`);
+    await p.locator('input[type="file"]').first().setInputFiles([{ name: "claim.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%%EOF") }]);
+    await p.waitForTimeout(400);
+    await p.locator("form button.btn-primary").first().click();
+    await p.waitForSelector("form[aria-busy=true]");
+    let asked = 0;
+    p.on("dialog", (d) => { asked++; d.dismiss(); });
+    await p.locator("a[href='/billing']:visible").first().click();
+    await p.waitForTimeout(700);
+    assert.equal(asked, 1, "the leave question was not asked");
+    assert.ok(new URL(p.url()).pathname === "/cases/new", `left the page: ${p.url()}`);
+    assert.equal(await p.getByTestId("nav-progress").count(), 0, "the top bar kept running after No");
+    await p.close();
+  });
+  await step("signed out while naming (session ended in another tab): the desk says so once and offers to log in again, back to this case", async () => {
+    await page.goto(`${BASE}/cases/${B}/photos`);
+    await page.locator("article[data-pid]").first().waitFor();
+    await db.query(`DELETE FROM session WHERE user_id = (SELECT id FROM "user" WHERE email = $1)`, [email]);
+    await rename(1, "Grille");
+    const bar = page.getByTestId("signed-out");
+    await bar.waitFor({ timeout: 5000 });
+    const href = await bar.getByRole("link").getAttribute("href");
+    assert.equal(href, `/login?next=${encodeURIComponent(`/cases/${B}/photos`)}`);
+  });
 } finally {
   await browser.close();
   await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [[A, B, C, D]]);

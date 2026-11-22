@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { safeNext } from "@/lib/next-path";
 import { useT } from "@/components/lang-provider";
 import PasswordField from "@/components/auth/password-field";
 import { Field, FieldError, IconTick, SheetBody, SheetFoot, Spinner, SubmitButton, TextLink, Title } from "@/components/auth/parts";
 
-type Problem = null | "email" | "password" | "bad" | "unverified" | "offline";
+type Problem = null | "email" | "password" | "bad" | "unverified" | "offline" | "tooMany";
 
 export default function Login() {
   const { t, lang } = useT();
@@ -27,8 +28,8 @@ export default function Login() {
     setBusy(true); setProblem(null); setResend("idle"); setEmail(mail);
     try {
       const { error } = await authClient.signIn.email({ email: mail, password });
-      if (!error) { window.location.href = "/dashboard"; return; } // stay busy while the dashboard loads
-      setProblem(error.status === 403 ? "unverified" : error.status ? "bad" : "offline");
+      if (!error) { window.location.href = safeNext(new URLSearchParams(window.location.search).get("next")) ?? "/dashboard"; return; } // stay busy while the page loads
+      setProblem(error.status === 403 ? "unverified" : error.status === 429 ? "tooMany" : error.status ? "bad" : "offline"); // hard test: a right password sent too often was called wrong
     } catch {
       setProblem("offline");
     }
@@ -66,6 +67,7 @@ export default function Login() {
 
         {problem === "bad" && <div className="mb-4"><FieldError>{t("login.bad")}</FieldError></div>}
         {problem === "offline" && <div className="mb-4"><FieldError>{t("login.offline")}</FieldError></div>}
+        {problem === "tooMany" && <div className="mb-4"><FieldError>{t("auth.tooMany")}</FieldError></div>}
         {problem === "unverified" && (
           <div className="mb-4">
             <FieldError>{t("login.unverified")}</FieldError>

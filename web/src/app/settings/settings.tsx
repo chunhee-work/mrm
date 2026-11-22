@@ -23,7 +23,7 @@ export default function Settings({ email, company, connection = false }: { email
     setBusy(true); setMsg(null);
     try {
       const { error } = await authClient.changePassword({ currentPassword: cur, newPassword: next, revokeOtherSessions: true });
-      if (error) setMsg({ ok: false, key: "set.pwWrong" });
+      if (error) setMsg({ ok: false, key: error.status === 429 ? "auth.tooMany" : "set.pwWrong" });
       else { setMsg({ ok: true, key: "set.pwDone" }); setCur(""); setNext(""); setAgain(""); }
     } catch { setMsg({ ok: false, key: "set.pwWrong" }); }
     setBusy(false);

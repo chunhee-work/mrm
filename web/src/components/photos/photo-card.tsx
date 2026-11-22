@@ -35,12 +35,12 @@ function Mark({ p, t }: { p: Photo; t: PT }) {
 }
 
 type Props = {
-  p: Photo; n: number; total: number; src: string;
+  p: Photo; n: number; total: number; src: string; eager?: boolean;
   current: boolean; editing: Editing | null; canDrag: boolean; flash: boolean; hl: boolean;
   a: CardActions; t: PT;
 };
 
-function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, hl, a, t }: Props) {
+function PhotoCardInner({ p, n, total, src, eager, current, editing, canDrag, flash, hl, a, t }: Props) {
   const [over, setOver] = useState(false);
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -81,7 +81,7 @@ function PhotoCardInner({ p, n, total, src, current, editing, canDrag, flash, hl
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src} alt={t("photoAlt", { n, name: name ?? t("noName") })}
-          loading="lazy" decoding="async" draggable={false}
+          loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : "auto"} decoding="async" draggable={false} // the first screen of photos loads at once
           className="h-full w-full select-none object-cover"
         />
         <button

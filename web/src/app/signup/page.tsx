@@ -7,7 +7,7 @@ import { MIN_PASSWORD } from "@/lib/i18n";
 import PasswordField from "@/components/auth/password-field";
 import { Field, FieldError, IconEnvelope, SheetBody, SheetFoot, SubmitButton, TextLink, Title } from "@/components/auth/parts";
 
-type Errors = { email?: boolean; password?: boolean; agree?: boolean; form?: "fail" | "offline" };
+type Errors = { email?: boolean; password?: boolean; agree?: boolean; form?: "fail" | "offline" | "tooMany" };
 
 export default function Signup() {
   const { t } = useT();
@@ -36,7 +36,7 @@ export default function Signup() {
     setBusy(true);
     try {
       const { error } = await authClient.signUp.email({ name, email, password, callbackURL: "/dashboard" });
-      if (error) setErrors({ form: error.status ? "fail" : "offline" });
+      if (error) setErrors({ form: error.status === 429 ? "tooMany" : error.status ? "fail" : "offline" });
       else setDoneFor(email);
     } catch {
       setErrors({ form: "offline" });
@@ -114,7 +114,7 @@ export default function Signup() {
         </div>
 
         <div className="mt-6">
-          {errors.form && <div className="mb-4"><FieldError>{t(errors.form === "fail" ? "signup.fail" : "login.offline")}</FieldError></div>}
+          {errors.form && <div className="mb-4"><FieldError>{t(errors.form === "fail" ? "signup.fail" : errors.form === "tooMany" ? "auth.tooMany" : "login.offline")}</FieldError></div>}
           <SubmitButton busy={busy}>{t("signup.submit")}</SubmitButton>
         </div>
       </form>

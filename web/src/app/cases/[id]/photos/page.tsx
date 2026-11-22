@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { and, desc, eq, inArray, ne, notInArray, or, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getLang, getT } from "@/lib/i18n-server";
-import { caseInOrg } from "@/lib/photos/server";
+import { caseInOrg, photoState } from "@/lib/photos/server";
+import type { CaseState } from "@/lib/photos/desk-rules";
 import { photoT } from "@/lib/photos/strings";
 import { requireUser } from "@/lib/session";
 import NamingDesk, { type DeskTab } from "@/components/photos/naming-desk";
@@ -53,5 +54,8 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
     at: r.createdAt.toISOString(), dup: (samePlate.get(r.plate) ?? 0) > 1 || !r.plate, edited: editedBy.get(r.id) ?? 0, workshop: workshopOf(r.data),
   }));
 
-  return <NamingDesk orgId={orgId} tabs={tabs} initialId={id} />;
+  // Hard test 2026-11-22: the open case's photos come with the page, so the photos start loading at once
+  // (before: page, then the page's script, then a request for the list, then the photos; about 0.7 s later on a fast line)
+  const first = await photoState(c);
+  return <NamingDesk orgId={orgId} tabs={tabs} initialId={id} initial={first.status === 200 ? (first.body as unknown as CaseState) : undefined} />;
 }
