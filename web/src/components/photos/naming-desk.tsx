@@ -13,6 +13,7 @@ import { whenOf } from "@/lib/fmt-when";
 import { PhotoCard, type CardActions, type Editing } from "./photo-card";
 import { ExtraChip, HelpSheet, MoveSheet, Palette } from "./sheets";
 import { uploadPhotos } from "./upload";
+import { loginUrl } from "@/lib/next-path";
 
 /** `at` = when the case was uploaded (ISO); `dup` = another tab has the same plate, so the time tells them apart (shown in the page language, R3-B08). */
 export type DeskTab = { id: string; plate: string; carModel: string | null; done: boolean; photos: number; at: string; dup: boolean; edited: number; workshop?: string | null };
@@ -26,6 +27,8 @@ async function api(method: string, url: string, body?: unknown): Promise<Reply> 
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    // hard test 2026-11-22: signed out in another tab (or the session ran out): say so once, instead of "could not save" on every change
+    if (r.status === 401 && typeof window !== "undefined") window.dispatchEvent(new Event("desk:signed-out"));
     return { ok: r.ok, status: r.status, body: j };
   } catch {
     return { ok: false, status: 0, body: {} };
@@ -54,6 +57,12 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
     setStatesRaw(next);
   }, []);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
+  useEffect(() => {
+    const out = () => setSignedOut(true);
+    window.addEventListener("desk:signed-out", out);
+    return () => window.removeEventListener("desk:signed-out", out);
+  }, []);
   const [filter, setFilter] = useState<Filter>("all");
   const filterRef = useRef<Filter>("all");
   const [frozen, setFrozen] = useState<number[] | null>(null);
@@ -814,6 +823,15 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
     <div className="app-fill flex flex-col">
       {head}
       <div className="shrink-0">
+        {signedOut && (
+          <div className="wrap pb-2.5 max-sm:px-3 max-sm:pb-1" role="alert" data-testid="signed-out">
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] font-medium text-fg">
+              <span className="h-[9px] w-[9px] shrink-0 bg-amber" aria-hidden="true" />
+              <span className="min-w-0">{t("signedOut")}</span>
+              <a href={loginUrl(window.location.pathname, window.location.search)} className="link shrink-0 text-[13px] font-semibold">{t("logInAgain")}</a>
+            </span>
+          </div>
+        )}
         {/* what is going on: naming progress, or what needs a second try */}
         {st && n && !n.naming && n.total > 0 && missingOpen.length > 0 && (
           <div className="wrap pb-2.5 max-sm:px-3 max-sm:pb-1" role="status" data-testid="opening-banner">

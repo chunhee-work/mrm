@@ -434,6 +434,16 @@ try {
     assert.equal(await p.getByTestId("nav-progress").count(), 0, "the top bar kept running after No");
     await p.close();
   });
+  await step("signed out while naming (session ended in another tab): the desk says so once and offers to log in again, back to this case", async () => {
+    await page.goto(`${BASE}/cases/${B}/photos`);
+    await page.locator("article[data-pid]").first().waitFor();
+    await db.query(`DELETE FROM session WHERE user_id = (SELECT id FROM "user" WHERE email = $1)`, [email]);
+    await rename(1, "Grille");
+    const bar = page.getByTestId("signed-out");
+    await bar.waitFor({ timeout: 5000 });
+    const href = await bar.getByRole("link").getAttribute("href");
+    assert.equal(href, `/login?next=${encodeURIComponent(`/cases/${B}/photos`)}`);
+  });
 } finally {
   await browser.close();
   await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [[A, B, C, D]]);
