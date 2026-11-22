@@ -1,12 +1,16 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
 import { Brand } from "@/components/brand-mark";
 import LangSwitch from "@/components/lang-switch";
+import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
 import { Burger, Chevron, Exit, Plus } from "./marks";
+
+// three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
+const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 
 async function logOut() {
   await authClient.signOut();
@@ -94,19 +98,25 @@ function AccountMenu({ email }: { email: string }) {
 }
 
 function MobileMenu({ email, path }: { email: string; path: string }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const close = useRef((refocus: boolean) => { setOpen(false); if (refocus) trigger.current?.focus(); }).current;
   useDismiss(open, close, ref);
+  // "New case" is a button in the bar itself (always in view), so the menu holds only the places to go
   const links = [
     { href: "/dashboard", label: t("nav.cases") },
     { href: "/billing", label: t("nav.billing") },
     { href: "/settings", label: t("nav.settings") },
-    { href: "/cases/new", label: t("nav.newCase"), plus: true },
   ];
+  function pickLang(l: Lang) {
+    document.cookie = `lang=${l}; path=/; max-age=31536000; samesite=lax`;
+    setOpen(false);
+    router.refresh();
+  }
   return (
     <div ref={ref} className="lg:hidden">
       <button
@@ -138,12 +148,22 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
                         <span className={`h-[18px] w-[2px] ${here ? "bg-ice" : "bg-transparent"}`} aria-hidden="true" />
                         {l.label}
                       </span>
-                      {l.plus ? <Plus className="text-ice" /> : null}
                     </Link>
                   </li>
                 );
               })}
             </ul>
+            {/* the language, on a phone: here in the menu, so the bar has room for the New case button */}
+            <div role="group" aria-label={t("lang.label")} className="flex items-center gap-2 border-b border-hair py-2.5 pl-[14px]" data-testid="menu-lang">
+              {LANGS.map((l) => (
+                <button
+                  key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-label={LANG_LABEL[l]} aria-pressed={l === lang} onClick={() => pickLang(l)}
+                  className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-[3px] border px-2 text-[14px] ${l === lang ? "border-ice bg-ice font-semibold text-bay" : "border-hair font-medium text-fg"}`}
+                >
+                  <span className="truncate">{MENU_LANG[l]}</span>
+                </button>
+              ))}
+            </div>
             <div className="flex h-[52px] items-center justify-between gap-4 pl-[14px]">
               <span className="min-w-0 truncate text-[14px] text-mute">{email}</span>
               <button
@@ -197,15 +217,17 @@ export default function AppBar({ email }: { email: string }) {
           </Link>
         </nav>
         <div className="ml-auto flex items-center gap-1.5 lg:gap-4">
-          <LangSwitch />
+          <div className="hidden lg:block"><LangSwitch /></div>
           {email ? <AccountMenu email={email} /> : null}
+          {/* the one main action is in the bar at every width: on a phone it used to sit inside the menu, two presses away */}
           <Link
             href="/cases/new"
             aria-current={onNew ? "page" : undefined}
-            className={`hidden !h-10 !gap-2 !pl-4 !pr-5 lg:inline-flex ${onNew ? "btn-line bg-panel" : "btn-primary"}`}
+            data-testid="new-case"
+            className={`!h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px] ${onNew ? "btn-line bg-panel max-lg:hidden" : "btn-primary"}`}
           >
             <Plus />
-            {t("nav.newCase")}
+            <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
           </Link>
           <MobileMenu email={email} path={path} />
         </div>

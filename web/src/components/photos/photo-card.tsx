@@ -1,6 +1,6 @@
 "use client";
 import { memo, useEffect, useRef, useState } from "react";
-import { fileTypeOf } from "@/lib/photos/order-rules";
+import { DEFAULT_FILE_TYPE, fileTypeOf } from "@/lib/photos/order-rules";
 import { altsOf, isEdited, isFixed, isLow, isNaming, needsName, shownName, type Photo } from "@/lib/photos/desk-rules";
 import type { PT } from "@/lib/photos/strings";
 
@@ -145,7 +145,8 @@ function PhotoCardInner({ p, n, total, src, eager, current, editing, canDrag, fl
           >{t("paste")}</button>
         </div>
 
-        {name && (
+        {/* nearly every photo is the same Merimen type: only the odd ones say theirs, the count per type is in the legend */}
+        {name && fileTypeOf(name) !== DEFAULT_FILE_TYPE && (
           <p className="truncate font-mono text-[11px] leading-none text-mute" title={`${t("fileType")}: ${fileTypeOf(name)}`} data-testid="file-type">
             {t("fileType")}: {fileTypeOf(name)}
           </p>

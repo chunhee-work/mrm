@@ -147,21 +147,9 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-7 px-5 py-6 sm:px-8 sm:py-8">
-          <div className="rounded-[3px] border border-hair bg-panel2 px-4 py-3">
-            <p className="label">{t("new.checkTitle")}</p>
-            <ul className="mt-2 grid gap-1 text-[14px] text-mute sm:grid-cols-2">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => <li key={i} className="flex gap-2"><span aria-hidden="true">•</span>{t(`new.check${i}`)}</li>)}
-            </ul>
-          </div>
           <div className="field min-w-0 grid-cols-[minmax(0,1fr)]">
-            <div className="flex items-baseline justify-between gap-4">
-              <label className="label" htmlFor="case-files">{t("new.files")}</label>
-              {n > 0 && (
-                <p className="num text-[14px] leading-none text-mute" aria-live="polite">
-                  {n} {t(n === 1 ? "new.selectedOne" : "new.selected")} · {sizeOf(total)}
-                </p>
-              )}
-            </div>
+            {/* the page has one job, so the place to put the files comes first; its name is the page title */}
+            <label className="sr-only" htmlFor="case-files">{t("new.files")}</label>
 
             <DropZone
               inputId="case-files"
@@ -174,6 +162,13 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
               addMore={t("new.addMore")}
             />
             <p className="hint">{t("new.limit", { mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })}</p>
+            {/* what to put in, as one short paragraph under the drop zone (it was a seven-line box above it, pushing the button down) */}
+            {n === 0 && (
+              <p className="mt-1 text-[14px] leading-[1.55] text-mute [text-wrap:pretty]" data-testid="new-check">
+                <span className="font-semibold text-fg">{t("new.checkTitle")}</span>{" "}
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => t(`new.check${i}`)).join(" · ")}
+              </p>
+            )}
             {(notes.length > 0 || skipped.length > 0) && (
               <div role="status" className="rounded-[3px] border border-hair bg-ambertint px-4 py-3 text-[14px] text-fg">
                 <p className="font-semibold">{t("new.leftOutTitle")}</p>
@@ -187,7 +182,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
 
             {n > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-3 text-[14px] text-mute">
-                <p className="num">{[nZip ? `${nZip} zip` : "", nPdf ? `${nPdf} PDF` : "", nPhoto ? t(nPhoto === 1 ? "new.photosOne" : "new.photosN", { n: String(nPhoto) }) : ""].filter(Boolean).join(" · ")}</p>
+                <p className="num" aria-live="polite">{[nZip ? `${nZip} zip` : "", nPdf ? `${nPdf} PDF` : "", nPhoto ? t(nPhoto === 1 ? "new.photosOne" : "new.photosN", { n: String(nPhoto) }) : "", sizeOf(total)].filter(Boolean).join(" · ")}</p>
                 {!busy && <button type="button" className="btn-quiet" onClick={() => { setFiles([]); setNotes([]); setMsg(""); setFailed(null); }}>{t("new.removeAll")}</button>}
               </div>
             )}

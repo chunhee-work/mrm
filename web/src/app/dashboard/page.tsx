@@ -46,5 +46,8 @@ export default async function Dashboard() {
     sides: sides?.get(c.id) ?? (c.status === "done" && sides ? [] : undefined),
   }));
   const worker = workerUiOn();
-  return <CaseList rows={list} orgId={orgId} below={<Connection embedded mode={worker ? "worker" : "browser"} cred={worker ? await credView(orgId) : null} state={worker ? await getWorkerState(orgId) : await getExtState(orgId)} cases={list.map((c) => ({ id: c.id, plate: c.plate }))} />} />;
+  const state = worker ? await getWorkerState(orgId) : await getExtState(orgId);
+  // while the Merimen connection is switched off there is nothing to do or read about it: the list ends with the cases
+  const below = state === "off" ? undefined : <Connection embedded mode={worker ? "worker" : "browser"} cred={worker ? await credView(orgId) : null} state={state} cases={list.map((c) => ({ id: c.id, plate: c.plate }))} />;
+  return <CaseList rows={list} orgId={orgId} below={below} />;
 }
