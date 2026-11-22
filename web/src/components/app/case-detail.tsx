@@ -173,9 +173,12 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
   return (
     <li className="sheet flex min-w-0 max-w-full flex-col rounded-[3px] border border-hair bg-panel p-5 lg:p-6">
       <h3 id={titleId} className={compact ? "sr-only" : "num truncate font-mono text-[24px] font-medium leading-[1.15] tracking-[0.01em] text-fg"}>
-        <Link href={`/cases/${row.id}`} className="underline-offset-4 hover:underline">
-          {row.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
-        </Link>
+        {/* hard test 2026-11-22: on the case page itself (compact) the title is only for screen readers, so no hidden link back to the same page */}
+        {compact ? (row.plate || t("dash.noPlate")) : (
+          <Link href={`/cases/${row.id}`} className="underline-offset-4 hover:underline">
+            {row.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
+          </Link>
+        )}
       </h3>
       {!compact && vehicle && <p className="mt-1 truncate text-[14px] leading-snug text-mute">{vehicle}</p>}
       {!compact && row.createdAt && (
