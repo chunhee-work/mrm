@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { safeNext } from "@/lib/next-path";
 import { useT } from "@/components/lang-provider";
 import PasswordField from "@/components/auth/password-field";
 import { Field, FieldError, IconTick, SheetBody, SheetFoot, Spinner, SubmitButton, TextLink, Title } from "@/components/auth/parts";
@@ -27,7 +28,7 @@ export default function Login() {
     setBusy(true); setProblem(null); setResend("idle"); setEmail(mail);
     try {
       const { error } = await authClient.signIn.email({ email: mail, password });
-      if (!error) { window.location.href = "/dashboard"; return; } // stay busy while the dashboard loads
+      if (!error) { window.location.href = safeNext(new URLSearchParams(window.location.search).get("next")) ?? "/dashboard"; return; } // stay busy while the page loads
       setProblem(error.status === 403 ? "unverified" : error.status ? "bad" : "offline");
     } catch {
       setProblem("offline");

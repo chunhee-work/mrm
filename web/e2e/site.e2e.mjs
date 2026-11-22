@@ -201,6 +201,18 @@ try {
     }
     await pub.close(); await app.close();
   }
+  // hard test (live, 2026-11-22): a signed-out link to one case must come back to that case after logging in, not to the case list
+  {
+    const ctx = await context(VIEWS[1][1], "en", false); const page = await ctx.newPage();
+    const want = `/cases/${C.naming}/photos`;
+    await page.goto(BASE + want, { waitUntil: "load" });
+    const at = new URL(page.url());
+    if (at.pathname !== "/login" || at.searchParams.get("next") !== want) note("login-next", `signed-out ${want} went to ${at.pathname}${at.search}`);
+    await page.fill("input[type=email]", email); await page.fill("input[type=password]", password); await page.click("button[type=submit]");
+    await page.waitForURL((u) => u.pathname !== "/login", { timeout: 20000 }).catch(() => {});
+    if (new URL(page.url()).pathname !== want) note("login-next", `after logging in landed on ${new URL(page.url()).pathname}, wanted ${want}`);
+    await ctx.close();
+  }
 } finally {
   await browser.close();
   await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [ids]);

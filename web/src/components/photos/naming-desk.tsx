@@ -664,7 +664,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     >
       {st?.done && <Tick className="h-5 w-5" />}
       {st?.done ? t("doneOn") : t("doneBtn", { plate: st?.plate || tab?.plate || "" })}
-      <span className="text-[12px] font-medium tracking-normal opacity-70" data-testid="done-count">{t("doneCount", { d: doneCount, n: tabs.length })}</span>
+      <span className={`text-[12px] font-medium tracking-normal ${st?.done ? "opacity-90" : "opacity-70"}`} data-testid="done-count">{t("doneCount", { d: doneCount, n: tabs.length })}</span>
     </button>
   );
   const quiet = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[3px] px-3 text-[13.5px] font-semibold text-fg transition-colors duration-150 hover:bg-panel2 disabled:opacity-40";

@@ -41,7 +41,7 @@
   --c-scan: 29 155 216; /* #1D9BD8 */
   --c-amber: 217 119 6; /* #D97706 */
   --c-ambertint: 255 243 223; /* #FFF3DF */
-  --c-go: 12 138 91; /* #0C8A5B */
+  --c-go: 8 116 75; /* #08744B: white text on it 5.4:1 (#0C8A5B was 4.1:1, under the 4.5:1 minimum) */
   --c-gotint: 227 247 238; /* #E3F7EE */
   color-scheme: light;
 }
