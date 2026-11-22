@@ -41,6 +41,18 @@ const RETRY_WAITS = [1500, 6000, 15_000];
 const canRetry = (p: Photo) => p.state === "failed" && !p.finalName && p.error !== "cost limit reached";
 
 /**
+ * The case tabs (owner 2026-11-22: "the car plate ui need to stand more out", "the black change ui not match"): each case
+ * is a number plate. The open one is a black plate with white letters, the others white with a line round them. The plate
+ * is bold and 15.5px; "n changed" is a soft round label, never a black block.
+ */
+const TAB = {
+  base: "flex h-10 shrink-0 items-center gap-2 rounded-[5px] px-3.5 font-mono text-[15.5px] font-bold tracking-[0.06em] transition-colors duration-150",
+  here: "bg-ice text-bay",
+  rest: "bg-panel text-fg ring-1 ring-inset ring-hair2 hover:bg-panel2",
+  badge: "rounded-full px-2 py-[3px] font-sans text-[11.5px] font-semibold leading-none tracking-normal",
+};
+
+/**
  * The photo naming desk. One page for every open case: tabs across the top, the photos of the current case in a
  * two-column grid that scrolls inside its own frame. Every change saves at once and is taken back if the save fails.
  */
@@ -680,9 +692,6 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
 
   // ───────────── the head of the desk ─────────────
   const noBar = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-  const tabMark = (x: DeskTab) => x.done
-    ? <Tick className="h-3.5 w-3.5 text-go" />
-    : <span className="text-[12px] font-normal text-mute">{x.photos}</span>;
   // the changed count of this case is live; the other cases show what the page was opened with
   const tabEdited = (x: DeskTab) => (x.id === caseId && n ? n.edited : x.edited);
   const stepBtn = "flex h-9 w-8 shrink-0 items-center justify-center rounded-[3px] text-mute transition-colors duration-150 hover:bg-panel2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent";
@@ -761,15 +770,19 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
             <nav ref={tabStrip} aria-label={t("cases")} className={`flex min-w-0 flex-1 gap-1.5 overflow-x-auto p-0.5 ${noBar}`}>
               {tabs.map((x) => {
                 const here = x.id === caseId;
+                // on the black plate the small words are white at 70%, on a white one they are grey
+                const sub = here ? "text-bay/70" : "text-mute";
                 return (
                   <button
                     key={x.id} type="button" aria-current={here ? "true" : undefined} onClick={() => switchCase(x.id)}
-                    className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-3.5 font-mono text-[13px] tracking-wide transition-colors duration-150 ${here ? "bg-icetint font-semibold text-fg ring-[1.5px] ring-inset ring-scan" : "bg-panel2 text-fg hover:bg-hair"}`}
+                    className={`${TAB.base} ${here ? TAB.here : TAB.rest}`}
                   >
                     {x.plate}
-                    {x.dup && <span className={`text-[11.5px] font-normal text-mute ${here ? "max-sm:hidden" : ""}`} suppressHydrationWarning>{whenOf(x.at, lang)}</span>}
-                    {tabEdited(x) > 0 && <span className="rounded-[2px] bg-ice px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-bay" data-testid="tab-edited">{t("tabEdited", { n: tabEdited(x) })}</span>}
-                    {tabMark(x)}
+                    {x.dup && <span className={`font-sans text-[12px] font-normal tracking-normal ${sub} ${here ? "max-sm:hidden" : ""}`} suppressHydrationWarning>{whenOf(x.at, lang)}</span>}
+                    {tabEdited(x) > 0 && <span className={`${TAB.badge} ${here ? "bg-bay/20 text-bay" : "bg-panel2 text-fg"}`} data-testid="tab-edited">{t("tabEdited", { n: tabEdited(x) })}</span>}
+                    {x.done
+                      ? <Tick className={`h-4 w-4 ${here ? "text-bay" : "text-go"}`} />
+                      : <span className={`font-sans text-[12.5px] font-normal tracking-normal ${sub}`}>{x.photos}</span>}
                   </button>
                 );
               })}
@@ -848,10 +861,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
             <button type="button" className="link text-[15px]" onClick={() => pickFilter("all")}>{t("empty.showAll")}</button>
           </div>
         ) : (
-          <div className="wrap grid grid-cols-2 gap-2 pb-24 pt-3 max-sm:px-3 sm:gap-4 sm:pt-4 xl:grid-cols-3">
+          // owner 2026-11-22: always two photos in a line, on every screen, so each photo is big enough to name from
+          <div className="wrap grid grid-cols-2 gap-2 pb-24 pt-3 max-sm:px-3 sm:gap-4 sm:pt-4" data-testid="photo-grid">
             {list.map((p, i) => (
               <PhotoCard
-                key={p.id} p={p} n={indexOf.get(p.id) ?? 0} total={st.photos.length} src={img(p.id)} eager={i < 6}
+                key={p.id} p={p} n={indexOf.get(p.id) ?? 0} total={st.photos.length} src={img(p.id)} eager={i < 4}
                 current={cur === p.id} editing={editing?.id === p.id ? editing : null}
                 canDrag={filter === "all" && !editing} flash={flashId === p.id} hl={hl === p.id} a={actions} t={t}
               />

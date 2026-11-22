@@ -11,8 +11,9 @@ export type HomeCounts = Record<Bucket, number>;
 const REFRESH_MS = 20_000;
 
 /**
- * The first page after log in (owner 2026-11-22): four things and nothing else. Who is logged in, a search, three buttons,
+ * The first page after log in (owner 2026-11-22): four things and nothing else. Who is logged in, a search, two buttons,
  * and how many open cases wait for what. A row of the count opens the table of those cases.
+ * Nothing is said twice: "Billing" is in the top bar only, and the bar drops its own "New case" on this page.
  */
 export default function Home({ name, counts, below }: { name: string; counts: HomeCounts; below?: React.ReactNode }) {
   const { t } = useT();
@@ -61,7 +62,7 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
     </section>
   );
 
-  // the order of the page the adjusters know: welcome and search, three buttons side by side, the count as a table
+  // the order of the page the adjusters know: welcome and search, the buttons side by side, the count as a table
   return (
     <div className="wrap pb-14 pt-7 lg:pb-20 lg:pt-12">
       <div className="mx-auto max-w-[760px]">
@@ -82,13 +83,12 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
             <button type="submit" className="btn-line shrink-0 !px-5">{t("tray.go")}</button>
           </form>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <Link href="/cases/new" className="btn-primary !gap-2" data-testid="home-new"><Plus />{t("dash.new")}</Link>
           <Link href="/dashboard?view=closed" className="btn-line" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>
           </Link>
-          <Link href="/billing" className="btn-line" data-testid="home-billing">{t("nav.billing")}</Link>
         </div>
         <div className="mt-7">{table}</div>
       </div>

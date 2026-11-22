@@ -99,7 +99,7 @@ try {
     await shot("desk-done-button");
   });
 
-  await step("R4-U02: Done sits in the same row as the filters (not alone), the header is short, and three photos fit in a row at 1280 px", async () => {
+  await step("R4-U02: Done sits in the same row as the filters (not alone), the header is short, and the photos sit two in a line (owner 2026-11-22: always two, on every screen)", async () => {
     await shot("desk-r4-done-in-row");
     const d = await page.getByTestId("done-btn").first().boundingBox();
     const f = await page.getByRole("group", { name: /^(Show|显示|Papar)$/ }).first().boundingBox();
@@ -108,7 +108,13 @@ try {
     assert.ok(first.y < 380, `the first photos start at ${first.y}px`);
     const ys = [];
     for (let i = 0; i < 3; i++) ys.push(Math.round((await card(i + 1).boundingBox()).y));
-    assert.ok(ys[0] === ys[1] && ys[1] === ys[2], `three photos in one row: ${ys}`);
+    assert.ok(ys[0] === ys[1] && ys[2] > ys[1], `two photos in a line, the third starts the next: ${ys}`);
+    // the same on a very wide screen
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const wide = [];
+    for (let i = 0; i < 3; i++) wide.push(Math.round((await card(i + 1).boundingBox()).y));
+    assert.ok(wide[0] === wide[1] && wide[2] > wide[1], `two photos in a line at 1920 px: ${wide}`);
+    await page.setViewportSize({ width: 1280, height: 860 });
     await shot("desk-r4-done-in-row");
   });
 
@@ -187,6 +193,13 @@ try {
     assert.match(was, /Grille/);
     const badge = await page.getByTestId("tab-edited").first().innerText();
     assert.match(badge, /[1-9]/);
+    // owner 2026-11-22: the plate on a tab is big and bold so it stands out, and "n changed" is a soft label, not a black block
+    const look = await page.locator('nav button[aria-current="true"]').evaluate((el) => {
+      const s = getComputedStyle(el), b = el.querySelector('[data-testid="tab-edited"]');
+      return { size: parseFloat(s.fontSize), weight: Number(s.fontWeight), badge: b ? getComputedStyle(b).backgroundColor : null };
+    });
+    assert.ok(look.size >= 15 && look.weight >= 700, `the plate of the open tab: ${look.size}px, weight ${look.weight}`);
+    assert.ok(look.badge && look.badge !== "rgb(10, 14, 19)", `the changed label is a black block: ${look.badge}`);
     // owner 2026-11-22: the head is one compact row. The three numbers sit on the filter itself; there are no number
     // tiles, no legend panel and no "Legend and how to use" switch.
     assert.match(await page.getByTestId("desk-filter").innerText(), /\b5\b/, "the filter shows the number of photos");
@@ -356,10 +369,16 @@ try {
     const lines = await page.getByTestId("case-table").locator("li").allInnerTexts();
     assert.ok(lines.length >= 4, `the four cases are listed: ${lines.length}`);
     for (const t of lines) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
-    // the first page (owner 2026-11-22): welcome, search, three buttons and the count; a row of the count opens its table
+    // the table has no "New case" of its own, so the bar keeps it there
+    assert.equal(await page.getByTestId("new-case").count(), 1, "New case in the bar of the table");
+    // the first page (owner 2026-11-22): welcome, search, two buttons and the count; a row of the count opens its table
     await page.goto(`${BASE}/dashboard`);
     assert.match(await page.getByTestId("home-welcome").innerText(), /E2E Tester/);
-    for (const id of ["home-search", "home-new", "home-closed", "home-billing", "home-open", "home-total"]) assert.equal(await page.getByTestId(id).count(), 1, id);
+    for (const id of ["home-search", "home-new", "home-closed", "home-open", "home-total"]) assert.equal(await page.getByTestId(id).count(), 1, id);
+    // nothing twice (owner 2026-11-22): one "New case" (the page's, not the bar's) and one "Billing" (the bar's, not the page's)
+    assert.equal(await page.getByTestId("new-case").count(), 0, "no second New case in the bar of the first page");
+    assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
+    assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
     assert.equal(await page.getByTestId("case-table").count(), 0, "no case list on the first page");
     const docs = page.locator('[data-bucket="docs"] a');
     assert.match(await docs.innerText(), /^\s*[1-9]/, "the count of cases waiting for documents");

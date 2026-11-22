@@ -50,7 +50,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // a row of the count was opened, or something was searched for: the table of those cases
   if (view || q) return <CaseTable rows={list} view={view} q0={q} />;
 
-  // the first page: who is logged in, a search, three buttons, and how many open cases wait for what
+  // the first page: who is logged in, a search, two buttons, and how many open cases wait for what
   const counts: HomeCounts = { docs: 0, photos: 0, hold: 0, active: 0, closed: 0 };
   for (const c of list) counts[bucketOf(c)]++;
   const worker = workerUiOn();

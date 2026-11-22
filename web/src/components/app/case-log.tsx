@@ -13,6 +13,7 @@ const pen = { strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } 
  * The round status mark: a shape per status (tick, turning ring, ring with a dot, cross, small dot), so colour is never the
  * only sign. One drawing on a 20 × 20 grid, every shape centred on (10, 10), so nothing sits half a pixel off.
  * `now`: this is the newest line, the state the case is in at this moment: its ring turns (`.case-spin`) while it waits.
+ * A turning ring is empty inside (owner 2026-11-22: no dot in the middle of the loading mark).
  */
 function Mark({ kind, now }: { kind: EventKind; now: boolean }) {
   if (kind === "ok")
@@ -34,7 +35,6 @@ function Mark({ kind, now }: { kind: EventKind; now: boolean }) {
       <svg {...svg} className={`case-spin shrink-0 ${kind === "work" ? "text-scan" : "text-amber"}`} data-turning="">
         <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="2" opacity="0.28" />
         <path d="M10 2a8 8 0 0 1 8 8" stroke="currentColor" {...pen} />
-        {kind === "wait" && <circle cx="10" cy="10" r="3" fill="currentColor" />}
       </svg>
     );
   if (kind === "wait")
