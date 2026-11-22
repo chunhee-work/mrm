@@ -94,25 +94,6 @@ export function UploadArt({ size = 64, lift = false }: { size?: number; lift?: b
   );
 }
 
-/** An empty case ledger: ruled rows with nothing keyed and nothing ticked. */
-export function EmptySheetArt() {
-  return (
-    <svg width="168" height="132" viewBox="0 0 168 132" fill="none" className="stroke-ice" strokeWidth="1.25" aria-hidden="true">
-      {/* crop marks */}
-      <path d="M0 13.5h8M13.5 0v8M168 13.5h-8M154.500 0v8M0 118.5h8M13.5 132v-8M168 118.500h-8M154.500 132v-8" strokeWidth="1" />
-      <rect x="20.5" y="20.5" width="127" height="91" rx="2" className="fill-panel2" />
-      <path d="M20.5 40.500h127" />
-      <path d="M31 30.500h34" strokeWidth="2" />
-      {[0, 1, 2].map((i) => (
-        <g key={i} className="stroke-hair2">
-          <path d={`M31 ${56.5 + i * 20}h82`} />
-          <rect x="126.500" y={50.5 + i * 20} width="11" height="11" className="fill-panel2" />
-        </g>
-      ))}
-    </svg>
-  );
-}
-
 /** Nothing under the glass. */
 export function NoMatchArt() {
   return (

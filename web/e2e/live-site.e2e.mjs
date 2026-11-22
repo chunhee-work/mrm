@@ -97,14 +97,13 @@ const caseIds = await pp.$$eval('a[href^="/cases/"]', (as) => [...new Set(as.map
 await probe.close();
 console.log("cases", caseIds.length);
 const APP = [
-  ["dashboard", "/dashboard"], ["dashboard-q", "/dashboard?q=zzz-no-match"],
+  ["dashboard", "/dashboard"], ["dashboard-q", "/dashboard?q=zzz-no-match"], ["dashboard-open", "/dashboard?view=open"], ["dashboard-closed", "/dashboard?view=closed"],
   ["new-case", "/cases/new"],
   ["new-case-files", "/cases/new", choose([pdf, ...[1, 2, 3, 4, 5, 6].map(jpg)])],
   ["new-case-bad-files", "/cases/new", choose([pdf, { name: "empty_scan_from_the_workshop.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(0) }, { name: "photo_from_phone.heic", mimeType: "image/heic", buffer: Buffer.from("x") }, jpg(1)])],
   ["case-bogus", "/cases/00000000-0000-0000-0000-000000000000"],
   ...caseIds.map((id) => [`case-${id.slice(0, 8)}`, `/cases/${id}`]),
   ...caseIds.map((id) => [`desk-${id.slice(0, 8)}`, `/cases/${id}/photos`]),
-  ...caseIds.slice(0, 3).map((id) => [`desk-legend-${id.slice(0, 8)}`, `/cases/${id}/photos`, async (p) => { const t = p.getByTestId(p.viewportSize().width < 640 ? "kpi-line" : "legend-toggle"); if (await t.count()) { await t.first().click(); await p.waitForTimeout(400); } }]),
   ["settings", "/settings"], ["billing", "/billing"], ["connection", "/connection"],
   ["menu", "/dashboard", async (p) => { await p.locator('[aria-controls="app-menu"]:visible, [aria-controls="account-menu"]:visible').first().click(); await p.waitForTimeout(300); }],
 ];

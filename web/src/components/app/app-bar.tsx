@@ -1,13 +1,14 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
 import { Brand } from "@/components/brand-mark";
 import LangSwitch from "@/components/lang-switch";
 import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
 import { Burger, Chevron, Exit, Plus } from "./marks";
+import { VIEWS } from "./status";
 
 // three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
@@ -97,6 +98,44 @@ function AccountMenu({ email }: { email: string }) {
   );
 }
 
+/** Phone menu: a "Language" row that says the current one; pressing it shows the three choices under it. */
+function MenuLang({ lang, label, pick }: { lang: Lang; label: string; pick: (l: Lang) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-hair">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="menu-lang"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-[52px] w-full items-center justify-between gap-4 text-[17px] font-medium text-fg"
+        data-testid="menu-lang-open"
+      >
+        <span className="flex items-center gap-3">
+          <span className="h-[18px] w-[2px] bg-transparent" aria-hidden="true" />
+          {label}
+        </span>
+        <span className="flex min-w-0 items-center gap-2 text-[15px] font-normal text-mute">
+          <span className="truncate" lang={lang === "zh" ? "zh-CN" : lang}>{MENU_LANG[lang]}</span>
+          <Chevron className={`shrink-0 transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+      {open && (
+        <div id="menu-lang" role="group" aria-label={label} className="flex items-center gap-2 pb-3 pl-[14px]" data-testid="menu-lang">
+          {LANGS.map((l) => (
+            <button
+              key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-label={LANG_LABEL[l]} aria-pressed={l === lang} onClick={() => pick(l)}
+              className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-[3px] border px-2 text-[14px] ${l === lang ? "border-ice bg-ice font-semibold text-bay" : "border-hair font-medium text-fg"}`}
+            >
+              <span className="truncate">{MENU_LANG[l]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MobileMenu({ email, path }: { email: string; path: string }) {
   const { t, lang } = useT();
   const router = useRouter();
@@ -153,17 +192,8 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
                 );
               })}
             </ul>
-            {/* the language, on a phone: here in the menu, so the bar has room for the New case button */}
-            <div role="group" aria-label={t("lang.label")} className="flex items-center gap-2 border-b border-hair py-2.5 pl-[14px]" data-testid="menu-lang">
-              {LANGS.map((l) => (
-                <button
-                  key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-label={LANG_LABEL[l]} aria-pressed={l === lang} onClick={() => pickLang(l)}
-                  className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-[3px] border px-2 text-[14px] ${l === lang ? "border-ice bg-ice font-semibold text-bay" : "border-hair font-medium text-fg"}`}
-                >
-                  <span className="truncate">{MENU_LANG[l]}</span>
-                </button>
-              ))}
-            </div>
+            {/* the language, on a phone: one row like the others; the three choices show only once it is opened (owner 2026-11-22) */}
+            <MenuLang lang={lang} label={t("lang.label")} pick={pickLang} />
             <div className="flex h-[52px] items-center justify-between gap-4 pl-[14px]">
               <span className="min-w-0 truncate text-[14px] text-mute">{email}</span>
               <button
@@ -181,6 +211,33 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
       )}
     </div>
   );
+}
+
+/** "New case", the one main action of the bar. */
+function NewCase({ onNew }: { onNew: boolean }) {
+  const { t } = useT();
+  return (
+    <Link
+      href="/cases/new"
+      aria-current={onNew ? "page" : undefined}
+      data-testid="new-case"
+      className={`!h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px] ${onNew ? "btn-line bg-panel max-lg:hidden" : "btn-primary"}`}
+    >
+      <Plus />
+      <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
+    </Link>
+  );
+}
+
+/**
+ * Not on the first page: its own "New case" button is right there, and the owner wants nothing said twice (2026-11-22).
+ * A view or a search of /dashboard is the case table, which has no such button, so the bar keeps it there.
+ */
+function NewCaseUnlessHome({ path }: { path: string }) {
+  const sp = useSearchParams();
+  const table = (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
+  if (path === "/dashboard" && !table) return null;
+  return <NewCase onNew={path === "/cases/new"} />;
 }
 
 /** Top bar of the signed-in app: the working frame. */
@@ -220,15 +277,7 @@ export default function AppBar({ email }: { email: string }) {
           <div className="hidden lg:block"><LangSwitch /></div>
           {email ? <AccountMenu email={email} /> : null}
           {/* the one main action is in the bar at every width: on a phone it used to sit inside the menu, two presses away */}
-          <Link
-            href="/cases/new"
-            aria-current={onNew ? "page" : undefined}
-            data-testid="new-case"
-            className={`!h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px] ${onNew ? "btn-line bg-panel max-lg:hidden" : "btn-primary"}`}
-          >
-            <Plus />
-            <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
-          </Link>
+          <Suspense fallback={<NewCase onNew={onNew} />}><NewCaseUnlessHome path={path} /></Suspense>
           <MobileMenu email={email} path={path} />
         </div>
       </div>

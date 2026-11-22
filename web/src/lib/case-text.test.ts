@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventTr, docKey, failTr, userFixable } from "./case-text";
+import { eventTr, eventKind, docKey, failTr, userFixable } from "./case-text";
 import { DICTS } from "./i18n";
 
 test("B09 events: every stored sentence maps to a key that exists in EN, 中文 and BM", () => {
@@ -48,4 +48,18 @@ test("R2-B12 an old failed case with a size error now says the file is too large
   assert.equal(userFixable("request_too_large: Request exceeds the maximum size"), true);
   assert.equal(failTr("Something odd").key, "case.err.other");
   assert.equal(userFixable("Reading timed out"), false);
+});
+
+test("activity status: every line gets one of five marks, and each mark has its word in EN, 中文 and BM", () => {
+  assert.equal(eventKind("Received 3 file(s)"), "ok");
+  assert.equal(eventKind("Opened a.zip: 3 file(s)"), "ok");
+  assert.equal(eventKind("Documents read"), "ok");
+  assert.equal(eventKind("Reading documents"), "ok"); // an older line: that step is over
+  assert.equal(eventKind("Reading documents", true), "work"); // the newest line of a case still being read
+  assert.equal(eventKind("Queued again", true), "work");
+  assert.equal(eventKind("Pending: JPJ RC"), "wait");
+  assert.equal(eventKind("Scan failed"), "fail");
+  assert.equal(eventKind("Scan failed", true), "fail");
+  assert.equal(eventKind("something new"), "note");
+  for (const l of ["en", "zh", "ms"] as const) for (const k of ["ok", "work", "wait", "fail", "note"]) assert.ok((DICTS[l] as Record<string, string>)[`ev.s.${k}`], `${l} ev.s.${k}`);
 });

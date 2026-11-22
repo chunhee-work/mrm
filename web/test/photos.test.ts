@@ -266,7 +266,7 @@ test("R3-U07: the finished state is not the same word as the button; U02 says wh
   for (const l of ["en", "zh", "ms"] as const) {
     const d = PHOTO_DICTS[l];
     assert.notEqual(d.doneOn, d.done, l);
-    assert.ok(d.doneCancelled && d.doneUndo && d.was && d.tabEdited && d.legendOpen, l);
+    assert.ok(d.doneCancelled && d.doneUndo && d.was && d.tabEdited, l); // the legend switch is gone (owner 2026-11-22)
   }
   assert.equal(PHOTO_DICTS.en.doneOn, "Finished");
 });

@@ -184,7 +184,7 @@ try {
     console.log(`— ${vname}`);
     const C = await seedAll(vname);
     const APP = [
-      ["dashboard", "/dashboard"], ["new-case", "/cases/new"], ["new-case-files", "/cases/new", choose([pdf, jpg(1), jpg(2)])],
+      ["dashboard", "/dashboard"], ["dashboard-open", "/dashboard?view=open"], ["dashboard-closed", "/dashboard?view=closed"], ["new-case", "/cases/new"], ["new-case-files", "/cases/new", choose([pdf, jpg(1), jpg(2)])],
       ...Object.entries(C).map(([k, id]) => [`case-${k}`, `/cases/${id}`]),
       ["desk", `/cases/${C.naming}/photos`], ["desk-finished", `/cases/${C.finished}/photos`],
       ["settings", "/settings"], ["billing", "/billing"], ["connection", "/connection"],

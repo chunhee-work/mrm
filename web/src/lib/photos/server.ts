@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import {
   canonName, doneBlock, isPermutation, pathInCase, statusAfterRegister,
@@ -395,7 +395,8 @@ export async function writeFailed(claimed: Claimed[], message: string): Promise<
   }
 }
 export async function retryFailed(caseId: string): Promise<void> {
-  await db.update(P).set({ nameState: "pending", nameError: null, claimedAt: null }).where(and(eq(P.caseId, caseId), eq(P.nameState, "failed")));
+  // a photo the adjuster has named by hand in the meantime is not sent to the model again
+  await db.update(P).set({ nameState: "pending", nameError: null, claimedAt: null }).where(and(eq(P.caseId, caseId), eq(P.nameState, "failed"), isNull(P.finalName)));
 }
 export async function failPending(caseId: string, message: string): Promise<number> {
   const r = await db.update(P).set({ nameState: "failed", nameError: message }).where(and(eq(P.caseId, caseId), eq(P.nameState, "pending"))).returning({ id: P.id });
