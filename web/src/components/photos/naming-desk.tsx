@@ -38,7 +38,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * The photo naming desk. One page for every open case: tabs across the top, the photos of the current case in a
  * two-column grid that scrolls inside its own frame. Every change saves at once and is taken back if the save fails.
  */
-export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgId: string; tabs: DeskTab[]; initialId: string }) {
+export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial }: { orgId: string; tabs: DeskTab[]; initialId: string; initial?: CaseState }) {
   const { lang } = useT();
   const t = useMemo(() => photoT(lang), [lang]);
   const tRef = useRef(t); tRef.current = t;
@@ -46,7 +46,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const [tabs, setTabs] = useState(firstTabs);
   const [caseId, setCaseId] = useState(initialId);
   const caseRef = useRef(caseId); caseRef.current = caseId;
-  const [states, setStatesRaw] = useState<Record<string, CaseState>>({});
+  const [states, setStatesRaw] = useState<Record<string, CaseState>>(() => (initial ? { [initialId]: initial } : {})); // the open case came with the page
   const statesRef = useRef(states);
   const mutate = useCallback((fn: (s: Record<string, CaseState>) => Record<string, CaseState>) => {
     const next = fn(statesRef.current);
@@ -142,7 +142,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     if (caseRef.current === cid) setLoadFailed(false);
   }, [mutate]);
 
-  useEffect(() => { void load(caseId, false); }, [caseId, load]);
+  const seeded = useRef(!!initial);
+  useEffect(() => {
+    if (seeded.current && caseId === initialId && initial) { // the page brought this case: no second request for it
+      seeded.current = false;
+      for (const p of initial.photos) server.current.set(p.id, p);
+      undo.current.sync(initialId, initial.photos, () => false);
+      return;
+    }
+    void load(caseId, false);
+  }, [caseId, load, initial, initialId]);
   useEffect(() => {
     const on = () => setShown(document.visibilityState === "visible");
     on();
@@ -872,9 +881,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
           </div>
         ) : (
           <div className="wrap grid grid-cols-2 gap-2 pb-24 pt-3 max-sm:px-3 sm:gap-4 sm:pt-4 xl:grid-cols-3">
-            {list.map((p) => (
+            {list.map((p, i) => (
               <PhotoCard
-                key={p.id} p={p} n={indexOf.get(p.id) ?? 0} total={st.photos.length} src={img(p.id)}
+                key={p.id} p={p} n={indexOf.get(p.id) ?? 0} total={st.photos.length} src={img(p.id)} eager={i < 6}
                 current={cur === p.id} editing={editing?.id === p.id ? editing : null}
                 canDrag={filter === "all" && !editing} flash={flashId === p.id} hl={hl === p.id} a={actions} t={t}
               />
