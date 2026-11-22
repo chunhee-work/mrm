@@ -178,7 +178,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     if (!d.doneAt) return d.confirm > 0 ? t("case.pp.todo", { n: String(d.confirm) }) : t("case.pp.press");
     // 完成 was pressed and the worker has not written a plan yet: say what was confirmed and what happens next, in the real state
     const next = c.status === "pending_doc" ? "case.pp.next.pending_doc" : c.status === "phase_b" ? "case.pp.next.phase_b" : c.status === "checking" ? "case.pp.next.checking" : "case.pp.next.early";
-    return `${t("case.pp.confirmed", { when: whenOf(d.doneAt, lang) })} · ${t("case.pp.summary", { n: String(d.total), edited: String(d.edited) })}. ${t(next)}`;
+    return `${t("case.pp.confirmed", { when: whenOf(d.doneAt, lang) })} · ${t("case.pp.summary", { n: String(d.total), edited: String(d.edited) })}${lang === "zh" ? "。" : ". "}${t(next)}`;
   };
   const DeskLink = () => (deskShown || c.photoPlan) ? (
     <section aria-labelledby="case-photos" className="lg:col-span-2">

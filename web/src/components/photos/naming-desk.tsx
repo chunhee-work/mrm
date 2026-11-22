@@ -62,7 +62,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const [editing, setEditingRaw] = useState<(Editing & { guard?: string }) | null>(null);
   const editingRef = useRef(editing);
   const setEditing = useCallback((e: (Editing & { guard?: string }) | null) => { editingRef.current = e; setEditingRaw(e); }, []);
-  const [toast, setToast] = useState<{ msg: string; key: number } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; key: number; action?: { label: string; run: () => void } } | null>(null);
   const [hl, setHl] = useState<number | null>(null); // the unnamed photo the last 完成 click jumped to
   const hlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastJump = useRef<number | null>(null);
@@ -94,10 +94,10 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const tab = tabs.find((x) => x.id === caseId);
   const tabsRef = useRef(tabs); tabsRef.current = tabs;
 
-  const say = useCallback((msg: string) => setToast({ msg, key: Date.now() }), []);
+  const say = useCallback((msg: string, action?: { label: string; run: () => void }) => setToast({ msg, key: Date.now(), action }), []);
   useEffect(() => {
     if (!toast) return;
-    const id = setTimeout(() => setToast(null), Math.min(7000, 2600 + toast.msg.length * 40));
+    const id = setTimeout(() => setToast(null), toast.action ? 8000 : Math.min(7000, 2600 + toast.msg.length * 40));
     return () => clearTimeout(id);
   }, [toast]);
 
@@ -340,6 +340,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     }, 90);
   }, [say]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const pressDoneRef = useRef<() => Promise<boolean>>(async () => false);
   const pressDone = useCallback(async (): Promise<boolean> => {
     const cid = caseRef.current;
     const c = statesRef.current[cid];
@@ -348,7 +349,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     if (c.done) {
       setDoneLocal(cid, false);
       const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: false });
-      if (r.ok) say(tt("undone")); else void load(cid, true);
+      if (r.ok) say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(); } }); else void load(cid, true);
       return false;
     }
     const n = counts(c.photos);
@@ -372,6 +373,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     void load(cid, true);
     return false;
   }, [setDoneLocal, say, load, jumpUnnamed]); // eslint-disable-line react-hooks/exhaustive-deps
+  pressDoneRef.current = pressDone;
 
   // ───────────── cases ─────────────
   const switchCase = useCallback((id: string) => {
@@ -403,14 +405,6 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     }
     return false;
   }, [switchCase]);
-  useEffect(() => {
-    const strip = tabStrip.current;
-    const el = strip?.querySelector<HTMLElement>('[aria-current="true"]');
-    if (!strip || !el) return;
-    const a = el.getBoundingClientRect(), b = strip.getBoundingClientRect();
-    if (a.left < b.left) strip.scrollLeft -= b.left - a.left + 12;
-    else if (a.right > b.right) strip.scrollLeft += a.right - b.right + 12;
-  }, [caseId]);
 
   // ───────────── filter: the cards on screen stay put until the filter is pressed again ─────────────
   function pickFilter(f: Filter) {
@@ -632,6 +626,14 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const n = useMemo(() => (st ? counts(st.photos) : null), [st]);
   // what the header shows: once 完成 was pressed nothing is left to confirm (R3-B01)
   const nUi = n && st?.done ? { ...n, confirm: 0 } : n;
+  useEffect(() => {
+    const strip = tabStrip.current;
+    const el = strip?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!strip || !el) return;
+    const a = el.getBoundingClientRect(), b = strip.getBoundingClientRect();
+    if (a.left < b.left) strip.scrollLeft -= b.left - a.left + 12;
+    else if (a.right > b.right) strip.scrollLeft += a.right - b.right + 16;
+  }, [caseId, n?.edited, tabs.length]); // R4-U03: also after the "changed" badge appears on the open tab
   const photoNames = useMemo(() => new Set((st?.photos ?? []).map(shownName).filter((x): x is string => !!x)), [st]);
   const indexOf = useMemo(() => new Map((st?.photos ?? []).map((p, i) => [p.id, i + 1])), [st]);
   const tabIndex = tabs.findIndex((x) => x.id === caseId);
@@ -656,7 +658,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     <button
       type="button" data-testid="done-btn" onClick={() => void pressDone()} aria-pressed={!!st?.done}
       title={st?.done ? t("doneUndo") : blocked ?? t("doneHint")}
-      className={`flex h-12 min-w-[12rem] shrink-0 items-center justify-center gap-2.5 rounded-[4px] px-7 text-[17px] font-bold leading-none tracking-wide shadow-[0_6px_16px_-8px_rgba(10,14,19,0.55)] outline-offset-2 transition-[background-color,transform] duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-scan active:translate-y-px max-sm:h-14 max-sm:w-full max-sm:text-[18px] ${
+      className={`flex h-12 min-w-[10.5rem] shrink-0 items-center justify-center gap-2.5 rounded-[4px] px-5 text-[17px] font-bold leading-none tracking-wide shadow-[0_6px_16px_-8px_rgba(10,14,19,0.55)] outline-offset-2 transition-[background-color,transform] duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-scan active:translate-y-px max-sm:h-14 max-sm:w-full max-sm:text-[18px] ${
         st?.done ? "bg-go text-bay" : "bg-ice text-bay hover:bg-icehi"
       }`}
     >
@@ -673,7 +675,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void onFiles(f); }}
       />
       <button type="button" disabled={!st || !!up} onClick={() => fileInput.current?.click()} className={quiet}>
-        <Plus className="h-3.5 w-3.5" />{up ? t("uploading", { done: up.done, total: up.total }) : <span className="max-sm:sr-only">{t("addPhotos")}</span>}
+        <Plus className="h-3.5 w-3.5" />{up ? t("uploading", { done: up.done, total: up.total }) : <span className="max-sm:sr-only xl:sr-only">{t("addPhotos")}</span>}
       </button>
     </>
   );
@@ -701,7 +703,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         <p className="min-w-0 truncate text-[14px] text-mute" data-testid="vehicle-line">{[st?.carModel ?? tab?.carModel, tab?.workshop].filter(Boolean).join(" · ")}</p>
       </div>
       {plan && plan.photos > 0 && (
-        <p className="mt-1.5 hidden max-w-[68ch] font-mono text-[11.5px] leading-snug text-mute sm:block" data-testid="photo-plan">
+        <p className="mt-1.5 hidden max-w-[68ch] truncate font-mono text-[11.5px] leading-snug text-mute sm:block lg:max-w-[230px]" data-testid="photo-plan" title={t("planLine", { n: plan.photos, types: Object.entries(plan.types).map(([k, v]) => `${k} ×${v}`).join(" · ") })}>
           {t("planLine", { n: plan.photos, types: Object.entries(plan.types).map(([k, v]) => `${k} ×${v}`).join(" · ") })}
         </p>
       )}
@@ -711,12 +713,24 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const kpi = nUi ? (
     <dl className="hidden items-stretch divide-x divide-hair overflow-hidden rounded-[4px] border border-hair sm:flex" data-testid="kpi">
       {([["k.photos", nUi.total, false], ["k.confirm", nUi.confirm, nUi.confirm > 0], ["k.edited", nUi.edited, false]] as const).map(([k, v, hot]) => (
-        <div key={k} className="flex min-w-[78px] flex-col items-center px-3 py-1.5">
+        <div key={k} className="flex min-w-[60px] flex-col items-center px-3 py-1.5">
           <dd className={`order-1 font-mono text-[18px] font-semibold leading-none ${hot ? "text-amber" : "text-fg"}`}>{v}</dd>
           <dt className="order-2 mt-1 text-[11.5px] leading-none text-mute">{t(k)}</dt>
         </div>
       ))}
     </dl>
+  ) : null;
+  // R4-U01: on a phone the same three numbers sit in one line under the plate; pressing it opens the legend
+  const kpiLine = nUi ? (
+    <button
+      type="button" aria-expanded={legendOpen} aria-controls="desk-legend" onClick={() => setLegendOpen((v) => !v)} data-testid="kpi-line"
+      className="mt-1.5 flex max-w-full items-center gap-1.5 text-left font-mono text-[12.5px] leading-none text-mute sm:hidden"
+    >
+      <span className="text-fg">{nUi.total}</span><span>{t("k.photos")}</span><span aria-hidden="true">·</span>
+      <span className={nUi.confirm > 0 ? "font-semibold text-amber" : "text-fg"}>{nUi.confirm}</span><span>{t("k.confirm")}</span><span aria-hidden="true">·</span>
+      <span className="text-fg">{nUi.edited}</span><span>{t("k.edited")}</span>
+      <Chevron className={`ml-0.5 shrink-0 ${legendOpen ? "rotate-180" : ""}`} />
+    </button>
   ) : null;
   const extrasRow = (
     <div className={`flex items-center gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible ${noBar}`}>
@@ -760,16 +774,18 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
             </nav>
             {next}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3.5 max-sm:py-2.5 lg:px-5">
-            {title}
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3.5 max-sm:py-2.5 lg:px-5">
+            <div className="min-w-0 lg:max-w-[230px]">{title}{kpiLine}</div>
             {kpi}
             <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full max-sm:flex-nowrap">
               {filterSoft}{addBtn}{helpBtn}
             </div>
+            {/* R4-U02: on a wide screen 完成 sits at the right end of this row; a phone gets it as a bar along the bottom edge (R3-B03) */}
+            <div className="max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-40 max-sm:border-t max-sm:border-hair max-sm:bg-panel max-sm:p-3 max-sm:pb-[calc(12px+env(safe-area-inset-bottom))] max-sm:shadow-[0_-8px_20px_-12px_rgba(10,14,19,0.35)] sm:ml-auto" data-testid="done-wrap">{doneBtn}</div>
           </div>
           <div className="border-t border-hair px-4 py-2 max-sm:py-1 lg:px-5">{extrasRow}</div>
           {legendOpen && (
-            <div id="desk-legend" className="hidden border-t border-hair px-4 py-3 sm:block lg:px-5" data-testid="legend">
+            <div id="desk-legend" className="border-t border-hair px-4 py-3 lg:px-5" data-testid="legend">
               <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13.5px] text-fg">
                 <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] bg-bay px-2 font-mono text-[11.5px] font-semibold text-go">96%</span>{t("lg.sure")}</li>
                 <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] bg-amber px-2 font-mono text-[11.5px] font-semibold text-bay">72%</span>{t("lg.low")}</li>
@@ -780,8 +796,6 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
               </ul>
             </div>
           )}
-          {/* a phone gets the big 完成 button as a bar along the bottom edge, so the header leaves the screen to the photos (R3-B03) */}
-          <div className="flex border-t border-hair p-3 lg:justify-end lg:px-5 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-40 max-sm:bg-panel max-sm:pb-[calc(12px+env(safe-area-inset-bottom))] max-sm:shadow-[0_-8px_20px_-12px_rgba(10,14,19,0.35)]">{doneBtn}</div>
         </div>
       </div>
     </div>
@@ -857,7 +871,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
             <button type="button" className="link text-[15px]" onClick={() => pickFilter("all")}>{t("empty.showAll")}</button>
           </div>
         ) : (
-          <div className="wrap grid grid-cols-2 gap-2 pb-24 pt-3 max-sm:px-3 sm:gap-4 sm:pt-4">
+          <div className="wrap grid grid-cols-2 gap-2 pb-24 pt-3 max-sm:px-3 sm:gap-4 sm:pt-4 xl:grid-cols-3">
             {list.map((p) => (
               <PhotoCard
                 key={p.id} p={p} n={indexOf.get(p.id) ?? 0} total={st.photos.length} src={img(p.id)}
@@ -882,8 +896,13 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
 
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-[60] sm:bottom-[calc(16px+env(safe-area-inset-bottom))] flex justify-center px-4">
         {toast && (
-          <div key={toast.key} className="max-w-[560px] rounded-[3px] border border-hair bg-fg px-4 py-2.5 text-[14px] font-medium leading-snug text-bay shadow-[0_12px_24px_-12px_rgba(0,0,0,0.8)] motion-safe:animate-[deskrise_0.18s_ease-out]">
-            {toast.msg}
+          <div key={toast.key} className="flex max-w-[560px] items-center rounded-[3px] border border-hair bg-fg px-4 py-2.5 text-[14px] font-medium leading-snug text-bay shadow-[0_12px_24px_-12px_rgba(0,0,0,0.8)] motion-safe:animate-[deskrise_0.18s_ease-out]">
+            <span>{toast.msg}</span>
+            {toast.action && (
+              <button type="button" data-testid="toast-action" onClick={toast.action.run} className="pointer-events-auto ml-4 rounded-[2px] border border-bay/40 px-2.5 py-1 text-[13px] font-bold uppercase tracking-wide hover:bg-bay/10">
+                {toast.action.label}
+              </button>
+            )}
           </div>
         )}
       </div>

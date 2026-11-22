@@ -9,13 +9,26 @@ import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 
 import { sidesForCases } from "@/lib/case-sides";
 import { CONFIRM_COUNT } from "@/lib/photos/confirm-sql";
+import type { Metadata } from "next";
+import { getT } from "@/lib/i18n-server";
 import { pageMeta } from "@/lib/meta";
+import { SITE } from "@/lib/site";
 import { workerUiOn } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
 import { timelineFor } from "@/lib/screenshots/server";
 import { missingRelation } from "@/lib/ext/worker-gate";
 
-export const generateMetadata = () => pageMeta("case.title", { index: false });
+/** R4-B04: the tab says which case it is ("WXY9999 · Case · Autopilotclaim"), so several open cases can be told apart.
+ * `absolute`: the layout above sets a plain title, which drops the root "%s · brand" template for everything below it. */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const base = await pageMeta("case.title", { index: false });
+  const { t } = await getT();
+  const { orgId } = await requireUser();
+  const [c] = await db.select({ plate: schema.cases.plate }).from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId))).limit(1);
+  const name = c ? `${c.plate || t("photos.noPlate")} · ${t("case.title")}` : t("case.title");
+  return { ...base, title: { absolute: `${name} · ${SITE.brand}` } };
+}
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a recovery read runs after the page is sent
 

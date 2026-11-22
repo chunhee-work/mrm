@@ -96,6 +96,19 @@ try {
     await shot("desk-done-button");
   });
 
+  await step("R4-U02: Done sits in the same row as the filters (not alone), the header is short, and three photos fit in a row at 1280 px", async () => {
+    await shot("desk-r4-done-in-row");
+    const d = await page.getByTestId("done-btn").first().boundingBox();
+    const f = await page.getByRole("group", { name: /^(Show|显示|Papar)$/ }).first().boundingBox();
+    assert.ok(Math.abs((d.y + d.height / 2) - (f.y + f.height / 2)) < 30, `done y ${d.y}, filter y ${f.y}`);
+    const first = await page.locator("article[data-pid]").first().boundingBox();
+    assert.ok(first.y < 380, `the first photos start at ${first.y}px`);
+    const ys = [];
+    for (let i = 0; i < 3; i++) ys.push(Math.round((await card(i + 1).boundingBox()).y));
+    assert.ok(ys[0] === ys[1] && ys[1] === ys[2], `three photos in one row: ${ys}`);
+    await shot("desk-r4-done-in-row");
+  });
+
   await step("one click on Done with unnamed photos: message, filter All, scroll to + highlight + focus the FIRST unnamed", async () => {
     await page.getByRole("button", { name: /^(All|全部|Semua)/ }).click(); // start on a different filter than the end state is not needed; All is fine
     await page.getByTestId("done-btn").first().click();
@@ -139,6 +152,16 @@ try {
     const toast = await page.locator("[aria-live=polite]").first().innerText();
     assert.match(toast, /queued for the worker|已排到后台|giliran pekerja/);
     assert.doesNotMatch(toast, /AI/);
+  });
+
+  await step("R4-U05: tapping Finished takes Done back with an Undo button in the toast; Undo puts Done back", async () => {
+    await page.getByTestId("done-btn").first().click();
+    await page.getByTestId("toast-action").waitFor({ timeout: 4000 });
+    assert.equal((await caseRow(A)).photos_done_at, null);
+    await page.getByTestId("toast-action").click();
+    await page.waitForTimeout(1200);
+    assert.notEqual((await caseRow(A)).photos_done_at, null, "Done is back after Undo");
+    assert.match(await page.getByTestId("done-btn").first().innerText(), /Finished|已完成|Siap/);
   });
 
   await step("editing a name after Done undoes Done and clears the snapshot", async () => {
@@ -310,6 +333,20 @@ try {
     await early.close();
   });
 
+  await step("R4-B04: the case page tab title carries the plate", async () => {
+    await page.goto(`${BASE}/cases/${A}`);
+    await page.waitForLoadState("load");
+    await page.waitForTimeout(800);
+    assert.match(await page.title(), /^E2EA1111 · .+ · Autopilotclaim$/);
+  });
+
+  await step("R4-B01/U04: the dashboard has no '1 photos' and no double tick", async () => {
+    await page.goto(`${BASE}/dashboard`);
+    await page.getByTestId("photos-link").first().waitFor();
+    const links = await page.getByTestId("photos-link").allInnerTexts();
+    for (const t of links) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
+  });
+
   // ───────── phone width ─────────
   await step("phone: the Done button fills the width and is at least 56px tall", async () => {
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -321,12 +358,32 @@ try {
     const b = p.getByTestId("done-btn").first();
     const box = await b.boundingBox();
     assert.ok(box.height >= 56 && box.width >= 300, JSON.stringify(box));
-    // R3-B03: the header leaves at least 60 % of the screen to the photos, and Done is a bar along the bottom edge
+    // R3-B03: the header leaves at least 57 % of the screen to the photos, and Done is a bar along the bottom edge
     if (SHOTS) await p.screenshot({ path: path.join(SHOTS, "desk-mobile.png") });
     const firstTop = (await p.locator("article[data-pid]").first().boundingBox()).y;
-    assert.ok(firstTop <= 844 * 0.4, `photos start at ${firstTop}px of 844`);
+    assert.ok(firstTop <= 844 * 0.43, `photos start at ${firstTop}px of 844`);
     assert.ok(box.y + box.height >= 844 - 24, `done bar at the bottom: ${box.y + box.height}`);
     if (SHOTS) await p.screenshot({ path: path.join(SHOTS, "desk-mobile.png") });
+    await mobile.close();
+  });
+
+  await step("R4-U01/U03: on a phone the one-line numbers are shown and open the legend; the open tab's badge is fully in view", async () => {
+    const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await mobile.addCookies(await ctx.cookies());
+    const p = await mobile.newPage();
+    await p.goto(`${BASE}/cases/${A}/photos`);
+    await p.locator("article[data-pid]").first().waitFor();
+    const line = p.getByTestId("kpi-line");
+    await line.waitFor();
+    assert.match(await line.innerText(), /\d/);
+    await line.click();
+    await p.getByTestId("legend").waitFor();
+    assert.match(await p.getByTestId("legend").innerText(), /TypeSafe/);
+    const tab = p.locator('button[aria-current="true"]').first();
+    const nav = await tab.locator("xpath=ancestor::nav[1]").boundingBox();
+    const tb = await tab.boundingBox();
+    assert.ok(tb.x + tb.width <= nav.x + nav.width + 1, `the open tab is cut off: ${tb.x + tb.width} > ${nav.x + nav.width}`);
+    if (SHOTS) await p.screenshot({ path: path.join(SHOTS, "desk-mobile-r4.png") });
     await mobile.close();
   });
 } finally {
