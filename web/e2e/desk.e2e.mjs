@@ -110,7 +110,8 @@ try {
   });
 
   await step("one click on Done with unnamed photos: message, filter All, scroll to + highlight + focus the FIRST unnamed", async () => {
-    await page.getByRole("button", { name: /^(All|全部|Semua)/ }).click(); // start on a different filter than the end state is not needed; All is fine
+    // the first filter shows every photo: "Photos" on a wide screen (the number tiles are the filter), "All" on a phone
+    await page.getByRole("group", { name: /^(Show|显示|Papar)$/ }).getByRole("button").first().click();
     await page.getByTestId("done-btn").first().click();
     await page.getByText(/2 (photos still have no name|张照片没命名|gambar belum)|还有 2 张照片没命名/).first().waitFor({ timeout: 5000 });
     const first = page.locator("article[data-unnamed]").nth(0);
@@ -310,6 +311,9 @@ try {
 
   await step("R3-B09: the password form has no browser bubble, a confirm field, and the error follows the page language", async () => {
     await page.goto(`${BASE}/settings`);
+    // the form stays folded until "Change password" is pressed (one row instead of three empty boxes)
+    assert.equal(await page.locator("form[novalidate]").count(), 0);
+    await page.getByTestId("pw-open").click();
     assert.equal(await page.locator("form[novalidate]").count(), 1);
     await page.getByTestId("pw-confirm").waitFor();
     const inputs = page.locator("form[novalidate] input[type=password]");
@@ -318,7 +322,9 @@ try {
     await inputs.nth(2).fill("abcdefgh2");
     await page.locator("form[novalidate] button").click();
     await page.getByText(/not the same/).waitFor();
-    await page.getByRole("button", { name: "中文" }).click();
+    // the language is changed in one place only, the globe in the top bar (Settings no longer repeats it)
+    await page.getByRole("button", { name: /^Language/ }).click();
+    await page.getByRole("button", { name: /中文/ }).click();
     await page.getByText(/不一样/).waitFor({ timeout: 5000 });
     await ctx.addCookies([{ name: "lang", value: "en", url: BASE }]);
   });
@@ -367,16 +373,17 @@ try {
     await mobile.close();
   });
 
-  await step("R4-U01/U03: on a phone the one-line numbers are shown and open the legend; the open tab's badge is fully in view", async () => {
+  await step("R4-U01/U03: on a phone the numbers are shown once (on the filter buttons) and \"?\" opens the legend; the open tab's badge is fully in view", async () => {
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
     await mobile.addCookies(await ctx.cookies());
     const p = await mobile.newPage();
     await p.goto(`${BASE}/cases/${A}/photos`);
     await p.locator("article[data-pid]").first().waitFor();
-    const line = p.getByTestId("kpi-line");
-    await line.waitFor();
-    assert.match(await line.innerText(), /\d/);
-    await line.click();
+    const numbers = p.getByRole("group", { name: /^(Show|显示|Papar)$/ });
+    assert.equal(await numbers.count(), 1, "one row of numbers, not two");
+    assert.match(await numbers.innerText(), /\d/);
+    assert.equal(await p.getByTestId("kpi-line").count(), 0);
+    await p.getByTestId("legend-toggle-m").click();
     await p.getByTestId("legend").waitFor();
     assert.match(await p.getByTestId("legend").innerText(), /TypeSafe/);
     const tab = p.locator('button[aria-current="true"]').first();

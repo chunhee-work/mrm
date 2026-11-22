@@ -675,11 +675,12 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void onFiles(f); }}
       />
       <button type="button" disabled={!st || !!up} onClick={() => fileInput.current?.click()} className={quiet}>
-        <Plus className="h-3.5 w-3.5" />{up ? t("uploading", { done: up.done, total: up.total }) : <span className="max-sm:sr-only xl:sr-only">{t("addPhotos")}</span>}
+        <Plus className="h-3.5 w-3.5" />{up ? t("uploading", { done: up.done, total: up.total }) : <span className="max-sm:sr-only">{t("addPhotos")}</span>}
       </button>
     </>
   );
-  const helpBtn = <button type="button" onClick={() => setHelp(true)} aria-label={t("help")} title={t("help")} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] font-mono text-[14px] text-mute transition-colors duration-150 hover:bg-panel2 hover:text-fg">?</button>;
+  // one way in to the explanations: a phone gets "?" (it opens the legend), a wide screen gets the words in the row below
+  const helpBtn = <button type="button" aria-expanded={legendOpen} aria-controls="desk-legend" onClick={() => setLegendOpen((v) => !v)} aria-label={t("legendOpen")} title={t("legendOpen")} data-testid="legend-toggle-m" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] font-mono text-[14px] text-mute transition-colors duration-150 hover:bg-panel2 hover:text-fg sm:hidden">?</button>;
   const soft = (f: Filter, label: string, count: number | null, hot: boolean) => (
     <button
       key={f} type="button" aria-pressed={filter === f} onClick={() => pickFilter(f)}
@@ -690,7 +691,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     </button>
   );
   const filterSoft = (
-    <div role="group" aria-label={t("filter")} className="flex min-w-0 rounded-[4px] bg-panel2 p-0.5 max-sm:flex-1">
+    <div role="group" aria-label={t("filter")} className="flex min-w-0 rounded-[4px] bg-panel2 p-0.5 max-sm:flex-1 sm:hidden">
       {soft("all", t("f.all"), n?.total ?? null, false)}
       {soft("confirm", t("f.confirm"), nUi?.confirm ?? null, !!nUi?.confirm)}
       {soft("edited", t("f.edited"), n?.edited ?? null, false)}
@@ -702,35 +703,22 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
         <h1 className="font-mono text-[20px] font-semibold leading-none tracking-wide text-fg lg:text-[22px]">{st?.plate || tab?.plate || ""}</h1>
         <p className="min-w-0 truncate text-[14px] text-mute" data-testid="vehicle-line">{[st?.carModel ?? tab?.carModel, tab?.workshop].filter(Boolean).join(" · ")}</p>
       </div>
-      {plan && plan.photos > 0 && (
-        <p className="mt-1.5 hidden max-w-[68ch] truncate font-mono text-[11.5px] leading-snug text-mute sm:block lg:max-w-[230px]" data-testid="photo-plan" title={t("planLine", { n: plan.photos, types: Object.entries(plan.types).map(([k, v]) => `${k} ×${v}`).join(" · ") })}>
-          {t("planLine", { n: plan.photos, types: Object.entries(plan.types).map(([k, v]) => `${k} ×${v}`).join(" · ") })}
-        </p>
-      )}
     </div>
   );
-  // R3-U04: the three numbers of the prototype, always in view on a wide screen (on a phone the filter buttons carry the same numbers)
+  // R3-U04: the three numbers of the prototype, always in view on a wide screen. Each number is also the filter, so the same
+  // three numbers are not shown a second time as filter buttons (a phone has the filter buttons, which carry the numbers).
   const kpi = nUi ? (
-    <dl className="hidden items-stretch divide-x divide-hair overflow-hidden rounded-[4px] border border-hair sm:flex" data-testid="kpi">
-      {([["k.photos", nUi.total, false], ["k.confirm", nUi.confirm, nUi.confirm > 0], ["k.edited", nUi.edited, false]] as const).map(([k, v, hot]) => (
-        <div key={k} className="flex min-w-[60px] flex-col items-center px-3 py-1.5">
-          <dd className={`order-1 font-mono text-[18px] font-semibold leading-none ${hot ? "text-amber" : "text-fg"}`}>{v}</dd>
-          <dt className="order-2 mt-1 text-[11.5px] leading-none text-mute">{t(k)}</dt>
-        </div>
+    <div role="group" aria-label={t("filter")} className="hidden items-stretch divide-x divide-hair overflow-hidden rounded-[4px] border border-hair sm:flex" data-testid="kpi">
+      {([["all", "k.photos", nUi.total, false], ["confirm", "k.confirm", nUi.confirm, nUi.confirm > 0], ["edited", "k.edited", nUi.edited, false]] as const).map(([f, k, v, hot]) => (
+        <button
+          key={f} type="button" aria-pressed={filter === f} onClick={() => pickFilter(f)}
+          className={`flex min-w-[68px] cursor-pointer flex-col-reverse items-center justify-center border-b-2 px-3.5 pb-1 pt-1.5 outline-offset-[-2px] transition-colors duration-150 ${filter === f ? "border-b-scan bg-icetint" : "border-b-transparent hover:bg-panel2"}`}
+        >
+          <span className={`mt-1 text-[11.5px] leading-none ${filter === f ? "font-semibold text-fg" : "text-mute"}`}>{t(k)}</span>
+          <span className={`font-mono text-[18px] font-semibold leading-none ${hot ? "text-amber" : "text-fg"}`}>{v}</span>
+        </button>
       ))}
-    </dl>
-  ) : null;
-  // R4-U01: on a phone the same three numbers sit in one line under the plate; pressing it opens the legend
-  const kpiLine = nUi ? (
-    <button
-      type="button" aria-expanded={legendOpen} aria-controls="desk-legend" onClick={() => setLegendOpen((v) => !v)} data-testid="kpi-line"
-      className="mt-1.5 flex max-w-full items-center gap-1.5 text-left font-mono text-[12.5px] leading-none text-mute sm:hidden"
-    >
-      <span className="text-fg">{nUi.total}</span><span>{t("k.photos")}</span><span aria-hidden="true">·</span>
-      <span className={nUi.confirm > 0 ? "font-semibold text-amber" : "text-fg"}>{nUi.confirm}</span><span>{t("k.confirm")}</span><span aria-hidden="true">·</span>
-      <span className="text-fg">{nUi.edited}</span><span>{t("k.edited")}</span>
-      <Chevron className={`ml-0.5 shrink-0 ${legendOpen ? "rotate-180" : ""}`} />
-    </button>
+    </div>
   ) : null;
   const extrasRow = (
     <div className={`flex items-center gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible ${noBar}`}>
@@ -775,7 +763,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
             {next}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3.5 max-sm:py-2.5 lg:px-5">
-            <div className="min-w-0 lg:max-w-[230px]">{title}{kpiLine}</div>
+            <div className="min-w-0 lg:max-w-[300px]">{title}</div>
             {kpi}
             <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full max-sm:flex-nowrap">
               {filterSoft}{addBtn}{helpBtn}
@@ -792,8 +780,14 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
                 <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] border border-ice/70 px-2 font-mono text-[11.5px] font-semibold uppercase text-ice">{t("fixed")}</span>{t("lg.fixed")}</li>
                 <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] bg-ice px-2 font-mono text-[11.5px] font-semibold text-bay">{t("edited")}</span>{t("lg.edited")}</li>
                 <li className="flex items-center gap-2"><span className="inline-flex h-6 items-center rounded-[2px] border border-hair bg-panel2 px-2 font-mono text-[11.5px] font-semibold tracking-wide text-fg">TypeSafe</span>{t("lg.typesafe")}</li>
-                <li className="flex items-center gap-2 text-mute"><kbd className="rounded-[2px] border border-hair px-1.5 font-mono text-[11.5px] text-fg">Enter</kbd><kbd className="rounded-[2px] border border-hair px-1.5 font-mono text-[11.5px] text-fg">Enter</kbd>{t("lg.enter")}</li>
+                <li className="flex items-center gap-2 text-mute max-sm:hidden"><kbd className="rounded-[2px] border border-hair px-1.5 font-mono text-[11.5px] text-fg">Enter</kbd><kbd className="rounded-[2px] border border-hair px-1.5 font-mono text-[11.5px] text-fg">Enter</kbd>{t("lg.enter")}</li>
+                <li className="max-sm:hidden"><button type="button" onClick={() => setHelp(true)} className="link text-[13.5px] font-semibold" data-testid="help-open">{t("help")}</button></li>
               </ul>
+              {plan && plan.photos > 0 && (
+                <p className="mt-2.5 font-mono text-[11.5px] leading-snug text-mute" data-testid="photo-plan">
+                  {t("planLine", { n: plan.photos, types: Object.entries(plan.types).map(([k, v]) => `${k} ×${v}`).join(" · ") })}
+                </p>
+              )}
             </div>
           )}
         </div>

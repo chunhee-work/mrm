@@ -131,7 +131,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const newest = [...c.events].reverse();
   const shownLog = allLog ? newest : newest.slice(0, LOG_SHORT);
   const Log = () => (
-    <details open className="group">
+    <details className="group" data-testid="case-log">
       <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.log")}<span className="note text-mute">· {c.events.length}</span></summary>
       <ul className="rounded-[4px] border border-hair">
         {shownLog.map((e, i) => {
@@ -181,7 +181,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     return `${t("case.pp.confirmed", { when: whenOf(d.doneAt, lang) })} · ${t("case.pp.summary", { n: String(d.total), edited: String(d.edited) })}${lang === "zh" ? "。" : ". "}${t(next)}`;
   };
   const DeskLink = () => (deskShown || c.photoPlan) ? (
-    <section aria-labelledby="case-photos" className="lg:col-span-2">
+    <section aria-labelledby="case-photos" className="min-w-0">
       <h2 id="case-photos" className="label mb-3">{t("case.photoPlan")}</h2>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-[4px] border border-hair px-4 py-3">
         <p className="min-w-0 text-[14.5px] text-fg [text-wrap:pretty]" data-testid="photo-plan-line" suppressHydrationWarning>
@@ -197,12 +197,17 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   ) : null;
 
   const sub = working ? (c.stale ? t("case.stale") : t("case.reading")) : failed ? t(failTr(c.error).key, failTr(c.error).vars) : pending ? t("case.missing") : "";
-  const title = c.plate || t("case.untitled");
+  // no plate yet: the first file's name is the title (it used to read "New case", like the upload page)
+  const title = c.plate || c.files[0]?.name || t("case.untitled");
 
   const Header = () => (
     <div className="flex min-h-[60px] flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-hair px-5 py-3 sm:min-h-[68px] sm:px-8">
-      <h1 className={`display-2 text-[24px] text-fg sm:text-[28px] ${c.plate ? "num font-mono" : ""}`}>{title}</h1>
-      {Status()}
+      <div className="min-w-0">
+        <h1 className={`text-fg [overflow-wrap:anywhere] ${c.plate ? "display-2 num font-mono text-[24px] sm:text-[28px]" : "text-[20px] font-semibold leading-tight sm:text-[22px]"}`}>{title}</h1>
+        {c.createdAt && <p className="mt-2 text-[13.5px] leading-none text-mute" suppressHydrationWarning>{t("case.uploaded", { when: whenOf(c.createdAt, lang) })}</p>}
+      </div>
+      {/* the amber banner right below already says what is wrong: no second "missing" up here */}
+      {!needsFiles && Status()}
     </div>
   );
 
@@ -217,6 +222,10 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   );
 
   // one banner says what happened and offers the action; facts and activity sit under it
+  // the record of the case (activity, files): there when wanted, folded until then. With nothing about photos to show,
+  // it sits in the free half next to the facts instead of under an empty space.
+  const record = "grid min-w-0 grid-cols-1 gap-y-1 [&_summary]:mb-0 [&_summary]:min-h-11 [&_details[open]>summary]:mb-3";
+  const recordBeside = facts.length > 0 && !deskShown && !c.photoPlan;
   return shell(
     <>
       {Header()}
@@ -229,25 +238,32 @@ export default function CaseView({ c }: { c: CaseDetail }) {
           <Link href="/connection" className="mt-1 inline-block font-semibold text-fg underline">{t("conn.title")}</Link>
         </div>
       )}
-      <div className={`flex flex-wrap items-center justify-between gap-4 border-b border-hair px-5 py-4 sm:px-8 ${failed || pending ? "bg-ambertint" : working ? "bg-panel2" : ""}`} role={failed ? "alert" : "status"}>
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="mt-[3px]">{Mark()}</span>
-          <div className="min-w-0">
-            <p className="text-[17px] font-medium leading-snug text-fg">{headline}</p>
-            {sub && !pending && <p className="mt-1 text-[14px] text-mute">{sub}</p>}
+      {needsFiles ? (
+        // what is missing and the button that sends it, once, right under the title (it used to be said four times on this page)
+        MissingList()
+      ) : (
+        <div className={`flex flex-wrap items-center justify-between gap-4 border-b border-hair px-5 py-4 sm:px-8 ${failed || pending ? "bg-ambertint" : working ? "bg-panel2" : ""}`} role={failed ? "alert" : "status"}>
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-[3px]">{Mark()}</span>
+            <div className="min-w-0">
+              <p className="text-[17px] font-medium leading-snug text-fg">{headline}</p>
+              {sub && !pending && <p className="mt-1 text-[14px] text-mute">{sub}</p>}
+            </div>
           </div>
+          {Retry()}
         </div>
-        {Retry()}
-      </div>
+      )}
       {c.status === "done" && <ResultBlock carModel={c.carModel} totalRm={c.totalRm} sides={c.sides} />}
-      <div className="grid grid-cols-1 gap-6 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-2">
-        <div className="grid min-w-0 grid-cols-1 content-start gap-6">
-          {facts.length > 0 && <section aria-labelledby="case-found" className="min-w-0"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2>{Facts()}</section>}
-          {needsFiles && <section aria-labelledby="case-missing" className="min-w-0">{!failed && <h2 id="case-missing" className="label mb-3">{t("case.missing")}</h2>}{MissingList()}</section>}
-        </div>
-        <section aria-labelledby="case-log" className="grid min-w-0 grid-cols-1 content-start gap-6"><div id="case-log">{Log()}</div>{Files()}</section>
-        {DeskLink()}
-        {c.shots && <div className="lg:col-span-2"><ShotTimeline caseId={c.id} shots={c.shots} /></div>}
+      <div className="grid grid-cols-1 gap-6 px-5 py-6 sm:px-8 sm:py-8">
+        {(facts.length > 0 || deskShown || c.photoPlan) && (
+          <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-2">
+            {facts.length > 0 && <section aria-labelledby="case-found" className="min-w-0"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2>{Facts()}</section>}
+            {DeskLink()}
+            {recordBeside && <div className={`${record} lg:pt-8`}>{Log()}{Files()}</div>}
+          </div>
+        )}
+        {c.shots && <ShotTimeline caseId={c.id} shots={c.shots} />}
+        {!recordBeside && <div className={`${record} gap-x-6 lg:grid-cols-2`}>{Log()}{Files()}</div>}
       </div>
     </>
   );
