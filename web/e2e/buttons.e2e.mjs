@@ -46,7 +46,9 @@ async function seed(key, plate, status, o = {}) {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,${o.done ? "now()" : "NULL"}, now() - ($11 || ' minutes')::interval)`,
     [id, orgId, plate, status, "Perodua Myvi 1.5 AV (FAKE)", "Fake Insurance Bhd", o.total ?? null, o.pending ?? null, o.error ?? null, null, String(o.age ?? 5)]);
   await db.query(`INSERT INTO case_events (case_id, step, message) VALUES ($1,'upload','Received 2 files')`, [id]);
-  await db.query(`INSERT INTO case_files (case_id, kind, blob_url, original_name, size) VALUES ($1,'pdf',$2,'claim_bundle_FAKE.pdf',333000)`, [id, `local:${id}/claim.pdf`]);
+  // a real (fake) picture behind the file row, so a press on its name in the Files list has something to open
+  writeFileSync(file(`${orgId}/${id}/docs/IMG_FAKE.jpg`), JPEG);
+  await db.query(`INSERT INTO case_files (case_id, kind, blob_url, original_name, size) VALUES ($1,'photo',$2,'IMG_FAKE.jpg',333000)`, [id, `${orgId}/${id}/docs/IMG_FAKE.jpg`]);
   let i = 0;
   for (const [name, conf] of o.photos ?? []) {
     i++;
@@ -81,6 +83,7 @@ const LIST = (scope) => {
   const seen = new Map(), out = [];
   for (const el of document.querySelectorAll(scope ? scope.split(",").map((x) => `${x.trim()} :is(${sel})`).join(",") : sel)) {
     if (el.closest("[inert]") || el.disabled || el.getAttribute("aria-disabled") === "true") continue;
+    if (el.tagName !== "SUMMARY" && el.closest("details:not([open])")) continue; // folded away: reached by its own pass with the section open
     const b = el.getBoundingClientRect(), s = getComputedStyle(el);
     if (b.width < 2 || b.height < 2 || s.visibility === "hidden" || s.pointerEvents === "none") continue;
     const label = (el.getAttribute("aria-label") || el.getAttribute("title") || el.innerText || el.value || "").trim().replace(/\s+/g, " ").slice(0, 50);
@@ -96,6 +99,7 @@ const MARK = ([want, scope]) => {
   const sel = "button, a[href], [role=button], [role=tab], [role=switch], [role=menuitem], summary, input[type=checkbox], input[type=radio], select";
   for (const el of document.querySelectorAll(scope ? scope.split(",").map((x) => `${x.trim()} :is(${sel})`).join(",") : sel)) {
     if (el.closest("[inert]") || el.disabled || el.getAttribute("aria-disabled") === "true") continue;
+    if (el.tagName !== "SUMMARY" && el.closest("details:not([open])")) continue; // folded away: reached by its own pass with the section open
     const b = el.getBoundingClientRect(), s = getComputedStyle(el);
     if (b.width < 2 || b.height < 2 || s.visibility === "hidden" || s.pointerEvents === "none") continue;
     const label = (el.getAttribute("aria-label") || el.getAttribute("title") || el.innerText || el.value || "").trim().replace(/\s+/g, " ").slice(0, 50);
@@ -150,6 +154,8 @@ async function pressAll(ctx, where, url, vw, prep, scope = null) {
     const { page, errs } = await open(ctx, url, prep);
     let reqs = 0;
     page.on("request", (r) => { if (["fetch", "xhr", "document"].includes(r.resourceType()) && !r.headers()["next-router-prefetch"]) reqs++; });
+    // a link that opens a new tab (an uploaded file): the press did something, and the new tab must load
+    page.on("popup", (pop) => { reqs++; pop.on("response", (r) => { if (r.request().isNavigationRequest() && r.status() >= 400) errs.push(`new tab: ${r.status()} on ${new URL(r.url()).pathname}`); }); });
     const tag = await page.evaluate(MARK, [key, scope]);
     if (!tag) { await page.close(); continue; } // only there after another press (a menu item, an undo)
     const before = await page.evaluate(STATE);
@@ -168,6 +174,7 @@ async function pressAll(ctx, where, url, vw, prep, scope = null) {
     if (r && r.sw > vw + 1) note(`${where} ${key}`, `page scrolls sideways after the press (${r.sw}px)`);
     for (const e of errs.splice(0)) note(`${where} ${key}`, e);
     if (after === before && reqs === 0) quiet.push(`${where} ${key}`);
+    for (const other of ctx.pages()) if (other !== page) await other.close().catch(() => {});
     await page.close();
   }
   console.log(`  ${where}: ${keys.length} controls${process.env.E2E_LIST ? "\n    " + keys.join("\n    ") : ""}`);
@@ -186,6 +193,7 @@ try {
     const APP = [
       ["dashboard", "/dashboard"], ["dashboard-open", "/dashboard?view=open"], ["dashboard-closed", "/dashboard?view=closed"], ["new-case", "/cases/new"], ["new-case-files", "/cases/new", choose([pdf, jpg(1), jpg(2)])],
       ...Object.entries(C).map(([k, id]) => [`case-${k}`, `/cases/${id}`]),
+      ["case-files-open", `/cases/${C.naming}`, async (p) => { await p.locator('[data-testid="case-files"] > summary').click(); await p.waitForTimeout(200); }, '[data-testid="case-files"]'], // the uploaded files are links (owner 2026-11-22)
       ["desk", `/cases/${C.naming}/photos`], ["desk-finished", `/cases/${C.finished}/photos`],
       ["settings", "/settings"], ["billing", "/billing"], ["connection", "/connection"],
       ["menu-open", "/dashboard", async (p) => { const b = p.locator('[aria-controls="app-menu"]:visible, [aria-controls="account-menu"]:visible').first(); if (await b.count()) { await b.click(); await p.waitForTimeout(300); } }, "#app-menu, #account-menu"], // with the menu open only its own items can be reached
