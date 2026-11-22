@@ -76,18 +76,22 @@ export default function Billing(p: Props) {
     </>
   );
 
+  // The customer thinks in cases, not credits: the number of cases is the headline, the credits are the small print
   const Balance = (
     <div className="rounded-[3px] border border-hair bg-panel p-5">
-      <div className="text-[13px] font-medium text-mute">{t("bill.balance")}</div>
-      <div className="mt-1 text-[40px] font-semibold leading-none tabular-nums text-fg">{p.balance.toLocaleString(localeOf(lang))}</div>
-      <div className="mt-2 text-[14px] text-fg">{t(wholeCases === 1 ? "bill.casesOne" : "bill.casesMany", { n: String(wholeCases) })} · {t("bill.balanceHint")}</div>
+      <div className="text-[13px] font-medium text-mute">{t("bill.left")}</div>
+      <div className="mt-1 flex items-baseline gap-2 text-fg" data-testid="bill-cases">
+        <span className="text-[40px] font-semibold leading-none tabular-nums">{wholeCases.toLocaleString(localeOf(lang))}</span>
+        <span className="text-[16px] font-medium">{t(wholeCases === 1 ? "bill.unitOne" : "bill.unitMany")}</span>
+      </div>
+      <div className="mt-2 text-[13px] text-mute">{t("bill.credits", { n: p.balance.toLocaleString(localeOf(lang)) })} · {t("bill.balanceHint")}</div>
       {p.orgName && <div className="mt-3 truncate text-[13px] text-mute">{t("bill.org", { org: p.orgName })}</div>}
     </div>
   );
 
   const ProviderPick = !p.providers.length ? (
     <div className="rounded-[3px] border border-hair bg-panel p-5"><div className="font-semibold text-fg">{t("bill.none")}</div><div className="mt-1 text-[14px] text-mute">{t("bill.noneSub")}</div></div>
-  ) : (
+  ) : p.providers.length === 1 ? null : (
     <fieldset className="min-w-0">
       <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.pay")}</legend>
       <div className={"grid gap-2 sm:grid-cols-2"}>
@@ -111,7 +115,6 @@ export default function Billing(p: Props) {
             <label key={k.id} className={`flex cursor-pointer items-center justify-between gap-3 rounded-[3px] border px-4 py-3 sm:flex-col sm:items-start sm:gap-1 ${packId === k.id ? "border-ice bg-icetint" : "border-hair bg-panel hover:border-mute"} ${ok ? "" : "pointer-events-none opacity-45"}`}>
               <input type="radio" name="pack" className="sr-only" disabled={!ok} checked={packId === k.id} onChange={() => setPackId(k.id)} />
               <span className="text-[16px] font-semibold text-fg">{t(`bill.pack.${k.credits / 1000}`)}</span>
-              <span className="text-[13px] text-mute">{t("bill.credits", { n: k.credits.toLocaleString(localeOf(lang)) })}</span>
               <span className="text-[18px] font-semibold tabular-nums text-fg">{money(k.price[cur.currency], cur.currency, lang)}</span>
             </label>
           );
@@ -124,6 +127,8 @@ export default function Billing(p: Props) {
     <div>
       {err && <div role="alert" className="mb-3 text-[14px] font-semibold text-fg">⚠ {err}</div>}
       <button type="button" onClick={go} disabled={!provider || !packAvail(packId) || busy} className="btn-primary !h-12 w-full sm:w-auto sm:px-8">{busy ? t("bill.going") : t("bill.go")}</button>
+      {/* one way to pay is not a choice: say it in one quiet line instead of a radio button with a single option */}
+      {p.providers.length === 1 && cur && <p className="mt-3 text-[13px] text-mute" data-testid="bill-one-way">{t(`bill.provider.${cur.id}`)} · {t(`bill.provider.${cur.id}.sub`)}</p>}
     </div>
   );
 
@@ -134,7 +139,7 @@ export default function Billing(p: Props) {
   const History = (
     <section aria-labelledby="bill-hist">
       <h2 id="bill-hist" className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-mute">{t("bill.history")}</h2>
-      {!shownOrders.length ? <div className="rounded-[3px] border border-hair bg-panel p-5 text-[14px] text-mute">{abandoned > 0 ? t("bill.noPaid", { n: String(abandoned) }) : t("bill.noHistory")}</div> : (
+      {!shownOrders.length ? <div className="rounded-[3px] border border-hair bg-panel p-5 text-[14px] text-mute">{t("bill.noHistory")}</div> : (
         <ul tabIndex={0} aria-labelledby="bill-hist" className="app-scroll max-h-[320px] overflow-y-auto overscroll-contain rounded-[3px] border border-hair bg-panel focus-visible:outline-offset-[-2px]">
           {shownOrders.map((o) => (
             <li key={o.id} className="flex items-center justify-between gap-4 border-b border-hairsoft px-4 py-3 last:border-b-0">
@@ -153,7 +158,7 @@ export default function Billing(p: Props) {
           ))}
         </ul>
       )}
-      {abandoned > 0 && <button type="button" className="btn-quiet mt-2" onClick={() => setAllOrders((v) => !v)}>{allOrders ? t("case.showLess") : `${t("case.showAll")} (${abandoned})`}</button>}
+      {abandoned > 0 && <button type="button" className="btn-quiet mt-2" onClick={() => setAllOrders((v) => !v)}>{allOrders ? t("case.showLess") : t("bill.unfinished", { n: String(abandoned) })}</button>}
     </section>
   );
 
@@ -171,7 +176,7 @@ export default function Billing(p: Props) {
       <h1 className="display-2 mb-6 text-[30px] text-fg lg:text-[36px]">{t("bill.title")}</h1>
       {Banner}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6"><h2 className="text-[20px] font-semibold text-fg">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{Go}</div>
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6"><h2 className="text-[20px] font-semibold text-fg">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{p.providers.length > 0 && Go}</div>
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
       </div>
     </div>

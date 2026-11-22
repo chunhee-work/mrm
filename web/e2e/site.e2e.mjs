@@ -178,7 +178,7 @@ const APP = [
   ["new-case-bad-files", "/cases/new", choose([pdf, { name: "empty_scan_from_the_workshop.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(0) }, { name: "photo_from_phone.heic", mimeType: "image/heic", buffer: Buffer.from("x") }, jpg(1)])],
   ...Object.entries(C).map(([k, id]) => [`case-${k}`, `/cases/${id}`]),
   ["desk", `/cases/${C.naming}/photos`],
-  ["desk-legend", `/cases/${C.naming}/photos`, async (p) => { const b = p.getByTestId(p.viewportSize().width < 640 ? "kpi-line" : "legend-toggle"); await b.click(); await p.getByTestId("legend").waitFor(); }],
+  ["desk-legend", `/cases/${C.naming}/photos`, async (p) => { const b = p.getByTestId(p.viewportSize().width < 640 ? "legend-toggle-m" : "legend-toggle"); await b.click(); await p.getByTestId("legend").waitFor(); }],
   ["desk-done-blocked", `/cases/${C.naming}/photos`, async (p) => { await p.getByTestId("done-btn").first().click(); await p.waitForTimeout(700); }],
   ["desk-finished", `/cases/${C.finished}/photos`],
   ["settings", "/settings"],

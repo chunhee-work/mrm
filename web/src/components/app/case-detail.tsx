@@ -72,7 +72,6 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
     else if (list.length) setErr(t("dash.d.badType"));
   }
 
-  const vehicle = [row.carModel, row.insurer].filter(Boolean).join(" · ");
   const docs = (row.pendingDoc ?? "").split("; ").map((d) => d.trim()).filter(Boolean);
   const say = "text-[16px] font-semibold leading-snug text-fg [text-wrap:pretty]";
   // While it is sending, the button stays where it is (and keeps the focus) and only stops answering.
@@ -89,22 +88,28 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
       </p>
     );
   } else if (row.status === "pending_doc" || (row.status === "failed" && userFixable(row.error ?? null))) {
-    need = row.status === "failed" ? (compact ? null : // the case page already says why in its banner: one error block, not three (R2-U01)
-      <p className={say}>{t(failTr(row.error ?? null).key, failTr(row.error ?? null).vars)}</p>
+    const names = docs.map((d) => (docKey(d) === "other" ? d : t(`doc.${docKey(d)}`)));
+    need = row.status === "failed" ? (
+      <>
+        {compact && <p className={say}>{t("case.h.failed")}</p>}
+        <p className={compact ? "mt-1 text-[14.5px] leading-snug text-fg/80" : say}>{t(failTr(row.error ?? null).key, failTr(row.error ?? null).vars)}</p>
+      </>
     ) : docs.length ? (
       <>
-        <p className="text-[13px] leading-none text-mute">{t("dash.d.missing")}</p>
-        <ol className="mt-2 grid gap-2">
-          {docs.map((d, i) => (
-            <li key={d} className="flex items-baseline gap-3 leading-snug [overflow-wrap:anywhere]">
-              <span className="num w-5 shrink-0 text-[17px] font-bold text-fg">{i + 1}.</span>
-              <span className="min-w-0">
-                <span className="text-[17px] font-semibold text-fg">{t(`doc.${docKey(d)}`)}</span>
-                {docKey(d) === "other" && <span className="mt-0.5 block text-[13px] text-mute">{d}</span>}
-              </span>
-            </li>
-          ))}
-        </ol>
+        {/* one line says how many; the names follow. On a card they run on as one short paragraph, so a card is 3 lines, not 6 */}
+        <p className={say} data-testid="missing-count">{t("dash.d.missingN", { n: String(docs.length) })}</p>
+        {compact ? (
+          <ol className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-cols-2">
+            {names.map((d, i) => (
+              <li key={`${i}${d}`} className="flex items-baseline gap-2 text-[15px] leading-snug text-fg [overflow-wrap:anywhere]">
+                <span className="num w-5 shrink-0 font-semibold">{i + 1}.</span>
+                <span className="min-w-0">{d}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-1.5 text-[14px] leading-[1.45] text-fg/80 [overflow-wrap:anywhere] [text-wrap:pretty]">{names.join(" · ")}</p>
+        )}
       </>
     ) : (
       <p className={say}>{t("dash.d.missingAny")}</p>
@@ -170,30 +175,38 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
     );
   }
 
+  // the case page: the same block, as the banner under the case's title (no second box, no second heading)
+  if (compact) {
+    return (
+      <li className={`list-none border-b border-hair px-5 py-5 sm:px-8 ${sent ? "bg-gotint" : "bg-ambertint"}`} role={row.status === "failed" ? "alert" : "status"}>
+        <h3 id={titleId} className="sr-only">{row.plate || t("dash.noPlate")}</h3>
+        <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-4">
+          <div className="min-w-0 flex-1 basis-[280px]">{need}</div>
+          {!sent && act && <div className="w-full sm:w-auto sm:min-w-[200px]">{act}</div>}
+        </div>
+        {err && !sent && <p role="alert" className="field-error mt-3">{err}</p>}
+      </li>
+    );
+  }
+
+  // no plate yet: the first file's name tells the cards apart (three cards all called "Not read yet" could not be told apart)
+  const title = row.plate || row.firstFile;
+  const meta = [row.carModel, row.createdAt ? whenOf(row.createdAt, lang) : ""].filter(Boolean).join(" · ");
   return (
     <li className="sheet flex min-w-0 max-w-full flex-col rounded-[3px] border border-hair bg-panel p-5 lg:p-6">
-      <h3 id={titleId} className={compact ? "sr-only" : "num truncate font-mono text-[24px] font-medium leading-[1.15] tracking-[0.01em] text-fg"}>
-        {/* hard test 2026-11-22: on the case page itself (compact) the title is only for screen readers, so no hidden link back to the same page */}
-        {compact ? (row.plate || t("dash.noPlate")) : (
-          <Link href={`/cases/${row.id}`} className="underline-offset-4 hover:underline">
-            {row.plate || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
-          </Link>
-        )}
+      <h3 id={titleId} className={`truncate leading-[1.15] text-fg ${row.plate ? "num font-mono text-[24px] font-medium tracking-[0.01em]" : "text-[19px] font-semibold"}`}>
+        <Link href={`/cases/${row.id}`} className="underline-offset-4 hover:underline">
+          {title || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
+        </Link>
       </h3>
-      {!compact && vehicle && <p className="mt-1 truncate text-[14px] leading-snug text-mute">{vehicle}</p>}
-      {!compact && row.createdAt && (
-        <p className="mt-1 truncate text-[14px] leading-snug text-mute" suppressHydrationWarning>
-          <time dateTime={row.createdAt} suppressHydrationWarning>{whenOf(row.createdAt, lang)}</time>
-          {!row.plate && row.firstFile ? ` · ${row.firstFile}` : ""}
-        </p>
-      )}
+      {meta && <p className="mt-1 truncate text-[14px] leading-snug text-mute" suppressHydrationWarning>{meta}</p>}
       {/* what is needed, on amber with the amber edge (green once it has been sent): the one place on the card the eye should go.
-          Two lines tall at least, and above a button it takes the height the row of cards leaves, so neighbouring buttons stand on one line. */}
-      {need && <div className={`relative ${compact ? "mt-0" : "mt-5"} flex min-h-[76px] flex-col justify-center overflow-hidden rounded-[3px] py-3.5 pl-[19px] pr-4 ${act ? "flex-1" : ""} ${sent ? "bg-gotint" : "bg-ambertint"}`}>
+          It is as tall as its words; the button stands on the card's bottom edge, so neighbouring buttons stay on one line. */}
+      {need && <div className={`relative mt-4 flex flex-col justify-center overflow-hidden rounded-[3px] py-3 pl-[19px] pr-4 ${sent ? "bg-gotint" : "bg-ambertint"}`}>
         <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-[3px] ${sent ? "bg-go" : "bg-amber"}`} />
         {need}
       </div>}
-      {!sent && act && <div className="mt-4">{act}</div>}
+      {!sent && act && <div className="mt-auto pt-4">{act}</div>}
       {err && !sent && <p role="alert" className="field-error mt-3">{err}</p>}
     </li>
   );

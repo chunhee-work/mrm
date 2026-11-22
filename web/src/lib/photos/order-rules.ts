@@ -48,6 +48,8 @@ export function openingMissing(names: (string | null)[]): string[] {
 }
 
 // ---- Merimen file type (FTYPE) of each photo (playbook 06) ----
+/** The Merimen file type of most photos; a card only says the type when it is a different one. */
+export const DEFAULT_FILE_TYPE: string = R.fileTypes.default;
 export function fileTypeOf(name: string | null): string {
   if (name && (R.opening.corners as readonly string[]).includes(name)) return R.fileTypes.corner;
   return (name && (R.fileTypes.byName as Record<string, string>)[name]) || R.fileTypes.default;
