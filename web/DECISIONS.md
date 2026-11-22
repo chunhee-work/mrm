@@ -43,8 +43,8 @@
 
 ## Admin backoffice (plan: issue #4)
 - Lives at `/admin` on app.autopilotclaim.com (not a separate host). A `backoffice.` alias can be added later as a Vercel domain plus a host rewrite.
-- Access: verified email listed in env `ADMIN_EMAILS` (comma list; missing/empty/malformed = nobody) and a session younger than 12 h. Everyone else gets the same 404 as any missing page. No `/api/admin/*` routes exist; all reads happen in server components.
-- Internal accounts (smoke account, `ADMIN_EMAILS`, `ADMIN_EXCLUDE_EMAILS`) are left out of every number unless `?internal=1`.
+- Access (changed 2026-11-22): a secret key. Env `ADMIN_SECRET_KEY` (24+ characters; missing or shorter = /admin returns 404 for everyone). Without a valid session the visitor sees a key form at `/admin` itself (middleware rewrite to `/admin-gate`); the key is checked in constant time (`POST /api/admin/login`), and the session is an httpOnly, Secure, SameSite=Strict cookie holding only an expiry and an HMAC made with the key (12 h; changing the key signs everyone out). 5 wrong tries per IP lock it for 15 min (in memory, per instance). Account email login no longer opens /admin.
+- Internal accounts (smoke account, `ADMIN_EMAILS` (now only for this), `ADMIN_EXCLUDE_EMAILS`) are left out of every number unless `?internal=1`.
 - Every Claude call goes through `trackedParse()` in `lib/claude.ts` and lands in `llm_calls` (one row per billed response, unique `request_id`; failures get `ok=false`). Prices live in `lib/pricing.ts` (`PRICES`); an unknown model is stored unpriced, never guessed. Update `PRICES` when `CLAUDE_MODEL` changes.
 - `email_log` stores kind, recipient domain and outcome only.
 - Org-wide spend comes from the Anthropic Admin API (`ANTHROPIC_ADMIN_KEY`), best-effort cached per instance. The response shape was written from the docs and is tested against mocks; confirm it against the first real response.

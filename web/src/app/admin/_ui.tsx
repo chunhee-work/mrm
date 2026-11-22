@@ -82,7 +82,7 @@ function TestToggle({ scope }: { scope: Scope }) {
 }
 
 export async function Shell({ current, scope, title, back, children }: { current: string; scope: Scope; title: ReactNode; back?: { href: string; label: string }; children: ReactNode }) {
-  const me = await requireAdmin();
+  await requireAdmin();
   const href = (slug: string) => withScope(`/admin${slug ? "/" + slug : ""}`, scope);
   const brand = (
     <Link href={href("")} className="flex items-center gap-2.5 lg:flex-col lg:items-start lg:gap-2">
@@ -119,7 +119,9 @@ export async function Shell({ current, scope, title, back, children }: { current
           ))}
         </nav>
         <div className="mt-auto hidden border-t border-hair p-3 lg:block">
-          <p className="truncate px-2 pb-1 text-[13px] text-mute">{me.email}</p>
+          <form method="POST" action="/api/admin/logout">
+            <button type="submit" className="flex h-10 w-full items-center gap-2 rounded-[3px] px-2 text-[14px] font-medium text-mute hover:bg-panel2 hover:text-fg"><IconExit /><span className="hidden xl:inline">Sign out</span></button>
+          </form>
           {exit}
         </div>
       </aside>
