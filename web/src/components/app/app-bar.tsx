@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
 import { Brand } from "@/components/brand-mark";
-import LangSwitch from "@/components/lang-switch";
 import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
 import { Burger, Chevron, Exit, Plus } from "./marks";
 import { VIEWS } from "./status";
@@ -251,7 +250,7 @@ export default function AppBar({ email }: { email: string }) {
     <header className="sticky top-0 z-40 border-b border-hair bg-panel">
       <div className="wrap relative flex h-[60px] items-center gap-4 lg:h-16 lg:gap-10">
         <Link href="/dashboard" className="-my-2 flex items-center py-2">
-          <Brand />
+          <Brand small />
         </Link>
         <nav aria-label={t("nav.menu")} className="hidden self-stretch lg:flex">
           <Link
@@ -274,7 +273,6 @@ export default function AppBar({ email }: { email: string }) {
           </Link>
         </nav>
         <div className="ml-auto flex items-center gap-1.5 lg:gap-4">
-          <div className="hidden lg:block"><LangSwitch /></div>
           {email ? <AccountMenu email={email} /> : null}
           {/* the one main action is in the bar at every width: on a phone it used to sit inside the menu, two presses away */}
           <Suspense fallback={<NewCase onNew={onNew} />}><NewCaseUnlessHome path={path} /></Suspense>

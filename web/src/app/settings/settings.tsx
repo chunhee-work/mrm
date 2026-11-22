@@ -1,11 +1,14 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
+import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
 
 export default function Settings({ email, company, connection = false }: { email: string; company: string; connection?: boolean }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const router = useRouter();
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
   const [again, setAgain] = useState("");
@@ -28,6 +31,10 @@ export default function Settings({ email, company, connection = false }: { email
     } catch { setMsg({ ok: false, key: "set.pwWrong" }); }
     setBusy(false);
   }
+  function pickLang(l: Lang) {
+    document.cookie = `lang=${l}; path=/; max-age=31536000; samesite=lax`;
+    router.refresh();
+  }
   const row = "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-hair px-4 py-3 last:border-b-0";
   return (
     <div className="wrap py-8 lg:py-12">
@@ -41,8 +48,18 @@ export default function Settings({ email, company, connection = false }: { email
           </dl>
         </section>
 
-        {/* the language is the globe in the top bar on every page (a phone: in the menu), so it is not repeated here;
-            the Merimen connection shows only once there is something to set up */}
+        {/* the language lives here and nowhere else on a wide screen (owner 2026-11-22: "language hide in setting");
+            a phone also has it as a row of its menu */}
+        <section aria-labelledby="set-lang">
+          <h2 id="set-lang" className="label mb-3">{t("lang.label")}</h2>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="set-lang" data-testid="set-lang">
+            {LANGS.map((l) => (
+              <button key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-pressed={l === lang} onClick={() => pickLang(l)} className={l === lang ? "btn-primary !h-11" : "btn-line !h-11"}>{LANG_LABEL[l]}</button>
+            ))}
+          </div>
+        </section>
+
+        {/* the Merimen connection shows only once there is something to set up */}
         {connection && (
           <section aria-labelledby="set-merimen">
             <h2 id="set-merimen" className="label mb-3">{t("set.merimen")}</h2>

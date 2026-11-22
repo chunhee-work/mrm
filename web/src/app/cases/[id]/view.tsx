@@ -11,6 +11,7 @@ import ShotTimeline, { type Shot } from "@/components/app/shot-timeline";
 import NeedCard from "@/components/app/case-detail";
 import { failTr, userFixable } from "@/lib/case-text";
 import CaseLog from "@/components/app/case-log";
+import BackLink from "@/components/app/back-link";
 import { whenOf } from "@/lib/fmt-when";
 
 export type CaseDetail = {
@@ -23,7 +24,7 @@ export type CaseDetail = {
   sides?: Side[]; // undefined: could not be loaded
   missing: string[];
   fileCount: number;
-  files: { name: string; kind: string; size: number }[];
+  files: { id: number; name: string; kind: string; size: number }[];
   orgId: string;
   error: string | null;
   photos: number;
@@ -136,18 +137,20 @@ export default function CaseView({ c }: { c: CaseDetail }) {
       <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.log")}<span className="note text-mute">· {c.events.length}</span></summary>
       <CaseLog events={shownLog} live={working} />
       {newest.length > LOG_SHORT && (
-        <button type="button" className="btn-quiet mt-2" onClick={() => setAllLog((v) => !v)}>{allLog ? t("case.showLess") : t("case.showAll")}</button>
+        <button type="button" className="btn-quiet mt-2 !text-[15px] !font-medium !text-mute hover:!text-fg" data-testid="log-more" onClick={() => setAllLog((v) => !v)}>{allLog ? t("case.showLess") : t("case.showAll")}</button>
       )}
     </details>
   );
 
   const Files = () => c.files.length ? (
-    <details className="group">
+    <details className="group" data-testid="case-files">
       <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.files")}<span className="note text-mute">· {c.files.length}</span></summary>
       <ul className="rounded-[4px] border border-hair">
-        {c.files.map((f, i) => (
-          <li key={i} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 py-2.5 text-[14px] text-fg last:border-b-0">
-            <span className="min-w-0 [overflow-wrap:anywhere]">{f.name}</span>
+        {c.files.map((f) => (
+          <li key={f.id} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 text-[14px] text-fg last:border-b-0">
+            {/* a click opens the file itself in a new tab (PDF and photos show there, a zip downloads); the route checks the session every time */}
+            <a href={`/api/cases/${c.id}/files/${f.id}`} target="_blank" rel="noopener" data-testid="file-open"
+              className="min-w-0 py-3 font-medium underline decoration-hair2 underline-offset-4 transition-colors duration-150 [overflow-wrap:anywhere] hover:decoration-fg">{f.name}</a>
             <span className="num note shrink-0 text-mute">{f.size < 1e6 ? `${Math.max(1, Math.round(f.size / 1e3))} KB` : `${(f.size / 1e6).toFixed(1)} MB`}</span>
           </li>
         ))}
@@ -201,7 +204,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
 
   const shell = (children: React.ReactNode) => (
     <div className="wrap flex flex-1 flex-col pb-10 pt-6 lg:pb-14 lg:pt-9">
-      <Link href="/dashboard" className="btn-quiet mb-4 self-start">{t("case.back")}</Link>
+      <BackLink href="/dashboard" className="mb-4" testid="case-back">{t("nav.home")}</BackLink>
       <div className="relative mx-auto w-full max-w-[860px]">
         <ScanEdge />
         <div className="sheet rounded-[3px] border border-hair bg-panel">{children}</div>

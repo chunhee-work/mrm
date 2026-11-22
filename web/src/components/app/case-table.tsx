@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Chevron, Cross, NoMatchArt, Search, Tick, Working } from "./marks";
+import BackLink from "./back-link";
 import { bucketOf, inView, type View } from "./status";
 import { whenOf } from "@/lib/fmt-when";
 import { money } from "./done-result";
@@ -67,10 +68,8 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
 
   return (
     <div className="wrap pb-14 pt-5 lg:pb-20 lg:pt-8">
-      <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 text-[15px] font-semibold text-mute transition-colors duration-150 hover:text-fg" data-testid="list-back">
-        <Chevron className="rotate-90" />{t("nav.home")}
-      </Link>
-      <div className="mt-1 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <BackLink href="/dashboard" testid="list-back">{t("nav.home")}</BackLink>
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         <h1 className="display-3 min-w-0 text-[24px] text-fg [overflow-wrap:anywhere] lg:text-[28px]" data-testid="list-title">{title}</h1>
         <p className="num text-[15px] text-mute" data-testid="list-count">{t("list.n", { n: String(shown.length) })}</p>
         <div className="relative ml-auto w-full min-w-0 sm:w-[280px]">

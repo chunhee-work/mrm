@@ -57,8 +57,8 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
         })}
       </ul>
       {open > 0
-        ? <Link href="/dashboard?view=open" className="flex min-h-[56px] items-center gap-4 px-5 py-2 text-[18px] font-bold text-fg transition-colors duration-150 hover:bg-panel2">{total}</Link>
-        : <p className="flex min-h-[56px] items-center px-5 py-2 text-[18px] font-bold text-fg">{total}</p>}
+        ? <Link href="/dashboard?view=open" className="flex min-h-[56px] items-center gap-4 px-5 py-2 text-[15px] font-semibold text-fg transition-colors duration-150 hover:bg-panel2">{total}</Link>
+        : <p className="flex min-h-[56px] items-center px-5 py-2 text-[15px] font-semibold text-fg">{total}</p>}
     </section>
   );
 
@@ -83,14 +83,14 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
             <button type="submit" className="btn-line shrink-0 !px-5">{t("tray.go")}</button>
           </form>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="mt-9 grid gap-3 sm:grid-cols-2">
           <Link href="/cases/new" className="btn-primary !gap-2" data-testid="home-new"><Plus />{t("dash.new")}</Link>
           <Link href="/dashboard?view=closed" className="btn-line" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>
           </Link>
         </div>
-        <div className="mt-7">{table}</div>
+        <div className="mt-9">{table}</div>
       </div>
       {below && <div className="mx-auto mt-10 max-w-[920px]">{below}</div>}
     </div>
