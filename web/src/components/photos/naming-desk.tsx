@@ -765,7 +765,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
                     className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-3.5 font-mono text-[13px] tracking-wide transition-colors duration-150 ${here ? "bg-icetint font-semibold text-fg ring-[1.5px] ring-inset ring-scan" : "bg-panel2 text-fg hover:bg-hair"}`}
                   >
                     {x.plate}
-                    {x.dup && <span className="text-[11.5px] font-normal text-mute" suppressHydrationWarning>{whenOf(x.at, lang)}</span>}
+                    {x.dup && <span className={`text-[11.5px] font-normal text-mute ${here ? "max-sm:hidden" : ""}`} suppressHydrationWarning>{whenOf(x.at, lang)}</span>}
                     {tabEdited(x) > 0 && <span className="rounded-[2px] bg-ice px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-bay" data-testid="tab-edited">{t("tabEdited", { n: tabEdited(x) })}</span>}
                     {tabMark(x)}
                   </button>

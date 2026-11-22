@@ -146,14 +146,14 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
           <h1 className="display-2 text-[24px] text-fg sm:text-[28px]">{t("new.title")}</h1>
         </div>
 
-        <div className="grid gap-7 px-5 py-6 sm:px-8 sm:py-8">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-7 px-5 py-6 sm:px-8 sm:py-8">
           <div className="rounded-[3px] border border-hair bg-panel2 px-4 py-3">
             <p className="label">{t("new.checkTitle")}</p>
             <ul className="mt-2 grid gap-1 text-[14px] text-mute sm:grid-cols-2">
               {[1, 2, 3, 4, 5, 6, 7].map((i) => <li key={i} className="flex gap-2"><span aria-hidden="true">•</span>{t(`new.check${i}`)}</li>)}
             </ul>
           </div>
-          <div className="field">
+          <div className="field min-w-0 grid-cols-[minmax(0,1fr)]">
             <div className="flex items-baseline justify-between gap-4">
               <label className="label" htmlFor="case-files">{t("new.files")}</label>
               {n > 0 && (
