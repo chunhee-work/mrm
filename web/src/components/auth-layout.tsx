@@ -5,6 +5,7 @@ import LangSwitch from "./lang-switch";
 import AuthScene from "./auth-scene";
 import ScanEdge from "./scan-edge";
 import WhatsAppFab from "./whatsapp-fab";
+import { PageSlot } from "./lang-provider";
 
 /** Account pages (log in, sign up, password reset), on white: brand + language, one sheet, three small links. */
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +32,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
           <div className="pointer-events-auto relative mx-auto w-full max-w-[440px] sm:my-auto lg:mx-0">
             <div className="sheet relative rounded-[3px] border border-hair bg-panel">
               <ScanEdge />
-              {children}
+              <PageSlot>{children}</PageSlot>
             </div>
           </div>
         </div>

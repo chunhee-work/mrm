@@ -268,7 +268,7 @@ test("R3-U07: the finished state is not the same word as the button; U02 says wh
     assert.notEqual(d.doneOn, d.done, l);
     assert.ok(d.doneCancelled && d.doneUndo && d.was && d.tabEdited && d.legendOpen, l);
   }
-  assert.equal(PHOTO_DICTS.en.doneOn, "Finished ✓");
+  assert.equal(PHOTO_DICTS.en.doneOn, "Finished");
 });
 
 test("R3-B08: the desk tab time is written in the page language (not always English)", () => {
@@ -306,4 +306,29 @@ test("R4-B03: streaming metadata is off for every browser, so <title> and meta s
   assert.ok(re instanceof RegExp);
   assert.ok(re!.test("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"));
   assert.ok(re!.test("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"));
+});
+
+test("R5-B01: activity lines use the plural helper (no 'file(s)'), and old stored lines are still read", async () => {
+  const { eventTr } = await import("../src/lib/case-text");
+  for (const lang of LANGS) {
+    for (const n of ["1", "2"]) for (const k of ["ev.received", "ev.receivedMore"]) assert.doesNotMatch(translate(lang, k, { n }), /\(s\)/);
+  }
+  assert.equal(translate("en", "ev.received", { n: "1" }), "Received 1 file");
+  assert.equal(translate("en", "ev.received", { n: "2" }), "Received 2 files");
+  assert.equal(translate("en", "ev.receivedMore", { n: "1" }), "Received 1 more file");
+  assert.equal(translate("en", "ev.opened", { name: "a.zip", n: "3" }), "Opened a.zip: 3 files");
+  const e = eventTr("Received 1 file(s)");
+  assert.equal(translate("en", e.key, e.vars), "Received 1 file");
+});
+
+test("R5-U01: the finished Done button has one tick (the icon), not a second one in the text", () => {
+  for (const lang of LANGS) assert.doesNotMatch(PHOTO_DICTS[lang].doneOn, /✓/);
+});
+
+test("R5-B03: every layout puts its page inside PageSlot, never straight into a plain element", async () => {
+  const { readFileSync } = await import("node:fs");
+  for (const f of ["auth-layout.tsx", "app-layout.tsx", "subpage-layout.tsx"]) {
+    const src = readFileSync(new URL(`../src/components/${f}`, import.meta.url), "utf8");
+    assert.match(src, /<PageSlot>\{children\}<\/PageSlot>/, f);
+  }
 });
