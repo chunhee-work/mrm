@@ -162,12 +162,16 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
               addMore={t("new.addMore")}
             />
             <p className="hint">{t("new.limit", { mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })}</p>
-            {/* what to put in, as one short paragraph under the drop zone (it was a seven-line box above it, pushing the button down) */}
+            {/* what to put in (owner 2026-11-22): the box with its title and a dotted list, as it was. On a phone one item per
+                line; on a wider screen the items run on after each other (each still with its dot), so the box is 2 or 3 lines
+                tall, not 5. It sits under the drop zone, which comes first. */}
             {n === 0 && (
-              <p className="mt-1 text-[14px] leading-[1.55] text-mute [text-wrap:pretty]" data-testid="new-check">
-                <span className="font-semibold text-fg">{t("new.checkTitle")}</span>{" "}
-                {[1, 2, 3, 4, 5, 6, 7].map((i) => t(`new.check${i}`)).join(" · ")}
-              </p>
+              <div className="mt-1 rounded-[3px] border border-hair bg-panel2 px-4 py-3" data-testid="new-check">
+                <p className="label">{t("new.checkTitle")}</p>
+                <ul className="mt-2 grid gap-x-6 gap-y-1 text-[14px] text-mute sm:flex sm:flex-wrap">
+                  {[1, 2, 3, 4, 5, 6, 7].map((i) => <li key={i} className="flex min-w-0 gap-2"><span aria-hidden="true">•</span><span className="min-w-0 [overflow-wrap:anywhere]">{t(`new.check${i}`)}</span></li>)}
+                </ul>
+              </div>
             )}
             {(notes.length > 0 || skipped.length > 0) && (
               <div role="status" className="rounded-[3px] border border-hair bg-ambertint px-4 py-3 text-[14px] text-fg">

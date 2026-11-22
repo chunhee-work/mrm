@@ -9,7 +9,8 @@ import { ResultBlock } from "@/components/app/done-result";
 import type { Side } from "@/lib/damage-sides";
 import ShotTimeline, { type Shot } from "@/components/app/shot-timeline";
 import NeedCard from "@/components/app/case-detail";
-import { docKey, eventTr, failTr, userFixable } from "@/lib/case-text";
+import { failTr, userFixable } from "@/lib/case-text";
+import CaseLog from "@/components/app/case-log";
 import { whenOf } from "@/lib/fmt-when";
 
 export type CaseDetail = {
@@ -111,7 +112,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const needsFiles = c.status === "pending_doc" || (c.status === "failed" && userFixable(c.error));
   const MissingList = () => needsFiles ? (
     <ul className="min-w-0">
-      <NeedCard compact row={{ id: c.id, plate: c.plate, carModel: c.carModel, insurer: c.insurer, status: c.status, pendingDoc: c.missing.join("; "), error: c.error, deskConfirm: c.desk?.confirm }} orgId={c.orgId} onSent={() => router.refresh()} />
+      <NeedCard row={{ id: c.id, plate: c.plate, carModel: c.carModel, insurer: c.insurer, status: c.status, pendingDoc: c.missing.join("; "), error: c.error, deskConfirm: c.desk?.confirm }} orgId={c.orgId} onSent={() => router.refresh()} />
     </ul>
   ) : null;
 
@@ -133,20 +134,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const Log = () => (
     <details className="group" data-testid="case-log">
       <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.log")}<span className="note text-mute">· {c.events.length}</span></summary>
-      <ul className="rounded-[4px] border border-hair">
-        {shownLog.map((e, i) => {
-          const tr = eventTr(e.message);
-          const text = tr.key ? t(tr.key, tr.key === "ev.pending" ? { docs: (tr.vars?.docs ?? "").split("; ").map((d) => t(`doc.${docKey(d)}`)).join("; ") } : tr.vars) : tr.raw ?? e.message;
-          return (
-            <li key={i} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 py-2.5 text-[14px] text-fg last:border-b-0">
-              <span className="min-w-0 [overflow-wrap:anywhere]">{text}</span>
-              <time dateTime={e.at} className="num note shrink-0 text-mute" suppressHydrationWarning>
-                {new Date(e.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kuala_Lumpur" })}
-              </time>
-            </li>
-          );
-        })}
-      </ul>
+      <CaseLog events={shownLog} live={working} />
       {newest.length > LOG_SHORT && (
         <button type="button" className="btn-quiet mt-2" onClick={() => setAllLog((v) => !v)}>{allLog ? t("case.showLess") : t("case.showAll")}</button>
       )}

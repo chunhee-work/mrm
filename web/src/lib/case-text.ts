@@ -17,6 +17,18 @@ export function eventTr(message: string): Tr & { raw?: string } {
   return { key: "", raw: message };
 }
 
+/** How an activity line stands, for its status mark: done, being worked on, waiting on the user, failed, or just a note. */
+export type EventKind = "ok" | "work" | "wait" | "fail" | "note";
+/** `live` = this is the newest line of a case that is still being read: only then is "Reading documents" still going on. */
+export function eventKind(message: string, live = false): EventKind {
+  const { key } = eventTr(message);
+  if (key === "ev.failed") return "fail";
+  if (key === "ev.pending") return "wait";
+  if (key === "ev.reading" || key === "ev.queued") return live ? "work" : "ok";
+  if (key === "ev.received" || key === "ev.receivedMore" || key === "ev.opened" || key === "ev.read") return "ok";
+  return "note";
+}
+
 export const DOC_KEYS = ["police_result", "atfault_report", "isearch", "insurance", "jpj_rc", "client_report", "other"] as const;
 export type DocKey = (typeof DOC_KEYS)[number];
 

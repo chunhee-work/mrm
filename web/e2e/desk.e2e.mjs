@@ -44,14 +44,16 @@ async function seed(plate, specs, ageSec, status = "naming", data = null, doneAl
   const id = `e2e_${plate}_${stamp}`;
   await db.query(`INSERT INTO cases (id, org_id, plate, status, created_at, case_data, photos_done_at) VALUES ($1,$2,$3,$4, now() - ($5 || ' seconds')::interval, $6, ${doneAlready ? "now()" : "NULL"})`, [id, orgId, plate, status, String(ageSec), data ? JSON.stringify(data) : null]);
   let i = 0;
-  for (const [name, conf] of specs) {
+  // a spec is [name, confidence, state]. No name and no state = the model found no name that fits (named, empty):
+  // the photo simply asks for a name. "failed" = the naming call itself failed, which the desk tries again by itself.
+  for (const [name, conf, state] of specs) {
     i++;
     const blob = `${orgId}/${id}/photos/h${i}-f-IMG_${i}.jpg`, thumb = `${orgId}/${id}/photos/h${i}-s-IMG_${i}.jpg`;
     writeFileSync(file(blob), JPEG); writeFileSync(file(thumb), JPEG);
     await db.query(
       `INSERT INTO case_photos (case_id, position, orig_n, src_name, blob_path, thumb_path, name_state, model_name, confidence, content_hash, how)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'model')`,
-      [id, i - 1, i, `IMG_${i}.jpg`, blob, thumb, name ? "named" : "failed", name, name ? conf : null, `${id}-${i}`]);
+      [id, i - 1, i, `IMG_${i}.jpg`, blob, thumb, state ?? "named", name, name ? conf : null, `${id}-${i}`]);
   }
   return id;
 }
@@ -61,6 +63,7 @@ const B = await seed("E2EB2222", [["Front Bumper", 0.97], ["Bonnet", 0.97], ["Gr
 // C is finished already (Enter,Enter must skip it); D waits for a missing document and has one photo under 90 %
 const C = await seed("E2EC3333", [["Front Bumper", 0.97]], 30, "pending_doc", null, true);
 const D = await seed("E2ED4444", [["Bumper", 0.5], ["Bonnet", 0.97]], 90, "pending_doc");
+let F = null; // made by its own step: a case where the naming call failed on two photos
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 1 });
@@ -184,12 +187,10 @@ try {
     assert.match(was, /Grille/);
     const badge = await page.getByTestId("tab-edited").first().innerText();
     assert.match(badge, /[1-9]/);
-    const kpi = await page.getByTestId("kpi").innerText();
-    assert.match(kpi, /\b5\b/, "KPI shows the number of photos");
-    await page.getByTestId("legend-toggle").click();
-    await page.getByTestId("legend").waitFor();
-    assert.match(await page.getByTestId("legend").innerText(), /TypeSafe/);
-    await page.getByTestId("legend-toggle").click();
+    // owner 2026-11-22: the head is one compact row. The three numbers sit on the filter itself; there are no number
+    // tiles, no legend panel and no "Legend and how to use" switch.
+    assert.match(await page.getByTestId("desk-filter").innerText(), /\b5\b/, "the filter shows the number of photos");
+    for (const id of ["kpi", "legend", "legend-toggle", "legend-toggle-m", "help-open", "photo-plan"]) assert.equal(await page.getByTestId(id).count(), 0, `${id} is gone`);
   });
 
   await step("a queued Phase B is cancelled when Done is undone", async () => {
@@ -237,10 +238,10 @@ try {
     await page.keyboard.press("Escape");
   });
 
-  await step("R3-U04/B03/workshop: vehicle line shows the workshop; the opening-photos banner is one line", async () => {
+  await step("R3-U04/B03/workshop: vehicle line shows the workshop; no line about missing opening photos (owner 2026-11-22)", async () => {
     assert.match(await page.getByTestId("vehicle-line").innerText(), /Bengkel Maju/);
-    const banner = page.getByTestId("opening-banner");
-    if (await banner.count()) assert.ok((await banner.boundingBox()).height < 40, "one line");
+    assert.equal(await page.getByTestId("opening-banner").count(), 0);
+    assert.doesNotMatch(await page.locator("body").innerText(), /opening photos? missing|Opening photos missing/i);
   });
 
   await step("reorder: move photo 3 to the front with the move sheet", async () => {
@@ -284,10 +285,12 @@ try {
   });
 
   // ───────── D: a case that waits for a missing document ─────────
-  await step("R3-B01/B06/B02: D (1 photo under 90 %) shows '1 to check' on the dashboard; after Done: 0 to check, 'confirmed', and an honest toast", async () => {
-    await page.goto(`${BASE}/dashboard`);
-    const dLink = () => page.locator("li", { has: page.getByText("E2ED4444") }).getByTestId("photos-link");
-    const link = dLink();
+  await step("R3-B01/B06/B02: D (1 photo under 90 %) shows '1 to check' on its case page; after Done: 0 to check, 'confirmed', and an honest toast", async () => {
+    // the first page is now the count (owner 2026-11-22): D is one of the cases behind "Waiting for documents", and its case page carries the photo line
+    await page.goto(`${BASE}/dashboard?view=docs`);
+    await page.getByTestId("case-table").getByRole("link", { name: "E2ED4444" }).waitFor();
+    await page.goto(`${BASE}/cases/${D}`);
+    const link = page.getByTestId("desk-link");
     await link.waitFor();
     assert.match(await link.innerText(), /1 to check|1 张待核对|1 perlu disemak/);
     await page.goto(`${BASE}/cases/${D}/photos`);
@@ -297,10 +300,11 @@ try {
     await page.getByText(/missing documents are in|缺的文件补齐|dokumen yang hilang/).first().waitFor({ timeout: 5000 });
     assert.doesNotMatch(await page.locator("[aria-live=polite]").first().innerText(), /AI/);
     assert.match(await page.getByRole("button", { name: /^(To confirm|要确认|Perlu semak)/ }).innerText(), /0/);
-    await page.goto(`${BASE}/dashboard`);
-    const after = dLink();
+    await page.goto(`${BASE}/cases/${D}`);
+    const after = page.getByTestId("photo-plan-line");
     await after.waitFor();
     assert.match(await after.innerText(), /confirmed|已确认|disahkan/, "no more '1 to check'");
+    assert.doesNotMatch(await page.getByTestId("desk-link").innerText(), /to check|待核对|perlu disemak/);
     await page.goto(`${BASE}/cases/${D}`);
     const line = await page.getByTestId("photo-plan-line").innerText();
     assert.ok(line.trim().length > 20, "the Merimen photo plan box is never empty");
@@ -346,11 +350,28 @@ try {
     assert.match(await page.title(), /^E2EA1111 · .+ · Autopilotclaim$/);
   });
 
-  await step("R4-B01/U04: the dashboard has no '1 photos' and no double tick", async () => {
+  await step("R4-B01/U04: the case table has no '1 photos' and no tick typed into the words; the first page counts the cases", async () => {
+    await page.goto(`${BASE}/dashboard?view=all`);
+    await page.getByTestId("case-table").waitFor();
+    const lines = await page.getByTestId("case-table").locator("li").allInnerTexts();
+    assert.ok(lines.length >= 4, `the four cases are listed: ${lines.length}`);
+    for (const t of lines) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
+    // the first page (owner 2026-11-22): welcome, search, three buttons and the count; a row of the count opens its table
     await page.goto(`${BASE}/dashboard`);
-    await page.getByTestId("photos-link").first().waitFor();
-    const links = await page.getByTestId("photos-link").allInnerTexts();
-    for (const t of links) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
+    assert.match(await page.getByTestId("home-welcome").innerText(), /E2E Tester/);
+    for (const id of ["home-search", "home-new", "home-closed", "home-billing", "home-open", "home-total"]) assert.equal(await page.getByTestId(id).count(), 1, id);
+    assert.equal(await page.getByTestId("case-table").count(), 0, "no case list on the first page");
+    const docs = page.locator('[data-bucket="docs"] a');
+    assert.match(await docs.innerText(), /^\s*[1-9]/, "the count of cases waiting for documents");
+    await docs.click();
+    await page.waitForURL(/view=docs/);
+    assert.ok(await page.getByTestId("case-table").locator("li").count() >= 1);
+    await page.getByTestId("list-back").click();
+    await page.waitForURL((u) => u.pathname === "/dashboard" && !u.search);
+    await page.getByTestId("home-search").locator("input").fill("e2ed");
+    await page.getByTestId("home-search").locator("button").click();
+    await page.waitForURL(/q=e2ed/);
+    assert.equal(await page.getByTestId("case-table").locator("li").count(), 1, "the search finds the one case");
   });
 
   // ───────── phone width ─────────
@@ -373,7 +394,7 @@ try {
     await mobile.close();
   });
 
-  await step("R4-U01/U03: on a phone the numbers are shown once (on the filter buttons) and \"?\" opens the legend; the open tab's badge is fully in view", async () => {
+  await step("R4-U01/U03: on a phone the numbers are shown once (on the filter buttons) and there is no legend; the open tab's badge is fully in view", async () => {
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
     await mobile.addCookies(await ctx.cookies());
     const p = await mobile.newPage();
@@ -383,9 +404,8 @@ try {
     assert.equal(await numbers.count(), 1, "one row of numbers, not two");
     assert.match(await numbers.innerText(), /\d/);
     assert.equal(await p.getByTestId("kpi-line").count(), 0);
-    await p.getByTestId("legend-toggle-m").click();
-    await p.getByTestId("legend").waitFor();
-    assert.match(await p.getByTestId("legend").innerText(), /TypeSafe/);
+    assert.equal(await p.getByTestId("legend-toggle-m").count(), 0);
+    assert.equal(await p.getByTestId("legend").count(), 0);
     const tab = p.locator('button[aria-current="true"]').first();
     const nav = await tab.locator("xpath=ancestor::nav[1]").boundingBox();
     const tb = await tab.boundingBox();
@@ -441,6 +461,26 @@ try {
     assert.equal(await p.getByTestId("nav-progress").count(), 0, "the top bar kept running after No");
     await p.close();
   });
+  await step("a naming call that failed is tried again by the desk itself: no failure line, no Try again button; what is left simply asks for a name (owner 2026-11-22)", async () => {
+    F = await seed("E2EF6666", [["Front Bumper", 0.97], [null, null, "failed"], [null, null, "failed"]], 120);
+    await page.goto(`${BASE}/cases/${F}/photos`);
+    await page.locator("article[data-pid]").first().waitFor();
+    // on arrival the two photos are being named again (nothing says "failed"), and nothing has to be pressed
+    await page.getByTestId("naming-line").waitFor({ timeout: 5000 });
+    assert.equal(await page.locator("article[data-unnamed]").count(), 0, "still being named, not asking for a name yet");
+    const never = /could not be named|没命名成功|tidak dapat dinamakan|Try again|再试一次|Cuba lagi/;
+    assert.doesNotMatch(await page.locator("body").innerText(), never);
+    // a test machine has no model to call, so every try fails (with a model, it finds no name for this grey square):
+    // either way, after the last quiet try the two photos simply ask for a name
+    await page.waitForFunction(() => document.querySelectorAll("article[data-unnamed]").length === 2 && !document.querySelector("[data-testid=naming-line]"), null, { timeout: 90000 });
+    assert.doesNotMatch(await page.locator("body").innerText(), never);
+    const { rows } = await db.query(`SELECT name_state FROM case_photos WHERE case_id = $1 ORDER BY position`, [F]);
+    assert.ok(rows.every((r) => r.name_state === "named" || r.name_state === "failed"), `nothing is left waiting: ${rows.map((r) => r.name_state).join()}`);
+    // naming one by hand works as for any photo without a name
+    await rename(2, "Door Mirror RH");
+    await page.waitForTimeout(1500);
+    assert.equal(await page.locator("article[data-unnamed]").count(), 1);
+  });
   await step("signed out while naming (session ended in another tab): the desk says so once and offers to log in again, back to this case", async () => {
     await page.goto(`${BASE}/cases/${B}/photos`);
     await page.locator("article[data-pid]").first().waitFor();
@@ -453,7 +493,7 @@ try {
   });
 } finally {
   await browser.close();
-  await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [[A, B, C, D]]);
+  await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [[A, B, C, D, F].filter(Boolean)]);
   await db.end();
   console.log(`${ok} steps passed${process.exitCode ? ", some FAILED" : ""}`);
 }

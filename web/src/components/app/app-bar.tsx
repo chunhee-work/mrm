@@ -97,6 +97,44 @@ function AccountMenu({ email }: { email: string }) {
   );
 }
 
+/** Phone menu: a "Language" row that says the current one; pressing it shows the three choices under it. */
+function MenuLang({ lang, label, pick }: { lang: Lang; label: string; pick: (l: Lang) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-hair">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="menu-lang"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-[52px] w-full items-center justify-between gap-4 text-[17px] font-medium text-fg"
+        data-testid="menu-lang-open"
+      >
+        <span className="flex items-center gap-3">
+          <span className="h-[18px] w-[2px] bg-transparent" aria-hidden="true" />
+          {label}
+        </span>
+        <span className="flex min-w-0 items-center gap-2 text-[15px] font-normal text-mute">
+          <span className="truncate" lang={lang === "zh" ? "zh-CN" : lang}>{MENU_LANG[lang]}</span>
+          <Chevron className={`shrink-0 transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+      {open && (
+        <div id="menu-lang" role="group" aria-label={label} className="flex items-center gap-2 pb-3 pl-[14px]" data-testid="menu-lang">
+          {LANGS.map((l) => (
+            <button
+              key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-label={LANG_LABEL[l]} aria-pressed={l === lang} onClick={() => pick(l)}
+              className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-[3px] border px-2 text-[14px] ${l === lang ? "border-ice bg-ice font-semibold text-bay" : "border-hair font-medium text-fg"}`}
+            >
+              <span className="truncate">{MENU_LANG[l]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MobileMenu({ email, path }: { email: string; path: string }) {
   const { t, lang } = useT();
   const router = useRouter();
@@ -153,17 +191,8 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
                 );
               })}
             </ul>
-            {/* the language, on a phone: here in the menu, so the bar has room for the New case button */}
-            <div role="group" aria-label={t("lang.label")} className="flex items-center gap-2 border-b border-hair py-2.5 pl-[14px]" data-testid="menu-lang">
-              {LANGS.map((l) => (
-                <button
-                  key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-label={LANG_LABEL[l]} aria-pressed={l === lang} onClick={() => pickLang(l)}
-                  className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-[3px] border px-2 text-[14px] ${l === lang ? "border-ice bg-ice font-semibold text-bay" : "border-hair font-medium text-fg"}`}
-                >
-                  <span className="truncate">{MENU_LANG[l]}</span>
-                </button>
-              ))}
-            </div>
+            {/* the language, on a phone: one row like the others; the three choices show only once it is opened (owner 2026-11-22) */}
+            <MenuLang lang={lang} label={t("lang.label")} pick={pickLang} />
             <div className="flex h-[52px] items-center justify-between gap-4 pl-[14px]">
               <span className="min-w-0 truncate text-[14px] text-mute">{email}</span>
               <button
