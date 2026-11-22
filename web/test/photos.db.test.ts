@@ -467,3 +467,35 @@ test("R3-B01: after Done nothing is left to check (case page, dashboard); an edi
   await s.renamePhoto(await caseNow(orgId, id), p.id, "Front Bumper", p.version);
   assert.equal(await count(), 1, "the renamed photo has a name of the adjuster; the other low one counts again (Done was taken back)");
 });
+
+test("R4-B02: photos that have no name yet count as 'to check' before the desk has run, and 完成 clears them", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  const { CONFIRM_COUNT } = await import("../src/lib/photos/confirm-sql");
+  const { id, c } = await newCase("naming", 2); // two photos, nothing suggested yet (name_state is still pending)
+  const count = async () => Number((await db.select({ n: CONFIRM_COUNT }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id)))[0].n);
+  assert.equal(await count(), 2, "unnamed photos must be counted from the stored data, without the desk running");
+  const slice = await s.claimSlice(id);
+  await s.writeName(slice[0], { ...named, confidence: 0.97 });
+  assert.equal(await count(), 1, "one is named with high confidence, one is still unnamed");
+  void c;
+});
+
+test("R4-0012: the worker role gets the case_photos sequence; running it twice is fine; without the role it does nothing", opts, async () => {
+  const { db, sql } = await kit();
+  const { readFileSync } = await import("node:fs");
+  const file = path.join(process.cwd(), "drizzle", "0012_worker_photo_seq.sql");
+  const body = readFileSync(file, "utf8").split("--> statement-breakpoint").map((x) => x.trim()).filter(Boolean);
+  const run = async (tx: { execute: (q: unknown) => Promise<unknown> }) => { for (const stmt of body) await tx.execute(sql.raw(stmt)); };
+  const marker = new Error("rollback");
+  // without the role: no error
+  await db.transaction(async (tx) => { await run(tx as never); throw marker; }).catch((e) => { if (e !== marker) throw e; });
+  // with the role (created inside the transaction, rolled back afterwards)
+  await db.transaction(async (tx) => {
+    const has = await tx.execute(sql`select 1 from pg_roles where rolname = 'autopilot_worker'`);
+    if (!((has as unknown as { rows?: unknown[] }).rows ?? (has as unknown as unknown[])).length) await tx.execute(sql.raw(`create role autopilot_worker nologin`));
+    await run(tx as never); await run(tx as never);
+    const r = await tx.execute(sql`select has_sequence_privilege('autopilot_worker', 'case_photos_id_seq', 'USAGE') as ok`);
+    assert.equal(((r as unknown as { rows?: { ok: boolean }[] }).rows ?? (r as unknown as { ok: boolean }[]))[0].ok, true);
+    throw marker;
+  }).catch((e) => { if (e !== marker) throw e; });
+});

@@ -1,3 +1,4 @@
+import { fill } from "./plural";
 import { honestString } from "./honest-copy";
 export const LANGS = ["en", "zh", "ms"] as const;
 export type Lang = (typeof LANGS)[number];
@@ -171,7 +172,7 @@ const en: Dict = {
   "case.err.zip": "The zip could not be opened, or it holds nothing we can use. Send the PDFs and photos again.",
   "case.err.timeout": "Reading took too long. Press Read again.",
   "case.err.tooBigAny": "A file is too large to read. PDFs can be up to 25 MB each. Replace it with a smaller one.",
-  "case.err.other": "Something went wrong on our side while reading. Press Read again.",
+  "case.err.other": "We could not read this case. Press Read again. If it fails again, write to us from the Contact page and we will look at it.",
   "case.files": "Files",
   "case.showAll": "Show all",
   "case.showLess": "Show less",
@@ -362,7 +363,7 @@ const en: Dict = {
   "bill.balance": "Credit balance",
   "bill.balanceHint": "1,000 credits = 1 case",
   "bill.credits": "{n} credits",
-  "bill.cases": "{n} case(s)",
+  "bill.cases": "{n} {n?case|cases}",
   "bill.test": "TEST MODE. No real money is taken and credits added here are test credits.",
   "bill.buy": "Buy credits",
   "bill.pay": "Pay with",
@@ -416,7 +417,7 @@ const en: Dict = {
   "new.skippedOne": "1 file was left out. Only zip, PDF and photo files can be uploaded.",
   "new.skippedMany": "{n} files were left out. Only zip, PDF and photo files can be uploaded.",
   "new.photosOne": "1 photo",
-  "new.photosN": "{n} photos",
+  "new.photosN": "{n} {n?photo|photos}",
   "new.leftOutTitle": "These files were left out",
   "new.wrongType": "{name}: only zip, PDF and photo files can be uploaded.",
   "new.notPhoto": "{name} is not a picture (the file content is not a photo), so it was left out.",
@@ -424,19 +425,19 @@ const en: Dict = {
   "new.stalled": "The upload stopped moving. Check your connection and try again.",
   "dash.d.photos": "Check photo names",
   "dash.d.photosN": "Name photos · {n} to check",
-  "dash.d.photosDone": "Photo names confirmed ✓",
+  "dash.d.photosDone": "Photo names confirmed",
   "dash.d.photosPress": "Name photos · press Done",
   "case.namePhotosPress": "Name photos · press Done",
   "case.namePhotosDone": "Open photo names",
-  "case.pp.todo": "{n} photo names still to check. Press Done on the naming desk when they are right.",
+  "case.pp.todo": "{n} {n?photo name|photo names} still to check. Press Done on the naming desk when they are right.",
   "case.pp.press": "All photos have a name. Press Done on the naming desk to confirm them.",
   "case.pp.confirmed": "Photo names confirmed ✓ {when}",
-  "case.pp.summary": "{n} photos, {edited} changed by you",
+  "case.pp.summary": "{n} {n?photo|photos}, {edited} changed by you",
   "case.pp.next.pending_doc": "Step 2 starts when the missing documents are in.",
   "case.pp.next.phase_b": "Waiting for the worker: it will relabel and reorder the photos in Merimen, then plan Step 2.",
   "case.pp.next.checking": "Step 2 is being checked.",
   "case.pp.next.early": "Step 2 starts once the case is created in Merimen.",
-  "case.samePlate": "This plate already has {n} other case(s). Check the upload date before you continue.",
+  "case.samePlate": "This plate already has {n} other {n?case|cases}. Check the upload date before you continue.",
   "contact.sub": "A question, a demo, or help with a case. Message us and a person replies.",
   "contact.open": "Open WhatsApp",
   "contact.hoursLabel": "Hours",
@@ -596,7 +597,7 @@ const zh: Dict = {
   "case.err.zip": "zip 打不开，或里面没有可用的文件。请重新发送 PDF 和照片。",
   "case.err.timeout": "读取花了太久。请按「再读一次」。",
   "case.err.tooBigAny": "有文件太大，无法读取。每个 PDF 最大 25 MB。请换成较小的文件。",
-  "case.err.other": "读取时我们这边出了问题。请按「再读一次」。",
+  "case.err.other": "这个案件没能读取成功。请按「再读一次」；如果还是失败，请从「联系我们」页面告诉我们，我们会来处理。",
   "case.files": "文件",
   "case.showAll": "显示全部",
   "case.showLess": "收起",
@@ -849,7 +850,7 @@ const zh: Dict = {
   "new.stalled": "上传停住了。请检查网络后重试。",
   "dash.d.photos": "核对照片名称",
   "dash.d.photosN": "给照片命名 · {n} 张待核对",
-  "dash.d.photosDone": "照片名称已确认 ✓",
+  "dash.d.photosDone": "照片名称已确认",
   "dash.d.photosPress": "给照片命名 · 请按完成",
   "case.namePhotosPress": "给照片命名 · 请按完成",
   "case.namePhotosDone": "打开照片名称",
@@ -1021,7 +1022,7 @@ const ms: Dict = {
   "case.err.zip": "Zip tidak dapat dibuka, atau tiada fail yang boleh digunakan. Hantar semula PDF dan gambar.",
   "case.err.timeout": "Pembacaan mengambil masa terlalu lama. Tekan Baca semula.",
   "case.err.tooBigAny": "Ada fail terlalu besar untuk dibaca. Setiap PDF sehingga 25 MB. Gantikan dengan fail lebih kecil.",
-  "case.err.other": "Ada masalah di pihak kami semasa membaca. Tekan Baca semula.",
+  "case.err.other": "Kes ini tidak dapat dibaca. Tekan Baca semula. Jika masih gagal, hubungi kami melalui halaman Hubungi.",
   "case.files": "Fail",
   "case.showAll": "Tunjuk semua",
   "case.showLess": "Tunjuk kurang",
@@ -1274,7 +1275,7 @@ const ms: Dict = {
   "new.stalled": "Muat naik terhenti. Semak sambungan anda dan cuba lagi.",
   "dash.d.photos": "Semak nama foto",
   "dash.d.photosN": "Namakan gambar · {n} perlu disemak",
-  "dash.d.photosDone": "Nama gambar disahkan ✓",
+  "dash.d.photosDone": "Nama gambar disahkan",
   "dash.d.photosPress": "Namakan gambar · tekan Selesai",
   "case.namePhotosPress": "Namakan gambar · tekan Selesai",
   "case.namePhotosDone": "Buka nama gambar",
@@ -1297,6 +1298,5 @@ export const DICTS: Record<Lang, Dict> = { en, zh, ms };
 export function translate(lang: Lang, key: string, vars?: Record<string, string>, worker = false): string {
   let s = DICTS[lang][key] ?? DICTS.en[key] ?? key;
   if (worker) s = honestString(s, lang, true);
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, v);
-  return s;
+  return fill(s, vars);
 }

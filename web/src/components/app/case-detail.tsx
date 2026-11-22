@@ -164,7 +164,7 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
     need = <p className={say}>{t("dash.d.waiting")}</p>;
     act = (
       <Link href={`/cases/${row.id}/photos`} aria-labelledby={`${actId} ${titleId}`} className={button}>
-        <Photo />
+        {row.photosDone && !row.deskConfirm ? <Tick className="h-4 w-4" /> : <Photo />}
         <span id={actId}>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : row.photosDone ? t("dash.d.photosDone") : (row.deskTotal ?? 0) > 0 ? t("dash.d.photosPress") : t("dash.d.photos")}</span>
       </Link>
     );

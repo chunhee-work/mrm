@@ -9,7 +9,7 @@ import { altsOf, classifyPaste, counts, fileIdentity, fileProblem, moved, visibl
 import { logLine, safeError } from "../src/lib/photos/log";
 import { assertTextOnly, buildJevRequest, TypeSafeImageError } from "../src/lib/typesafe";
 import { pickContext, SYSTEM } from "../src/lib/photos/name-photos";
-import { PHOTO_DICTS } from "../src/lib/photos/strings";
+import { PHOTO_DICTS, photoT } from "../src/lib/photos/strings";
 import { titleCase } from "../src/lib/photos/rules";
 import { whenOf } from "../src/lib/fmt-when";
 
@@ -276,4 +276,34 @@ test("R3-B08: the desk tab time is written in the page language (not always Engl
   assert.match(whenOf(iso, "en"), /Nov/);
   assert.doesNotMatch(whenOf(iso, "zh"), /Nov/);
   assert.match(whenOf(iso, "zh"), /03:10/); // Malaysia time
+});
+
+import { fill } from "../src/lib/plural";
+import { translate, LANGS } from "../src/lib/i18n";
+// @ts-ignore: a plain .mjs file without types
+import nextConfig from "../next.config.mjs";
+
+test("R4-B01: count strings use the singular for 1 and the plural otherwise, in every language", () => {
+  assert.equal(fill("{n} {n?photo|photos}", { n: 1 }), "1 photo");
+  assert.equal(fill("{n} {n?photo|photos}", { n: 2 }), "2 photos");
+  assert.equal(fill("{n} {n?photo|photos}", { n: 0 }), "0 photos");
+  assert.equal(photoT("en")("block.unnamed", { n: 1 }), "1 photo still has no name");
+  assert.equal(photoT("en")("block.unnamed", { n: 61 }), "61 photos still have no name");
+  assert.equal(photoT("en")("doneCount", { d: 5, n: 1 }), "5/1 case done");
+  assert.equal(translate("en", "case.pp.todo", { n: "1" }).startsWith("1 photo name still to check"), true);
+  assert.equal(translate("en", "case.pp.summary", { n: "1", edited: "1" }), "1 photo, 1 changed by you");
+  for (const lang of LANGS) {
+    for (const n of ["1", "2"]) for (const k of ["case.pp.todo", "case.pp.summary", "new.photosN", "bill.cases"]) {
+      const s = translate(lang, k as never, { n, edited: "0" });
+      assert.ok(!/\{[a-z]/.test(s), `${lang} ${k} has an unfilled placeholder: ${s}`);
+    }
+  }
+  assert.ok(!/\b1 (photos|cases|files)\b/.test(translate("en", "new.photosN", { n: "1" })));
+});
+
+test("R4-B03: streaming metadata is off for every browser, so <title> and meta stay in <head>", () => {
+  const re = (nextConfig as { htmlLimitedBots?: RegExp }).htmlLimitedBots;
+  assert.ok(re instanceof RegExp);
+  assert.ok(re!.test("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"));
+  assert.ok(re!.test("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"));
 });

@@ -1,4 +1,5 @@
 import type { Lang } from "@/lib/i18n";
+import { fill } from "@/lib/plural";
 
 // Words of the photo naming desk. Part names are never translated: they stay as Merimen spells them.
 type Dict = Record<string, string>;
@@ -21,8 +22,9 @@ const en: Dict = {
   doneUndo: "Click to undo Done",
   doneHint: "Press when every name is right. The names are saved and Step 2 follows when the case is ready",
   doneBtn: "Done {plate}",
-  doneCount: "{d}/{n} cases done",
+  doneCount: "{d}/{n} {n?case|cases} done",
   undone: "Marked as not done",
+  undoAction: "Undo",
   doneCancelled: "Done was cancelled because you changed a name. Press Done again.",
   "doneToast.phase_b": "{plate}: names confirmed. The case is queued for the worker; the Step 2 plan comes next",
   "doneToast.pending_doc": "{plate}: names confirmed. Step 2 starts when the missing documents are in",
@@ -30,23 +32,23 @@ const en: Dict = {
   doneToast: "{plate}: names confirmed",
   allDoneToast: "All cases have their photo names confirmed",
   "block.empty": "Add photos first",
-  "block.naming": "{n} photos are still being named",
-  "block.unnamed": "{n} photos still have no name",
+  "block.naming": "{n} {n?photo is|photos are} still being named",
+  "block.unnamed": "{n} {n?photo still has|photos still have} no name",
   "block.status": "This case can no longer be changed here",
   addPhotos: "Add photos",
   uploading: "Uploading {done} of {total}",
   leaveWarn: "Photos are still uploading.",
-  "up.added": "{n} photos added",
-  "up.dup": "{n} identical files were already uploaded",
+  "up.added": "{n} {n?photo|photos} added",
+  "up.dup": "{n} identical {n?file was|files were} already uploaded",
   "up.failed": "{n} could not be uploaded",
   "up.heic": "HEIC photos cannot be read here. Save them as JPEG first",
   "up.type": "Only JPEG, PNG and WebP photos",
   "up.size": "Over 25 MB",
   "up.limit": "A case holds at most 300 photos",
-  "up.unchecked": "Duplicates could not be checked for {n} files",
+  "up.unchecked": "Duplicates could not be checked for {n} {n?file|files}",
   "up.none": "Nothing was added",
-  naming: "Naming {n} photos",
-  failedLine: "{n} photos could not be named",
+  naming: "Naming {n} {n?photo|photos}",
+  failedLine: "{n} {n?photo|photos} could not be named",
   capLine: "The naming budget for this case is used up. Name the rest by hand",
   retry: "Try again",
   extras: "Parts with no photo",
@@ -132,8 +134,8 @@ const en: Dict = {
   photoAlt: "Photo {n}: {name}",
   noName: "no name yet",
   openingMissing: "Opening photos missing: {list}",
-  openingMissingShort: "{n} opening photos missing",
-  planLine: "Merimen photo plan: {n} photos · {types}",
+  openingMissingShort: "{n} opening {n?photo|photos} missing",
+  planLine: "Merimen photo plan: {n} {n?photo|photos} · {types}",
   fileType: "Merimen type",
 };
 
@@ -157,6 +159,7 @@ const zh: Dict = {
   doneBtn: "完成 {plate}",
   doneCount: "已完成 {d}/{n} 个案件",
   undone: "已取消完成",
+  undoAction: "撤销",
   doneCancelled: "你改了名称，所以完成已取消。请再按一次完成。",
   "doneToast.phase_b": "{plate}：名称已确认。案件已排到后台，接着做 Step 2 计划",
   "doneToast.pending_doc": "{plate}：名称已确认。缺的文件补齐后才会开始 Step 2",
@@ -291,6 +294,7 @@ const ms: Dict = {
   doneBtn: "Selesai {plate}",
   doneCount: "{d}/{n} kes selesai",
   undone: "Ditanda belum selesai",
+  undoAction: "Buat asal",
   doneCancelled: "Selesai dibatalkan kerana anda menukar nama. Tekan Selesai sekali lagi.",
   "doneToast.phase_b": "{plate}: nama disahkan. Kes diletakkan dalam giliran pekerja; pelan Step 2 menyusul",
   "doneToast.pending_doc": "{plate}: nama disahkan. Step 2 bermula apabila dokumen yang hilang diterima",
@@ -409,8 +413,6 @@ export const PHOTO_DICTS: Record<Lang, Dict> = { en, zh, ms };
 export type PT = (key: string, vars?: Record<string, string | number>) => string;
 export function photoT(lang: Lang): PT {
   return (key, vars) => {
-    let s = PHOTO_DICTS[lang][key] ?? en[key] ?? key;
-    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
-    return s;
+    return fill(PHOTO_DICTS[lang][key] ?? en[key] ?? key, vars);
   };
 }
