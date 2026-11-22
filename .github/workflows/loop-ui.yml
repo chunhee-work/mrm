@@ -19,6 +19,20 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'loop:ui') && vars.FIX_LOOP_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Local Postgres, as in ci.yml: `npm run build` starts with scripts/check-schema.ts, which needs a migrated database.
+    # Throwaway, no real data.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pay
+          POSTGRES_PASSWORD: pay
+          POSTGRES_DB: paytest
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pay" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://pay:pay@localhost:5432/paytest
     defaults:
       run:
         working-directory: web
@@ -28,6 +42,7 @@ jobs:
         with:
           node-version: 22
       - run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - run: npx tsx scripts/migrate.ts
       - run: npm run build
         env:
           SKIP_ENV_VALIDATION: '1'
