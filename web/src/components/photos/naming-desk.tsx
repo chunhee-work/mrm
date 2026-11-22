@@ -13,6 +13,7 @@ import { whenOf } from "@/lib/fmt-when";
 import { PhotoCard, type CardActions, type Editing } from "./photo-card";
 import { ExtraChip, HelpSheet, MoveSheet, Palette } from "./sheets";
 import { uploadPhotos } from "./upload";
+import { loginUrl } from "@/lib/next-path";
 
 /** `at` = when the case was uploaded (ISO); `dup` = another tab has the same plate, so the time tells them apart (shown in the page language, R3-B08). */
 export type DeskTab = { id: string; plate: string; carModel: string | null; done: boolean; photos: number; at: string; dup: boolean; edited: number; workshop?: string | null };
@@ -26,6 +27,8 @@ async function api(method: string, url: string, body?: unknown): Promise<Reply> 
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    // hard test 2026-11-22: signed out in another tab (or the session ran out): say so once, instead of "could not save" on every change
+    if (r.status === 401 && typeof window !== "undefined") window.dispatchEvent(new Event("desk:signed-out"));
     return { ok: r.ok, status: r.status, body: j };
   } catch {
     return { ok: false, status: 0, body: {} };
@@ -38,7 +41,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * The photo naming desk. One page for every open case: tabs across the top, the photos of the current case in a
  * two-column grid that scrolls inside its own frame. Every change saves at once and is taken back if the save fails.
  */
-export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgId: string; tabs: DeskTab[]; initialId: string }) {
+export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial }: { orgId: string; tabs: DeskTab[]; initialId: string; initial?: CaseState }) {
   const { lang } = useT();
   const t = useMemo(() => photoT(lang), [lang]);
   const tRef = useRef(t); tRef.current = t;
@@ -46,7 +49,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
   const [tabs, setTabs] = useState(firstTabs);
   const [caseId, setCaseId] = useState(initialId);
   const caseRef = useRef(caseId); caseRef.current = caseId;
-  const [states, setStatesRaw] = useState<Record<string, CaseState>>({});
+  const [states, setStatesRaw] = useState<Record<string, CaseState>>(() => (initial ? { [initialId]: initial } : {})); // the open case came with the page
   const statesRef = useRef(states);
   const mutate = useCallback((fn: (s: Record<string, CaseState>) => Record<string, CaseState>) => {
     const next = fn(statesRef.current);
@@ -54,6 +57,12 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     setStatesRaw(next);
   }, []);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
+  useEffect(() => {
+    const out = () => setSignedOut(true);
+    window.addEventListener("desk:signed-out", out);
+    return () => window.removeEventListener("desk:signed-out", out);
+  }, []);
   const [filter, setFilter] = useState<Filter>("all");
   const filterRef = useRef<Filter>("all");
   const [frozen, setFrozen] = useState<number[] | null>(null);
@@ -142,7 +151,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     if (caseRef.current === cid) setLoadFailed(false);
   }, [mutate]);
 
-  useEffect(() => { void load(caseId, false); }, [caseId, load]);
+  const seeded = useRef(!!initial);
+  useEffect(() => {
+    if (seeded.current && caseId === initialId && initial) { // the page brought this case: no second request for it
+      seeded.current = false;
+      for (const p of initial.photos) server.current.set(p.id, p);
+      undo.current.sync(initialId, initial.photos, () => false);
+      return;
+    }
+    void load(caseId, false);
+  }, [caseId, load, initial, initialId]);
   useEffect(() => {
     const on = () => setShown(document.visibilityState === "visible");
     on();
@@ -805,6 +823,15 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
     <div className="app-fill flex flex-col">
       {head}
       <div className="shrink-0">
+        {signedOut && (
+          <div className="wrap pb-2.5 max-sm:px-3 max-sm:pb-1" role="alert" data-testid="signed-out">
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] font-medium text-fg">
+              <span className="h-[9px] w-[9px] shrink-0 bg-amber" aria-hidden="true" />
+              <span className="min-w-0">{t("signedOut")}</span>
+              <a href={loginUrl(window.location.pathname, window.location.search)} className="link shrink-0 text-[13px] font-semibold">{t("logInAgain")}</a>
+            </span>
+          </div>
+        )}
         {/* what is going on: naming progress, or what needs a second try */}
         {st && n && !n.naming && n.total > 0 && missingOpen.length > 0 && (
           <div className="wrap pb-2.5 max-sm:px-3 max-sm:pb-1" role="status" data-testid="opening-banner">
@@ -872,9 +899,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId }: { orgI
           </div>
         ) : (
           <div className="wrap grid grid-cols-2 gap-2 pb-24 pt-3 max-sm:px-3 sm:gap-4 sm:pt-4 xl:grid-cols-3">
-            {list.map((p) => (
+            {list.map((p, i) => (
               <PhotoCard
-                key={p.id} p={p} n={indexOf.get(p.id) ?? 0} total={st.photos.length} src={img(p.id)}
+                key={p.id} p={p} n={indexOf.get(p.id) ?? 0} total={st.photos.length} src={img(p.id)} eager={i < 6}
                 current={cur === p.id} editing={editing?.id === p.id ? editing : null}
                 canDrag={filter === "all" && !editing} flash={flashId === p.id} hl={hl === p.id} a={actions} t={t}
               />
