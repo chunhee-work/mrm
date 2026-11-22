@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { accountRedirect } from "@/lib/hosts";
 import { ADMIN_COOKIE, adminKey, verifySession } from "@/lib/admin/key";
-
-const GATED = /^\/(dashboard|cases|billing|settings)(\/|$)/;
+import { GATED, loginUrl } from "@/lib/next-path";
 
 export async function middleware(req: NextRequest) {
   // Log in, sign up and the system itself live on the app host: asked for on the bare domain, send them there
@@ -23,10 +22,10 @@ export async function middleware(req: NextRequest) {
   // Cheap gate only (cookie present). Real checks happen server-side in requireUser().
   if (GATED.test(req.nextUrl.pathname)) {
     const has = req.cookies.get("better-auth.session_token") || req.cookies.get("__Secure-better-auth.session_token");
-    if (!has) return NextResponse.redirect(new URL("/login", req.url));
+    if (!has) return NextResponse.redirect(new URL(loginUrl(req.nextUrl.pathname, req.nextUrl.search), req.url)); // back to this page after logging in
   }
   return NextResponse.next();
 }
 export const config = {
-  matcher: ["/dashboard/:path*", "/cases/:path*", "/billing/:path*", "/settings/:path*", "/admin/:path*", "/login", "/signup", "/forgot-password", "/reset-password"],
+  matcher: ["/dashboard/:path*", "/cases/:path*", "/billing/:path*", "/settings/:path*", "/connection/:path*", "/admin/:path*", "/login", "/signup", "/forgot-password", "/reset-password"],
 };
