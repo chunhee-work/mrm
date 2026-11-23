@@ -95,9 +95,10 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
       </>
     ) : docs.length ? (
       <>
-        {/* one line says how many, the names follow in two columns */}
+        {/* one line says how many, the names follow in two columns. The numbers run down the left column first, then the
+            right one (owner 2026-11-22: 1, 2 on the left and 3, 4 on the right), not across */}
         <p className={say} data-testid="missing-count">{t("dash.d.missingN", { n: String(docs.length) })}</p>
-        <ol className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-cols-2">
+        <ol className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-flow-col sm:grid-cols-2 sm:[grid-template-rows:repeat(var(--rows),auto)]" style={{ "--rows": Math.ceil(names.length / 2) } as React.CSSProperties} data-testid="missing-list">
           {names.map((d, i) => (
             <li key={`${i}${d}`} className="flex items-baseline gap-2 text-[15px] leading-snug text-fg [overflow-wrap:anywhere]">
               <span className="num w-5 shrink-0 font-semibold">{i + 1}.</span>

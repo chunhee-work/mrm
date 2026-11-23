@@ -339,9 +339,9 @@ try {
     await inputs.nth(2).fill("abcdefgh2");
     await page.locator("form[novalidate] button").click();
     await page.getByText(/not the same/).waitFor();
-    // the language is changed in one place only, the globe in the top bar (Settings no longer repeats it)
-    await page.getByRole("button", { name: /^Language/ }).click();
-    await page.getByRole("button", { name: /中文/ }).click();
+    // owner 2026-11-22: the language is changed in Settings; the top bar has no globe any more
+    assert.equal(await page.locator("header").getByRole("button", { name: /^Language/ }).count(), 0, "no language button in the top bar");
+    await page.getByTestId("set-lang").getByRole("button", { name: /中文/ }).click();
     await page.getByText(/不一样/).waitFor({ timeout: 5000 });
     await ctx.addCookies([{ name: "lang", value: "en", url: BASE }]);
   });
@@ -361,6 +361,52 @@ try {
     await page.waitForLoadState("load");
     await page.waitForTimeout(800);
     assert.match(await page.title(), /^E2EA1111 · .+ · Autopilotclaim$/);
+  });
+
+  await step("uploaded files open with a click (owner 2026-11-22), only for the case they belong to and only when signed in", async () => {
+    const add = async (caseId, name, p, bytes) => {
+      writeFileSync(file(p), bytes);
+      return (await db.query(`INSERT INTO case_files (case_id, kind, blob_url, original_name, size) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [caseId, /\.pdf$/.test(name) ? "pdf" : /\.zip$/.test(name) ? "bundle_zip" : "photo", p, name, bytes.length])).rows[0].id;
+    };
+    const PDF = Buffer.from("%PDF-1.4\n%%EOF\n");
+    const pdf = await add(A, "报告 report.pdf", `${orgId}/${A}/docs/report.pdf`, PDF);
+    const jpg = await add(A, "IMG_1.JPG", `${orgId}/${A}/docs/img1.jpg`, JPEG);
+    const zip = await add(A, "bundle.zip", `${orgId}/${A}/docs/bundle.zip`, Buffer.from("PK"));
+    const html = await add(A, "page.html", `${orgId}/${A}/docs/page.html`, Buffer.from("<script>1</script>"));
+    const outside = await add(A, "other.pdf", `someone-else/${A}/docs/other.pdf`, PDF); // a path outside this organisation's folder is never read
+    const url = (c, f) => `${BASE}/api/cases/${c}/files/${f}`;
+
+    await page.goto(`${BASE}/cases/${A}`);
+    await page.getByTestId("case-files").locator("summary").click();
+    const link = page.getByTestId("file-open").filter({ hasText: "报告 report.pdf" });
+    assert.equal(await link.getAttribute("href"), `/api/cases/${A}/files/${pdf}`);
+    assert.equal(await link.getAttribute("target"), "_blank");
+    assert.equal(await page.getByTestId("file-open").count(), 5);
+    assert.ok((await link.boundingBox()).height >= 44, "a file row is tall enough for a finger");
+
+    let r = await ctx.request.get(url(A, pdf));
+    assert.equal(r.status(), 200);
+    assert.equal(r.headers()["content-type"], "application/pdf");
+    assert.match(r.headers()["content-disposition"], /^inline; filename="__ report\.pdf"; filename\*=UTF-8''%E6%8A%A5%E5%91%8A%20report\.pdf$/);
+    assert.equal(r.headers()["cache-control"], "private, no-store");
+    assert.equal(r.headers()["x-content-type-options"], "nosniff");
+    assert.ok((await r.body()).equals(PDF));
+    r = await ctx.request.get(url(A, jpg));
+    assert.equal(r.headers()["content-type"], "image/jpeg");
+    // a zip, and anything the browser could run, is a download and never a page of ours
+    for (const id of [zip, html]) {
+      r = await ctx.request.get(url(A, id));
+      assert.equal(r.status(), 200);
+      assert.equal(r.headers()["content-type"], "application/octet-stream");
+      assert.match(r.headers()["content-disposition"], /^attachment; /);
+    }
+    assert.equal((await ctx.request.get(url(D, pdf))).status(), 404, "a file of another case");
+    assert.equal((await ctx.request.get(url(A, outside))).status(), 404, "a path outside the organisation's folder");
+    assert.equal((await ctx.request.get(url(A, 999999999))).status(), 404);
+    assert.equal((await ctx.request.get(url(A, "abc"))).status(), 404);
+    assert.equal((await ctx.request.get(url("no-such-case", pdf))).status(), 404);
+    assert.equal((await fetch(url(A, pdf))).status, 401, "signed out");
+    await db.query(`DELETE FROM case_files WHERE case_id = $1`, [A]);
   });
 
   await step("R4-B01/U04: the case table has no '1 photos' and no tick typed into the words; the first page counts the cases", async () => {
