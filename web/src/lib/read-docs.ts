@@ -6,6 +6,7 @@ import { documentRefusal, trackedParse, zodOutputFormat, MODEL, type CallCtx } f
 import { playbookBlock, playbookTag } from "@/lib/playbook/prompt";
 import { costOf, tokensOf } from "./pricing";
 import { badFileName } from "./case-text";
+import { runPool } from "./pool";
 
 // Step 1 of the workflow (playbook 01): read the case bundle and return the case data.
 // Anthropic compiles the output schema and refuses more than 16 nullable/union fields. So plain text fields are
@@ -85,8 +86,13 @@ type Block = Anthropic.Messages.ContentBlockParam;
  * The name is escaped, not cut, so "Replace files" finds the very row; "" = one of several PDFs, we cannot tell which (nothing is removed).
  */
 export class BadFile extends Error {
-  constructor(name: string, why: "empty" | "corrupt" | "too_big") { super(`bad_file:${badFileName(name)}|${why}`); this.name = "BadFile"; }
+  constructor(name: string, readonly why: "empty" | "corrupt" | "too_big") { super(`bad_file:${badFileName(name)}|${why}`); this.name = "BadFile"; }
 }
+const unique = (names: string[], name: string) => names.filter((x) => x === name).length === 1;
+// The model's limit on PDF pages in one request ("A maximum of 100 PDF pages may be provided" and the like)
+const TOO_MANY_PAGES = /maximum of \d+ (pdf )?pages|pages? (limit|exceed)|too many (pdf )?pages|exceeds? .*\bpages?\b/i;
+/** Written when the PDFs are fine one by one but too long together; case-text shows it as "too many pages", the customer's to fix. */
+export const PAGES_ERROR = "request_too_large: too many PDF pages to read in one case";
 const MAX_PDF = 25 * 1024 * 1024;
 /** Checks the bytes of one PDF before it is sent to the model (B06/B07). */
 export function checkPdf(name: string, buf: Uint8Array) {
@@ -109,6 +115,25 @@ export function asBadFile(e: unknown, names: string[]): BadFile | null {
   return new BadFile(names.length === 1 ? names[0] : "", "corrupt");
 }
 
+type Verdict = "refused" | "accepted" | "unknown";
+/**
+ * What a refused read becomes, or null when it is not about the PDFs (then the error stays as it is). `verdicts` are the token
+ * counter's answers for each PDF alone, in `names` order.
+ */
+export function refusalOf(e: unknown, names: string[], verdicts?: Verdict[]): Error | null {
+  const msg = (e as { message?: string } | null)?.message ?? "";
+  // a limit on the whole request (the PDFs' pages together) is not a broken file: no PDF is taken out for it
+  if ((e as { status?: number } | null)?.status === 400 && TOO_MANY_PAGES.test(msg)) return new Error(`${PAGES_ERROR} (${msg.slice(0, 300)})`);
+  const bad = asBadFile(e, names);
+  if (!bad || !verdicts) return bad;
+  // only a name no other file of the case has ("Replace files" removes by name); more than one: the next read names the next
+  const refused = names.filter((n, i) => verdicts[i] === "refused" && unique(names, n));
+  if (refused.length) return new BadFile(refused[0], "corrupt");
+  // every PDF opens alone: it is the set that is too much, and sending the same PDFs again would fail the same way
+  if (verdicts.length === names.length && verdicts.every((v) => v === "accepted")) return new Error(`${PAGES_ERROR} (${msg.slice(0, 300)})`);
+  return bad;
+}
+
 async function blobBase64(url: string, name = "file.pdf"): Promise<string> {
   const r = await get(url, { access: "private" });
   if (!r || r.statusCode !== 200) throw new Error("blob not found");
@@ -123,7 +148,11 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
   const content: Block[] = [];
   const docs: { name: string; block: Block }[] = [];
   for (const f of pdfs) {
-    const block: Block = { type: "document", source: { type: "base64", media_type: "application/pdf", data: await blobBase64(f.blobUrl, f.originalName) } };
+    // a file two PDFs share the name of is not named ("Replace files" would take both out): it is "one of the PDFs" then
+    const data = await blobBase64(f.blobUrl, f.originalName).catch((e) => {
+      throw e instanceof BadFile && !unique(pdfs.map((x) => x.originalName), f.originalName) ? new BadFile("", e.why) : e;
+    });
+    const block: Block = { type: "document", source: { type: "base64", media_type: "application/pdf", data } };
     docs.push({ name: f.originalName, block });
     content.push({ type: "text", text: `File: ${f.originalName}` }, block);
   }
@@ -137,17 +166,17 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content }],
   }).catch(async (e) => {
-    const bad = asBadFile(e, pdfs.map((f) => f.originalName));
-    if (!bad) throw e;
+    const names = docs.map((d) => d.name);
+    if (!refusalOf(e, names)) throw e;
+    if (docs.length < 2 || TOO_MANY_PAGES.test((e as { message?: string }).message ?? "")) throw refusalOf(e, names)!;
     // several PDFs and the refusal does not say which: ask the free token counter about each one alone, so "Replace files"
     // can take out exactly that file (without it the same bad PDF would stay in the case and fail every read)
-    if (docs.length > 1) {
-      const verdicts = await Promise.all(docs.map((d) => documentRefusal([d.block]).catch(() => null)));
-      // refused only with the same kind of PDF complaint, and only a name no other file of the case has ("Replace files" removes by name)
-      const refused = docs.filter((d, i) => verdicts[i] && asBadFile(verdicts[i], [d.name]) && docs.filter((x) => x.name === d.name).length === 1).map((d) => d.name);
-      if (refused.length) throw new BadFile(refused[0], "corrupt"); // more than one: the next read names the next
-    }
-    throw bad;
+    const verdicts: Verdict[] = docs.map(() => "unknown");
+    await runPool(docs.length, 4, async (i) => {
+      const v = await documentRefusal([docs[i].block]).catch(() => undefined); // undefined: the check itself failed (rate limit, network)
+      verdicts[i] = v === undefined ? "unknown" : v === null ? "accepted" : asBadFile(v, [docs[i].name]) ? "refused" : "unknown";
+    });
+    throw refusalOf(e, names, verdicts)!;
   });
   if (res.stop_reason === "refusal") throw new Error("Claude declined this request");
   if (!res.parsed_output) throw new Error("no structured output (stop_reason: " + res.stop_reason + ")");

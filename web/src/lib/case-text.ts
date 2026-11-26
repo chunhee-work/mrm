@@ -48,7 +48,8 @@ export function docKey(text: string): DocKey {
 export function failTr(error: string | null): Tr {
   const e = (error ?? "").trim();
   let m: RegExpMatchArray | null;
-  if (/^bad_file:\|corrupt/.test(e)) return { key: "case.err.corruptSome" }; // the model refused several PDFs together: we cannot tell which one
+  if (/^bad_file:\|/.test(e)) return { key: "case.err.corruptSome" }; // a PDF we cannot name (refused together, or a name two files share)
+  if (/^request_too_large: too many PDF pages/.test(e)) return { key: "case.err.tooManyPages" }; // each PDF opens, together they are too long
   if ((m = e.match(/^bad_file:([^|]+)\|(empty|corrupt|too_big)/))) return { key: `case.err.${m[2]}`, vars: { name: badFileNames(e).join("; ") || m[1] } };
   if (ZIP_REJECTED.test(e)) return { key: "case.err.zip" };
   if (/no PDF/i.test(e)) return { key: "case.err.noPdf" };
@@ -76,7 +77,8 @@ const ZIP_REJECTED = new RegExp(`: (${Object.values(ZIP_WHY).join("|")})$`);
  * Only the zip's own refusals count: "cannot download x.zip" or a blob path with /unzipped-/ in it is ours, and the credit goes back.
  */
 export const userFixable = (error: string | null) =>
-  (/^bad_file:|no PDF|request_too_large|too large|exceeds? (the )?(maximum|limit)|32 ?MB|too many (pages|tokens)/i.test(error ?? "") || ZIP_REJECTED.test(error ?? "")) && !/timed out/i.test(error ?? "");
+  /^bad_file:/.test(error ?? "") || // first: the rest of a bad_file error is a file name, and a name may say anything ("timed out.pdf")
+  ((/no PDF|request_too_large|too large|exceeds? (the )?(maximum|limit)|32 ?MB|too many (pages|tokens)/i.test(error ?? "") || ZIP_REJECTED.test(error ?? "")) && !/timed out/i.test(error ?? ""));
 
 /** A file name as written into a `bad_file:` error: the characters the format uses are %-escaped and nothing is cut, so it still matches the stored name. */
 export const badFileName = (name: string) => name.replace(/[%|;\r\n]/g, (c) => encodeURIComponent(c));

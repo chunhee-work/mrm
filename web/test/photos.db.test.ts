@@ -126,13 +126,15 @@ test("done: sets the tick and moves waiting_user/naming to phase_b; any edit tak
   assert.ok((await rows(id)).every((r) => !r.confirmed));
 });
 
-test("done: a case already at 'checking' or 'done' refuses every edit, so its 完成 is never taken away for good", opts, async () => {
+test("done: a case past Phase B ('checking', 'done', or paused for a Merimen login after it) refuses every edit, so its 完成 is never taken away for good", opts, async () => {
   const { s, db, schema, eq } = await kit();
-  for (const status of ["checking", "done"]) {
+  for (const status of ["checking", "done", "waiting_user"]) {
     const { orgId, id } = await newCase("naming", 1);
     for (const x of await s.claimSlice(id)) await s.writeName(x, named);
     await s.setDone(await caseNow(orgId, id), true);
     await db.update(schema.cases).set({ status }).where(eq(schema.cases.id, id));
+    // the worker queues `checks` as Phase B ends; a login problem then moves the case back to waiting_user
+    if (status === "waiting_user") await db.insert(schema.jobs).values({ caseId: id, step: "checks", state: "paused" });
     const extra = await s.addExtra(await caseNow(orgId, id), "Bumper Clips");
     assert.deepEqual([extra.status, extra.body.error], [409, "status"]);
     const p = (await rows(id))[0];
@@ -152,6 +154,20 @@ test("done: a case already at 'checking' or 'done' refuses every edit, so its �
     assert.notEqual(now.photosDoneAt, null, "the tick stays");
     assert.equal((await rows(id))[0].finalName, null);
     assert.ok((await rows(id)).every((r) => r.confirmed));
+  }
+});
+
+test("done: 完成 cannot be pressed while a document is read or after a failed read; those cases stay editable", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  for (const status of ["reading", "failed"]) {
+    const { orgId, id } = await newCase("naming", 1);
+    for (const x of await s.claimSlice(id)) await s.writeName(x, named);
+    await db.update(schema.cases).set({ status }).where(eq(schema.cases.id, id));
+    const c = await caseNow(orgId, id);
+    const r = await s.setDone(c, true);
+    assert.deepEqual([r.status, r.body.error], [409, "status"], status);
+    const p = (await rows(id))[0];
+    assert.equal((await s.renamePhoto(c, p.id, "Front Bumper", p.version)).status, 200, status);
   }
 });
 

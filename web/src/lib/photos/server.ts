@@ -82,16 +82,24 @@ export async function finalizeNaming(c: CaseRow): Promise<CaseRow | null> {
   return (await caseInOrg(c.orgId, c.id)) ?? c;
 }
 
-// Past Phase B (checking, done) 完成 cannot be pressed again, so an edit there (which takes the tick away) is refused.
-// Every other status stays editable, and 完成 can be pressed there.
-const LOCKED = new Set(["checking", "done"]);
-const locked = (c: CaseRow) => LOCKED.has(c.status);
+// Past Phase B 完成 cannot be pressed again, so an edit there (which takes the tick away) is refused.
+// Phase B is past once the worker has queued the case's `checks` job (it does that as Phase B ends). The status alone is not
+// enough: a Merimen login problem moves a checking case back to waiting_user until the login is fixed, and checks then finishes it.
+const PAST_B = new Set(["checking", "done"]);
+const CHECKS_QUEUED = sql`EXISTS (SELECT 1 FROM jobs WHERE jobs.case_id = cases.id AND jobs.step = 'checks' AND jobs.state <> 'cancelled')`;
+async function locked(c: CaseRow): Promise<boolean> {
+  if (PAST_B.has(c.status)) return true;
+  const r = await db.execute(sql`SELECT ${CHECKS_QUEUED} AS l FROM cases WHERE id = ${c.id}`);
+  return Boolean(rowsOf<{ l: boolean }>(r)[0]?.l);
+}
+// Statuses from which 完成 can be pressed (reading a new document or a failed read only pause it).
+const DONE_FROM = new Set(["uploaded", "phase_a", "pending_doc", "waiting_user", "naming", "phase_b"]);
 
 /** Any edit after "done" takes the tick away again (plan, section D). Status only moves back from phase_b. */
 export async function clearDone(caseId: string): Promise<boolean> {
   const r = await db.execute(sql`
     UPDATE cases SET photos_done_at = NULL, photos_snapshot = NULL, status = CASE WHEN status = 'phase_b' THEN 'waiting_user' ELSE status END
-    WHERE id = ${caseId} AND photos_done_at IS NOT NULL AND status NOT IN ('checking', 'done') RETURNING id`); /* the worker may have moved it on since the request read it */
+    WHERE id = ${caseId} AND photos_done_at IS NOT NULL AND status NOT IN ('checking', 'done') AND NOT ${CHECKS_QUEUED} RETURNING id`); /* the worker may have moved it on since the request read it */
   if (!rowsOf(r).length) return false;
   await db.update(P).set({ confirmed: false }).where(eq(P.caseId, caseId));
   // A Phase B that is still waiting in the queue must not run on names that are no longer final. One that is already running
@@ -103,7 +111,7 @@ export async function clearDone(caseId: string): Promise<boolean> {
 // ---- rename ----
 export async function renamePhoto(c: CaseRow, photoId: number, rawName: unknown, version: unknown): Promise<Result> {
   if (!Number.isInteger(photoId) || !Number.isInteger(version)) return fail(400, "invalid");
-  if (locked(c)) return fail(409, "status");
+  if (await locked(c)) return fail(409, "status");
   let finalName: string | null = null;
   if (rawName != null && rawName !== "") {
     finalName = canonName(rawName);
@@ -125,7 +133,7 @@ export async function renamePhoto(c: CaseRow, photoId: number, rawName: unknown,
 // ---- reorder ----
 export async function reorderPhotos(c: CaseRow, ids: unknown, rev: unknown): Promise<Result> {
   if (!Number.isInteger(rev)) return fail(400, "invalid");
-  if (locked(c)) return fail(409, "status");
+  if (await locked(c)) return fail(409, "status");
   const current = (await db.select({ id: P.id }).from(P).where(eq(P.caseId, c.id))).map((r) => r.id);
   if (!isPermutation(current, ids)) return fail(409, "stale_order");
   // One statement: the revision moves and the positions are written together, so another tab can never
@@ -149,7 +157,8 @@ export async function reorderPhotos(c: CaseRow, ids: unknown, rev: unknown): Pro
 // ---- done ----
 export async function setDone(c: CaseRow, done: unknown): Promise<Result> {
   if (typeof done !== "boolean") return fail(400, "invalid");
-  if (locked(c)) return fail(409, "status");
+  if (await locked(c)) return fail(409, "status");
+  if (done && !DONE_FROM.has(c.status)) return fail(409, "status");
   if (!done) {
     await clearDone(c.id);
     const [now] = await db.select({ status: schema.cases.status }).from(schema.cases).where(eq(schema.cases.id, c.id));
@@ -212,7 +221,7 @@ export async function recordLearning(caseId: string, orgId: string): Promise<voi
 export async function addExtra(c: CaseRow, rawName: unknown): Promise<Result> {
   const name = canonName(rawName);
   if (!name) return fail(400, "name");
-  if (locked(c)) return fail(409, "status");
+  if (await locked(c)) return fail(409, "status");
   await db.execute(sql`INSERT INTO case_extras (case_id, name) VALUES (${c.id}, ${name}) ON CONFLICT (case_id, lower(name)) DO NOTHING`);
   const [row] = await db.select().from(schema.caseExtras)
     .where(and(eq(schema.caseExtras.caseId, c.id), sql`lower(${schema.caseExtras.name}) = lower(${name})`)).limit(1);
@@ -222,7 +231,7 @@ export async function addExtra(c: CaseRow, rawName: unknown): Promise<Result> {
 }
 export async function removeExtra(c: CaseRow, extraId: number): Promise<Result> {
   if (!Number.isInteger(extraId)) return fail(400, "invalid");
-  if (locked(c)) return fail(409, "status");
+  if (await locked(c)) return fail(409, "status");
   await db.delete(schema.caseExtras).where(and(eq(schema.caseExtras.id, extraId), eq(schema.caseExtras.caseId, c.id)));
   await clearDone(c.id);
   return ok({}); // already gone = success
@@ -233,7 +242,7 @@ export type TokenCheck = { ok: true } | { ok: false; reason: "path" | "duplicate
 /** Run before an upload token is issued: the path is noted so a stray blob can be swept later (plan, AC). */
 export async function noteUpload(c: CaseRow, orgId: string, pathname: string, hash: string | null): Promise<TokenCheck> {
   if (!pathInCase(pathname, orgId, c.id)) return { ok: false, reason: "path" };
-  if (locked(c)) return { ok: false, reason: "status" }; // registering would be refused: the file is not uploaded at all
+  if (await locked(c)) return { ok: false, reason: "status" }; // registering would be refused: the file is not uploaded at all
   if (hash && !/^[0-9a-f]{64}$/.test(hash)) return { ok: false, reason: "path" };
   if (hash) {
     const [dup] = await db.select({ id: P.id }).from(P).where(and(eq(P.caseId, c.id), eq(P.contentHash, hash))).limit(1);
@@ -268,7 +277,7 @@ const isUnique = (e: unknown) => {
 
 export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): Promise<Result> {
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > MAX_REGISTER) return fail(400, "invalid");
-  if (locked(c)) return fail(409, "status");
+  if (await locked(c)) return fail(409, "status");
   const rejected: string[] = [];
   const duplicates: string[] = [];
   let items: RegisterItem[] = [];

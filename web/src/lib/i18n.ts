@@ -466,6 +466,7 @@ const en: Dict = {
   "contact.hoursLabel": "Hours",
   "photos.noPlate": "Not read yet",
   "case.err.corruptSome": "One of the PDFs cannot be opened, and we cannot tell which. Check that each PDF opens, then send all the PDFs again.",
+  "case.err.tooManyPages": "Each PDF opens, but together they have too many pages to read as one case. Start a new case with fewer PDFs, or send shorter ones.",
   "new.tooMany": "A case can have up to {max} files. You chose {n}. Remove some, or put them in one zip.",
   "new.tooMuch": "All files together can be up to {gb} GB. These are {size}. Remove some files.",
 };
@@ -916,6 +917,7 @@ const zh: Dict = {
   "contact.hoursLabel": "服务时间",
   "photos.noPlate": "尚未读取",
   "case.err.corruptSome": "其中一个 PDF 打不开，但无法判断是哪一个。请确认每个 PDF 都能打开，再把所有 PDF 重新发送一次。",
+  "case.err.tooManyPages": "每个 PDF 都能打开，但放在一起页数太多，无法作为一个案件读取。请用较少的 PDF 新建一个案件，或发送较短的 PDF。",
   "new.tooMany": "一个案件最多 {max} 个文件，你选了 {n} 个。请移除一些，或打包成一个 zip。",
   "new.tooMuch": "所有文件加起来最多 {gb} GB，现在是 {size}。请移除一些文件。",
 };
@@ -1366,6 +1368,7 @@ const ms: Dict = {
   "contact.hoursLabel": "Waktu operasi",
   "photos.noPlate": "Belum dibaca",
   "case.err.corruptSome": "Salah satu PDF tidak boleh dibuka, dan kami tidak dapat pastikan yang mana. Semak setiap PDF boleh dibuka, kemudian hantar semua PDF sekali lagi.",
+  "case.err.tooManyPages": "Setiap PDF boleh dibuka, tetapi bersama-sama halamannya terlalu banyak untuk dibaca sebagai satu kes. Buka kes baharu dengan kurang PDF, atau hantar PDF yang lebih pendek.",
   "new.tooMany": "Satu kes boleh ada sehingga {max} fail. Anda memilih {n}. Buang sebahagian, atau masukkan dalam satu zip.",
   "new.tooMuch": "Semua fail bersama boleh sehingga {gb} GB. Fail ini {size}. Buang sebahagian fail.",
 };

@@ -28,7 +28,11 @@ export async function creditOrder(a: {
 }): Promise<CreditResult> {
   // a payment made in the provider's test mode must never give real credits on the live site
   if (a.testMode && paymentsMode() === "live") {
-    await auditPayment("payment_test_in_live", a.orderId, `${a.provider} ${a.providerRef}`);
+    // written down once per order and payment: a toyyibPay order is asked again on every billing-page visit
+    const detail = `${a.orderId} ${a.provider} ${a.providerRef}`;
+    await db.execute(sql`
+      INSERT INTO audit_log (action, detail) SELECT 'payment_test_in_live', ${detail}
+      WHERE NOT EXISTS (SELECT 1 FROM audit_log WHERE action = 'payment_test_in_live' AND detail = ${detail})`);
     return "test_in_live";
   }
   try {

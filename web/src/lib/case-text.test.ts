@@ -66,6 +66,14 @@ test("a PDF the model refused among several: the customer's to fix, no file name
   assert.equal(failTr("bad_file:|corrupt").key, "case.err.corruptSome");
   assert.deepEqual(badFileNames("bad_file:|corrupt"), []);
   for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)["case.err.corruptSome"], l);
+  // a PDF that cannot be named because two files share its name
+  assert.equal(failTr("bad_file:|empty").key, "case.err.corruptSome");
+  // a file name is never read as the reason ("timed out" is ours, but here it is only the name)
+  assert.equal(userFixable("bad_file:scan timed out.pdf|corrupt"), true);
+  // each PDF opens, together they are too long: the customer's to fix, with its own message
+  assert.equal(userFixable("request_too_large: too many PDF pages to read in one case (x)"), true);
+  assert.equal(failTr("request_too_large: too many PDF pages to read in one case (x)").key, "case.err.tooManyPages");
+  for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)["case.err.tooManyPages"], l);
   // an escaped name is shown as the user wrote it
   assert.equal(failTr(`bad_file:${badFileName("a|b;c.pdf")}|empty`).vars?.name, "a|b;c.pdf");
 });

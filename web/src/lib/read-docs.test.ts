@@ -67,3 +67,22 @@ test("R2-B03 a 400 from the model about the PDF is the customer's file; other er
   assert.equal(asBadFile(Object.assign(new Error("400 max_tokens too large"), { status: 400 }), ["a.pdf"]), null);
   assert.equal(asBadFile(new Error("network"), ["a.pdf"]), null);
 });
+
+import { refusalOf, PAGES_ERROR } from "./read-docs";
+test("a refused read: page limits are not a broken file; the counter names one PDF, or says the set is too long", () => {
+  const pdf400 = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"The PDF specified could not be processed"}}'), { status: 400 });
+  const pages400 = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"A maximum of 100 PDF pages may be provided."}}'), { status: 400 });
+  // the page limit: never a bad file, with one PDF or several
+  assert.ok(refusalOf(pages400, ["a.pdf"])!.message.startsWith(PAGES_ERROR));
+  assert.ok(refusalOf(pages400, ["a.pdf", "b.pdf"])!.message.startsWith(PAGES_ERROR));
+  // not about the PDFs: left as it is
+  assert.equal(refusalOf(Object.assign(new Error("overloaded"), { status: 529 }), ["a.pdf"]), null);
+  // one PDF refused alone: that one is named
+  assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "refused"])!.message, "bad_file:b.pdf|corrupt");
+  // refused but its name is shared: not named
+  assert.equal(refusalOf(pdf400, ["a.pdf", "a.pdf", "c.pdf"], ["refused", "accepted", "accepted"])!.message, "bad_file:|corrupt");
+  // every PDF opens alone: the set is too long, not "one of them is broken"
+  assert.ok(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "accepted"])!.message.startsWith(PAGES_ERROR));
+  // the counter could not answer for one: we cannot tell
+  assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "unknown"])!.message, "bad_file:|corrupt");
+});
