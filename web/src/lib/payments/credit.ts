@@ -32,7 +32,8 @@ export async function creditOrder(a: {
     const detail = `${a.orderId} ${a.provider} ${a.providerRef}`;
     await db.execute(sql`
       INSERT INTO audit_log (action, detail) SELECT 'payment_test_in_live', ${detail}
-      WHERE NOT EXISTS (SELECT 1 FROM audit_log WHERE action = 'payment_test_in_live' AND detail = ${detail})`);
+      WHERE NOT EXISTS (SELECT 1 FROM audit_log WHERE action = 'payment_test_in_live' AND detail = ${detail})
+        AND EXISTS (SELECT 1 FROM payment_orders WHERE id = ${a.orderId} AND status = 'pending')`); // a replay for a credited order is not "paid, not credited"
     return "test_in_live";
   }
   try {

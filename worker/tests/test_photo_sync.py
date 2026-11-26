@@ -191,6 +191,14 @@ def test_phase_b_heals_photos_that_landed_at_the_end():
     assert m.writes == ["relabel:1", "reorder:3"] or m.writes[0] == "relabel:1"
 
 
+def test_phase_b_run_again_when_merimen_already_holds_the_final_names_moves_nothing():
+    # an earlier Phase B relabelled Merimen and stopped later (Step 2, save, a worker error) before its list was logged
+    new = final(THREE, **{"a.jpg": "Front Bumper Lower"})
+    m = Fake(held=["Front Bumper Lower", "Bonnet", "Grille"])
+    rep = ps.phase_b({}, new, [], stored_snapshot=snapshot_of(new, []), phase_a_photos=a_plan(THREE), writes=True, merimen=m)
+    assert rep.ok and rep.snapshot and rep.relabel == 0 and rep.reorder == 0 and m.writes == []
+
+
 def test_phase_b_unmatched_photos_need_a_hand_fix_and_write_nothing():
     old = a_plan(THREE)
     m = Fake(held=["Something", "Else", "Entirely"])

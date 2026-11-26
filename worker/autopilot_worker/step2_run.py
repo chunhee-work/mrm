@@ -181,6 +181,8 @@ def run(
     rep.plan = summary(plan)
     rep.action = "plan"
     changed = [r["model_name"] for r in desk if r.get("final_name") and r.get("model_name") and r["final_name"] != r["model_name"]]
+    # a Phase B run again: the names Merimen got last (an earlier Phase B may have ticked parts for them) must not stay ticked either
+    changed += [p["name"] for p in case.get("phase_a_photos") or [] if p.get("name")]
     if not writes:
         # a dry run cannot read the rows: check the plan against the names (every photo name has a planned row, nothing changed is kept)
         rows = [(plan["pick"][v], "1") for v in plan["CP"]] + [(m, "1") for m in plan["missing"]]

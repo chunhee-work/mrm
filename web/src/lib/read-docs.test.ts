@@ -96,6 +96,7 @@ test("a refused read: page limits are not a broken file; the counter names one P
   // words about the file that do not say PDF, and every PDF opens alone: ours too
   const proc = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"could not process request"}}'), { status: 400 });
   assert.equal(refusalOf(proc, ["a.pdf", "b.pdf"], ["accepted", "accepted"]), null);
+  assert.equal(refusalOf(proc, ["a.pdf"]), null); // one PDF (no per-PDF check): not blamed either
   // the counter could not answer for one: we cannot tell
   assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "unknown"])!.message, "bad_file:|corrupt");
 });

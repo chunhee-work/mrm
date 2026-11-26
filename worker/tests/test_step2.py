@@ -117,6 +117,16 @@ def test_live_refuses_when_the_rows_read_back_miss_a_photo_item():
     assert "fix by hand" in rep.note
 
 
+def test_a_phase_b_run_again_flags_a_part_ticked_for_a_name_the_adjuster_dropped_since():
+    class Left(FakeStep2):  # the first Phase B ticked "Tail Lamp LH" for a name the adjuster has changed since
+        def selected(self, case):
+            return super().selected(case) + [("Tail Lamp LH", "1")]
+    again = {**CASE, "phase_a_photos": [{"name": "Tail Lamp LH"}, {"name": "Bonnet"}]}
+    rep = step2_run.run(again, DESK, [], writes=True, merimen=Left())
+    assert rep.action == "refused" and rep.code == "check" and "Tail Lamp LH" in str(rep.check["remove"])
+    assert step2_run.run(CASE, DESK, [], writes=True, merimen=Left()).check["ok"]  # without that history it is not flagged
+
+
 def test_live_stops_before_ticking_when_done_was_undone():
     m = FakeStep2()
     rep = step2_run.run(CASE, DESK, [], writes=True, merimen=m, guard=lambda: False)

@@ -231,7 +231,12 @@ def phase_b(
         if have is None:
             rep.note = "Merimen was not read in a dry run: assumes it has no photos"
         return rep if not writes else _upload(rep, case, new, merimen, guard)
-    # 3 photos are there: relabel + reorder against the Phase A list
+    # 3 Merimen already holds the final names in the final order (an earlier Phase B got this far and stopped later): nothing to move
+    if have is not None and have == [x["name"] for x in new]:
+        rep.action, rep.relabel, rep.reorder = "relabel_reorder", 0, 0
+        rep.note = "Merimen already holds the final names"
+        return rep
+    # 4 photos are there: relabel + reorder against the list Merimen got last (Phase A's upload, or a finished Phase B)
     old = phase_a_photos
     if not old:
         rep.action, rep.note, rep.code, rep.snapshot = "refused", "no Phase A photo list to compare with: fix by hand (playbook 06)", "hand_fix", None
@@ -256,7 +261,7 @@ def phase_b(
     rep.relabel, rep.reorder = len(lab), moves(ordm)
     if not writes:
         return rep
-    # 4 one case at a time; the guard is asked before EACH write, so an undone 完成 stops it at the next one
+    # 5 one case at a time; the guard is asked before EACH write, so an undone 完成 stops it at the next one
     if lab:
         if not guard():
             return _stopped(rep)

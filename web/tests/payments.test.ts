@@ -135,6 +135,11 @@ test("a test-mode payment never credits on the live site", async () => {
     const r = noted as unknown as { rows?: { n: number }[] } & { n: number }[];
     assert.equal((r.rows ?? r)[0].n, 1); // asked twice, written down once
     assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "L", amountMinor: pack.price.USD, currency: "USD", testMode: false }), "credited");
+    // a test-mode replay for the now credited order is not written down as "paid, not credited"
+    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "T2", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "test_in_live");
+    const again = await db.execute(sql`SELECT count(*)::int AS n FROM audit_log WHERE action = 'payment_test_in_live' AND detail LIKE ${o.id + " %"}`);
+    const r2 = again as unknown as { rows?: { n: number }[] } & { n: number }[];
+    assert.equal((r2.rows ?? r2)[0].n, 1);
   } finally { delete process.env.PAYMENTS_MODE; }
 });
 

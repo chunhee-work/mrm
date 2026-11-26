@@ -108,9 +108,10 @@ export function checkPdf(name: string, buf: Uint8Array) {
 export function asBadFile(e: unknown, names: string[]): BadFile | null {
   const err = e as { status?: number; message?: string } | null;
   if (!err || err.status !== 400 || !names.length) return null;
-  // every 400 says "invalid_request_error" and our own request can be "invalid" too (a schema the API refuses): only words about
-  // the file count, else a good PDF would be blamed and removed and the credit kept
-  if (!/pdf|document|could not process|corrupt|password|encrypt/i.test(err.message ?? "")) return null;
+  // every 400 says "invalid_request_error" and our own request can be "invalid" or "could not process" too: only a refusal that
+  // speaks of the PDF/document counts, else a good PDF would be blamed and removed and the credit kept (also with one PDF, which
+  // gets no per-PDF check)
+  if (!/pdf|document/i.test(err.message ?? "")) return null;
   // The refusal does not say which PDF it was. Naming them all would make "Replace files" delete the good ones too.
   return new BadFile(names.length === 1 ? names[0] : "", "corrupt");
 }

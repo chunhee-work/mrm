@@ -140,6 +140,8 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             return stop
         if rep.snapshot:  # the names went through at Done: they are the photo model's learning data (our own database, no Merimen)
             side["learning"] = learning.rows_for(case, desk)
+            if rep.mode == "live":  # Merimen now holds these names: log it on every outcome, so a Phase B run again compares with them
+                side["photo_log"] = _log(rep)
         try:
             s2 = step2_run.run(case, desk, case.get("extras") or [], writes=writes, merimen=driver.merimen_step2(case), reviewer=driver.step2_reviewer, guard=driver.guard)
         except photo_sync.NotPorted:
