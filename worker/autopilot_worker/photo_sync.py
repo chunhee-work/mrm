@@ -231,11 +231,18 @@ def phase_b(
         if have is None:
             rep.note = "Merimen was not read in a dry run: assumes it has no photos"
         return rep if not writes else _upload(rep, case, new, merimen, guard)
-    # 3 Merimen already holds the final names in the final order (an earlier Phase B got this far and stopped later): nothing to move
-    if have is not None and have == [x["name"] for x in new]:
-        rep.action, rep.relabel, rep.reorder = "relabel_reorder", 0, 0
-        rep.note = "Merimen already holds the final names"
-        return rep
+    # 3 an earlier Phase B relabelled Merimen and stopped before its list was logged: Merimen differs from the last logged list but
+    # already shows the final names. Captions alone do not say which photo carries which, so this counts only once the file-aware
+    # check (chkorder) passes; otherwise go on as usual
+    final_names = [x["name"] for x in new]
+    if have is not None and have == final_names and have != [x["name"] for x in phase_a_photos or []]:
+        if not writes:
+            rep.action, rep.relabel, rep.reorder, rep.note = "relabel_reorder", 0, 0, "Merimen already shows the final names"
+            return rep
+        check = merimen.verify(case, new)
+        if check.get("count") == len(new) and not check.get("mismatch"):
+            rep.action, rep.relabel, rep.reorder, rep.note = "relabel_reorder", 0, 0, "Merimen already holds the final names"
+            return rep
     # 4 photos are there: relabel + reorder against the list Merimen got last (Phase A's upload, or a finished Phase B)
     old = phase_a_photos
     if not old:

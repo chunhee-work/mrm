@@ -196,7 +196,25 @@ def test_phase_b_run_again_when_merimen_already_holds_the_final_names_moves_noth
     new = final(THREE, **{"a.jpg": "Front Bumper Lower"})
     m = Fake(held=["Front Bumper Lower", "Bonnet", "Grille"])
     rep = ps.phase_b({}, new, [], stored_snapshot=snapshot_of(new, []), phase_a_photos=a_plan(THREE), writes=True, merimen=m)
-    assert rep.ok and rep.snapshot and rep.relabel == 0 and rep.reorder == 0 and m.writes == []
+    assert rep.ok and rep.snapshot and rep.relabel == 0 and rep.reorder == 0 and m.writes == [] and m.calls[-1] == "verify"
+
+
+def test_phase_b_swapped_names_and_a_reorder_are_still_relabelled_when_the_captions_happen_to_line_up():
+    # the model swapped two names; the adjuster swaps them back and drags b first: the captions read the same as Phase A's,
+    # but the photos behind them moved, so this is the usual relabel + reorder, not "already there"
+    two = rows((1, "a.jpg", "Door Front LH", "Door Rear LH"), (2, "b.jpg", "Door Rear LH", "Door Front LH"))
+    old = a_plan(rows((1, "a.jpg", "Door Front LH", None), (2, "b.jpg", "Door Rear LH", None)))
+    new = [two[1], two[0]]
+    m = Fake(held=["Door Front LH", "Door Rear LH"])
+    rep = ps.phase_b({}, new, [], stored_snapshot=snapshot_of(new, []), phase_a_photos=old, writes=True, merimen=m)
+    assert rep.ok and rep.relabel == 2 and m.writes[0] == "relabel:2"
+
+
+def test_phase_b_unlogged_relabel_that_the_file_check_rejects_goes_the_usual_way():
+    new = final(THREE, **{"a.jpg": "Front Bumper Lower"})
+    m = Fake(held=["Front Bumper Lower", "Bonnet", "Grille"], verify=lambda plan: {"count": 3, "mismatch": 1, "missing": []})
+    rep = ps.phase_b({}, new, [], stored_snapshot=snapshot_of(new, []), phase_a_photos=a_plan(THREE), writes=True, merimen=m)
+    assert rep.code == "hand_fix"  # Merimen no longer matches the logged list and the file check fails: a person looks
 
 
 def test_phase_b_unmatched_photos_need_a_hand_fix_and_write_nothing():
