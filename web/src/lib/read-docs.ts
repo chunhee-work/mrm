@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { get } from "@vercel/blob";
 import type Anthropic from "@anthropic-ai/sdk";
-import { documentsAccepted, trackedParse, zodOutputFormat, MODEL, type CallCtx } from "./claude";
+import { documentRefusal, trackedParse, zodOutputFormat, MODEL, type CallCtx } from "./claude";
 import { playbookBlock, playbookTag } from "@/lib/playbook/prompt";
 import { costOf, tokensOf } from "./pricing";
 import { badFileName } from "./case-text";
@@ -142,8 +142,9 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
     // several PDFs and the refusal does not say which: ask the free token counter about each one alone, so "Replace files"
     // can take out exactly that file (without it the same bad PDF would stay in the case and fail every read)
     if (docs.length > 1) {
-      const refused: string[] = [];
-      for (const d of docs) if (!(await documentsAccepted([d.block]).catch(() => true))) refused.push(d.name);
+      const verdicts = await Promise.all(docs.map((d) => documentRefusal([d.block]).catch(() => null)));
+      // refused only with the same kind of PDF complaint, and only a name no other file of the case has ("Replace files" removes by name)
+      const refused = docs.filter((d, i) => verdicts[i] && asBadFile(verdicts[i], [d.name]) && docs.filter((x) => x.name === d.name).length === 1).map((d) => d.name);
       if (refused.length) throw new BadFile(refused[0], "corrupt"); // more than one: the next read names the next
     }
     throw bad;

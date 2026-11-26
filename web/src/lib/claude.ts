@@ -25,13 +25,16 @@ function client(): Anthropic {
   return _client;
 }
 
-/** Free check (no answer is written, nothing is billed): does the API accept these documents? Used to find the one bad PDF. */
-export async function documentsAccepted(content: Anthropic.Messages.ContentBlockParam[]): Promise<boolean> {
+/**
+ * Free check (no answer is written, nothing is billed): does the API take this document? null = yes, else the API's 400 error.
+ * Short timeout and no retries: it only narrows down which PDF a refusal was about, inside the read's time limit.
+ */
+export async function documentRefusal(content: Anthropic.Messages.ContentBlockParam[]): Promise<unknown | null> {
   try {
-    await client().messages.countTokens({ model: MODEL, messages: [{ role: "user", content }] });
-    return true;
+    await client().messages.countTokens({ model: MODEL, messages: [{ role: "user", content }] }, { timeout: 30_000, maxRetries: 0 });
+    return null;
   } catch (e) {
-    if ((e as { status?: number }).status === 400) return false;
+    if ((e as { status?: number }).status === 400) return e;
     throw e;
   }
 }

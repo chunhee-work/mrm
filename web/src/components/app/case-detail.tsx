@@ -69,15 +69,12 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
   function onChosen(list: File[]) {
     const ok = list.filter(accepted);
     if (!ok.length) { if (list.length) setErr(t("dash.d.badType")); return; }
-    // the same limits the server checks, before anything is uploaded: one empty or too-big file would otherwise fail the whole send.
-    // Such a file is left out (and said), the rest goes on.
-    const big = (f: File) => f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES);
-    const good = ok.filter((f) => f.size > 0 && !big(f));
-    if (good.length > MAX_FILES) { setErr(t("new.tooMany", { max: String(MAX_FILES), n: String(good.length) })); return; }
-    const out = ok.find((f) => !good.includes(f));
-    if (good.length) void send(good);
-    // after send() starts (it clears the message), so the note stays on screen
-    if (out) setErr(out.size === 0 ? t("new.empty", { name: out.name }) : t("new.tooBig", { name: out.name, mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) }));
+    // the same limits the server checks, before anything is uploaded: one empty or too-big file would fail the whole send.
+    // Nothing is sent then, so the note stays on this card (a partial send would close the card and hide it).
+    const out = ok.filter((f) => f.size === 0 || f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES));
+    if (out.length) { setErr(t("dash.d.fixFirst", { name: out.map((f) => f.name).join(", "), mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })); return; }
+    if (ok.length > MAX_FILES) { setErr(t("new.tooMany", { max: String(MAX_FILES), n: String(ok.length) })); return; }
+    void send(ok);
   }
 
   const docs = (row.pendingDoc ?? "").split("; ").map((d) => d.trim()).filter(Boolean);

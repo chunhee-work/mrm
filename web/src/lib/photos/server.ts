@@ -82,9 +82,8 @@ export async function finalizeNaming(c: CaseRow): Promise<CaseRow | null> {
   return (await caseInOrg(c.orgId, c.id)) ?? c;
 }
 
-// Statuses from which 完成 can be pressed. Past Phase B (checking, done) it cannot be pressed again, so an edit there is refused:
-// it would take the tick away for good. Other statuses (reading a new document, failed) only pause 完成 and stay editable.
-const DONE_FROM = new Set(["uploaded", "phase_a", "pending_doc", "waiting_user", "naming", "phase_b"]);
+// Past Phase B (checking, done) 完成 cannot be pressed again, so an edit there (which takes the tick away) is refused.
+// Every other status stays editable, and 完成 can be pressed there.
 const LOCKED = new Set(["checking", "done"]);
 const locked = (c: CaseRow) => LOCKED.has(c.status);
 
