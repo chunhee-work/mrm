@@ -177,6 +177,8 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes, photo_log=_log(rep),
         )
     suffix = (f". {rep.line()}" if rep and (rep.photos or not rep.ok) else "") + (f". {s2.line()}" if s2 and s2.plan else "")
+    # The web app's naming desk locks a case once its `checks` job exists and is not cancelled or failed (web/src/lib/photos/server.ts,
+    # CHECKS_QUEUED): queue `checks` only when Phase B has written the final names, and cancel or fail it to reopen the desk.
     return _o(
         "done", case_status="checking", event="Checking" + suffix, enqueue=["checks"],
         total_rm=saved.total_rm, browser_minutes=saved.minutes, photo_log=_log(rep),

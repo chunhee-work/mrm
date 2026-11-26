@@ -85,6 +85,8 @@ test("a refused read: page limits are not a broken file; the counter names one P
   assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "accepted"])!.message, "bad_file:|too_long");
   // one PDF is over the page limit alone: shorter PDFs, not "cannot be opened"
   assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "long"])!.message, "bad_file:|too_long");
+  // more text than the model reads at once: the same
+  assert.equal(refusalOf(Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"prompt is too long: 250000 tokens > 200000 maximum"}}'), { status: 400 }), ["a.pdf", "b.pdf"])!.message, "bad_file:|too_long");
   // too large in bytes for one request: the same
   assert.equal(refusalOf(Object.assign(new Error("413 request_too_large"), { status: 413 }), ["a.pdf", "b.pdf"])!.message, "bad_file:|too_long");
   // the counter could not answer for one: we cannot tell

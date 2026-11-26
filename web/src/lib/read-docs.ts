@@ -90,8 +90,8 @@ export class BadFile extends Error {
   constructor(name: string, readonly why: "empty" | "corrupt" | "too_big" | "too_long") { super(`bad_file:${badFileName(name)}|${why}`); this.name = "BadFile"; }
 }
 const unique = (names: string[], name: string) => names.filter((x) => x === name).length === 1;
-// The model's limit on PDF pages in one request ("A maximum of 100 PDF pages may be provided" and the like)
-const TOO_MANY_PAGES = /maximum of \d+ (pdf )?pages|pages? (limit|exceed)|too many (pdf )?pages|exceeds? .*\bpages?\b/i;
+// The model's limits on one request: PDF pages ("A maximum of 100 PDF pages may be provided") and length ("prompt is too long")
+const TOO_MANY_PAGES = /maximum of \d+ (pdf )?pages|pages? (limit|exceed)|too many (pdf )?pages|exceeds? .*\bpages?\b|prompt is too long|tokens? > \d+ maximum/i; // pages, or more text than the model reads at once
 const MAX_PDF = 25 * 1024 * 1024;
 /** Checks the bytes of one PDF before it is sent to the model (B06/B07). */
 export function checkPdf(name: string, buf: Uint8Array) {
@@ -176,7 +176,7 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
     // several PDFs and the refusal does not say which: ask the free token counter about each one alone, so "Replace files"
     // can take out exactly that file (without it the same bad PDF would stay in the case and fail every read)
     const verdicts: Verdict[] = docs.map(() => "unknown");
-    const until = Date.now() + 60_000; // all checks together, so a case with many PDFs still ends inside the read's time
+    const until = Date.now() + 60_000; // no check starts after 60 s (one started just before may run 30 s more), so the read ends in time
     await runPool(docs.length, 4, async (i) => {
       if (Date.now() > until) return; // left "unknown"
       const v = await documentRefusal([docs[i].block]).catch(() => undefined); // undefined: the check itself failed (rate limit, network)

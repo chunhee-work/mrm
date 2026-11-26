@@ -58,7 +58,10 @@ export const auth = betterAuth({
   },
   emailVerification: {
     sendOnSignUp: true,
-    autoSignInAfterVerification: true,
+    // Not signed in by the link: an unverified account's password was chosen by whoever signed up, who may not own the mailbox,
+    // and anyone can have a verify link sent to it. The owner logs in with the password they chose (or resets it, which
+    // replaces any other) after confirming.
+    autoSignInAfterVerification: false,
     sendVerificationEmail: async ({ user, url }, request) => sendVerifyMail(user.email, url, langOf(request)),
   },
   databaseHooks: {

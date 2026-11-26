@@ -12,11 +12,17 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
-  const [c] = await db.select({ id: schema.cases.id }).from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId))).limit(1);
+  const [c] = await db.select({ id: schema.cases.id, status: schema.cases.status, error: schema.cases.error }).from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId))).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
   const paid = await debitRetry(me.orgId, id);
   if (!paid) return NextResponse.json({ error: "no_credits" }, { status: 402 });
-  const r = await scanCase(id, "retry");
+  const r = await scanCase(id, "retry").catch(async (e) => {
+    // failed before the read could start (database, network): the case is just as it was, so a credit taken for this press
+    // goes back. Once the read has started, its own failure handling decides.
+    const [now] = await db.select({ status: schema.cases.status, error: schema.cases.error }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).catch(() => []);
+    if (paid === "charged" && now && now.status === c.status && now.error === c.error) await refundCase(me.orgId, id, "busy").catch(() => {});
+    throw e;
+  });
   if (!r.claimed) {
     // already reading (a double press, a second tab) or nothing to retry: a credit taken for this press goes back
     if (paid === "charged") await refundCase(me.orgId, id, "busy").catch(() => {});

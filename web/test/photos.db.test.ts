@@ -157,6 +157,17 @@ test("done: a case past Phase B ('checking', 'done', or paused for a Merimen log
   }
 });
 
+test("done: a checks job that failed for good leaves the desk open again, so 完成 can be pressed again", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  const { orgId, id } = await newCase("naming", 1);
+  for (const x of await s.claimSlice(id)) await s.writeName(x, named);
+  await db.update(schema.cases).set({ status: "waiting_user" }).where(eq(schema.cases.id, id));
+  await db.insert(schema.jobs).values({ caseId: id, step: "checks", state: "failed" });
+  assert.equal((await s.setDone(await caseNow(orgId, id), true)).status, 200);
+  const p = (await rows(id))[0];
+  assert.equal((await s.renamePhoto(await caseNow(orgId, id), p.id, "Fender LH", p.version)).status, 200);
+});
+
 test("done: 完成 cannot be pressed while a document is read or after a failed read; those cases stay editable", opts, async () => {
   const { s, db, schema, eq } = await kit();
   for (const status of ["reading", "failed"]) {

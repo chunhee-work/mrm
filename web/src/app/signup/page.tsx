@@ -39,7 +39,7 @@ export default function Signup() {
     if (first) { el(first).focus(); return; }
     setBusy(true);
     try {
-      const { error } = await authClient.signUp.email({ name, email, password, callbackURL: "/dashboard" });
+      const { error } = await authClient.signUp.email({ name, email, password, callbackURL: "/login?verified=1" });
       if (error) setErrors({ form: error.status === 429 ? "tooMany" : error.status ? "fail" : "offline" });
       else setDoneFor(email);
     } catch {

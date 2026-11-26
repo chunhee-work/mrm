@@ -86,7 +86,8 @@ export async function finalizeNaming(c: CaseRow): Promise<CaseRow | null> {
 // Phase B is past once the worker has queued the case's `checks` job (it does that as Phase B ends). The status alone is not
 // enough: a Merimen login problem moves a checking case back to waiting_user until the login is fixed, and checks then finishes it.
 const PAST_B = new Set(["checking", "done"]);
-const CHECKS_QUEUED = sql`EXISTS (SELECT 1 FROM jobs WHERE jobs.case_id = cases.id AND jobs.step = 'checks' AND jobs.state <> 'cancelled')`;
+// A checks job that failed for good leaves the case open again (no job will finish it), so the adjuster can press 完成 again.
+const CHECKS_QUEUED = sql`EXISTS (SELECT 1 FROM jobs WHERE jobs.case_id = cases.id AND jobs.step = 'checks' AND jobs.state IN ('queued', 'running', 'paused', 'done'))`;
 async function locked(c: CaseRow): Promise<boolean> {
   if (PAST_B.has(c.status)) return true;
   const r = await db.execute(sql`SELECT ${CHECKS_QUEUED} AS l FROM cases WHERE id = ${c.id}`);
