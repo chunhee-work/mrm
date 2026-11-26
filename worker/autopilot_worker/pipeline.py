@@ -164,7 +164,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
     saved = driver.save(phase, steps)
     if not saved.ok:
         if saved.error == "step_not_ported":
-            return _o("done", event=f"Phase {phase} checked. Merimen was not changed.", photo_log=_log(rep) if not (rep and rep.mode == "live") else None)
+            # a live photo step already wrote to Merimen: its list stays logged (side), only a dry one is logged here
+            live = bool(rep and rep.mode == "live")
+            return _o("done", event=f"Phase {phase} checked. Merimen was not saved" + (" (photos were relabelled)." if live and side.get("photo_log") else "."),
+                      **({} if live else {"photo_log": _log(rep)}))
         return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
     if phase == "A":
         if desk is not None:

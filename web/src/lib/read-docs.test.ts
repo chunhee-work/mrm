@@ -97,6 +97,14 @@ test("a refused read: page limits are not a broken file; the counter names one P
   const proc = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"could not process request"}}'), { status: 400 });
   assert.equal(refusalOf(proc, ["a.pdf", "b.pdf"], ["accepted", "accepted"]), null);
   assert.equal(refusalOf(proc, ["a.pdf"]), null); // one PDF (no per-PDF check): not blamed either
+  // our own request: a field path that has "document" in it, or a request id that happens to hold "pdf"
+  const path = Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.0.content.1.document.source.data: Field required"},"request_id":"req_1"}'), { status: 400 });
+  assert.equal(refusalOf(path, ["a.pdf"]), null);
+  const rid = Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"tools: unexpected value"},"request_id":"req_011PdFx"}'), { status: 400 });
+  assert.equal(refusalOf(rid, ["a.pdf"]), null);
+  // the SDK's parsed body wins over the text
+  const parsed = Object.assign(new Error("400 status code"), { status: 400, error: { error: { message: "The PDF specified was not valid" } } });
+  assert.equal(refusalOf(parsed, ["a.pdf"])!.message, "bad_file:a.pdf|corrupt");
   // the counter could not answer for one: we cannot tell
   assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "unknown"])!.message, "bad_file:|corrupt");
 });

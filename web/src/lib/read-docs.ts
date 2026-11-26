@@ -104,6 +104,17 @@ export function checkPdf(name: string, buf: Uint8Array) {
   if (!all.includes("endobj") && !all.includes("startxref")) throw new BadFile(name, "corrupt");
 }
 
+/** The API's own words for a 400 (the body's error.message), not the whole SDK text with its request id. */
+function apiMessage(e: unknown): string {
+  const err = e as { message?: string; error?: { error?: { message?: unknown } } } | null;
+  const inner = err?.error?.error?.message;
+  if (typeof inner === "string") return inner;
+  const raw = err?.message ?? "";
+  return /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(raw)?.[1] ?? raw;
+}
+// "document" as a word, not inside a field path of our own request (messages.0.content.1.document.source: …)
+const ABOUT_FILE = /pdf|(?<![.\w])document(?![.\w])/i;
+
 /** R2-B03: the model refused the PDF itself (HTTP 400 "could not process PDF" and the like): that is the customer's file, not our fault. */
 export function asBadFile(e: unknown, names: string[]): BadFile | null {
   const err = e as { status?: number; message?: string } | null;
@@ -111,7 +122,7 @@ export function asBadFile(e: unknown, names: string[]): BadFile | null {
   // every 400 says "invalid_request_error" and our own request can be "invalid" or "could not process" too: only a refusal that
   // speaks of the PDF/document counts, else a good PDF would be blamed and removed and the credit kept (also with one PDF, which
   // gets no per-PDF check)
-  if (!/pdf|document/i.test(err.message ?? "")) return null;
+  if (!ABOUT_FILE.test(apiMessage(e))) return null;
   // The refusal does not say which PDF it was. Naming them all would make "Replace files" delete the good ones too.
   return new BadFile(names.length === 1 ? names[0] : "", "corrupt");
 }
@@ -135,13 +146,9 @@ export function refusalOf(e: unknown, names: string[], verdicts?: Verdict[]): Er
   const refused = names.filter((n, i) => verdicts[i] === "refused" && unique(names, n));
   if (refused.length) return new BadFile(refused[0], "corrupt");
   // one PDF is over the page limit alone, or every PDF opens alone (the set is too much): sending the same PDFs again would
-  // fail the same way, so the customer sends shorter ones
-  // (only for a refusal that is about the PDFs: an "invalid" 400 about our own request must not send customers to shorten theirs)
-  const aboutPdfs = /pdf|document/i.test(msg);
+  // fail the same way, so the customer sends shorter ones. (A refusal that does not speak of the file never gets here: asBadFile.)
   const allOpen = verdicts.length === names.length && verdicts.every((v) => v === "accepted");
-  if (verdicts.includes("long") || (aboutPdfs && allOpen)) return tooLong();
-  // every PDF opens alone and the refusal does not speak of PDFs: it is about our request, not the customer's files
-  if (allOpen) return null;
+  if (verdicts.includes("long") || allOpen) return tooLong();
   return bad;
 }
 

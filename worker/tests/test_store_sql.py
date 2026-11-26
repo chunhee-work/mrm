@@ -138,6 +138,6 @@ def test_a_phase_b_run_again_compares_merimen_with_what_the_last_phase_b_left_th
     assert run(q, seed=SEED[:2] + a)[-1][0][0][0]["name"] == "Bonnet"
     b_done = a + [log("B", "relabel_reorder", "'s1'", "Bonnet LH", 20)]
     assert run(q, seed=SEED[:2] + b_done)[-1][0][0][0]["name"] == "Bonnet LH"
-    # a later Phase B that was refused or stopped (no snapshot) or only a dry run changed nothing in Merimen
-    later = b_done + [log("B", "refused", "NULL", "Hood", 10), log("B", "none", "'s2'", "Hood", 5)]
+    # a later Phase B that was refused or stopped (no snapshot), or a Phase A that found photos there already, changed nothing in Merimen
+    later = b_done + [log("B", "refused", "NULL", "Hood", 10), log("B", "none", "'s2'", "Hood", 5), log("A", "none", "NULL", "Hood", 3)]
     assert run(q, seed=SEED[:2] + later)[-1][0][0][0]["name"] == "Bonnet LH"

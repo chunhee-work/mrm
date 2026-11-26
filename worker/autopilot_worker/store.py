@@ -27,11 +27,11 @@ def _missing_0010(e: Exception) -> bool:
     return code in ("42P01", "42703") or ("does not exist" in text and ("photo_upload_log" in text or "photos_snapshot" in text))
 
 
-# What Merimen holds now: the list the last live Phase A uploaded, or the list a later live Phase B uploaded or relabelled to and
+# What Merimen holds now: the list the last live Phase A uploaded (not a Phase A that found photos there already or stopped), or the list a later live Phase B uploaded or relabelled to and
 # verified (only such a row keeps its snapshot). A Phase B run again (names changed during Step 2, or a failed checks job and 完成
 # again) then compares Merimen with the names the first Phase B left there, not with the model's Phase A names.
 LAST_PHOTO_LIST_SQL = (
-    "SELECT photos FROM photo_upload_log WHERE case_id = %s AND mode = 'live' AND (phase = 'A' OR "
+    "SELECT photos FROM photo_upload_log WHERE case_id = %s AND mode = 'live' AND ((phase = 'A' AND action = 'upload') OR "
     "(phase = 'B' AND snapshot IS NOT NULL AND action IN ('upload', 'relabel_reorder'))) ORDER BY created_at DESC, id DESC LIMIT 1"
 )
 
