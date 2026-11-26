@@ -6,6 +6,7 @@ export const LANG_LABEL: Record<Lang, string> = { en: "English", zh: "中文", m
 export const LANG_SHORT: Record<Lang, string> = { en: "EN", zh: "中文", ms: "BM" };
 export const DEFAULT_LANG: Lang = "en";
 export const MIN_PASSWORD = 8;
+export const MAX_PASSWORD = 128; // Better Auth default; longer is refused by the server
 
 export function normLang(v: string | undefined | null): Lang {
   return (LANGS as readonly string[]).includes(v ?? "") ? (v as Lang) : DEFAULT_LANG;
@@ -90,6 +91,7 @@ const en: Dict = {
   "signup.email": "Email",
   "signup.password": "Password",
   "signup.passwordHint": "At least 8 characters",
+  "signup.passwordLong": "Use 128 characters or fewer.",
   "signup.confirm": "Confirm password",
   "signup.mismatch": "The two passwords do not match.",
   "signup.agree1": "I agree to the ",
@@ -296,6 +298,9 @@ const en: Dict = {
   "mail.resetSubject": "Reset your password",
   "mail.resetBody": "Click the link below to reset your password (valid for 1 hour):",
   "mail.ignore": "If this wasn't you, please ignore this email.",
+  "mail.existsSubject": "You already have an account",
+  "mail.existsBody": "Someone (maybe you) tried to sign up with this email, but it already has an account. Log in here:",
+  "mail.existsForgot": "Forgot your password? Set a new one here:",
   "lang.label": "Language",
   "nav.billing": "Billing",
   "bill.title": "Billing",
@@ -532,6 +537,7 @@ const zh: Dict = {
   "signup.email": "邮箱",
   "signup.password": "密码",
   "signup.passwordHint": "至少 8 位",
+  "signup.passwordLong": "最多 128 个字符。",
   "signup.confirm": "确认密码",
   "signup.mismatch": "两次输入的密码不一致。",
   "signup.agree1": "我同意",
@@ -738,6 +744,9 @@ const zh: Dict = {
   "mail.resetSubject": "重设密码",
   "mail.resetBody": "点击下面的链接重设密码（1 小时内有效）：",
   "mail.ignore": "如果不是你本人操作，请忽略这封邮件。",
+  "mail.existsSubject": "你已经有账户了",
+  "mail.existsBody": "有人（可能是你）用这个邮箱注册，但这个邮箱已经有账户。请在这里登录：",
+  "mail.existsForgot": "忘记密码？在这里设新密码：",
   "lang.label": "语言",
   "nav.billing": "账单",
   "bill.title": "账单",
@@ -974,6 +983,7 @@ const ms: Dict = {
   "signup.email": "E-mel",
   "signup.password": "Kata laluan",
   "signup.passwordHint": "Sekurang-kurangnya 8 aksara",
+  "signup.passwordLong": "Gunakan 128 aksara atau kurang.",
   "signup.confirm": "Sahkan kata laluan",
   "signup.mismatch": "Kedua-dua kata laluan tidak sepadan.",
   "signup.agree1": "Saya bersetuju dengan ",
@@ -1180,6 +1190,9 @@ const ms: Dict = {
   "mail.resetSubject": "Tetap semula kata laluan",
   "mail.resetBody": "Klik pautan di bawah untuk menetapkan semula kata laluan (sah selama 1 jam):",
   "mail.ignore": "Jika ini bukan anda, sila abaikan e-mel ini.",
+  "mail.existsSubject": "Anda sudah mempunyai akaun",
+  "mail.existsBody": "Seseorang (mungkin anda) cuba mendaftar dengan e-mel ini, tetapi ia sudah mempunyai akaun. Log masuk di sini:",
+  "mail.existsForgot": "Lupa kata laluan? Tetapkan yang baharu di sini:",
   "lang.label": "Bahasa",
   "nav.billing": "Bil",
   "bill.title": "Bil",

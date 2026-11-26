@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { ProviderId } from "./types";
+import { paymentsMode } from "./packs";
 
 // The only two places that move credits for money. Both are ONE SQL statement each, because the
 // production driver (neon-http) has no transactions. Replays and races change zero rows.
@@ -25,6 +26,11 @@ export async function creditOrder(a: {
   currency: string;
   testMode: boolean;
 }): Promise<CreditResult> {
+  // a payment made in the provider's test mode must never give real credits on the live site
+  if (a.testMode && paymentsMode() === "live") {
+    await auditPayment("payment_test_in_live", a.orderId, `${a.provider} ${a.providerRef}`);
+    return "ignored";
+  }
   try {
     const res = await db.execute(sql`
       WITH upd AS (

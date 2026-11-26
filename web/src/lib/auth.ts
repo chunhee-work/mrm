@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { after } from "next/server";
 import { db, schema } from "@/db";
 import { sendEmail } from "./email";
 import { MIN_PASSWORD, normLang, translate } from "./i18n";
@@ -10,12 +11,32 @@ function langOf(req?: Request) {
   return normLang(m?.[1]);
 }
 
+function baseOf(req?: Request) {
+  const env = process.env.BETTER_AUTH_URL;
+  if (env) return env.replace(/\/$/, "");
+  try { return req ? new URL(req.url).origin : ""; } catch { return ""; }
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
   emailAndPassword: {
     enabled: true,
     minPasswordLength: MIN_PASSWORD,
     requireEmailVerification: true,
+    // A reset is what people do when they think someone else is in: sign every device out.
+    revokeSessionsOnPasswordReset: true,
+    // Sign-up with an address that already has an account answers "check your email" like a new one (no account probing),
+    // so an email must really arrive: the verification link again if never verified, else a "you already have an account" note.
+    onExistingUserSignUp: async ({ user }, request) => {
+      const l = langOf(request);
+      if (!user.emailVerified) {
+        await auth.api.sendVerificationEmail({ body: { email: user.email }, headers: request?.headers });
+        return;
+      }
+      const origin = baseOf(request);
+      await sendEmail(user.email, translate(l, "mail.existsSubject"),
+        `<p>${translate(l, "mail.existsBody")}</p><p><a href="${origin}/login">${origin}/login</a></p><p>${translate(l, "mail.existsForgot")} <a href="${origin}/forgot-password">${origin}/forgot-password</a></p><p>${translate(l, "mail.ignore")}</p>`, "other");
+    },
     sendResetPassword: async ({ user, url }, request) => {
       const l = langOf(request);
       await sendEmail(user.email, translate(l, "mail.resetSubject"),
@@ -40,6 +61,15 @@ export const auth = betterAuth({
           await db.insert(schema.organizations).values({ id: orgId, name: `${u.name || u.email}` });
           await db.insert(schema.memberships).values({ orgId, userId: u.id, role: "owner" });
         },
+      },
+    },
+  },
+  advanced: {
+    // Emails go out after the answer is sent, so a known and an unknown address answer equally fast
+    // (forgot password, sign-up). Outside a request (scripts, tests) the send just runs on.
+    backgroundTasks: {
+      handler: (p: Promise<unknown>) => {
+        try { after(p); } catch { p.catch(() => {}); }
       },
     },
   },

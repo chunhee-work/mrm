@@ -100,6 +100,34 @@ test("LS: refund debits once; replay does nothing", async () => {
   assert.equal((await getOrder(o.id))?.status, "refunded");
 });
 
+test("LS: a part refund keeps the credits; a full refund takes them", async () => {
+  const o = await mk("lemonsqueezy");
+  await hook(lsBody("order_created", o.id));
+  assert.equal((await hook(lsBody("order_refunded", o.id, { status: "partial_refund" }))).note, "partial refund");
+  assert.equal(await creditBalance(org), pack.credits);
+  assert.equal((await hook(lsBody("order_refunded", o.id))).note, "refunded");
+  assert.equal(await creditBalance(org), 0);
+});
+
+test("LS: a discounted payment credits only for the owner's own free code", async () => {
+  const o = await mk("lemonsqueezy");
+  assert.equal((await hook(lsBody("order_created", o.id, { discount_total: pack.price.USD, user_email: "someone@example.test" }))).note, "not credited");
+  assert.equal(await creditBalance(org), 0);
+  process.env.LEMONSQUEEZY_OWNER_CODE = "OWNER"; process.env.OWNER_FREE_EMAILS = "owner@example.test";
+  try {
+    assert.equal((await hook(lsBody("order_created", o.id, { discount_total: pack.price.USD, user_email: "Owner@example.test" }, "9002"))).note, "credited");
+  } finally { delete process.env.LEMONSQUEEZY_OWNER_CODE; delete process.env.OWNER_FREE_EMAILS; }
+});
+
+test("a test-mode payment never credits on the live site", async () => {
+  const o = await mk("lemonsqueezy");
+  process.env.PAYMENTS_MODE = "live";
+  try {
+    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "T", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "ignored");
+    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "L", amountMinor: pack.price.USD, currency: "USD", testMode: false }), "credited");
+  } finally { delete process.env.PAYMENTS_MODE; }
+});
+
 test("same provider payment cannot credit two orders", async () => {
   const a = await mk("lemonsqueezy"); const b = await mk("lemonsqueezy");
   assert.equal(await creditOrder({ orderId: a.id, provider: "lemonsqueezy", providerRef: "X", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "credited");

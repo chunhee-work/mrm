@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { scanCase } from "@/lib/scan-case";
-import { debitRetry } from "@/lib/payments/case-credit";
+import { debitRetry, refundCase } from "@/lib/payments/case-credit";
 
 export const maxDuration = 300;
 
@@ -14,8 +14,13 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const { id } = await ctx.params;
   const [c] = await db.select({ id: schema.cases.id }).from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId))).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (!(await debitRetry(me.orgId, id))) return NextResponse.json({ error: "no_credits" }, { status: 402 });
+  const paid = await debitRetry(me.orgId, id);
+  if (!paid) return NextResponse.json({ error: "no_credits" }, { status: 402 });
   const r = await scanCase(id, "retry");
-  if (!r.claimed) return NextResponse.json({ error: "busy" }, { status: 409 }); // already reading, or nothing to retry
+  if (!r.claimed) {
+    // already reading (a double press, a second tab) or nothing to retry: a credit taken for this press goes back
+    if (paid === "charged") await refundCase(me.orgId, id, "busy").catch(() => {});
+    return NextResponse.json({ error: "busy" }, { status: 409 });
+  }
   return r.ok ? NextResponse.json({ ok: true, missing: r.missing }) : NextResponse.json({ ok: false, failed: true }) /* the read ran and failed: the page shows the new state, this is not a server error */;
 }

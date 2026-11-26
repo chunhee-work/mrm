@@ -46,8 +46,9 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(where).returning({ id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate });
   if (!claimed.length) {
     if (mode === "recover") { // out of attempts: stop waiting, show Failed + the retry button
-      await db.update(schema.cases).set({ status: "failed", error: "Reading timed out" })
-        .where(and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, sql`not ${tries}`));
+      const gaveUp = await db.update(schema.cases).set({ status: "failed", error: "Reading timed out" })
+        .where(and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, sql`not ${tries}`)).returning({ orgId: schema.cases.orgId });
+      if (gaveUp.length) await refundCase(gaveUp[0].orgId, id).catch(() => {}); // a timeout is our failure: the credit goes back
     }
     return { ok: false, missing: [], claimed: false };
   }

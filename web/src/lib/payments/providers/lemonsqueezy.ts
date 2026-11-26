@@ -20,6 +20,8 @@ export function isOwnerFree(email: string | null | undefined): boolean {
   return list.includes(email.trim().toLowerCase());
 }
 
+const mismatchAudited = new Set<string>();
+
 export const variantEnvName = (pack: Pack) => `LEMONSQUEEZY_VARIANT_${pack.id.toUpperCase()}`;
 const variantId = (pack: Pack) => process.env[variantEnvName(pack)] || "";
 
@@ -75,7 +77,8 @@ export const lemonsqueezy: PaymentProvider = {
       // One source of truth: PACKS. The variant price in Lemon Squeezy must match it.
       const price = await cached(`variant:${id}`, async () => (await ls(`/variants/${id}`)).data?.attributes?.price as number | undefined);
       if (price !== pack.price.USD) {
-        await auditPayment("payment_price_mismatch", null, `${pack.id} variant ${id}`);
+        // once per variant per server, not on every billing page view
+        if (!mismatchAudited.has(id)) { mismatchAudited.add(id); await auditPayment("payment_price_mismatch", null, `${pack.id} variant ${id}`); }
         return false;
       }
       return true;
@@ -135,7 +138,8 @@ const OrderEvent = z.object({
   meta: z.object({ event_name: z.string(), custom_data: z.object({ order_id: z.string() }).partial().optional() }),
   data: z.object({
     id: z.union([z.string(), z.number()]),
-    attributes: z.object({ status: z.string(), subtotal: z.number(), currency: z.string(), test_mode: z.boolean().optional() }),
+    attributes: z.object({ status: z.string(), subtotal: z.number(), currency: z.string(), test_mode: z.boolean().optional(),
+      discount_total: z.number().optional(), user_email: z.string().nullable().optional() }),
   }),
 });
 
@@ -165,6 +169,11 @@ export async function handleLemonSqueezyWebhook(rawBody: string, signature: stri
     if (!orderId) return { http: 200, note: "no order id" };
     const order = await getOrder(orderId);
     if (!order || order.provider !== "lemonsqueezy") return { http: 200, note: "unknown order" };
+    // the amount we check is before discount; only the owner's own free code may make it cheaper
+    if ((data.attributes.discount_total ?? 0) > 0 && !isOwnerFree(data.attributes.user_email)) {
+      await auditPayment("payment_discount_not_allowed", orderId, `ls ${providerRef}`);
+      return { http: 200, note: "not credited" };
+    }
     const r = await creditOrder({
       orderId,
       provider: "lemonsqueezy",
@@ -182,6 +191,11 @@ export async function handleLemonSqueezyWebhook(rawBody: string, signature: stri
     return { http: 200, note: r };
   }
 
+  // order_refunded fires for part refunds too (status "partial_refund"): only a full refund takes the credits back
+  if (data.attributes.status !== "refunded") {
+    await auditPayment("payment_partial_refund", null, `ls ${providerRef}`);
+    return { http: 200, note: "partial refund" };
+  }
   // order_refunded: find our order by the Lemon Squeezy order id stored when it was paid
   const { db, schema } = await import("@/db");
   const { and, eq } = await import("drizzle-orm");
