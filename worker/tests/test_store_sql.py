@@ -104,3 +104,22 @@ def test_step2_log_learning_upsert_and_export_run_on_postgres():
                        "INSERT INTO case_photos (id, case_id, position, orig_n, src_name, blob_path, thumb_path) VALUES (1,'c1',0,1,'a.jpg','p','t')"]
     r = run(steps, seed=seed)
     assert r[-3] == [[1, "Door Mirror RH"]] and r[-2] == [[2]] and r[-1] == [["Door Mirror RH", True]]
+
+
+@needs_pg
+def test_end_of_phase_b_goes_on_to_checks_only_if_done_is_still_pressed_with_the_same_names():
+    def outcome():
+        return Outcome("done", case_status="checking", event="Checking", enqueue=["checks"], total_rm="10.00", require_snapshot="s1")
+    for done_sql, want_status, want_jobs in [
+        ("UPDATE cases SET status = 'phase_b', photos_done_at = now(), photos_snapshot = 's1' WHERE id = 'c1'", "checking", 1),
+        # the adjuster renamed a photo after the worker's last check: the web app cleared 完成 and set waiting_user
+        ("UPDATE cases SET status = 'waiting_user', photos_done_at = NULL, photos_snapshot = NULL WHERE id = 'c1'", "waiting_user", 0),
+        # 完成 pressed again on other names: a new Phase B is due, not checks
+        ("UPDATE cases SET status = 'phase_b', photos_done_at = now(), photos_snapshot = 's2' WHERE id = 'c1'", "phase_b", 0),
+    ]:
+        rec = Rec()
+        PgRepo("", db=rec).apply({**JOB, "id": 100, "step": "phase_b"}, outcome())
+        steps = [dict(zip(("sql", "params"), to_numbered(*st))) for b in rec.batches for st in b]
+        steps += [{"sql": "SELECT status FROM cases WHERE id = 'c1'"}, {"sql": "SELECT count(*) FROM jobs WHERE case_id = 'c1' AND step = 'checks'"}]
+        r = run(steps, seed=SEED[:2] + [done_sql, "INSERT INTO jobs (id, case_id, step, state) VALUES (100,'c1','phase_b','running')"])
+        assert r[-2] == [[want_status]] and r[-1] == [[want_jobs]], done_sql

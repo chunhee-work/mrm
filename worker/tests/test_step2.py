@@ -282,7 +282,7 @@ def test_phase_b_names_changed_during_the_save_wait_for_done_again_instead_of_ch
     d.guard = lambda: not d.changed
     o = run_phase("B", case_b(), writes=True, driver=d)
     assert o.job_state == "done" and o.case_status == "waiting_user" and o.enqueue == []
-    assert "Press 完成 again" in o.event
+    assert "names changed meanwhile" in o.event
     d2 = Saving(); d2.guard = lambda: True
     o2 = run_phase("B", case_b(), writes=True, driver=d2)
     assert o2.case_status == "checking" and o2.enqueue == ["checks"]

@@ -8,7 +8,7 @@ import { costOf, tokensOf } from "./pricing";
 import { recordCall, type LedgerRow } from "./ledger";
 
 // OWNERSHIP RULE: this is the only module that may import the Anthropic SDK at runtime or construct a client.
-// Every Claude call goes through trackedParse() so it lands in the llm_calls ledger (shown in /admin).
+// Every billed Claude call goes through trackedParse() so it lands in the llm_calls ledger (shown in /admin). The free token count in documentRefusal() is not logged.
 // A new helper for another call type belongs in this file. web/src/lib/claude.test.ts enforces it.
 // The key lives ONLY in the server environment (Vercel env var ANTHROPIC_API_KEY_APP).
 

@@ -134,7 +134,9 @@ export function refusalOf(e: unknown, names: string[], verdicts?: Verdict[]): Er
   if (refused.length) return new BadFile(refused[0], "corrupt");
   // one PDF is over the page limit alone, or every PDF opens alone (the set is too much): sending the same PDFs again would
   // fail the same way, so the customer sends shorter ones
-  if (verdicts.includes("long") || (verdicts.length === names.length && verdicts.every((v) => v === "accepted"))) return tooLong();
+  // (only for a refusal that is about the PDFs: an "invalid" 400 about our own request must not send customers to shorten theirs)
+  const aboutPdfs = /pdf|document/i.test(msg);
+  if (verdicts.includes("long") || (aboutPdfs && verdicts.length === names.length && verdicts.every((v) => v === "accepted"))) return tooLong();
   return bad;
 }
 

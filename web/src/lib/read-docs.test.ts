@@ -89,6 +89,9 @@ test("a refused read: page limits are not a broken file; the counter names one P
   assert.equal(refusalOf(Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"prompt is too long: 250000 tokens > 200000 maximum"}}'), { status: 400 }), ["a.pdf", "b.pdf"])!.message, "bad_file:|too_long");
   // too large in bytes for one request: the same
   assert.equal(refusalOf(Object.assign(new Error("413 request_too_large"), { status: 413 }), ["a.pdf", "b.pdf"])!.message, "bad_file:|too_long");
+  // a 400 about our own request ("invalid" but not about PDFs): never "too long"
+  const ours = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"output_config: invalid schema"}}'), { status: 400 });
+  assert.notEqual(refusalOf(ours, ["a.pdf", "b.pdf"], ["accepted", "accepted"])?.message, "bad_file:|too_long");
   // the counter could not answer for one: we cannot tell
   assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "unknown"])!.message, "bad_file:|corrupt");
 });

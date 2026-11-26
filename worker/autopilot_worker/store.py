@@ -185,6 +185,10 @@ class PgRepo:
                 """,
                 (job["id"], job["org_id"]),
             ))
+        # still final: 完成 pressed with the fingerprint Phase B wrote (else the web app cleared it meanwhile and the case waits)
+        final_sql, final_args = ("", ())
+        if outcome.require_snapshot is not None:
+            final_sql, final_args = (" AND photos_done_at IS NOT NULL AND photos_snapshot = %s", (outcome.require_snapshot,))
         if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or outcome.error:
             st.append((
                 """
@@ -196,12 +200,11 @@ class PgRepo:
                   pending_doc = COALESCE(%s, pending_doc),
                   error = %s,
                   done_at = CASE WHEN %s THEN now() ELSE done_at END
-                WHERE id = %s
-                """,
+                WHERE id = %s""" + final_sql,
                 (
                     outcome.case_status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
                     outcome.pending_doc, (outcome.error or None), bool(outcome.done), job["case_id"],
-                ),
+                ) + final_args,
             ))
         if outcome.event:
             st.append((
@@ -209,7 +212,10 @@ class PgRepo:
                 (job["case_id"], job["step"], outcome.event[:400]),
             ))
         for step in outcome.enqueue:
-            st.append(("INSERT INTO jobs (case_id, step, state) VALUES (%s, %s, 'queued')", (job["case_id"], step)))
+            st.append((
+                "INSERT INTO jobs (case_id, step, state) SELECT %s, %s, 'queued' WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], step, job["case_id"]) + final_args,
+            ))
         for row in outcome.photo_rows or []:
             if row.get("failed"):
                 st.append((
