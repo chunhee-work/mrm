@@ -4,7 +4,7 @@ Nothing here opens a browser or touches real Merimen."""
 import json
 
 from autopilot_worker import learning, playbook, step2_run
-from autopilot_worker.pipeline import Driver, Outcome, run_phase
+from autopilot_worker.pipeline import Driver, DriveResult, Outcome, run_phase
 from autopilot_worker.photo_rules import snapshot_of
 from autopilot_worker.step2 import build_plan
 from autopilot_worker.step2_check import two_way
@@ -270,3 +270,19 @@ def test_merimen_may_only_be_changed_when_both_switches_are_on():
 
     for env, want in (({}, False), ({"MERIMEN_WRITES": "on"}, False), ({"WORKER_SUBMIT": "on"}, False), ({"MERIMEN_WRITES": "on", "WORKER_SUBMIT": "on"}, True)):
         assert Config.from_env({"WORKER_STATE": "/var/lib/x", **env}).live_writes is want
+
+
+def test_phase_b_names_changed_during_the_save_wait_for_done_again_instead_of_checks():
+    class Saving(D):
+        changed = False
+        def save(self, phase, steps):
+            self.changed = True  # the adjuster renames a photo while Merimen saves
+            return DriveResult(ok=True, total_rm="100.00")
+    d = Saving()
+    d.guard = lambda: not d.changed
+    o = run_phase("B", case_b(), writes=True, driver=d)
+    assert o.job_state == "done" and o.case_status == "waiting_user" and o.enqueue == []
+    assert "Press 完成 again" in o.event
+    d2 = Saving(); d2.guard = lambda: True
+    o2 = run_phase("B", case_b(), writes=True, driver=d2)
+    assert o2.case_status == "checking" and o2.enqueue == ["checks"]

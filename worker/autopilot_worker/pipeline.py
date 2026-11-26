@@ -177,8 +177,13 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes, photo_log=_log(rep),
         )
     suffix = (f". {rep.line()}" if rep and (rep.photos or not rep.ok) else "") + (f". {s2.line()}" if s2 and s2.plan else "")
-    # The web app's naming desk locks a case once its `checks` job exists and is not cancelled or failed (web/src/lib/photos/server.ts,
-    # CHECKS_QUEUED): queue `checks` only when Phase B has written the final names, and cancel or fail it to reopen the desk.
+    if not driver.guard():
+        # the adjuster changed a name (or undid 完成) while Step 2 and the save ran: Merimen holds the names as they were, so the
+        # case waits for 完成 again, which queues a new Phase B with the new names, instead of going on to checks
+        return _o("done", case_status="waiting_user", event="Phase B saved, but the names changed meanwhile. Press 完成 again" + suffix,
+                  total_rm=saved.total_rm, browser_minutes=saved.minutes, photo_log=_log(rep))
+    # The web app's naming desk locks a case once its `checks` job is queued, running, paused or done (web/src/lib/photos/server.ts,
+    # CHECKS_QUEUED), and while the case is checking or done: queue `checks` only here, after the final names are saved.
     return _o(
         "done", case_status="checking", event="Checking" + suffix, enqueue=["checks"],
         total_rm=saved.total_rm, browser_minutes=saved.minutes, photo_log=_log(rep),
