@@ -17,12 +17,6 @@ function sendVerifyMail(to: string, url: string, l: ReturnType<typeof langOf>) {
   return sendEmail(to, translate(l, "mail.verifySubject"), `<p>${translate(l, "mail.verifyBody")}</p><p><a href="${url}">${url}</a></p>`, "verify");
 }
 
-function baseOf(req?: Request) {
-  const env = process.env.BETTER_AUTH_URL;
-  if (env) return env.replace(/\/$/, "");
-  try { return req ? new URL(req.url).origin : ""; } catch { return ""; }
-}
-
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
   emailAndPassword: {
@@ -48,7 +42,7 @@ export const auth = betterAuth({
         await sendVerifyMail(user.email, `${ctx.baseURL}/verify-email?token=${token}&callbackURL=${encodeURIComponent("/dashboard")}`, l);
         return;
       }
-      const origin = baseOf(request);
+      const origin = new URL((await auth.$context).baseURL).origin;
       await sendEmail(user.email, translate(l, "mail.existsSubject"),
         `<p>${translate(l, "mail.existsBody")}</p><p><a href="${origin}/login">${origin}/login</a></p><p>${translate(l, "mail.existsForgot")} <a href="${origin}/forgot-password">${origin}/forgot-password</a></p><p>${translate(l, "mail.ignore")}</p>`, "other");
     },

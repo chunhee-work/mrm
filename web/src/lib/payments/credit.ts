@@ -11,7 +11,7 @@ function rowsOf(res: unknown): any[] {
   return Array.isArray(r) ? r : (r.rows ?? []);
 }
 
-export type CreditResult = "credited" | "ignored" | "duplicate_ref";
+export type CreditResult = "credited" | "ignored" | "duplicate_ref" | "test_in_live";
 
 /**
  * Marks a pending order paid and adds its credits, atomically.
@@ -29,7 +29,7 @@ export async function creditOrder(a: {
   // a payment made in the provider's test mode must never give real credits on the live site
   if (a.testMode && paymentsMode() === "live") {
     await auditPayment("payment_test_in_live", a.orderId, `${a.provider} ${a.providerRef}`);
-    return "ignored";
+    return "test_in_live";
   }
   try {
     const res = await db.execute(sql`

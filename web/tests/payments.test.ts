@@ -129,7 +129,7 @@ test("a test-mode payment never credits on the live site", async () => {
   const o = await mk("lemonsqueezy");
   process.env.PAYMENTS_MODE = "live";
   try {
-    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "T", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "ignored");
+    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "T", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "test_in_live");
     assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "L", amountMinor: pack.price.USD, currency: "USD", testMode: false }), "credited");
   } finally { delete process.env.PAYMENTS_MODE; }
 });

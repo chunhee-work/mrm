@@ -4,6 +4,7 @@ import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
 import { MAX_PASSWORD, MIN_PASSWORD } from "@/lib/i18n";
+import { nameFromEmail } from "@/lib/account-name";
 import PasswordField from "@/components/auth/password-field";
 import { Field, FieldError, IconEnvelope, SheetBody, SheetFoot, SubmitButton, TextLink, Title } from "@/components/auth/parts";
 
@@ -26,7 +27,7 @@ export default function Signup() {
     const email = String(f.get("email") ?? "").trim();
     const password = String(f.get("password") ?? "");
     const confirm = String(f.get("confirm") ?? "");
-    const name = email.split("@")[0].split("+")[0].trim().slice(0, 60) || email.slice(0, 60); // Better Auth stores a name; the company is no longer asked for
+    const name = nameFromEmail(email); // Better Auth stores a name; the company is no longer asked for
     const bad: Errors = {};
     if (!email || !el("email").validity.valid) bad.email = true;
     if (password.length < MIN_PASSWORD) bad.password = true;

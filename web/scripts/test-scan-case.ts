@@ -66,12 +66,24 @@ async function main() {
       assert.deepEqual(left, ["good.pdf"]);
       // a guess over several PDFs removes nothing; a long name with "|" or ";" in it still finds its row
       assert.equal(await dropBadFiles(id, "failed", "bad_file:good.pdf; x.pdf|corrupt"), 0);
-      assert.equal(await dropBadFiles(id, "failed", "bad_file:|corrupt"), 0);
       const long = `${"x".repeat(150)} | a; b %.pdf`;
       await db.insert(schema.caseFiles).values({ caseId: id, kind: "pdf", blobUrl: "z", originalName: long });
       const { badFileName } = await import("../src/lib/case-text"); // what BadFile writes (read-docs is stubbed here)
       assert.equal(await dropBadFiles(id, "failed", `bad_file:${badFileName(long)}|corrupt`), 1);
       assert.equal((await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).length, 1);
+    }],
+    ["Replace files when we could not tell which PDF: every PDF goes (the customer sends them all again); a zip left empty goes too", async () => {
+      const id = await newCase("failed", "bad_file:|corrupt");
+      const [z] = await db.insert(schema.caseFiles).values({ caseId: id, kind: "bundle_zip", blobUrl: "zipurl", originalName: "docs.zip" }).returning({ id: schema.caseFiles.id });
+      const [z2] = await db.insert(schema.caseFiles).values({ caseId: id, kind: "bundle_zip", blobUrl: "zip2", originalName: "mixed.zip" }).returning({ id: schema.caseFiles.id });
+      await db.insert(schema.caseFiles).values([
+        { caseId: id, kind: "pdf", blobUrl: `o/c/unzipped-${z.id}/b.pdf`, originalName: "b.pdf" },
+        { caseId: id, kind: "pdf", blobUrl: `o/c/unzipped-${z2.id}/c.pdf`, originalName: "c.pdf" },
+        { caseId: id, kind: "photo", blobUrl: `o/c/unzipped-${z2.id}/p.jpg`, originalName: "p.jpg" },
+      ]);
+      assert.equal(await dropBadFiles(id, "failed", "bad_file:|corrupt"), 4); // 3 PDFs + docs.zip, now empty
+      const left = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.originalName).sort();
+      assert.deepEqual(left, ["mixed.zip", "p.jpg"]); // mixed.zip still has its photo, so it is not opened again
     }],
     ["auto: uploaded -> phase_a, one usage row, fields saved", async () => {
       claude = ok(); const id = await newCase("uploaded");

@@ -134,7 +134,7 @@ export async function recheckToyyibPayOrder(orderId: string): Promise<CallbackOu
     testMode: isSandbox(),
   });
   if (wins.length > 1) await auditPayment("payment_duplicate_success", order.id, `${wins.length} rows`);
-  if (r === "ignored") await auditPayment("payment_amount_mismatch", order.id, "toyyibpay");
+  if (r === "ignored") await auditPayment("payment_amount_mismatch", order.id, "toyyibpay"); // test_in_live is written down by creditOrder
   if (r === "duplicate_ref") await auditPayment("payment_duplicate_ref", order.id, "toyyibpay");
   return { http: 200, note: r };
 }

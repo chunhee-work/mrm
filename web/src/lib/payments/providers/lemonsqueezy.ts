@@ -191,6 +191,7 @@ export async function handleLemonSqueezyWebhook(rawBody: string, signature: stri
       currency: data.attributes.currency.toUpperCase(),
       testMode: data.attributes.test_mode === true,
     });
+    if (r === "test_in_live") return { http: 200, note: "not credited" }; // already written down as payment_test_in_live
     if (r === "ignored") {
       // Paid at the provider but we did not credit: wrong amount/currency, or already handled.
       if (order.status === "pending") await auditPayment("payment_amount_mismatch", orderId, `ls ${providerRef}`);
@@ -200,16 +201,17 @@ export async function handleLemonSqueezyWebhook(rawBody: string, signature: stri
     return { http: 200, note: r };
   }
 
-  // order_refunded fires for part refunds too (status "partial_refund"): only a full refund takes the credits back
-  if (data.attributes.status !== "refunded") {
-    await auditPayment("payment_partial_refund", null, `ls ${providerRef}`);
-    return { http: 200, note: "partial refund" };
-  }
   // order_refunded: find our order by the Lemon Squeezy order id stored when it was paid
   const { db, schema } = await import("@/db");
   const { and, eq } = await import("drizzle-orm");
   const [o] = await db.select().from(schema.paymentOrders).where(and(eq(schema.paymentOrders.provider, "lemonsqueezy"), eq(schema.paymentOrders.providerRef, providerRef))).limit(1);
   if (!o) return { http: 200, note: "unknown order" };
+  // order_refunded fires for part refunds too (status "partial_refund"). Only a full refund takes the credits back; a part
+  // refund (a goodwill gesture) keeps them and is written down against the order for the owner to look at.
+  if (data.attributes.status !== "refunded") {
+    await auditPayment("payment_partial_refund", o.id, `ls ${providerRef}`);
+    return { http: 200, note: "partial refund" };
+  }
   const r = await refundOrder(o.id, "lemonsqueezy");
   if (r === "refunded") await auditPayment("payment_refunded", o.id, `ls ${providerRef}`);
   return { http: 200, note: r };

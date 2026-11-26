@@ -7,7 +7,7 @@ import { useT } from "@/components/lang-provider";
 import { kindOf } from "@/lib/file-kind";
 import { docKey, failTr, userFixable } from "@/lib/case-text";
 import { accepted } from "./drop-zone";
-import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES } from "@/lib/upload-rules";
+import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { Photo, Tick, Upload } from "./marks";
 import type { CaseRow } from "./case-table";
 
@@ -74,6 +74,8 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
     const out = ok.filter((f) => f.size === 0 || f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES));
     if (out.length) { setErr(t("dash.d.fixFirst", { name: out.map((f) => f.name).join(", "), mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })); return; }
     if (ok.length > MAX_FILES) { setErr(t("new.tooMany", { max: String(MAX_FILES), n: String(ok.length) })); return; }
+    const bytes = ok.reduce((n, f) => n + f.size, 0);
+    if (bytes > MAX_TOTAL_BYTES) { setErr(t("new.tooMuch", { gb: String(MAX_TOTAL_BYTES / 1024 ** 3), size: `${(bytes / 1024 ** 3).toFixed(1)} GB` })); return; }
     void send(ok);
   }
 

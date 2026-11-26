@@ -91,7 +91,7 @@ const locked = (c: CaseRow) => LOCKED.has(c.status);
 export async function clearDone(caseId: string): Promise<boolean> {
   const r = await db.execute(sql`
     UPDATE cases SET photos_done_at = NULL, photos_snapshot = NULL, status = CASE WHEN status = 'phase_b' THEN 'waiting_user' ELSE status END
-    WHERE id = ${caseId} AND photos_done_at IS NOT NULL RETURNING id`);
+    WHERE id = ${caseId} AND photos_done_at IS NOT NULL AND status NOT IN ('checking', 'done') RETURNING id`); /* the worker may have moved it on since the request read it */
   if (!rowsOf(r).length) return false;
   await db.update(P).set({ confirmed: false }).where(eq(P.caseId, caseId));
   // A Phase B that is still waiting in the queue must not run on names that are no longer final. One that is already running

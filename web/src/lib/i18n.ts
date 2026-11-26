@@ -465,7 +465,7 @@ const en: Dict = {
   "contact.open": "Open WhatsApp",
   "contact.hoursLabel": "Hours",
   "photos.noPlate": "Not read yet",
-  "case.err.corruptSome": "One of the PDFs cannot be opened, and we cannot tell which. Check that each PDF opens, then send working copies.",
+  "case.err.corruptSome": "One of the PDFs cannot be opened, and we cannot tell which. Check that each PDF opens, then send all the PDFs again.",
   "new.tooMany": "A case can have up to {max} files. You chose {n}. Remove some, or put them in one zip.",
   "new.tooMuch": "All files together can be up to {gb} GB. These are {size}. Remove some files.",
 };
@@ -915,7 +915,7 @@ const zh: Dict = {
   "contact.open": "打开 WhatsApp",
   "contact.hoursLabel": "服务时间",
   "photos.noPlate": "尚未读取",
-  "case.err.corruptSome": "其中一个 PDF 打不开，但无法判断是哪一个。请确认每个 PDF 都能打开，再发送能打开的文件。",
+  "case.err.corruptSome": "其中一个 PDF 打不开，但无法判断是哪一个。请确认每个 PDF 都能打开，再把所有 PDF 重新发送一次。",
   "new.tooMany": "一个案件最多 {max} 个文件，你选了 {n} 个。请移除一些，或打包成一个 zip。",
   "new.tooMuch": "所有文件加起来最多 {gb} GB，现在是 {size}。请移除一些文件。",
 };
@@ -1365,7 +1365,7 @@ const ms: Dict = {
   "contact.open": "Buka WhatsApp",
   "contact.hoursLabel": "Waktu operasi",
   "photos.noPlate": "Belum dibaca",
-  "case.err.corruptSome": "Salah satu PDF tidak boleh dibuka, dan kami tidak dapat pastikan yang mana. Semak setiap PDF boleh dibuka, kemudian hantar salinan yang berfungsi.",
+  "case.err.corruptSome": "Salah satu PDF tidak boleh dibuka, dan kami tidak dapat pastikan yang mana. Semak setiap PDF boleh dibuka, kemudian hantar semua PDF sekali lagi.",
   "new.tooMany": "Satu kes boleh ada sehingga {max} fail. Anda memilih {n}. Buang sebahagian, atau masukkan dalam satu zip.",
   "new.tooMuch": "Semua fail bersama boleh sehingga {gb} GB. Fail ini {size}. Buang sebahagian fail.",
 };

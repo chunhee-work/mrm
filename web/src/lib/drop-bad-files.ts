@@ -9,10 +9,21 @@ import { badFileNames } from "@/lib/case-text";
  * Returns how many case-file rows were removed.
  */
 export async function dropBadFiles(caseId: string, status: string, error: string | null): Promise<number> {
-  const bad = status === "failed" ? badFileNames(error) : [];
-  // Only one named file is a known bad file. Several names (old rows) were a guess over every PDF of the case: removing them
-  // would take the good files out too, so nothing is removed.
-  if (bad.length !== 1) return 0;
-  const gone = await db.delete(schema.caseFiles).where(and(eq(schema.caseFiles.caseId, caseId), inArray(schema.caseFiles.originalName, bad))).returning({ id: schema.caseFiles.id });
-  return gone.length;
+  if (status !== "failed") return 0;
+  const bad = badFileNames(error);
+  const rows = await db.select({ id: schema.caseFiles.id, kind: schema.caseFiles.kind, name: schema.caseFiles.originalName, url: schema.caseFiles.blobUrl })
+    .from(schema.caseFiles).where(eq(schema.caseFiles.caseId, caseId));
+  // One named file: that file. "bad_file:|…" = one of several PDFs and we could not tell which: the customer was asked to send
+  // all the PDFs again, so every PDF goes. Several names (old rows) were a guess over every PDF: nothing is removed.
+  const unknown = /^bad_file:\|/.test(error ?? "");
+  const out = unknown ? rows.filter((r) => r.kind === "pdf") : bad.length === 1 ? rows.filter((r) => r.name === bad[0]) : [];
+  if (!out.length) return 0;
+  await db.delete(schema.caseFiles).where(and(eq(schema.caseFiles.caseId, caseId), inArray(schema.caseFiles.id, out.map((r) => r.id))));
+  // A zip is opened again when none of its files is left in the case. One whose files were all taken out here must go too,
+  // or the next read would unpack the same bad PDF again.
+  const gone = new Set(out.map((r) => r.id));
+  const left = rows.filter((r) => !gone.has(r.id));
+  const emptied = rows.filter((z) => z.kind === "bundle_zip" && out.some((r) => r.url.includes(`/unzipped-${z.id}/`)) && !left.some((r) => r.url.includes(`/unzipped-${z.id}/`)));
+  if (emptied.length) await db.delete(schema.caseFiles).where(inArray(schema.caseFiles.id, emptied.map((z) => z.id)));
+  return out.length + emptied.length;
 }
