@@ -52,9 +52,17 @@ test("B06/B07 checkPdf: empty, corrupt and oversize PDFs are refused with the fi
 });
 
 import { asBadFile } from "./read-docs";
+import { badFileNames } from "./case-text";
 test("R2-B03 a 400 from the model about the PDF is the customer's file; other errors stay ours", () => {
   const e400 = Object.assign(new Error("400 invalid_request_error: Could not process PDF"), { status: 400 });
-  assert.equal(asBadFile(e400, ["a.pdf", "b.pdf"])?.message, "bad_file:a.pdf; b.pdf|corrupt");
+  // several PDFs: the refusal does not say which one, so none is named (and "Replace files" removes nothing)
+  assert.equal(asBadFile(e400, ["a.pdf", "b.pdf"])?.message, "bad_file:|corrupt");
+  assert.equal(asBadFile(e400, ["a.pdf"])?.message, "bad_file:a.pdf|corrupt");
+  // every 400 says invalid_request_error: that alone is not about the PDF
+  assert.equal(asBadFile(Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: too big"}}'), { status: 400 }), ["a.pdf"]), null);
+  // a long name with | or ; is kept whole, so it still matches the stored file name
+  const long = `${"n".repeat(200)}|x; y.pdf`;
+  assert.deepEqual(badFileNames(asBadFile(e400, [long])!.message), [long]);
   assert.equal(asBadFile(Object.assign(new Error("overloaded"), { status: 529 }), ["a.pdf"]), null);
   assert.equal(asBadFile(Object.assign(new Error("400 max_tokens too large"), { status: 400 }), ["a.pdf"]), null);
   assert.equal(asBadFile(new Error("network"), ["a.pdf"]), null);

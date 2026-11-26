@@ -10,7 +10,9 @@ import { badFileNames } from "@/lib/case-text";
  */
 export async function dropBadFiles(caseId: string, status: string, error: string | null): Promise<number> {
   const bad = status === "failed" ? badFileNames(error) : [];
-  if (!bad.length) return 0;
+  // Only one named file is a known bad file. Several names (old rows) were a guess over every PDF of the case: removing them
+  // would take the good files out too, so nothing is removed.
+  if (bad.length !== 1) return 0;
   const gone = await db.delete(schema.caseFiles).where(and(eq(schema.caseFiles.caseId, caseId), inArray(schema.caseFiles.originalName, bad))).returning({ id: schema.caseFiles.id });
   return gone.length;
 }
