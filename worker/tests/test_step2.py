@@ -4,7 +4,7 @@ Nothing here opens a browser or touches real Merimen."""
 import json
 
 from autopilot_worker import learning, playbook, step2_run
-from autopilot_worker.pipeline import Driver, Outcome, run_phase
+from autopilot_worker.pipeline import Driver, DriveResult, Outcome, run_phase
 from autopilot_worker.photo_rules import snapshot_of
 from autopilot_worker.step2 import build_plan
 from autopilot_worker.step2_check import two_way
@@ -115,6 +115,16 @@ def test_live_refuses_when_the_rows_read_back_miss_a_photo_item():
     rep = step2_run.run(CASE, DESK, [], writes=True, merimen=m)
     assert rep.action == "refused" and rep.code == "check" and rep.check["add"]
     assert "fix by hand" in rep.note
+
+
+def test_a_phase_b_run_again_flags_a_part_ticked_for_a_name_the_adjuster_dropped_since():
+    class Left(FakeStep2):  # the first Phase B ticked "Tail Lamp LH" for a name the adjuster has changed since
+        def selected(self, case):
+            return super().selected(case) + [("Tail Lamp LH", "1")]
+    again = {**CASE, "phase_a_photos": [{"name": "Tail Lamp LH"}, {"name": "Bonnet"}]}
+    rep = step2_run.run(again, DESK, [], writes=True, merimen=Left())
+    assert rep.action == "refused" and rep.code == "check" and "Tail Lamp LH" in str(rep.check["remove"])
+    assert step2_run.run(CASE, DESK, [], writes=True, merimen=Left()).check["ok"]  # without that history it is not flagged
 
 
 def test_live_stops_before_ticking_when_done_was_undone():
@@ -270,3 +280,15 @@ def test_merimen_may_only_be_changed_when_both_switches_are_on():
 
     for env, want in (({}, False), ({"MERIMEN_WRITES": "on"}, False), ({"WORKER_SUBMIT": "on"}, False), ({"MERIMEN_WRITES": "on", "WORKER_SUBMIT": "on"}, True)):
         assert Config.from_env({"WORKER_STATE": "/var/lib/x", **env}).live_writes is want
+
+
+def test_phase_b_goes_on_to_checks_only_if_the_names_it_saved_are_still_final():
+    # the database decides in the same write (tests/test_store_sql.py): the step only says which fingerprint must still be there
+    class Saving(D):
+        def save(self, phase, steps):
+            return DriveResult(ok=True, total_rm="100.00")
+    c = case_b()
+    o = run_phase("B", c, writes=True, driver=Saving())
+    assert o.job_state == "done" and o.case_status == "checking" and o.enqueue == ["checks"]
+    assert o.require_snapshot == c["photos_snapshot"] and o.require_snapshot
+    assert "names changed meanwhile" in o.stale_event

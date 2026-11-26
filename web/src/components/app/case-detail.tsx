@@ -7,6 +7,7 @@ import { useT } from "@/components/lang-provider";
 import { kindOf } from "@/lib/file-kind";
 import { docKey, failTr, userFixable } from "@/lib/case-text";
 import { accepted } from "./drop-zone";
+import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { Photo, Tick, Upload } from "./marks";
 import type { CaseRow } from "./case-table";
 
@@ -67,8 +68,15 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
   }
   function onChosen(list: File[]) {
     const ok = list.filter(accepted);
-    if (ok.length) void send(ok);
-    else if (list.length) setErr(t("dash.d.badType"));
+    if (!ok.length) { if (list.length) setErr(t("dash.d.badType")); return; }
+    // the same limits the server checks, before anything is uploaded: one empty or too-big file would fail the whole send.
+    // Nothing is sent then, so the note stays on this card (a partial send would close the card and hide it).
+    const out = ok.filter((f) => f.size === 0 || f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES));
+    if (out.length) { setErr(t("dash.d.fixFirst", { name: out.map((f) => f.name).join(", "), mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })); return; }
+    if (ok.length > MAX_FILES) { setErr(t("new.tooMany", { max: String(MAX_FILES), n: String(ok.length) })); return; }
+    const bytes = ok.reduce((n, f) => n + f.size, 0);
+    if (bytes > MAX_TOTAL_BYTES) { setErr(t("new.tooMuch", { gb: String(MAX_TOTAL_BYTES / 1024 ** 3), size: `${(bytes / 1024 ** 3).toFixed(1)} GB` })); return; }
+    void send(ok);
   }
 
   const docs = (row.pendingDoc ?? "").split("; ").map((d) => d.trim()).filter(Boolean);

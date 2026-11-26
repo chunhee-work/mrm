@@ -13,7 +13,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 export async function readSp(sp: Sp) {
   const s = await sp;
   const scope: Scope = { includeInternal: one(s.internal) === "1" };
-  return { scope, q: one(s.q) ?? "", page: Math.max(0, Number(one(s.page)) || 0) };
+  return { scope, q: one(s.q) ?? "", page: Math.min(100000, Math.max(0, Math.floor(Number(one(s.page))) || 0)) }; // "1e400" or "-1" in the address must not reach SQL
 }
 export const withScope = (href: string, scope: Scope) => (scope.includeInternal ? `${href}?internal=1` : href);
 

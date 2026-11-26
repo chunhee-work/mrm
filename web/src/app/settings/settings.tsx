@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
-import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
+import { LANGS, LANG_LABEL, MAX_PASSWORD, type Lang } from "@/lib/i18n";
 
 export default function Settings({ email, company, connection = false }: { email: string; company: string; connection?: boolean }) {
   const { t, lang } = useT();
@@ -22,11 +22,12 @@ export default function Settings({ email, company, connection = false }: { email
     if (busy) return;
     if (!cur) { setMsg({ ok: false, key: "set.pwNoCurrent" }); return; }
     if (next.length < 8) { setMsg({ ok: false, key: "set.pwShort" }); return; }
+    if (next.length > MAX_PASSWORD) { setMsg({ ok: false, key: "signup.passwordLong" }); return; }
     if (next !== again) { setMsg({ ok: false, key: "set.pwMismatch" }); return; }
     setBusy(true); setMsg(null);
     try {
       const { error } = await authClient.changePassword({ currentPassword: cur, newPassword: next, revokeOtherSessions: true });
-      if (error) setMsg({ ok: false, key: error.status === 429 ? "auth.tooMany" : "set.pwWrong" });
+      if (error) setMsg({ ok: false, key: error.status === 429 ? "auth.tooMany" : error.code === "PASSWORD_TOO_LONG" ? "signup.passwordLong" : error.status && error.status < 500 ? "set.pwWrong" : "login.offline" });
       else { setMsg({ ok: true, key: "set.pwDone" }); setCur(""); setNext(""); setAgain(""); }
     } catch { setMsg({ ok: false, key: "set.pwWrong" }); }
     setBusy(false);
@@ -44,7 +45,7 @@ export default function Settings({ email, company, connection = false }: { email
           <h2 id="set-acct" className="label mb-3">{t("set.account")}</h2>
           <dl className="rounded-[4px] border border-hair bg-panel">
             <div className={row}><dt className="note text-mute">{t("set.email")}</dt><dd className="min-w-0 text-[15px] text-fg [overflow-wrap:anywhere]">{email}</dd></div>
-            <div className={row}><dt className="note text-mute">{t("set.company")}</dt><dd className="min-w-0 text-[15px] text-fg [overflow-wrap:anywhere]">{company || "—"}</dd></div>
+            {company && <div className={row}><dt className="note text-mute">{t("set.company")}</dt><dd className="min-w-0 text-[15px] text-fg [overflow-wrap:anywhere]">{company}</dd></div>}
           </dl>
         </section>
 

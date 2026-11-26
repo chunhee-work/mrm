@@ -100,6 +100,49 @@ test("LS: refund debits once; replay does nothing", async () => {
   assert.equal((await getOrder(o.id))?.status, "refunded");
 });
 
+test("LS: a part refund keeps the credits; a full refund takes them", async () => {
+  const o = await mk("lemonsqueezy");
+  await hook(lsBody("order_created", o.id));
+  assert.equal((await hook(lsBody("order_refunded", o.id, { status: "partial_refund" }))).note, "partial refund");
+  assert.equal(await creditBalance(org), pack.credits);
+  assert.equal((await hook(lsBody("order_refunded", o.id))).note, "refunded");
+  assert.equal(await creditBalance(org), 0);
+});
+
+test("LS: a discounted payment credits only for the owner's own free code (owner = our logged-in user, not the typed email)", async () => {
+  process.env.LEMONSQUEEZY_OWNER_CODE = "OWNER"; process.env.OWNER_FREE_EMAILS = "owner@example.test";
+  try {
+    const uid = randomUUID(), oid = randomUUID();
+    await db.insert(schema.user).values([{ id: uid, email: "owner@example.test", name: "o", emailVerified: true }, { id: oid, email: "other@example.test", name: "x", emailVerified: true }]);
+    const theirs = await createPendingOrder({ orgId: org, userId: oid, provider: "lemonsqueezy", pack, currency: "USD" });
+    assert.equal((await hook(lsBody("order_created", theirs.id, { discount_total: pack.price.USD, user_email: "owner@example.test" }))).note, "not credited");
+    assert.equal(await creditBalance(org), 0);
+    const mine = await createPendingOrder({ orgId: org, userId: uid, provider: "lemonsqueezy", pack, currency: "USD" });
+    assert.equal((await hook(lsBody("order_created", mine.id, { discount_total: pack.price.USD }, "9002"))).note, "credited");
+  } finally {
+    delete process.env.LEMONSQUEEZY_OWNER_CODE; delete process.env.OWNER_FREE_EMAILS;
+    await db.execute(sql`DELETE FROM "user" WHERE email IN ('owner@example.test', 'other@example.test')`);
+  }
+});
+
+test("a test-mode payment never credits on the live site", async () => {
+  const o = await mk("lemonsqueezy");
+  process.env.PAYMENTS_MODE = "live";
+  try {
+    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "T", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "test_in_live");
+    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "T", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "test_in_live");
+    const noted = await db.execute(sql`SELECT count(*)::int AS n FROM audit_log WHERE action = 'payment_test_in_live' AND detail LIKE ${o.id + " %"}`);
+    const r = noted as unknown as { rows?: { n: number }[] } & { n: number }[];
+    assert.equal((r.rows ?? r)[0].n, 1); // asked twice, written down once
+    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "L", amountMinor: pack.price.USD, currency: "USD", testMode: false }), "credited");
+    // a test-mode replay for the now credited order is not written down as "paid, not credited"
+    assert.equal(await creditOrder({ orderId: o.id, provider: "lemonsqueezy", providerRef: "T2", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "test_in_live");
+    const again = await db.execute(sql`SELECT count(*)::int AS n FROM audit_log WHERE action = 'payment_test_in_live' AND detail LIKE ${o.id + " %"}`);
+    const r2 = again as unknown as { rows?: { n: number }[] } & { n: number }[];
+    assert.equal((r2.rows ?? r2)[0].n, 1);
+  } finally { delete process.env.PAYMENTS_MODE; }
+});
+
 test("same provider payment cannot credit two orders", async () => {
   const a = await mk("lemonsqueezy"); const b = await mk("lemonsqueezy");
   assert.equal(await creditOrder({ orderId: a.id, provider: "lemonsqueezy", providerRef: "X", amountMinor: pack.price.USD, currency: "USD", testMode: true }), "credited");

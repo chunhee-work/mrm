@@ -48,19 +48,46 @@ export function docKey(text: string): DocKey {
 export function failTr(error: string | null): Tr {
   const e = (error ?? "").trim();
   let m: RegExpMatchArray | null;
-  if ((m = e.match(/^bad_file:([^|]+)\|(empty|corrupt|too_big)/))) return { key: `case.err.${m[2]}`, vars: { name: m[1] } };
+  if (/^bad_file:\|too_long/.test(e)) return { key: "case.err.tooManyPages" }; // the PDFs open, but have too many pages for one read
+  if (/^bad_file:\|/.test(e)) return { key: "case.err.corruptSome" }; // a PDF we cannot name (refused together, or a name two files share)
+  if ((m = e.match(/^bad_file:([^|]+)\|(empty|corrupt|too_big)/))) return { key: `case.err.${m[2]}`, vars: { name: badFileNames(e).join("; ") || m[1] } };
+  if (ZIP_REJECTED.test(e)) return { key: "case.err.zip" };
   if (/no PDF/i.test(e)) return { key: "case.err.noPdf" };
-  if (/zip/i.test(e) && /(cannot|corrupt|empty|too|suspicious|many)/i.test(e)) return { key: "case.err.zip" };
   if (/timed out/i.test(e)) return { key: "case.err.timeout" };
   if (/request_too_large|too large|exceeds? (the )?(maximum|limit)|32 ?MB|too many (pages|tokens)/i.test(e)) return { key: "case.err.tooBigAny" }; // cases failed before the size check existed
   return { key: "case.err.other" };
 }
 
-/** A failure the user can fix by sending other files (so "Replace files" is the action), as against one on our side ("Read again"). */
-export const userFixable = (error: string | null) => /^bad_file:|no PDF|zip|request_too_large|too large|exceeds? (the )?(maximum|limit)|32 ?MB|too many (pages|tokens)/i.test(error ?? "") && !/timed out/i.test(error ?? "");
+/**
+ * Why unzip-bundle.ts refuses a customer's zip (the ZipRejected messages); expandBundles stores them as `<zip name>: <why>`.
+ * They live here, not in the unzip code, because this file also runs in the browser.
+ */
+export const ZIP_WHY = {
+  corrupt: "the zip cannot be opened",
+  too_many: "too many files in the zip",
+  entry_big: "a file in the zip is too large",
+  too_big: "the zip is too large once opened",
+  bomb: "the zip is suspiciously compressed",
+  empty: "no PDF or photo inside the zip",
+} as const;
+const ZIP_REJECTED = new RegExp(`: (${Object.values(ZIP_WHY).join("|")})$`);
+/** The zip a `<zip name>: <why>` error is about, so "Replace files" can take it out of the case. */
+export const zipRejectedName = (error: string | null) => (error ?? "").match(new RegExp(`^(.+): (${Object.values(ZIP_WHY).join("|")})$`))?.[1] ?? null;
 
-/** The files named in a `bad_file:<names>|<why>` error (several names are joined with "; "). */
+/**
+ * A failure the user can fix by sending other files (so "Replace files" is the action), as against one on our side ("Read again").
+ * Only the zip's own refusals count: "cannot download x.zip" or a blob path with /unzipped-/ in it is ours, and the credit goes back.
+ */
+export const userFixable = (error: string | null) =>
+  /^bad_file:/.test(error ?? "") || // first: the rest of a bad_file error is a file name, and a name may say anything ("timed out.pdf")
+  ((/no PDF|request_too_large|too large|exceeds? (the )?(maximum|limit)|32 ?MB|too many (pages|tokens)/i.test(error ?? "") || ZIP_REJECTED.test(error ?? "")) && !/timed out/i.test(error ?? ""));
+
+/** A file name as written into a `bad_file:` error: the characters the format uses are %-escaped and nothing is cut, so it still matches the stored name. */
+export const badFileName = (name: string) => name.replace(/[%|;\r\n]/g, (c) => encodeURIComponent(c));
+const unescapeName = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } }; // rows written before the escaping
+
+/** The files named in a `bad_file:<names>|<why>` error (old rows join several names with "; "; an empty name means "one of the PDFs"). */
 export function badFileNames(error: string | null): string[] {
-  const m = (error ?? "").match(/^bad_file:([^|]+)\|/);
-  return m ? m[1].split("; ").map((x) => x.trim()).filter(Boolean) : [];
+  const m = (error ?? "").match(/^bad_file:([^|]*)\|/);
+  return m ? m[1].split("; ").map((x) => unescapeName(x.trim())).filter(Boolean) : [];
 }

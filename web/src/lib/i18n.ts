@@ -6,6 +6,7 @@ export const LANG_LABEL: Record<Lang, string> = { en: "English", zh: "中文", m
 export const LANG_SHORT: Record<Lang, string> = { en: "EN", zh: "中文", ms: "BM" };
 export const DEFAULT_LANG: Lang = "en";
 export const MIN_PASSWORD = 8;
+export const MAX_PASSWORD = 128; // set in auth.ts too, so the server refuses longer
 
 export function normLang(v: string | undefined | null): Lang {
   return (LANGS as readonly string[]).includes(v ?? "") ? (v as Lang) : DEFAULT_LANG;
@@ -81,6 +82,7 @@ const en: Dict = {
   "login.unverified": "Your email is not verified yet. Click the link in the email we sent you.",
   "login.resend": "Send the email again",
   "login.resent": "Sent. Check your inbox.",
+  "login.verified": "Email confirmed. Log in to start.",
   "login.bad": "Wrong email or password.",
   "login.needEmail": "Enter a valid email address.",
   "login.needPassword": "Enter your password.",
@@ -90,6 +92,7 @@ const en: Dict = {
   "signup.email": "Email",
   "signup.password": "Password",
   "signup.passwordHint": "At least 8 characters",
+  "signup.passwordLong": "Use 128 characters or fewer.",
   "signup.confirm": "Confirm password",
   "signup.mismatch": "The two passwords do not match.",
   "signup.agree1": "I agree to the ",
@@ -296,6 +299,10 @@ const en: Dict = {
   "mail.resetSubject": "Reset your password",
   "mail.resetBody": "Click the link below to reset your password (valid for 1 hour):",
   "mail.ignore": "If this wasn't you, please ignore this email.",
+  "mail.existsSubject": "You already have an account",
+  "mail.existsBody": "Someone (maybe you) tried to sign up with this email, but it already has an account. Log in here:",
+  "mail.existsForgot": "Forgot your password? Set a new one here:",
+  "dash.d.fixFirst": "Not sent: {name} is empty or too large (up to {mb} MB per file, {pdf} MB per PDF). Choose the files again without it.",
   "lang.label": "Language",
   "nav.billing": "Billing",
   "bill.title": "Billing",
@@ -459,6 +466,10 @@ const en: Dict = {
   "contact.open": "Open WhatsApp",
   "contact.hoursLabel": "Hours",
   "photos.noPlate": "Not read yet",
+  "case.err.corruptSome": "One of the PDFs cannot be opened, and we cannot tell which. Check that each PDF opens, then send all the PDFs again.",
+  "case.err.tooManyPages": "The PDFs are too long to read in one case. Send shorter PDFs (only the pages the claim needs). The PDFs now in this case are replaced by the ones you send.",
+  "new.tooMany": "A case can have up to {max} files. You chose {n}. Remove some, or put them in one zip.",
+  "new.tooMuch": "All files together can be up to {gb} GB. These are {size}. Remove some files.",
 };
 
 const zh: Dict = {
@@ -523,6 +534,7 @@ const zh: Dict = {
   "login.unverified": "邮箱还没验证，请点开我们发给你的邮件里的链接。",
   "login.resend": "重新发送邮件",
   "login.resent": "已发送，请查收。",
+  "login.verified": "邮箱已确认，请登录开始使用。",
   "login.bad": "邮箱或密码不对。",
   "login.needEmail": "请输入有效的邮箱地址。",
   "login.needPassword": "请输入密码。",
@@ -532,6 +544,7 @@ const zh: Dict = {
   "signup.email": "邮箱",
   "signup.password": "密码",
   "signup.passwordHint": "至少 8 位",
+  "signup.passwordLong": "最多 128 个字符。",
   "signup.confirm": "确认密码",
   "signup.mismatch": "两次输入的密码不一致。",
   "signup.agree1": "我同意",
@@ -738,6 +751,10 @@ const zh: Dict = {
   "mail.resetSubject": "重设密码",
   "mail.resetBody": "点击下面的链接重设密码（1 小时内有效）：",
   "mail.ignore": "如果不是你本人操作，请忽略这封邮件。",
+  "mail.existsSubject": "你已经有账户了",
+  "mail.existsBody": "有人（可能是你）用这个邮箱注册，但这个邮箱已经有账户。请在这里登录：",
+  "mail.existsForgot": "忘记密码？在这里设新密码：",
+  "dash.d.fixFirst": "未发送：{name} 是空文件或太大（每个文件最多 {mb} MB，每个 PDF 最多 {pdf} MB）。请去掉它后重新选择文件。",
   "lang.label": "语言",
   "nav.billing": "账单",
   "bill.title": "账单",
@@ -901,6 +918,10 @@ const zh: Dict = {
   "contact.open": "打开 WhatsApp",
   "contact.hoursLabel": "服务时间",
   "photos.noPlate": "尚未读取",
+  "case.err.corruptSome": "其中一个 PDF 打不开，但无法判断是哪一个。请确认每个 PDF 都能打开，再把所有 PDF 重新发送一次。",
+  "case.err.tooManyPages": "这些 PDF 太长，一个案件读不完。请发送较短的 PDF（只保留理赔需要的页）。案件里现有的 PDF 会换成你新发送的。",
+  "new.tooMany": "一个案件最多 {max} 个文件，你选了 {n} 个。请移除一些，或打包成一个 zip。",
+  "new.tooMuch": "所有文件加起来最多 {gb} GB，现在是 {size}。请移除一些文件。",
 };
 
 const ms: Dict = {
@@ -965,6 +986,7 @@ const ms: Dict = {
   "login.unverified": "E-mel anda belum disahkan. Klik pautan dalam e-mel yang kami hantar.",
   "login.resend": "Hantar e-mel sekali lagi",
   "login.resent": "Dihantar. Semak peti masuk anda.",
+  "login.verified": "E-mel disahkan. Log masuk untuk mula.",
   "login.bad": "E-mel atau kata laluan salah.",
   "login.needEmail": "Masukkan alamat e-mel yang sah.",
   "login.needPassword": "Masukkan kata laluan anda.",
@@ -974,6 +996,7 @@ const ms: Dict = {
   "signup.email": "E-mel",
   "signup.password": "Kata laluan",
   "signup.passwordHint": "Sekurang-kurangnya 8 aksara",
+  "signup.passwordLong": "Gunakan 128 aksara atau kurang.",
   "signup.confirm": "Sahkan kata laluan",
   "signup.mismatch": "Kedua-dua kata laluan tidak sepadan.",
   "signup.agree1": "Saya bersetuju dengan ",
@@ -1180,6 +1203,10 @@ const ms: Dict = {
   "mail.resetSubject": "Tetap semula kata laluan",
   "mail.resetBody": "Klik pautan di bawah untuk menetapkan semula kata laluan (sah selama 1 jam):",
   "mail.ignore": "Jika ini bukan anda, sila abaikan e-mel ini.",
+  "mail.existsSubject": "Anda sudah mempunyai akaun",
+  "mail.existsBody": "Seseorang (mungkin anda) cuba mendaftar dengan e-mel ini, tetapi ia sudah mempunyai akaun. Log masuk di sini:",
+  "mail.existsForgot": "Lupa kata laluan? Tetapkan yang baharu di sini:",
+  "dash.d.fixFirst": "Tidak dihantar: {name} kosong atau terlalu besar (sehingga {mb} MB setiap fail, {pdf} MB setiap PDF). Pilih fail semula tanpanya.",
   "lang.label": "Bahasa",
   "nav.billing": "Bil",
   "bill.title": "Bil",
@@ -1343,6 +1370,10 @@ const ms: Dict = {
   "contact.open": "Buka WhatsApp",
   "contact.hoursLabel": "Waktu operasi",
   "photos.noPlate": "Belum dibaca",
+  "case.err.corruptSome": "Salah satu PDF tidak boleh dibuka, dan kami tidak dapat pastikan yang mana. Semak setiap PDF boleh dibuka, kemudian hantar semua PDF sekali lagi.",
+  "case.err.tooManyPages": "PDF ini terlalu panjang untuk dibaca dalam satu kes. Hantar PDF yang lebih pendek (hanya halaman yang diperlukan untuk tuntutan). PDF dalam kes ini akan diganti dengan yang anda hantar.",
+  "new.tooMany": "Satu kes boleh ada sehingga {max} fail. Anda memilih {n}. Buang sebahagian, atau masukkan dalam satu zip.",
+  "new.tooMuch": "Semua fail bersama boleh sehingga {gb} GB. Fail ini {size}. Buang sebahagian fail.",
 };
 
 export const DICTS: Record<Lang, Dict> = { en, zh, ms };

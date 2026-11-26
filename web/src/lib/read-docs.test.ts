@@ -52,10 +52,59 @@ test("B06/B07 checkPdf: empty, corrupt and oversize PDFs are refused with the fi
 });
 
 import { asBadFile } from "./read-docs";
+import { badFileNames } from "./case-text";
 test("R2-B03 a 400 from the model about the PDF is the customer's file; other errors stay ours", () => {
   const e400 = Object.assign(new Error("400 invalid_request_error: Could not process PDF"), { status: 400 });
-  assert.equal(asBadFile(e400, ["a.pdf", "b.pdf"])?.message, "bad_file:a.pdf; b.pdf|corrupt");
+  // several PDFs: the refusal does not say which one, so none is named (and "Replace files" removes nothing)
+  assert.equal(asBadFile(e400, ["a.pdf", "b.pdf"])?.message, "bad_file:|corrupt");
+  assert.equal(asBadFile(e400, ["a.pdf"])?.message, "bad_file:a.pdf|corrupt");
+  // every 400 says invalid_request_error: that alone is not about the PDF
+  assert.equal(asBadFile(Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: too big"}}'), { status: 400 }), ["a.pdf"]), null);
+  // a long name with | or ; is kept whole, so it still matches the stored file name
+  const long = `${"n".repeat(200)}|x; y.pdf`;
+  assert.deepEqual(badFileNames(asBadFile(e400, [long])!.message), [long]);
   assert.equal(asBadFile(Object.assign(new Error("overloaded"), { status: 529 }), ["a.pdf"]), null);
   assert.equal(asBadFile(Object.assign(new Error("400 max_tokens too large"), { status: 400 }), ["a.pdf"]), null);
   assert.equal(asBadFile(new Error("network"), ["a.pdf"]), null);
+});
+
+import { refusalOf } from "./read-docs";
+test("a refused read: page limits are not a broken file; the counter names one PDF, or says the set is too long", () => {
+  const pdf400 = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"The PDF specified could not be processed"}}'), { status: 400 });
+  const pages400 = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"A maximum of 100 PDF pages may be provided."}}'), { status: 400 });
+  // the page limit: never a bad file, with one PDF or several
+  assert.equal(refusalOf(pages400, ["a.pdf"])!.message, "bad_file:|too_long");
+  assert.equal(refusalOf(pages400, ["a.pdf", "b.pdf"])!.message, "bad_file:|too_long");
+  // not about the PDFs: left as it is
+  assert.equal(refusalOf(Object.assign(new Error("overloaded"), { status: 529 }), ["a.pdf"]), null);
+  // one PDF refused alone: that one is named
+  assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "refused"])!.message, "bad_file:b.pdf|corrupt");
+  // refused but its name is shared: not named
+  assert.equal(refusalOf(pdf400, ["a.pdf", "a.pdf", "c.pdf"], ["refused", "accepted", "accepted"])!.message, "bad_file:|corrupt");
+  // every PDF opens alone: the set is too long, not "one of them is broken"
+  assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "accepted"])!.message, "bad_file:|too_long");
+  // one PDF is over the page limit alone: shorter PDFs, not "cannot be opened"
+  assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "long"])!.message, "bad_file:|too_long");
+  // more text than the model reads at once: the same
+  assert.equal(refusalOf(Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"prompt is too long: 250000 tokens > 200000 maximum"}}'), { status: 400 }), ["a.pdf", "b.pdf"])!.message, "bad_file:|too_long");
+  // too large in bytes for one request: the same
+  assert.equal(refusalOf(Object.assign(new Error("413 request_too_large"), { status: 413 }), ["a.pdf", "b.pdf"])!.message, "bad_file:|too_long");
+  // a 400 about our own request ("invalid" but not about PDFs): never "too long"
+  const ours = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"output_config: invalid schema"}}'), { status: 400 });
+  assert.equal(refusalOf(ours, ["a.pdf", "b.pdf"], ["accepted", "accepted"]), null); // stays our error: refund, "Read again"
+  assert.equal(refusalOf(ours, ["a.pdf"]), null); // one PDF: not named broken either
+  // words about the file that do not say PDF, and every PDF opens alone: ours too
+  const proc = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"could not process request"}}'), { status: 400 });
+  assert.equal(refusalOf(proc, ["a.pdf", "b.pdf"], ["accepted", "accepted"]), null);
+  assert.equal(refusalOf(proc, ["a.pdf"]), null); // one PDF (no per-PDF check): not blamed either
+  // our own request: a field path that has "document" in it, or a request id that happens to hold "pdf"
+  const path = Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.0.content.1.document.source.data: Field required"},"request_id":"req_1"}'), { status: 400 });
+  assert.equal(refusalOf(path, ["a.pdf"]), null);
+  const rid = Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"tools: unexpected value"},"request_id":"req_011PdFx"}'), { status: 400 });
+  assert.equal(refusalOf(rid, ["a.pdf"]), null);
+  // the SDK's parsed body wins over the text
+  const parsed = Object.assign(new Error("400 status code"), { status: 400, error: { error: { message: "The PDF specified was not valid" } } });
+  assert.equal(refusalOf(parsed, ["a.pdf"])!.message, "bad_file:a.pdf|corrupt");
+  // the counter could not answer for one: we cannot tell
+  assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "unknown"])!.message, "bad_file:|corrupt");
 });

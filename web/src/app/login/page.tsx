@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { safeNext } from "@/lib/next-path";
 import { useT } from "@/components/lang-provider";
@@ -14,6 +14,8 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState(""); // the address of the last attempt, for "send again"
   const [resend, setResend] = useState<"idle" | "busy" | "sent">("idle");
+  const [verified, setVerified] = useState(false); // back from the link in the confirmation email
+  useEffect(() => { const q = new URLSearchParams(window.location.search); setVerified(q.get("verified") === "1" && !q.get("error")); }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,7 +40,7 @@ export default function Login() {
 
   async function sendAgain() {
     setResend("busy");
-    try { await authClient.sendVerificationEmail({ email, callbackURL: "/dashboard" }); } catch { /* same answer either way */ }
+    try { await authClient.sendVerificationEmail({ email, callbackURL: "/login?verified=1" }); } catch { /* same answer either way */ }
     setResend("sent");
   }
 
@@ -47,6 +49,7 @@ export default function Login() {
   return (
     <SheetBody>
       <Title>{t("login.title")}</Title>
+      {verified && <p role="status" className="mt-3 flex items-center gap-2 text-[14px] font-medium text-fg"><IconTick className="shrink-0 text-ice" />{t("login.verified")}</p>}
       <form onSubmit={onSubmit} onInput={clear} noValidate className="mt-7">
         <div className="grid gap-5">
           <Field

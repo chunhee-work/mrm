@@ -27,6 +27,15 @@ def _missing_0010(e: Exception) -> bool:
     return code in ("42P01", "42703") or ("does not exist" in text and ("photo_upload_log" in text or "photos_snapshot" in text))
 
 
+# What Merimen holds now: the list the last live Phase A uploaded (not a Phase A that found photos there already or stopped), or the list a later live Phase B uploaded or relabelled to and
+# verified (only such a row keeps its snapshot). A Phase B run again (names changed during Step 2, or a failed checks job and 完成
+# again) then compares Merimen with the names the first Phase B left there, not with the model's Phase A names.
+LAST_PHOTO_LIST_SQL = (
+    "SELECT photos FROM photo_upload_log WHERE case_id = %s AND mode = 'live' AND ((phase = 'A' AND action = 'upload') OR "
+    "(phase = 'B' AND snapshot IS NOT NULL AND action IN ('upload', 'relabel_reorder'))) ORDER BY created_at DESC, id DESC LIMIT 1"
+)
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -120,7 +129,7 @@ class PgRepo:
         try:
             snap = self.db.execute("SELECT photos_snapshot FROM cases WHERE id = %s", (case_id,))
             logged = self.db.execute(
-                "SELECT photos FROM photo_upload_log WHERE case_id = %s AND phase = 'A' AND mode = 'live' ORDER BY created_at DESC, id DESC LIMIT 1",
+                LAST_PHOTO_LIST_SQL,
                 (case_id,),
             )
         except Exception as e:  # only "the 0010 table/column is not there yet" is tolerated; a transient DB error fails the job instead of skipping the check
@@ -185,6 +194,15 @@ class PgRepo:
                 """,
                 (job["id"], job["org_id"]),
             ))
+        # still final: 完成 pressed with the fingerprint Phase B wrote (else the web app cleared it meanwhile and the case waits)
+        final_sql, final_args = ("", ())
+        if outcome.require_snapshot is not None:
+            final_sql, final_args = (" AND photos_done_at IS NOT NULL AND photos_snapshot = %s", (outcome.require_snapshot,))
+        if final_sql:
+            # one row lock before the checks below, so a web write cannot land between them (each statement re-reads the row)
+            st.append(("SELECT 1 FROM cases WHERE id = %s FOR UPDATE", (job["case_id"],)))
+            if outcome.total_rm:  # the estimate is saved in Merimen either way
+                st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
         if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or outcome.error:
             st.append((
                 """
@@ -196,20 +214,27 @@ class PgRepo:
                   pending_doc = COALESCE(%s, pending_doc),
                   error = %s,
                   done_at = CASE WHEN %s THEN now() ELSE done_at END
-                WHERE id = %s
-                """,
+                WHERE id = %s""" + final_sql,
                 (
                     outcome.case_status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
                     outcome.pending_doc, (outcome.error or None), bool(outcome.done), job["case_id"],
-                ),
+                ) + final_args,
             ))
         if outcome.event:
             st.append((
-                "INSERT INTO case_events (case_id, step, message) VALUES (%s, %s, %s)",
-                (job["case_id"], job["step"], outcome.event[:400]),
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], job["step"], outcome.event[:400], job["case_id"]) + final_args,
+            ))
+        if outcome.stale_event and final_sql:
+            st.append((
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE NOT EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], job["step"], outcome.stale_event[:400], job["case_id"]) + final_args,
             ))
         for step in outcome.enqueue:
-            st.append(("INSERT INTO jobs (case_id, step, state) VALUES (%s, %s, 'queued')", (job["case_id"], step)))
+            st.append((
+                "INSERT INTO jobs (case_id, step, state) SELECT %s, %s, 'queued' WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], step, job["case_id"]) + final_args,
+            ))
         for row in outcome.photo_rows or []:
             if row.get("failed"):
                 st.append((

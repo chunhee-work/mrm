@@ -20,6 +20,16 @@ export function isOwnerFree(email: string | null | undefined): boolean {
   return list.includes(email.trim().toLowerCase());
 }
 
+const mismatchAudited = new Set<string>();
+
+async function orderUserEmail(userId: string | null): Promise<string | null> {
+  if (!userId) return null;
+  const { db, schema } = await import("@/db");
+  const { eq } = await import("drizzle-orm");
+  const [u] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, userId)).limit(1);
+  return u?.email ?? null;
+}
+
 export const variantEnvName = (pack: Pack) => `LEMONSQUEEZY_VARIANT_${pack.id.toUpperCase()}`;
 const variantId = (pack: Pack) => process.env[variantEnvName(pack)] || "";
 
@@ -75,7 +85,8 @@ export const lemonsqueezy: PaymentProvider = {
       // One source of truth: PACKS. The variant price in Lemon Squeezy must match it.
       const price = await cached(`variant:${id}`, async () => (await ls(`/variants/${id}`)).data?.attributes?.price as number | undefined);
       if (price !== pack.price.USD) {
-        await auditPayment("payment_price_mismatch", null, `${pack.id} variant ${id}`);
+        // once per variant per server, not on every billing page view
+        if (!mismatchAudited.has(id)) { mismatchAudited.add(id); await auditPayment("payment_price_mismatch", null, `${pack.id} variant ${id}`); }
         return false;
       }
       return true;
@@ -135,7 +146,8 @@ const OrderEvent = z.object({
   meta: z.object({ event_name: z.string(), custom_data: z.object({ order_id: z.string() }).partial().optional() }),
   data: z.object({
     id: z.union([z.string(), z.number()]),
-    attributes: z.object({ status: z.string(), subtotal: z.number(), currency: z.string(), test_mode: z.boolean().optional() }),
+    attributes: z.object({ status: z.string(), subtotal: z.number(), currency: z.string(), test_mode: z.boolean().optional(),
+      discount_total: z.number().optional() }),
   }),
 });
 
@@ -165,6 +177,12 @@ export async function handleLemonSqueezyWebhook(rawBody: string, signature: stri
     if (!orderId) return { http: 200, note: "no order id" };
     const order = await getOrder(orderId);
     if (!order || order.provider !== "lemonsqueezy") return { http: 200, note: "unknown order" };
+    // the amount we check is before discount; only the owner's own free code may make it cheaper. Whose order it is comes from
+    // our own order row (the logged-in user), never from the email typed at the checkout.
+    if ((data.attributes.discount_total ?? 0) > 0 && !isOwnerFree(await orderUserEmail(order.userId))) {
+      await auditPayment("payment_discount_not_allowed", orderId, `ls ${providerRef}`);
+      return { http: 200, note: "not credited" };
+    }
     const r = await creditOrder({
       orderId,
       provider: "lemonsqueezy",
@@ -173,6 +191,7 @@ export async function handleLemonSqueezyWebhook(rawBody: string, signature: stri
       currency: data.attributes.currency.toUpperCase(),
       testMode: data.attributes.test_mode === true,
     });
+    if (r === "test_in_live") return { http: 200, note: "not credited" }; // already written down as payment_test_in_live
     if (r === "ignored") {
       // Paid at the provider but we did not credit: wrong amount/currency, or already handled.
       if (order.status === "pending") await auditPayment("payment_amount_mismatch", orderId, `ls ${providerRef}`);
@@ -187,6 +206,12 @@ export async function handleLemonSqueezyWebhook(rawBody: string, signature: stri
   const { and, eq } = await import("drizzle-orm");
   const [o] = await db.select().from(schema.paymentOrders).where(and(eq(schema.paymentOrders.provider, "lemonsqueezy"), eq(schema.paymentOrders.providerRef, providerRef))).limit(1);
   if (!o) return { http: 200, note: "unknown order" };
+  // order_refunded fires for part refunds too (status "partial_refund"). Only a full refund takes the credits back; a part
+  // refund (a goodwill gesture) keeps them and is written down against the order for the owner to look at.
+  if (data.attributes.status !== "refunded") {
+    await auditPayment("payment_partial_refund", o.id, `ls ${providerRef}`);
+    return { http: 200, note: "partial refund" };
+  }
   const r = await refundOrder(o.id, "lemonsqueezy");
   if (r === "refunded") await auditPayment("payment_refunded", o.id, `ls ${providerRef}`);
   return { http: 200, note: r };

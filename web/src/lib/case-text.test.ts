@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventTr, eventKind, docKey, failTr, userFixable } from "./case-text";
+import { eventTr, eventKind, docKey, failTr, userFixable, ZIP_WHY, badFileName } from "./case-text";
 import { DICTS } from "./i18n";
 
 test("B09 events: every stored sentence maps to a key that exists in EN, 中文 and BM", () => {
@@ -48,6 +48,34 @@ test("R2-B12 an old failed case with a size error now says the file is too large
   assert.equal(userFixable("request_too_large: Request exceeds the maximum size"), true);
   assert.equal(failTr("Something odd").key, "case.err.other");
   assert.equal(userFixable("Reading timed out"), false);
+});
+
+test("only the zip's own refusals are the customer's; our download or storage errors about a zip are ours (refunded)", () => {
+  for (const why of Object.values(ZIP_WHY)) {
+    assert.equal(userFixable(`b.zip: ${why}`), true, why);
+    assert.equal(failTr(`b.zip: ${why}`).key, "case.err.zip", why);
+  }
+  for (const ours of ["cannot download claim.zip", "blob not found: https://x.blob.vercel-storage.com/o/c/unzipped-5/a.pdf", "fetch failed for bundle.zip"]) {
+    assert.equal(userFixable(ours), false, ours);
+    assert.notEqual(failTr(ours).key, "case.err.zip", ours);
+  }
+});
+
+test("a PDF the model refused among several: the customer's to fix, no file named, the message exists in every language", () => {
+  assert.equal(userFixable("bad_file:|corrupt"), true);
+  assert.equal(failTr("bad_file:|corrupt").key, "case.err.corruptSome");
+  assert.deepEqual(badFileNames("bad_file:|corrupt"), []);
+  for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)["case.err.corruptSome"], l);
+  // a PDF that cannot be named because two files share its name
+  assert.equal(failTr("bad_file:|empty").key, "case.err.corruptSome");
+  // a file name is never read as the reason ("timed out" is ours, but here it is only the name)
+  assert.equal(userFixable("bad_file:scan timed out.pdf|corrupt"), true);
+  // too many pages: the customer's to fix in the same case (Replace files takes the PDFs out), with its own message
+  assert.equal(userFixable("bad_file:|too_long"), true);
+  assert.equal(failTr("bad_file:|too_long").key, "case.err.tooManyPages");
+  for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)["case.err.tooManyPages"], l);
+  // an escaped name is shown as the user wrote it
+  assert.equal(failTr(`bad_file:${badFileName("a|b;c.pdf")}|empty`).vars?.name, "a|b;c.pdf");
 });
 
 test("activity status: every line gets one of five marks, and each mark has its word in EN, 中文 and BM", () => {

@@ -64,6 +64,45 @@ async function main() {
       assert.equal(await dropBadFiles(id, "failed", "bad_file:a.pdf|corrupt"), 1);
       const left = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.originalName);
       assert.deepEqual(left, ["good.pdf"]);
+      // a guess over several PDFs removes nothing; a long name with "|" or ";" in it still finds its row
+      assert.equal(await dropBadFiles(id, "failed", "bad_file:good.pdf; x.pdf|corrupt"), 0);
+      const long = `${"x".repeat(150)} | a; b %.pdf`;
+      await db.insert(schema.caseFiles).values({ caseId: id, kind: "pdf", blobUrl: "z", originalName: long });
+      const { badFileName } = await import("../src/lib/case-text"); // what BadFile writes (read-docs is stubbed here)
+      assert.equal(await dropBadFiles(id, "failed", `bad_file:${badFileName(long)}|corrupt`), 1);
+      assert.equal((await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).length, 1);
+    }],
+    ["Replace files when we could not tell which PDF: every PDF goes (the customer sends them all again); a zip left empty goes too", async () => {
+      const id = await newCase("failed", "bad_file:|corrupt");
+      const [z] = await db.insert(schema.caseFiles).values({ caseId: id, kind: "bundle_zip", blobUrl: "zipurl", originalName: "docs.zip" }).returning({ id: schema.caseFiles.id });
+      const [z2] = await db.insert(schema.caseFiles).values({ caseId: id, kind: "bundle_zip", blobUrl: "zip2", originalName: "mixed.zip" }).returning({ id: schema.caseFiles.id });
+      await db.insert(schema.caseFiles).values([
+        { caseId: id, kind: "pdf", blobUrl: `o/c/unzipped-${z.id}/b.pdf`, originalName: "b.pdf" },
+        { caseId: id, kind: "pdf", blobUrl: `o/c/unzipped-${z2.id}/c.pdf`, originalName: "c.pdf" },
+        { caseId: id, kind: "photo", blobUrl: `o/c/unzipped-${z2.id}/p.jpg`, originalName: "p.jpg" },
+      ]);
+      assert.equal(await dropBadFiles(id, "failed", "bad_file:|corrupt"), 4); // 3 PDFs + docs.zip, now empty
+      const left = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.originalName).sort();
+      assert.deepEqual(left, ["mixed.zip", "p.jpg"]); // mixed.zip still has its photo, so it is not opened again
+    }],
+    ["Replace files after a refused zip: that zip leaves the case (it would be opened again and fail); an opened zip of the same name stays", async () => {
+      const id = await newCase("failed", "bad: zip.zip: the zip cannot be opened");
+      await db.insert(schema.caseFiles).values([
+        { caseId: id, kind: "bundle_zip", blobUrl: "z1", originalName: "bad: zip.zip" },
+        { caseId: id, kind: "bundle_zip", blobUrl: "z2", originalName: "good.zip" },
+      ]);
+      assert.equal(await dropBadFiles(id, "failed", "bad: zip.zip: the zip cannot be opened"), 1);
+      const left = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.originalName).sort();
+      assert.deepEqual(left, ["a.pdf", "good.zip"]);
+      // two "Archive.zip": the earlier one was opened (its PDF is in the case), the later one was refused
+      const [opened] = await db.insert(schema.caseFiles).values({ caseId: id, kind: "bundle_zip", blobUrl: "z3", originalName: "Archive.zip" }).returning({ id: schema.caseFiles.id });
+      await db.insert(schema.caseFiles).values([
+        { caseId: id, kind: "pdf", blobUrl: `o/c/unzipped-${opened.id}/claim.pdf`, originalName: "claim.pdf" },
+        { caseId: id, kind: "bundle_zip", blobUrl: "z4", originalName: "Archive.zip" },
+      ]);
+      assert.equal(await dropBadFiles(id, "failed", "Archive.zip: the zip cannot be opened"), 1);
+      const now = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.blobUrl).sort();
+      assert.ok(now.includes("z3") && !now.includes("z4"), "the opened Archive.zip stays, the refused one goes");
     }],
     ["auto: uploaded -> phase_a, one usage row, fields saved", async () => {
       claude = ok(); const id = await newCase("uploaded");

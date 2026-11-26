@@ -6,7 +6,7 @@ import DropZone, { accepted } from "@/components/app/drop-zone";
 import { Cross, Tick } from "@/components/app/marks";
 import ScanEdge from "@/components/scan-edge";
 import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
-import { MAX_FILE_BYTES, MAX_PDF_BYTES } from "@/lib/upload-rules";
+import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { runPool } from "@/lib/pool";
 import { headOf, looksLikePhoto, zipHasPdf } from "@/lib/peek-files";
 import Link from "next/link";
@@ -99,8 +99,13 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       const photoZip = files.find((f) => kindOf(f) === "bundle_zip");
       setMsg(photoZip ? t("new.zipNoPdf", { name: photoZip.name }) : t("new.noDocs")); return;
     }
+    // the server refuses more files or more bytes than this; say so now instead of after everything went up
+    if (files.length > MAX_FILES) { setMsg(t("new.tooMany", { max: String(MAX_FILES), n: String(files.length) })); return; }
+    const bytes = files.reduce((s, f) => s + f.size, 0);
+    if (bytes > MAX_TOTAL_BYTES) { setMsg(t("new.tooMuch", { gb: String(MAX_TOTAL_BYTES / 1024 ** 3), size: sizeOf(bytes) })); return; }
     setBusy(true); setMsg(""); setFailed(null); setSkipped([]); setNotes([]); setNoCredit(false); setUps({});
-    let at = 0;
+    let uploading = true;
+    let bad = -1; // the file whose upload failed (three go up at once, so it is caught per file, not "the last one started")
     try {
       // check the balance before a single byte goes up
       const pre = await fetch("/api/cases/credit");
@@ -110,12 +115,14 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       let finished = 0;
       setStep(0);
       await runPool(files.length, 3, async (i) => {
-        const f = files[i]; at = i;
-        const b = await uploadGuarded(`${orgId}/${batchId}/${f.name}`, f, (p) => setUps((u) => ({ ...u, [i]: p })));
-        done[i] = { kind: kindOf(f), url: b.url, name: f.name, size: f.size };
+        const f = files[i];
+        try {
+          const b = await uploadGuarded(`${orgId}/${batchId}/${f.name}`, f, (p) => setUps((u) => ({ ...u, [i]: p })));
+          done[i] = { kind: kindOf(f), url: b.url, name: f.name, size: f.size };
+        } catch (e) { if (bad < 0) bad = i; throw e; }
         setUps((u) => ({ ...u, [i]: 100 })); finished++; setStep(finished);
       });
-      at = files.length; setStep(files.length);
+      uploading = false; setStep(files.length);
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
@@ -123,9 +130,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       leaving.current = true;
       window.location.href = `/cases/${id}`; // Claude starts reading the files by itself
     } catch (e) {
-      const inUpload = at < files.length;
-      setMsg(e instanceof UploadStalled ? t("new.stalled") : inUpload ? t("new.failUpload") : t("new.fail"));
-      setFailed(inUpload ? keyOf(files[at]) : null);
+      setMsg(e instanceof UploadStalled ? t("new.stalled") : uploading ? t("new.failUpload") : t("new.fail"));
+      setFailed(bad >= 0 ? keyOf(files[bad]) : null);
       setStep(-1); setBusy(false);
     }
   }
