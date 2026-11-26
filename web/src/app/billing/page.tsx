@@ -11,20 +11,21 @@ import Billing, { type OrderView } from "@/components/app/billing";
 export const dynamic = "force-dynamic";
 const lastAsked = new Map<string, number>();
 
-export default async function BillingPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ order?: string | string[] }> }) {
   const { orgId } = await requireUser();
   const sp = await searchParams;
+  const order = typeof sp.order === "string" ? sp.order : undefined; // ?order=a&order=b is not ours: ignored
   // Back from toyyibPay: its one callback may have been missed (deploy, lookup timeout) and it does not call again,
   // so ask toyyibPay about this order here too. Only the caller's own pending order; crediting is still exactly-once.
-  if (sp.order) {
+  if (order) {
     const [mine] = await db.select({ provider: schema.paymentOrders.provider, status: schema.paymentOrders.status }).from(schema.paymentOrders)
-      .where(and(eq(schema.paymentOrders.id, sp.order), eq(schema.paymentOrders.orgId, orgId))).limit(1);
+      .where(and(eq(schema.paymentOrders.id, order), eq(schema.paymentOrders.orgId, orgId))).limit(1);
     // the page refreshes itself every few seconds while it waits: ask toyyibPay at most every 20 s per order
-    const last = lastAsked.get(sp.order) ?? 0;
+    const last = lastAsked.get(order) ?? 0;
     if (mine?.provider === "toyyibpay" && mine.status === "pending" && Date.now() - last > 20_000) {
-      lastAsked.set(sp.order, Date.now());
+      lastAsked.set(order, Date.now());
       if (lastAsked.size > 500) lastAsked.clear();
-      await recheckToyyibPayOrder(sp.order).catch(() => null);
+      await recheckToyyibPayOrder(order).catch(() => null);
     }
   }
   const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1);
@@ -40,7 +41,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     testMode: o.testMode,
   }));
   const packs = PACKS.map((p) => ({ id: p.id, credits: p.credits, price: p.price }));
-  const watching = sp.order ? orders.find((o) => o.id === sp.order) : undefined;
+  const watching = order ? orders.find((o) => o.id === order) : undefined;
   return (
     <Billing
       balance={balance}

@@ -48,8 +48,8 @@ export function docKey(text: string): DocKey {
 export function failTr(error: string | null): Tr {
   const e = (error ?? "").trim();
   let m: RegExpMatchArray | null;
+  if (/^bad_file:\|too_long/.test(e)) return { key: "case.err.tooManyPages" }; // the PDFs open, but have too many pages for one read
   if (/^bad_file:\|/.test(e)) return { key: "case.err.corruptSome" }; // a PDF we cannot name (refused together, or a name two files share)
-  if (/^request_too_large: too many PDF pages/.test(e)) return { key: "case.err.tooManyPages" }; // each PDF opens, together they are too long
   if ((m = e.match(/^bad_file:([^|]+)\|(empty|corrupt|too_big)/))) return { key: `case.err.${m[2]}`, vars: { name: badFileNames(e).join("; ") || m[1] } };
   if (ZIP_REJECTED.test(e)) return { key: "case.err.zip" };
   if (/no PDF/i.test(e)) return { key: "case.err.noPdf" };
@@ -71,6 +71,8 @@ export const ZIP_WHY = {
   empty: "no PDF or photo inside the zip",
 } as const;
 const ZIP_REJECTED = new RegExp(`: (${Object.values(ZIP_WHY).join("|")})$`);
+/** The zip a `<zip name>: <why>` error is about, so "Replace files" can take it out of the case. */
+export const zipRejectedName = (error: string | null) => (error ?? "").match(new RegExp(`^(.+): (${Object.values(ZIP_WHY).join("|")})$`))?.[1] ?? null;
 
 /**
  * A failure the user can fix by sending other files (so "Replace files" is the action), as against one on our side ("Read again").

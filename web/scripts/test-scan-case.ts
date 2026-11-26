@@ -85,6 +85,18 @@ async function main() {
       const left = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.originalName).sort();
       assert.deepEqual(left, ["mixed.zip", "p.jpg"]); // mixed.zip still has its photo, so it is not opened again
     }],
+    ["Replace files after a refused zip: that zip leaves the case (it would be opened again and fail); a name two zips share removes nothing", async () => {
+      const id = await newCase("failed", "bad: zip.zip: the zip cannot be opened");
+      await db.insert(schema.caseFiles).values([
+        { caseId: id, kind: "bundle_zip", blobUrl: "z1", originalName: "bad: zip.zip" },
+        { caseId: id, kind: "bundle_zip", blobUrl: "z2", originalName: "good.zip" },
+      ]);
+      assert.equal(await dropBadFiles(id, "failed", "bad: zip.zip: the zip cannot be opened"), 1);
+      const left = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.originalName).sort();
+      assert.deepEqual(left, ["a.pdf", "good.zip"]);
+      await db.insert(schema.caseFiles).values({ caseId: id, kind: "bundle_zip", blobUrl: "z3", originalName: "good.zip" });
+      assert.equal(await dropBadFiles(id, "failed", "good.zip: the zip is too large once opened"), 0);
+    }],
     ["auto: uploaded -> phase_a, one usage row, fields saved", async () => {
       claude = ok(); const id = await newCase("uploaded");
       const r = await scanCase(id, "auto");

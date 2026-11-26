@@ -83,16 +83,15 @@ type Block = Anthropic.Messages.ContentBlockParam;
 
 /**
  * An empty, corrupt or oversize PDF: the user fixes it by sending another file. The message is `bad_file:<name>|<why>` (see case-text.ts).
- * The name is escaped, not cut, so "Replace files" finds the very row; "" = one of several PDFs, we cannot tell which (nothing is removed).
+ * The name is escaped, not cut, so "Replace files" finds the very row. "" = we cannot name one PDF (refused together, a name two
+ * files share, or too long together): "Replace files" then takes every PDF out and the customer sends them again.
  */
 export class BadFile extends Error {
-  constructor(name: string, readonly why: "empty" | "corrupt" | "too_big") { super(`bad_file:${badFileName(name)}|${why}`); this.name = "BadFile"; }
+  constructor(name: string, readonly why: "empty" | "corrupt" | "too_big" | "too_long") { super(`bad_file:${badFileName(name)}|${why}`); this.name = "BadFile"; }
 }
 const unique = (names: string[], name: string) => names.filter((x) => x === name).length === 1;
 // The model's limit on PDF pages in one request ("A maximum of 100 PDF pages may be provided" and the like)
 const TOO_MANY_PAGES = /maximum of \d+ (pdf )?pages|pages? (limit|exceed)|too many (pdf )?pages|exceeds? .*\bpages?\b/i;
-/** Written when the PDFs are fine one by one but too long together; case-text shows it as "too many pages", the customer's to fix. */
-export const PAGES_ERROR = "request_too_large: too many PDF pages to read in one case";
 const MAX_PDF = 25 * 1024 * 1024;
 /** Checks the bytes of one PDF before it is sent to the model (B06/B07). */
 export function checkPdf(name: string, buf: Uint8Array) {
@@ -115,22 +114,27 @@ export function asBadFile(e: unknown, names: string[]): BadFile | null {
   return new BadFile(names.length === 1 ? names[0] : "", "corrupt");
 }
 
-type Verdict = "refused" | "accepted" | "unknown";
+type Verdict = "refused" | "long" | "accepted" | "unknown";
+const tooLong = () => new BadFile("", "too_long");
 /**
  * What a refused read becomes, or null when it is not about the PDFs (then the error stays as it is). `verdicts` are the token
  * counter's answers for each PDF alone, in `names` order.
  */
 export function refusalOf(e: unknown, names: string[], verdicts?: Verdict[]): Error | null {
   const msg = (e as { message?: string } | null)?.message ?? "";
-  // a limit on the whole request (the PDFs' pages together) is not a broken file: no PDF is taken out for it
-  if ((e as { status?: number } | null)?.status === 400 && TOO_MANY_PAGES.test(msg)) return new Error(`${PAGES_ERROR} (${msg.slice(0, 300)})`);
+  // a limit on the whole request (the PDFs' pages together) is not a broken file. Which PDF to shorten is the customer's
+  // choice, so none is named: "Replace files" takes every PDF out and the customer sends shorter ones, in the same case.
+  // A request too large in bytes (413) is the same: the PDFs are too much for one read, none of them is broken.
+  const status = (e as { status?: number } | null)?.status;
+  if ((status === 400 && TOO_MANY_PAGES.test(msg)) || status === 413) return tooLong();
   const bad = asBadFile(e, names);
   if (!bad || !verdicts) return bad;
   // only a name no other file of the case has ("Replace files" removes by name); more than one: the next read names the next
   const refused = names.filter((n, i) => verdicts[i] === "refused" && unique(names, n));
   if (refused.length) return new BadFile(refused[0], "corrupt");
-  // every PDF opens alone: it is the set that is too much, and sending the same PDFs again would fail the same way
-  if (verdicts.length === names.length && verdicts.every((v) => v === "accepted")) return new Error(`${PAGES_ERROR} (${msg.slice(0, 300)})`);
+  // one PDF is over the page limit alone, or every PDF opens alone (the set is too much): sending the same PDFs again would
+  // fail the same way, so the customer sends shorter ones
+  if (verdicts.includes("long") || (verdicts.length === names.length && verdicts.every((v) => v === "accepted"))) return tooLong();
   return bad;
 }
 
@@ -168,13 +172,16 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
   }).catch(async (e) => {
     const names = docs.map((d) => d.name);
     if (!refusalOf(e, names)) throw e;
-    if (docs.length < 2 || TOO_MANY_PAGES.test((e as { message?: string }).message ?? "")) throw refusalOf(e, names)!;
+    if (docs.length < 2 || !/^bad_file:\|corrupt$/.test(refusalOf(e, names)!.message)) throw refusalOf(e, names)!; // already decided
     // several PDFs and the refusal does not say which: ask the free token counter about each one alone, so "Replace files"
     // can take out exactly that file (without it the same bad PDF would stay in the case and fail every read)
     const verdicts: Verdict[] = docs.map(() => "unknown");
+    const until = Date.now() + 60_000; // all checks together, so a case with many PDFs still ends inside the read's time
     await runPool(docs.length, 4, async (i) => {
+      if (Date.now() > until) return; // left "unknown"
       const v = await documentRefusal([docs[i].block]).catch(() => undefined); // undefined: the check itself failed (rate limit, network)
-      verdicts[i] = v === undefined ? "unknown" : v === null ? "accepted" : asBadFile(v, [docs[i].name]) ? "refused" : "unknown";
+      const m = (v as { message?: string } | null | undefined)?.message ?? "";
+      verdicts[i] = v === undefined ? "unknown" : v === null ? "accepted" : TOO_MANY_PAGES.test(m) ? "long" : asBadFile(v, [docs[i].name]) ? "refused" : "unknown";
     });
     throw refusalOf(e, names, verdicts)!;
   });

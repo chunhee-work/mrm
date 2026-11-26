@@ -1,12 +1,11 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { createEmailVerificationToken } from "better-auth/api";
 import { after } from "next/server";
 import { and, eq, gt } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { sendEmail } from "./email";
-import { MIN_PASSWORD, normLang, translate } from "./i18n";
+import { MAX_PASSWORD, MIN_PASSWORD, normLang, translate } from "./i18n";
 
 function langOf(req?: Request) {
   const m = /(?:^|;\s*)lang=([^;]+)/.exec(req?.headers.get("cookie") ?? "");
@@ -22,11 +21,12 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: MIN_PASSWORD,
+    maxPasswordLength: MAX_PASSWORD, // the same limit the forms check
     requireEmailVerification: true,
     // A reset is what people do when they think someone else is in: sign every device out.
     revokeSessionsOnPasswordReset: true,
     // Sign-up with an address that already has an account answers "check your email" like a new one (no account probing),
-    // so an email must really arrive: the verification link again if never verified, else a "you already have an account" note.
+    // so an email must really arrive: a password reset link if never verified, else a "you already have an account" note.
     onExistingUserSignUp: async ({ user }, request) => {
       // at most one such email per address every 10 minutes, so this cannot be used to fill someone's inbox
       const key = `signup-again:${user.email.toLowerCase()}`;
@@ -36,15 +36,19 @@ export const auth = betterAuth({
       await db.insert(schema.verification).values({ id: crypto.randomUUID(), identifier: key, value: "1", expiresAt: new Date(Date.now() + 10 * 60_000) });
       const l = langOf(request);
       if (!user.emailVerified) {
-        // the same link sign-up sends, built here so it does not depend on whoever is logged in on this browser
-        const ctx = await auth.$context;
-        const token = await createEmailVerificationToken(ctx.secret, user.email, undefined, 3600, { userId: user.id });
-        await sendVerifyMail(user.email, `${ctx.baseURL}/verify-email?token=${token}&callbackURL=${encodeURIComponent("/dashboard")}`, l);
+        // That account's password was chosen by whoever signed up first, who may not own this mailbox. A verify link would sign
+        // the owner into an account someone else can open; a reset link lets the owner choose the password (and a finished
+        // reset confirms the address, onPasswordReset below). The reset mail goes out through sendResetPassword.
+        await auth.api.requestPasswordReset({ body: { email: user.email, redirectTo: "/reset-password" }, headers: request?.headers, request });
         return;
       }
       const origin = new URL((await auth.$context).baseURL).origin;
       await sendEmail(user.email, translate(l, "mail.existsSubject"),
         `<p>${translate(l, "mail.existsBody")}</p><p><a href="${origin}/login">${origin}/login</a></p><p>${translate(l, "mail.existsForgot")} <a href="${origin}/forgot-password">${origin}/forgot-password</a></p><p>${translate(l, "mail.ignore")}</p>`, "other");
+    },
+    // A reset link was opened from this mailbox, so the address is confirmed too.
+    onPasswordReset: async ({ user }) => {
+      if (!user.emailVerified) await db.update(schema.user).set({ emailVerified: true, updatedAt: new Date() }).where(eq(schema.user.id, user.id));
     },
     sendResetPassword: async ({ user, url }, request) => {
       const l = langOf(request);
