@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { db, schema } from "@/db";
 import { MAX_BYTES, MAX_PHOTOS, photoPath } from "./rules";
 import { savePhoto } from "./store";
+import { clearDone } from "./server";
 import { runPool } from "@/lib/pool";
 
 /**
@@ -52,6 +53,11 @@ export async function importCasePhotos(caseId: string, orgId: string): Promise<{
     if (!d || hashes.has(d.hash)) continue; // the same picture twice is one photo
     await db.insert(schema.casePhotos).values({ caseId, origN: ++n, position: pos++, srcName: d.f.originalName.slice(0, 200), blobPath: d.blobPath, thumbPath: d.thumbPath, contentHash: d.hash, nameState: "pending" });
     hashes.add(d.hash); added++;
+  }
+  if (added) {
+    // new photos to name, as with a desk upload: the opening order is looked at again and a 完成 already pressed is taken back
+    await db.execute(sql`UPDATE cases SET photos_arranged_at = NULL WHERE id = ${caseId}`);
+    await clearDone(caseId);
   }
   return { added, skipped };
 }
