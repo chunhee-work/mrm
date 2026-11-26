@@ -4,7 +4,7 @@ import { getExtState } from "@/lib/ext/gate";
 import { workerUiOn } from "@/lib/ext/worker-gate";
 import { credView, getWorkerState } from "@/lib/ext/worker-store";
 import Connection from "@/components/app/connection";
-import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { CONFIRM_COUNT } from "@/lib/photos/confirm-sql";
 import CaseTable, { type CaseRow } from "@/components/app/case-table";
 import Home, { type HomeCounts } from "@/components/app/home";
@@ -17,7 +17,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const view = (VIEWS as readonly string[]).includes(sp.view ?? "") ? (sp.view as View) : null;
   const q = typeof sp.q === "string" ? sp.q.slice(0, 40) : "";
-  const rows = await db.select().from(schema.cases).where(eq(schema.cases.orgId, orgId)).orderBy(desc(schema.cases.createdAt)).limit(200);
+  const newest = await db.select().from(schema.cases).where(eq(schema.cases.orgId, orgId)).orderBy(desc(schema.cases.createdAt)).limit(200);
+  // A search looks at every case, not only the newest 200: older matches join the list (the table filters it as before).
+  // The needle is squashed like the table's own filter, and % _ \ are escaped so they match themselves.
+  const needle = q.replace(/\s+/g, "").toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`);
+  const older = needle && newest.length === 200
+    ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), sql`regexp_replace(${schema.cases.plate}, '\\s', '', 'g') ilike ${`%${needle}%`}`))
+      .orderBy(desc(schema.cases.createdAt)).limit(200)
+    : [];
+  const have = new Set(newest.map((c) => c.id));
+  const rows = [...newest, ...older.filter((c) => !have.has(c.id))];
   // only what the count and the table show: which case, whether it is done, and what (if anything) it is missing
   const ids = rows.filter((c) => c.status === "failed" || !c.plate).map((c) => c.id);
   const firsts = ids.length ? await db.select({ caseId: schema.caseFiles.caseId, name: schema.caseFiles.originalName }).from(schema.caseFiles).where(inArray(schema.caseFiles.caseId, ids)).orderBy(asc(schema.caseFiles.id)) : [];
@@ -51,8 +60,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   if (view || q) return <CaseTable rows={list} view={view} q0={q} />;
 
   // the first page: who is logged in, a search, two buttons, and how many open cases wait for what
+  // Counted over every case of the org, not only the newest 200: per status, and how many of those still have photos to name
+  // (bucketOf needs only that, and only for open cases). Then bucketOf places each group, so the rule stays in one place.
+  const toName = sql`(select ${CONFIRM_COUNT} from ${schema.casePhotos} where ${schema.casePhotos.caseId} = ${schema.cases.id})`;
+  const groups = await db.select({
+    status: schema.cases.status,
+    n: sql<number>`count(*)::int`,
+    naming: sql<number>`(count(*) filter (where ${schema.cases.status} not in ('done', 'failed') and ${toName} > 0))::int`,
+  }).from(schema.cases).where(eq(schema.cases.orgId, orgId)).groupBy(schema.cases.status);
   const counts: HomeCounts = { docs: 0, photos: 0, hold: 0, active: 0, closed: 0 };
-  for (const c of list) counts[bucketOf(c)]++;
+  for (const g of groups) {
+    const naming = Number(g.naming);
+    counts[bucketOf({ status: g.status, deskConfirm: 1 })] += naming;
+    counts[bucketOf({ status: g.status, deskConfirm: 0 })] += Number(g.n) - naming;
+  }
   const worker = workerUiOn();
   const state = worker ? await getWorkerState(orgId) : await getExtState(orgId);
   // while the Merimen connection is switched off there is nothing to do or read about it: the page ends with the count

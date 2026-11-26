@@ -22,14 +22,18 @@ export async function expandBundles(caseId: string, orgId: string): Promise<numb
     let entries;
     try { entries = unzipBundle(bytes); } catch (e) { throw new Error(`${z.originalName}: ${(e as Error).message}`); }
     const seen = new Set<string>();
+    const opened: (typeof schema.caseFiles.$inferInsert)[] = [];
     for (const e of entries) {
       let name = e.name; // two folders may hold the same file name
       for (let n = 2; seen.has(name); n++) name = e.name.replace(/(\.[^.]+)?$/, `-${n}$1`);
       seen.add(name);
       const b = await put(`${orgId}/${caseId}${marker}${name}`, Buffer.from(e.bytes), { access: "private", contentType: e.type, addRandomSuffix: false, allowOverwrite: true });
-      await db.insert(schema.caseFiles).values({ caseId, kind: e.kind, blobUrl: b.url, originalName: name, size: e.bytes.length });
-      added++;
+      opened.push({ caseId, kind: e.kind, blobUrl: b.url, originalName: name, size: e.bytes.length });
     }
+    // All rows in one statement, after every blob is stored: a failure halfway leaves no marker row, so the next read opens
+    // the whole zip again (the blobs are overwritten) instead of taking a partial set as "already opened".
+    await db.insert(schema.caseFiles).values(opened);
+    added += opened.length;
     await db.insert(schema.caseEvents).values({ caseId, step: "read_docs", message: `Opened ${z.originalName}: ${entries.length} file(s)` });
   }
   return added;

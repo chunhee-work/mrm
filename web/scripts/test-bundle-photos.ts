@@ -22,9 +22,10 @@ const db = drizzle(pg, { schema });
 
 const blobs = new Map<string, Buffer>();
 const putLog: string[] = [];
+let failPutAt = 0; // when set, the put with this number (putLog.length + 1) throws once
 const blobStub = {
   get: async (url: string) => (blobs.has(url) ? { statusCode: 200, stream: new Response(blobs.get(url) as unknown as BodyInit).body, blob: { contentType: url.endsWith(".pdf") ? "application/pdf" : url.endsWith(".zip") ? "application/zip" : "image/jpeg" } } : null),
-  put: async (p: string, body: Buffer) => { putLog.push(p); const url = `https://blob.test/${p}`; blobs.set(url, Buffer.from(body)); return { url, pathname: p }; },
+  put: async (p: string, body: Buffer) => { if (failPutAt && putLog.length + 1 === failPutAt) { failPutAt = 0; throw new Error("blob store down"); } putLog.push(p); const url = `https://blob.test/${p}`; blobs.set(url, Buffer.from(body)); return { url, pathname: p }; },
   del: async () => {}, head: async () => ({}), BlobNotFoundError: class extends Error {},
 };
 const stubs: Record<string, unknown> = { "server-only": {}, "@/db": { db, schema }, "@vercel/blob": blobStub };
@@ -66,6 +67,15 @@ async function main() {
       const fs = (await files(id)).filter((f) => f.kind !== "bundle_zip");
       assert.deepEqual(fs.map((f) => [f.kind, f.originalName]).sort(), [["pdf", "rc.pdf"], ["photo", "a.jpg"], ["photo", "b.jpg"]]);
       assert.equal(await expandBundles(id, ORG), 0); // opening it twice adds nothing
+      assert.equal((await files(id)).length, 4);
+    }],
+    ["a zip whose opening fails halfway leaves no rows, so the next read opens all of it", async () => {
+      const id = await newCase();
+      await addFile(id, "bundle_zip", "half.zip", Buffer.from(zipSync({ "a.pdf": strToU8("%PDF-1.4 a"), "b.pdf": strToU8("%PDF-1.4 b"), "c.pdf": strToU8("%PDF-1.4 c") })));
+      failPutAt = putLog.length + 2; // the second file cannot be stored
+      await assert.rejects(expandBundles(id, ORG), /blob store down/);
+      assert.equal((await files(id)).length, 1); // only the zip itself: no partial set marked as opened
+      assert.equal(await expandBundles(id, ORG), 3);
       assert.equal((await files(id)).length, 4);
     }],
     ["B01: a corrupt or empty zip fails with a clear reason", async () => {

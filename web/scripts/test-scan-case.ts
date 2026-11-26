@@ -64,6 +64,14 @@ async function main() {
       assert.equal(await dropBadFiles(id, "failed", "bad_file:a.pdf|corrupt"), 1);
       const left = (await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).map((f) => f.originalName);
       assert.deepEqual(left, ["good.pdf"]);
+      // a guess over several PDFs removes nothing; a long name with "|" or ";" in it still finds its row
+      assert.equal(await dropBadFiles(id, "failed", "bad_file:good.pdf; x.pdf|corrupt"), 0);
+      assert.equal(await dropBadFiles(id, "failed", "bad_file:|corrupt"), 0);
+      const long = `${"x".repeat(150)} | a; b %.pdf`;
+      await db.insert(schema.caseFiles).values({ caseId: id, kind: "pdf", blobUrl: "z", originalName: long });
+      const { badFileName } = await import("../src/lib/case-text"); // what BadFile writes (read-docs is stubbed here)
+      assert.equal(await dropBadFiles(id, "failed", `bad_file:${badFileName(long)}|corrupt`), 1);
+      assert.equal((await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).length, 1);
     }],
     ["auto: uploaded -> phase_a, one usage row, fields saved", async () => {
       claude = ok(); const id = await newCase("uploaded");

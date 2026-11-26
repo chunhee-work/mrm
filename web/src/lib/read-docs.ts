@@ -5,6 +5,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { trackedParse, zodOutputFormat, MODEL, type CallCtx } from "./claude";
 import { playbookBlock, playbookTag } from "@/lib/playbook/prompt";
 import { costOf, tokensOf } from "./pricing";
+import { badFileName } from "./case-text";
 
 // Step 1 of the workflow (playbook 01): read the case bundle and return the case data.
 // Anthropic compiles the output schema and refuses more than 16 nullable/union fields. So plain text fields are
@@ -79,9 +80,12 @@ ${playbookBlock("read_docs")}`;
 
 type Block = Anthropic.Messages.ContentBlockParam;
 
-/** An empty, corrupt or oversize PDF: the user fixes it by sending another file. The message is `bad_file:<name>|<why>` (see case-text.ts). */
+/**
+ * An empty, corrupt or oversize PDF: the user fixes it by sending another file. The message is `bad_file:<name>|<why>` (see case-text.ts).
+ * The name is escaped, not cut, so "Replace files" finds the very row; "" = one of several PDFs, we cannot tell which (nothing is removed).
+ */
 export class BadFile extends Error {
-  constructor(name: string, why: "empty" | "corrupt" | "too_big") { super(`bad_file:${name.replace(/[|\n]/g, " ").slice(0, 120)}|${why}`); this.name = "BadFile"; }
+  constructor(name: string, why: "empty" | "corrupt" | "too_big") { super(`bad_file:${badFileName(name)}|${why}`); this.name = "BadFile"; }
 }
 const MAX_PDF = 25 * 1024 * 1024;
 /** Checks the bytes of one PDF before it is sent to the model (B06/B07). */
@@ -99,8 +103,10 @@ export function checkPdf(name: string, buf: Uint8Array) {
 export function asBadFile(e: unknown, names: string[]): BadFile | null {
   const err = e as { status?: number; message?: string } | null;
   if (!err || err.status !== 400 || !names.length) return null;
-  if (!/pdf|document|could not process|invalid|corrupt|password|encrypt/i.test(err.message ?? "")) return null;
-  return new BadFile(names.join("; "), "corrupt");
+  // every 400 says "invalid_request_error", so that word alone does not point at the PDF
+  if (!/pdf|document|could not process|invalid(?!_request_error)|corrupt|password|encrypt/i.test(err.message ?? "")) return null;
+  // The refusal does not say which PDF it was. Naming them all would make "Replace files" delete the good ones too.
+  return new BadFile(names.length === 1 ? names[0] : "", "corrupt");
 }
 
 async function blobBase64(url: string, name = "file.pdf"): Promise<string> {
