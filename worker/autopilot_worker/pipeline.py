@@ -93,6 +93,7 @@ class Outcome:
     # set: the case update and the queued jobs are written only if 完成 is still pressed with this fingerprint (checked in the
     # same transaction as the write, so a name changed after the last check cannot be carried on to checks)
     require_snapshot: str | None = None
+    stale_event: str | None = None  # with require_snapshot: written instead of `event` when 完成 or the names changed meanwhile
 
 
 def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcome:
@@ -180,21 +181,16 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes, photo_log=_log(rep),
         )
     suffix = (f". {rep.line()}" if rep and (rep.photos or not rep.ok) else "") + (f". {s2.line()}" if s2 and s2.plan else "")
-    try:
-        final = driver.guard()
-    except Exception:  # cannot tell: do not go on to checks on names that may have changed; 完成 again runs Phase B again
-        final = False
-    if not final:
-        # the adjuster changed a name (or undid 完成) while Step 2 and the save ran: Merimen holds the names as they were, so the
-        # case waits for 完成 again, which queues a new Phase B with the new names, instead of going on to checks
-        return _o("done", case_status="waiting_user", event="Phase B saved, but the names changed meanwhile. Phase B runs again once 完成 is pressed on the new names" + suffix,
-                  total_rm=saved.total_rm, browser_minutes=saved.minutes, photo_log=_log(rep))
     # The web app's naming desk locks a case once its `checks` job is queued, running, paused or done (web/src/lib/photos/server.ts,
     # CHECKS_QUEUED), and while the case is checking or done: queue `checks` only here, after the final names are saved.
     return _o(
         "done", case_status="checking", event="Checking" + suffix, enqueue=["checks"],
         total_rm=saved.total_rm, browser_minutes=saved.minutes, photo_log=_log(rep),
+        # the adjuster may change a name (or undo 完成) while Step 2 and the save run: the move to checks is written only if 完成 is
+        # still pressed on the same names, checked by the database in the same write; otherwise Merimen holds the old names and
+        # the case waits for 完成, which queues a new Phase B with the new names (at once if it was already pressed again)
         require_snapshot=case.get("photos_snapshot") if desk is not None else None,
+        stale_event="Phase B saved, but the names changed meanwhile. A new Phase B runs once 完成 is pressed on the new names" + suffix,
     )
 
 

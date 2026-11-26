@@ -208,8 +208,13 @@ class PgRepo:
             ))
         if outcome.event:
             st.append((
-                "INSERT INTO case_events (case_id, step, message) VALUES (%s, %s, %s)",
-                (job["case_id"], job["step"], outcome.event[:400]),
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], job["step"], outcome.event[:400], job["case_id"]) + final_args,
+            ))
+        if outcome.stale_event and final_sql:
+            st.append((
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE NOT EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], job["step"], outcome.stale_event[:400], job["case_id"]) + final_args,
             ))
         for step in outcome.enqueue:
             st.append((

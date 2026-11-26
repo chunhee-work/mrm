@@ -272,17 +272,13 @@ def test_merimen_may_only_be_changed_when_both_switches_are_on():
         assert Config.from_env({"WORKER_STATE": "/var/lib/x", **env}).live_writes is want
 
 
-def test_phase_b_names_changed_during_the_save_wait_for_done_again_instead_of_checks():
+def test_phase_b_goes_on_to_checks_only_if_the_names_it_saved_are_still_final():
+    # the database decides in the same write (tests/test_store_sql.py): the step only says which fingerprint must still be there
     class Saving(D):
-        changed = False
         def save(self, phase, steps):
-            self.changed = True  # the adjuster renames a photo while Merimen saves
             return DriveResult(ok=True, total_rm="100.00")
-    d = Saving()
-    d.guard = lambda: not d.changed
-    o = run_phase("B", case_b(), writes=True, driver=d)
-    assert o.job_state == "done" and o.case_status == "waiting_user" and o.enqueue == []
-    assert "names changed meanwhile" in o.event
-    d2 = Saving(); d2.guard = lambda: True
-    o2 = run_phase("B", case_b(), writes=True, driver=d2)
-    assert o2.case_status == "checking" and o2.enqueue == ["checks"]
+    c = case_b()
+    o = run_phase("B", c, writes=True, driver=Saving())
+    assert o.job_state == "done" and o.case_status == "checking" and o.enqueue == ["checks"]
+    assert o.require_snapshot == c["photos_snapshot"] and o.require_snapshot
+    assert "names changed meanwhile" in o.stale_event
