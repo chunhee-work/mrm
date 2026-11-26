@@ -17,6 +17,7 @@ export default async function SettingsPage() {
   const state = workerUiOn() ? await getWorkerState(orgId) : await getExtState(orgId);
   // sign-up no longer asks for a company and fills the org name from the email, so that value is not shown as one
   const fromEmail = user.email.split("@")[0].split("+")[0].trim().slice(0, 60);
-  const company = org?.name && org.name !== fromEmail && org.name !== user.email ? org.name : "";
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const company = org?.name && !same(org.name, fromEmail) && !same(org.name, user.email) ? org.name : "";
   return <Settings email={user.email} company={company} connection={state !== "off"} />;
 }

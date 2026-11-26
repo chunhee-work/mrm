@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { createEmailVerificationToken } from "better-auth/api";
 import { after } from "next/server";
+import { and, eq, gt } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { sendEmail } from "./email";
 import { MIN_PASSWORD, normLang, translate } from "./i18n";
@@ -9,6 +11,10 @@ import { MIN_PASSWORD, normLang, translate } from "./i18n";
 function langOf(req?: Request) {
   const m = /(?:^|;\s*)lang=([^;]+)/.exec(req?.headers.get("cookie") ?? "");
   return normLang(m?.[1]);
+}
+
+function sendVerifyMail(to: string, url: string, l: ReturnType<typeof langOf>) {
+  return sendEmail(to, translate(l, "mail.verifySubject"), `<p>${translate(l, "mail.verifyBody")}</p><p><a href="${url}">${url}</a></p>`, "verify");
 }
 
 function baseOf(req?: Request) {
@@ -28,9 +34,18 @@ export const auth = betterAuth({
     // Sign-up with an address that already has an account answers "check your email" like a new one (no account probing),
     // so an email must really arrive: the verification link again if never verified, else a "you already have an account" note.
     onExistingUserSignUp: async ({ user }, request) => {
+      // at most one such email per address every 10 minutes, so this cannot be used to fill someone's inbox
+      const key = `signup-again:${user.email.toLowerCase()}`;
+      const recent = await db.select({ id: schema.verification.id }).from(schema.verification)
+        .where(and(eq(schema.verification.identifier, key), gt(schema.verification.expiresAt, new Date()))).limit(1);
+      if (recent.length) return;
+      await db.insert(schema.verification).values({ id: crypto.randomUUID(), identifier: key, value: "1", expiresAt: new Date(Date.now() + 10 * 60_000) });
       const l = langOf(request);
       if (!user.emailVerified) {
-        await auth.api.sendVerificationEmail({ body: { email: user.email }, headers: request?.headers });
+        // the same link sign-up sends, built here so it does not depend on whoever is logged in on this browser
+        const ctx = await auth.$context;
+        const token = await createEmailVerificationToken(ctx.secret, user.email, undefined, 3600, { userId: user.id });
+        await sendVerifyMail(user.email, `${ctx.baseURL}/verify-email?token=${token}&callbackURL=${encodeURIComponent("/dashboard")}`, l);
         return;
       }
       const origin = baseOf(request);
@@ -46,11 +61,7 @@ export const auth = betterAuth({
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }, request) => {
-      const l = langOf(request);
-      await sendEmail(user.email, translate(l, "mail.verifySubject"),
-        `<p>${translate(l, "mail.verifyBody")}</p><p><a href="${url}">${url}</a></p>`, "verify");
-    },
+    sendVerificationEmail: async ({ user, url }, request) => sendVerifyMail(user.email, url, langOf(request)),
   },
   databaseHooks: {
     user: {

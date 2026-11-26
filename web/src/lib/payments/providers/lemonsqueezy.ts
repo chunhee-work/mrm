@@ -22,6 +22,14 @@ export function isOwnerFree(email: string | null | undefined): boolean {
 
 const mismatchAudited = new Set<string>();
 
+async function orderUserEmail(userId: string | null): Promise<string | null> {
+  if (!userId) return null;
+  const { db, schema } = await import("@/db");
+  const { eq } = await import("drizzle-orm");
+  const [u] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, userId)).limit(1);
+  return u?.email ?? null;
+}
+
 export const variantEnvName = (pack: Pack) => `LEMONSQUEEZY_VARIANT_${pack.id.toUpperCase()}`;
 const variantId = (pack: Pack) => process.env[variantEnvName(pack)] || "";
 
@@ -139,7 +147,7 @@ const OrderEvent = z.object({
   data: z.object({
     id: z.union([z.string(), z.number()]),
     attributes: z.object({ status: z.string(), subtotal: z.number(), currency: z.string(), test_mode: z.boolean().optional(),
-      discount_total: z.number().optional(), user_email: z.string().nullable().optional() }),
+      discount_total: z.number().optional() }),
   }),
 });
 
@@ -169,8 +177,9 @@ export async function handleLemonSqueezyWebhook(rawBody: string, signature: stri
     if (!orderId) return { http: 200, note: "no order id" };
     const order = await getOrder(orderId);
     if (!order || order.provider !== "lemonsqueezy") return { http: 200, note: "unknown order" };
-    // the amount we check is before discount; only the owner's own free code may make it cheaper
-    if ((data.attributes.discount_total ?? 0) > 0 && !isOwnerFree(data.attributes.user_email)) {
+    // the amount we check is before discount; only the owner's own free code may make it cheaper. Whose order it is comes from
+    // our own order row (the logged-in user), never from the email typed at the checkout.
+    if ((data.attributes.discount_total ?? 0) > 0 && !isOwnerFree(await orderUserEmail(order.userId))) {
       await auditPayment("payment_discount_not_allowed", orderId, `ls ${providerRef}`);
       return { http: 200, note: "not credited" };
     }

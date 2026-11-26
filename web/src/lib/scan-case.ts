@@ -83,7 +83,7 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     return { ok: done.length > 0, missing: data.missing, claimed: true };
   } catch (e) {
     await photos; // never leave the import running behind a failed read
-    const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, 500) }).where(mine).returning({ id: cid });
+    const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, e instanceof BadFile ? 4000 : 500) } /* a bad file's full name is how "Replace files" finds it */).where(mine).returning({ id: cid });
     if (failed.length) {
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
       if (!(e instanceof BadFile) && !userFixable((e as Error).message)) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace

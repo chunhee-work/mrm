@@ -7,6 +7,7 @@ import { useT } from "@/components/lang-provider";
 import { kindOf } from "@/lib/file-kind";
 import { docKey, failTr, userFixable } from "@/lib/case-text";
 import { accepted } from "./drop-zone";
+import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES } from "@/lib/upload-rules";
 import { Photo, Tick, Upload } from "./marks";
 import type { CaseRow } from "./case-table";
 
@@ -67,8 +68,16 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
   }
   function onChosen(list: File[]) {
     const ok = list.filter(accepted);
-    if (ok.length) void send(ok);
-    else if (list.length) setErr(t("dash.d.badType"));
+    if (!ok.length) { if (list.length) setErr(t("dash.d.badType")); return; }
+    // the same limits the server checks, before anything is uploaded: one empty or too-big file would otherwise fail the whole send.
+    // Such a file is left out (and said), the rest goes on.
+    const big = (f: File) => f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES);
+    const good = ok.filter((f) => f.size > 0 && !big(f));
+    if (good.length > MAX_FILES) { setErr(t("new.tooMany", { max: String(MAX_FILES), n: String(good.length) })); return; }
+    const out = ok.find((f) => !good.includes(f));
+    if (good.length) void send(good);
+    // after send() starts (it clears the message), so the note stays on screen
+    if (out) setErr(out.size === 0 ? t("new.empty", { name: out.name }) : t("new.tooBig", { name: out.name, mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) }));
   }
 
   const docs = (row.pendingDoc ?? "").split("; ").map((d) => d.trim()).filter(Boolean);

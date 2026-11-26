@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { get } from "@vercel/blob";
 import type Anthropic from "@anthropic-ai/sdk";
-import { trackedParse, zodOutputFormat, MODEL, type CallCtx } from "./claude";
+import { documentsAccepted, trackedParse, zodOutputFormat, MODEL, type CallCtx } from "./claude";
 import { playbookBlock, playbookTag } from "@/lib/playbook/prompt";
 import { costOf, tokensOf } from "./pricing";
 import { badFileName } from "./case-text";
@@ -121,9 +121,11 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
   const pdfs = files.filter((f) => f.kind === "pdf");
   if (!pdfs.length) throw new Error("no PDF in this case");
   const content: Block[] = [];
+  const docs: { name: string; block: Block }[] = [];
   for (const f of pdfs) {
-    content.push({ type: "text", text: `File: ${f.originalName}` });
-    content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: await blobBase64(f.blobUrl, f.originalName) } });
+    const block: Block = { type: "document", source: { type: "base64", media_type: "application/pdf", data: await blobBase64(f.blobUrl, f.originalName) } };
+    docs.push({ name: f.originalName, block });
+    content.push({ type: "text", text: `File: ${f.originalName}` }, block);
   }
   content.push({ type: "text", text: "Extract the case data from the files above." });
 
@@ -134,7 +136,18 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
     output_config: { effort: "high", format: zodOutputFormat(CaseData) },
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content }],
-  }).catch((e) => { throw asBadFile(e, pdfs.map((f) => f.originalName)) ?? e; });
+  }).catch(async (e) => {
+    const bad = asBadFile(e, pdfs.map((f) => f.originalName));
+    if (!bad) throw e;
+    // several PDFs and the refusal does not say which: ask the free token counter about each one alone, so "Replace files"
+    // can take out exactly that file (without it the same bad PDF would stay in the case and fail every read)
+    if (docs.length > 1) {
+      const refused: string[] = [];
+      for (const d of docs) if (!(await documentsAccepted([d.block]).catch(() => true))) refused.push(d.name);
+      if (refused.length) throw new BadFile(refused[0], "corrupt"); // more than one: the next read names the next
+    }
+    throw bad;
+  });
   if (res.stop_reason === "refusal") throw new Error("Claude declined this request");
   if (!res.parsed_output) throw new Error("no structured output (stop_reason: " + res.stop_reason + ")");
   return { data: normalizeCaseData(res.parsed_output) as CaseDataT, usage: res.usage, costUsd: costOf(String(res.model || MODEL), tokensOf(res.usage as never)) ?? 0 };

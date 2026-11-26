@@ -25,6 +25,17 @@ function client(): Anthropic {
   return _client;
 }
 
+/** Free check (no answer is written, nothing is billed): does the API accept these documents? Used to find the one bad PDF. */
+export async function documentsAccepted(content: Anthropic.Messages.ContentBlockParam[]): Promise<boolean> {
+  try {
+    await client().messages.countTokens({ model: MODEL, messages: [{ role: "user", content }] });
+    return true;
+  } catch (e) {
+    if ((e as { status?: number }).status === 400) return false;
+    throw e;
+  }
+}
+
 /** Who and what a call is for. userId/orgId/caseId are null for system calls (cron, admin, webhooks). */
 export type CallCtx = { userId: string | null; orgId: string | null; caseId: string | null; purpose: "read_docs" | "name_photos" | "system_other"; playbook?: string };
 export type ParseParams = MessageCreateParamsNonStreaming;

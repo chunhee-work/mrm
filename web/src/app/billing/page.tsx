@@ -9,6 +9,7 @@ import { recheckToyyibPayOrder } from "@/lib/payments/providers/toyyibpay";
 import Billing, { type OrderView } from "@/components/app/billing";
 
 export const dynamic = "force-dynamic";
+const lastAsked = new Map<string, number>();
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const { orgId } = await requireUser();
@@ -18,7 +19,13 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   if (sp.order) {
     const [mine] = await db.select({ provider: schema.paymentOrders.provider, status: schema.paymentOrders.status }).from(schema.paymentOrders)
       .where(and(eq(schema.paymentOrders.id, sp.order), eq(schema.paymentOrders.orgId, orgId))).limit(1);
-    if (mine?.provider === "toyyibpay" && mine.status === "pending") await recheckToyyibPayOrder(sp.order).catch(() => null);
+    // the page refreshes itself every few seconds while it waits: ask toyyibPay at most every 20 s per order
+    const last = lastAsked.get(sp.order) ?? 0;
+    if (mine?.provider === "toyyibpay" && mine.status === "pending" && Date.now() - last > 20_000) {
+      lastAsked.set(sp.order, Date.now());
+      if (lastAsked.size > 500) lastAsked.clear();
+      await recheckToyyibPayOrder(sp.order).catch(() => null);
+    }
   }
   const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1);
   const [balance, providers, orders] = await Promise.all([creditBalance(orgId), availableProviders(), listOrders(orgId, 30)]);

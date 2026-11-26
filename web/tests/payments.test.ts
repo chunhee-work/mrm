@@ -109,14 +109,20 @@ test("LS: a part refund keeps the credits; a full refund takes them", async () =
   assert.equal(await creditBalance(org), 0);
 });
 
-test("LS: a discounted payment credits only for the owner's own free code", async () => {
-  const o = await mk("lemonsqueezy");
-  assert.equal((await hook(lsBody("order_created", o.id, { discount_total: pack.price.USD, user_email: "someone@example.test" }))).note, "not credited");
-  assert.equal(await creditBalance(org), 0);
+test("LS: a discounted payment credits only for the owner's own free code (owner = our logged-in user, not the typed email)", async () => {
   process.env.LEMONSQUEEZY_OWNER_CODE = "OWNER"; process.env.OWNER_FREE_EMAILS = "owner@example.test";
   try {
-    assert.equal((await hook(lsBody("order_created", o.id, { discount_total: pack.price.USD, user_email: "Owner@example.test" }, "9002"))).note, "credited");
-  } finally { delete process.env.LEMONSQUEEZY_OWNER_CODE; delete process.env.OWNER_FREE_EMAILS; }
+    const uid = randomUUID(), oid = randomUUID();
+    await db.insert(schema.user).values([{ id: uid, email: "owner@example.test", name: "o", emailVerified: true }, { id: oid, email: "other@example.test", name: "x", emailVerified: true }]);
+    const theirs = await createPendingOrder({ orgId: org, userId: oid, provider: "lemonsqueezy", pack, currency: "USD" });
+    assert.equal((await hook(lsBody("order_created", theirs.id, { discount_total: pack.price.USD, user_email: "owner@example.test" }))).note, "not credited");
+    assert.equal(await creditBalance(org), 0);
+    const mine = await createPendingOrder({ orgId: org, userId: uid, provider: "lemonsqueezy", pack, currency: "USD" });
+    assert.equal((await hook(lsBody("order_created", mine.id, { discount_total: pack.price.USD }, "9002"))).note, "credited");
+  } finally {
+    delete process.env.LEMONSQUEEZY_OWNER_CODE; delete process.env.OWNER_FREE_EMAILS;
+    await db.execute(sql`DELETE FROM "user" WHERE email IN ('owner@example.test', 'other@example.test')`);
+  }
 });
 
 test("a test-mode payment never credits on the live site", async () => {
