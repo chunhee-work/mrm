@@ -33,6 +33,8 @@ async function api(method: string, url: string, body?: unknown): Promise<Reply> 
     return { ok: false, status: 0, body: {} };
   }
 }
+/** An edit the server refused because the case is past Phase B says so, instead of "could not save". */
+const failKey = (r: Reply, other = "saveFailed") => (r.body.error === "status" ? "block.status" : other);
 const uid = () => Math.random().toString(36).slice(2);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // A naming call that failed is tried again by the page itself, a little later each time. Nothing is said about it.
@@ -232,6 +234,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
         errors = 0;
         if (r.body.capped) { setCapped((c) => ({ ...c, [cid]: true })); return; }
         if (r.body.remaining && !r.body.claimed) await sleep(4000); // another tab, or the on-site model, is naming them
+        else if (Number(r.body.failed) > 0 && !r.body.named) await sleep(4000); // the whole slice failed: no paid call straight after it
       }
     })();
     return () => { stop = true; };
@@ -270,7 +273,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
         say(tRef.current("changedElsewhere"));
       } else {
         patchPhoto(cid, id, () => base);
-        say(tRef.current(r.body.error === "name" ? "nameTooLong" : "saveFailed"));
+        say(tRef.current(r.body.error === "name" ? "nameTooLong" : failKey(r)));
         w.busy = false;
         void load(cid, true);
       }
@@ -340,7 +343,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
           break;
         }
         o.busy = false;
-        say(tRef.current(r.status === 409 ? "orderElsewhere" : "saveFailed"));
+        say(tRef.current(failKey(r, r.status === 409 ? "orderElsewhere" : "saveFailed")));
         await load(cid, true);
         return;
       }
@@ -572,7 +575,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
   const addExtra = useCallback(async (name: string) => {
     const cid = caseRef.current;
     const r = await api("POST", `/api/cases/${cid}/photos/extras`, { name });
-    if (!r.ok) { say(tRef.current(r.body.error === "name" ? "nameTooLong" : "saveFailed")); return; }
+    if (!r.ok) { say(tRef.current(r.body.error === "name" ? "nameTooLong" : failKey(r))); return; }
     const extra = r.body.extra as Extra;
     patchCase(cid, (c) => (c.extras.some((e) => e.id === extra.id) ? c : { ...c, extras: [...c.extras, extra] }));
     cancelDone(cid, tRef.current("partAdded", { name: extra.name }));
@@ -582,7 +585,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
     patchCase(cid, (c) => ({ ...c, extras: c.extras.filter((x) => x.id !== e.id) }));
     const r = await api("DELETE", `/api/cases/${cid}/photos/extras/${e.id}`);
     if (r.ok) cancelDone(cid, tRef.current("partRemoved", { name: e.name }));
-    else { say(tRef.current("saveFailed")); void load(cid, true); }
+    else { say(tRef.current(failKey(r))); void load(cid, true); }
   }, [patchCase, cancelDone, say, load]);
 
   // ───────────── add photos ─────────────

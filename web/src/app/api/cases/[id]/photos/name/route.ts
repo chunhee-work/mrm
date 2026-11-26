@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { bodyOf, photoRoute } from "@/lib/photos/route";
 import { runSlice } from "@/lib/photos/name-photos";
 import { namingOwner, photoFallbackOn, photoWorkerOn } from "@/lib/photos/worker";
-import { pendingCount, retryFailed } from "@/lib/photos/server";
+import { pendingCount, retryWorkerFailed } from "@/lib/photos/server";
 import { workerFailedCount, workerOnline } from "@/lib/ext/worker-store";
 
 export const maxDuration = 300;
@@ -21,6 +21,8 @@ export const POST = photoRoute("photos.name", async ({ req, c, me }) => {
   if (owner === "worker") {
     return NextResponse.json({ claimed: 0, named: 0, failed: 0, remaining: await pendingCount(c.id), capped: false, by: "worker" });
   }
-  if (photoWorkerOn()) await retryFailed(c.id);
+  // Only what the on-site model gave up on. Claude's own failures wait for the page's retry (retryFailed below), so the
+  // same failing photos are not sent again on every call.
+  if (photoWorkerOn()) await retryWorkerFailed(c.id);
   return NextResponse.json(await runSlice(c, { retryFailed: b.retryFailed === true, userId: me.user.id }));
 });
