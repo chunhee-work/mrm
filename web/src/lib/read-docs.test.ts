@@ -91,7 +91,11 @@ test("a refused read: page limits are not a broken file; the counter names one P
   assert.equal(refusalOf(Object.assign(new Error("413 request_too_large"), { status: 413 }), ["a.pdf", "b.pdf"])!.message, "bad_file:|too_long");
   // a 400 about our own request ("invalid" but not about PDFs): never "too long"
   const ours = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"output_config: invalid schema"}}'), { status: 400 });
-  assert.notEqual(refusalOf(ours, ["a.pdf", "b.pdf"], ["accepted", "accepted"])?.message, "bad_file:|too_long");
+  assert.equal(refusalOf(ours, ["a.pdf", "b.pdf"], ["accepted", "accepted"]), null); // stays our error: refund, "Read again"
+  assert.equal(refusalOf(ours, ["a.pdf"]), null); // one PDF: not named broken either
+  // words about the file that do not say PDF, and every PDF opens alone: ours too
+  const proc = Object.assign(new Error('400 {"error":{"type":"invalid_request_error","message":"could not process request"}}'), { status: 400 });
+  assert.equal(refusalOf(proc, ["a.pdf", "b.pdf"], ["accepted", "accepted"]), null);
   // the counter could not answer for one: we cannot tell
   assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "unknown"])!.message, "bad_file:|corrupt");
 });

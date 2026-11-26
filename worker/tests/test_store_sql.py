@@ -124,3 +124,20 @@ def test_end_of_phase_b_goes_on_to_checks_only_if_done_is_still_pressed_with_the
                   {"sql": "SELECT string_agg(message, ',') FROM case_events WHERE case_id = 'c1'"}]
         r = run(steps, seed=SEED[:2] + [done_sql, "INSERT INTO jobs (id, case_id, step, state) VALUES (100,'c1','phase_b','running')"])
         assert r[-3] == [[want_status]] and r[-2] == [[want_jobs]] and r[-1] == [[want_event]], done_sql
+
+
+@needs_pg
+def test_a_phase_b_run_again_compares_merimen_with_what_the_last_phase_b_left_there():
+    from autopilot_worker.store import LAST_PHOTO_LIST_SQL
+    def log(phase, action, snap, name, mins):
+        photos = json.dumps([{"id": 1, "src": "a.jpg", "name": name, "fileType": "jpg", "position": 0}])
+        return (f"INSERT INTO photo_upload_log (case_id, phase, mode, action, photos, snapshot, created_at) VALUES "
+                f"('c1', '{phase}', 'live', '{action}', '{photos}'::jsonb, {snap}, now() - interval '{mins} minutes')")
+    q = [dict(zip(("sql", "params"), to_numbered(LAST_PHOTO_LIST_SQL, ("c1",))))]
+    a = [log("A", "upload", "NULL", "Bonnet", 30)]
+    assert run(q, seed=SEED[:2] + a)[-1][0][0][0]["name"] == "Bonnet"
+    b_done = a + [log("B", "relabel_reorder", "'s1'", "Bonnet LH", 20)]
+    assert run(q, seed=SEED[:2] + b_done)[-1][0][0][0]["name"] == "Bonnet LH"
+    # a later Phase B that was refused or stopped (no snapshot) or only a dry run changed nothing in Merimen
+    later = b_done + [log("B", "refused", "NULL", "Hood", 10), log("B", "none", "'s2'", "Hood", 5)]
+    assert run(q, seed=SEED[:2] + later)[-1][0][0][0]["name"] == "Bonnet LH"

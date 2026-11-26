@@ -108,8 +108,9 @@ export function checkPdf(name: string, buf: Uint8Array) {
 export function asBadFile(e: unknown, names: string[]): BadFile | null {
   const err = e as { status?: number; message?: string } | null;
   if (!err || err.status !== 400 || !names.length) return null;
-  // every 400 says "invalid_request_error", so that word alone does not point at the PDF
-  if (!/pdf|document|could not process|invalid(?!_request_error)|corrupt|password|encrypt/i.test(err.message ?? "")) return null;
+  // every 400 says "invalid_request_error" and our own request can be "invalid" too (a schema the API refuses): only words about
+  // the file count, else a good PDF would be blamed and removed and the credit kept
+  if (!/pdf|document|could not process|corrupt|password|encrypt/i.test(err.message ?? "")) return null;
   // The refusal does not say which PDF it was. Naming them all would make "Replace files" delete the good ones too.
   return new BadFile(names.length === 1 ? names[0] : "", "corrupt");
 }
@@ -136,7 +137,10 @@ export function refusalOf(e: unknown, names: string[], verdicts?: Verdict[]): Er
   // fail the same way, so the customer sends shorter ones
   // (only for a refusal that is about the PDFs: an "invalid" 400 about our own request must not send customers to shorten theirs)
   const aboutPdfs = /pdf|document/i.test(msg);
-  if (verdicts.includes("long") || (aboutPdfs && verdicts.length === names.length && verdicts.every((v) => v === "accepted"))) return tooLong();
+  const allOpen = verdicts.length === names.length && verdicts.every((v) => v === "accepted");
+  if (verdicts.includes("long") || (aboutPdfs && allOpen)) return tooLong();
+  // every PDF opens alone and the refusal does not speak of PDFs: it is about our request, not the customer's files
+  if (allOpen) return null;
   return bad;
 }
 
@@ -185,7 +189,7 @@ export async function readCaseDocs(files: { kind: string; blobUrl: string; origi
       const m = (v as { message?: string } | null | undefined)?.message ?? "";
       verdicts[i] = v === undefined ? "unknown" : v === null ? "accepted" : TOO_MANY_PAGES.test(m) ? "long" : asBadFile(v, [docs[i].name]) ? "refused" : "unknown";
     });
-    throw refusalOf(e, names, verdicts)!;
+    throw refusalOf(e, names, verdicts) ?? e;
   });
   if (res.stop_reason === "refusal") throw new Error("Claude declined this request");
   if (!res.parsed_output) throw new Error("no structured output (stop_reason: " + res.stop_reason + ")");
