@@ -34,7 +34,7 @@ if (process.argv[1]?.endsWith("check-schema.ts")) {
     console.log("check-schema: no DATABASE_URL, skipped"); process.exit(0);
   }
   missing().then((m) => {
-    if (m.length) { console.error(`check-schema: the database is missing ${m.join(", ")} (migrations 0010_photo_sync.sql and 0015_case_soft_delete.sql). Apply it, then build again.`); process.exit(1); }
+    if (m.length) { console.error(`check-schema: the database is missing ${m.join(", ")} (cases.photos_snapshot, photos_arranged_at and the three photo tables come from 0010_photo_sync.sql; cases.deleted_at from 0015_case_soft_delete.sql). Apply the migrations, then build again.`); process.exit(1); }
     console.log("check-schema: ok");
     process.exit(0);
   }, (e) => { console.error("check-schema: could not read the schema:", e instanceof Error ? e.message : e); process.exit(1); });

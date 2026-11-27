@@ -16,7 +16,7 @@ export const maxDuration = 300; // a few waiting cases are read after the page i
 
 const HEAL_PER_VISIT = 3; // a zip of many cars makes many cases at once: each visit starts a few more of those still waiting
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string; q?: string}> }) {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string; q?: string }> }) {
   const { user, orgId } = await requireUser();
   const sp = await searchParams;
   const view = (VIEWS as readonly string[]).includes(sp.view ?? "") ? (sp.view as View) : null;

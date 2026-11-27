@@ -46,7 +46,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const paid = refunded ? await debitRetry(me.orgId, id) : "free";
   if (paid === false) return NextResponse.json({ error: "no_credits" }, { status: 402 });
   const giveBack = () => (paid === "charged" ? refundCase(me.orgId, id, "add_files").catch(() => false) : Promise.resolve(false));
-  const still = c.status === "failed" ? and(eq(schema.cases.status, "failed"), eq(schema.cases.error, c.error ?? "")) : eq(schema.cases.status, "pending_doc");
+  const still = and(notDeleted, c.status === "failed" ? and(eq(schema.cases.status, "failed"), eq(schema.cases.error, c.error ?? "")) : eq(schema.cases.status, "pending_doc")); // a delete in another tab between the read and this update wins
   const moved = await db.update(schema.cases).set({ status: "uploaded", pendingDoc: null, error: null })
     .where(and(eq(schema.cases.id, id), still)).returning({ id: schema.cases.id });
   if (!moved.length) { await giveBack(); return NextResponse.json({ error: "not waiting" }, { status: 409 }); }

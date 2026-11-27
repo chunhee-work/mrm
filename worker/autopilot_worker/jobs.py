@@ -10,6 +10,7 @@ SELECT j.id
 FROM jobs j
 JOIN cases c ON c.id = j.case_id
 WHERE j.state = 'queued'
+  AND c.deleted_at IS NULL -- a case the user deleted (migration 0015) is never picked up
   AND (j.not_before IS NULL OR j.not_before <= now())
   AND (
     SELECT count(*)::int FROM jobs j2

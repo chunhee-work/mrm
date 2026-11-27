@@ -9,7 +9,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
   if (!id || id.length > 64) return NextResponse.json({ error: "not found" }, { status: 404 });
-  const r = await deleteCase(me.orgId, me.user.id, id).catch(() => null);
+  const r = await deleteCase(me.orgId, me.user.id, id).catch((e) => { console.error("delete case failed", id, e); return null; });
   if (!r) return NextResponse.json({ error: "failed" }, { status: 500 });
   if (!r.ok) return NextResponse.json({ error: r.reason === "busy" ? "busy" : "not found" }, { status: r.reason === "busy" ? 409 : 404 });
   return NextResponse.json({ ok: true, refunded: r.refunded });

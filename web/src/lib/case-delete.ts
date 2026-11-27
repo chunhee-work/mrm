@@ -29,6 +29,6 @@ export async function deleteCase(orgId: string, userId: string, caseId: string):
   }
   await db.update(schema.jobs).set({ state: "cancelled" }).where(and(eq(schema.jobs.caseId, caseId), inArray(schema.jobs.state, ["queued", "paused"]))).catch(() => {});
   await db.insert(schema.auditLog).values({ orgId, userId, action: "case.delete", detail: caseId }).catch(() => {});
-  const refunded = await refundCase(orgId, caseId, "deleted").catch(() => false);
+  const refunded = await refundCase(orgId, caseId, "deleted").catch((e) => { console.error("refund after delete failed", caseId, e); return false; }); // logged: the owner can give it back by hand
   return { ok: true, refunded };
 }
