@@ -70,6 +70,7 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
       const docs = (r.pendingDoc ?? "").split("; ").filter((d) => d.trim()).length;
       return wait(docs ? t("dash.d.missingN", { n: String(docs) }) : t("dash.d.missingAny"));
     }
+    if (!r.deskTotal) return wait(t("list.s.photosAdd"));
     return wait(r.deskConfirm ? t(alone ? "list.s.photosN" : "dash.d.photosN", { n: String(r.deskConfirm) }) : t(alone ? "list.s.photosPress" : "dash.d.photosPress"));
   };
 

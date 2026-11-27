@@ -42,7 +42,7 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
       .orderBy(desc(schema.cases.createdAt)).limit(40),
     db.select({ caseId: schema.casePhotos.caseId, n: sql<number>`count(*)::int`, edited: sql<number>`(count(*) filter (where final_name is not null))::int` }).from(schema.casePhotos)
       .innerJoin(schema.cases, eq(schema.cases.id, schema.casePhotos.caseId))
-      .where(and(eq(schema.cases.orgId, orgId), notInArray(schema.cases.status, NO_DESK))).groupBy(schema.casePhotos.caseId),
+      .where(and(eq(schema.cases.orgId, orgId), notInArray(schema.cases.status, NO_DESK), or(ne(schema.cases.status, "done"), eq(schema.cases.id, id)))).groupBy(schema.casePhotos.caseId),
     getT(),
     photoState(c),
   ]);

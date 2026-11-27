@@ -28,7 +28,7 @@ export default function CaseSteps({ caseId, status, photos, photosDone, here, hi
             </>
           );
           const cls = `flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[4px] px-2 text-[13.5px] font-semibold transition-colors duration-150 max-sm:flex-col max-sm:gap-0.5 max-sm:h-12 max-sm:px-1 ${
-            on ? "bg-ice text-bay" : s.open ? "bg-panel2 text-fg hover:bg-hair" : "cursor-not-allowed bg-panel2/60 text-mute"
+            on ? "bg-ice text-bay" : s.open && s.id !== "done" ? "bg-panel2 text-fg hover:bg-hair" : s.open ? "bg-panel2 text-fg" : "cursor-not-allowed bg-panel2/60 text-mute"
           }`;
           return (
             <li key={s.id} className="flex min-w-0 flex-1">
