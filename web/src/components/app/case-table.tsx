@@ -63,7 +63,7 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
     const b = bucketOf(r);
     if (b === "closed") return <><Tick className="h-4 w-4 shrink-0 text-go" /><span className="min-w-0 truncate">{money(r.totalRm) ?? t("dash.done")}</span></>;
     const wait = (say: string) => <><span aria-hidden="true" className="h-[9px] w-[9px] shrink-0 rounded-full bg-amber" /><span className="min-w-0 truncate font-semibold">{say}</span></>;
-    if (b === "active") return <><Working className="shrink-0 text-scan" /><span className="min-w-0 truncate">{t(alone ? "list.s.merimenAlone" : "list.s.merimen")}</span></>;
+    if (b === "active") return <><span aria-hidden="true" className="h-[9px] w-[9px] shrink-0 rounded-full bg-mute" /><span className="min-w-0 truncate">{t(alone ? "list.s.merimenAlone" : "list.s.merimen")}</span></>;
     if (b === "hold") return wait(t("dash.d.failed"));
     if (b === "docs") {
       if (r.status !== "pending_doc") return <><Working className="shrink-0 text-scan" /><span className="min-w-0 truncate">{t("list.s.reading")}</span></>;
