@@ -75,6 +75,7 @@ export const ZIP_WHY = {
   too_big: "the zip is too large once opened",
   car_big: "one car in the zip is too large once opened",
   dup_plate: "two car folders in the zip have the same plate",
+  layout: "the car folders in the zip are at different levels",
   bomb: "the zip is suspiciously compressed",
   empty: "no PDF or photo inside the zip",
 } as const;

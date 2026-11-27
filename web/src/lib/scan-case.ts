@@ -88,7 +88,7 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
       // a zip of several cars that reached the one-case path (the browser could not look inside it) is not the customer's fault:
       // the credit goes back, and the message tells them to upload it again so it is split
-      const multi = (e as Error).message.endsWith(`: ${ZIP_WHY.multi}`);
+      const multi = (e as Error).message.endsWith(`: ${ZIP_WHY.multi}`) || (e as Error).message.endsWith(`: ${ZIP_WHY.layout}`);
       if (!(e instanceof BadFile) && (multi || !userFixable((e as Error).message))) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
     }
     await closeIntakeJobs(id);
