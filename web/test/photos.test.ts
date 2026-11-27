@@ -5,7 +5,7 @@ import {
   canonName, doneBlock, isPermutation, normalizePick, pathInCase, photoModel, photoPath, sliceCostUsd, sliceMatches,
   statusAfterDone, statusAfterRegister, costCapUsd, NONE, PART_NAMES,
 } from "../src/lib/photos/rules";
-import { altsOf, classifyPaste, counts, fileIdentity, fileProblem, moved, uploadRefusal, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
+import { altsOf, classifyPaste, counts, donePress, fileIdentity, fileProblem, moved, uploadRefusal, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
 import { logLine, safeError } from "../src/lib/photos/log";
 import { assertTextOnly, buildJevRequest, TypeSafeImageError } from "../src/lib/typesafe";
 import { pickContext, SYSTEM } from "../src/lib/photos/name-photos";
@@ -242,6 +242,27 @@ test("desk: a clear 'no' to an upload is not tried again and keeps its reason; a
   assert.equal(uploadRefusal(400, "status"), "status");
   for (const [st, err] of [[400, "path"], [401, "unauthorized"], [404, "not_found"], [400, undefined]] as const) assert.equal(uploadRefusal(st, err), "upload");
   for (const st of [200, 500, 502, 503]) assert.equal(uploadRefusal(st, "limit"), null, `${st}: try again`);
+});
+test("desk: Done after the saves it waited for: a failed save stops it, another case on screen does not", () => {
+  const ph = (over: Partial<Photo>): Photo => ({ id: 1, origN: 1, position: 0, srcName: "a.jpg", state: "named", how: "model", modelName: "Bonnet", confidence: 0.97, alts: [], finalName: null, error: null, version: 0, ...over });
+  const named = [ph({}), ph({ id: 2, finalName: "Grille" })];
+  const unnamed = [ph({}), ph({ id: 2, modelName: null }), ph({ id: 3, state: "failed", modelName: null })];
+  const base = { done: false, saveFailed: false, here: true, photos: named };
+  assert.deepEqual(donePress(base), { do: "send" });
+  assert.deepEqual(donePress({ ...base, done: true }), { do: "undo" });
+  // a save that Done waited for did not go through: nothing is sent, in either direction, so its message stays and the old name is not confirmed
+  assert.deepEqual(donePress({ ...base, saveFailed: true }), { do: "nothing" });
+  assert.deepEqual(donePress({ ...base, saveFailed: true, done: true }), { do: "nothing" });
+  assert.deepEqual(donePress({ ...base, saveFailed: true, here: false }), { do: "nothing" });
+  // on screen, what blocks Done is said (and the page walks to the photo)
+  assert.deepEqual(donePress({ ...base, photos: [] }), { do: "block", reason: "empty", n: 0 });
+  assert.deepEqual(donePress({ ...base, photos: [ph({}), ph({ id: 2, state: "pending", modelName: null })] }), { do: "block", reason: "naming", n: 1 });
+  assert.deepEqual(donePress({ ...base, photos: unnamed }), { do: "block", reason: "unnamed", n: 2 });
+  // the user opened another case while Done waited: the press still counts. Done is sent for the case it was pressed on
+  // (the server checks the names); only the steps on the screen are left out
+  assert.deepEqual(donePress({ ...base, here: false }), { do: "send" });
+  assert.deepEqual(donePress({ ...base, here: false, photos: unnamed }), { do: "send" });
+  assert.deepEqual(donePress({ ...base, here: false, done: true }), { do: "undo" });
 });
 test("desk: move within the list", () => {
   assert.deepEqual(moved([1, 2, 3, 4, 5], 4, 1), [1, 5, 2, 3, 4]);

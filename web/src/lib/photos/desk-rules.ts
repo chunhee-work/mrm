@@ -161,3 +161,29 @@ export function uploadRefusal(status: number, error: unknown): "duplicate" | "li
   if (error === "duplicate" || error === "taken") return "duplicate";
   return error === "limit" || error === "status" ? error : "upload";
 }
+
+// ---- 完成 once the saves it waited for are over (naming-desk pressDone) ----
+export type DonePress =
+  | { do: "nothing" }
+  | { do: "undo" }
+  | { do: "block"; reason: "empty" | "naming" | "unnamed"; n: number }
+  | { do: "send" };
+/**
+ * What a press on 完成 does after it waited for the saves of its case.
+ * `saveFailed`: one of those saves did not go through. Its message is on screen and stays there; nothing is sent, or the case would go
+ * on with the old name under a "Finished" line.
+ * `here`: the case is still the one on screen. If the user has opened another case meanwhile the press still counts: 完成 is sent for
+ * the case it was pressed on and the server checks the names. Only what happens on the screen (saying what blocks, the walk to an
+ * unnamed photo) is left out.
+ */
+export function donePress(x: { done: boolean; saveFailed: boolean; here: boolean; photos: Photo[] }): DonePress {
+  if (x.saveFailed) return { do: "nothing" };
+  if (x.done) return { do: "undo" };
+  if (x.here) {
+    const n = counts(x.photos);
+    if (!n.total) return { do: "block", reason: "empty", n: 0 };
+    if (n.naming) return { do: "block", reason: "naming", n: n.naming };
+    if (n.unnamed) return { do: "block", reason: "unnamed", n: n.unnamed };
+  }
+  return { do: "send" };
+}

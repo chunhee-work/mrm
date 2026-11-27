@@ -4,7 +4,7 @@ import { useT } from "@/components/lang-provider";
 import CaseSteps from "@/components/app/case-steps";
 import { Chevron, Plus, Tick, UploadArt } from "@/components/app/marks";
 import {
-  classifyPaste, counts, isEnterPair, moved, nextUnnamed, shownName, visible, UndoStack,
+  classifyPaste, counts, donePress, isEnterPair, moved, nextUnnamed, shownName, visible, UndoStack,
   type CaseState, type Extra, type Filter, type Photo,
 } from "@/lib/photos/desk-rules";
 import { canonName, inList, MAX_EXTRAS, PART_NAMES } from "@/lib/photos/rules";
@@ -143,7 +143,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const tick = useRef(0);
   const shownAt = useRef(new Map<string, number>());
   const touch = useCallback((cid: string) => { shownAt.current.set(cid, ++tick.current); }, []);
-  const doneBusy = useRef(false); // one 完成 at a time: a second press while the first is on its way would turn it straight back
+  const doneBusy = useRef(new Set<string>()); // cases whose 完成 is on its way: a second press on the same case would turn it straight back
   const clip = useRef("");
   const dragId = useRef<number | null>(null);
   const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -197,11 +197,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const disarm = useCallback(() => { lastEnter.current = 0; }, []);
 
   // ───────────── load / refresh ─────────────
-  const load = useCallback(async (cid: string, quiet: boolean) => {
+  const load = useCallback(async (cid: string, quiet: boolean, ms?: number) => {
     let fresh: CaseState;
     for (let again = 0; ; again++) {
       const asked = ++tick.current;
-      const r = await api("GET", `/api/cases/${cid}/photos`);
+      const r = await api("GET", `/api/cases/${cid}/photos`, undefined, ms);
       if (!r.ok) { if (!quiet && caseRef.current === cid) setLoadFailed(true); return null; }
       fresh = r.body as unknown as CaseState;
       // out of date (see shownAt): old names, an old order or an old 完成 are not put back on the page. Asked again, twice at most.
@@ -460,39 +460,45 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     }, 90);
   }, [say]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pressDoneRef = useRef<() => Promise<boolean>>(async () => false);
-  const pressDone = useCallback(async (): Promise<boolean> => {
-    // one press at a time: a double click (or Enter, Enter twice) would send 完成 twice, and the second one would take it back
-    if (doneBusy.current) return false;
-    doneBusy.current = true;
+  const pressDoneRef = useRef<(forCase?: string) => Promise<boolean>>(async () => false);
+  /** `forCase`: the case the press was for, when that may not be the one on screen any more (the Undo button in a message). */
+  const pressDone = useCallback(async (forCase?: string): Promise<boolean> => {
+    const cid = forCase ?? caseRef.current;
+    // one press at a time per case: a double click (or Enter, Enter twice) would send 完成 twice, and the second one would take it back.
+    // Another case is not held up by this one.
+    if (doneBusy.current.has(cid)) return false;
+    doneBusy.current.add(cid);
     try {
-      const cid = caseRef.current;
       const tt = tRef.current;
       if (!statesRef.current[cid]) return false;
       // What is still on its way goes first: a name left in the box, then every save of this case. 完成 is pressed on what is stored;
       // a save that reached the server after it would take it back while the page still said "Finished".
       const e = editingRef.current;
-      if (e && !(e.guard !== undefined && e.text === e.guard)) commitEdit(false);
+      if (caseRef.current === cid && e && !(e.guard !== undefined && e.text === e.guard)) commitEdit(false);
       await settle(cid);
       const c = statesRef.current[cid];
-      if (!c || caseRef.current !== cid) return false; // another case was opened while the saves finished
-      if (c.done) {
+      if (!c) return false;
+      // The press counts for the case it was made on, also when another case has been opened while the saves finished:
+      // only the steps on the screen are for the case in front (donePress).
+      const here = () => caseRef.current === cid;
+      const step = donePress({ done: c.done, saveFailed: false, here: here(), photos: c.photos });
+      if (step.do === "nothing") return false; // a save failed: its message is on screen and stays there
+      if (step.do === "undo") {
         setDoneLocal(cid, false);
         const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: false }, 60_000);
         if (r.ok) {
           touch(cid);
           setDoneLocal(cid, false); // again: a load that came back meanwhile may have shown the old "Finished"
-          say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(); } });
+          say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(cid); } });
           onDoneRef.current?.();
         } else void load(cid, true);
         return false;
       }
-      const n = counts(c.photos);
-      if (!n.total) { say(tt("block.empty")); return false; }
-      if (n.naming) { say(tt("block.naming", { n: n.naming })); return false; }
-      if (n.unnamed) { jumpUnnamed(); return false; }
-      lastJump.current = null;
-      setHl(null);
+      if (step.do === "block") {
+        if (step.reason === "unnamed") jumpUnnamed(); else say(tt(`block.${step.reason}`, { n: step.n }));
+        return false;
+      }
+      if (here()) { lastJump.current = null; setHl(null); }
       const before = started(cid) - inFlight(cid); // a save that is still on its way (it hung past the wait above) counts as racing too
       const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: true }, 60_000);
       if (r.ok) {
@@ -503,7 +509,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
         // only known there: wait for that change, then show what the server holds.
         if (started(cid) !== before) {
           await settle(cid);
-          if (!(await load(cid, true))) setDoneLocal(cid, false); // cannot ask: "not done" is the safe thing to show (完成 can be pressed again)
+          const fresh = await Promise.race([load(cid, true, 20_000), sleep(20_000).then(() => null)]); // not for ever: this press holds the case's 完成
+          if (!fresh) setDoneLocal(cid, false); // cannot ask: "not done" is the safe thing to show (完成 can be pressed again)
           if (!statesRef.current[cid]?.done) { say(tt("doneCancelled")); onDoneRef.current?.(); return false; }
         }
         const left = tabsRef.current.filter((x) => x.id !== cid && !x.done).length;
@@ -518,7 +525,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       say(r.body.error === "status" ? tt("block.status") : reason ? tt(`block.${reason}`, { n: Number(r.body.count ?? 0) }) : tt("saveFailed"));
       void load(cid, true);
       return false;
-    } finally { doneBusy.current = false; }
+    } finally { doneBusy.current.delete(cid); }
   }, [setDoneLocal, patchCase, say, load, jumpUnnamed, embedded, settle, touch]); // eslint-disable-line react-hooks/exhaustive-deps
   pressDoneRef.current = pressDone;
 
@@ -769,7 +776,10 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
           if (!isEnterPair(lastEnter.current, now)) { lastEnter.current = now; break; } // the first Enter only starts the pair
           lastEnter.current = 0;
           if (statesRef.current[caseRef.current]?.done) { if (!embedded && !goNextOpen()) say(tRef.current("allDoneToast")); }
-          else void pressDone().then((ok) => { if (ok && !embedded) goNextOpen(); });
+          else {
+            const pressed = caseRef.current; // on to the next case only if this one is still in front when its 完成 is through
+            void pressDone(pressed).then((ok) => { if (ok && !embedded && caseRef.current === pressed) goNextOpen(); });
+          }
           break;
         }
         case " ": case "Spacebar":
