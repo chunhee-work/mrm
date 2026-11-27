@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { keepSignedIn } from "@/lib/keep-signed-in";
 import { useT } from "@/components/lang-provider";
 import { Brand } from "@/components/brand-mark";
 import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
@@ -214,6 +215,17 @@ function WideRow({ path, blocked }: { path: string; blocked: boolean }) {
 export default function AppBar({ email, newBlocked = false, needsYou = false }: { email: string; newBlocked?: boolean; needsYou?: boolean }) {
   const path = usePathname();
   const onNew = path === "/cases/new";
+  // Signed in: the browser asks the auth server for its session at most once a day, which renews the cookie (keep-signed-in.ts).
+  // Looked at when a page opens, every hour a page stays open, and when the tab is looked at again. Nothing is shown.
+  useEffect(() => {
+    if (!email) return;
+    const check = () => { void keepSignedIn(async () => !!(await authClient.getSession()).data); };
+    check();
+    const id = setInterval(check, 60 * 60 * 1000);
+    const onShow = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onShow);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onShow); };
+  }, [email]);
   return (
     // a wide screen has the side bar instead (side-bar.tsx): this bar is for phones and tablets
     <header className="sticky top-0 z-40 border-b border-hair bg-panel lg:hidden">

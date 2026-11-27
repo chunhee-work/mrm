@@ -187,3 +187,27 @@ test("forgot password answers OK for an address with an account and one without"
   await new Promise((r) => setTimeout(r, 50)); // the mail goes out after the answer
   assert.deepEqual(mails.slice(sent), [{ to: me.email, kind: "reset" }]);
 });
+
+test("a page only reads the session; the browser's own request renews it and gets the cookie with 7 new days", async () => {
+  const { session } = await kit();
+  const me = await signedUp();
+  assert.match(me.firstCookie, /Max-Age=604800/);
+  const row = async () => (await real.select().from(schema.session).where(eq(schema.session.userId, me.id)))[0];
+  const daysLeft = async () => ((await row()).expiresAt.getTime() - Date.now()) / DAY;
+  // two days after logging in: five days left, a renewal is due
+  await real.update(schema.session).set({ expiresAt: new Date(Date.now() + 5 * DAY) }).where(eq(schema.session.userId, me.id));
+
+  // pages (which cannot send a cookie) leave the row alone, so the row and the browser's cookie stay in step
+  reqHeaders = new Headers({ cookie: me.cookie });
+  assert.equal((await session.requireUser()).user.id, me.id);
+  assert.equal((await session.getUserOrNull())?.user.id, me.id);
+  assert.ok((await daysLeft()) < 5.01, "the page did not renew");
+
+  // the once-a-day request from the browser (keep-signed-in.ts): both halves move together
+  const kept = await http("/get-session", undefined, me.cookie);
+  assert.equal(kept.status, 200);
+  assert.match(kept.setCookie, /better-auth\.session_token=[^;]+;.*Max-Age=604800/);
+  assert.ok((await daysLeft()) > 6.99, "the row has 7 new days");
+  // asked again the same day: nothing to renew, no cookie
+  assert.equal((await http("/get-session", undefined, me.cookie)).setCookie, "");
+});
