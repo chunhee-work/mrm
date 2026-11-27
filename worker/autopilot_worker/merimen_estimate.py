@@ -138,6 +138,11 @@ _POPUP = """() => { const m = document.getElementById('slePNTMAN'); if (!m) retu
 _OK = """() => { const t = [...document.querySelectorAll('input,button')].find(e => /^(OK|Ok)$/.test((e.value || e.innerText || '').trim()) && e.offsetParent !== null);
   if (!t) return ''; const box = t.closest('[role=dialog],[class*=modal],[class*=dialog],[class*=popup]') || t.parentElement; const tx = (box.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 140);
   if (/are you sure|delete|overwrite|duplicate|remove/i.test(tx)) return 'STOP:' + tx; t.click(); return 'OK'; }"""
+_FIX = """(F) => { const fire = e => { e.dispatchEvent(new Event('input', {bubbles: true})); e.dispatchEvent(new Event('change', {bubbles: true})); };
+  for (const [i, q] of Object.entries(F.qty)) { const e = document.querySelector('[name=PBT' + i + ']'); if (e) { e.readOnly = false; e.value = q; fire(e); if (e.onchange) e.onchange(); } }
+  for (const [i, t] of Object.entries(F.cmt)) { let c = document.getElementById('PCM' + i); if (!c && typeof AddCmmt === 'function') c = AddCmmt('P', String(i));
+    if (c) { c.value = t; if (typeof FormStoreUpdate === 'function') FormStoreUpdate(c); if (c.onblur) c.onblur(); fire(c); } }
+  return 1; }"""
 _NOIMG = "() => document.querySelectorAll('img').forEach(im => im.style.pointerEvents = 'none')"
 # the paint popup's own messages ("Unsaved values will be reset...", "Retrieval completed!") are the only questions it may accept
 _PAINT_OK = re.compile(r"unsaved values will be reset|retrieval completed", re.I)
@@ -159,6 +164,7 @@ class EstimateResult:
     misc: dict = field(default_factory=dict)  # misc row name -> price set (or planned)
     paint: str = ""  # the Paint Manufacturer line after the popup
     notes: list = field(default_factory=list)
+    fixed: int = 0  # quantities / comments set by the playbook 08 rules
     review: list = field(default_factory=list)  # read-only findings for the person who submits (quantities, comments: playbook 08)
 
     def line(self) -> str:
@@ -171,7 +177,7 @@ class EstimateResult:
         verb = "set" if self.mode == "live" else "would set"
         m = ", ".join(f"{k} {v}" for k, v in list(self.misc.items())[:6])
         out = f"Estimate details {verb}: conditions on {self.parts} part rows, misc {len(self.misc)}" + (f" ({m})" if m else "") + (
-            f", paint '{self.paint}'" if self.paint else "") + "."
+            f", paint '{self.paint}'" if self.paint else "") + (f", {self.fixed} quantities/comments fixed" if self.fixed else "") + "."
         if self.mode == "live":
             out += (f" Check before submit ({len(self.review)}): " + "; ".join(self.review[:5]) + ("; ..." if len(self.review) > 5 else "") + "."
                     if self.review else " Read-back check: nothing to fix.")
@@ -286,7 +292,7 @@ class MerimenEstimate:
         finally:
             _close(page)
 
-    def fill(self, case: dict) -> EstimateResult:
+    def fill(self, case: dict, names: list | None = None) -> EstimateResult:
         """Live: paint popup, save, reload; conditions + misc, save, reload; conditions on rows still empty (fillempty), save; read back.
         Done = 0 empty part rows and the Paintwork price 500.00 (playbook 08 "Save + verify")."""
         page = self._open(case)
@@ -321,6 +327,13 @@ class MerimenEstimate:
             if not _paint_ok(r["miscs"]):
                 res.code = "paint_not_set"
                 return res
+            fx = fixes_for(r["parts"], names or [])
+            if fx["qty"] or fx["cmt"]:  # setqty.mjs + setcmt.mjs: playbook 08 quantities and row comments, set by row name on this load
+                page.evaluate(_FIX, fx)
+                self._save(page)
+                self._reload(page)
+                r = self._settled(page)
+                res.fixed = len(fx["qty"]) + len(fx["cmt"])
             res.ok = True
             res.review = review_rows(r["parts"])
             return res
@@ -334,6 +347,57 @@ class MerimenEstimate:
 
 
 _PAIR = re.compile(r"^(bonnet hinge|tailgate support strut|boot ?lid hinge|tailgate hinge|bumper (front|rear) sensor|door (front|rear) hinge)$")
+
+
+def _logo(name: str, photo_names: list) -> str:
+    """The badge name in brackets, as in the photo name (playbook 08 + 11): "Grille Badge (PROTON)" -> "(PROTON)"."""
+    base = re.sub(r"\s+", " ", name.lower()).strip()
+    for pn in photo_names:
+        m = re.search(r"\(([^()]+)\)\s*$", str(pn or ""))
+        if m and re.sub(r"\s*\([^()]*\)\s*$", "", str(pn)).strip().lower() == base:
+            return f"({m.group(1).strip().upper()})"
+    return ""
+
+
+def fixes_for(parts: list, photo_names: list) -> dict:
+    """setqty.mjs / setcmt.mjs from the playbook 08 rules: {"qty": {i: q}, "cmt": {i: text}}. Only what the rules say for sure;
+    anything else stays for review_rows to list."""
+    qty, cmt = {}, {}
+    for row in parts:
+        i, name = str(row[0]), (row[1] or "").strip()
+        q0, c0 = (row[4] if len(row) > 4 else "1"), (row[5] if len(row) > 5 else "")
+        n = name.lower()
+        try:
+            q = int(float(q0 or "1"))
+        except ValueError:
+            q = 1
+        if not name or (len(row) > 2 and row[2]):
+            continue
+        if re.search(r"bumper clips", n) and q < 15:
+            qty[i] = q = "15"
+        elif re.search(r"grille clips", n) and q != 9:
+            qty[i] = q = "9"
+        elif _PAIR.search(n) and q != 2:
+            qty[i] = q = "2"
+        q = int(q)
+        side = re.search(r"\b(lh|rh)\b", n)
+        if re.search(r"badge|emblem", n):
+            logo = _logo(name, photo_names)
+            if logo and c0 != logo:
+                cmt[i] = logo
+        elif re.search(r"door .*hinge", n) and not re.search(r"upper|lower", n) and not re.search(r"upper|lower", c0, re.I):
+            s = side.group(1).upper() if side else ""
+            if s:
+                cmt[i] = f"Upper {s} & Lower {s}" if q >= 2 else ""
+                if not cmt[i]:
+                    del cmt[i]
+        elif side and c0 and not re.search(r"hinge", n):
+            cmt[i] = ""  # the row name already says LH / RH: no comment (user 2026-10-30)
+        elif not side and q == 2 and not c0 and re.search(r"sensor|bracket|link|absorber|lamp", n):
+            pos = "Front" if "front" in n else "Rear" if "rear" in n else ""
+            if pos:
+                cmt[i] = f"{pos} LH & {pos} RH"
+    return {"qty": qty, "cmt": cmt}
 
 
 def review_rows(parts: list) -> list:

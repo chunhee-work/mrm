@@ -171,7 +171,10 @@ class _CdpDriver(Driver):
             est = self._estimate()
             if est is None:
                 return DriveResult(ok=False, error="step_not_ported")
-            r = est.fill(self.case or {})
+            from .photo_rules import plan_rows
+
+            names = [x["name"] for x in plan_rows((self.case or {}).get("desk") or [])] + [str(x) for x in (self.case or {}).get("extras") or []]
+            r = est.fill(self.case or {}, names)
             if not r.ok:  # unreadable = try again later (setting the same values again is safe); anything else waits for a person
                 return DriveResult(ok=False, fatal=r.code != "unreadable", error="estimate", line=r.line())
             from .merimen_estimate import gate, read_total

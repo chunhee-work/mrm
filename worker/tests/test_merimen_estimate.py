@@ -140,7 +140,7 @@ def test_the_driver_saves_b_only_with_both_switches_and_never_claims_checks(monk
         def __init__(self, r):
             self.r = r
 
-        def fill(self, case):
+        def fill(self, case, names=None):
             return self.r
 
         def read(self, case):
@@ -208,3 +208,27 @@ def test_the_total_is_read_from_the_claim_subfolder_page_only(browser):  # noqa:
     assert "fusebox=MTRroot&fuseaction=dsp_clmheader&caseid=22322999&" in urls[-1]
     assert read_total(lambda: None, CASE) is None and len(ctx.pages) == 1
     ctx.close()
+
+
+def test_quantities_and_comments_the_rules_are_sure_of_are_fixed():
+    from autopilot_worker.merimen_estimate import fixes_for, review_rows
+
+    rows = [[1, "Bumper Clips", False, "Necessary", "1", ""], [2, "Grille Clips", False, "Necessary", "3", ""], [3, "Bonnet Hinge", False, "Bent", "1", ""],
+            [4, "Grille Badge", False, "Broken", "1", ""], [5, "Door Front Hinge LH", False, "Bent", "2", ""], [6, "Bonnet Support Strut LH", False, "Broken", "1", "LH"],
+            [7, "Bumper Front Bracket Side", False, "Bracket cracked", "2", ""], [8, "Tailgate Badge", False, "Broken", "1", ""], [9, "Boot Lid", True, "", "1", ""]]
+    fx = fixes_for(rows, ["Grille Badge (proton)", "Front Bumper", "Tailgate Badge"])
+    assert fx["qty"] == {"1": "15", "2": "9", "3": "2"}
+    assert fx["cmt"] == {"4": "(PROTON)", "5": "Upper LH & Lower LH", "6": "", "7": "Front LH & Front RH"}  # no logo for the tailgate: left for review
+    fixed = [[r[0], r[1], r[2], r[3], fx["qty"].get(str(r[0]), r[4]), fx["cmt"].get(str(r[0]), r[5])] for r in rows]
+    assert review_rows(fixed) == ["Tailgate Badge: comment should be the badge name in capitals, e.g. (PROTON)"]
+
+
+def test_the_fix_script_sets_qty_and_comments_by_row_number_on_the_page(browser):  # noqa: F811
+    from autopilot_worker.merimen_estimate import _FIX
+
+    p = browser.new_page()
+    p.set_content("""<input name=PBT1 readonly value=1><input name=PBT2 value=1><input id=PCM2 value="LH">
+<script>window.made = []; function AddCmmt(t, i) { const c = document.createElement('input'); c.id = 'PCM' + i; document.body.appendChild(c); made.push(t + i); return c; }</script>""")
+    p.evaluate(_FIX, {"qty": {"1": "15"}, "cmt": {"1": "(PROTON)", "2": ""}})
+    assert p.evaluate("() => [document.querySelector('[name=PBT1]').value, document.getElementById('PCM1').value, document.getElementById('PCM2').value, made]") == ["15", "(PROTON)", "", ["P1"]]
+    p.close()
