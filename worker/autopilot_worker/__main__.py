@@ -74,6 +74,43 @@ class _CdpDriver(Driver):
             return DocReport(ok=False, code="no_tab", planned=0)
         return run_docs(page, case, str(cid or ""), str(ext or ""), writes=writes)
 
+    def _report(self, live: bool, case_id, ext_id):
+        """Phase A step 2, the Adjuster Report (merimen_report.py): filled and read back in a dry run, saved when writes are on.
+        Returns (ok, retry, line). Only for a case that exists in Merimen (its case id AND ext id are stored)."""
+        from .create_spec import SpecError
+        from .merimen_report import MerimenReport
+        from .report_spec import build_report
+
+        case = self.case or {}
+        cid, ext = case_id or case.get("merimen_caseid"), ext_id or case.get("merimen_extid")
+        if not cid:
+            return True, False, "Adjuster Report: after the case is made"
+        try:
+            names = [d.get("final_name") or d.get("model_name") or "" for d in (case.get("desk") or [])]
+            veh = (case.get("case_data") or {}).get("client_vehicle") or {}
+            if not veh.get("colour") and getattr(self, "fetch_bytes", None):
+                from . import jev_colour  # owner 2026-11-27: Jev reads the colour from one overview photo
+
+                veh = {**veh, **jev_colour.read(getattr(self, "jev", None), case, self.fetch_bytes)}
+            D = build_report(case.get("case_data"), case_id=str(cid), ext_id=str(ext or ""), workshop=self.workshop(False), photo_names=names,
+                             extras={"colour": veh.get("colour") or "", "odometer": veh.get("odometer") or ""})
+            prof = self.profile() or {}
+            D["manager"], D["adjuster"] = prof.get("manager") or "", prof.get("adjuster") or ""
+        except SpecError as e:
+            return False, False, f"Adjuster Report not filled: {e.code}" + (f" ({e.detail})" if e.detail else "")
+        page = self.page_for(case.get("org_id") or "", strict=True)
+        if page is None:
+            return False, True, "Adjuster Report: no logged-in Merimen tab"
+        run = MerimenReport(page)
+        try:
+            res = run.save(D) if live else run.fill(D)
+        finally:
+            run.close()
+        retry = res.code in ("not_logged_in", "report_not_open", "report_error")
+        if live:
+            return res.saved, retry, ("Adjuster Report saved" if res.saved else "Adjuster Report not saved") + (f": {res.line()}" if res.line() else "")
+        return (res.ok or res.code == "report_not_ready"), retry, "Adjuster Report filled, not saved" + (f": {res.line()}" if res.line() else "")
+
     def dry_run(self, phase: str, steps: tuple):
         from .pipeline import DriveResult
 
@@ -81,6 +118,12 @@ class _CdpDriver(Driver):
         if phase == "A" and os.environ.get("MERIMEN_DRYRUN") == "on":
             res = self._create(False)
             if res.ok:
+                if (self.case or {}).get("merimen_caseid"):  # the case exists: its report can be filled and read back (never saved here)
+                    ok, retry, line = self._report(False, None, None)
+                    res.line = ((res.line + "; ") if res.line else "") + line
+                    if not ok:
+                        res.ok, res.fatal, res.error = False, not retry, "report"
+                        return res
                 d = self._docs(False, None, None)
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
             return res
@@ -117,6 +160,10 @@ class _CdpDriver(Driver):
                 return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1; set it and restart the worker")
             res = self._create(True)  # step 1 of Phase A
             if res.ok and (res.case_id or (self.case or {}).get("merimen_caseid")):
+                ok, retry, line = self._report(True, res.case_id, res.ext_id)  # step 2: the Adjuster Report (playbook order: before documents)
+                res.line = ((res.line + "; ") if res.line else "") + line
+                if not ok:  # the case number is already stored: the next run skips the create and starts at the report
+                    return DriveResult(ok=False, fatal=not retry, error="report", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
                 d = self._docs(True, res.case_id, res.ext_id)  # step 2: the documents (skips what Merimen already has)
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
             return res
@@ -321,6 +368,7 @@ def main() -> None:
         with urllib.request.urlopen(urllib.request.Request(req_url, headers=headers), timeout=60) as r:  # noqa: S310
             return r.read(jev_pages.MAX_PDF_BYTES + 1)
 
+    driver.fetch_bytes = fetch_bytes  # the report's colour read fetches one photo the same way (in memory only)
     side_check = None
     if driver.jev is not None and jev_pages.enabled(dict(os.environ)):
         if jev_pages.pymupdf_ok():

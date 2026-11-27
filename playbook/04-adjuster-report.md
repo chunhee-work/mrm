@@ -69,6 +69,7 @@ Side mapping: INSURED / Insured Driver = the AT-FAULT party; CLAIMANT = OUR clie
 - JPJ Reg Date drives the betterment: use the real reg date from the RC (a `01/01/<year>` placeholder gives a wrong age, e.g. BGF2916). [merimen-az-progress]
 - Assembly Type from Status Asal (see 01); Vehicle Class = Private/Company Vehicle; Fuel = Petrol. [merimen-adjuster-report-fields] [merimen-az-progress]
 - Colour `ddlbCOLORID` = what the photo shows. [merimen-missing-photo-data-rules]
+- Worker (owner 2026-11-27): Jev reads the colour from ONE overview photo of the case; an unsure answer stops the report at `colour_unknown` for a person, never a guessed colour.
 - Odometer `sleODO` from the dashboard photo; unreadable → 0; units km. [merimen-missing-photo-data-rules] [merimen-az-progress]
 - Road Tax expiry `sleRoadTax` from the road-tax disc photo. [merimen-adjuster-report-fields]
 - `cbxFLAGS` (Air Cond / Wing Mirror / Clock / Radio / Seat Belts / Lamps) ticked. [merimen-adjuster-report-fields]
