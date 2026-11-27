@@ -8,28 +8,33 @@ export function groupOf(status: string): Group {
   return NEEDS.has(status) ? "needs" : "active";
 }
 
+type CaseFacts = { status: string; photosDone?: boolean };
+
 /**
- * R2-B05: does this case need the user? Beyond the status list: a case whose photos still need names waits for the user,
- * whatever step it is on (it used to show as "In progress" with a spinner and no button).
+ * Does this case need the user? Same steps as the step bar (owner 2026-11-27): documents missing, or the photo names not pressed Done.
+ * (It used to count only photos still to confirm, so a case showed "In progress" the moment it was named.)
  */
-export function needsUser(r: { status: string; deskConfirm?: number }): boolean {
-  if (groupOf(r.status) === "needs") return true;
-  return !!r.deskConfirm && r.deskConfirm > 0 && ["naming", "phase_a"].includes(r.status);
+export function needsUser(r: CaseFacts): boolean {
+  const b = bucketOf(r);
+  return b === "docs" && r.status === "pending_doc" || b === "photos" || b === "hold";
 }
 
-/** The home page's rows: what an open case is waiting for (or that it is closed). */
-export const OPEN_BUCKETS = ["docs", "photos", "hold", "active"] as const;
+/**
+ * The home page's rows are the steps of the step bar: 1 Documents (waiting to be read, being read, or missing), 2 Name photos
+ * (until the user presses Done), 3 Merimen (the worker has the case). `hold` is a case that failed; `closed` is finished.
+ */
+export const OPEN_BUCKETS = ["docs", "photos", "active", "hold"] as const;
 export type Bucket = (typeof OPEN_BUCKETS)[number] | "closed";
-export function bucketOf(r: { status: string; deskConfirm?: number }): Bucket {
+export function bucketOf(r: CaseFacts): Bucket {
   if (r.status === "done") return "closed";
   if (r.status === "failed") return "hold";
-  if (r.status === "pending_doc") return "docs";
-  return needsUser(r) ? "photos" : "active";
+  if (["uploaded", "reading", "pending_doc"].includes(r.status)) return "docs";
+  return r.photosDone ? "active" : "photos";
 }
 /** The views of the case table: one bucket, every open case, or everything. */
 export const VIEWS = [...OPEN_BUCKETS, "closed", "open", "all"] as const;
 export type View = (typeof VIEWS)[number];
-export const inView = (r: { status: string; deskConfirm?: number }, v: View) => v === "all" || (v === "open" ? r.status !== "done" : bucketOf(r) === v);
+export const inView = (r: CaseFacts, v: View) => v === "all" || (v === "open" ? r.status !== "done" : bucketOf(r) === v);
 
 /** The pipeline with its end. The case list no longer shows the steps (owner 2026-11-15: done or not, that is all); the order is kept for the tests. */
 export const TRACK = [...PIPELINE, "done"] as const;

@@ -54,16 +54,23 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
   const title = !view ? (q.trim() ? t("list.found", { q: q.trim() }) : t("list.all"))
     : view === "all" ? t("list.all") : view === "open" ? t("tray.open") : view === "closed" ? t("tray.closed") : t(`tray.b.${view}`);
 
-  /** What the line says about the case: what it waits for, that it is being worked on, or that it is done. */
+  /**
+   * What the line says: where the case is in the steps, as the step bar says it. Inside one step's own list the title already names the step,
+   * so the line only gives the detail (never the same words twice).
+   */
+  const alone = !!view && view !== "open" && view !== "all";
   const status = (r: CaseRow) => {
     const b = bucketOf(r);
     if (b === "closed") return <><Tick className="h-4 w-4 shrink-0 text-go" /><span className="min-w-0 truncate">{money(r.totalRm) ?? t("dash.done")}</span></>;
-    if (b === "active") return <><Working className="shrink-0 text-scan" /><span className="min-w-0 truncate">{t("dash.active")}</span></>;
-    const docs = (r.pendingDoc ?? "").split("; ").filter((d) => d.trim()).length;
-    const say = b === "hold" ? t("dash.d.failed")
-      : b === "docs" ? (docs ? t("dash.d.missingN", { n: String(docs) }) : t("dash.d.missingAny"))
-      : r.deskConfirm ? t("dash.d.photosN", { n: String(r.deskConfirm) }) : t("list.photosWait");
-    return <><span aria-hidden="true" className="h-[9px] w-[9px] shrink-0 rounded-full bg-amber" /><span className="min-w-0 truncate font-semibold">{say}</span></>;
+    const wait = (say: string) => <><span aria-hidden="true" className="h-[9px] w-[9px] shrink-0 rounded-full bg-amber" /><span className="min-w-0 truncate font-semibold">{say}</span></>;
+    if (b === "active") return <><Working className="shrink-0 text-scan" /><span className="min-w-0 truncate">{t(alone ? "list.s.merimenAlone" : "list.s.merimen")}</span></>;
+    if (b === "hold") return wait(t("dash.d.failed"));
+    if (b === "docs") {
+      if (r.status !== "pending_doc") return <><Working className="shrink-0 text-scan" /><span className="min-w-0 truncate">{t("list.s.reading")}</span></>;
+      const docs = (r.pendingDoc ?? "").split("; ").filter((d) => d.trim()).length;
+      return wait(docs ? t("dash.d.missingN", { n: String(docs) }) : t("dash.d.missingAny"));
+    }
+    return wait(r.deskConfirm ? t(alone ? "list.s.photosN" : "dash.d.photosN", { n: String(r.deskConfirm) }) : t(alone ? "list.s.photosPress" : "dash.d.photosPress"));
   };
 
   return (
