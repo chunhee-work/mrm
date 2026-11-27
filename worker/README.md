@@ -59,9 +59,36 @@ sudo systemctl enable --now autopilot-worker
 
 Phase A / B 在写入 Merimen 之前先做演练。`MERIMEN_WRITES` 和 `WORKER_SUBMIT` 都不是 `on` 时，不会提交。CI 不登录 Merimen。
 
+## 建案子（Phase A 第 1 步，计划 issue #113）
+
+Worker 用本机 Chrome 里已登录的 Merimen 标签页（Playwright 连本机调试口，和截图同一种方式）打开建案表单 `dsp_clmreg`，按 `cases.case_data`、用户保存的 manager / adjuster、以及这个案子的工坊（见下）填表。选择器和顺序来自主人的脚本 `tools/mrm-bot/createpar2_sinar.mjs` 和 `playbook/02-create-case.md`。session 标记（CFID、CFTOKEN、USID、RID）只从已登录标签页的地址里取，不写日志、不存库。
+
+两个开关，默认都关：
+
+1. `MERIMEN_DRYRUN=on`：演练。新开一个标签页，填完整张表，逐项读回检查，关掉标签页。**不保存。** 案子时间线写一行：检查了什么，或缺什么。演练时工坊只“看”（`peek_workshop_for_case`），不锁定，用户还能改。
+2. `MERIMEN_WRITES=on` 且 `WORKER_SUBMIT=on`：真保存。先用只读的 `peek_workshop_for_case` 看工坊并填表、检查，**只有全部通过才在点 Next 之前一刻**调用 `claim_workshop_for_case` 锁定工坊（要和表单上的一致；返回 `None` 就停，绝不退回工坊 1），再点 Next。保存后设 manager 和 adjuster，把 caseid（和 extid）写回案子。
+
+演练先跑，确认没问题再开第二组。**`MERIMEN_DRYRUN=on` 优先于另外两个开关**：只要它开着，不管 `MERIMEN_WRITES` 和 `WORKER_SUBMIT` 是什么，都只填表检查、什么都不保存。真保存必须把它关掉（或不设）。
+
+停下来的情况（案子进入 `waiting_user`，时间线写明原因，不自动重试）：缺资料（写明缺哪项）、用户信息不全、工坊缺失或查到的不是恰好一行、保险公司不在 16 家表里（例如 Lonpac）、Liberty 看不出地区、车型没把握（前两名太接近）、某个下拉选项找不到、Merimen 出现“已有进行中的案子”提示（**不会自动确认**，因为崩溃后重试也会碰到同一个提示，会建出第二个案子）、Merimen 拒绝表单（显示它自己的话）、保存后落地页不明（重试前先看 worklist）。没有已登录标签页或表单打不开：稍后重试（沿用 3 次上限）。
+
+**放行一个被「按过 Next」标记挡住的案子**：先在 Merimen 工作清单（worklist）按车牌搜，确认真的没有这个案子，然后由人在 `case_events` 里给该案子插一行 `step = 'create_cleared'`（之后才可以重跑）。如果搜到了案子，把案号写进该案子的 `merimen_caseid` 即可，不要放行。
+
+只自动化了建案这一步。建好之后案子进入 `waiting_user`，时间线写明 Adjuster Report、文件和照片还没有自动化，截图里程碑只记“案件已打开”。已有 Merimen 编号的案子不会再建第二个。manager 或 adjuster 在 Merimen 里匹配不上：案子照样记下编号，时间线请人手动补。
+
+**已知限制（建案子）**：
+- 选择器没在真实网站上验证过，APC bot 的演练就是验证；演练通过标准写在 `/mnt/project-files/merimen-login/APC-BOT-ADDENDUM-3-create-case.md`，没过标准不开写入开关。
+- 一次只建一个：真保存时 `ORG_CONCURRENCY` 必须是 1（大于 1 直接拒绝，错误码 `concurrency_unsafe`）。「按过 Next」标记用事务里的 advisory lock 加条件写入，第二个 worker 拿不到标记就到不了 Next。
+- Next 之前不会去 worklist 搜重复；Merimen 只在 1 天内有进行中的案子时才弹重复警告。出现 `create_unclear` / `duplicate_warning` / `unexpected_dialog` 都要先在 worklist 搜车牌。
+- 「预计费用」固定选 `10,000 - 12,500`（和主人的脚本一样）；创建时还不知道撞击方向，损失描述先用中性文字。
+- 点 OK 只点保险公司 API 提示和积分框（有白名单）；任何别的框、任何在问问题的框都不点，案子停下。
+- 锁定了工坊但没按成 Next（本机失败）：标记已写，案子停下等人；人确认 Merimen 没有这个案子后，插一行 `create_cleared`（工坊锁不能自动放开，要在后台处理）。
+- Jev 的保险公司/Liberty 地区检查还在 Phase A 之后跑，只警告不拦；建案前不跑。
+
 ## 迁移
 
 `web/drizzle/0007_worker.sql` 只新增表和 `jobs.not_before`。`web/drizzle/0008_case_screenshots.sql` 只新增表 `case_screenshots`（可重复执行），并在角色 `autopilot_worker` 存在时给它 `SELECT, INSERT, UPDATE`（没有 DELETE）。生产库要等主人点头之后再跑 `npm run db:migrate`。本文件不会替你执行。
+`web/drizzle/0017_worker_case_extras_grant.sql` 只给角色 `autopilot_worker` 加 `case_extras` 的 `SELECT`（worker 读照片台用 Space 加的零件，从不写）。2026-11-27 对照生产库查过 worker 用到的每张表，只缺这一张。
 
 如果 PR #31 也要用 0007 这个编号，后合并的那个改号即可（迁移按文件名排序执行，每个文件都可重复执行）。
 

@@ -17,28 +17,43 @@ from .store import PgRepo
 
 
 class _CdpDriver(Driver):
-    """Dry-run is local. Save shells to cdp.mjs, which exits before any socket unless MERIMEN_WRITES=on."""
+    """Phase A step 1 (create the case) is real: a dry run fills the create form without saving it (MERIMEN_DRYRUN=on), a live save needs
+    MERIMEN_WRITES=on and WORKER_SUBMIT=on. Every other save step is still "not ported" and changes nothing in Merimen."""
 
-    def __init__(self, script: str):
+    def __init__(self, script: str, page_for=None):
         self.script = script
+        self.page_for = page_for or (lambda _org: None)
+        self.profile = lambda: None  # set per job (loop.tick): the user's manager and adjuster
+        self.workshop = lambda _lock: None  # set per job: the case's workshop; True locks it (claim), False only looks (peek)
+        self.record = None  # set per job: writes the Merimen case number the moment the case exists
+        self.marks = None  # set per job: returns the "Next was pressed" marks (PgRepo.create_marks); only asked for a live save
+
+    def _create(self, live: bool):
+        from .create_step import run_create_step
+
+        return run_create_step(self.case or {}, profile=self.profile, workshop=self.workshop, page_for=(lambda org: self.page_for(org, strict=True)) if getattr(self, 'strict_tabs', True) and live is not None else self.page_for, live=live, progress=self.progress, record=self.record, marks=self.marks() if live and self.marks else None)
 
     def dry_run(self, phase: str, steps: tuple):
         from .pipeline import DriveResult
 
+        # MERIMEN_DRYRUN=on fills Merimen's create form without saving it. While it is on nothing is ever saved (see save).
+        if phase == "A" and os.environ.get("MERIMEN_DRYRUN") == "on":
+            return self._create(False)
         return DriveResult(ok=True)
 
     def save(self, phase: str, steps: tuple):
         from .pipeline import DriveResult
 
-        if os.environ.get("MERIMEN_WRITES") != "on" or os.environ.get("WORKER_SUBMIT") != "on":
+        if os.environ.get("MERIMEN_WRITES") != "on" or os.environ.get("WORKER_SUBMIT") != "on" or os.environ.get("MERIMEN_DRYRUN") == "on":
             return DriveResult(ok=False, error="step_not_ported")
-        proc = subprocess.run(
-            ["node", self.script, "commit", phase],
-            capture_output=True, text=True, timeout=120, env=os.environ.copy(),
-        )
-        if proc.returncode != 0:
-            return DriveResult(ok=False, fatal=True, error="not_saved")
-        return DriveResult(ok=True)
+        if phase == "A":
+            only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
+            if only and str((self.case or {}).get("id")) != only:  # the supervised first live create: every other case is left alone
+                return DriveResult(ok=False, error="step_not_ported")
+            if int(os.environ.get("ORG_CONCURRENCY") or "1") > 1:  # the supported setup is ONE create at a time: refuse before anything opens
+                return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1; set it and restart the worker")
+            return self._create(True)  # the first step of Phase A; the rest of the phase is not ported yet (the result says so)
+        return DriveResult(ok=False, error="step_not_ported")
 
 
 def _namer_factory(cfg: Config):
@@ -105,7 +120,9 @@ def _page_provider(cfg: Config):
     Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
     state: dict = {}
 
-    def page_for(org_id: str):
+    def page_for(org_id: str, strict: bool = False):
+        """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address);
+        none or several = None, so the case waits instead of opening the form with a guessed session."""
         account = account_for(org_id, cfg.accounts, cfg.org_accounts)
         if not account:
             return None
@@ -117,6 +134,11 @@ def _page_provider(cfg: Config):
                 pw = sync_playwright().start()
                 state[port] = (pw, pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}"))
             browser = state[port][1]
+            if strict:
+                from .merimen_create import session_query
+
+                found = [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
+                return found[0] if len(found) == 1 else None
             for ctx in browser.contexts:
                 for page in ctx.pages:
                     if "merimen.com.my" in (page.url or ""):
@@ -135,9 +157,12 @@ def _page_provider(cfg: Config):
 
 def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
+    if cfg.live_writes and cfg.org_limit > 1:  # one create at a time is the supported setup: refuse to start, change no case
+        raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1: set ORG_CONCURRENCY=1 and start again")
     repo = PgRepo(cfg.database_url, cfg.db_transport)
     script = os.path.join(os.path.dirname(__file__), "..", "cdp.mjs")
-    driver = _CdpDriver(script)
+    page_for = _page_provider(cfg)
+    driver = _CdpDriver(script, page_for=page_for)
     from . import step2_ai
 
     driver.step2_reviewer = step2_ai.from_env(dict(os.environ))  # None unless STEP2_AI=on and ANTHROPIC_API_KEY is set
@@ -220,8 +245,6 @@ def main() -> None:
         if proc.returncode != 0 or data.get("offline") or data.get("error"):
             return {"offline": True}
         return data
-
-    page_for = _page_provider(cfg)
 
     def put_blob(path: str, data: bytes) -> None:
         from .blobstore import blob_put

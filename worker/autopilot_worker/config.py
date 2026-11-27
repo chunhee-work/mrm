@@ -85,11 +85,13 @@ class Config:
     retention_days: int = 90
     mailer: object | None = None
     worker_submit: bool = False
+    merimen_dryrun: bool = False  # MERIMEN_DRYRUN=on: fill Merimen's create form, never save. While it is on nothing is written anywhere in Merimen
 
     @property
     def live_writes(self) -> bool:
-        """Merimen may be changed only when BOTH switches are on (README): a photo, Step 2 or save step never writes with one alone."""
-        return self.merimen_writes and self.worker_submit
+        """Merimen may be changed only when BOTH switches are on and MERIMEN_DRYRUN is off (README): a photo, Step 2 or save step never
+        writes with one switch alone, and never while the dry run is on."""
+        return self.merimen_writes and self.worker_submit and not self.merimen_dryrun
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "Config":
@@ -120,4 +122,5 @@ class Config:
             worker_ui=_on(e, "WORKER_UI"),
             retention_days=max(1, int(e.get("SCREENSHOT_RETENTION_DAYS") or "90")),
             worker_submit=_on(e, "WORKER_SUBMIT"),
+            merimen_dryrun=_on(e, "MERIMEN_DRYRUN"),
         )

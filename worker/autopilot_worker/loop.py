@@ -166,6 +166,11 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         if job["step"] == "phase_a" and gate == "ready" and session == "connected":
             shoot("login_verified")
         driver.progress = lambda code: shoot(CODE_TO_STEP.get(code, ""))
+        # the create-case step (Phase A) reads these: the user's manager/adjuster, and the case's workshop (True locks it, False only looks)
+        driver.profile = lambda: repo.profile_for(job["org_id"])
+        driver.marks = lambda: repo.create_marks(job["case_id"])
+        driver.record = lambda cid, eid: repo.record_merimen_id(job["case_id"], cid, eid)
+        driver.workshop = lambda lock: repo.claim_workshop_for_case(job["case_id"]) if lock else repo.peek_workshop_for_case(job["case_id"])
         # asked before every photo write in Merimen: Done must still be pressed on the same version of the names
         driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
         with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):

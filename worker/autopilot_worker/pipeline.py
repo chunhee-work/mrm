@@ -18,6 +18,8 @@ class DriveResult:
     ext_id: str | None = None
     total_rm: str | None = None
     minutes: str = "0"
+    line: str | None = None  # one English line for the case's timeline: why it stopped, or what the dry run checked
+    partial: bool = False  # saved, but only the first step of the phase is automated (the case was created; the rest is not ported yet)
 
 
 class _NoMerimenPhotos:
@@ -55,6 +57,7 @@ class _NoMerimenStep2:
 class Driver:
     jev = None  # Jev (jev.py): may only clear a false alarm in the Step 2 two-way check; None = code rules alone
     step2_reviewer = None  # the AI that reviews the Step 2 plan with the playbook's "step2" files; None = the rule plan stands
+    case = None  # set by run_phase: the case being worked (the Merimen create step reads its data)
     progress = None  # set per job: a driver that ports a Merimen step calls progress("create_case") after it
     guard = staticmethod(lambda: True)  # set per job: False once Done was undone or the names changed, asked before every photo write
 
@@ -87,6 +90,7 @@ class Outcome:
     photo_fail: str | None = None
     browser_minutes: str | None = None
     invalidate: bool = False
+    partial: bool = False  # the case was made in Merimen but only its first step is automated: claims no later milestone
     verify_state: str | None = None
     photo_log: dict | None = None  # one photo_upload_log row: what the photo step did, or in a dry run would do
     step2_log: dict | None = None  # one step2_log row: the parts + labour plan from the final names, the two-way check, the AI review
@@ -106,6 +110,7 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
         photos_done=bool(case.get("photos_done_at")),
     )
     steps = steps_for(phase, plan)
+    driver.case = case
     blocked = [s for s in steps if not s.ok]
     if blocked:
         if any("documents" in s.missing for s in blocked):
@@ -157,12 +162,14 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             return _o("failed", case_status="waiting_user", error="step2", event=ev)
     dry = driver.dry_run(phase, steps)
     if not dry.ok:
-        return _o("failed" if dry.fatal else "requeue", error=dry.error or "dry_run", event=f"Phase {phase} dry-run failed")
+        if dry.fatal and dry.line:  # a case that cannot be entered as it is: say why on the case, wait for the user, never retry by itself
+            return _o("failed", case_status="waiting_user", error=dry.error or "dry_run", event=f"Phase {phase} stopped. {dry.line}"[:400])
+        return _o("failed" if dry.fatal else "requeue", error=dry.error or "dry_run", event=f"Phase {phase} dry-run failed. {dry.line or ''}".strip()[:400])
     if not writes:
         if desk is not None and phase == "A":
             rep = photo_a(case)
-        note = (f" {rep.line()}" if rep and (rep.photos or not rep.ok) else "") + (f" {s2.line()}" if s2 and s2.plan else "")
-        return _o("done", event=f"Phase {phase} dry-run only. Merimen was not changed.{note}", photo_log=_log(rep))
+        note = (f" {rep.line()}" if rep and (rep.photos or not rep.ok) else "") + (f" {s2.line()}" if s2 and s2.plan else "") + (f" {dry.line}" if dry.line else "")
+        return _o("done", event=f"Phase {phase} dry-run only. Merimen was not changed.{note}"[:400], photo_log=_log(rep))
     saved = driver.save(phase, steps)
     if not saved.ok:
         if saved.error == "step_not_ported":
@@ -170,7 +177,20 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             live = bool(rep and rep.mode == "live")
             return _o("done", event=f"Phase {phase} checked. Merimen was not saved" + (" (photos were relabelled)." if live and side.get("photo_log") else "."),
                       **({} if live else {"photo_log": _log(rep)}))
+        if saved.fatal and saved.line:
+            return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"Phase {phase} not saved. {saved.line}"[:400])
         return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
+    if phase == "A" and saved.partial and case.get("merimen_caseid"):
+        # an earlier run already made it: say so, change nothing else (the status stays where it is, no new milestone)
+        return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}".strip()[:400], partial=True)
+    if phase == "A" and saved.partial:
+        # the case exists in Merimen now: its number is stored so no second case is made, but nothing after the create is automated yet
+        return _o(
+            "done", case_status=("phase_b" if case.get("photos_done_at") else "waiting_user"), partial=True,
+            enqueue=(["phase_b"] if case.get("photos_done_at") else []),  # 完成 was already pressed: Phase B still gets its turn
+            event=("Case created in Merimen. " + (f"{saved.line}. " if saved.line else "") + "The Adjuster Report, documents and photos are not automated yet.")[:400],
+            merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes,
+        )
     if phase == "A":
         if desk is not None:
             try:
