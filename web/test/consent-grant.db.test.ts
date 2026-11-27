@@ -58,3 +58,18 @@ test("a hand-written operator row is never overwritten or revoked", opts, async 
   assert.equal(r.s.consentReference, "owner-letter-2026");
   assert.equal(r.s.enabled, true);
 });
+
+test("operator row gets no consent row; a names-only save does not re-enable a switched-off row", opts, async () => {
+  const { db, schema, eq, m } = await kit();
+  const a = await mk("d");
+  await db.insert(schema.extOrgSettings).values({ orgId: a.orgId, enabled: true, consentAuthority: "firm", consentReference: "owner-letter" });
+  await m.grantWorkerConsent(a.orgId, a.userId);
+  assert.equal((await state(a.orgId)).n, 0);
+  const b = await mk("e");
+  await m.grantWorkerConsent(b.orgId, b.userId);
+  await db.update(schema.extOrgSettings).set({ enabled: false }).where(eq(schema.extOrgSettings.orgId, b.orgId));
+  await m.grantWorkerConsent(b.orgId, b.userId, false);
+  assert.equal((await state(b.orgId)).s.enabled, false);
+  await m.grantWorkerConsent(b.orgId, b.userId, true);
+  assert.equal((await state(b.orgId)).s.enabled, true);
+});

@@ -10,23 +10,30 @@ export const CARD_WORDING = "details-card-1";
 
 export const cardReference = (userId: string, at = new Date()) => `${CARD_PREFIX}${userId}:${at.toISOString()}`;
 
-export async function grantWorkerConsent(orgId: string, userId: string): Promise<void> {
+const ownedByCard = (ref: string | null | undefined) => (ref ?? "").startsWith(CARD_PREFIX);
+
+/** `reenable`: a save that carries a (new) login switches a card-owned row back on; a names-only save never does (an operator may have switched it off). */
+export async function grantWorkerConsent(orgId: string, userId: string, reenable = true): Promise<void> {
+  const [row] = await db.select().from(schema.extOrgSettings).where(eq(schema.extOrgSettings.orgId, orgId)).limit(1);
   const ref = cardReference(userId);
-  await db.insert(schema.extOrgSettings)
-    .values({ orgId, enabled: true, consentAuthority: "details_card", consentReference: ref })
-    .onConflictDoUpdate({
-      target: schema.extOrgSettings.orgId,
-      set: { enabled: true, consentAuthority: "details_card", consentReference: ref, updatedAt: new Date() },
-      // an existing hand-written row (operator's own reference) is left alone
-      setWhere: sql`btrim(coalesce(${schema.extOrgSettings.consentReference}, '')) = '' OR ${schema.extOrgSettings.consentReference} LIKE ${CARD_PREFIX + "%"}`,
-    });
+  if (!row) {
+    await db.insert(schema.extOrgSettings).values({ orgId, enabled: true, consentAuthority: "details_card", consentReference: ref }).onConflictDoNothing();
+  } else if (!(row.consentReference ?? "").trim()) {
+    await db.update(schema.extOrgSettings).set({ enabled: true, consentAuthority: "details_card", consentReference: ref, updatedAt: new Date() })
+      .where(and(eq(schema.extOrgSettings.orgId, orgId), sql`btrim(coalesce(${schema.extOrgSettings.consentReference}, '')) = ''`));
+  } else if (ownedByCard(row.consentReference)) {
+    if (reenable && !row.enabled) await db.update(schema.extOrgSettings).set({ enabled: true, updatedAt: new Date() }).where(eq(schema.extOrgSettings.orgId, orgId));
+  } else {
+    return; // an operator's own row: never touched, and no consent row is added to it
+  }
   const [have] = await db.select({ id: schema.extConsents.id }).from(schema.extConsents)
     .where(and(eq(schema.extConsents.orgId, orgId), eq(schema.extConsents.wordingVersion, CARD_WORDING))).limit(1);
   if (!have) await db.insert(schema.extConsents).values({ orgId, userId, wordingVersion: CARD_WORDING });
 }
 
 export async function revokeWorkerConsent(orgId: string): Promise<void> {
-  await db.update(schema.extOrgSettings).set({ enabled: false, updatedAt: new Date() })
-    .where(and(eq(schema.extOrgSettings.orgId, orgId), sql`${schema.extOrgSettings.consentReference} LIKE ${CARD_PREFIX + "%"}`));
+  const [row] = await db.select().from(schema.extOrgSettings).where(eq(schema.extOrgSettings.orgId, orgId)).limit(1);
+  if (!row || !ownedByCard(row.consentReference)) return; // an operator's row (or none) stays as it is
+  await db.update(schema.extOrgSettings).set({ enabled: false, updatedAt: new Date() }).where(eq(schema.extOrgSettings.orgId, orgId));
   await db.delete(schema.extConsents).where(and(eq(schema.extConsents.orgId, orgId), eq(schema.extConsents.wordingVersion, CARD_WORDING)));
 }

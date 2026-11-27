@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     }
     if (!wantsLogin) await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: "save_names" });
     // the tick box (required above) is the consent the worker's Phase A gate needs
-    await grantWorkerConsent(me.orgId, me.user.id);
+    await grantWorkerConsent(me.orgId, me.user.id, wantsLogin);
   } catch (e) { if (missingRelation(e)) return NextResponse.json({ error: "not_configured" }, { status: 503 }); throw e; }
   return NextResponse.json(await credView(me.orgId));
 }
