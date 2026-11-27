@@ -6,6 +6,10 @@ import type { PaymentProvider, ProviderId } from "./types";
 
 export const PROVIDERS: Record<ProviderId, PaymentProvider> = { lemonsqueezy, toyyibpay, mock };
 
+// Lemon Squeezy is shutting down and rejected our store (email 2026-11-17), so it is never offered.
+// Its code stays for now; toyyibPay (FPX, MYR) is the live provider.
+export const DISABLED_PROVIDERS: readonly ProviderId[] = ["lemonsqueezy"];
+
 export type ProviderView = { id: ProviderId; currency: "MYR" | "USD"; packs: { id: string; available: boolean }[] };
 
 /**
@@ -13,7 +17,7 @@ export type ProviderView = { id: ProviderId; currency: "MYR" | "USD"; packs: { i
  * Presence of env vars alone never switches a provider on (plan #12, DPR-12-4 D3).
  */
 export async function availableProviders(): Promise<ProviderView[]> {
-  return listProviders(Object.values(PROVIDERS));
+  return listProviders(Object.values(PROVIDERS).filter((p) => !DISABLED_PROVIDERS.includes(p.id)));
 }
 
 // All providers are asked at the same time (the billing page waited for each one in turn: a cold server asked
@@ -28,6 +32,7 @@ export async function listProviders(list: PaymentProvider[]): Promise<ProviderVi
 }
 
 export async function canSell(provider: ProviderId, packId: string): Promise<{ provider: PaymentProvider; pack: Pack } | null> {
+  if (DISABLED_PROVIDERS.includes(provider)) return null;
   const p = PROVIDERS[provider];
   const pack = getPack(packId);
   if (!p || !pack || !packSellable(pack) || !p.hasConfig() || !(await p.isHealthy()) || !(await p.packAvailable(pack))) return null;
