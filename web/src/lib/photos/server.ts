@@ -3,8 +3,9 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import {
   canonName, doneBlock, isPermutation, pathInCase, statusAfterRegister,
-  MAX_PHOTOS, MAX_REGISTER, SLICE,
+  MAX_EXTRAS, MAX_PHOTOS, MAX_REGISTER, SLICE,
 } from "./rules";
+import { logLine } from "./log";
 import { deletePhoto, photoExists } from "./store";
 import { applyCaseRules, arrangeOpening, sameOrder } from "./order-rules";
 import { snapshotOf } from "./snapshot";
@@ -21,6 +22,18 @@ const fail = (status: number, error: string, more: Record<string, unknown> = {})
 
 const P = schema.casePhotos;
 const rowsOf = <T>(r: unknown) => ((r as { rows?: T[] }).rows ?? []) as T[];
+
+/**
+ * Runs statements together: on Neon one HTTP batch, which is one transaction (all of them or none). The local test database
+ * has no batch; there they run one after the other.
+ */
+async function together(qs: Parameters<typeof db.batch>[0]): Promise<unknown[]> {
+  const d = db as unknown as { batch?: (q: typeof qs) => Promise<unknown[]> };
+  if (typeof d.batch === "function") return d.batch(qs);
+  const out: unknown[] = [];
+  for (const q of qs) out.push(await q);
+  return out;
+}
 
 export async function caseInOrg(orgId: string, caseId: string): Promise<CaseRow | null> {
   if (!caseId || caseId.length > 64) return null;
@@ -167,41 +180,52 @@ export async function setDone(c: CaseRow, done: unknown): Promise<Result> {
     const [now] = await db.select({ status: schema.cases.status }).from(schema.cases).where(eq(schema.cases.id, c.id));
     return ok({ done: false, status: now?.status ?? c.status });
   }
-  const photos = await db.select({ nameState: P.nameState, modelName: P.modelName, finalName: P.finalName }).from(P).where(eq(P.caseId, c.id));
-  const block = doneBlock(photos);
-  if (block) return fail(409, "blocked", block);
-  const r = await db.execute(sql`
-    UPDATE cases SET photos_done_at = COALESCE(photos_done_at, now()),
-      status = CASE WHEN status IN ('waiting_user', 'naming') THEN 'phase_b' ELSE status END
-    WHERE id = ${c.id}
-      AND EXISTS (SELECT 1 FROM case_photos WHERE case_id = ${c.id})
-      AND NOT EXISTS (SELECT 1 FROM case_photos WHERE case_id = ${c.id}
-        AND final_name IS NULL AND (name_state IN ('pending', 'running') OR model_name IS NULL))
-    RETURNING status`);
-  // the check above and the write are one statement: photos added at the same moment cannot slip under the tick
-  const after = rowsOf<{ status: string }>(r)[0];
-  if (!after) {
-    const now = await db.select({ nameState: P.nameState, modelName: P.modelName, finalName: P.finalName }).from(P).where(eq(P.caseId, c.id));
-    return fail(409, "blocked", doneBlock(now) ?? { reason: "naming", count: 0 });
+  // 完成 and its fingerprint go in as ONE write (the worker starts Phase B only on a case that has both). The names are read first;
+  // the write goes through only if nothing changed since that read, else it is read again. A failure leaves the case not done.
+  const namesOf = () => db.select({ id: P.id, nameState: P.nameState, modelName: P.modelName, finalName: P.finalName }).from(P)
+    .where(eq(P.caseId, c.id)).orderBy(asc(P.position), asc(P.id));
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const seen = rowsOf<{ fp: string }>(await db.execute(sql`SELECT ${stateFp(c.id)} AS fp`))[0]?.fp ?? ""; // before the names: a change in between fails the write
+    const [photos, extras] = await Promise.all([
+      namesOf(),
+      db.select({ name: schema.caseExtras.name }).from(schema.caseExtras).where(eq(schema.caseExtras.caseId, c.id)),
+    ]);
+    const block = doneBlock(photos);
+    if (block) return fail(409, "blocked", block);
+    const snap = snapshotOf(photos.map((p) => ({ id: p.id, name: p.finalName ?? p.modelName })), extras.map((e) => e.name));
+    const [r] = await together([
+      // the checks and the write are one statement: photos added at the same moment cannot slip under the tick
+      db.execute(sql`
+        UPDATE cases SET photos_done_at = COALESCE(photos_done_at, now()), photos_snapshot = ${snap},
+          status = CASE WHEN status IN ('waiting_user', 'naming') THEN 'phase_b' ELSE status END
+        WHERE id = ${c.id}
+          AND EXISTS (SELECT 1 FROM case_photos WHERE case_id = ${c.id})
+          AND NOT EXISTS (SELECT 1 FROM case_photos WHERE case_id = ${c.id}
+            AND final_name IS NULL AND (name_state IN ('pending', 'running') OR model_name IS NULL))
+          AND ${stateFp(c.id)} = ${seen}
+        RETURNING status`),
+      // only while still done: an edit that came in after the write above has already cleared the tick and the confirmations
+      db.execute(sql`UPDATE case_photos SET confirmed = true WHERE case_id = ${c.id}
+        AND EXISTS (SELECT 1 FROM cases WHERE id = ${c.id} AND photos_done_at IS NOT NULL)`),
+    ] as Parameters<typeof db.batch>[0]);
+    const after = rowsOf<{ status: string }>(r)[0];
+    if (!after) continue; // a name, the order, a part or a photo changed between the read and the write: look again
+    // The learning rows are extra: the worker writes the same rows when Phase B runs, so a failure here must not undo a 完成 that went through.
+    await recordLearning(c.id, c.orgId).catch((e) => console.error(logLine("photos.learning", { caseId: c.id }, e)));
+    return ok({ done: true, status: after.status });
   }
-  // only while still done: an edit that came in after the UPDATE above has already cleared the tick and the confirmations
-  await db.execute(sql`UPDATE case_photos SET confirmed = true WHERE case_id = ${c.id}
-    AND EXISTS (SELECT 1 FROM cases WHERE id = ${c.id} AND photos_done_at IS NOT NULL)`);
-  await takeSnapshot(c.id);
-  await recordLearning(c.id, c.orgId);
-  return ok({ done: true, status: after.status });
+  // changed three times in a row: the page says it could not save, shows the latest, and 完成 is pressed again
+  const block = doneBlock(await namesOf());
+  return block ? fail(409, "blocked", block) : fail(409, "busy");
 }
 
-/** The fingerprint of what was pressed 完成 on. Written only while the case is still done: an edit that slipped in has already cleared it. */
-export async function takeSnapshot(caseId: string): Promise<string> {
-  const [photos, extras] = await Promise.all([
-    db.select({ id: P.id, finalName: P.finalName, modelName: P.modelName }).from(P).where(eq(P.caseId, caseId)).orderBy(asc(P.position), asc(P.id)),
-    db.select({ name: schema.caseExtras.name }).from(schema.caseExtras).where(eq(schema.caseExtras.caseId, caseId)),
-  ]);
-  const snap = snapshotOf(photos.map((p) => ({ id: p.id, name: p.finalName ?? p.modelName })), extras.map((e) => e.name));
-  await db.execute(sql`UPDATE cases SET photos_snapshot = ${snap} WHERE id = ${caseId} AND photos_done_at IS NOT NULL`);
-  return snap;
-}
+/**
+ * Everything 完成 depends on, as one value the database works out at one moment: each photo's place, name and naming state, and the
+ * parts with no photo. Only ever compared with itself (read, then checked again inside the write), so it need not match snapshotOf.
+ */
+const stateFp = (caseId: string) => sql`md5(
+  (SELECT coalesce(jsonb_agg(jsonb_build_array(p.id, p.position, p.name_state, p.final_name, p.model_name) ORDER BY p.id), '[]'::jsonb)::text FROM case_photos p WHERE p.case_id = ${caseId})
+  || (SELECT coalesce(jsonb_agg(lower(e.name) ORDER BY e.id), '[]'::jsonb)::text FROM case_extras e WHERE e.case_id = ${caseId}))`;
 
 /**
  * The photo model's learning data: every photo's final name at Done (the label for the next training build), flagged `changed` when the
@@ -222,22 +246,27 @@ export async function recordLearning(caseId: string, orgId: string): Promise<voi
 
 // ---- extras (parts with no photo) ----
 export async function addExtra(c: CaseRow, rawName: unknown): Promise<Result> {
-  const name = canonName(rawName);
+  const name = canonName(rawName); // 1 to 120 characters, the same rule as a photo name
   if (!name) return fail(400, "name");
   if (await locked(c)) return fail(409, "status");
-  await db.execute(sql`INSERT INTO case_extras (case_id, name) VALUES (${c.id}, ${name}) ON CONFLICT (case_id, lower(name)) DO NOTHING`);
+  // the count is checked in the insert itself, so a script cannot fill a case with parts
+  const made = rowsOf(await db.execute(sql`
+    INSERT INTO case_extras (case_id, name)
+    SELECT ${c.id}, ${name} WHERE (SELECT count(*) FROM case_extras WHERE case_id = ${c.id}) < ${MAX_EXTRAS}
+    ON CONFLICT (case_id, lower(name)) DO NOTHING RETURNING id`)).length > 0;
   const [row] = await db.select().from(schema.caseExtras)
     .where(and(eq(schema.caseExtras.caseId, c.id), sql`lower(${schema.caseExtras.name}) = lower(${name})`)).limit(1);
-  if (!row) return fail(500, "server");
-  await clearDone(c.id);
-  return ok({ extra: { id: row.id, name: row.name } });
+  if (!row) return made ? fail(500, "server") : fail(400, "limit", { max: MAX_EXTRAS });
+  // a part that was already there changes nothing, so 完成 stays
+  if (made) await clearDone(c.id);
+  return ok({ extra: { id: row.id, name: row.name }, changed: made });
 }
 export async function removeExtra(c: CaseRow, extraId: number): Promise<Result> {
   if (!Number.isInteger(extraId)) return fail(400, "invalid");
   if (await locked(c)) return fail(409, "status");
-  await db.delete(schema.caseExtras).where(and(eq(schema.caseExtras.id, extraId), eq(schema.caseExtras.caseId, c.id)));
-  await clearDone(c.id);
-  return ok({}); // already gone = success
+  const gone = await db.delete(schema.caseExtras).where(and(eq(schema.caseExtras.id, extraId), eq(schema.caseExtras.caseId, c.id))).returning({ id: schema.caseExtras.id });
+  if (gone.length) await clearDone(c.id);
+  return ok({ changed: gone.length > 0 }); // already gone = success, and nothing changed: 完成 stays
 }
 
 // ---- uploads ----
@@ -295,13 +324,16 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
     ? (await db.select({ path: schema.photoUploads.path }).from(schema.photoUploads)
         .where(and(eq(schema.photoUploads.caseId, c.id), inArray(schema.photoUploads.path, paths)))).map((r) => r.path)
     : []);
-  // A retry after a lost answer: the first try stored the photo and dropped its notes. It is a duplicate below, not a rejection.
-  const stored = new Set(items.length
-    ? (await db.select({ b: P.blobPath }).from(P).where(and(eq(P.caseId, c.id), inArray(P.blobPath, items.map((i) => i.blobPath))))).map((r) => r.b)
-    : []);
+  // A retry (the answer was lost, or the first try stopped half-way): the photo is already stored under this very path. That is a
+  // success, not a duplicate and not a failure: the photo comes back as added, and what the first try left undone is done below.
+  const stored = new Map((items.length
+    ? await db.select().from(P).where(and(eq(P.caseId, c.id), inArray(P.blobPath, items.map((i) => i.blobPath))))
+    : []).map((r) => [r.blobPath, r]));
   const present = await Promise.all(items.map(async (i) => stored.has(i.blobPath) ||
     (noted.has(i.blobPath) && noted.has(i.thumbPath) && (await photoExists(i.blobPath)) && (await photoExists(i.thumbPath)))));
   items = items.filter((i, k) => { if (!present[k]) rejected.push(i.name); return present[k]; });
+  const again = new Map<string, RegisterItem>(); // by path: the same entry twice in one request is one photo
+  items = items.filter((i) => { if (!stored.has(i.blobPath)) return true; again.set(i.blobPath, i); return false; });
 
   let added: PhotoRow[] = [];
   const strays: string[] = []; // blobs of identical files: not kept
@@ -333,19 +365,26 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
     }
   }
 
-  if (added.length) {
-    await db.insert(schema.caseFiles).values(items.map((it) => ({ caseId: c.id, kind: "photo", blobUrl: it.blobPath, originalName: it.name, size: it.size })));
+  // The file rows are written last, so a stored photo without one marks a first try that stopped before the steps below were done.
+  const filed = new Set(again.size
+    ? (await db.select({ u: schema.caseFiles.blobUrl }).from(schema.caseFiles)
+        .where(and(eq(schema.caseFiles.caseId, c.id), eq(schema.caseFiles.kind, "photo"), inArray(schema.caseFiles.blobUrl, [...again.keys()])))).map((r) => r.u)
+    : []);
+  const toFile = [...(added.length ? items : []), ...[...again.values()].filter((i) => !filed.has(i.blobPath))];
+  if (toFile.length) {
     const next = statusAfterRegister(c.status);
     if (next !== c.status) await db.update(schema.cases).set({ status: next }).where(and(eq(schema.cases.id, c.id), eq(schema.cases.status, c.status)));
-    await db.execute(sql`UPDATE cases SET photos_arranged_at = NULL WHERE id = ${c.id}`); // new photos: the opening order is looked at again once they are named
     await clearDone(c.id);
+    await db.execute(sql`UPDATE cases SET photos_arranged_at = NULL WHERE id = ${c.id}`); // new photos: the opening order is looked at again once they are named
+    await db.insert(schema.caseFiles).values(toFile.map((it) => ({ caseId: c.id, kind: "photo", blobUrl: it.blobPath, originalName: it.name, size: it.size })));
   }
-  const consumed = [...items.flatMap((i) => [i.blobPath, i.thumbPath]), ...strays];
+  const consumed = [...[...items, ...again.values()].flatMap((i) => [i.blobPath, i.thumbPath]), ...strays];
   if (consumed.length) await db.delete(schema.photoUploads).where(and(eq(schema.photoUploads.caseId, c.id), inArray(schema.photoUploads.path, consumed)));
   // a file that a photo kept in this request points at is never cleaned up
-  const kept = new Set(added.flatMap((p) => [p.blobPath, p.thumbPath]));
+  const all = [...[...again.keys()].map((b) => stored.get(b)!), ...added];
+  const kept = new Set(all.flatMap((p) => [p.blobPath, p.thumbPath]));
   await Promise.all([...new Set(strays)].filter((p) => !kept.has(p)).map((p) => deletePhoto(p).catch(() => {})));
-  return ok({ added: added.map(photoDto), duplicates, rejected });
+  return ok({ added: all.map(photoDto), duplicates, rejected });
 }
 
 /** Deletes blobs that were uploaded but will not be registered. A path that belongs to a stored photo is refused. */
