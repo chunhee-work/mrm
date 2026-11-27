@@ -277,20 +277,31 @@ test("delete: reading, the worker's steps, a case made in Merimen and a done cas
   assert.deepEqual(await deleteCase(org, "u1", made), { ok: false, reason: "busy" });
 });
 
+test("delete: a case with a running job is refused", async () => {
+  const id = await mkCase("pending_doc");
+  await db.update(schema.jobs).set({ state: "running" }).where(sql`${schema.jobs.caseId} = ${id}`);
+  assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "busy" });
+  assert.equal(await deletedAt(id), null);
+});
+
 test("delete: another organisation's case looks like no case at all", async () => {
   const id = await mkCase("failed", { orgId: org2 });
   assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "not_found" });
   assert.equal(await deletedAt(id), null);
 });
 
-test("delete: the credit goes back once, and not twice for a case already refunded for failing", async () => {
+test("delete: the credit goes back for an unread case only, and not twice for a case already refunded", async () => {
   process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
   try {
     await db.insert(schema.creditsLedger).values({ orgId: org, delta: 5000, reason: "grant" });
-    const a = await mkCase("naming"); assert.ok(await debitCase(org, a));
+    const a = await mkCase("uploaded"); assert.ok(await debitCase(org, a));
     assert.equal(await creditBalance(org), 4000);
     assert.deepEqual(await deleteCase(org, "u1", a), { ok: true, refunded: true });
     assert.equal(await creditBalance(org), 5000);
+    const n = await mkCase("naming"); assert.ok(await debitCase(org, n)); // documents were read: no free read through delete
+    assert.deepEqual(await deleteCase(org, "u1", n), { ok: true, refunded: false });
+    assert.equal(await creditBalance(org), 4000);
+    await db.insert(schema.creditsLedger).values({ orgId: org, delta: 1000, reason: "top-up" });
     const b = await mkCase("failed"); assert.ok(await debitCase(org, b));
     const { refundCase } = await import("../src/lib/payments/case-credit");
     assert.ok(await refundCase(org, b, "failed")); // the worker already gave it back
