@@ -164,3 +164,16 @@ def test_the_driver_saves_b_only_with_both_switches_and_never_claims_checks(monk
     assert d.save("B", ()).error == "step_not_ported" and called == []  # dry run: never saves
     d._estimate = lambda: Est(None)
     assert d.dry_run("B", ()).line.startswith("Estimate details would set")
+
+
+def test_read_back_review_lists_quantities_and_comments_for_the_person_who_submits():
+    from autopilot_worker.merimen_estimate import review_rows
+
+    rows = [[1, "Bumper Clips", False, "Necessary", "1", ""], [2, "Bumper Clips", False, "Necessary", "30", ""], [3, "Grille Clips", False, "Necessary", "9", ""],
+            [4, "Bonnet Hinge", False, "Bent", "1", ""], [5, "Grille Badge", False, "Broken", "1", "proton"], [6, "Boot Lid Badge", False, "Broken", "1", "(SAGA)"],
+            [7, "Door Front Hinge LH", False, "Bent", "2", ""], [8, "Bonnet Support Strut LH", False, "Broken", "1", "LH"],
+            [9, "Door Front Hinge LH", False, "Bent", "2", "Upper LH & Lower LH"], [10, "Bumper Rear Bracket Side", False, "Bracket cracked", "2", ""]]
+    got = review_rows(rows)
+    assert got == ["Bumper Clips qty 1 (15 per bumper)", "Bonnet Hinge qty 1 (2, single row)", "Grille Badge: comment should be the badge name in capitals, e.g. (PROTON)",
+                   "Door Front Hinge LH: comment Upper / Lower missing", "Bonnet Support Strut LH: has LH/RH, no comment needed",
+                   "Bumper Rear Bracket Side: qty 2 needs the sides in the comment (Front LH & Front RH)"]

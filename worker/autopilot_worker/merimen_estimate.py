@@ -93,7 +93,7 @@ def plan_details(parts: list, miscs: list, *, only_empty: bool = False) -> dict:
     A Paintwork row is set even when Merimen makes it read-only (the popup leaves it so); the generic one is skipped when a Solvent row
     exists (never 500 twice)."""
     pdc = {}
-    for i, name, ro, val in parts:
+    for i, name, ro, val, *_ in parts:
         if ro or not (name or "").strip() or (only_empty and (val or "").strip()):
             continue
         pdc[str(i)] = cond(name)
@@ -118,7 +118,8 @@ _READ = "() => { const rowName = " + _NAME + """; const v = s => document.queryS
   const pn = +((v('[name=PROWCNT]') || {}).value || 0), mn = +((v('[name=MROWCNT]') || {}).value || 0), parts = [], miscs = [];
   for (let i = 1; i <= pn; i++) { const e = v('[name=PDC' + i + ']'); if (!e) continue; const ppt = v('[name=PPT' + i + ']');
     let nm = rowName(ppt || e); if (!nm) { const d = document.getElementById('PDS' + i) || document.getElementById('PTDS' + i); nm = d ? (d.tagName === 'INPUT' ? d.value : d.textContent).replace(/\\s+/g, ' ').trim() : ''; }
-    parts.push([i, nm, !!e.readOnly, e.value || '']); }
+    const q = v('[name=PBT' + i + ']'), c = document.getElementById('PCM' + i);
+    parts.push([i, nm, !!e.readOnly, e.value || '', q ? (q.value || '1') : '1', c ? (c.value || '').trim() : '']); }
   for (let k = 1; k <= mn; k++) { const m = v('[name=MMI' + k + ']'); if (!m) continue; miscs.push([k, rowName(m), !!m.readOnly, m.value || '']); }
   return {pn, mn, pdc: document.querySelectorAll('[name^=PDC]').length, parts, miscs, man: (document.getElementById('pwm_man0') || {}).innerText || '',
           pw: typeof PWEdit === 'function'}; }"""
@@ -158,6 +159,7 @@ class EstimateResult:
     misc: dict = field(default_factory=dict)  # misc row name -> price set (or planned)
     paint: str = ""  # the Paint Manufacturer line after the popup
     notes: list = field(default_factory=list)
+    review: list = field(default_factory=list)  # read-only findings for the person who submits (quantities, comments: playbook 08)
 
     def line(self) -> str:
         if not self.ok:
@@ -168,8 +170,12 @@ class EstimateResult:
             return f"Estimate details stopped: {why}."[:300]
         verb = "set" if self.mode == "live" else "would set"
         m = ", ".join(f"{k} {v}" for k, v in list(self.misc.items())[:6])
-        return f"Estimate details {verb}: conditions on {self.parts} part rows, misc {len(self.misc)}" + (f" ({m})" if m else "") + (
+        out = f"Estimate details {verb}: conditions on {self.parts} part rows, misc {len(self.misc)}" + (f" ({m})" if m else "") + (
             f", paint '{self.paint}'" if self.paint else "") + "."
+        if self.mode == "live":
+            out += (f" Check before submit ({len(self.review)}): " + "; ".join(self.review[:5]) + ("; ..." if len(self.review) > 5 else "") + "."
+                    if self.review else " Read-back check: nothing to fix.")
+        return out
 
 
 class MerimenEstimate:
@@ -316,6 +322,7 @@ class MerimenEstimate:
                 res.code = "paint_not_set"
                 return res
             res.ok = True
+            res.review = review_rows(r["parts"])
             return res
         except EstimateError as e:
             res.code = e.code.split(":")[0]
@@ -324,6 +331,41 @@ class MerimenEstimate:
             return res
         finally:
             _close(page)
+
+
+_PAIR = re.compile(r"^(bonnet hinge|tailgate support strut|boot ?lid hinge|tailgate hinge|bumper (front|rear) sensor|door (front|rear) hinge)$")
+
+
+def review_rows(parts: list) -> list:
+    """Read-only checks on the saved rows (playbook 08 "Quantities to check" and "Row comments"). Nothing is changed: each finding is
+    one short line for the person who submits."""
+    out = []
+    for row in parts:
+        name = (row[1] or "").strip()
+        qty, cmt = (row[4] if len(row) > 4 else "1"), (row[5] if len(row) > 5 else "")
+        n = name.lower()
+        try:
+            q = int(float(qty or "1"))
+        except ValueError:
+            q = 1
+        if not name:
+            continue
+        side = re.search(r"\b(lh|rh)\b", n)
+        if re.search(r"bumper clips", n) and q % 15:
+            out.append(f"{name} qty {q} (15 per bumper)")
+        elif re.search(r"grille clips", n) and q != 9:
+            out.append(f"{name} qty {q} (9)")
+        elif _PAIR.search(n) and q != 2:
+            out.append(f"{name} qty {q} (2, single row)")
+        if re.search(r"badge|emblem", n) and not re.fullmatch(r"\([A-Z0-9 .\-/]+\)", cmt):
+            out.append(f"{name}: comment should be the badge name in capitals, e.g. (PROTON)")
+        elif re.search(r"door .*hinge", n) and not re.search(r"upper|lower", n) and not re.search(r"upper|lower", cmt, re.I):
+            out.append(f"{name}: comment Upper / Lower missing")
+        elif side and cmt and not re.search(r"hinge", n):
+            out.append(f"{name}: has LH/RH, no comment needed")
+        elif not side and q == 2 and not cmt and re.search(r"sensor|bracket|link|absorber|lamp", n):
+            out.append(f"{name}: qty 2 needs the sides in the comment (Front LH & Front RH)")
+    return out
 
 
 def _paint_ok(miscs: list) -> bool:
