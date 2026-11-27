@@ -5,21 +5,26 @@ export type StepState = "complete" | "current" | "locked";
 
 const DOCS_OPEN = ["uploaded", "reading", "failed", "pending_doc"];
 
+/** THE rule: which step a case is on. The step bar, the home groups and the case table all start from this one function. */
+export function currentStepOf(c: { status: string; photosDone?: boolean }): StepId {
+  if (DOCS_OPEN.includes(c.status)) return "docs";
+  if (c.status === "done") return "done";
+  return c.photosDone ? "merimen" : "photos";
+}
+
 /**
  * complete: finished, a click goes back to look. current: where the user is now. locked: not reachable until the one before is finished.
  * The photo desk is also open while a document is still missing (the server already allowed that), but it only counts as finished at 完成.
  */
 export function stepsOf(c: { status: string; photos: number; photosDone: boolean }): { id: StepId; state: StepState; open: boolean }[] {
-  const docsDone = !DOCS_OPEN.includes(c.status);
-  const photosDone = c.photosDone || c.status === "done";
   const finished = c.status === "done";
-  const current: StepId = !docsDone ? "docs" : !photosDone ? "photos" : !finished ? "merimen" : "done";
+  const current = currentStepOf(c);
   const at = STEP_IDS.indexOf(current);
   const deskOpen = !["uploaded", "reading", "failed"].includes(c.status) && c.photos > 0;
   return STEP_IDS.map((id, i) => {
     const state: StepState = finished ? "complete" : i < at ? "complete" : i === at ? "current" : "locked";
     // locked steps cannot be opened; the desk stays reachable while only documents are missing
     const open = state !== "locked" || (id === "photos" && deskOpen);
-    return { id, state: state === "locked" && open ? "current" : state, open };
+    return { id, state, open }; // open + locked = reachable but not the step you are on (the desk while a document is missing)
   });
 }
