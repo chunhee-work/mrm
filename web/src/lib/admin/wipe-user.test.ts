@@ -2,7 +2,16 @@ import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { previewWipe, wipeUser, type WipeStore } from "./wipe-user";
+import { errorKind, previewWipe, wipeUser, type WipeStore } from "./wipe-user";
+
+test("what a failed wipe writes to the server log: the kind of error, never the e-mail or the query it carries", () => {
+  // the shape of a failed query: its message holds the values that were sent
+  const failed = Object.assign(new Error('Failed query: SELECT id, name, email FROM "user" WHERE lower(email) = $1\nparams: ahmad@workshop.my'), { name: "DrizzleQueryError", cause: Object.assign(new Error("connection reset for ahmad@workshop.my"), { code: "57P01" }) });
+  assert.equal(errorKind(failed), "DrizzleQueryError 57P01");
+  assert.equal(errorKind(Object.assign(new Error("ahmad@workshop.my"), { code: "ECONNRESET" })), "Error ECONNRESET");
+  assert.equal(errorKind(new TypeError("x")), "TypeError");
+  for (const odd of [null, undefined, "ahmad@workshop.my", { message: "ahmad@workshop.my" }]) assert.equal(errorKind(odd), "Error");
+});
 
 // DESTRUCTIVE (TRUNCATE): same guard as db.test.ts: only on a localhost database whose name contains "test", with WIPE_DB_TESTS=1.
 const url = process.env.DATABASE_URL ?? "";
