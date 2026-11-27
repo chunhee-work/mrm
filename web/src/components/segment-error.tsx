@@ -1,5 +1,7 @@
 "use client";
+import { useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 
 /**
@@ -8,13 +10,25 @@ import { useT } from "@/components/lang-provider";
  */
 export default function SegmentError({ reset, home }: { reset: () => void; home: "/dashboard" | "/" }) {
   const { t } = useT();
+  const again = useTryAgain(reset);
   return (
     <div className="wrap flex flex-1 flex-col justify-center py-14" role="alert">
       <h1 className="display-2 text-[30px] text-fg lg:text-[36px]">{t("err.title")}</h1>
       <div className="mt-7 flex flex-wrap items-center gap-x-7 gap-y-2">
-        <button type="button" onClick={reset} className="btn-primary">{t("err.retry")}</button>
+        <button type="button" onClick={again} className="btn-primary">{t("err.retry")}</button>
         <Link href={home} className="btn-quiet">{t(home === "/" ? "nf.home" : "nav.myCases")}</Link>
       </div>
     </div>
   );
+}
+
+/**
+ * What "Try again" does. `reset()` alone only draws the same failed answer of the server again, so the button did nothing
+ * when the page had failed on the server. The page's data is asked for again too, and both go in one transition, so the
+ * error screen stays until the new answer is there.
+ */
+export function useTryAgain(reset: () => void) {
+  const router = useRouter();
+  const [, start] = useTransition();
+  return () => start(() => { router.refresh(); reset(); });
 }

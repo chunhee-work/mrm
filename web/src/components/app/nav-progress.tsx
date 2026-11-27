@@ -10,6 +10,7 @@ export default function NavProgress() {
   const path = usePathname();
   const [on, setOn] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const from = useRef(""); // the address when the click came
   useEffect(() => {
     // Next's <Link> cancels the browser's own navigation before a plain listener runs, so the click is looked at in the
     // capture phase (nothing cancelled yet). The bar only starts when the same click also reaches the window: a guard that
@@ -23,6 +24,7 @@ export default function NavProgress() {
     const start = (e: MouseEvent) => {
       if (e !== seen) return;
       seen = null;
+      from.current = location.href;
       setOn(true);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setOn(false), 15000); // never stays on if a page never comes
@@ -32,6 +34,18 @@ export default function NavProgress() {
     return () => { document.removeEventListener("click", look, true); window.removeEventListener("click", start); };
   }, []);
   useEffect(() => { setOn(false); if (timer.current) clearTimeout(timer.current); }, [path]);
+  // A link to the same page with another query (Closed cases -> Cases, or back from a search) keeps its path, so the effect
+  // above never ran and the bar stayed its full 15 s. While the bar runs the address itself is watched: Next writes the new
+  // address the moment the new page is shown, with or without a new path.
+  useEffect(() => {
+    if (!on) return;
+    const id = setInterval(() => {
+      if (location.href === from.current) return;
+      setOn(false);
+      if (timer.current) clearTimeout(timer.current);
+    }, 100);
+    return () => clearInterval(id);
+  }, [on]);
   if (!on) return null;
   return (
     <div aria-hidden="true" data-testid="nav-progress" className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[3px] overflow-hidden">

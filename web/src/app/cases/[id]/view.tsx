@@ -1,6 +1,6 @@
 "use client";
 import WorkshopPicker, { type WorkshopOpt } from "@/components/app/workshop-picker";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { needsUser } from "@/lib/ext/login-state";
 import { useRouter } from "next/navigation";
@@ -49,25 +49,37 @@ export type CaseDetail = {
 };
 
 const REFRESH_MS = 5_000;
+const SLOW_MS = 30_000; // the user's turn: only the worker's side notes can still come
+const START_MS = 20_000; // the server takes a press of "Read again" within a second or two: this long with nothing taken means it never got there
 
 export default function CaseView({ c }: { c: CaseDetail }) {
   const { t, lang } = useT();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState(""); // the message key of what went wrong with "Read again"
   const [allLog, setAllLog] = useState(false);
 
   const working = c.status === "uploaded" || c.status === "reading";
+  const failed = c.status === "failed";
+  const pending = c.status === "pending_doc";
+  // whose turn it is (owner 2026-11-27): the user's when the photo names wait for them, or the worker asks for them
+  const photosOpen = c.desk != null && c.desk.total > 0 && !c.desk.doneAt;
+  const yourTurn = !working && !failed && !pending && (c.status === "waiting_user" || (photosOpen && ["naming", "phase_a"].includes(c.status)));
   // poll while the case moves by itself (read, then the worker's steps); stop when it waits for a person or is done
   const moving = working || ["naming", "phase_a", "phase_b", "checking"].includes(c.status);
+  // Fast only while something is in progress: the system is working, or "Read again" was pressed and its answer is still out.
+  // On the user's turn the page changes only when they do something (or the worker adds a note): a look now and then is enough.
+  const everyMs = busy ? REFRESH_MS : !moving ? 0 : yourTurn ? SLOW_MS : REFRESH_MS;
   useEffect(() => {
-    if (!moving) return;
-    // stop at any other status, pause in a hidden tab, catch up when it is shown again
-    const tick = () => { if (!document.hidden) router.refresh(); };
-    const id = window.setInterval(tick, REFRESH_MS);
+    if (!everyMs) return;
+    // stop at any other status, pause in a hidden tab and while offline (a refresh that cannot reach the server makes Next
+    // load the whole page again, and the browser shows its own error page); catch up when the tab or the connection is back
+    const tick = () => { if (!document.hidden && navigator.onLine) router.refresh(); };
+    const id = window.setInterval(tick, everyMs);
     document.addEventListener("visibilitychange", tick);
-    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", tick); };
-  }, [moving, router]);
+    window.addEventListener("online", tick);
+    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", tick); window.removeEventListener("online", tick); };
+  }, [everyMs, router]);
 
   // pending_doc is not retried here: the same files would give the same missing list (an add-documents flow comes later)
   const canRetry = c.status === "failed" && !userFixable(c.error);
@@ -84,14 +96,32 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     router.refresh();
   }
 
+  // "Read again": the answer only comes when the read is over, which can take minutes. Until then the page keeps looking at
+  // the case itself (the fast poll above): once the server shows it as being read, the page follows the case, not the request.
+  // A press that never got to the server is given up after START_MS, and the button is back with the message.
+  const taken = useRef(false); // the server took this press: the case was seen being read
+  useEffect(() => {
+    if (working) setErr(""); // being read now: a message about an earlier press no longer applies
+    if (!busy) return;
+    if (working) taken.current = true;
+    else if (taken.current) setBusy(false); // read and over while the answer is still out (or lost): the button is free again
+  }, [busy, working]);
   async function retry() {
-    setBusy(true); setErr(false);
+    if (busy) return;
+    setBusy(true); setErr(""); taken.current = false;
+    const stop = new AbortController();
+    const giveUp = window.setTimeout(() => { if (!taken.current) stop.abort(); }, START_MS);
+    let why = "";
     try {
-      const r = await fetch(`/api/cases/${c.id}/scan`, { method: "POST" });
-      if (r.status === 402) { setErr(true); } else if (!r.ok && r.status !== 409) setErr(true); // 409 = someone already started it
-    } catch { setErr(true); }
+      const r = await fetch(`/api/cases/${c.id}/scan`, { method: "POST", signal: stop.signal });
+      if (r.status === 402) why = "new.noCredits"; // no credit left: say that, not "could not start"
+      else if (!r.ok && r.status !== 409) why = "case.retryFail"; // 409 = someone already started it
+    } catch { why = "case.retryFail"; }
+    window.clearTimeout(giveUp);
+    // a read the server did start is shown by the case itself (its status and its reason), whatever became of this request
+    if (why && !taken.current) setErr(why);
     setBusy(false);
-    router.refresh();
+    if (navigator.onLine) router.refresh(); // offline it could only fail, and a failed refresh loads the whole page again
   }
 
   // only what the documents gave: an empty value is left out, not shown as a dash
@@ -111,15 +141,11 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   // past the documents and no accepted Merimen login yet: step 3 cannot run, so ask for it here
   const merimenAsk = !!c.cred && !!c.credConfigured && c.cred.storageOk && !["uploaded", "reading", "failed", "pending_doc", "done"].includes(c.status)
     && (!c.cred.complete || needsUser(c.cred));
-  const failed = c.status === "failed";
-  const pending = c.status === "pending_doc";
   const finished = !working && !failed;
   const headline = working ? t("case.h.reading") : failed ? t("case.h.failed") : pending ? t("case.h.pending", { n: String(c.missing.length || 1) }) : t("case.h.ok");
 
   // where the case is and what comes next (owner 2026-11-27: after "Read" the page said nothing about what happens now,
   // whose turn it is, or what comes after). The system's turn says "nothing for you to do"; the user's turn has the button.
-  const photosOpen = c.desk != null && c.desk.total > 0 && !c.desk.doneAt;
-  const yourTurn = !working && !failed && !pending && (c.status === "waiting_user" || (photosOpen && ["naming", "phase_a"].includes(c.status)));
   const later = !working && !failed && !pending && c.status !== "done"; // read, and the work goes on after it
   const nowKey = yourTurn ? "case.now.you" : ({ naming: "case.now.naming", phase_a: "case.now.phase_a", waiting_user: "case.now.phase_a", phase_b: "case.now.phase_b", checking: "case.now.checking" } as Record<string, string>)[c.status];
   const nextKey = yourTurn ? (c.status === "waiting_user" ? "case.next.phase_b" : "case.next.phase_a")
@@ -140,7 +166,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const Retry = () => canRetry ? (
     <div>
       <button type="button" onClick={retry} disabled={busy || working} className="btn-primary">{busy ? t("case.retrying") : t("case.retry")}</button>
-      {err && <p role="alert" className="field-error mt-3">{t("case.retryFail")}</p>}
+      {err && <p role="alert" className="field-error mt-3">{t(err)}</p>}
     </div>
   ) : null;
 
