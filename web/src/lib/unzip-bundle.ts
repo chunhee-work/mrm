@@ -27,7 +27,8 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
   try {
     // first look at the names only (nothing is inflated): a zip of several vehicles is one case per vehicle, not one case
     const names: string[] = [];
-    unzipSync(buf, { filter: (f) => { if (f.originalSize > 0) names.push(f.name); return false; } }); // empty entries are skipped below anyway
+    // empty entries are skipped below anyway; a stored entry that holds bytes counts whatever size it declares (as in planVehicles)
+    unzipSync(buf, { filter: (f) => { if (f.originalSize > 0 || (f.compression === 0 && f.size > 0)) names.push(f.name); return false; } });
     if (vehicleFolders(names).length > 1) throw new ZipRejected("multi", ZIP_WHY.multi);
     if (platesAnywhere(names) > 1) throw new ZipRejected("layout", ZIP_WHY.layout); // cars at different levels: never one case
     files = unzipSync(buf, {
@@ -36,8 +37,10 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
         if (f.name.endsWith("/") || f.name.startsWith("__MACOSX/") || f.name.split("/").some((p) => p.startsWith("."))) return false;
         if (!/\.pdf$/i.test(leaf) && !PHOTO.test(leaf)) return false;
         if (++count > limits.maxEntries) throw new ZipRejected("too_many", ZIP_WHY.too_many);
-        if (f.originalSize > limits.maxEntryBytes) throw new ZipRejected("too_big", ZIP_WHY.entry_big);
-        total += f.originalSize;
+        // a stored entry opens as its stored bytes, whatever size it declares: the larger of the two counts toward the limits
+        const sz = f.compression === 0 ? Math.max(f.size, f.originalSize) : f.originalSize;
+        if (sz > limits.maxEntryBytes) throw new ZipRejected("too_big", ZIP_WHY.entry_big);
+        total += sz;
         if (total > limits.maxTotalBytes) throw new ZipRejected("too_big", ZIP_WHY.too_big);
         if (buf.length > 0 && total / buf.length > limits.maxRatio) throw new ZipRejected("bomb", ZIP_WHY.bomb);
         return true;
@@ -93,8 +96,8 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
   // (a stored entry that holds bytes counts whatever size it declares: the size check below refuses it)
   const filled = all.filter((f) => f.size > 0 || (f.method === 0 && f.stored > 0)).map((f) => f.name);
   const { cars: prefixes, extras: named } = vehicleLayout(filled);
-  const nonEmpty = new Set(all.filter((f) => f.size > 0).map((f) => f.name));
-  const extras = named.filter((x) => !x.endsWith("/") ? nonEmpty.has(x) : all.some((f) => f.size > 0 && f.name.startsWith(x) && usableIn(f.name)));
+  // every extra is a non-empty usable file or a folder holding one (the layout saw only those), so none is ever silently left out
+  const extras = named;
   if (prefixes.length < 2) {
     if (platesAnywhere(filled) > 1) throw new ZipRejected("layout", ZIP_WHY.layout);
     throw new ZipRejected("empty", ZIP_WHY.empty);

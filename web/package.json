@@ -9,7 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --conditions=react-server --test \"src/**/*.test.ts\" && node --import tsx --test tests/*.test.ts && node --conditions=react-server --import tsx --test \"test/*.test.ts\" && tsx scripts/test-scan-case.ts && tsx scripts/test-bundle-photos.ts",
+    "test": "tsx --conditions=react-server --test \"src/**/*.test.ts\" && node --import tsx --test tests/*.test.ts && node --conditions=react-server --import tsx --test \"test/*.test.ts\" && tsx scripts/test-scan-case.ts && tsx scripts/test-bundle-photos.ts && tsx --conditions=react-server scripts/test-split.ts",
     "e2e": "node e2e/desk.e2e.mjs"
   },
   "dependencies": {

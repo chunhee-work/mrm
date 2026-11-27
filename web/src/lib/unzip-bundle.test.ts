@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { unzipBundle, planVehicles, unzipVehicle, ZipRejected } from "./unzip-bundle";
+import { unzipBundle, planVehicles, unzipVehicle, ZipRejected, SPLIT_LIMITS, ZIP_LIMITS } from "./unzip-bundle";
 
 const pdf = strToU8("%PDF-1.4 fake");
 const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
@@ -147,6 +147,10 @@ test("cars inside two wrapping folders are found; cars at different levels are r
   const mixedLevels = zipSync({ "DCD4004/a.pdf": pdf, "More/NCH5773/b.pdf": pdf });
   assert.throws(() => unzipBundle(mixedLevels), (e: ZipRejected) => e.code === "layout");
   assert.throws(() => planVehicles(mixedLevels), (e: ZipRejected) => e.code === "layout");
+  // the same inside two wrapping folders
+  const wrapped = zipSync({ "S/S/DCD4004/a.pdf": pdf, "S/S/More/NCH5773/b.pdf": pdf });
+  assert.throws(() => unzipBundle(wrapped), (e: ZipRejected) => e.code === "layout");
+  assert.throws(() => planVehicles(wrapped), (e: ZipRejected) => e.code === "layout");
   assert.equal(unzipBundle(zipSync({ "WA1234B/Docs/a.pdf": pdf, "WA1234B/Photos/1.jpg": jpg })).length, 2);
   assert.equal(unzipBundle(zipSync({ "Policy/WA1234B/p.pdf": pdf, "Claim/WA1234B/c.pdf": pdf })).length, 2);
   // one car with a plate-like sub-folder ("KP1") stays one ordinary case
@@ -173,4 +177,19 @@ test("planVehicles: an encrypted file outside the car folders (a readme) does no
   const pdf = strToU8("%PDF-1.4 hello");
   const z = zipSync({ "readme.txt": [strToU8("hi"), { level: 0 }], "DCD4004/a.pdf": [pdf, { level: 0 }], "NCH5773/b.pdf": [pdf, { level: 0 }] });
   assert.equal(planVehicles(patchCd(z, 8, 1, 2)).length, 2); // readme.txt is the first entry and carries the flag
+});
+
+test("planVehicles: the first rule broken is the one reported (a file too big is named before its car being too big)", () => {
+  const z = zipSync({ "DCD4004/a.pdf": [strToU8("%PDF-1.4 " + "x".repeat(40)), { level: 0 }], "NCH5773/b.pdf": [strToU8("%PDF-1.4 b"), { level: 0 }] });
+  assert.throws(() => planVehicles(z, { ...SPLIT_LIMITS, maxEntryBytes: 20, maxCarBytes: 10 }), (e: ZipRejected) => e.code === "too_big");
+  assert.throws(() => planVehicles(z, { ...SPLIT_LIMITS, maxCarBytes: 30 }), (e: ZipRejected) => e.code === "car_big");
+});
+
+test("a stored entry that declares 0 bytes but holds some: outside the cars it is an extra; on the one-case path its stored bytes count", () => {
+  const pdf = strToU8("%PDF-1.4 hello");
+  // cover.pdf is the first entry, so patchCd changes its declared size
+  const z = patchCd(zipSync({ "cover.pdf": [pdf, { level: 0 }], "DCD4004/a.pdf": [pdf, { level: 0 }], "NCH5773/b.pdf": [pdf, { level: 0 }] }), 24, 0, 4);
+  assert.throws(() => planVehicles(z), (e: ZipRejected) => e.code === "mixed");
+  const one = patchCd(zipSync({ "a.pdf": [pdf, { level: 0 }] }), 24, 0, 4);
+  assert.throws(() => unzipBundle(one, { ...ZIP_LIMITS, maxEntryBytes: 5 }), (e: ZipRejected) => e.code === "too_big");
 });
