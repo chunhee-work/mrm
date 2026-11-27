@@ -632,6 +632,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     }
     if (rep.unchecked) parts.push(tt("up.unchecked", { n: rep.unchecked }));
     say(parts.length ? parts.join(" · ") : tt("up.none"));
+    if (rep.added.length) onDoneRef.current?.(); // inside a first-page line: the line's counts and step dots follow the new photos
   }, [up, orgId, load, say]);
   useEffect(() => {
     if (!up) return;

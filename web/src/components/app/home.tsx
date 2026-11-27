@@ -169,7 +169,7 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
   const job = sent || r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null))
     ? (
       <>
-        <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} onPhotos={() => setDeskOpen((v) => !v)} /></ul>
+        <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} onPhotos={() => { if (!DESK_WAITS.includes(r.status)) setDeskOpen((v) => !v); }} /></ul>
         {deskOpen && desk}
       </>
     )
@@ -300,7 +300,9 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const live = busy; // something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
   useEffect(() => {
     if (!live) return;
-    const id = window.setInterval(() => { if (!document.hidden) router.refresh(); }, REFRESH_MS);
+    // not in a hidden tab, and not while offline: a refresh that cannot reach the server makes Next reload the whole page,
+    // which would lose typed text and running uploads
+    const id = window.setInterval(() => { if (!document.hidden && navigator.onLine) router.refresh(); }, REFRESH_MS);
     return () => window.clearInterval(id);
   }, [live, router]);
 
