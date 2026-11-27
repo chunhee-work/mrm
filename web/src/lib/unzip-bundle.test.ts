@@ -50,8 +50,9 @@ test("one car sorted into folders by what they hold stays one case (Docs/Photos,
   assert.equal(unzipBundle(zipSync({ "AAA1/Docs/rc.pdf": pdf, "AAA1/Photos/1.jpg": jpg })).length, 2);
 });
 
-test("planVehicles: one plan per plate folder from the file list; a plate folder without a PDF is not a car", () => {
-  const z = zipSync({ "ALL/AAA1/a.pdf": pdf, "ALL/AAA1/1.jpg": jpg, "ALL/AAA1/2.JPG": jpg, "ALL/BBB2/b.pdf": pdf, "ALL/BBB2/x.txt": strToU8("x"), "ALL/CCC3/1.jpg": jpg, "__MACOSX/ALL/._a": pdf });
+test("planVehicles: one plan per plate folder from the file list; a plate folder without a PDF refuses the zip (its photos would be lost)", () => {
+  const z = zipSync({ "ALL/AAA1/a.pdf": pdf, "ALL/AAA1/1.jpg": jpg, "ALL/AAA1/2.JPG": jpg, "ALL/BBB2/b.pdf": pdf, "ALL/BBB2/x.txt": strToU8("x"), "__MACOSX/ALL/._a": pdf });
+  assert.throws(() => planVehicles(zipSync({ "ALL/AAA1/a.pdf": pdf, "ALL/BBB2/b.pdf": pdf, "ALL/CCC3/1.jpg": jpg })), (e: ZipRejected) => e.code === "mixed");
   const plan = planVehicles(z);
   assert.deepEqual(plan.map((v) => [v.plate, v.files]), [["AAA1", 3], ["BBB2", 1]]);
   assert.deepEqual(unzipVehicle(z, plan[0].prefix).map((e) => e.name).sort(), ["1.jpg", "2.JPG", "a.pdf"]);
@@ -68,10 +69,16 @@ test("planVehicles: limits per car, too many cars, and a one-car zip are refused
   assert.throws(() => planVehicles(zipSync({ "Docs/a.pdf": pdf, "Photos/1.jpg": jpg })), (e: ZipRejected) => e.code === "empty");
 });
 
-test("planVehicles: a car folder whose PDFs are all empty is dropped; a PDF too big to read is refused before anything is stored", () => {
+test("planVehicles: any folder or file a split would leave out refuses the zip; a PDF too big to read is refused before anything is stored", () => {
   const pdf = strToU8("%PDF-1.4 x");
-  const plan = planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "CCC3333/a.pdf": new Uint8Array(0), "CCC3333/1.jpg": strToU8("jpg") }));
-  assert.deepEqual(plan.map((v) => v.plate), ["AAA1111", "BBB2222"]);
+  const mixed = (e: ZipRejected) => e.code === "mixed" && e.message === "the zip holds car folders and other files beside them";
+  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "CCC3333/a.pdf": new Uint8Array(0), "CCC3333/1.jpg": strToU8("jpg") })), (e: ZipRejected) => e.code === "car_no_pdf");
+  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/b.pdf": new Uint8Array(0) })), (e: ZipRejected) => e.code === "car_no_pdf");
+  assert.throws(() => planVehicles(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/b.pdf": pdf, "cover.pdf": pdf })), mixed);
+  assert.throws(() => unzipBundle(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/b.pdf": pdf, "cover.pdf": pdf })), (e: ZipRejected) => e.code === "multi");
+  assert.throws(() => planVehicles(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/a.pdf": pdf, "S/Photos/1.jpg": strToU8("jpg") })), mixed);
+  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "cover.pdf": pdf })), mixed);
+  assert.equal(planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "readme.txt": strToU8("x"), "empty.pdf": new Uint8Array(0) })).length, 2);
   assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/b.pdf": pdf }), { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxPdfBytes: 5 }),
     (e: ZipRejected) => e.code === "pdf_big" && e.message === "a PDF in the zip is larger than 25 MB");
 });
@@ -89,4 +96,12 @@ test("numbered folders (Doc1, Car 2, Day 1) and month folders (Nov 2026) of one 
     assert.equal(unzipBundle(z).length, 2, a);
     assert.throws(() => planVehicles(z), (e: ZipRejected) => e.code === "empty", a);
   }
+});
+
+test("files in hidden folders inside a car folder are not case files", () => {
+  const pdf = strToU8("%PDF");
+  const z = zipSync({ "AAA1111/a.pdf": pdf, "AAA1111/.thumbs/t.jpg": strToU8("jpg"), "AAA1111/.x/b.pdf": pdf, "BBB2222/b.pdf": pdf });
+  assert.deepEqual(planVehicles(z).map((v) => v.files), [1, 1]);
+  assert.deepEqual(unzipVehicle(z, "AAA1111/").map((e) => e.name), ["a.pdf"]);
+  assert.deepEqual(unzipBundle(zipSync({ "Docs/a.pdf": pdf, "Docs/.cache/x.jpg": strToU8("jpg") })).map((e) => e.name), ["a.pdf"]);
 });
