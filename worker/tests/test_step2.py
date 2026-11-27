@@ -292,3 +292,14 @@ def test_phase_b_goes_on_to_checks_only_if_the_names_it_saved_are_still_final():
     assert o.job_state == "done" and o.case_status == "checking" and o.enqueue == ["checks"]
     assert o.require_snapshot == c["photos_snapshot"] and o.require_snapshot
     assert "names changed meanwhile" in o.stale_event
+
+
+def test_phase_b_a_broken_select_parts_page_stops_for_a_person():
+    from autopilot_worker.merimen_step2 import Step2Error
+
+    class Broken(FakeStep2):
+        def apply(self, case, plan):
+            raise Step2Error("no_save_button")
+
+    o = run_phase("B", case_b(), writes=True, driver=D(Broken(), Fake(held=[])))
+    assert o.job_state == "failed" and o.case_status == "waiting_user" and o.error == "step2" and "no_save_button" in o.event
