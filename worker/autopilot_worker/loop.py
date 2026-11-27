@@ -118,7 +118,13 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
     repo.finish_verify(org, decision, email_to=email, poster=cfg.mailer)
 
 
-def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None) -> None:
+# port -> when this process last started Chrome on it. Chrome needs a few seconds before its debugging port answers; starting it a
+# second time on the same profile only opens one more tab in the Chrome that is already there.
+_launched: dict[int, float] = {}
+LAUNCH_WAIT = 30.0
+
+
+def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic) -> None:
     for row in repo.wanted():
         org = row["org_id"]
         if row["wanted"] == "stop":
@@ -134,8 +140,13 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             continue
         port = cfg.accounts[account]
         profile = profile_dir(cfg.state_dir, account)
-        launch(chrome_argv(cfg.chrome_bin, port, profile))
-        info = inspect(port)
+        argv = chrome_argv(cfg.chrome_bin, port, profile)
+        info = inspect(port)  # ask the debugging port first: a Chrome that answers is never started again
+        if info is None:
+            t = now()
+            if port not in _launched or t - _launched[port] >= LAUNCH_WAIT:
+                _launched[port] = t
+                launch(argv)
         if not info:
             repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="not_logged_in")
             login_notice(cfg.state_dir)
@@ -160,7 +171,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     _at("cleanup")
     maybe_cleanup(cfg, repo, delete_blob)
     _at("session_sync")
-    sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep)
+    sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep, now=now)
     _at("followup_cases")
     for case, jobs in repo.followup_cases():
         if repo.gate(case["org_id"], env_on=cfg.ext_connect) != "ready":
