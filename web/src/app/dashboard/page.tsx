@@ -64,7 +64,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // the file and photo lookups run only for the open cases that are shown
   const openHere = rows.filter((r) => r.status !== "done");
   const openRows = await caseRows(openCount > openHere.length
-    ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted, ne(schema.cases.status, "done"))).orderBy(desc(schema.cases.createdAt)).limit(500)
+    ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted, ne(schema.cases.status, "done")))
+      // cases waiting on the user first, so the cap never cuts them: failed / missing documents, then photos not confirmed
+      .orderBy(sql`case when ${schema.cases.status} in ('failed', 'pending_doc') then 0 when ${schema.cases.photosDoneAt} is null then 1 else 2 end`, desc(schema.cases.createdAt)).limit(500)
     : openHere);
   return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} cred={await credView(orgId)} />;
 }

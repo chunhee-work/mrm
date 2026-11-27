@@ -8,7 +8,7 @@ export type Cred = {
   workshop: string | null; workshops: { slot: number; name: string }[]; manager: string | null; adjuster: string | null; complete: boolean; storageOk: boolean; keyOk: boolean; blocks: boolean;
 };
 
-export const CHECKING = ["queued", "checking", "otp_submitted"];
+import { BAD, CHECKING } from "@/lib/ext/login-state";
 
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -193,7 +193,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   );
 
   // complete: a small summary on the side
-  const bad = cred.verifyState === "bad_credentials" || cred.verifyState === "unknown" || cred.verifyState === "locked";
+  const bad = BAD.includes(cred.verifyState);
   const good = cred.verifyState === "ok" && !cred.blocked;
   const checking = CHECKING.includes(cred.verifyState);
   // what Merimen said about the login (and the code box when it asks for one)

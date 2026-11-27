@@ -9,6 +9,7 @@ import { LANGS, type Lang } from "@/lib/i18n";
 import { whatsappHref } from "@/lib/site";
 import { Gear, logOut } from "./app-bar";
 import type { Cred } from "./profile-card";
+import { needsUser } from "@/lib/ext/login-state";
 
 function Icon({ d }: { d: string }) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0"><path d={d} /></svg>;
@@ -90,9 +91,9 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
   );
 }
 
-const PANEL = "M4 4h16v16H4zM9.5 4v16";
+const FOLD = "M9 6l6 6-6 6"; // a plain ">" (owner 2026-11-27)
 
-export default function SideBar({ email, name, credits: credits0, cred: cred0, closed: closed0, thin: thin0 }: { email: string; name: string; credits: number | null; cred: Cred | null; closed: number; thin: boolean }) {
+export default function SideBar({ email, name, credits: credits0, cred: cred0, closed: closed0, thin: thin0 }: { email: string; name: string; credits: number | null; cred: Cred | null; closed: number | null; thin: boolean }) {
   const { t } = useT();
   const path = usePathname();
   const sp = useSearchParams();
@@ -119,7 +120,8 @@ export default function SideBar({ email, name, credits: credits0, cred: cred0, c
   const item = (here: boolean) =>
     `relative flex h-10 items-center gap-3 rounded-[4px] text-[15px] transition-colors duration-150 ${thin ? "justify-center px-0" : "px-3"} ${here ? "bg-panel2 font-semibold text-fg" : "font-medium text-fg/80 hover:bg-panel2 hover:text-fg"}`;
   const label = (text: string) => (thin ? <span className="sr-only">{text}</span> : <span className="min-w-0 flex-1 truncate">{text}</span>);
-  const dot = cred ? (!cred.complete || cred.blocked || ["otp", "bad_credentials", "unknown", "locked"].includes(cred.verifyState) ? "bg-amber" : "") : "";
+  // amber only when the user has something to do (not while the login is being checked: nothing to do yet)
+  const dot = cred ? (!cred.complete || needsUser(cred) ? "bg-amber" : "") : "";
   const links = [
     { href: "/dashboard", d: CASES, text: t("nav.cases"), here: (path === "/dashboard" && view !== "closed") || path.startsWith("/cases/"), id: "side-cases" },
     { href: "/dashboard?view=closed", d: CLOSED, text: t("tray.closed"), here: view === "closed", id: "side-closed", count: closed },
@@ -135,9 +137,9 @@ export default function SideBar({ email, name, credits: credits0, cred: cred0, c
           {/* folded: no panel button, the ball itself opens the bar again (owner 2026-11-27) */}
           {thin
             ? <button type="button" onClick={fold} aria-label={t("side.open")} title={t("side.open")} aria-expanded={false} className="rounded-full" data-testid="side-fold"><BrandMark size={30} /></button>
-            : <Link href="/dashboard" aria-label={t("nav.cases")}><Brand small /></Link>}
+            : <Link href="/dashboard" aria-label={t("nav.cases")} className="flex h-9 items-center"><Brand small /></Link>}
           {!thin && <button type="button" onClick={fold} aria-label={t("side.close")} title={t("side.close")} aria-expanded
-            className="flex h-9 w-9 items-center justify-center rounded-[4px] text-mute transition-colors hover:bg-panel2 hover:text-fg" data-testid="side-fold"><Icon d={PANEL} /></button>}
+            className="flex h-9 w-9 items-center justify-center rounded-[4px] text-mute transition-colors hover:bg-panel2 hover:text-fg" data-testid="side-fold"><Icon d={FOLD} /></button>}
         </div>
         <nav aria-label={t("nav.menu")} className="grid gap-0.5">
           {links.map((l) => (

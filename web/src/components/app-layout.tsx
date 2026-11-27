@@ -11,7 +11,7 @@ import { PageSlot } from "./lang-provider"; // R5-B03: see PageSlot
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const me = await getUserOrNull(); // the pages themselves call requireUser()
   // the side bar of a wide screen holds the user's details and the closed-case count
-  const { cred, closed, credits } = me ? await sideFacts(me.orgId) : { cred: null, closed: 0, credits: null };
+  const { cred, closed, credits } = me ? await sideFacts(me.orgId) : { cred: null, closed: null, credits: null };
   const email = me?.user.email ?? "";
   const newBlocked = cred?.blocks ?? false;
   return (

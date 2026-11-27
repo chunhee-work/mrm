@@ -15,7 +15,8 @@ import { StepDots, StepHeads } from "./case-steps";
 import type { CaseRow } from "./case-table";
 import { currentStepOf } from "@/lib/case-steps";
 import { whenOf } from "@/lib/fmt-when";
-import ProfileCard, { CHECKING, type Cred } from "./profile-card";
+import ProfileCard, { type Cred } from "./profile-card";
+import { checking as loginChecking, needsUser } from "@/lib/ext/login-state";
 import NewCasePick from "./new-case-pick";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
@@ -283,7 +284,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const [q, setQ] = useState("");
   const [cred, setCred] = useState<Cred>(cred0);
   // complete, but the login needs the user (a code from the phone, a wrong password), is still being checked, or is blocked
-  const loginNeeds = cred.complete && (cred.blocked || ["otp", "bad_credentials", "unknown", "locked", ...CHECKING].includes(cred.verifyState));
+  const loginNeeds = cred.complete && (needsUser(cred) || loginChecking(cred));
   // once the check comes back fine the card stays a few seconds, so "login works" is seen before it goes.
   // Worked out while rendering (not in an effect), so the card is never gone for a frame in between.
   const [okHold, setOkHold] = useState(false);

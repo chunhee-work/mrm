@@ -8,7 +8,7 @@ import { creditBalance } from "@/lib/payments/credit";
 export async function sideFacts(orgId: string) {
   const [cred, closed, credits] = await Promise.all([
     credView(orgId).catch(() => null),
-    db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), eq(schema.cases.status, "done"), notDeleted)).then((r) => Number(r[0]?.n ?? 0)).catch(() => 0),
+    db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), eq(schema.cases.status, "done"), notDeleted)).then((r): number | null => Number(r[0]?.n ?? 0)).catch(() => null), // unknown, not a confident 0
     creditBalance(orgId).catch(() => null),
   ]);
   return { cred, closed, credits };
