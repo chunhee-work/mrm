@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import os
 import re
-import tempfile
 from dataclasses import dataclass, field
 
 from .merimen_create import CLAIMS, redact, session_query
@@ -69,6 +68,12 @@ def shrink(path: str) -> str:
         import fitz  # PyMuPDF
     except Exception as e:  # noqa: BLE001
         raise DocError("too_big", "PyMuPDF is missing") from e
+    # The smaller copy is the customer's document too: it stays in the job's own folder (removed when the job ends, swept after 6 h),
+    # in a private sub-folder so it keeps the file name Merimen shows. A try that is still too big is deleted at once.
+    folder = os.path.join(os.path.dirname(path), "small")
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    os.chmod(folder, 0o700)
+    dest = os.path.join(folder, os.path.basename(path))
     src = fitz.open(path)
     try:
         for dpi in DPIS:
@@ -77,11 +82,13 @@ def shrink(path: str) -> str:
                 pix = page.get_pixmap(matrix=fitz.Matrix(dpi / 72, dpi / 72))
                 img = out.new_page(width=page.rect.width, height=page.rect.height)
                 img.insert_image(img.rect, stream=pix.tobytes("jpg"))
-            dest = os.path.join(tempfile.mkdtemp(prefix="doc-"), os.path.basename(path))
-            out.save(dest, deflate=True)
+            fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb") as f:
+                f.write(out.tobytes(deflate=True))
             out.close()
             if os.path.getsize(dest) < SAFE_BYTES:
                 return dest
+            os.unlink(dest)
     finally:
         src.close()
     raise DocError("too_big", "still over 4.8 MB at 72 dpi")
