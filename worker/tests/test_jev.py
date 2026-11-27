@@ -139,3 +139,18 @@ def test_the_whole_check_has_a_time_budget():
     finally:
         J.BUDGET_S = old
     assert time.time() - t < 1.5
+
+
+def test_the_rules_text_is_pinned():
+    # the owner's thresholds were measured with exactly this text: changing it needs a new measurement, so change this hash on purpose
+    import hashlib
+    from autopilot_worker.jev import RULES
+    assert hashlib.sha256(RULES.encode()).hexdigest()[:16] == "50ffe296bb369b16"
+
+
+def test_a_malformed_answer_means_no_clear_and_no_crash():
+    for bad in ({}, {"answers": {"q0": {"noul": "high"}}}, {"answers": {"q0": {}}}, {"answers": {"zz": {"noul": 0.9}}}):
+        def post(body, timeout, bad=bad):
+            return bad
+        r = two_way(NAMES, ROWS, jev=Jev(post))
+        assert r["add"] and r["jev"].startswith("jev off")
