@@ -5,7 +5,7 @@ import { whenOf } from "@/lib/fmt-when";
 
 export type Cred = {
   saved: boolean; usernameHint: string | null; verifyState: string; blocked: boolean; updatedAt?: string | null;
-  workshop: string | null; manager: string | null; adjuster: string | null; complete: boolean; storageOk: boolean; keyOk: boolean; blocks: boolean;
+  workshop: string | null; workshops: { slot: number; name: string }[]; manager: string | null; adjuster: string | null; complete: boolean; storageOk: boolean; keyOk: boolean; blocks: boolean;
 };
 
 const CHECKING = ["queued", "checking", "otp_submitted"];
@@ -37,7 +37,8 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean }) {
   const configured = cred.keyOk;
   const { t, lang } = useT();
-  const [workshop, setWorkshop] = useState("");
+  const [names, setNames] = useState<string[]>(["", "", ""]); // workshop 1..3; "" = not used
+  const [opened, setOpened] = useState<boolean[]>([true, false, false]); // rows the user opened with "add"
   const [manager, setManager] = useState("");
   const [adjuster, setAdjuster] = useState("");
   const [user, setUser] = useState("");
@@ -49,6 +50,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
   const [confirming, setConfirming] = useState(false);
   const [sure, setSure] = useState(false);
   const [code, setCode] = useState("");
+  const [showPass, setShowPass] = useState(false); // the eye on the password box
 
   // poll while the worker checks the login
   useEffect(() => {
@@ -61,13 +63,18 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
     return () => clearInterval(id);
   }, [cred.verifyState, setCred]);
 
-  function fill() { setWorkshop(cred.workshop ?? ""); setManager(cred.manager ?? ""); setAdjuster(cred.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
+  function fill() { const n = ["", "", ""]; for (const w of cred.workshops ?? []) if (w.slot >= 1 && w.slot <= 3) n[w.slot - 1] = w.name; if (!n[0] && cred.workshop) n[0] = cred.workshop; setNames(n); setOpened([true, false, false]); setManager(cred.manager ?? ""); setAdjuster(cred.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
+  // the full form opens with what is saved (the workshop list outlives a deleted login), so a save never drops workshops the user cannot see
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!compact) fill(); }, []);
   function openEdit() { fill(); setEditing(true); }
-  function closeAll() { setEditing(false); setConfirming(false); setPass(""); setSure(false); }
+  function closeAll() { setShowPass(false); setEditing(false); setConfirming(false); setPass(""); setSure(false); }
 
+  const lower = names.map((n) => n.trim().toLowerCase()).filter(Boolean);
+  const wsDup = new Set(lower).size !== lower.length; // two workshops with the same name
   const first = !cred.saved;
   const loginTyped = !!(user || pass);
-  const canSend = configured && cred.storageOk && !busy && ok && !!workshop.trim() && !!manager.trim() && !!adjuster.trim()
+  const canSend = configured && cred.storageOk && !busy && ok && !!names[0].trim() && !wsDup && !!manager.trim() && !!adjuster.trim()
     && (first ? !!user && !!pass : (!loginTyped || (!!user && !!pass)));
 
   // first time: send at once. An edit: ask in a pop-up first.
@@ -79,12 +86,13 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
   async function send() {
     setBusy(true); setErr(null);
     try {
-      const r = await fetch("/api/ext/worker/credentials", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop, manager, adjuster, ...(loginTyped ? { username: user, password: pass } : {}), consent: true }) });
-      if (r.status === 503) { setErr(t("ml.notReady")); setConfirming(false); }
+      const r = await fetch("/api/ext/worker/credentials", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshops: names.map((name, i) => ({ slot: i + 1, name })).filter((w, i) => i === 0 || w.name.trim()), manager, adjuster, ...(loginTyped ? { username: user, password: pass } : {}), consent: true }) });
+      if (r.status === 409) { setErr(t("pf.wsInUse")); setConfirming(false); }
+      else if (r.status === 503) { setErr(t("ml.notReady")); setConfirming(false); }
       else if (r.status === 429) { setErr(t("pf.tooMany")); setConfirming(false); }
       else if (!r.ok) { setErr(t("w.err")); setConfirming(false); }
       else { setCred(await r.json()); closeAll(); fill(); onSaved?.(); }
-    } catch { setErr(t("w.err")); setConfirming(false); } finally { setPass(""); setBusy(false); }
+    } catch { setErr(t("w.err")); setConfirming(false); } finally { setPass(""); setShowPass(false); setBusy(false); }
   }
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
@@ -101,14 +109,26 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
     setBusy(true);
     try {
       const r = await fetch("/api/ext/worker/credentials", { method: "DELETE" });
-      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false, blocks: cred.keyOk && cred.storageOk }); closeAll(); fill(); onSaved?.(); }
+      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, manager: null, adjuster: null, complete: false, blocks: cred.keyOk && cred.storageOk }); closeAll(); fill(); onSaved?.(); }
     } finally { setBusy(false); setSure(false); }
   }
 
   const Fields = (editMode: boolean) => (
     <div className="grid gap-4" data-testid="pf-fields">
-      <label className="field"><span className="label">{t("pf.workshop")}</span>
-        <input value={workshop} onChange={(e) => setWorkshop(e.target.value)} maxLength={120} autoComplete="organization" className="input" data-testid="pf-workshop" disabled={!configured} /></label>
+      <div className="grid gap-3" data-testid="pf-workshops">
+        <span className="label">{t("pf.workshops")}</span>
+        {[0, 1, 2].filter((i) => i === 0 || opened[i] || names[i]).map((i) => (
+          <div key={i} className="flex items-center gap-2">
+            <label className="field min-w-0 flex-1"><span className="note text-mute">{t("pf.wsN", { n: String(i + 1) })}</span>
+              <input value={names[i]} onChange={(e) => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} maxLength={120} autoComplete="organization" className="input" data-testid={i === 0 ? "pf-workshop" : `pf-workshop-${i + 1}`} disabled={!configured} /></label>
+            {i > 0 && <button type="button" onClick={() => { setNames(names.map((x, j) => (j === i ? "" : x))); setOpened(opened.map((x, j) => (j === i ? false : x))); }} className="btn-quiet !h-11 self-end !text-mute" data-testid={`pf-workshop-rm-${i + 1}`} disabled={!configured}>{t("pf.wsRemove")}</button>}
+          </div>
+        ))}
+        {[1, 2].some((i) => !opened[i] && !names[i]) && (
+          <div><button type="button" onClick={() => { const i = [1, 2].find((k) => !opened[k] && !names[k])!; setOpened(opened.map((x, j) => (j === i ? true : x))); }} className="btn-line !h-10 !px-4 !text-[14px]" data-testid="pf-workshop-add" disabled={!configured}>+ {t("pf.wsAdd")}</button></div>
+        )}
+        {wsDup && <p role="alert" className="field-error" data-testid="pf-ws-dup">{t("pf.wsDup")}</p>}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="field"><span className="label">{t("pf.manager")}</span>
           <input value={manager} onChange={(e) => setManager(e.target.value)} maxLength={120} autoComplete="off" className="input" data-testid="pf-manager" disabled={!configured} /></label>
@@ -119,7 +139,16 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
         <label className="field"><span className="label">{t("w.user")}</span>
           <input value={user} onChange={(e) => setUser(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={80} className="input" data-testid="pf-user" disabled={!configured} placeholder={(editMode || cred.saved) ? (cred.usernameHint ?? "") : ""} /></label>
         <label className="field"><span className="label">{t("w.pass")}</span>
-          <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" autoComplete="new-password" maxLength={200} className="input" data-testid="pf-pass" disabled={!configured} placeholder={(editMode || cred.saved) ? "••••••••" : ""} /></label>
+          <span className="relative block">
+            <input value={pass} onChange={(e) => setPass(e.target.value)} type={showPass ? "text" : "password"} autoComplete="new-password" autoCapitalize="none" spellCheck={false} maxLength={200} className="input !pr-12" data-testid="pf-pass" disabled={!configured} placeholder={(editMode || cred.saved) ? "••••••••" : ""} />
+            <button type="button" onClick={() => setShowPass(!showPass)} aria-label={t(showPass ? "pf.hidePass" : "pf.showPass")} title={t(showPass ? "pf.hidePass" : "pf.showPass")} disabled={!configured}
+              className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[4px] text-mute transition-colors duration-150 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ice disabled:opacity-50" data-testid="pf-pass-eye">
+              {showPass
+                ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 3l18 18" /><path d="M10.6 5.1A9.9 9.9 0 0 1 12 5c5 0 9 4.5 10 7a12.6 12.6 0 0 1-3.2 4.2" /><path d="M6.6 6.6C4.3 8 2.7 10.3 2 12c1 2.5 5 7 10 7a9.7 9.7 0 0 0 4.2-.9" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></svg>
+                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12c1-2.5 5-7 10-7s9 4.5 10 7c-1 2.5-5 7-10 7S3 14.5 2 12z" /><circle cx="12" cy="12" r="3" /></svg>}
+            </button>
+          </span>
+        </label>
       </div>
       {(editMode || cred.saved) && <p className="-mt-2 text-[13.5px] text-mute">{t("pf.keep")}</p>}
       <label className="flex cursor-pointer items-start gap-3 text-[14.5px] leading-snug text-fg">
@@ -161,8 +190,8 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
         <button type="button" onClick={openEdit} className="btn-line !h-9 !px-4 !text-[14px]" data-testid="pf-edit">{t("pf.edit")}</button>
       </div>
       <dl>
-        {([["pf.workshop", cred.workshop], ["pf.manager", cred.manager], ["pf.adjuster", cred.adjuster], ["pf.login", cred.usernameHint]] as [string, string | null][]).map(([k, v]) => (
-          <div key={k} className={rowCls}><dt className="note text-mute">{t(k)}</dt><dd className="min-w-0 text-[14.5px] text-fg [overflow-wrap:anywhere]">{v}</dd></div>
+        {([...((cred.workshops?.length ? cred.workshops : [{ slot: 1, name: cred.workshop ?? "" }]).map((w) => [t("pf.wsN", { n: String(w.slot) }), w.name])), [t("pf.manager"), cred.manager], [t("pf.adjuster"), cred.adjuster], [t("pf.login"), cred.usernameHint]] as [string, string | null][]).map(([k, v]) => (
+          <div key={k} className={rowCls}><dt className="note text-mute">{k}</dt><dd className="min-w-0 text-[14.5px] text-fg [overflow-wrap:anywhere]">{v}</dd></div>
         ))}
       </dl>
       <div className="border-t border-hair px-4 py-2.5 text-[13.5px] text-mute">

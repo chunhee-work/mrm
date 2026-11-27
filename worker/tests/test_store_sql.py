@@ -154,3 +154,48 @@ def test_profile_for_is_none_before_migration_0013():
         def execute(self, sql, params=()):
             raise RuntimeError('column "workshop_name" does not exist')
     assert PgRepo("", db=Boom()).profile_for("o1") is None
+
+
+def test_workshops_for_lists_the_slots():
+    rec = Rec({"execute": [(1, "Bengkel Ali"), (3, "Bengkel Cheras")]})
+    assert PgRepo("", db=rec).workshops_for("o1") == [{"slot": 1, "name": "Bengkel Ali"}, {"slot": 3, "name": "Bengkel Cheras"}]
+    assert PgRepo("", db=Rec()).workshops_for("o1") == []
+
+
+def test_claim_workshop_locks_in_one_statement_and_reads_slot_and_name():
+    rec = Rec({"execute": [(2, "Bengkel Cheras")]})
+    assert PgRepo("", db=rec).claim_workshop_for_case("c1") == {"slot": 2, "name": "Bengkel Cheras"}
+    sql, params = rec.calls[0]
+    assert len(rec.calls) == 1 and "locked_at" in sql and "ON CONFLICT (case_id)" in sql and params == ("c1",) and "locked_name" in sql
+    assert PgRepo("", db=Rec()).claim_workshop_for_case("nope") is None  # unknown case: nothing to use
+    assert PgRepo("", db=Rec({"execute": [(2, None)]})).claim_workshop_for_case("c1") is None  # removed workshop: the caller must stop
+
+
+def test_a_permission_error_is_never_taken_for_a_missing_table():
+    class Denied:
+        def execute(self, sql, params=()):
+            raise RuntimeError("permission denied for table merimen_workshops (42501)")
+    for call in (lambda r: r.claim_workshop_for_case("c1"), lambda r: r.workshops_for("o1")):
+        try:
+            call(PgRepo("", db=Denied()))
+            assert False, "must raise, not fall back to workshop 1"
+        except RuntimeError:
+            pass
+
+
+def test_workshop_before_migration_0014_is_the_one_workshop():
+    class Old:
+        def __init__(self):
+            self.n = 0
+
+        def execute(self, sql, params=()):
+            self.n += 1
+            if "merimen_case_workshop" in sql:
+                raise RuntimeError('relation "merimen_case_workshop" does not exist (42P01)')
+            return [(1, "Bengkel Ali")]
+    assert PgRepo("", db=Old()).claim_workshop_for_case("c1") == {"slot": 1, "name": "Bengkel Ali"}
+
+    class NoTable:
+        def execute(self, sql, params=()):
+            raise RuntimeError('relation "merimen_workshops" does not exist')
+    assert PgRepo("", db=NoTable()).workshops_for("o1") == []

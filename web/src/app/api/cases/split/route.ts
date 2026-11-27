@@ -12,11 +12,12 @@ import { CASE_COST, debitCase, enforcing, exempt, refundCase } from "@/lib/payme
 import { creditBalance } from "@/lib/payments/credit";
 import { runPool } from "@/lib/pool";
 import { MAX_FILE_BYTES } from "@/lib/upload-rules";
+import { slotToStore } from "@/lib/ext/workshops";
 import { ZIP_WHY } from "@/lib/case-text";
 
 export const maxDuration = 300; // the zip is opened and stored in this call; the reading of most cases starts later (see below)
 
-const Body = z.object({ url: z.string().url().max(1000), name: z.string().trim().min(1).max(300), size: z.number().int().positive().max(MAX_FILE_BYTES), fallback: z.boolean().optional() });
+const Body = z.object({ url: z.string().url().max(1000), name: z.string().trim().min(1).max(300), size: z.number().int().positive().max(MAX_FILE_BYTES), fallback: z.boolean().optional(), workshop: z.number().int().min(1).max(3).optional() });
 
 
 /**
@@ -68,6 +69,8 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const { url, name, size, fallback } = parsed.data;
+  const slot = await slotToStore(me.orgId, parsed.data.workshop);
+  if (slot === "unknown") return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
   let u: URL;
   let path: string;
   try { u = new URL(url); path = decodeURIComponent(u.pathname); } catch { return NextResponse.json({ error: "prefix" }, { status: 400 }); }
@@ -158,7 +161,8 @@ export async function POST(req: Request) {
           db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${rows.length} file(s)` }),
           db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.create", detail: id }),
           db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.split", detail: `${id}|${key}${v.prefix}` }),
-        ]);
+          ...(slot ? [db.insert(schema.merimenCaseWorkshop).values({ caseId: id, slot })] : []),
+        ] as Parameters<typeof db.batch>[0]);
       } catch (e) {
         // the batch may have committed although its answer was lost: then the case exists with its files, and the rollback must
         // treat it as made (refund, then delete it with its blobs), never delete its blobs and leave a case without files
