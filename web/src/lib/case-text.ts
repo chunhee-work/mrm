@@ -69,6 +69,7 @@ export const ZIP_WHY = {
   pdf_big: "a PDF in the zip is larger than 25 MB",
   mixed: "the zip holds car folders and other files beside them",
   car_no_pdf: "a car folder in the zip has no readable PDF",
+  name_long: "a file name in the zip is too long",
   too_many: "too many files in the zip",
   too_many_files: "the zip holds too many files to split at once",
   entry_big: "a file in the zip is too large",

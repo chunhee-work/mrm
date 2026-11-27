@@ -161,6 +161,13 @@ async function main() {
       assert.equal(status, 422); assert.equal(j.error, "corrupt");
       assert.equal((await cases()).length, 0); assert.equal(await bal(), 5000); assert.equal(puts, 0); assert.equal(blobs.has(url), false);
     }],
+    ["a file name too long for the blob store refuses the whole zip before any car is made or charged", async () => {
+      await reset(); await fund(5);
+      const body = upload({ "DCD4004/a.pdf": pdf("a"), [`NCH5773/${"n".repeat(940)}.jpg`]: strToU8("x"), "NCH5773/b.pdf": pdf("b") });
+      const { status, j } = await call(body);
+      assert.equal(status, 422); assert.equal(j.error, "name_long");
+      assert.equal((await cases()).length, 0); assert.equal(await bal(), 5000); assert.equal(puts, 0); assert.equal(blobs.has(body.url), false);
+    }],
     ["a body whose size is not the stored zip's real size is refused (400) and the zip is kept", async () => {
       await reset();
       const body = upload(TWO);
