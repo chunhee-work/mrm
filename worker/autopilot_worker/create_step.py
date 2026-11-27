@@ -27,7 +27,7 @@ def run_create_step(case: dict, *, profile, workshop, page_for, live: bool, prog
     """`profile()` -> {"manager","adjuster",...} or None. `workshop(lock)` -> {"slot","name"} or None. `page_for(org_id)` -> the Merimen tab or None.
     `marks` -> the object from PgRepo.create_marks (pressed / press / clear), or None."""
     if live and case.get("merimen_caseid"):
-        return DriveResult(ok=True, case_id=case["merimen_caseid"], partial=True, line="The case already exists in Merimen, nothing was made again")
+        return DriveResult(ok=True, case_id=case["merimen_caseid"], partial=True, line="The case already exists in Merimen, nothing was made again; check by hand: the manager and adjuster, and the claimant insurer and policy")
     if live and marks is not None and marks.pressed():
         return DriveResult(ok=False, fatal=True, error="create_unclear", line="An earlier attempt pressed Create in Merimen but no case number was saved. "
                            "Look for this plate in Merimen's worklist before anything is tried again.")

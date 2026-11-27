@@ -116,3 +116,9 @@ def test_make_aliases_and_number_parsing():
     cd["client_vehicle"].update({"cc": "1,495 cc", "year_body": "SALOON / 2015"})
     s = build_spec(cd, "BNN6055", PROFILE, WORKSHOP)
     assert s.veh["cc"] == "1495" and s.veh["year"] == "2015"
+
+
+def test_a_two_word_make_is_not_split_in_the_middle():
+    from autopilot_worker.create_spec import make_and_model
+    assert make_and_model("MERCEDES BENZ C 200 AVANTGARDE") == ("MERCEDES-BENZ", "C 200 AVANTGARDE")
+    assert make_and_model("LAND ROVER EVOQUE") == ("LAND ROVER", "EVOQUE")

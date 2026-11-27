@@ -129,8 +129,12 @@ def make_and_model(rc_model: str) -> tuple[str, str]:
         a, b = t.split("/", 1)
         make, model = a.strip().upper(), b.strip()
     else:
-        first, _, rest = t.partition(" ")
-        make, model = first.upper(), rest.strip() or t
+        two = " ".join(t.split(" ")[:2]).upper()
+        if two in ("MERCEDES BENZ", "LAND ROVER", "ALFA ROMEO", "ASTON MARTIN", "ROLLS ROYCE"):
+            make, model = two, " ".join(t.split(" ")[2:]).strip() or t
+        else:
+            first, _, rest = t.partition(" ")
+            make, model = first.upper(), rest.strip() or t
     if make in ("MERCEDES BENZ", "MERCEDES"):  # playbook 12 rule 7: the RC make is not always Merimen's make
         make = "MERCEDES-BENZ"
     elif make == "BMW" and model.upper().startswith("MINI"):

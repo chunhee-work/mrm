@@ -143,7 +143,7 @@ _OPTS = """(n) => { var s = document.querySelector('select[name=' + n + ']'); if
 _OK = """() => { var t = [...document.querySelectorAll('input,button')].find(e => ((e.value || e.innerText || '').trim() === 'OK') && e.offsetParent !== null);
   if (!t) return ''; var b = t, tx = '';
   for (var i = 0; i < 6 && b.parentElement; i++) { b = b.parentElement; tx = (b.innerText || '').trim(); if (tx.length > 12) break; }
-  if (/confirm|already|duplicate|overwrite|delete|cancel|are you sure/i.test(tx)) return 'STOP:' + tx.slice(0, 120);
+  if (/confirm|already|duplicate|overwrite|delete|are you sure/i.test(tx)) return 'STOP:' + tx.slice(0, 120);
   t.click(); return 'OK'; }"""
 _MSGS = """() => { var o = []; document.querySelectorAll('*').forEach(e => { var t = (e.childNodes[0] && e.childNodes[0].nodeValue || '').trim();
   if (t && /should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t) && e.offsetParent !== null && t.length < 160) o.push(t); });
@@ -158,6 +158,7 @@ class MerimenCreate:
     def __init__(self, base_page, *, timeout_scale: float = 1.0, on_created=None, before_submit=None):
         self.base = base_page
         self.before_submit = before_submit  # called after every check passed and right before Next; returns None to go on, or a stop code
+        self.boxes: list[str] = []  # question boxes found AFTER Next (HTML, not a dismissed JS dialog): the submit may have gone through
         self.unexpected: list[str] = []  # confirm() / prompt() texts that were dismissed, not accepted
         self.on_created = on_created  # called with (case_id, ext_id) the moment the case exists, before the manager and adjuster are set
         self.scale = timeout_scale
@@ -189,6 +190,7 @@ class MerimenCreate:
                 break
             if str(r).startswith("STOP:"):
                 self.unexpected.append(redact(str(r)[5:]))  # a question box: left unanswered, the case stops
+                self.boxes.append("x")
                 break
             self.cur.wait_for_timeout(self._ms(gap))
 
@@ -426,10 +428,14 @@ class MerimenCreate:
         cur = self.cur
         w = lambda ms: cur.wait_for_timeout(self._ms(ms))  # noqa: E731
         if self.before_submit:
-            stop = self.before_submit()  # locks the workshop and writes the "Next pressed" mark; nothing has been pressed yet
+            try:
+                stop = self.before_submit()  # locks the workshop and writes the "Next pressed" mark; nothing has been pressed yet
+            except Exception:  # noqa: BLE001  (a database hiccup before anything was pressed: retry, no person needed)
+                stop = "form_error"
             if stop:
                 rep.ok, rep.code = False, stop
                 return rep
+        pre = set(cur.evaluate(_MSGS))  # texts already on the form before Next: static labels are not a rejection
         clicked = False
         try:
             cur.locator('input[value*="Next"],button:has-text("Next")').first.click(force=True, timeout=4000)
@@ -444,13 +450,14 @@ class MerimenCreate:
         url = cur.url or ""
         # a slow Merimen still shows the form while it saves: wait (up to ~20 s more) for the page to move or to say why it will not
         for _ in range(10):
-            if not re.search(r"act_clmreg|dsp_clmreg", url) or self.unexpected or cur.evaluate(_MSGS) or cur.evaluate(
+            if not re.search(r"act_clmreg|dsp_clmreg", url) or self.unexpected or [m for m in cur.evaluate(_MSGS) if m not in pre] or cur.evaluate(
                     "(rx) => new RegExp(rx, 'i').test(document.body.innerText || '')", DUP.pattern):
                 break
             w(2000)
             url = cur.url or ""
         if self.unexpected and re.search(r"act_clmreg|dsp_clmreg", url):
-            rep.ok, rep.code, rep.cleared = False, "unexpected_dialog", True  # dismissed = not submitted: still on the form, no case
+            # a dismissed JS confirm()/prompt() = not submitted; an HTML question box seen after Next may mean it was, so that one keeps the mark
+            rep.ok, rep.code, rep.cleared = False, "unexpected_dialog", not self.boxes
             rep.messages = list(self.unexpected)[:3]
             return rep
         if re.search(r"act_clmreg|dsp_clmreg", url):
@@ -458,10 +465,10 @@ class MerimenCreate:
                 # the owner's script confirms this warning; a retry after a crash would also land here, so the worker stops and a person decides
                 rep.ok, rep.code = False, "duplicate_warning"
                 return rep
-            rep.messages = [m[:160] for m in cur.evaluate(_MSGS)]
-            if not rep.messages:  # still the form but nothing says why: the save may still be running, so the mark stays
+            rep.messages = [m[:160] for m in cur.evaluate(_MSGS) if m not in pre]
+            if not rep.messages:  # still the form but nothing NEW says why: the save may still be running, so the mark stays
                 rep.ok, rep.code = False, "create_unclear"
-                rep.messages = ["still on the create form, no reason shown"]
+                rep.messages = ["still on the create form, no new reason shown"]
                 return rep
             # cleared only when the create form itself is still there AND said why; an act_clmreg page with no form leaves the mark
             form_here = bool(cur.locator("select[name=ddlbInsurer]").count())
