@@ -13,5 +13,5 @@ export async function GET(req: Request) {
   if (!secret || !timingSafeEqual(dig(got), dig(`Bearer ${secret}`))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const r = await purgeDeletedCases(deletePhoto).catch((e) => { console.error("purge run failed", e); return null; });
   if (!r) return NextResponse.json({ error: "failed" }, { status: 500 });
-  return NextResponse.json(r);
+  return NextResponse.json(r, { status: r.failed ? 500 : 200 }); // a failure shows in the cron log
 }

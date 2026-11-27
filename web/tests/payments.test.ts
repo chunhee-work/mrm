@@ -323,6 +323,8 @@ const mkDeleted = async (daysAgo: number | null) => {
     deletedAt: daysAgo == null ? null : new Date(Date.now() - daysAgo * 86_400_000) });
   await db.insert(schema.caseFiles).values({ caseId: id, kind: "pdf", blobUrl: `https://blob.example/${id}/a.pdf`, originalName: "a.pdf", size: 1 });
   await db.insert(schema.casePhotos).values({ caseId: id, position: 0, origN: 1, srcName: "1.jpg", blobPath: `${org}/${id}/photos/1.jpg`, thumbPath: `${org}/${id}/photos/t1.jpg` });
+  await db.insert(schema.photoUploads).values({ path: `${org}/${id}/photos/late.jpg`, caseId: id });
+  await db.insert(schema.caseEvents).values({ caseId: id, step: "read", message: "Reading documents" });
   return id;
 };
 const rowsOf = async (id: string) => ({
@@ -335,8 +337,8 @@ test("purge: only a case deleted more than 7 days ago loses its files, photos an
   const old = await mkDeleted(8), fresh = await mkDeleted(3), live = await mkDeleted(null);
   const removed: string[] = [];
   const r = await purgeDeletedCases(async (p) => { removed.push(p); });
-  assert.deepEqual(r, { cases: 1, files: 3, failed: 0 });
-  assert.equal(removed.length, 3); assert.ok(removed.every((p) => p.includes(old)));
+  assert.deepEqual(r, { cases: 1, files: 4, failed: 0 });
+  assert.equal(removed.length, 4); assert.ok(removed.every((p) => p.includes(old)));
   assert.deepEqual(await rowsOf(old), { files: 0, photos: 0, data: null });
   assert.equal((await rowsOf(fresh)).files, 1); assert.equal((await rowsOf(live)).photos, 1);
   assert.equal((await db.select().from(schema.cases).where(sql`${schema.cases.id} = ${old}`)).length, 1);
@@ -350,4 +352,37 @@ test("purge: a file that cannot be removed leaves the case whole for the next ru
   assert.deepEqual(r, { cases: 0, files: 0, failed: 1 });
   assert.deepEqual(await rowsOf(id), { files: 1, photos: 1, data: { read: true } });
   assert.equal((await purgeDeletedCases(async () => {})).cases, 1);
+});
+
+test("purge: a file another case still points at is kept, the rest of the deleted case goes", async () => {
+  const gone = await mkDeleted(9), live = await mkDeleted(null);
+  const shared = `https://blob.example/${gone}/a.pdf`;
+  await db.update(schema.caseFiles).set({ blobUrl: shared }).where(sql`${schema.caseFiles.caseId} = ${live}`); // the live case was made from the same URL
+  const removed: string[] = [];
+  const r = await purgeDeletedCases(async (p) => { removed.push(p); });
+  assert.deepEqual({ cases: r.cases, files: r.files, skipped: r.skipped }, { cases: 1, files: 3, skipped: 1 });
+  assert.ok(!removed.includes(shared));
+  assert.equal((await rowsOf(live)).files, 1);
+  assert.equal((await rowsOf(gone)).files, 0);
+});
+
+test("purge: a case whose only leftover is the read text is purged once, and a JSON null counts as nothing", async () => {
+  const id = randomUUID(), nul = randomUUID();
+  const old = new Date(Date.now() - 9 * 86_400_000);
+  await db.insert(schema.cases).values({ id, orgId: org, plate: "T1", status: "failed", caseData: { x: 1 } as never, deletedAt: old });
+  await db.insert(schema.cases).values({ id: nul, orgId: org, plate: "T2", status: "failed", caseData: null as never, deletedAt: old });
+  await db.execute(sql`UPDATE cases SET case_data = 'null'::jsonb WHERE id = ${nul}`);
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 1);
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 0);
+});
+
+test("purge: events and upload rows go too, and a case with a running job is left alone", async () => {
+  const id = await mkDeleted(9);
+  await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "running" });
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 0);
+  await db.update(schema.jobs).set({ state: "queued" }).where(sql`${schema.jobs.caseId} = ${id}`);
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 1);
+  assert.equal((await db.select().from(schema.caseEvents).where(sql`${schema.caseEvents.caseId} = ${id}`)).length, 0);
+  assert.equal((await db.select().from(schema.photoUploads).where(sql`${schema.photoUploads.caseId} = ${id}`)).length, 0);
+  assert.equal((await db.select().from(schema.jobs).where(sql`${schema.jobs.caseId} = ${id}`))[0].state, "cancelled");
 });
