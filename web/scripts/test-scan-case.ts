@@ -22,8 +22,10 @@ let readOpts: { deadline?: number } | undefined; // what the last read was calle
 const noneLeftOut = { heic: 0, big: 0, limit: 0, unreadable: 0 };
 let photoImport: () => Promise<any> = async () => ({ added: 0, skipped: [], leftOut: noneLeftOut });
 let unzip: () => Promise<number> = async () => 0;
+let signedIn = "o"; // the organisation of the signed-in user, for the routes imported below
 const stubs: Record<string, unknown> = {
   "server-only": {},
+  "@/lib/session": { getUserOrNull: async () => ({ user: { id: "u" }, orgId: signedIn }) },
   "@/db": { db, schema },
   "@/lib/read-docs": { readCaseDocs: (_f: unknown, _c: unknown, o?: { deadline?: number }) => { readOpts = o; return claude(); }, BadFile: class BadFile extends Error {} },
   "@/lib/expand-bundles": { expandBundles: () => unzip() },
@@ -364,6 +366,171 @@ async function main() {
         assert.equal((await scanCase(fine, "auto")).ok, true);
         assert.deepEqual(await events(fine), ["Reading documents", "Documents read"]);
       } finally { photoImport = async () => ({ added: 0, skipped: [], leftOut: noneLeftOut }); }
+    }],
+    ["S-U1: one case is read at most so many times an hour, and so is one organisation, whoever starts the read; an hour later it reads again", async () => {
+      const { CASE_READS_PER_HOUR, ORG_READS_PER_HOUR, readCapHit } = await import("../src/lib/read-cap");
+      const hourAgo = (caseId: string) => db.execute(sql`update case_events set at = now() - interval '61 minutes' where case_id = ${caseId}`);
+      // one case: the reads of the last hour count, the first one too
+      claude = ok(["police report"]);
+      const id = await newCase("pending_doc", null, { orgId: "cap-a" });
+      for (let k = 1; k < CASE_READS_PER_HOUR; k++) await readEvent(id);
+      assert.equal(await readCapHit(id, "cap-a"), null);
+      assert.equal((await scanCase(id, "retry")).claimed, true); // the last one allowed
+      assert.equal(await readCapHit(id, "cap-a"), "case");
+      const reads = await usageRows(id);
+      assert.deepEqual(await scanCase(id, "retry"), { ok: false, missing: [], claimed: false });
+      assert.equal((await get(id)).status, "pending_doc"); // left as it was
+      assert.equal(await usageRows(id), reads); // the model was not called
+      // new files put the case back to `uploaded`: the read that starts by itself waits too, and the case keeps waiting
+      await db.update(schema.cases).set({ status: "uploaded" }).where(eq(schema.cases.id, id));
+      assert.equal((await scanCase(id, "auto")).claimed, false);
+      assert.equal((await get(id)).status, "uploaded");
+      // another case of the same organisation is not held back by this one
+      const other = await newCase("uploaded", null, { orgId: "cap-a" });
+      assert.equal((await scanCase(other, "auto")).claimed, true);
+      // an hour later the case reads again
+      await db.update(schema.cases).set({ status: "uploaded", error: null }).where(eq(schema.cases.id, id));
+      await hourAgo(id);
+      assert.equal(await readCapHit(id, "cap-a"), null);
+      assert.equal((await scanCase(id, "auto")).claimed, true);
+
+      // one organisation: reads of all its cases count, also those of a case the user deleted since
+      claude = ok();
+      const busy = await newCase("phase_a", null, { orgId: "cap-b" });
+      await db.insert(schema.caseEvents).values(Array.from({ length: ORG_READS_PER_HOUR }, () => ({ caseId: busy, step: "read_docs", message: "Reading documents" })));
+      await db.update(schema.cases).set({ deletedAt: new Date() }).where(eq(schema.cases.id, busy));
+      const fresh = await newCase("uploaded", null, { orgId: "cap-b" });
+      assert.equal(await readCapHit(fresh, "cap-b"), "org");
+      assert.equal((await scanCase(fresh, "auto")).claimed, false);
+      assert.equal((await scanCase(fresh, "retry")).claimed, false);
+      assert.deepEqual([(await get(fresh)).status, await events(fresh)], ["uploaded", []]);
+      // a dead read of that organisation is not started again over the limit, and is not given up on either: it waits
+      const dead = "lease:2026-01-01T00:00:00.000Z|x";
+      const stuck = await newCase("reading", dead, { orgId: "cap-b" });
+      assert.equal((await scanCase(stuck, "recover", dead)).claimed, false);
+      assert.deepEqual([(await get(stuck)).status, (await get(stuck)).error], ["reading", dead]);
+      // another organisation is not held back
+      const theirs = await newCase("uploaded", null, { orgId: "cap-c" });
+      assert.equal(await readCapHit(theirs, "cap-c"), null);
+      assert.equal((await scanCase(theirs, "auto")).ok, true);
+      // one read drops out of the hour: there is room for exactly one more
+      await db.execute(sql`update case_events set at = now() - interval '61 minutes' where id = (select min(id) from case_events where case_id = ${busy})`);
+      assert.equal((await scanCase(fresh, "auto")).ok, true);
+      const next = await newCase("uploaded", null, { orgId: "cap-b" });
+      assert.equal((await scanCase(next, "auto")).claimed, false);
+    }],
+    ["S-U9: upload tokens are counted per organisation, kind and clock hour; over the limit none is given until the next hour", async () => {
+      const { takeUploadToken, CASE_TOKENS_PER_HOUR, PHOTO_TOKENS_PER_HOUR } = await import("../src/lib/upload-cap");
+      assert.ok(CASE_TOKENS_PER_HOUR >= 300 * 10 && PHOTO_TOKENS_PER_HOUR >= 2 * 300 * 10); // ten full cases in an hour never meet it
+      const H = 3600_000, t0 = 500_000 * H + 5; // some clock hour
+      const count = async (key: string) => (await db.select().from(schema.verification).where(eq(schema.verification.identifier, key))).map((r) => r.value);
+      // requests at the same moment are all counted
+      assert.deepEqual(await Promise.all(Array.from({ length: 20 }, () => takeUploadToken("tok-a", "case", t0))), new Array(20).fill(true));
+      assert.deepEqual(await count("upload-tokens:case:tok-a"), ["20"]);
+      // at the limit: the last one is given, the next is not, and it stays refused for the rest of the hour
+      await db.execute(sql`update verification set value = ${String(CASE_TOKENS_PER_HOUR - 1)} where identifier = 'upload-tokens:case:tok-a'`);
+      assert.equal(await takeUploadToken("tok-a", "case", t0 + 1000), true);
+      assert.equal(await takeUploadToken("tok-a", "case", t0 + 2000), false);
+      assert.equal(await takeUploadToken("tok-a", "case", t0 + H - 10), false);
+      // desk photos are counted apart, and so is every other organisation
+      assert.equal(await takeUploadToken("tok-a", "photo", t0), true);
+      assert.equal(await takeUploadToken("tok-b", "case", t0), true);
+      // the next clock hour starts at one again; the row of an hour that is over is removed once it has run out
+      await db.execute(sql`update verification set expires_at = now() - interval '1 minute' where identifier = 'upload-tokens:case:tok-a'`);
+      assert.equal(await takeUploadToken("tok-a", "case", t0 + H), true);
+      assert.deepEqual(await count("upload-tokens:case:tok-a"), ["1"]);
+      // rows that are not ours (sign-in codes live in the same table) are never touched
+      await db.insert(schema.verification).values({ id: "other", identifier: "signup-again:a@b.c", value: "1", expiresAt: new Date(Date.now() - 60_000) });
+      await db.execute(sql`delete from verification where identifier = 'upload-tokens:case:tok-b'`);
+      assert.equal(await takeUploadToken("tok-b", "case", t0 + H), true);
+      assert.deepEqual(await count("signup-again:a@b.c"), ["1"]);
+    }],
+    ["S-U1b: 'Read again' pressed twice (or five times) at the same moment is one read and one credit, never a free read; no credit, a lost claim or a failed read cost nothing", async () => {
+      process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
+      const { POST } = await import("../src/app/api/cases/[id]/scan/route");
+      const { debitCase, refundCase } = await import("../src/lib/payments/case-credit");
+      const press = async (id: string) => { const r = await POST(new Request("http://x/"), { params: Promise.resolve({ id }) }); return { status: r.status, body: await r.json() }; };
+      const ledger = async (id: string) => {
+        const rows = await db.select().from(schema.creditsLedger).where(eq(schema.creditsLedger.caseId, id));
+        return { debits: rows.filter((r) => r.delta < 0).length, refunds: rows.filter((r) => r.delta > 0).length };
+      };
+      const bal = async (o: string) => Number(((await db.execute(sql`SELECT COALESCE(SUM(delta),0)::int AS b FROM credits_ledger WHERE org_id = ${o}`)) as any).rows[0].b);
+      /** A case that failed on our side: paid for when made, and the credit given back. */
+      const refunded = async (org: string) => {
+        const id = await newCase("uploaded", null, { orgId: org });
+        assert.equal(await debitCase(org, id), true); assert.equal(await refundCase(org, id), true);
+        await db.update(schema.cases).set({ status: "failed", error: "Reading failed" }).where(eq(schema.cases.id, id));
+        return id;
+      };
+      let reads = 0;
+      const slow = (out: () => Promise<any>) => async () => { reads++; await new Promise((r) => setTimeout(r, 30)); return out(); };
+      try {
+        for (const [org, presses] of [["race2", 2], ["race5", 5]] as const) {
+          signedIn = org;
+          await db.insert(schema.creditsLedger).values({ orgId: org, delta: 3000, reason: `purchase:${org}` });
+          const id = await refunded(org);
+          reads = 0; claude = slow(ok());
+          const answers = await Promise.all(Array.from({ length: presses }, () => press(id)));
+          assert.equal(reads, 1, `${presses} presses`);
+          assert.deepEqual(answers.map((a) => a.status).sort(), [200, ...new Array(presses - 1).fill(409)]);
+          assert.deepEqual(await ledger(id), { debits: 2, refunds: 1 }); // the first read's credit went back, this read took one: paid for
+          assert.equal(await bal(org), 2000); // one credit for the one read, not none and not two
+          assert.equal((await get(id)).status, "phase_a");
+        }
+        // the same, when the read then fails on our side: its credit goes back once, as before
+        signedIn = "race-fail";
+        await db.insert(schema.creditsLedger).values({ orgId: "race-fail", delta: 1000, reason: "purchase:race-fail" });
+        const bad = await refunded("race-fail");
+        reads = 0; claude = slow(async () => { throw new Error("Connection error"); });
+        const failed = await Promise.all([press(bad), press(bad), press(bad)]);
+        assert.equal(reads, 1);
+        assert.deepEqual(failed.map((a) => a.status).sort(), [200, 409, 409]);
+        assert.deepEqual(await ledger(bad), { debits: 2, refunds: 2 }); assert.equal(await bal("race-fail"), 1000);
+        assert.equal((await get(bad)).status, "failed");
+        // no credit left: nothing is read, nothing is taken, and the case is exactly as it was (also the documents it waits for)
+        signedIn = "race-poor";
+        const poor = await newCase("pending_doc", null, { orgId: "race-poor", pendingDoc: "police report" });
+        await db.insert(schema.creditsLedger).values([{ orgId: "race-poor", delta: -1000, reason: `case:${poor}`, caseId: poor }, { orgId: "race-poor", delta: 1000, reason: `case-refund:failed:${poor}:x`, caseId: poor }]);
+        reads = 0; claude = slow(ok());
+        const none = await Promise.all([press(poor), press(poor)]);
+        assert.equal(reads, 0);
+        assert.ok(none.some((a) => a.status === 402 && a.body.error === "no_credits") && none.every((a) => a.status === 402 || a.status === 409), JSON.stringify(none));
+        const after = await get(poor);
+        assert.deepEqual([after.status, after.error, after.pendingDoc], ["pending_doc", null, "police report"]);
+        assert.deepEqual(await ledger(poor), { debits: 2, refunds: 2 }); assert.equal(await bal("race-poor"), 0); // tried and undone, nothing kept
+        assert.deepEqual(await events(poor), []);
+        // a case that is still paid for reads again without a second credit; two presses are still one read
+        signedIn = "race-paid";
+        await db.insert(schema.creditsLedger).values({ orgId: "race-paid", delta: 1000, reason: "purchase:race-paid" });
+        const paid = await newCase("pending_doc", null, { orgId: "race-paid", pendingDoc: "police report" });
+        assert.equal(await debitCase("race-paid", paid), true);
+        reads = 0; claude = slow(ok());
+        assert.deepEqual((await Promise.all([press(paid), press(paid)])).map((a) => a.status).sort(), [200, 409]);
+        assert.equal(reads, 1); assert.deepEqual(await ledger(paid), { debits: 1, refunds: 0 }); assert.equal(await bal("race-paid"), 0);
+        // read too often in the last hour: the press is answered 429 "too_many", nothing is read and no credit is taken
+        const { CASE_READS_PER_HOUR } = await import("../src/lib/read-cap");
+        signedIn = "race-cap";
+        await db.insert(schema.creditsLedger).values({ orgId: "race-cap", delta: 1000, reason: "purchase:race-cap" });
+        const often = await refunded("race-cap");
+        await db.insert(schema.caseEvents).values(Array.from({ length: CASE_READS_PER_HOUR }, () => ({ caseId: often, step: "read_docs", message: "Reading documents" })));
+        reads = 0; claude = slow(ok());
+        assert.deepEqual(await press(often), { status: 429, body: { error: "too_many" } });
+        assert.equal(reads, 0); assert.deepEqual(await ledger(often), { debits: 1, refunds: 1 }); assert.equal(await bal("race-cap"), 1000);
+        assert.equal((await get(often)).status, "failed");
+      } finally { delete process.env.CREDITS_ENFORCE; signedIn = "o"; }
+    }],
+    ["S-U1b: when taking the credit itself fails, nothing is read and the case goes back to what it was", async () => {
+      claude = ok(); const id = await newCase("failed", "Reading failed");
+      const was = { status: "failed", error: "Reading failed", pendingDoc: null };
+      await assert.rejects(scanCase(id, "retry", null, { was, pay: async () => { throw new Error("ledger down"); } }), /ledger down/);
+      const c = await get(id);
+      assert.deepEqual([c.status, c.error, await events(id), await usageRows(id)], ["failed", "Reading failed", [], 0]);
+      // a case that changed since the caller looked at it is not taken at all, and nothing is asked of the ledger
+      let asked = 0;
+      const r = await scanCase(id, "retry", null, { was: { ...was, error: "Reading timed out" }, pay: async () => { asked++; return "charged"; } });
+      assert.deepEqual([r.claimed, asked, (await get(id)).status], [false, 0, "failed"]);
+      // as the caller saw it and paid: read
+      assert.equal((await scanCase(id, "retry", null, { was, pay: async () => "charged" })).ok, true);
     }],
     ["leaseTime reads the lease time, ignores other text", async () => {
       assert.equal(leaseTime("lease:2026-01-01T00:00:00.000Z|abc"), Date.parse("2026-01-01T00:00:00.000Z"));

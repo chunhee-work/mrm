@@ -7,8 +7,9 @@ export const LOOK_MS = 5_000; // how often to ask again when that question itsel
 /**
  * ok: the answer came (read done, read failed again, or someone had already started it). no_credits: nothing left to read with.
  * taken: the server is reading the case, the answer is still out or was lost. fail: the read never started.
+ * too_many: this case (or the account) was read too often in the last hour; the server did not start.
  */
-export type ReadAgain = "ok" | "no_credits" | "taken" | "fail";
+export type ReadAgain = "ok" | "no_credits" | "too_many" | "taken" | "fail";
 
 /** What the server has for the case right now (a small read), or null when it could not be asked. */
 export const caseStatusNow = (id: string): Promise<string | null> =>
@@ -28,7 +29,7 @@ export async function readAgain(id: string, opt: { onLate?: () => void; startMs?
   let over = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const post: Promise<ReadAgain> = fetch(`/api/cases/${id}/scan`, { method: "POST", signal: stop.signal })
-    .then((r): ReadAgain => (r.status === 402 ? "no_credits" : r.ok || r.status === 409 ? "ok" : "fail"), (): ReadAgain => "fail"); // 409 = someone already started it
+    .then((r): ReadAgain => (r.status === 402 ? "no_credits" : r.status === 429 ? "too_many" : r.ok || r.status === 409 ? "ok" : "fail"), (): ReadAgain => "fail"); // 409 = someone already started it
   const watch = new Promise<ReadAgain>((done) => {
     const ask = async () => {
       if (over) return;

@@ -9,6 +9,7 @@ import { userFixable, zipRefunded, zipRejectedName, eventTr } from "@/lib/case-t
 import { enforcing, exempt, refundCase } from "@/lib/payments/case-credit";
 import { notDeleted } from "@/lib/case-delete";
 import { jevInsurerWarnings } from "@/lib/jev-checks";
+import { UNDER_READ_CAPS } from "@/lib/read-cap";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
@@ -62,6 +63,11 @@ async function notePhotosLeftOut(caseId: string, r: PhotoImport | void) {
 }
 
 export type ScanMode = "auto" | "retry" | "recover";
+/**
+ * For "Read again": the case as the caller saw it, and how its credit is taken. The read is only claimed while the case is
+ * still exactly so, and `pay` runs once the claim is won ("charged" / "free" = still paid for / false = no credit left).
+ */
+export type RetryPay = { was: { status: string; error: string | null; pendingDoc: string | null }; pay: () => Promise<"charged" | "free" | false> };
 
 /** While a case is `reading`, `cases.error` holds the lease of the attempt that owns it: "lease:<ISO time>:<id>". */
 export function leaseTime(error: string | null): number | null {
@@ -81,10 +87,16 @@ export function leaseTime(error: string | null): number | null {
  *   recover (case page self-heal)                                        from reading, only if `error` still equals the
  *                                                                        lease the caller saw (`seen`) and fewer than
  *                                                                        MAX_ATTEMPTS reads so far
+ * S-U1b: "Read again" takes its credit AFTER the claim is won (`retry.pay`), never before. Taken before, two presses at the same
+ * moment gave a free read: the first was charged, the second found the case paid for and won the claim, and the first, left
+ * without the claim, took its credit back. Now only the one request that holds the case touches the ledger for that press,
+ * so there is nothing for another request to give back. No credit left: the case is put back as it was (`noCredits`).
+ * Every mode is also held to the hourly limits of read-cap.ts (per case and per organisation): over them nothing is claimed
+ * and the case stays as it is, so a read that starts by itself is simply tried again later.
  * A new attempt clears the old error and missing list; the old case_data stays until the new read succeeds.
  * Each attempt appends a "Reading documents" event; each successful read appends one usage row.
  */
-export async function scanCase(id: string, mode: ScanMode = "retry", seen: string | null = null): Promise<{ ok: boolean; missing: string[]; claimed: boolean }> {
+export async function scanCase(id: string, mode: ScanMode = "retry", seen: string | null = null, retry?: RetryPay): Promise<{ ok: boolean; missing: string[]; claimed: boolean; noCredits?: true }> {
   const cid = schema.cases.id;
   const started = Date.now();
   const lease = `${LEASE}${new Date().toISOString()}|${crypto.randomUUID()}`;
@@ -92,9 +104,11 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   const sameLease = sql`${schema.cases.error} is not distinct from ${seen}`;
   const where =
     mode === "auto" ? and(eq(cid, id), eq(schema.cases.status, "uploaded")) :
-    mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["uploaded", "failed", "pending_doc"])) :
+    mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["uploaded", "failed", "pending_doc"]),
+      // with a credit to take: only while the case is as the caller saw it, so "as it was" below is exact
+      ...(retry ? [eq(schema.cases.status, retry.was.status), sql`${schema.cases.error} is not distinct from ${retry.was.error}`, sql`${schema.cases.pendingDoc} is not distinct from ${retry.was.pendingDoc}`] : [])) :
     and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, tries);
-  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted)).returning({
+  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted, UNDER_READ_CAPS)).returning({
     id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate, readBefore: sql<boolean>`${schema.cases.caseData} is not null`,
     // the case's credit, counted as the ledger's own refund rule counts it (case-credit.ts): paid for while debits > refunds
     debits: sql<number>`(select count(*)::int from credits_ledger l where l.case_id = ${id} and l.delta < 0 and (l.reason = ${"case:" + id} or l.reason like 'case-retry:%'))`,
@@ -124,6 +138,19 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     if (failed.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
     await closeIntakeJobs(id); // the worker must not read it either
     return { ok: false, missing: [], claimed: false };
+  }
+  if (mode === "retry" && retry) {
+    // The claim is won, so this is the only request reading the case: now its credit is taken. Without one, or when taking it
+    // fails, nothing is read and the case goes back to what it was (a credit that was taken although the call failed stays
+    // with the case: the next "Read again" finds it paid for).
+    const asItWas = () => db.update(schema.cases).set(retry.was).where(mine).returning({ id: cid });
+    let took: Awaited<ReturnType<RetryPay["pay"]>>;
+    try { took = await retry.pay(); }
+    catch (e) { await asItWas().catch(() => asItWas()).catch(() => {}); throw e; }
+    if (!took) {
+      await asItWas().catch(() => asItWas());
+      return { ok: false, missing: [], claimed: false, noCredits: true };
+    }
   }
   await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Reading documents" });
   let photos: Promise<PhotoImport | void> = Promise.resolve();

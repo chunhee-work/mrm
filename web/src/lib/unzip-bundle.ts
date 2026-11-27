@@ -11,6 +11,10 @@ export const ZIP_LIMITS = {
   maxRatio: 200, // uncompressed / compressed, whole archive
 };
 
+// S-U10: the most entries of any kind (folders and files we skip count too) a zip's file list may hold. A split takes 2000
+// usable files and a Mac adds a hidden twin for each, plus the folders; this leaves room well above that.
+export const MAX_LISTED = 20_000;
+
 export type BundleEntry = { name: string; kind: "pdf" | "photo"; bytes: Uint8Array; type: string };
 export class ZipRejected extends Error {
   constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "car_big" | "dup_plate" | "layout" | "mixed" | "car_no_pdf" | "name_long" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
@@ -19,11 +23,34 @@ export class ZipRejected extends Error {
 const PHOTO = /\.(jpe?g|png|webp|heic)$/i;
 const TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic" };
 
+/**
+ * S-U10: how many entries the zip's file list says it holds, and whether that many can be there at all. The unzipper trusts
+ * that number and walks the list that many times, so a zip of 200 bytes that claims millions of entries (the zip64 count
+ * takes any number) kept the server busy for the whole call and, in a split, used up its memory. Read the same way the
+ * unzipper reads it; a zip it cannot find the list of is left for it to refuse.
+ */
+export function checkListed(buf: Uint8Array, tooMany: "too_many" | "too_many_files" = "too_many"): void {
+  const u16 = (i: number) => (i >= 0 && i + 2 <= buf.length ? buf[i] | (buf[i + 1] << 8) : 0);
+  const u32 = (i: number) => (i >= 0 && i + 4 <= buf.length ? (buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16) | (buf[i + 3] << 24)) >>> 0 : 0);
+  let e = buf.length - 22;
+  for (; e >= 0 && u32(e) !== 0x06054b50; e--) if (buf.length - e > 65558) return; // no end record: not a zip
+  if (e < 0) return;
+  let count = u16(e + 8);
+  let at = u32(e + 16);
+  if (u32(e - 20) === 0x07064b50) { // zip64: the real numbers are in their own record
+    const z = u32(e - 12);
+    if (u32(z) === 0x06064b50) { count = u32(z + 32); at = u32(z + 48); }
+  }
+  if (count > MAX_LISTED) throw new ZipRejected(tooMany, ZIP_WHY[tooMany]);
+  if (at + count * 46 > buf.length) throw new ZipRejected("corrupt", ZIP_WHY.corrupt); // one list entry is at least 46 bytes
+}
+
 /** Reads the PDFs and photos inside a zip. Folders, hidden files and folders (__MACOSX, .DS_Store, .thumbnails/), empty files and other types are skipped. Throws ZipRejected. */
 export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[] {
   let total = 0;
   let count = 0;
   let files: Record<string, Uint8Array>;
+  checkListed(buf);
   try {
     // first look at the names only (nothing is inflated): a zip of several vehicles is one case per vehicle, not one case
     const names: string[] = [];
@@ -85,6 +112,7 @@ const usableIn = (name: string) => {
  * Throws ZipRejected; "empty" when it is not a multi-vehicle zip.
  */
 export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number; maxCarBytes?: number; maxFiles?: number } = SPLIT_LIMITS): VehiclePlan[] {
+  checkListed(buf, "too_many_files");
   const all: { name: string; size: number; stored: number; method: number; locked?: boolean }[] = [];
   try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize, stored: f.size, method: f.compression }); return false; } }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }
@@ -154,6 +182,7 @@ function encryptedFlags(buf: Uint8Array): boolean[] {
 /** The PDFs and photos of ONE vehicle folder of a planned zip (only that folder is inflated, so memory follows one car). */
 export function unzipVehicle(buf: Uint8Array, prefix: string): BundleEntry[] {
   let files: Record<string, Uint8Array>;
+  checkListed(buf, "too_many_files");
   // only what planVehicles counted: non-empty entries, stored ones with matching sizes (deflate output is capped at the declared size)
   try { files = unzipSync(buf, { filter: (f) => f.name.startsWith(prefix) && usableIn(f.name) && f.originalSize > 0 && (f.compression !== 0 || f.size === f.originalSize) }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }

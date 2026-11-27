@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { unzipBundle, planVehicles, unzipVehicle, ZipRejected, SPLIT_LIMITS, ZIP_LIMITS } from "./unzip-bundle";
+import { unzipBundle, planVehicles, unzipVehicle, checkListed, MAX_LISTED, ZipRejected, SPLIT_LIMITS, ZIP_LIMITS } from "./unzip-bundle";
 
 const pdf = strToU8("%PDF-1.4 fake");
 const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
@@ -198,4 +198,48 @@ test("unzipBundle: empty files do not count toward the file limit", () => {
   const files: Record<string, Uint8Array> = { "a.pdf": strToU8("%PDF-1.4 a") };
   for (let i = 0; i < 5; i++) files[`e${i}.pdf`] = new Uint8Array(0);
   assert.equal(unzipBundle(zipSync(files), { ...ZIP_LIMITS, maxEntries: 2 }).length, 1);
+});
+
+/** A real small zip whose list is made to claim `count` entries: in the end record (16 bit), or in a zip64 record (any number). */
+function claims(count: number, zip64: boolean, files: Record<string, Uint8Array> = { "a.pdf": pdf }): Uint8Array {
+  const z = zipSync(files, { level: 0 });
+  const e = z.length - 22;
+  const dv = new DataView(z.buffer, z.byteOffset, z.byteLength);
+  if (!zip64) { dv.setUint16(e + 8, count, true); dv.setUint16(e + 10, count, true); return z; }
+  const rec = new Uint8Array(56), r = new DataView(rec.buffer);
+  r.setUint32(0, 0x06064b50, true); r.setUint32(4, 44, true); r.setUint32(24, count, true); r.setUint32(32, count, true);
+  r.setUint32(40, dv.getUint32(e + 12, true), true); r.setUint32(48, dv.getUint32(e + 16, true), true);
+  const loc = new Uint8Array(20), l = new DataView(loc.buffer);
+  l.setUint32(0, 0x07064b50, true); l.setUint32(8, e, true); l.setUint32(16, 1, true);
+  const out = new Uint8Array(e + 56 + 20 + 22);
+  out.set(z.subarray(0, e)); out.set(rec, e); out.set(loc, e + 56); out.set(z.subarray(e), e + 76);
+  return out;
+}
+
+test("S-U10: a tiny zip whose list claims millions of entries is refused at once, on the one-case path and in a split (it used to keep the call busy and fill its memory)", () => {
+  const code = (f: () => unknown) => { try { f(); } catch (e) { return e instanceof ZipRejected ? e.code : "other"; } return "ok"; };
+  for (const n of [MAX_LISTED + 1, 50_000_000, 0xffffffff]) {
+    const bomb = claims(n, true);
+    assert.ok(bomb.length < 400);
+    const t0 = Date.now();
+    assert.equal(code(() => unzipBundle(bomb)), "too_many", String(n));
+    assert.equal(code(() => planVehicles(bomb)), "too_many_files", String(n));
+    assert.equal(code(() => unzipVehicle(bomb, "A/")), "too_many_files", String(n));
+    assert.ok(Date.now() - t0 < 200, `took ${Date.now() - t0} ms`);
+  }
+  // within the limit, but more than the file could hold: the list is not what it says
+  assert.equal(code(() => unzipBundle(claims(MAX_LISTED, true))), "corrupt");
+  assert.equal(code(() => unzipBundle(claims(5000, false))), "corrupt");
+  assert.equal(code(() => planVehicles(claims(5000, false))), "corrupt");
+});
+
+test("S-U10: honest zips pass the list check: small, zip64-marked, with a comment, and a large one with many skipped files", () => {
+  assert.doesNotThrow(() => checkListed(zipSync({ "a.pdf": pdf })));
+  assert.equal(unzipBundle(claims(1, true)).length, 1); // a zip64 record that tells the truth
+  assert.equal(unzipBundle(zipSync({ "a.pdf": pdf, "b.jpg": jpg }, { comment: "sent from my phone" })).length, 2);
+  const many: Record<string, Uint8Array> = { "ABC1234/rc.pdf": pdf, "DEF5678/rc.pdf": pdf };
+  for (let i = 0; i < 6000; i++) many[`__MACOSX/ABC1234/._${i}.jpg`] = jpg; // skipped files count toward the list, not toward the case
+  assert.equal(planVehicles(zipSync(many, { level: 0 })).length, 2);
+  assert.doesNotThrow(() => checkListed(strToU8("not a zip at all"))); // left for the unzipper: "cannot be opened"
+  assert.doesNotThrow(() => checkListed(new Uint8Array(0)));
 });

@@ -34,6 +34,15 @@ export type WipeStore = { remove: (path: string) => Promise<void>; listPrefix: (
 
 export const normEmail = (s: string) => s.trim().toLowerCase();
 
+/**
+ * What goes into the server log about a failure: the kind of error and the database's own error code, never the error itself.
+ * A failed query's message carries the query's values (the e-mail that was looked up, file paths), and logs are kept.
+ */
+export function errorKind(e: unknown): string {
+  const code = (x: unknown) => (typeof (x as { code?: unknown })?.code === "string" ? ` ${(x as { code: string }).code}` : "");
+  return `${(e as Error)?.name ?? "Error"}${code(e) || code((e as { cause?: unknown })?.cause)}`;
+}
+
 const bareOf = (p: string) => { try { return /^https?:\/\//.test(p) ? decodeURIComponent(new URL(p).pathname.replace(/^\//, "")) : p; } catch { return p; } };
 
 async function find(email: string) {
@@ -114,7 +123,7 @@ export async function wipeUser(rawEmail: string, confirm: string, store: WipeSto
   const hasOrg = orgIds.length > 0;
   const arr = inList(hasOrg ? orgIds : [""]);
   const running = async () => hasOrg && (rowsOf<{ n: number }>(await db.execute(sql`SELECT count(*)::int AS n FROM jobs j JOIN cases c ON c.id = j.case_id WHERE c.org_id IN ${arr} AND j.state = 'running'`))[0]?.n ?? 0) > 0;
-  const audit = (action: string, detail: string) => db.execute(sql`INSERT INTO audit_log (org_id, user_id, action, detail) VALUES (${orgIds[0] ?? null}, ${userId}, ${action}, ${detail})`).catch((e) => console.error("wipe: audit row failed", action, e));
+  const audit = (action: string, detail: string) => db.execute(sql`INSERT INTO audit_log (org_id, user_id, action, detail) VALUES (${orgIds[0] ?? null}, ${userId}, ${action}, ${detail})`).catch((e) => console.error("wipe: audit row failed", action, "user", userId, errorKind(e)));
 
   // 1. a read-only check first: a refusal must change nothing
   if (await running()) return { ok: false, reason: "running_job" };
@@ -133,7 +142,7 @@ export async function wipeUser(rawEmail: string, confirm: string, store: WipeSto
   const paths = await storedPaths(orgIds, userId, store);
   for (let i = 0; i < paths.length; i += 5) {
     try { await Promise.all(paths.slice(i, i + 5).map((x) => store.remove(x))); }
-    catch (e) { console.error("wipe: removing a stored file failed", e); await audit("user.wipe.failed", "storage"); return { ok: false, reason: "storage_failed" }; }
+    catch (e) { console.error("wipe: removing a stored file failed", "user", userId, errorKind(e)); await audit("user.wipe.failed", "storage"); return { ok: false, reason: "storage_failed" }; }
   }
   try {
     if (hasOrg) {
@@ -148,14 +157,14 @@ export async function wipeUser(rawEmail: string, confirm: string, store: WipeSto
       }
     }
   } catch (e) {
-    console.error("wipe: database step failed", e);
+    console.error("wipe: database step failed", "user", userId, errorKind(e));
     await audit("user.wipe.failed", "database");
     return { ok: false, reason: "partial" };
   }
   // 4. files that landed while the wipe ran
   const late = (await Promise.all(prefixes(orgIds, userId).map((x) => store.listPrefix(x)))).flat();
   let lateRemoved = 0;
-  for (const f of late) await store.remove(f).then(() => { lateRemoved++; }, (e) => console.error("wipe: late file", e));
+  for (const f of late) await store.remove(f).then(() => { lateRemoved++; }, (e) => console.error("wipe: late file", "user", userId, errorKind(e)));
   const after = (await Promise.all(prefixes(orgIds, userId).map((x) => store.listPrefix(x)))).flat();
   const removed = paths.length + lateRemoved;
   await audit("user.wipe", `cases ${p.counts.cases}|files ${removed}|left ${after.length}`);

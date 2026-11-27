@@ -17,7 +17,7 @@ function Form() {
   useEffect(() => {
     if (!token) return;
     let live = true;
-    fetch(`/api/reset-token?token=${encodeURIComponent(token)}`, { cache: "no-store" })
+    fetch("/api/reset-token", { method: "POST", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) })
       .then((r) => r.json()).then((j: { valid?: boolean }) => { if (live && !j.valid) setProblem("expired"); })
       .catch(() => {}) // offline: leave the form, the submit will say what is wrong
       .finally(() => { if (live) setChecked(true); });

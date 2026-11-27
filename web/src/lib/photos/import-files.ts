@@ -8,6 +8,7 @@ import { MAX_BYTES, MAX_PHOTOS, photoPath } from "./rules";
 import { savePhoto } from "./store";
 import { clearDone } from "./server";
 import { runPool } from "@/lib/pool";
+import { readUpTo } from "@/lib/stored-size";
 
 /** Why photos of the upload did not reach the naming desk, as counts: HEIC, over the size cap, past the photo limit, not a readable picture. */
 export type LeftOut = { heic: number; big: number; limit: number; unreadable: number };
@@ -49,7 +50,11 @@ export async function importCasePhotos(caseId: string, orgId: string): Promise<P
       if (f.size > MAX_BYTES) return skip(f, "big");
       const r = await get(f.blobUrl, { access: "private" });
       if (!r || r.statusCode !== 200) return skip(f, "unreadable");
-      const bytes = Buffer.from(await new Response(r.stream).arrayBuffer());
+      // S-U4: the size in the row is what the upload said. The store's own size is looked at before the file is read, and
+      // the download stops at the limit, so a file far over it is left out without being held in memory (8 are open at once).
+      if (r.blob.size > MAX_BYTES) { await r.stream.cancel().catch(() => {}); return skip(f, "big"); }
+      const bytes = await readUpTo(r.stream, MAX_BYTES);
+      if (!bytes) return skip(f, "big");
       const hash = createHash("sha256").update(bytes).digest("hex");
       if (hashes.has(hash)) return; // already on the desk: nothing to store again
       // Every place is taken already (places only ever fill up, in name order): no small copy is made for a photo that cannot
