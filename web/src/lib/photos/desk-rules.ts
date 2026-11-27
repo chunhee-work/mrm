@@ -177,14 +177,15 @@ export type DonePress =
  * unnamed photo) is left out.
  */
 export function donePress(x: { done: boolean; saveFailed: boolean; here: boolean; photos: Photo[] }): DonePress {
-  if (x.saveFailed) return { do: "nothing" };
+  // Taking "Finished" back is always safe, also after a failed save: the case just stays open.
   if (x.done) return { do: "undo" };
-  if (x.here) {
-    const n = counts(x.photos);
-    if (!n.total) return { do: "block", reason: "empty", n: 0 };
-    if (n.naming) return { do: "block", reason: "naming", n: n.naming };
-    if (n.unnamed) return { do: "block", reason: "unnamed", n: n.unnamed };
-  }
+  if (x.saveFailed) return { do: "nothing" };
+  const n = counts(x.photos);
+  const block: DonePress | null = !n.total ? { do: "block", reason: "empty", n: 0 }
+    : n.naming ? { do: "block", reason: "naming", n: n.naming }
+    : n.unnamed ? { do: "block", reason: "unnamed", n: n.unnamed } : null;
+  // Another case is in front: what blocks this one is not said on that case's page, and a Done the server would refuse is not sent.
+  if (block) return x.here ? block : { do: "nothing" };
   return { do: "send" };
 }
 

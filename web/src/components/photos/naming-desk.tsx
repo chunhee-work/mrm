@@ -510,7 +510,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       // only the steps on the screen are for the case in front (donePress).
       const here = () => caseRef.current === cid;
       const step = donePress({ done: c.done, saveFailed: failed(cid) !== failedBefore, here: here(), photos: c.photos });
-      if (step.do === "nothing") return false; // a save failed: its message is on screen and stays there
+      if (step.do === "nothing") return false; // a save failed (its message stays on screen), or the case is not in front and cannot be finished yet
       if (step.do === "undo") {
         setDoneLocal(cid, false);
         const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: false }, 60_000);

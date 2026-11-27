@@ -250,18 +250,19 @@ test("desk: Done after the saves it waited for: a failed save stops it, another 
   const base = { done: false, saveFailed: false, here: true, photos: named };
   assert.deepEqual(donePress(base), { do: "send" });
   assert.deepEqual(donePress({ ...base, done: true }), { do: "undo" });
-  // a save that Done waited for did not go through: nothing is sent, in either direction, so its message stays and the old name is not confirmed
+  // a save that Done waited for did not go through: Done is not sent, so its message stays and the old name is not confirmed;
+  // taking "Finished" back still goes through (the case only stays open)
   assert.deepEqual(donePress({ ...base, saveFailed: true }), { do: "nothing" });
-  assert.deepEqual(donePress({ ...base, saveFailed: true, done: true }), { do: "nothing" });
+  assert.deepEqual(donePress({ ...base, saveFailed: true, done: true }), { do: "undo" });
   assert.deepEqual(donePress({ ...base, saveFailed: true, here: false }), { do: "nothing" });
   // on screen, what blocks Done is said (and the page walks to the photo)
   assert.deepEqual(donePress({ ...base, photos: [] }), { do: "block", reason: "empty", n: 0 });
   assert.deepEqual(donePress({ ...base, photos: [ph({}), ph({ id: 2, state: "pending", modelName: null })] }), { do: "block", reason: "naming", n: 1 });
   assert.deepEqual(donePress({ ...base, photos: unnamed }), { do: "block", reason: "unnamed", n: 2 });
   // the user opened another case while Done waited: the press still counts. Done is sent for the case it was pressed on
-  // (the server checks the names); only the steps on the screen are left out
+  // only the steps on the screen are left out; a case that cannot be finished yet is left alone, without a message on the other case
   assert.deepEqual(donePress({ ...base, here: false }), { do: "send" });
-  assert.deepEqual(donePress({ ...base, here: false, photos: unnamed }), { do: "send" });
+  assert.deepEqual(donePress({ ...base, here: false, photos: unnamed }), { do: "nothing" });
   assert.deepEqual(donePress({ ...base, here: false, done: true }), { do: "undo" });
 });
 test("desk: Escape puts the old name back only over a name this edit stored itself", () => {
