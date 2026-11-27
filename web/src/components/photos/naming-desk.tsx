@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
+import CaseSteps from "@/components/app/case-steps";
 import { Chevron, Plus, Tick, UploadArt } from "@/components/app/marks";
 import {
   classifyPaste, counts, isEnterPair, moved, nextUnnamed, shownName, visible, UndoStack,
@@ -767,6 +768,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
     // one raised card holds everything about this case: the cases, the case, its extra parts
     <div className="shrink-0 pb-2.5 pt-2.5 max-sm:pb-2 max-sm:pt-2">
       <div className="wrap max-sm:px-3">
+        {st && <div className="mb-2"><CaseSteps caseId={caseId} status={st.status} photos={st.photos.length} photosDone={st.done} here="photos" hint={false} /></div>}
         <div className="rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(10,14,19,0.06),0_10px_28px_-14px_rgba(10,14,19,0.22)] ring-1 ring-hair">
           <div className="flex items-center gap-1.5 border-b border-hair px-2.5 py-1.5">
             {prev}
@@ -879,6 +881,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
               <button type="button" data-testid="done-btn-end" onClick={() => void pressDone()} className={`flex h-12 items-center justify-center gap-2 rounded-[4px] px-5 text-[16px] font-bold leading-none max-sm:w-full ${st.done ? "bg-go text-bay" : "bg-ice text-bay hover:bg-icehi"}`}>
                 {st.done && <Tick className="h-4 w-4" />}{st.done ? t("doneOn") : t("doneBtn", { plate: st.plate || "" })}
               </button>
+              {st.done && <a href={`/cases/${caseId}`} data-testid="finish-next" className="btn-primary max-sm:w-full">{t("finish.next")}</a>}
             </div>
           </div>
         )}
