@@ -114,6 +114,10 @@ test("photo paths stay inside the organisation and case", () => {
   assert.ok(!pathInCase(p, "org1", "case2"));
   assert.ok(!pathInCase(p, "org2", "case1"));
   assert.ok(!pathInCase("org1/case1/photos/../../x", "org1", "case1"));
+  // two dots inside a file name are a name, not a step up a folder; a real step up is refused however it is written
+  assert.ok(pathInCase(photoPath("org1", "case1", "ab12", "f", "front..bumper.jpg"), "org1", "case1"));
+  assert.ok(!pathInCase("org1/case1/photos/%2e%2e/x.jpg", "org1", "case1"));
+  assert.ok(!pathInCase("org1/case1/photos/a/../x.jpg", "org1", "case1"));
   assert.ok(!pathInCase("org1/case1/photos//x", "org1", "case1"));
   assert.ok(!pathInCase(123, "org1", "case1"));
 });

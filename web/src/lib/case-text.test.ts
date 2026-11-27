@@ -120,3 +120,11 @@ test("D14 the workshop line is translated like the other activity lines; a text 
   // an event this file has no rule for (for example photos left out of a case) is never dropped: the log shows `raw`
   assert.deepEqual(eventTr("3 photos left out: too large"), { key: "", raw: "3 photos left out: too large" });
 });
+
+test("photos left out of a case are said in the page language, one line per reason", () => {
+  assert.deepEqual(eventTr("Photos left out: 3 (HEIC)"), { key: "ev.photosHeic", vars: { n: "3" } });
+  assert.deepEqual(eventTr("Photos left out: 2 (over 25 MB)"), { key: "ev.photosBig", vars: { n: "2", mb: "25" } });
+  assert.deepEqual(eventTr("Photos left out: 1 (more than 300 photos)"), { key: "ev.photosLimit", vars: { n: "1", max: "300" } });
+  assert.deepEqual(eventTr("Photos left out: 4 (cannot be opened)"), { key: "ev.photosBad", vars: { n: "4" } });
+  assert.equal(eventKind("Photos left out: 3 (HEIC)"), "note"); // a note: the case itself went on
+});

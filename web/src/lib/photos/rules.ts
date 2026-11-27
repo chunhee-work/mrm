@@ -1,6 +1,7 @@
 // Pure rules of the photo naming desk (plan #9). No I/O here, so everything is unit-tested (test/photos.test.ts).
 import NAMES_JSON from "../part-names.json";
 import { PHOTO_RULES } from "../playbook/photo-rules";
+import { climbs } from "../blob-url";
 
 /** The closed list: Merimen part names in the owner's combined spelling. */
 export const PART_NAMES: readonly string[] = NAMES_JSON as string[];
@@ -120,7 +121,7 @@ export function photoPath(orgId: string, caseId: string, id: string, size: "f" |
   return `${orgId}/${caseId}/photos/${id}-${size}-${safe}`;
 }
 export function pathInCase(path: unknown, orgId: string, caseId: string): path is string {
-  return typeof path === "string" && path.length < 400 && path.startsWith(`${orgId}/${caseId}/photos/`) && !path.includes("..") && !path.includes("//") && !/[\u0000-\u001f\\]/.test(path);
+  return typeof path === "string" && path.length < 400 && path.startsWith(`${orgId}/${caseId}/photos/`) && !climbs(path) && !path.includes("//") && !/[\u0000-\u001f\\]/.test(path);
 }
 
 // USD per 1M tokens. Only for the per-case usage ledger and the cost cap.
