@@ -10,6 +10,9 @@ import { Burger, Chevron, Exit, Plus } from "./marks";
 import { VIEWS } from "./status";
 import NewCasePick from "./new-case-pick";
 
+// The case table views of /dashboard (?view=… or ?q=…), as opposed to the Cases page itself.
+const isTableView = (sp: { get(k: string): string | null }) => (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
+
 // three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 
@@ -180,7 +183,7 @@ function NewCase({ onNew, blocked = false, testId = "new-case" }: { onNew: boole
  */
 function NewCaseUnlessHome({ path, blocked }: { path: string; blocked: boolean }) {
   const sp = useSearchParams();
-  const table = (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
+  const table = isTableView(sp);
   if (path === "/dashboard" && !table) return null;
   return <NewCase onNew={path === "/cases/new"} blocked={blocked} />;
 }
@@ -200,7 +203,7 @@ export function WideNewCase({ blocked }: { blocked: boolean }) {
 }
 function WideRow({ path, blocked }: { path: string; blocked: boolean }) {
   const sp = useSearchParams();
-  const table = (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
+  const table = isTableView(sp);
   if ((path === "/dashboard" && !table) || path === "/cases/new") return null;
   return <div className="hidden justify-end px-6 pt-5 lg:flex"><NewCase onNew={false} blocked={blocked} testId="new-case-wide" /></div>;
 }
