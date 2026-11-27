@@ -6,7 +6,7 @@ import { expandBundles } from "@/lib/expand-bundles";
 import { importCasePhotos, type PhotoImport } from "@/lib/photos/import-files";
 import { MAX_BYTES, MAX_PHOTOS } from "@/lib/photos/rules";
 import { userFixable, zipRefunded, zipRejectedName, eventTr } from "@/lib/case-text";
-import { refundCase } from "@/lib/payments/case-credit";
+import { enforcing, exempt, refundCase } from "@/lib/payments/case-credit";
 import { notDeleted } from "@/lib/case-delete";
 import { jevInsurerWarnings } from "@/lib/jev-checks";
 
@@ -25,6 +25,8 @@ const waitUpTo = (p: Promise<unknown>, ms: number) => new Promise<void>((done) =
 });
 const TIMED_OUT = "Reading timed out"; // shown as "Reading took too long. Press Read again."
 const READ_FAILED = "Reading failed"; // shown as "We could not read this case. Press Read again. …"
+// A case nobody paid for, found by a read that starts by itself. Shown like READ_FAILED; "Read again" takes the credit and reads.
+export const NOT_PAID = "Reading failed (no credit taken)";
 
 /**
  * U11: what a failed read stores in `cases.error`. That text travels to the browser with the case, so it is only ever one of
@@ -74,7 +76,7 @@ export function leaseTime(error: string | null): number | null {
  *
  * One claim rule for every caller: a single conditional UPDATE that also writes a new lease into `error`, so two
  * triggers can never both read, and a dead attempt can never overwrite the result of the attempt that replaced it.
- *   auto    (after upload; page self-heal for a case still `uploaded`)   from uploaded
+ *   auto    (after upload; page self-heal for a case still `uploaded`)   from uploaded, and only a case that is paid for
  *   retry   (the "Read again" button)                                    from uploaded | failed | pending_doc
  *   recover (case page self-heal)                                        from reading, only if `error` still equals the
  *                                                                        lease the caller saw (`seen`) and fewer than
@@ -92,7 +94,13 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     mode === "auto" ? and(eq(cid, id), eq(schema.cases.status, "uploaded")) :
     mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["uploaded", "failed", "pending_doc"])) :
     and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, tries);
-  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted)).returning({ id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate, readBefore: sql<boolean>`${schema.cases.caseData} is not null` });
+  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted)).returning({
+    id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate, readBefore: sql<boolean>`${schema.cases.caseData} is not null`,
+    // the case's credit, counted as the ledger's own refund rule counts it (case-credit.ts): paid for while debits > refunds
+    debits: sql<number>`(select count(*)::int from credits_ledger l where l.case_id = ${id} and l.delta < 0 and (l.reason = ${"case:" + id} or l.reason like 'case-retry:%'))`,
+    refunds: sql<number>`(select count(*)::int from credits_ledger l where l.case_id = ${id} and l.reason like 'case-refund:%')`,
+    triedBefore: sql<boolean>`exists (select 1 from case_events e where e.case_id = ${id} and e.step = 'read_docs' and e.message = 'Reading documents')`, // the id as a value: a column here is written without its table
+  });
   if (!claimed.length) {
     if (mode === "recover") { // out of attempts: stop waiting, show Failed + the retry button
       const gaveUp = await db.update(schema.cases).set({ status: "failed", error: TIMED_OUT })
@@ -103,6 +111,19 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   }
   // Only the attempt that still holds the lease may write the outcome.
   const mine = and(eq(cid, id), eq(schema.cases.status, "reading"), eq(schema.cases.error, lease));
+  // A read that starts by itself (after upload, or the pages' self-heal) is only for a case that is paid for. A new case whose
+  // credit could not be taken, or went back, and which then could not be removed stays `uploaded`: without this check the
+  // self-heal read it with a paid model call and no credit. It is not read; it shows as failed, and "Read again" takes the
+  // credit and reads it. Never failed this way: a case with no ledger row at all that was read before (it was made while
+  // charging was off, and reads free as it always did when it comes back with new files).
+  const c = claimed[0];
+  const paid = Number(c.debits) > Number(c.refunds) || (Number(c.debits) === 0 && c.triedBefore);
+  if (mode === "auto" && enforcing() && !exempt(c.orgId) && !paid) {
+    const failed = await db.update(schema.cases).set({ status: "failed", error: NOT_PAID }).where(mine).returning({ id: cid });
+    if (failed.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
+    await closeIntakeJobs(id); // the worker must not read it either
+    return { ok: false, missing: [], claimed: false };
+  }
   await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Reading documents" });
   let photos: Promise<PhotoImport | void> = Promise.resolve();
   try {

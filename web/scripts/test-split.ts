@@ -310,6 +310,31 @@ async function main() {
         assert.equal(late.status, 402); assert.equal((await cases()).length, 0); assert.equal(await children(), 0); assert.equal(await bal(), 0);
       } finally { credit.spendFirst = false; }
     }],
+    ["a new case that is not paid for and cannot be removed stays unread: no read is started for it (402 without a credit; answered as made when its credit went back)", async () => {
+      // the database refuses to delete a case, as when it is out of reach at that moment
+      const stuck = (on: boolean) => pg.exec(on
+        ? "CREATE FUNCTION no_delete() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'cannot delete now'; END $$ LANGUAGE plpgsql; CREATE TRIGGER no_delete BEFORE DELETE ON cases FOR EACH ROW EXECUTE FUNCTION no_delete();"
+        : "DROP TRIGGER IF EXISTS no_delete ON cases; DROP FUNCTION IF EXISTS no_delete();");
+      await reset(); await fund(1);
+      const quiet = console.error; console.error = () => {};
+      await stuck(true); credit.spendFirst = true; // the last credit goes to another case between the first look and the debit
+      try {
+        const { status, j } = await create(newBody());
+        assert.equal(status, 402); assert.equal(j.error, "no_credits");
+        assert.deepEqual((await cases()).map((c) => c.status), ["uploaded"]); // it could not be removed
+        assert.equal(afters.length, 0); // and nothing reads it for free
+        assert.equal(await bal(), 0); // the other case's credit only: this one took none
+      } finally { credit.spendFirst = false; await stuck(false); }
+      await reset(); await fund(2);
+      await stuck(true); credit.debitThrows = true; // the credit is taken, the call fails, the credit goes back, the case cannot be removed
+      try {
+        const { status, j } = await create(newBody());
+        assert.equal(status, 200);
+        assert.deepEqual((await cases()).map((c) => [c.id, c.status]), [[j.id, "uploaded"]]);
+        assert.equal(await bal(), 2000); // given back
+        assert.equal(afters.length, 0); // so its read is not started
+      } finally { credit.debitThrows = false; await stuck(false); console.error = quiet; }
+    }],
     ["U8 new case and added files: a file URL that is not on the file store is refused (400), nothing is made", async () => {
       await reset(); await fund(2);
       for (const url of ["http://169.254.169.254/org1/b/a.pdf", `https://x.example/${ORG}/b/a.pdf`, `https://store.public.blob.vercel-storage.com/other-org/b/a.pdf`]) {

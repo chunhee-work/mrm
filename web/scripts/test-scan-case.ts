@@ -294,6 +294,48 @@ async function main() {
       assert.equal(await bal(), paid + 1000);
       delete process.env.CREDITS_ENFORCE;
     }],
+    ["a case nobody paid for is never read by a read that starts by itself: it shows as failed, and 'Read again' reads it", async () => {
+      process.env.CREDITS_ENFORCE = "on"; process.env.CREDITS_EXEMPT_ORGS = "free-org";
+      const { debitCase, refundCase, debitRetry } = await import("../src/lib/payments/case-credit");
+      const { failTr, userFixable } = await import("../src/lib/case-text");
+      const NOT_PAID = "Reading failed (no credit taken)";
+      let reads = 0;
+      claude = async () => { reads++; return ok()(); };
+      try {
+        await db.insert(schema.creditsLedger).values({ orgId: "o", delta: 5000, reason: "purchase:unpaid-test" });
+        // 1. the credit was never taken (the debit failed) and the case could not be removed
+        const never = await newCase("uploaded"); await db.insert(schema.jobs).values({ caseId: never, step: "intake", state: "queued" });
+        const r = await scanCase(never, "auto");
+        assert.deepEqual(r, { ok: false, missing: [], claimed: false }); assert.equal(reads, 0);
+        let c = await get(never);
+        assert.equal(c.status, "failed"); assert.equal(c.error, NOT_PAID); assert.equal(c.caseData, null);
+        assert.deepEqual(await events(never), ["Scan failed"]); assert.equal(await usageRows(never), 0);
+        assert.equal((await db.select().from(schema.jobs).where(eq(schema.jobs.caseId, never)))[0].state, "done"); // the worker does not read it either
+        assert.equal(failTr(NOT_PAID).key, "case.err.other"); assert.equal(userFixable(NOT_PAID), false); // "Read again", which takes the credit:
+        assert.equal(await debitRetry("o", never), "charged");
+        assert.equal((await scanCase(never, "retry")).ok, true); assert.equal(reads, 1); assert.equal((await get(never)).status, "phase_a");
+        // 2. the credit was taken and went back (no balance at that moment, or the debit call failed halfway)
+        const back = await newCase("uploaded"); assert.equal(await debitCase("o", back), true); assert.equal(await refundCase("o", back), true);
+        await scanCase(back, "auto");
+        c = await get(back); assert.equal(c.status, "failed"); assert.equal(c.error, NOT_PAID); assert.equal(reads, 1);
+        // 3. the same pick-up twice at once: still no read
+        const twice = await newCase("uploaded"); await Promise.all([scanCase(twice, "auto"), scanCase(twice, "auto")]);
+        assert.equal((await get(twice)).error, NOT_PAID); assert.deepEqual(await events(twice), ["Scan failed"]); assert.equal(reads, 1);
+        // 4. a paid case is read as always; so is one whose retry was paid for after a refund
+        const paid = await newCase("uploaded"); await debitCase("o", paid);
+        assert.equal((await scanCase(paid, "auto")).ok, true); assert.equal(reads, 2);
+        const again = await newCase("uploaded"); await debitCase("o", again); await refundCase("o", again); assert.equal(await debitRetry("o", again), "charged");
+        assert.equal((await scanCase(again, "auto")).ok, true); assert.equal(reads, 3);
+        // 5. an organisation that never pays, and a case made while charging was off that comes back with new files, read free as before
+        const free = await newCase("uploaded", null, { orgId: "free-org" });
+        assert.equal((await scanCase(free, "auto")).ok, true); assert.equal(reads, 4);
+        const old = await newCase("uploaded", null, { caseData: { missing: ["Police report"] } }); await readEvent(old); // read once, no ledger row at all
+        assert.equal((await scanCase(old, "auto")).ok, true); assert.equal(reads, 5);
+        // 6. charging off: nothing is asked of the ledger
+        delete process.env.CREDITS_ENFORCE;
+        const off = await newCase("uploaded"); assert.equal((await scanCase(off, "auto")).ok, true); assert.equal(reads, 6);
+      } finally { delete process.env.CREDITS_ENFORCE; delete process.env.CREDITS_EXEMPT_ORGS; }
+    }],
     ["U2: photos that could not be used are said on the case's activity list, one line per reason, once", async () => {
       assert.deepEqual(leftOutLines({ leftOut: { heic: 3, big: 2, limit: 1, unreadable: 4 } }),
         ["Photos left out: 3 (HEIC)", "Photos left out: 2 (over 25 MB)", "Photos left out: 1 (more than 300 photos)", "Photos left out: 4 (cannot be opened)"]);
