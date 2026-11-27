@@ -17,14 +17,14 @@ const REFRESH_MS = 20_000;
  * and how many open cases wait for what. A row of the count opens the table of those cases.
  * Nothing is said twice: "Billing" is in the top bar only, and the bar drops its own "New case" on this page.
  */
-export default function Home({ name, counts, below }: { name: string; counts: HomeCounts; below?: React.ReactNode }) {
+export default function Home({ name, counts, busy = false, below }: { name: string; counts: HomeCounts; busy?: boolean; below?: React.ReactNode }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
   const open = OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0);
 
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
-  const live = counts.active > 0;
+  const live = busy; // something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => { if (!document.hidden) router.refresh(); }, REFRESH_MS);
@@ -34,8 +34,8 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
   // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
   const over = useFileDrag(true, (files) => { holdDropped(files); router.push("/cases/new"); });
 
-  // "On hold" is a row only when a case is on hold; the other three are always there, so the box keeps its shape
-  const rows = OPEN_BUCKETS.filter((b) => b !== "hold" || counts.hold > 0).map((b) => ({ b, n: counts[b], hot: b !== "active" && counts[b] > 0 }));
+  // the rows are the steps of the step bar; "On hold" is a row only when a case is on hold, so the box keeps its shape
+  const rows = OPEN_BUCKETS.filter((b) => b !== "hold" || counts.hold > 0).map((b) => ({ b, n: counts[b], hot: (b === "photos" || b === "hold" || b === "docs") && counts[b] > 0 }));
 
   const total = <span data-testid="home-total">{t("tray.total", { n: String(open) })}</span>;
 

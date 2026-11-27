@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
+import CaseSteps from "@/components/app/case-steps";
 import { Chevron, Plus, Tick, UploadArt } from "@/components/app/marks";
 import {
   classifyPaste, counts, isEnterPair, moved, nextUnnamed, shownName, visible, UndoStack,
@@ -422,6 +423,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
     const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: true });
     if (r.ok) {
       setDoneLocal(cid, true);
+      if (typeof r.body.status === "string") patchCase(cid, (x) => ({ ...x, status: String(r.body.status) })); // the card and the step bar follow the new status at once
       const left = tabsRef.current.filter((x) => x.id !== cid && !x.done).length;
       // R3-B02: say what really happens: only a case that is already at the photo step is queued for the worker
       const status = String(r.body.status ?? "");
@@ -433,7 +435,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
     say(r.body.error === "status" ? tt("block.status") : reason ? tt(`block.${reason}`, { n: Number(r.body.count ?? 0) }) : tt("saveFailed"));
     void load(cid, true);
     return false;
-  }, [setDoneLocal, say, load, jumpUnnamed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setDoneLocal, patchCase, say, load, jumpUnnamed]); // eslint-disable-line react-hooks/exhaustive-deps
   pressDoneRef.current = pressDone;
 
   // ───────────── cases ─────────────
@@ -767,6 +769,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
     // one raised card holds everything about this case: the cases, the case, its extra parts
     <div className="shrink-0 pb-2.5 pt-2.5 max-sm:pb-2 max-sm:pt-2">
       <div className="wrap max-sm:px-3">
+        {st && <div className="mb-2"><CaseSteps caseId={caseId} status={st.status} photos={st.photos.length} photosDone={st.done} here="photos" hint={false} /></div>}
         <div className="rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(10,14,19,0.06),0_10px_28px_-14px_rgba(10,14,19,0.22)] ring-1 ring-hair">
           <div className="flex items-center gap-1.5 border-b border-hair px-2.5 py-1.5">
             {prev}
@@ -873,6 +876,14 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
                 canDrag={filter === "all" && !editing} flash={flashId === p.id} hl={hl === p.id} a={actions} t={t}
               />
             ))}
+            {/* the end of a long list: Done is here too, with what it does, so nobody has to scroll back up (owner 2026-11-27) */}
+            <div className="col-span-2 mt-2 flex flex-wrap items-center justify-between gap-4 rounded-[4px] border border-hair bg-panel px-4 py-4 max-sm:mb-16" data-testid="finish-card">
+              <p className="min-w-0 flex-1 text-[14.5px] text-fg [text-wrap:pretty]">{n && n.naming > 0 && !st.done ? t("block.naming", { n: n.naming }) : st.done ? t(st.status === "phase_b" ? "finish.done" : st.status === "pending_doc" ? "finish.doneDocs" : st.status === "done" || st.status === "checking" ? "finish.doneOnly" : "finish.doneLater") : n && n.unnamed > 0 ? t("finish.unnamed", { n: n.unnamed }) : n && n.confirm > 0 ? t("finish.todo", { n: n.confirm }) : t("finish.ready")}</p>
+              <button type="button" data-testid="done-btn-end" aria-pressed={st.done} title={st.done ? t("doneUndo") : undefined} onClick={() => void pressDone()} className={`flex h-12 items-center justify-center gap-2 rounded-[4px] px-5 text-[16px] font-bold leading-none max-sm:w-full ${st.done ? "bg-go text-bay" : "bg-ice text-bay hover:bg-icehi"}`}>
+                {st.done && <Tick className="h-4 w-4" />}{st.done ? t("doneOn") : t("doneBtn", { plate: st.plate || "" })}
+              </button>
+              {st.done && <a href={`/cases/${caseId}`} data-testid="finish-next" className="btn-primary max-sm:w-full">{t("finish.next")}</a>}
+            </div>
           </div>
         )}
       </div>
