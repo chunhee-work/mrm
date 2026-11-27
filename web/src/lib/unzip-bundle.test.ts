@@ -165,3 +165,9 @@ test("planVehicles: a password zip, and a stored entry whose declared size is no
   assert.throws(() => planVehicles(patchCd(z, 24, 0, 4)), (e: ZipRejected) => e.code === "corrupt"); // declares 0 bytes, holds 14
   assert.throws(() => planVehicles(patchCd(z, 24, 3, 4)), (e: ZipRejected) => e.code === "corrupt"); // declares 3 bytes
 });
+
+test("planVehicles: an encrypted file outside the car folders (a readme) does not refuse the zip", () => {
+  const pdf = strToU8("%PDF-1.4 hello");
+  const z = zipSync({ "readme.txt": [strToU8("hi"), { level: 0 }], "DCD4004/a.pdf": [pdf, { level: 0 }], "NCH5773/b.pdf": [pdf, { level: 0 }] });
+  assert.equal(planVehicles(patchCd(z, 8, 1, 2)).length, 2); // readme.txt is the first entry and carries the flag
+});
