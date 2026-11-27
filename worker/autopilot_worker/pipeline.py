@@ -186,7 +186,8 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
     if phase == "A" and saved.partial:
         # the case exists in Merimen now: its number is stored so no second case is made, but nothing after the create is automated yet
         return _o(
-            "done", case_status="waiting_user", partial=True,
+            "done", case_status=("phase_b" if case.get("photos_done_at") else "waiting_user"), partial=True,
+            enqueue=(["phase_b"] if case.get("photos_done_at") else []),  # 完成 was already pressed: Phase B still gets its turn
             event=("Case created in Merimen. " + (f"{saved.line}. " if saved.line else "") + "The Adjuster Report, documents and photos are not automated yet.")[:400],
             merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes,
         )

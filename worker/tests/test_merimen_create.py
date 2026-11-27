@@ -357,3 +357,9 @@ def test_a_form_that_stays_without_saying_why_is_unclear_and_keeps_the_mark(brow
     rep = MerimenCreate(base, timeout_scale=0.02).create(spec())
     assert not rep.ok and rep.code == "create_unclear" and rep.cleared is False and rep.case_id is None
     ctx.close()
+
+
+def test_a_workshop_name_is_matched_by_whole_words_and_the_exact_row_wins():
+    from autopilot_worker.merimen_create import pick_workshop_row
+    assert pick_workshop_row(["CAB MOTOR WORKS"], "AB Motor") == (None, "workshop_not_found")
+    assert pick_workshop_row(["Bengkel Ali Jaya", "Bengkel Ali"], "Bengkel Ali") == (1, "")

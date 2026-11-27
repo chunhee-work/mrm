@@ -66,7 +66,10 @@ def pick_person(options: list[tuple[str, str]], name: str) -> str | None:
 def pick_workshop_row(rows: list[str], name: str) -> tuple[int | None, str]:
     """Which Lookup row is the user's workshop: (index, "") for exactly one, else (None, reason). Never the first of several."""
     want = norm(name)
-    hits = [i for i, r in enumerate(rows) if want and want in norm(r)]
+    hits = [i for i, r in enumerate(rows) if want and f" {want} " in f" {norm(r)} "]  # whole words: "AB Motor" is not inside "CAB MOTOR WORKS"
+    exact = [i for i in hits if norm(rows[i]) == want]
+    if len(hits) > 1 and len(exact) == 1:
+        hits = exact  # "Bengkel Ali" next to "Bengkel Ali Jaya": the exact one wins
     if len(hits) > 1:
         hq = [i for i in hits if "(hq)" in rows[i].lower()]
         hits = hq if len(hq) == 1 else hits
@@ -309,7 +312,7 @@ class MerimenCreate:
             rep.workshop_coid = chk.get("rep") or ""
             if not rep.workshop_coid and "workshop_not_found" not in P and "workshop_ambiguous" not in P and "workshop_popup" not in P:
                 P.append("workshop_not_registered")
-            elif chk.get("repName") and norm(spec.workshop_name) not in norm(chk["repName"]):
+            elif chk.get("repName") and f" {norm(spec.workshop_name)} " not in f" {norm(chk['repName'])} ":
                 P.append("workshop_mismatch")
             a = spec.atfault
             self._need("slePOLNO", a["policy"])
