@@ -455,34 +455,42 @@ try {
     assert.equal(await page.getByTestId("home-overlay").count(), 1, "leaving a child element keeps it");
     await drag("dragleave");
     await page.getByTestId("home-overlay").waitFor({ state: "detached", timeout: 500 });
-    // a drop sends at once, with no press of Upload (owner 2026-11-27): the first thing it does is ask for the balance.
-    // Answer "no credit" here so nothing goes up and the page stays, showing the file and the refusal.
-    let creditAsked = 0;
-    await page.route("**/api/cases/credit*", (r) => { creditAsked++; return r.fulfill({ status: 402, body: "{}" }); });
+    // a drop uploads right here on the first page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
+    // the upload box opens under New case and sends at once, with no press of Upload. The first thing it does is ask for
+    // the balance; answer "no credit" so nothing goes up and the box shows the file and the refusal.
+    let sent = 0;
+    await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
     await drag("dragenter");
     await drag("drop");
-    await page.waitForURL(/\/cases\/new$/); // the ?dropped=1 marker is taken off once read
-    await page.getByText("dropped.pdf").waitFor();
-    assert.equal(await page.getByText("dropped.pdf").count(), 1, "listed once");
-    await page.locator('[role="alert"]').filter({ hasText: /no credits|点数不够|tiada kredit/i }).first().waitFor();
-    assert.equal(creditAsked, 1, "the upload started by itself, once");
-    await page.unroute("**/api/cases/credit*");
-    // the new-case drop zone runs on the same hook: it lights up, and a drop there adds the file
+    const box = page.getByTestId("home-upload");
+    await box.waitFor();
+    assert.equal(new URL(page.url()).pathname, "/dashboard", "a drop stays on the first page");
+    await box.getByText("dropped.pdf").waitFor();
+    assert.equal(await box.getByText("dropped.pdf").count(), 1, "listed once");
+    await box.locator('[role="alert"]').filter({ hasText: /no credits|点数不够|tiada kredit/i }).first().waitFor();
+    assert.equal(sent, 1, "the upload started by itself, once");
+    assert.equal(await page.getByTestId("home-list").count(), 1, "the case list stays under the box");
+    // while the box is open it takes the drops itself: it lights up, and a drop adds the file to its list
     await drag("dragenter");
-    await page.locator('[data-over="true"]').first().waitFor();
+    await box.locator('[data-over="true"]').first().waitFor();
+    assert.equal(await page.getByTestId("home-overlay").count(), 0, "no second overlay while the box is open");
     await page.evaluate(() => {
       const dt = new DataTransfer(); dt.items.add(new File(["%PDF-1.4"], "second.pdf", { type: "application/pdf" }));
       window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
     });
-    await page.getByText("second.pdf").waitFor();
-    // a plain New case never gets dropped files; a ?dropped=1 visit with nothing held says so
-    await page.goto(`${BASE}/cases/new?dropped=1`);
-    await page.getByText(/did not arrive|没有带过来|tidak sampai/).waitFor();
+    await box.getByText("second.pdf").waitFor();
+    // the box closes with its ×, and the page is as before
+    await page.getByTestId("home-upload-close").click();
+    await box.waitFor({ state: "detached" });
+    assert.equal(new URL(page.url()).pathname, "/dashboard");
+    // a ?dropped=1 visit with nothing held says so, in the box
+    await page.goto(`${BASE}/dashboard?dropped=1`);
+    await box.getByText(/did not arrive|没有带过来|tidak sampai/).waitFor();
+    await page.waitForURL((u) => !u.search.includes("dropped=1"), { timeout: 5000 }); // the marker is taken off once read
     // a drop with a file left out does not send: the note stays and Upload waits for a press
     await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" }); // the page listens for drops once it has loaded
     await page.getByTestId("home-new").waitFor();
-    let sent = 0;
-    await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
+    sent = 0;
     await page.evaluate(() => {
       const dt = new DataTransfer();
       dt.items.add(new File(["%PDF-1.4"], "mixed.pdf", { type: "application/pdf" }));
@@ -490,14 +498,14 @@ try {
       window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
       window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
     });
-    await page.waitForURL(/\/cases\/new$/);
-    await page.getByText("mixed.pdf").waitFor();
-    await page.getByText(/notes\.txt/).first().waitFor();
+    await box.getByText("mixed.pdf").waitFor();
+    await box.getByText(/notes\.txt/).first().waitFor();
     await page.waitForTimeout(800);
     assert.equal(sent, 0, "nothing sent while a file was left out");
+    assert.equal(new URL(page.url()).pathname, "/dashboard");
     // a drop of one zip holding two cars does not send either: the "makes 2 cases" line waits for a press
     const twoCars = Buffer.from(zipSync({ "DCD4004/claim.pdf": strToU8("%PDF-1.4"), "TBD8129/claim.pdf": strToU8("%PDF-1.4") })).toString("base64");
-    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" }); // the drop listener exists only once the page is live
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
     await page.getByTestId("home-new").waitFor();
     await page.evaluate((b64) => {
       const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -506,50 +514,37 @@ try {
       window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
       window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
     }, twoCars);
-    await page.waitForURL(/\/cases\/new$/);
-    await page.getByText(/holds 2 cars|2 辆|2 kereta/).first().waitFor();
+    await box.getByText(/holds 2 cars|2 辆|2 kereta/).first().waitFor();
     await page.waitForTimeout(800);
     assert.equal(sent, 0, "a zip that makes several cases is not sent unseen");
-    // New case opens the file picker at once (owner 2026-11-27): no page first; the picked files are sent by themselves
+    // New case opens the file picker at once (owner 2026-11-27); the picked files go up in the box on this page
     await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
-    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("home-new").click()]);
-    await page.waitForTimeout(500);
-    assert.match(page.url(), /\/dashboard$/, "the picker opens on the first page, no jump");
+    await page.unroute("**/api/cases/credit*");
     sent = 0;
-    // the trip to the new-case page is slowed so a drop lands while the button says "Opening…": it must not replace the pick
-    const slow = async (route) => { await new Promise((r) => setTimeout(r, 1500)); await route.continue(); };
-    await page.route("**/cases/new*", slow);
+    // the balance answer is slowed so the box is still sending when New case is pressed again: no picker then
+    await page.route("**/api/cases/credit*", async (r) => { sent++; await new Promise((res) => setTimeout(res, 1500)); return r.fulfill({ status: 402, body: "{}" }); });
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("home-new").click()]);
     await chooser.setFiles([{ name: "picked.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
-    await page.getByTestId("home-new").getByText(/Opening|正在打开|Membuka/).waitFor();
-    await page.evaluate(() => {
-      const dt = new DataTransfer();
-      dt.items.add(new File(["%PDF-1.4"], "late-drop.pdf", { type: "application/pdf" }));
-      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
-      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
-    });
-    await page.waitForURL(/\/cases\/new$/);
-    await page.unroute("**/cases/new*", slow);
-    await page.getByText("picked.pdf").waitFor();
-    assert.equal(await page.getByText("late-drop.pdf").count(), 0, "a drop during Opening… does not replace the picked files");
+    await box.getByText("picked.pdf").waitFor();
+    assert.equal(new URL(page.url()).pathname, "/dashboard", "a pick stays on the first page");
     for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
-    await page.waitForTimeout(500); // a second send would show by now
     assert.equal(sent, 1, "picked files are sent without a press of Upload");
-    // the other way round: while a drop is on its way, New case does not open the picker (a pick would replace the drop)
-    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
-    await page.route("**/cases/new*", slow);
-    await page.evaluate(() => {
-      const dt = new DataTransfer();
-      dt.items.add(new File(["%PDF-1.4"], "first-drop.pdf", { type: "application/pdf" }));
-      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
-      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
-    });
     const late = page.waitForEvent("filechooser", { timeout: 800 }).then(() => true, () => false);
     await page.getByTestId("home-new").click({ force: true });
-    assert.equal(await late, false, "no picker while a drop is on its way");
-    await page.waitForURL(/\/cases\/new$/);
-    await page.unroute("**/cases/new*", slow);
-    await page.getByText("first-drop.pdf").waitFor();
-    // the New case of the top bar (on the case table) opens the picker too
+    assert.equal(await late, false, "no picker while the box is sending (a pick would replace the files on their way)");
+    await box.locator('[role="alert"]').filter({ hasText: /no credits|点数不够|tiada kredit/i }).first().waitFor();
+    await page.waitForTimeout(300);
+    assert.equal(sent, 1, "sent once");
+    // once the send has stopped, a new pick joins the open box (like a drop): the files waiting there are not thrown away
+    const [chooserB] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("home-new").click()]);
+    await chooserB.setFiles([{ name: "again.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
+    await box.getByText("again.pdf").waitFor();
+    assert.equal(await box.getByText("picked.pdf").count(), 1, "the files already in the box stay");
+    await page.waitForTimeout(500);
+    assert.equal(sent, 1, "an added file waits for a press of Upload");
+    await page.unroute("**/api/cases/credit*");
+    await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
+    // the New case of the top bar (on the case table) opens the picker too, and the files go up on the first page
     await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
     const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').first().click()]); // wide screens: the row above the page
     await page.waitForTimeout(500);
@@ -562,8 +557,8 @@ try {
     assert.equal(sent, 0, "picking nothing sends nothing");
     const [chooser3] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').first().click()]); // wide screens: the row above the page
     await chooser3.setFiles([{ name: "bar.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
-    await page.waitForURL(/\/cases\/new$/);
-    await page.getByText("bar.pdf").waitFor();
+    await page.waitForURL(/\/dashboard$/);
+    await box.getByText("bar.pdf").waitFor();
     for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
     await page.waitForTimeout(500); // a second send would show by now
     assert.equal(sent, 1, "files picked from the bar's New case are sent too");

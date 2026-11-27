@@ -1,3 +1,4 @@
+import { orgWorkshops } from "@/lib/ext/workshops";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import { credView } from "@/lib/ext/worker-store";
@@ -69,8 +70,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       // cases waiting on the user first, so the cap never cuts them: failed / missing documents, then photos not confirmed
       .orderBy(sql`case when ${schema.cases.status} in ('failed', 'pending_doc') then 0 when ${schema.cases.status} not in ('uploaded', 'reading', 'checking') and ${schema.cases.photosDoneAt} is null then 1 else 2 end`, desc(schema.cases.createdAt)).limit(500)
     : openHere);
-  const cred = await credView(orgId); // never throws: a failed read comes back as storageOk false
-  return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => Number(g.n) > 0 && systemBusy(g))} cred={cred} />;
+  const [cred, workshops] = await Promise.all([credView(orgId), orgWorkshops(orgId)]); // credView never throws: a failed read comes back as storageOk false
+  return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => Number(g.n) > 0 && systemBusy(g))} cred={cred} workshops={workshops} />;
 }
 
 /** What the first page and the table need of each case: which case, its step, and what (if anything) it waits for. */

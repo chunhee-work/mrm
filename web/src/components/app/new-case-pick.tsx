@@ -8,13 +8,14 @@ import { ACCEPT } from "./drop-zone";
 import { Plus } from "./marks";
 
 /**
- * "New case" opens the computer's file picker at once (owner 2026-11-27: no page in between). The picked files take the
- * same road as files dropped on the page: they wait in memory, the new-case page picks them up and sends them by itself,
- * with the same exceptions (a file left out, a zip with several cars, an unreadable zip wait for a press of Upload).
- * Cancelling the picker does nothing. It stays a link to the empty form: before the page is live, or with Ctrl/Cmd or a
- * middle click, it opens the form as it always did. After a pick it says "Opening…" until the form replaces the page.
+ * "New case" opens the computer's file picker at once (owner 2026-11-27: no page in between, all done on the first page).
+ * On the first page (`onPicked`) the picked files go straight to the upload box there. On any other page they wait in memory
+ * and the first page picks them up (?dropped=1) and uploads them, with the same exceptions as a drop (a file left out, a zip
+ * with several cars, an unreadable zip wait for a press of Upload). Cancelling the picker does nothing. It stays a link to
+ * the empty form: before the page is live, or with Ctrl/Cmd or a middle click, it opens the form as it always did. After a
+ * pick on another page it says "Opening…" until the first page replaces it.
  */
-export default function NewCasePick({ className, testId, children, labelClass = "", onOpening, held = false }: { className: string; testId: string; children: React.ReactNode; labelClass?: string; onOpening?: (on: boolean) => void; held?: boolean }) {
+export default function NewCasePick({ className, testId, children, labelClass = "", onOpening, held = false, onPicked }: { className: string; testId: string; children: React.ReactNode; labelClass?: string; onOpening?: (on: boolean) => void; held?: boolean; onPicked?: (files: File[]) => void }) {
   const { t } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -26,7 +27,7 @@ export default function NewCasePick({ className, testId, children, labelClass = 
   return (
     <>
       <Link
-        href="/cases/new" className={className} data-testid={testId} data-no-progress="" aria-busy={opening || undefined}
+        href="/cases/new" className={className} data-testid={testId} data-no-progress="" aria-busy={opening || undefined} aria-disabled={held || undefined}
         onClick={(e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
           e.preventDefault();
@@ -43,9 +44,10 @@ export default function NewCasePick({ className, testId, children, labelClass = 
           const files = Array.from(e.target.files ?? []);
           e.target.value = "";
           if (!files.length) return;
+          if (onPicked) { onPicked(files); return; } // on the first page: the upload starts right there
           holdDropped(files);
           setOpening(true);
-          router.push(`/cases/new?${DROPPED_PARAM}=1`);
+          router.push(`/dashboard?${DROPPED_PARAM}=1`); // any other page: to the first page, which uploads them
         }}
       />
     </>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -8,7 +8,7 @@ import { Bin, Chevron, Photo, Plus, Search, Tick, Upload, UploadArt, Working } f
 import ConfirmDelete from "./confirm-delete";
 import NeedCard from "./case-detail";
 import { failTr, userFixable } from "@/lib/case-text";
-import { DROPPED_PARAM, HOLD_MS, holdDropped, takeDropped } from "@/lib/dropped-files";
+import { DROPPED_PARAM, takeDropped } from "@/lib/dropped-files";
 import { useFileDrag } from "./drop-zone";
 import { bucketOf, OPEN_BUCKETS, type Bucket } from "./status";
 import { StepDots, StepHeads } from "./case-steps";
@@ -18,6 +18,8 @@ import { whenOf } from "@/lib/fmt-when";
 import ProfileCard, { useServerCred, type Cred } from "./profile-card";
 import { checking as loginChecking, needsUser } from "@/lib/ext/login-state";
 import NewCasePick from "./new-case-pick";
+import NewCaseForm from "@/app/cases/new/form";
+import type { WorkshopOpt } from "./workshop-picker";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
 const NamingDesk = dynamic(() => import("@/components/photos/naming-desk"), { ssr: false, loading: () => <p className="px-1 py-6 text-[14px] text-mute">…</p> });
@@ -277,7 +279,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked }: 
  * where it can be done here, the job itself. Nothing is said twice: "Billing" is in the side bar (the phone menu on a phone) only, and the bar drops its own
  * "New case" on this page.
  */
-export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string }) {
+export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId, workshops = [] }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string; workshops?: WorkshopOpt[] }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -297,7 +299,10 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const blocked = cred.blocks;
 
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
-  const live = busy; // something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
+  const [panel, setPanel] = useState<{ key: number; initial: File[] | "lost"; more?: { n: number; files: File[] } } | null>(null);
+  const [upBusy, setUpBusy] = useState(false); // the box is uploading: New case and the page drop wait
+  const live = busy && !panel; // not while the upload box is open: a refresh that fails reloads the page and would empty the box
+  // live: something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
   useEffect(() => {
     if (!live) return;
     // not in a hidden tab, and not while offline: a refresh that cannot reach the server makes Next reload the whole page,
@@ -306,16 +311,58 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
     return () => window.clearInterval(id);
   }, [live, router]);
 
-  // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
-  // after the drop the overlay stays until the new-case page replaces this one, so the wait is not a blank moment
-  const [going, setGoing] = useState(false);
-  // files held by a drop whose trip to the new-case page was cut short are let go when this page shows again
-  useEffect(() => { takeDropped(); }, []);
-  // if the trip never ends (navigation stalled), the overlay goes when the hold runs out and drops work again
-  useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), HOLD_MS); return () => window.clearTimeout(id); }, [going]);
+  // a new case is uploaded right on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
+  // files picked with New case or dropped anywhere on the page open the upload box above the list, which checks and sends them.
+  // `key` gives every new start its own box, so a fresh pick never inherits the list or the message of the last one.
+  const [made, setMade] = useState<"one" | "many" | null>(null); // "Case started" for a few seconds once the box is done
+  useEffect(() => { if (!made) return; const id = window.setTimeout(() => setMade(null), 6000); return () => window.clearTimeout(id); }, [made]);
+  const start = (initial: File[] | "lost") => { setMade(null); setPanel((p) => ({ key: (p?.key ?? 0) + 1, initial })); };
+  // a pick while the box is open adds to it (a fresh box would throw away files still waiting there for a press of Upload)
+  const pick = (files: File[]) => { if (!panel) return start(files); setPanel((p) => p && { ...p, more: { n: (p.more?.n ?? 0) + 1, files } }); };
+  // New case pressed on another page: its files wait in memory for this page (?dropped=1); a plain visit lets any old hold go
+  const handOff = useRef(false); // read once (React may run this effect twice; the second run would find the files gone)
+  useEffect(() => {
+    if (handOff.current) return;
+    handOff.current = true;
+    const url = new URL(window.location.href);
+    const handed = url.searchParams.has(DROPPED_PARAM);
+    // the marker comes off with null state, so Next takes the clean address in (its own state would make it ignore the change
+    // and write the marker back later). Not router.replace: a new query is a new page to Next and would rebuild this one.
+    // A tick later, because on a fresh load Next hooks the history only after this page's effects have run.
+    if (handed) { url.searchParams.delete(DROPPED_PARAM); window.setTimeout(() => window.history.replaceState(null, "", url.pathname + url.search), 0); }
+    const f = takeDropped();
+    if (handed && !blocked) start(f.length ? f : "lost");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // the box opens under New case, which can be below the fold (a phone, the details card above): bring it into view
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!panel) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    boxRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  }, [panel?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [deskShown, setDeskShown] = useState(false); // an open line shows the photo desk (it takes the drops then)
-  const [picking, setPicking] = useState(false); // a file picked from New case is on its way
-  const over = useFileDrag(!going && !picking && !blocked && !deskShown, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
+  const boxShown = !!panel && (!blocked || upBusy); // a box already sending finishes even if the details turn incomplete meanwhile
+  useEffect(() => { if (panel && blocked && !upBusy) setPanel(null); }, [panel, blocked, upBusy]);
+  // while the box is shown its own drop zone takes the window's drops (added to its list; refused while it uploads)
+  const over = useFileDrag(boxShown ? "off" : !blocked && !deskShown, (files) => start(files));
+  // a send that ended may have made cases on any path (a split cut short, a lost answer): read the list again
+  // Only when online: a refresh that cannot reach the server makes Next reload the whole page, losing the box and its message.
+  // navigator.onLine is not enough (Wi-Fi with no internet, a server error): first ask the server something small, and refresh
+  // only once it answers; otherwise try again a little later, a few times. A newer call replaces a waiting one.
+  const relistTry = useRef(0);
+  useEffect(() => () => { relistTry.current = -1; }, []); // gone: stop trying
+  const relist = useCallback(() => {
+    const me = ++relistTry.current;
+    const attempt = async (left: number) => {
+      if (relistTry.current !== me) return;
+      const ok = navigator.onLine && await fetch("/api/cases/credit", { cache: "no-store" }).then((r) => r.status < 500, () => false);
+      if (relistTry.current !== me) return;
+      if (ok) return router.refresh();
+      if (left > 0) window.setTimeout(() => void attempt(left - 1), 10_000);
+    };
+    void attempt(5);
+  }, [router]);
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
@@ -333,7 +380,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           <div className="flex w-full min-w-0 flex-wrap items-center gap-3 sm:w-auto sm:flex-nowrap">
           <form
             role="search" className="flex w-full min-w-0 gap-2 sm:w-[320px]" data-testid="home-search"
-            onSubmit={(e) => { e.preventDefault(); const v = q.trim(); router.push(v ? `/dashboard?q=${encodeURIComponent(v)}` : "/dashboard?view=all"); }}
+            onSubmit={(e) => { e.preventDefault(); if (upBusy && !window.confirm(t("new.leave"))) return; const v = q.trim(); router.push(v ? `/dashboard?q=${encodeURIComponent(v)}` : "/dashboard?view=all"); }}
           >
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mute" />
@@ -356,18 +403,25 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
         <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:mt-7 lg:flex">
           {blocked
             ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
-            : <NewCasePick className="btn-primary !gap-2 lg:!px-8" testId="home-new" onOpening={setPicking} held={going}><Plus />{t("dash.new")}</NewCasePick>}
+            : <NewCasePick className="btn-primary !gap-2 lg:!px-8" testId="home-new" held={upBusy} onPicked={pick}><Plus />{t("dash.new")}</NewCasePick>}
           <Link href="/dashboard?view=closed" className="btn-line lg:hidden" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>
           </Link>
         </div>
         {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
+        {panel && boxShown && (
+          <div ref={boxRef} className="mt-6 scroll-mt-20 lg:scroll-mt-4">
+            <NewCaseForm key={panel.key} orgId={orgId} workshops={workshops}
+              embed={{ initial: panel.initial, more: panel.more, dragOff: deskShown, onEnded: relist, onBusy: setUpBusy, onClose: () => setPanel(null), onMade: (id) => { setPanel(null); setMade(id ? "one" : "many"); relist(); } }} />
+          </div>
+        )}
+        {made && <p role="status" className="mt-6 flex items-center gap-2 text-[15px] font-medium text-fg" data-testid="home-made"><Tick className="h-4 w-4 shrink-0 text-ice" />{t(made === "one" ? "new.made" : "new.madeN")}</p>}
         {/* a complete profile has its own page (/details), linked from the side bar and the phone menu */}
         <div className="mt-9 lg:mt-6">{table}</div>
       </div>
       </div>
-      {(over || going) && (
+      {over && (
         <div aria-hidden="true" data-testid="home-overlay" className="pointer-events-none fixed inset-0 z-50 bg-panel/90 p-4 backdrop-blur-[2px]">
           <div className="app-dash flex h-full flex-col items-center justify-center gap-4 bg-icetint text-center" data-over="true">
             <span className="text-ice"><UploadArt size={72} lift /></span>
