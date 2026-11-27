@@ -90,7 +90,9 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
     const g = new Map<string, boolean>();
     for (const n of usable) { const parts = n.split("/"); if (parts.length > depth + 1) { const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); } }
     // a plate folder inside another plate folder ("WA1234B/KP1/") is part of that car, never a car of its own
-    const cars = [...g].filter(([k, hasPdf]) => { const s = k.slice(0, -1).split("/"); return hasPdf && isPlate(s[s.length - 1]) && !s.slice(base, -1).some(isPlate); }).map(([k]) => k);
+    // one level down (inside a folder named by content, "Police/KP1/"), a short folder number is a sub-folder, not a car: only a
+    // plate with at least three digits counts there, as for "layout" (top-level "KP1/", "KP2/" are still taken as plates, see Risks)
+    const cars = [...g].filter(([k, hasPdf]) => { const s = k.slice(0, -1).split("/"); const leaf = s[s.length - 1]; return hasPdf && isPlate(leaf) && (depth === base || /\d{3}/.test(leaf)) && !s.slice(base, -1).some(isPlate); }).map(([k]) => k);
     // everything else a case would take, named by its folder at the car level (or the file itself when it is loose)
     const extras = new Set<string>();
     for (const n of usable) {

@@ -108,3 +108,8 @@ test("vehicleLayout: a batch folder whose name looks like a plate is looked thro
 test("vehicleLayout: a car folder holding its own files plus other plates' folders stays that one car (never looked through)", () => {
   assert.deepEqual(vehicleLayout(["WA1234B/claim.pdf", "WA1234B/NCH5773/r.pdf", "WA1234B/DCD4004/s.pdf"]).cars, ["WA1234B/"]);
 });
+
+test("vehicleLayout: short-numbered folders inside a content folder (Police/KP1/, Police/KP2/) are sub-folders of one car, not cars", () => {
+  assert.deepEqual(vehicleLayout(["Police/KP1/a.pdf", "Police/KP2/b.pdf", "Claim/form.pdf"]).cars, []);
+  assert.deepEqual(vehicleLayout(["S/AAA111/a.pdf", "S/BBB222/b.pdf"]).cars.sort(), ["S/AAA111/", "S/BBB222/"]); // real plates one level down still count
+});
