@@ -142,6 +142,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       uploading = false; setStep(files.length);
       if (multi || unknown) { // one zip, several vehicles: the server makes one case per vehicle
         const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(done[0]) });
+<<<<<<< HEAD
         const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
         if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
@@ -150,6 +151,16 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
           window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
           return;
         }
+=======
+        if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+        if (!sp.ok) {
+          const j = (await sp.json().catch(() => ({}))) as { why?: string };
+          setMsg(j.why ? t(zipWhyKey(j.why)) : t("new.splitFail")); setStep(-1); setBusy(false); return;
+        }
+        leaving.current = true;
+        window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
+        return;
+>>>>>>> 08fd1e8daf96924340efb92064998943b3c66bd9
       }
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
