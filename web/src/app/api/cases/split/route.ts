@@ -69,7 +69,9 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const { url, name, size, fallback } = parsed.data;
-  const slot = await slotToStore(me.orgId, parsed.data.workshop);
+  let slot: Awaited<ReturnType<typeof slotToStore>>;
+  try { slot = await slotToStore(me.orgId, parsed.data.workshop); } // a database failure here answers like the other checks: 500, nothing made
+  catch (e) { console.error("split failed reading the workshop", e); return NextResponse.json({ error: "failed", kept: 0 }, { status: 500 }); }
   if (slot === "unknown") return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
   let u: URL;
   let path: string;
@@ -124,7 +126,7 @@ export async function POST(req: Request) {
     todo = plan.filter((v) => !earlier.has(v.prefix));
     if (todo.length && enforcing() && !exempt(me.orgId) && (await creditBalance(me.orgId)) < CASE_COST * todo.length) {
       await release(); await dropZip();
-      return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
+      return NextResponse.json({ error: "no_credits", needed: todo.length, kept: earlier.size }, { status: 402 });
     }
   } catch (e) {
     if (release) await release();
