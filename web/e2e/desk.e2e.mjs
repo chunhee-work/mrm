@@ -511,6 +511,7 @@ try {
     await page.waitForURL(/\/cases\/new$/);
     await page.getByText("picked.pdf").waitFor();
     for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
+    await page.waitForTimeout(500); // a second send would show by now
     assert.equal(sent, 1, "picked files are sent without a press of Upload");
     // the New case of the top bar (on the case table) opens the picker too
     await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
@@ -519,7 +520,7 @@ try {
     assert.match(page.url(), /view=all/, "the picker opens in place");
     assert.equal(await page.getByTestId("nav-progress").count(), 0, "no progress bar while the picker is open");
     sent = 0;
-    await chooser2.setFiles([]); // nothing picked
+    await chooser2.setFiles([]); // an empty pick (a real cancel fires no change at all)
     await page.waitForTimeout(500);
     assert.match(page.url(), /view=all/, "picking nothing stays put");
     assert.equal(sent, 0, "picking nothing sends nothing");
@@ -528,6 +529,7 @@ try {
     await page.waitForURL(/\/cases\/new$/);
     await page.getByText("bar.pdf").waitFor();
     for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
+    await page.waitForTimeout(500); // a second send would show by now
     assert.equal(sent, 1, "files picked from the bar's New case are sent too");
     await page.unroute("**/api/cases/credit*");
     await page.goto(`${BASE}/dashboard`);

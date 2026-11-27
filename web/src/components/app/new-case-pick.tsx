@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { DROPPED_PARAM, HOLD_MS, holdDropped } from "@/lib/dropped-files";
 import { ACCEPT } from "./drop-zone";
+import { Plus } from "./marks";
 
 /**
  * "New case" opens the computer's file picker at once (owner 2026-11-27: no page in between). The picked files take the
@@ -13,7 +14,7 @@ import { ACCEPT } from "./drop-zone";
  * Cancelling the picker does nothing. It stays a link to the empty form: before the page is live, or with Ctrl/Cmd or a
  * middle click, it opens the form as it always did. After a pick it says "Opening…" until the form replaces the page.
  */
-export default function NewCasePick({ className, testId, children }: { className: string; testId: string; children: React.ReactNode }) {
+export default function NewCasePick({ className, testId, children, labelClass = "" }: { className: string; testId: string; children: React.ReactNode; labelClass?: string }) {
   const { t } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -30,8 +31,10 @@ export default function NewCasePick({ className, testId, children }: { className
           if (!opening) input.current?.click();
         }}
       >
-        {opening ? <span role="status">{t("new.opening")}</span> : children}
+        {opening ? <><Plus /><span className={labelClass}>{t("new.opening")}</span></> : children}
       </Link>
+      {/* always there, so screen readers hear the change */}
+      <span role="status" className="sr-only">{opening ? t("new.opening") : ""}</span>
       <input
         ref={input} type="file" multiple accept={ACCEPT} tabIndex={-1} aria-hidden="true" className="sr-only"
         onChange={(e) => {

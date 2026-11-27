@@ -228,7 +228,7 @@ function NewCase({ onNew, blocked = false }: { onNew: boolean; blocked?: boolean
   const inner = <><Plus /><span className="max-[359px]:sr-only">{t("nav.newCase")}</span></>;
   // on the new-case page itself the button stays a plain link back to an empty form; everywhere else it opens the picker
   if (onNew) return <Link href="/cases/new" aria-current="page" data-testid="new-case" className={cls}>{inner}</Link>;
-  return <NewCasePick className={cls} testId="new-case">{inner}</NewCasePick>;
+  return <NewCasePick className={cls} testId="new-case" labelClass="max-[359px]:sr-only">{inner}</NewCasePick>;
 }
 
 /**
