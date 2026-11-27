@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "./auth";
 import { db, schema } from "@/db";
+import { ensureOwnOrg } from "./own-org";
 
 // Hard test 2026-11-22: one page asked for the session up to three times (layout, page title, page), each a trip to the database.
 // Now once per request: React's cache() keeps the answer for the rest of that one request only.
@@ -11,7 +12,10 @@ const signedIn = cache(async () => {
   const s = await auth.api.getSession({ headers: await headers() });
   if (!s) return null;
   const [m] = await db.select().from(schema.memberships).where(eq(schema.memberships.userId, s.user.id)).limit(1);
-  return { user: s.user, orgId: m?.orgId ?? null };
+  if (m) return { user: s.user, orgId: m.orgId };
+  // No organization: sign-up failed half way. It is made now (once; own-org.ts), not "log in again" for ever.
+  const orgId = await ensureOwnOrg(s.user).catch((e) => { console.error("organization for a signed-in user failed:", (e as Error)?.name); return null; });
+  return { user: s.user, orgId };
 });
 
 export async function requireUser() {
