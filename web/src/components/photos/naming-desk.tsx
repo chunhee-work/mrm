@@ -498,6 +498,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     try {
       const tt = tRef.current;
       if (!statesRef.current[cid]) return false;
+      // What the button said when it was pressed decides between "finish" and "take back": a failed save reloads the case
+      // while this press waits, and a "Finished" that reload brings back must not turn a press on 完成 into taking it back.
+      const wasDone = statesRef.current[cid].done;
       // What is still on its way goes first: a name left in the box, then every save of this case. 完成 is pressed on what is stored;
       // a save that reached the server after it would take it back while the page still said "Finished".
       const e = editingRef.current;
@@ -509,7 +512,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       // The press counts for the case it was made on, also when another case has been opened while the saves finished:
       // only the steps on the screen are for the case in front (donePress).
       const here = () => caseRef.current === cid;
-      const step = donePress({ done: c.done, saveFailed: failed(cid) !== failedBefore, here: here(), photos: c.photos });
+      const step = donePress({ done: wasDone, saveFailed: failed(cid) !== failedBefore, here: here(), photos: c.photos });
       if (step.do === "nothing") return false; // a save failed (its message stays on screen), or the case is not in front and cannot be finished yet
       if (step.do === "undo") {
         setDoneLocal(cid, false);
@@ -537,6 +540,15 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
         // only known there: wait for that change, then show what the server holds.
         if (started(cid) !== before) {
           await settle(cid);
+          // a save that hung past the first wait and failed only now: 完成 went out on the old name. It is taken back and the
+          // failure stays on screen, as when the save fails before 完成 is sent.
+          if (failed(cid) !== failedBefore) {
+            await api("PUT", `/api/cases/${cid}/photos/done`, { done: false }, 60_000);
+            setDoneLocal(cid, false);
+            void load(cid, true);
+            onDoneRef.current?.();
+            return false;
+          }
           const fresh = await Promise.race([load(cid, true, 20_000), sleep(20_000).then(() => null)]); // not for ever: this press holds the case's 完成
           if (!fresh) setDoneLocal(cid, false); // cannot ask: "not done" is the safe thing to show (完成 can be pressed again)
           if (!statesRef.current[cid]?.done) { say(tt("doneCancelled")); onDoneRef.current?.(); return false; }
