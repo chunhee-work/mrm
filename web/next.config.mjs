@@ -6,16 +6,18 @@ const localStore = (() => { try { return new URL(process.env.NEXT_PUBLIC_VERCEL_
 // uploads go to Vercel's file store, and the only frame is the Merimen live view on the connection page.
 // 'unsafe-inline' stays for scripts and styles because Next.js writes small inline ones into every page; a script file from another
 // site, a frame around our pages, a form posting elsewhere and a changed <base> are all refused.
+// The 3D landing page needs two things of its own: its models are unpacked by a small WebAssembly decoder ('wasm-unsafe-eval'
+// lets WebAssembly compile, nothing else), and the pictures inside a model are read back through blob: addresses (connect-src).
 const contentPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${dev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' https://vercel.com https://*.vercel-storage.com${localStore ? ` ${localStore}` : ""}${dev ? " ws:" : ""}`,
+  `connect-src 'self' blob: https://vercel.com https://*.vercel-storage.com${localStore ? ` ${localStore}` : ""}${dev ? " ws:" : ""}`,
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
-  "frame-src https://*.browserbase.com",
+  `frame-src https://*.browserbase.com${dev ? " data:" : ""}`, // data: is the stand-in live view of local runs
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

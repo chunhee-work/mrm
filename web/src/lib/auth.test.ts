@@ -30,13 +30,14 @@ const db = new Proxy(real, {
 });
 const mails: { to: string; kind: string }[] = [];
 const htmls: string[] = []; // the same emails, what they say
+let mailDown = false; // the mail provider refuses every send
 // what the server leaves to do after the answer is sent (emails, clearing a counter): awaited by http() so a test sees it done
 const afterAnswer: Promise<unknown>[] = [];
 let reqHeaders = new Headers();
 class Redirected extends Error { constructor(public to: string) { super(`redirect ${to}`); } }
 const stubs: Record<string, unknown> = {
   "@/db": { db, schema },
-  "./email": { sendEmail: async (to: string, _subject: string, html: string, kind: string) => { mails.push({ to, kind }); htmls.push(html); } },
+  "./email": { sendEmail: async (to: string, _subject: string, html: string, kind: string) => { if (mailDown) throw new Error("mail provider down"); mails.push({ to, kind }); htmls.push(html); } },
   "next/server": { after: (p: Promise<unknown>) => { afterAnswer.push(Promise.resolve(p).catch(() => {})); } },
   "next/headers": { headers: async () => reqHeaders, cookies: async () => ({ has: (n: string) => (reqHeaders.get("cookie") ?? "").includes(`${n}=`) }) },
   "next/navigation": { redirect: (to: string) => { throw new Redirected(to); } },
@@ -393,7 +394,7 @@ test("the limiter's database is down: requests are answered as if there were no 
     await quiet(() => withLimiter(async () => {
       // per client address and per account: far more tries than either cap, every one is answered by the password check
       for (let i = 0; i < IP_RULES["/sign-in/email"].max + 3; i++) assert.equal((await wrong("down@test.invalid", from("203.0.113.50"))).status, 401);
-      assert.equal(countersDown - 1, 2 * (IP_RULES["/sign-in/email"].max + 3), "both counts really failed, every time");
+      assert.equal(countersDown - 1, 3 * (IP_RULES["/sign-in/email"].max + 3), "all three counts (client address, account from this address, account) really failed, every time");
       assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD }, undefined, from("203.0.113.50"))).status, 200);
       // per mailbox: the emails still go out
       const sent = mails.length;
@@ -404,16 +405,16 @@ test("the limiter's database is down: requests are answered as if there were no 
   assert.equal(await counters(), had, "nothing was counted while it was down");
 });
 
-test("wrong passwords for one address are capped whoever sends them: then a 429, the same for an address nobody has, until the window ends", async () => {
-  const { SIGN_IN_FAILS_MAX: max, SIGN_IN_FAILS_WINDOW_MS, counterId } = await rl();
+test("wrong passwords for one account from one client address are capped: then a 429 there, the same for an address nobody has, while the owner elsewhere still gets in", async () => {
+  const { SIGN_IN_FAILS_MAX: max, SIGN_IN_FAILS_WINDOW_MS, signInFailsFrom } = await rl();
   const me = await signedUp();
   const nobody = `nobody${++n}@test.invalid`;
-  // every try from another client address (a botnet): the count is per account
+  const there = "198.51.100.7";
   const run = async (email: string) => {
     const out: (number | string | undefined)[][] = [];
-    for (let i = 0; i <= max; i++) { const r = await wrong(email, from(`198.51.100.${i + 1}`)); out.push([r.status, r.code, r.json?.message as string]); }
-    // locked: the right password is refused too, with the answer the log-in page reads as "too many tries"
-    const r = await http("/sign-in/email", { email, password: PASSWORD });
+    for (let i = 0; i <= max; i++) { const r = await wrong(email, from(there)); out.push([r.status, r.code, r.json?.message as string]); }
+    // locked there: the right password is refused too, with the answer the log-in page reads as "too many tries"
+    const r = await http("/sign-in/email", { email, password: PASSWORD }, undefined, from(there));
     out.push([r.status, r.code, r.json?.message as string, r.setCookie]);
     return out;
   };
@@ -422,25 +423,51 @@ test("wrong passwords for one address are capped whoever sends them: then a 429,
   assert.deepEqual(real1.slice(max), [[429, "TOO_MANY_REQUESTS", "Too many requests. Please try again later."], [429, "TOO_MANY_REQUESTS", "Too many requests. Please try again later.", ""]]);
   assert.deepEqual(await run(nobody), real1, "an address without an account answers the same, try for try");
   // typed in capitals it is the same account and the same count
-  assert.equal((await wrong(me.email.toUpperCase())).status, 429);
-  // the row: a hash, not the address; it ends ten minutes after the first wrong password and refused tries do not move that
-  const id = counterId("signin", me.email);
+  assert.equal((await wrong(me.email.toUpperCase(), from(there))).status, 429);
+  // someone who only knows the email cannot keep the owner out: from another client address the right password logs in
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD }, undefined, from("203.0.113.200"))).status, 200);
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD }, undefined, from(there))).status, 429, "and that did not unlock the address that guessed");
+  // the row: a hash, not the address or the email; it ends ten minutes after the first wrong password and refused tries do not move that
+  const id = signInFailsFrom(me.email, there);
   const row = await counter(id);
-  assert.equal(JSON.stringify(row).includes(me.email), false);
+  assert.equal(JSON.stringify(row).includes(me.email) || JSON.stringify(row).includes(there), false);
   assert.ok(Math.abs(row.expiresAt.getTime() - Date.now() - SIGN_IN_FAILS_WINDOW_MS) < 30_000);
-  // the window ends: the right password logs in, and the count is gone
+  // the window ends: the right password logs in there, and the count is gone
   await endWindow(id);
-  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD })).status, 200);
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD }, undefined, from(there))).status, 200);
   assert.equal(await counter(id), undefined);
 });
 
-test("a right password starts the count again; tries at the same moment cannot get past the cap; an unconfirmed account's right password is not a wrong one", async () => {
-  const { SIGN_IN_FAILS_MAX: max, counterId } = await rl();
+test("wrong passwords for one account from many client addresses together are capped too, and one address alone cannot use that cap up", async () => {
+  const { SIGN_IN_FAILS_MAX: max, SIGN_IN_FAILS_ALL_MAX: all, SIGN_IN_FAILS_ALL_WINDOW_MS, signInFailsAll } = await rl();
   const me = await signedUp();
+  const id = signInFailsAll(me.email);
+  // one address hammering: only the tries that were looked at count for everyone
+  for (let i = 0; i < max + 15; i++) await wrong(me.email, from("198.51.100.9"));
+  const row = await counter(id);
+  assert.equal(Number(row.value), max);
+  assert.equal(JSON.stringify(row).includes(me.email), false);
+  assert.ok(Math.abs(row.expiresAt.getTime() - Date.now() - SIGN_IN_FAILS_ALL_WINDOW_MS) < 60_000);
+  // a right password from elsewhere takes one try off; it does not wipe what the others typed wrong
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD }, undefined, from("203.0.113.201"))).status, 200);
+  assert.equal(Number((await counter(id)).value), max);
+  // a botnet: one guess per address. Up to the cap each is looked at, after it none is, the right password neither
+  await real.update(V).set({ value: String(all - 2) }).where(eq(V.id, id));
+  assert.deepEqual([(await wrong(me.email, from("192.0.2.11"))).status, (await wrong(me.email, from("192.0.2.12"))).status, (await wrong(me.email, from("192.0.2.13"))).status], [401, 401, 429]);
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD }, undefined, from("203.0.113.202"))).status, 429);
+  // the hour ends
+  await endWindow(id);
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD }, undefined, from("203.0.113.202"))).status, 200);
+});
+
+test("a right password starts the count again; tries at the same moment cannot get past the cap; an unconfirmed account's right password is not a wrong one", async () => {
+  const { SIGN_IN_FAILS_MAX: max, signInFailsFrom, signInFailsAll } = await rl();
+  const me = await signedUp();
+  const mine = (email: string) => signInFailsFrom(email, "unknown"); // these requests carry no client address
   for (let round = 0; round < 2; round++) {
     for (let i = 0; i < max - 1; i++) assert.equal((await wrong(me.email)).status, 401, `round ${round} try ${i}`);
     assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD })).status, 200);
-    assert.equal(await counter(counterId("signin", me.email)), undefined);
+    assert.equal(await counter(mine(me.email)), undefined);
   }
   // 30 guesses sent together at one account: exactly 10 are checked (margin 0)
   const burst = await Promise.all(Array.from({ length: 30 }, () => wrong(me.email)));
@@ -455,10 +482,11 @@ test("a right password starts the count again; tries at the same moment cannot g
   const email = `unconfirmed${++n}@test.invalid`;
   await http("/sign-up/email", { name: "U", email, password: PASSWORD });
   for (let i = 0; i < max + 3; i++) assert.equal((await http("/sign-in/email", { email, password: PASSWORD })).code, "EMAIL_NOT_VERIFIED");
-  assert.equal(Number((await counter(counterId("signin", email)))?.value ?? 0), 0);
+  const counted = async () => [Number((await counter(mine(email)))?.value ?? 0), Number((await counter(signInFailsAll(email)))?.value ?? 0)];
+  assert.deepEqual(await counted(), [0, 0]);
   // a request that is not a guess at all (no password) is not counted either
   for (let i = 0; i < max + 3; i++) assert.equal((await http("/sign-in/email", { email })).status, 400);
-  assert.equal(Number((await counter(counterId("signin", email)))?.value ?? 0), 0);
+  assert.deepEqual(await counted(), [0, 0]);
 });
 
 /** The token in the newest reset email. */
@@ -530,6 +558,24 @@ test("at most 3 reset emails and 3 confirm emails an hour go to one address, and
   // the two kinds are counted apart: this address can still get a reset link
   await http("/request-password-reset", { email, redirectTo: "/reset-password" });
   assert.deepEqual(mails[mails.length - 1], { to: email, kind: "reset" });
+});
+
+test("an email that could not be sent does not use up the address's share: the next tries still send", async () => {
+  const { MAILS_PER_ADDRESS_MAX: max, counterId } = await rl();
+  const me = await signedUp();
+  await rl().then((m) => m.forget(counterId("mail-reset", me.email)));
+  const sent = mails.length;
+  mailDown = true;
+  try { await quiet(async () => { for (let i = 0; i < max + 2; i++) assert.equal((await http("/request-password-reset", { email: me.email, redirectTo: "/reset-password" })).status, 200); }); }
+  finally { mailDown = false; }
+  assert.equal(Number((await counter(counterId("mail-reset", me.email)))?.value ?? 0), 0);
+  for (let i = 0; i < max + 1; i++) await http("/request-password-reset", { email: me.email, redirectTo: "/reset-password" });
+  assert.equal(mails.length - sent, max, "the full share goes out once the provider is back, and no more");
+});
+
+test("the bare password check is switched off: it cannot be used to guess a password with a stolen session", async () => {
+  const me = await signedUp();
+  for (const password of [PASSWORD, "not-the-password"]) assert.equal((await http("/verify-password", { password }, me.cookie)).status, 404);
 });
 
 test("sign-up with a used address, many times at the same moment: one email, not one each", async () => {

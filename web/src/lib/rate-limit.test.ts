@@ -173,21 +173,19 @@ test("admin key: five wrong keys lock one address for 15 minutes on every server
   // 15 minutes later
   await end(rl.counterId("admin-key", a));
   assert.equal(await key.countKeyTry(a), true);
-  // a right key: that address starts from nothing, and the try is not counted for everyone either
-  const all = Number((await rowOf(rl.counterId("admin-key", "*everyone*"))).value);
+  // a right key: that address starts from nothing
   await key.keyTryWasRight(a);
   assert.equal(await rowOf(rl.counterId("admin-key", a)), undefined);
-  assert.equal(Number((await rowOf(rl.counterId("admin-key", "*everyone*"))).value), all - 1);
 });
 
-test("admin key: wrong keys from many addresses together lock the form for everyone", async () => {
-  const { rl, key } = await kit();
-  await rl.forget(rl.counterId("admin-key", "*everyone*"));
-  const tries = await Promise.all(Array.from({ length: key.ADMIN_WRONG_KEYS_ALL + 10 }, (_, i) => key.countKeyTry(`10.0.${Math.floor(i / 250)}.${i % 250}`)));
-  assert.equal(tries.filter(Boolean).length, key.ADMIN_WRONG_KEYS_ALL);
-  assert.equal(await key.countKeyTry("10.9.9.9"), false, "an address that never tried is locked too");
-  await end(rl.counterId("admin-key", "*everyone*"));
-  assert.equal(await key.countKeyTry("10.9.9.9"), true);
+test("admin key: wrong keys from many addresses lock nobody else out (no cap for everyone together)", async () => {
+  const { key } = await kit();
+  // one address hammering, and two hundred others with one wrong key each
+  const hammer = await Promise.all(Array.from({ length: 150 }, () => key.countKeyTry("10.1.1.1")));
+  assert.equal(hammer.filter(Boolean).length, key.ADMIN_WRONG_KEYS_PER_ADDRESS);
+  const many = await Promise.all(Array.from({ length: 200 }, (_, i) => key.countKeyTry(`10.2.${Math.floor(i / 250)}.${i % 250}`)));
+  assert.equal(many.every(Boolean), true);
+  assert.equal(await key.countKeyTry("10.9.9.9"), true, "the owner, on an address that never tried, is let in to type the key");
 });
 
 test("the client address is the first one in the header the platform writes", async () => {

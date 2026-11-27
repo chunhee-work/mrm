@@ -10,8 +10,9 @@ import { MAX_PASSWORD, MIN_PASSWORD, normLang, translate } from "./i18n";
 import { cleanName, nameAtSignUp } from "./account-name";
 import { ensureOwnOrg } from "./own-org";
 import {
-  MAILS_PER_ADDRESS_MAX, MAILS_PER_ADDRESS_WINDOW_MS, PASSWORD_CHECK_FAILS_MAX, PASSWORD_CHECK_FAILS_WINDOW_MS, SIGN_IN_FAILS_MAX,
-  SIGN_IN_FAILS_WINDOW_MS, SIGNUP_AGAIN_MAILS_MAX, SIGNUP_AGAIN_WINDOW_MS, authRateLimit, counterId, forget, giveBack, hitOrAllow,
+  MAILS_PER_ADDRESS_MAX, MAILS_PER_ADDRESS_WINDOW_MS, PASSWORD_CHECK_FAILS_MAX, PASSWORD_CHECK_FAILS_WINDOW_MS, SIGN_IN_FAILS_ALL_MAX,
+  SIGN_IN_FAILS_ALL_WINDOW_MS, SIGN_IN_FAILS_MAX, SIGN_IN_FAILS_WINDOW_MS, SIGNUP_AGAIN_MAILS_MAX, SIGNUP_AGAIN_WINDOW_MS, addressOf,
+  authRateLimit, counterId, forget, giveBack, hitOrAllow, signInFailsAll, signInFailsFrom,
 } from "./rate-limit";
 
 function langOf(req?: Request) {
@@ -23,28 +24,38 @@ function sendVerifyMail(to: string, url: string, l: ReturnType<typeof langOf>) {
   return sendEmail(to, translate(l, "mail.verifySubject"), `<p>${translate(l, "mail.verifyBody")}</p><p><a href="${url}">${url}</a></p>`, "verify");
 }
 
-/** False when this address already got its share of this kind of email in the last hour: nothing is sent, and the answer to the browser is the same either way. */
-const mayMail = async (kind: "reset" | "verify", to: string) =>
-  (await hitOrAllow(counterId(`mail-${kind}`, to.toLowerCase()), MAILS_PER_ADDRESS_MAX, MAILS_PER_ADDRESS_WINDOW_MS)).allowed;
-
-/** Where the wrong passwords typed for one email address are counted, whoever types them and whether or not it has an account. */
-const signInFails = (email: string) => counterId("signin", email.toLowerCase());
-
-type Guess = { id: string; max: number; windowMs: number };
 /**
- * A request that tests a password, and the counter it is held against: log-in by the email typed (from any client address),
- * change-password by the session cookie sent. null for every other request.
+ * Sends one email of this kind unless the address already got its share of them in the last hour: then nothing is sent, and
+ * the answer to the browser is the same either way. An email that could not be sent is not counted: the person is told to
+ * try again, and that try must still be able to send.
  */
-function guessOf(ctx: { path?: string; body?: unknown; getCookie: (name: string) => string | null; context: { authCookies: { sessionToken: { name: string } } } }): Guess | null {
+async function mailCapped(kind: "reset" | "verify", to: string, send: () => Promise<void>) {
+  const id = counterId(`mail-${kind}`, to.toLowerCase());
+  if (!(await hitOrAllow(id, MAILS_PER_ADDRESS_MAX, MAILS_PER_ADDRESS_WINDOW_MS)).allowed) return;
+  try { await send(); } catch (e) { await giveBack(id, MAILS_PER_ADDRESS_MAX); throw e; }
+}
+
+/** One counter a password try is held against. `right`: what a right password does to it (start again, or take this one try back). */
+type Guess = { id: string; max: number; windowMs: number; right: "forget" | "giveBack" };
+/**
+ * A request that tests a password, and the counters it is held against, the narrowest first: log-in by the email typed, from
+ * this client address and then from every address together; change-password by the session cookie sent. None for every other request.
+ */
+function guessesOf(ctx: { path?: string; body?: unknown; headers?: Headers; getCookie: (name: string) => string | null; context: { authCookies: { sessionToken: { name: string } } } }): Guess[] {
   if (ctx.path === "/sign-in/email") {
     const email = (ctx.body as { email?: unknown } | undefined)?.email;
-    return typeof email === "string" && email ? { id: signInFails(email), max: SIGN_IN_FAILS_MAX, windowMs: SIGN_IN_FAILS_WINDOW_MS } : null;
+    if (typeof email !== "string" || !email) return [];
+    return [
+      { id: signInFailsFrom(email, addressOf(ctx.headers)), max: SIGN_IN_FAILS_MAX, windowMs: SIGN_IN_FAILS_WINDOW_MS, right: "forget" },
+      // a right password does not wipe what everyone else typed wrong: only this one try comes off
+      { id: signInFailsAll(email), max: SIGN_IN_FAILS_ALL_MAX, windowMs: SIGN_IN_FAILS_ALL_WINDOW_MS, right: "giveBack" },
+    ];
   }
   if (ctx.path === "/change-password") {
     const cookie = ctx.getCookie(ctx.context.authCookies.sessionToken.name);
-    return cookie ? { id: counterId("pw-check", cookie), max: PASSWORD_CHECK_FAILS_MAX, windowMs: PASSWORD_CHECK_FAILS_WINDOW_MS } : null;
+    return cookie ? [{ id: counterId("pw-check", cookie), max: PASSWORD_CHECK_FAILS_MAX, windowMs: PASSWORD_CHECK_FAILS_WINDOW_MS, right: "forget" }] : [];
   }
-  return null;
+  return [];
 }
 /** The two answers that mean "that password was wrong". */
 const WRONG_PASSWORD = new Set(["INVALID_EMAIL_OR_PASSWORD", "INVALID_PASSWORD"]);
@@ -82,18 +93,17 @@ export const auth = betterAuth({
     // The picture is dropped the same way too (create.before): nothing a sign-up sends in it reaches the database or the answer.
     customSyntheticUser: ({ coreFields, additionalFields, id }) => ({ ...coreFields, name: nameAtSignUp(coreFields.name, coreFields.email), image: null, ...additionalFields, id }),
     // A reset link was opened from this mailbox, so the address is confirmed too.
-    onPasswordReset: async ({ user }) => {
+    onPasswordReset: async ({ user }, request) => {
       if (!user.emailVerified) await db.update(schema.user).set({ emailVerified: true, updatedAt: new Date() }).where(eq(schema.user.id, user.id));
       // The other reset links sent to this account stop working with the one that was used (a reset row's value is the user id).
       try { await db.delete(schema.verification).where(and(eq(schema.verification.value, user.id), notLike(schema.verification.id, "rl:%"))); } catch (e) { console.error("removing the other reset links failed:", (e as Error)?.name); }
       // and the owner can log in at once, even if someone had the address locked with wrong passwords
-      await forget(signInFails(user.email));
+      await forget(signInFailsAll(user.email), signInFailsFrom(user.email, addressOf(request?.headers)));
     },
     sendResetPassword: async ({ user, url }, request) => {
-      if (!(await mayMail("reset", user.email))) return;
       const l = langOf(request);
-      await sendEmail(user.email, translate(l, "mail.resetSubject"),
-        `<p>${translate(l, "mail.resetBody")}</p><p><a href="${url}">${url}</a></p><p>${translate(l, "mail.ignore")}</p>`, "reset");
+      await mailCapped("reset", user.email, () => sendEmail(user.email, translate(l, "mail.resetSubject"),
+        `<p>${translate(l, "mail.resetBody")}</p><p><a href="${url}">${url}</a></p><p>${translate(l, "mail.ignore")}</p>`, "reset"));
     },
   },
   emailVerification: {
@@ -103,7 +113,7 @@ export const auth = betterAuth({
     // replaces any other) after confirming.
     autoSignInAfterVerification: false,
     sendVerificationEmail: async ({ user, url }, request) => {
-      if (await mayMail("verify", user.email)) await sendVerifyMail(user.email, url, langOf(request));
+      await mailCapped("verify", user.email, () => sendVerifyMail(user.email, url, langOf(request)));
     },
   },
   // A reset link is stored as a hash of itself: someone who can read the table cannot use the links in it.
@@ -111,22 +121,28 @@ export const auth = betterAuth({
   verification: { storeIdentifier: { default: "plain", overrides: { "reset-password:": "hashed" } } },
   // Counted in the database, per client address: rate-limit.ts.
   rateLimit: authRateLimit,
+  // "Is this my password?" on its own is not used by any page, and it would let a stolen session guess the password past the
+  // cap on change-password.
+  disabledPaths: ["/verify-password"],
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      // Counted before the password is looked at, in one statement, so tries sent at the same moment cannot all get in under the cap.
-      const g = guessOf(ctx);
-      if (g && !(await hitOrAllow(g.id, g.max, g.windowMs)).allowed) throw APIError.from("TOO_MANY_REQUESTS", { code: "TOO_MANY_REQUESTS", message: "Too many requests. Please try again later." });
+      // Counted before the password is looked at, in one statement per counter, so tries sent at the same moment cannot all get
+      // in under the cap. One counter after the other: a try the first one refuses is not counted on the next, or one client
+      // address alone could use up what all addresses together are allowed.
+      for (const g of guessesOf(ctx)) {
+        if (!(await hitOrAllow(g.id, g.max, g.windowMs)).allowed) throw APIError.from("TOO_MANY_REQUESTS", { code: "TOO_MANY_REQUESTS", message: "Too many requests. Please try again later." });
+      }
       // A changed password signs every other device out, whatever the request asks for.
       if (ctx.path === "/change-password" && ctx.body && typeof ctx.body === "object") return { context: { body: { ...ctx.body, revokeOtherSessions: true } } };
     }),
     after: createAuthMiddleware(async (ctx) => {
-      const g = guessOf(ctx);
-      if (!g) return;
+      const gs = guessesOf(ctx);
+      if (!gs.length) return;
       const r = ctx.context.returned;
       const code = isAPIError(r) ? (r.body as { code?: string } | undefined)?.code : null;
       if (code && WRONG_PASSWORD.has(code)) return; // a wrong password: the try stays counted
       // the right password starts the count again; anything else (a malformed request, email not confirmed) was not a guess
-      ctx.context.runInBackground(isAPIError(r) ? giveBack(g.id, g.max) : forget(g.id));
+      ctx.context.runInBackground(Promise.all(gs.map((g) => (isAPIError(r) || g.right === "giveBack" ? giveBack(g.id, g.max) : forget(g.id)))));
     }),
   },
   databaseHooks: {

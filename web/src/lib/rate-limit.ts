@@ -28,9 +28,16 @@ export const IP_RULES: Record<string, { max: number; window: number; fixed?: boo
 };
 /** Every other auth path together, per client address. */
 export const IP_RULE_REST = { max: 100, window: 10 };
-/** Wrong passwords for one email address, from any client address; then every log-in to it is refused until the window ends. */
+/**
+ * Wrong passwords for one email address from one client address; then every log-in to that account from that address is
+ * refused until the window ends. Per address, so that someone who only knows an email cannot keep its owner out by typing
+ * wrong passwords: the owner, on another address, still gets in.
+ */
 export const SIGN_IN_FAILS_MAX = 10;
 export const SIGN_IN_FAILS_WINDOW_MS = 10 * MIN;
+/** Wrong passwords for one email address from every client address together (guessing spread over many addresses). */
+export const SIGN_IN_FAILS_ALL_MAX = 200;
+export const SIGN_IN_FAILS_ALL_WINDOW_MS = 60 * MIN;
 /** Wrong "current password" tries on one signed-in session (change password). */
 export const PASSWORD_CHECK_FAILS_MAX = 10;
 export const PASSWORD_CHECK_FAILS_WINDOW_MS = 10 * MIN;
@@ -48,6 +55,22 @@ const SWEEP_EVERY_MS = 10 * MIN;
 
 /** The row of one counter. What is counted (an address, a cookie) is hashed: it is never stored as it is, and the id stays short. */
 export const counterId = (kind: string, who: string) => `${PREFIX}${kind}:${createHash("sha256").update(who).digest("hex").slice(0, 40)}`;
+
+/**
+ * The client address as the platform wrote it. On Vercel both headers are set by the platform (a value the client sends is
+ * replaced), each with the one address of the client; a list is not believed, because its first entry is whatever the
+ * client typed. No address to go by: every such request shares the one counter "unknown".
+ */
+export function addressOf(headers: Headers | null | undefined): string {
+  for (const name of ["x-forwarded-for", "x-vercel-forwarded-for"]) {
+    const a = headers?.get(name)?.trim();
+    if (a && !a.includes(",")) return a;
+  }
+  return "unknown";
+}
+/** Where the wrong passwords typed for one email address are counted: from one client address, and from all of them together. */
+export const signInFailsFrom = (email: string, address: string) => counterId("signin-from", `${email.toLowerCase()}|${address}`);
+export const signInFailsAll = (email: string) => counterId("signin", email.toLowerCase());
 
 export type Hit = { allowed: boolean; retryAfter: number };
 const ts = (ms: number) => sql`${new Date(ms).toISOString()}::timestamp`;

@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { counterId, forget, giveBack, hitOrAllow, isMarked, mark } from "@/lib/rate-limit";
+import { counterId, forget, hitOrAllow, isMarked, mark } from "@/lib/rate-limit";
 import { verifySession } from "./key";
 
 /** Constant-time check of a typed key: both sides are hashed to 32 bytes first, so length is not leaked either. */
@@ -10,32 +10,27 @@ export function keyMatches(input: string, key: string): boolean {
 }
 
 // Brute-force brake. Counted in the database (rate-limit.ts), so it holds across every server instance: wrong keys from one
-// client address, and wrong keys from everyone together (many addresses guessing at once). While either is over its cap the
-// form refuses every key, the right one too, until the 15 minutes from the first wrong key are over.
+// client address. While an address is over its cap the form refuses every key from it, the right one too, until the
+// 15 minutes from its first wrong key are over. There is no cap for everyone together: it would let anyone who sends a
+// hundred wrong keys close the form for the owner, and the key itself (24+ characters) is what stops guessing from many addresses.
 export const ADMIN_WRONG_KEYS_PER_ADDRESS = 5;
-export const ADMIN_WRONG_KEYS_ALL = 100;
 export const ADMIN_WRONG_KEYS_WINDOW_MS = 15 * 60_000;
 
 const perAddress = (who: string) => counterId("admin-key", who);
-const everyone = counterId("admin-key", "*everyone*");
 
 /** The client address as the platform wrote it (Vercel replaces anything the client sends in this header). */
 export const clientAddress = (headers: Headers) => (headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
 
 /**
- * Counts one try at the key before the key is looked at (one statement per counter, so tries sent at the same moment cannot
- * all get in under the cap). False: locked, do not look at the key. A database that does not answer lets the try through.
+ * Counts one try at the key before the key is looked at (one statement, so tries sent at the same moment cannot all get in
+ * under the cap). False: locked, do not look at the key. A database that does not answer lets the try through.
  */
 export async function countKeyTry(who: string): Promise<boolean> {
-  const [mine, all] = await Promise.all([
-    hitOrAllow(perAddress(who), ADMIN_WRONG_KEYS_PER_ADDRESS, ADMIN_WRONG_KEYS_WINDOW_MS),
-    hitOrAllow(everyone, ADMIN_WRONG_KEYS_ALL, ADMIN_WRONG_KEYS_WINDOW_MS),
-  ]);
-  return mine.allowed && all.allowed;
+  return (await hitOrAllow(perAddress(who), ADMIN_WRONG_KEYS_PER_ADDRESS, ADMIN_WRONG_KEYS_WINDOW_MS)).allowed;
 }
-/** The key was right: that try was not a wrong one. */
+/** The key was right: that address starts from nothing. */
 export async function keyTryWasRight(who: string): Promise<void> {
-  await Promise.all([forget(perAddress(who)), giveBack(everyone, ADMIN_WRONG_KEYS_ALL)]);
+  await forget(perAddress(who));
 }
 
 // Log out. The cookie is only a signed expiry time, so deleting it in the browser would leave a copy of it working for up to
