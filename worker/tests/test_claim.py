@@ -99,3 +99,10 @@ def test_migration_0008_applies_twice_and_has_no_delete_grant():
     assert r[0] == [[0]]
     assert not re.search(r"GRANT[^;]*DELETE", mig, re.I)
     assert re.search(r"GRANT SELECT, INSERT, UPDATE ON \"case_screenshots\" TO autopilot_worker", mig)
+
+
+@needs_pg
+def test_a_deleted_case_is_never_claimed():
+    seed = SEED[:2] + ["INSERT INTO jobs (case_id, step, state) VALUES ('c1','intake','queued')", "UPDATE cases SET deleted_at = now() WHERE id = 'c1'"]
+    r = run([claim("w1")], seed=seed)
+    assert r[0] == []

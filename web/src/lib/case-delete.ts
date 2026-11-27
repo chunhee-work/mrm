@@ -17,17 +17,16 @@ export type DeleteResult = { ok: true; refunded: boolean } | { ok: false; reason
 /**
  * Soft delete, one statement for the decision: the old status, "never sent to Merimen" and "no running job" are checked inside one
  * UPDATE that locks the case row, so a read or a status change in between cannot slip past it and the refund rule below uses the status
- * the UPDATE really matched. (A worker claim that is committing at the same instant can still win by a hair: the job then runs on a
- * hidden case, and the worker's claim skips deleted cases from then on.) Then queued jobs are cancelled and an unread case's credit is
+ * the UPDATE really matched. (The worker's claim locks the case row too (FOR NO KEY UPDATE OF j, c SKIP LOCKED), so a claim skips a case this UPDATE holds; but if a claim commits first, the UPDATE's running-job check reads its own snapshot and can still miss it: the job then runs on a hidden case, whose write-backs the worker skips, and later claims skip it.) Then queued jobs are cancelled and an unread case's credit is
  * given back once (refundCase counts debits against refunds).
  */
 export async function deleteCase(orgId: string, userId: string, caseId: string): Promise<DeleteResult> {
   const res = await db.execute(sql`UPDATE cases c SET deleted_at = now()
-    FROM (SELECT id, status FROM cases WHERE id = ${caseId} AND org_id = ${orgId} FOR UPDATE) o
+    FROM (SELECT id, status, (case_data IS NOT NULL) AS was_read FROM cases WHERE id = ${caseId} AND org_id = ${orgId} FOR UPDATE) o
     WHERE c.id = o.id AND c.deleted_at IS NULL AND o.status IN (${sql.join(DELETABLE.map((d) => sql`${d}`), sql`, `)}) AND c.merimen_caseid IS NULL
       AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.case_id = c.id AND j.state = 'running')
-    RETURNING o.status AS was`);
-  const hit = (Array.isArray(res) ? res : (res as { rows?: unknown[] }).rows ?? []) as { was: string }[];
+    RETURNING o.status AS was, o.was_read AS was_read`);
+  const hit = (Array.isArray(res) ? res : (res as { rows?: unknown[] }).rows ?? []) as { was: string; was_read: boolean }[];
   const was = hit[0]?.was;
   if (!was) {
     const [c] = await db.select({ id: schema.cases.id }).from(schema.cases).where(and(eq(schema.cases.id, caseId), eq(schema.cases.orgId, orgId), notDeleted)).limit(1);
@@ -37,7 +36,8 @@ export async function deleteCase(orgId: string, userId: string, caseId: string):
   await db.insert(schema.auditLog).values({ orgId, userId, action: "case.delete", detail: caseId }).catch((e) => console.error("audit row for delete failed", caseId, e));
   // Only a case whose documents were never read gets its credit back: a read costs us money, and a bad file is the customer's to replace,
   // so delete must not become a free way to get a read. (A failure on our side was already refunded when it happened.)
-  if (was !== "uploaded") return { ok: true, refunded: false };
+  // (`uploaded` can also be a case that was read and then got more files, so the saved read must be absent too.)
+  if (was !== "uploaded" || hit[0].was_read) return { ok: true, refunded: false };
   const refunded = await refundCase(orgId, caseId, "deleted").catch((e) => { console.error("refund after delete failed", caseId, e); return false; }); // logged: the owner can give it back by hand
   return { ok: true, refunded };
 }

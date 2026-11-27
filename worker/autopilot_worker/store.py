@@ -221,7 +221,7 @@ class PgRepo:
                   pending_doc = COALESCE(%s, pending_doc),
                   error = %s,
                   done_at = CASE WHEN %s THEN now() ELSE done_at END
-                WHERE id = %s""" + final_sql,
+                WHERE id = %s AND deleted_at IS NULL""" + final_sql,
                 (
                     outcome.case_status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
                     outcome.pending_doc, (outcome.error or None), bool(outcome.done), job["case_id"],
@@ -495,7 +495,7 @@ class PgRepo:
                 """
                 WITH moved AS (
                   UPDATE cases SET status = 'waiting_user'
-                  WHERE org_id = %s AND status IN ('phase_a', 'phase_b', 'checking')
+                  WHERE org_id = %s AND deleted_at IS NULL AND status IN ('phase_a', 'phase_b', 'checking')
                   RETURNING id
                 )
                 INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM moved
@@ -512,7 +512,7 @@ class PgRepo:
                 (org_id,),
             ))
             st.append((
-                "INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM cases WHERE org_id = %s AND status = 'waiting_user'",
+                "INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM cases WHERE org_id = %s AND deleted_at IS NULL AND status = 'waiting_user'",
                 (event, org_id),
             ))
         self.db.batch(st)
