@@ -395,27 +395,33 @@ class PgRepo:
     def claim_workshop_for_case(self, case_id: str) -> dict | None:
         """Call this at the moment the case is made in Merimen, before typing the workshop. In one statement it fixes (locks) the
         workshop for this case, so the user can no longer switch it, and returns what to use: {"slot": n, "name": ...}.
-        A case nobody moved is workshop 1. Asking again returns the same workshop.
+        A case nobody moved is workshop 1. Asking again returns the same workshop and the same name, even if the workshop was renamed since.
+        The lock is only written when the workshop has a name, so an unnamed workshop never freezes a case.
         Returns None when the case is unknown or its workshop has no name (for example the user removed that workshop).
         NEVER fall back to workshop 1 on None: stop the case and report it, or it is made in the wrong workshop.
         Before migration 0014 there is one workshop per account (the 0013 column) and nothing to lock."""
         try:
             rows = self.db.execute(
                 """
-                WITH claim AS (
-                  INSERT INTO merimen_case_workshop (case_id, slot, locked_at)
-                  SELECT c.id, 1, now() FROM cases c WHERE c.id = %s
-                  ON CONFLICT (case_id) DO UPDATE SET locked_at = COALESCE(merimen_case_workshop.locked_at, now())
-                  RETURNING slot
+                WITH cur AS (
+                  SELECT c.id, COALESCE(cw.slot, 1) AS slot, cw.locked_at, cw.locked_name,
+                         CASE WHEN COALESCE(cw.slot, 1) = 1 THEN COALESCE(w.name, mc.workshop_name) ELSE w.name END AS name
+                  FROM cases c
+                  LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id
+                  LEFT JOIN merimen_workshops w ON w.org_id = c.org_id AND w.slot = COALESCE(cw.slot, 1)
+                  LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id
+                  WHERE c.id = %s
+                ), claim AS (
+                  INSERT INTO merimen_case_workshop (case_id, slot, locked_at, locked_name)
+                  SELECT id, slot, now(), name FROM cur WHERE name IS NOT NULL
+                  ON CONFLICT (case_id) DO UPDATE SET locked_at = COALESCE(merimen_case_workshop.locked_at, now()),
+                                                      locked_name = COALESCE(merimen_case_workshop.locked_name, EXCLUDED.locked_name)
+                  RETURNING slot, locked_name
                 )
-                SELECT claim.slot::int,
-                       CASE WHEN claim.slot = 1 THEN COALESCE(w.name, mc.workshop_name) ELSE w.name END
-                FROM claim
-                JOIN cases c ON c.id = %s
-                LEFT JOIN merimen_workshops w ON w.org_id = c.org_id AND w.slot = claim.slot
-                LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id
+                SELECT COALESCE(claim.slot, cur.slot)::int, COALESCE(claim.locked_name, cur.locked_name, cur.name)
+                FROM cur LEFT JOIN claim ON true
                 """,
-                (case_id, case_id),
+                (case_id,),
             )
         except Exception as e:
             if not _missing_workshops(e):

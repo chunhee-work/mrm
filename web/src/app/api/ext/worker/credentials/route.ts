@@ -1,3 +1,4 @@
+import { OPEN_STATUSES } from "@/lib/ext/workshop-rules";
 import { NextResponse } from "next/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -54,23 +55,27 @@ export async function POST(req: Request) {
     const have = await db.select({ slot: schema.merimenWorkshops.slot, name: schema.merimenWorkshops.name }).from(schema.merimenWorkshops).where(eq(schema.merimenWorkshops.orgId, me.orgId));
     const gone = [1, 2, 3].filter((n) => !keep.includes(n));
     const changed = [...gone, ...profile.workshops.filter((w) => have.some((h) => h.slot === w.slot && h.name !== w.name)).map((w) => w.slot)];
+    const open = sql`c.merimen_caseid IS NULL AND c.status IN (${sql.join(OPEN_STATUSES.map((x) => sql`${x}`), sql`, `)})`;
     const inUse = async (slots: number[]) => {
-      const r = await db.execute(sql`SELECT 1 FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
-        WHERE c.org_id = ${me.orgId} AND cw.locked_at IS NULL AND c.merimen_caseid IS NULL AND cw.slot IN (${sql.join(slots.map((n) => sql`${n}`), sql`, `)}) LIMIT 1`);
+      // a case with no row is workshop 1; locked cases (the worker already used their workshop) do not count
+      const r = await db.execute(sql`SELECT 1 FROM cases c LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id
+        WHERE c.org_id = ${me.orgId} AND cw.locked_at IS NULL AND ${open} AND COALESCE(cw.slot, 1) IN (${sql.join(slots.map((n) => sql`${n}`), sql`, `)}) LIMIT 1`);
       return ((r as unknown as { rows?: unknown[] }).rows ?? []).length > 0;
     };
-    if (changed.length && (await inUse(changed))) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
+    // renaming only matters when there is a choice: with one workshop an open case simply takes the corrected name
+    const mustCheck = [...gone, ...(have.length >= 2 ? changed.filter((n) => !gone.includes(n)) : [])];
+    if (mustCheck.length && (await inUse(mustCheck))) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
+    if (gone.length) {
+      // the delete itself refuses a workshop an open case picked a moment ago; it runs before anything is saved
+      await db.execute(sql`DELETE FROM merimen_workshops w WHERE w.org_id = ${me.orgId} AND w.slot IN (${sql.join(gone.map((n) => sql`${n}`), sql`, `)})
+        AND NOT EXISTS (SELECT 1 FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
+          WHERE c.org_id = w.org_id AND cw.slot = w.slot AND cw.locked_at IS NULL AND ${open})`);
+      const left = await db.select({ slot: schema.merimenWorkshops.slot }).from(schema.merimenWorkshops).where(and(eq(schema.merimenWorkshops.orgId, me.orgId), inArray(schema.merimenWorkshops.slot, gone)));
+      if (left.length) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
+    }
     for (const w of profile.workshops) {
       await db.insert(schema.merimenWorkshops).values({ orgId: me.orgId, slot: w.slot, name: w.name })
         .onConflictDoUpdate({ target: [schema.merimenWorkshops.orgId, schema.merimenWorkshops.slot], set: { name: w.name, updatedAt: new Date() } });
-    }
-    if (gone.length) {
-      // the delete itself refuses a workshop an open case picked a moment ago
-      await db.execute(sql`DELETE FROM merimen_workshops w WHERE w.org_id = ${me.orgId} AND w.slot IN (${sql.join(gone.map((n) => sql`${n}`), sql`, `)})
-        AND NOT EXISTS (SELECT 1 FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
-          WHERE c.org_id = w.org_id AND cw.slot = w.slot AND cw.locked_at IS NULL AND c.merimen_caseid IS NULL)`);
-      const left = await db.select({ slot: schema.merimenWorkshops.slot }).from(schema.merimenWorkshops).where(and(eq(schema.merimenWorkshops.orgId, me.orgId), inArray(schema.merimenWorkshops.slot, gone)));
-      if (left.length) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
     }
     if (!row || (wantsLogin && username && password)) {
       const sealed = seal(key, me.orgId, username!, password!);

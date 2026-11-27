@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
@@ -27,7 +27,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   try {
     // one conditional statement: it writes only while the worker has not locked the workshop (it locks it the moment it makes the case)
     const done = await db.insert(schema.merimenCaseWorkshop).values({ caseId: id, slot })
-      .onConflictDoUpdate({ target: schema.merimenCaseWorkshop.caseId, set: { slot, updatedAt: new Date() }, setWhere: isNull(schema.merimenCaseWorkshop.lockedAt) })
+      .onConflictDoUpdate({ target: schema.merimenCaseWorkshop.caseId, set: { slot, lockedAt: null, lockedName: null, updatedAt: new Date() },
+        // open, or locked on a workshop that has since disappeared (the worker could not use it and stopped the case)
+        setWhere: sql`${schema.merimenCaseWorkshop.lockedAt} IS NULL OR NOT EXISTS (SELECT 1 FROM merimen_workshops w JOIN cases cc ON cc.org_id = w.org_id WHERE cc.id = ${id} AND w.slot = ${schema.merimenCaseWorkshop.slot})` })
       .returning({ caseId: schema.merimenCaseWorkshop.caseId });
     if (!done.length) return NextResponse.json({ error: "too_late" }, { status: 409 });
     await db.insert(schema.caseEvents).values({ caseId: id, step: "workshop", message: `Workshop ${slot}: ${target.name}` });

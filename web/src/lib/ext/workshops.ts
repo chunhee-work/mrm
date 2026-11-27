@@ -12,12 +12,12 @@ export async function orgWorkshops(orgId: string): Promise<Workshop[]> {
   } catch (e) { if (missingRelation(e)) return []; throw e; }
 }
 
-/** The workshop a case belongs to: 1 when nothing was chosen. */
-export async function caseSlot(caseId: string): Promise<number> {
+/** The workshop a case belongs to (1 when nothing was chosen) and whether the worker already fixed it. */
+export async function caseSlot(caseId: string): Promise<{ slot: number; locked: boolean }> {
   try {
-    const [r] = await db.select({ slot: schema.merimenCaseWorkshop.slot }).from(schema.merimenCaseWorkshop).where(eq(schema.merimenCaseWorkshop.caseId, caseId)).limit(1);
-    return r?.slot ?? 1;
-  } catch (e) { if (missingRelation(e)) return 1; throw e; }
+    const [r] = await db.select({ slot: schema.merimenCaseWorkshop.slot, lockedAt: schema.merimenCaseWorkshop.lockedAt }).from(schema.merimenCaseWorkshop).where(eq(schema.merimenCaseWorkshop.caseId, caseId)).limit(1);
+    return { slot: r?.slot ?? 1, locked: !!r?.lockedAt };
+  } catch (e) { if (missingRelation(e)) return { slot: 1, locked: false }; throw e; }
 }
 
 /**

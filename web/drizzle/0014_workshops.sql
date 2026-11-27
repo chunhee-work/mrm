@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS "merimen_case_workshop" (
 -- set by the worker the moment it uses the workshop to make the case in Merimen: from then on the user cannot switch it
 ALTER TABLE "merimen_case_workshop" ADD COLUMN IF NOT EXISTS "locked_at" timestamp;
 --> statement-breakpoint
+-- the workshop name the worker used when it locked the case (a later rename of the workshop does not change what the case used)
+ALTER TABLE "merimen_case_workshop" ADD COLUMN IF NOT EXISTS "locked_name" text;
+--> statement-breakpoint
 -- the worker reads the workshops and claims (locks) the one a case uses
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'autopilot_worker') THEN

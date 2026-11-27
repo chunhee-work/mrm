@@ -372,6 +372,7 @@ export const merimenWorkshops = pgTable("merimen_workshops", {
 export const merimenCaseWorkshop = pgTable("merimen_case_workshop", {
   caseId: text("case_id").primaryKey().references(() => cases.id, { onDelete: "cascade" }),
   slot: smallint("slot").notNull(),
+  lockedName: text("locked_name"),
   lockedAt: timestamp("locked_at"), // set by the worker when it makes the case in Merimen: the workshop is then fixed
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

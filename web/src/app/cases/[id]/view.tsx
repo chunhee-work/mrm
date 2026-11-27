@@ -77,7 +77,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     setWsBusy(true); setWsErr(false);
     try {
       const r = await fetch(`/api/cases/${c.id}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop: slot }) });
-      if (!r.ok) setWsErr(true);
+      if (!r.ok && r.status !== 409) setWsErr(true); // 409 = too late: the refresh below shows the case as locked
     } catch { setWsErr(true); }
     setWsBusy(false);
     router.refresh();

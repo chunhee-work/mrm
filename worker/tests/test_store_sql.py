@@ -166,7 +166,7 @@ def test_claim_workshop_locks_in_one_statement_and_reads_slot_and_name():
     rec = Rec({"execute": [(2, "Bengkel Cheras")]})
     assert PgRepo("", db=rec).claim_workshop_for_case("c1") == {"slot": 2, "name": "Bengkel Cheras"}
     sql, params = rec.calls[0]
-    assert len(rec.calls) == 1 and "locked_at" in sql and "ON CONFLICT (case_id)" in sql and params == ("c1", "c1")
+    assert len(rec.calls) == 1 and "locked_at" in sql and "ON CONFLICT (case_id)" in sql and params == ("c1",) and "locked_name" in sql
     assert PgRepo("", db=Rec()).claim_workshop_for_case("nope") is None  # unknown case: nothing to use
     assert PgRepo("", db=Rec({"execute": [(2, None)]})).claim_workshop_for_case("c1") is None  # removed workshop: the caller must stop
 
