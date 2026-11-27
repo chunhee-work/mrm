@@ -82,7 +82,7 @@
 ## Hard test and QC round 1 (2026-11-21)
 - Credits per case: 1,000 credits are taken when a case is created, only when `CREDITS_ENFORCE=on`. It is OFF by default, so production behaviour does not change until the owner sets it. `CREDITS_EXEMPT_ORGS` (comma-separated org ids) skips the charge for the owner's own orgs. A zero balance answers 402 before any file is uploaded. A failure on our side (not a bad file) refunds the case; a retry of a failed case takes 1,000 again only if it was refunded.
 - Migration `0011_case_credit_once.sql` is one idempotent unique index (one case charge per case) and is NOT applied in production.
-- Upload rules (types, 500 MB per file, 25 MB per PDF, 300 files, 2 GB total) live in one client-safe file shared by the form, the upload route and the case API.
+- Upload rules (types, 500 MB per file, 23 MB per PDF, 300 files, 2 GB total) live in one client-safe file shared by the form, the upload route and the case API.
 - Zip bundles are unzipped on the server (limits: 300 entries, 250 MB total, ratio 200); photos in them go to the photo desk.
 - Case events keep their English text in the database (the retry counter reads it) and are translated at render time.
 - When `WORKER_UI` is on, the privacy and FAQ copy says the Merimen password is stored encrypted; when off, the old "we never store it" copy stays.
