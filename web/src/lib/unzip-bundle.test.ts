@@ -66,7 +66,6 @@ test("planVehicles: limits per car, too many cars, and a one-car zip are refused
   for (let i = 0; i < 31; i++) many[`C${i}/a.pdf`] = pdf;
   assert.throws(() => planVehicles(zipSync(many)), (e: ZipRejected) => e.message === "the zip holds too many vehicles");
   assert.throws(() => planVehicles(zipSync({ "Docs/a.pdf": pdf, "Photos/1.jpg": jpg })), (e: ZipRejected) => e.code === "empty");
-<<<<<<< HEAD
 });
 
 test("planVehicles: a car folder whose PDFs are all empty is dropped; a PDF too big to read is refused before anything is stored", () => {
@@ -90,6 +89,4 @@ test("numbered folders (Doc1, Car 2, Day 1) and month folders (Nov 2026) of one 
     assert.equal(unzipBundle(z).length, 2, a);
     assert.throws(() => planVehicles(z), (e: ZipRejected) => e.code === "empty", a);
   }
-=======
->>>>>>> 08fd1e8daf96924340efb92064998943b3c66bd9
 });

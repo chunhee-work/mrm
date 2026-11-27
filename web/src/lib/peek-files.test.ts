@@ -1,11 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-<<<<<<< HEAD
 import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, PLATE_LIKE, isPlate } from "./peek-files";
-=======
-import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, PLATE_LIKE } from "./peek-files";
->>>>>>> 08fd1e8daf96924340efb92064998943b3c66bd9
 
 const zip = (files: Record<string, string>) => new Blob([Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))))]);
 
@@ -38,11 +34,8 @@ test("vehicleFolders: plate-named folders with a PDF; folders named by content o
   for (const p of ["DCD4004", "QAT110", "TBD 8129", "WA1234B", "V 1"]) assert.ok(PLATE_LIKE.test(p), p);
   for (const p of ["Policy", "Docs", "2026-11-01", "Photos 2", "SINAR"]) assert.ok(!PLATE_LIKE.test(p), p);
 });
-<<<<<<< HEAD
 
 test("isPlate: real plates yes; numbered words and month-year folder names no", () => {
   for (const p of ["DCD4004", "QAT110", "TBD 8129", "WA1234B", "V 1", "PDF 1234", "CAR 888", "MAR 12", "NOV2026A"]) assert.ok(isPlate(p), p);
   for (const p of ["Doc1", "DOC 2", "Car 1", "Set3", "IMG 2", "Day 1", "PDF2", "Nov 2026", "JAN2025", "Policy", "2026-11-01"]) assert.ok(!isPlate(p), p);
 });
-=======
->>>>>>> 08fd1e8daf96924340efb92064998943b3c66bd9
