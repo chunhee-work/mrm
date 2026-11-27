@@ -26,11 +26,9 @@ def run_verify(row: dict, master: bytes, fetch_page) -> dict:
         return release_verify("key_mismatch")
     try:
         page = fetch_page(user, password)
-        submitted = bool(page.get("submitted"))
-        if not submitted and page.get("result") == RESULT_NOT_LOGIN_PAGE:
-            return release_verify(RESULT_NOT_LOGIN_PAGE)
-        if not submitted and page.get("offline"):
-            return release_verify("offline")
+        if page.get("submitted") is not True:
+            # nothing was typed, so nothing is concluded from the page: never "ok" (a tab that is already logged in), never "bad password"
+            return release_verify(RESULT_NOT_LOGIN_PAGE if page.get("result") == RESULT_NOT_LOGIN_PAGE else "offline")
         if page.get("offline") or page.get("result"):  # sent, and the answer was not read
             result = RESULT_UNKNOWN
         else:

@@ -53,6 +53,11 @@ def test_a_logged_in_address_is_never_ok_when_nothing_was_submitted():
     url = "https://www.merimen.com.my/claims/index.cfm?CFID=1&RID=2"
     d = run_verify(row(), KEY, lambda u, p: {"result": "not_login_page", "submitted": False, "url": url, "has_password": False})
     assert d.get("release") is True and d["verify_state"] != "ok"
+    # the same page without any word from the script about a submit: still no conclusion
+    bare = run_verify(row(), KEY, lambda u, p: {"url": url, "has_password": False, "text": "Welcome"})
+    assert bare.get("release") is True and bare["reason"] == "offline" and bare["verify_state"] != "ok"
+    wrong = run_verify(row(), KEY, lambda u, p: {"url": url, "has_password": True, "text": "Invalid User ID or password"})
+    assert wrong.get("release") is True and wrong["blocked"] is False
 
 
 # ---- W-3: after the form was sent nothing is ever put back in the queue ----

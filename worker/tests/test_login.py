@@ -72,7 +72,7 @@ def test_verify_calls_the_page_once_and_does_not_keep_the_password():
 
     def fetch(user, password):
         seen.append((user, password))
-        return {"text": "Invalid User ID or password", "has_password": True, "url": "https://www.merimen.com.my/login"}
+        return {"submitted": True, "text": "Invalid User ID or password", "has_password": True, "url": "https://www.merimen.com.my/login"}
 
     decision = run_verify(row, master_key(KEY), fetch)
     assert seen == [("abuser", "s3cret-pass")]
