@@ -6,9 +6,10 @@ import { db } from "@/db";
  *
  * Kept: the user row, the login (password, login sessions, verification), the company account and its membership, the credit balance
  * and ledger, payment orders, AI cost rows (llm_calls), audit_log and merimen_cred_audit, and the owner's Merimen consent rows
- * (ext_org_settings, ext_consents; without them the worker would not run this account's jobs again).
+ * (ext_org_settings, ext_consents) and the worker_sessions row (account key and port set by the operator; without these the worker would not run
+ * this account's jobs again).
  * Erased: the Merimen username and password, workshops, every case with its files, photos, screenshots, read text, jobs, events and
- * per-case usage rows, the worker's saved session, extension pairing codes and installs, and every stored file (Blob) under
+ * per-case usage rows, extension pairing codes and installs, and every stored file (Blob) under
  * `<company id>/` and `screenshots/<user id>/` (only paths under those two folders are ever removed).
  * Nothing is changed inside Merimen itself.
  * Refused (nothing touched): unknown e-mail, the company account has another member, a job is running (also re-checked after
@@ -40,7 +41,7 @@ async function find(email: string) {
   return r[0] ?? null;
 }
 
-async function dbPaths(orgIds: string[], userId: string): Promise<string[]> {
+async function dbPaths(orgIds: string[]): Promise<string[]> {
   if (!orgIds.length) return [];
   const org = inList(orgIds);
   const q = rowsOf<{ p: string | null }>(await db.execute(sql`
@@ -59,7 +60,7 @@ const prefixes = (orgIds: string[], userId: string) => [...orgIds.map((o) => `${
 async function storedPaths(orgIds: string[], userId: string, store: Pick<WipeStore, "listPrefix">): Promise<string[]> {
   const own = prefixes(orgIds, userId);
   const listed = (await Promise.all(own.map((p) => store.listPrefix(p)))).flat();
-  const referenced = (await dbPaths(orgIds, userId)).map(bareOf);
+  const referenced = (await dbPaths(orgIds)).map(bareOf);
   return [...new Set([...listed.map(bareOf), ...referenced].filter((p) => p && own.some((x) => p.startsWith(x))))];
 }
 
@@ -117,12 +118,11 @@ export async function wipeUser(rawEmail: string, confirm: string, store: WipeSto
 
   // 1. a read-only check first: a refusal must change nothing
   if (await running()) return { ok: false, reason: "running_job" };
-  // 2. stop new work: queued and paused jobs are cancelled (remembered, so a refusal right after can put them back) and the worker stands down
+  // 2. stop new work: queued and paused jobs are cancelled (remembered, so a refusal right after can put them back)
   let held: { id: number; state: string }[] = [];
   if (hasOrg) {
     held = rowsOf<{ id: number; state: string }>(await db.execute(sql`SELECT id, state FROM jobs WHERE state IN ('queued','paused') AND case_id IN (SELECT id FROM cases WHERE org_id IN ${arr})`));
     await db.execute(sql`UPDATE jobs SET state = 'cancelled' WHERE state IN ('queued','paused') AND case_id IN (SELECT id FROM cases WHERE org_id IN ${arr})`);
-    await db.execute(sql`UPDATE worker_sessions SET wanted = 'none' WHERE org_id IN ${arr}`);
     if (await running()) { // a job was claimed between the two checks: put everything back, nothing else was touched
       for (const h of held) await db.execute(sql`UPDATE jobs SET state = ${h.state} WHERE id = ${h.id} AND state = 'cancelled'`);
       return { ok: false, reason: "running_job" };
@@ -137,11 +137,13 @@ export async function wipeUser(rawEmail: string, confirm: string, store: WipeSto
   }
   try {
     if (hasOrg) {
-      if (await running()) throw new Error("a job started during the wipe");
-      await db.execute(sql`DELETE FROM cases WHERE org_id IN ${arr}`); // files, photos, jobs, events, usage, ext jobs, screenshots, plans... follow (ON DELETE CASCADE)
+      // conditional: a case with a job that started meanwhile is not deleted (no transactions on Neon http, so the check and the delete are one statement)
+      await db.execute(sql`DELETE FROM cases c WHERE c.org_id IN ${arr} AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.case_id = c.id AND j.state = 'running')`);
+      const left = rowsOf<{ n: number }>(await db.execute(sql`SELECT count(*)::int AS n FROM cases WHERE org_id IN ${arr}`))[0]?.n ?? 0;
+      if (left > 0) throw new Error("a job started during the wipe"); // files, photos, jobs, events, usage, ext jobs, screenshots, plans... follow (ON DELETE CASCADE)
       // kept on purpose: ext_org_settings and ext_consents (the owner's written consent, the worker needs it for this account to work again)
       // and merimen_cred_audit (audit history, and the rate limit of credential saves)
-      for (const t of ["merimen_credentials", "merimen_workshops", "merimen_connections", "merimen_otp", "worker_sessions", "ext_pairing_codes", "ext_installs"]) {
+      for (const t of ["merimen_credentials", "merimen_workshops", "merimen_connections", "merimen_otp", "ext_pairing_codes", "ext_installs"]) {
         await db.execute(sql`DELETE FROM ${sql.raw(t)} WHERE org_id IN ${arr}`);
       }
     }
@@ -152,9 +154,10 @@ export async function wipeUser(rawEmail: string, confirm: string, store: WipeSto
   }
   // 4. files that landed while the wipe ran
   const late = (await Promise.all(prefixes(orgIds, userId).map((x) => store.listPrefix(x)))).flat();
-  for (const f of late) await store.remove(f).catch((e) => console.error("wipe: late file", e));
+  let lateRemoved = 0;
+  for (const f of late) await store.remove(f).then(() => { lateRemoved++; }, (e) => console.error("wipe: late file", e));
   const after = (await Promise.all(prefixes(orgIds, userId).map((x) => store.listPrefix(x)))).flat();
-  const removed = paths.length + late.length;
+  const removed = paths.length + lateRemoved;
   await audit("user.wipe", `cases ${p.counts.cases}|files ${removed}|left ${after.length}`);
   return { ok: true, counts: p.counts, removedFiles: removed, leftFiles: after.length };
 }

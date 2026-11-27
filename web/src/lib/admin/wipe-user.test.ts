@@ -28,6 +28,7 @@ before(async () => {
     await db.insert(schema.caseFiles).values({ caseId: c, originalName: "a.pdf", blobUrl: `${org}/${c}/a.pdf`, kind: "pdf", size: 1 });
     files.add(`${org}/${c}/a.pdf`);
   }
+  await db.insert(schema.caseFiles).values({ caseId: "ca2", originalName: "x", blobUrl: "other/not-mine.pdf", kind: "pdf", size: 1 }); files.add("other/not-mine.pdf"); // a stored path outside the user's own folders must survive
   files.add("screenshots/ua/s1.png"); files.add("orgA/stray.bin"); files.add("orgB/keep.bin");
   await db.insert(schema.session).values({ id: "sa", token: "ta", userId: "ua", expiresAt: new Date(Date.now() + 1e7) });
   await db.insert(schema.verification).values([{ id: "v1", identifier: "target@example.com", value: "x", expiresAt: new Date(Date.now() + 1e7) }, { id: "v2", identifier: "other@example.com", value: "x", expiresAt: new Date(Date.now() + 1e7) }]);
@@ -54,7 +55,7 @@ t("refuses an unknown email, a shared company, and a running job; nothing is tou
 t("the preview counts what is there, case-insensitively", async () => {
   const p = await previewWipe("  TARGET@example.com ", store);
   assert.ok(p.ok);
-  assert.equal(p.counts.cases, 2); assert.equal(p.counts.caseFiles, 2); assert.equal(p.counts.storedFiles, 4);
+  assert.equal(p.counts.cases, 2); assert.equal(p.counts.caseFiles, 3); assert.equal(p.counts.storedFiles, 4);
   assert.equal(p.counts.hasMerimenLogin, true); assert.equal(p.counts.workshops, 1);
 });
 
@@ -89,8 +90,8 @@ t("white-out empties the account but keeps the account, login, balance and the o
   assert.equal(await n(sql`SELECT count(*)::int AS n FROM payment_orders WHERE org_id = 'orgA' AND user_id = 'ua'`), 1);
   // everything inside is gone
   for (const q of [sql`SELECT count(*)::int AS n FROM cases WHERE org_id = 'orgA'`, sql`SELECT count(*)::int AS n FROM case_files WHERE case_id LIKE 'ca%'`, sql`SELECT count(*)::int AS n FROM merimen_credentials WHERE org_id = 'orgA'`, sql`SELECT count(*)::int AS n FROM merimen_workshops WHERE org_id = 'orgA'`]) assert.equal(await n(q), 0);
-  assert.deepEqual([...files].sort(), ["orgB/cb1/a.pdf", "orgB/keep.bin", "orgE/ce1/a.pdf"].sort());
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM worker_sessions WHERE org_id = 'orgA'`), 0);
+  assert.deepEqual([...files].sort(), ["orgB/cb1/a.pdf", "orgB/keep.bin", "orgE/ce1/a.pdf", "other/not-mine.pdf"].sort());
+  assert.equal(await n(sql`SELECT count(*)::int AS n FROM worker_sessions WHERE org_id = 'orgA'`), 1); // the operator's worker row stays
   assert.equal(await n(sql`SELECT count(*)::int AS n FROM merimen_cred_audit WHERE org_id = 'orgA'`), 1); // audit history stays
   assert.equal(await n(sql`SELECT count(*)::int AS n FROM llm_calls WHERE user_id = 'ua'`), 1);
   assert.equal(await n(sql`SELECT count(*)::int AS n FROM audit_log WHERE action = 'user.wipe' AND detail NOT ILIKE '%example.com%'`), 1);
