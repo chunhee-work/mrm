@@ -122,7 +122,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
     const click = (e: MouseEvent) => {
       if (leaving.current) return;
       const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (a && a.target !== "_blank" && !a.href.startsWith("javascript:") && a.origin === location.origin && a.pathname + a.search !== location.pathname + location.search && !window.confirm(t("new.leave"))) {
+      if (a && a.target !== "_blank" && a.getAttribute("aria-disabled") !== "true" && !a.href.startsWith("javascript:") && a.origin === location.origin && a.pathname + a.search !== location.pathname + location.search && !window.confirm(t("new.leave"))) {
         e.preventDefault(); e.stopPropagation();
       }
     };

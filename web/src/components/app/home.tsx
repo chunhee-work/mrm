@@ -299,8 +299,10 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const blocked = cred.blocks;
 
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
+  const [panel, setPanel] = useState<{ key: number; initial: File[] | "lost"; more?: { n: number; files: File[] } } | null>(null);
   const [upBusy, setUpBusy] = useState(false); // the box is uploading: New case and the page drop wait
-  const live = busy && !upBusy; // something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
+  const live = busy && !panel; // not while the upload box is open: a refresh that fails reloads the page and would empty the box
+  // live: something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
   useEffect(() => {
     if (!live) return;
     // not in a hidden tab, and not while offline: a refresh that cannot reach the server makes Next reload the whole page,
@@ -312,7 +314,6 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // a new case is uploaded right on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
   // files picked with New case or dropped anywhere on the page open the upload box above the list, which checks and sends them.
   // `key` gives every new start its own box, so a fresh pick never inherits the list or the message of the last one.
-  const [panel, setPanel] = useState<{ key: number; initial: File[] | "lost"; more?: { n: number; files: File[] } } | null>(null);
   const [made, setMade] = useState<"one" | "many" | null>(null); // "Case started" for a few seconds once the box is done
   useEffect(() => { if (!made) return; const id = window.setTimeout(() => setMade(null), 6000); return () => window.clearTimeout(id); }, [made]);
   const start = (initial: File[] | "lost") => { setMade(null); setPanel((p) => ({ key: (p?.key ?? 0) + 1, initial })); };
@@ -347,9 +348,20 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const over = useFileDrag(boxShown ? "off" : !blocked && !deskShown, (files) => start(files));
   // a send that ended may have made cases on any path (a split cut short, a lost answer): read the list again
   // Only when online: a refresh that cannot reach the server makes Next reload the whole page, losing the box and its message.
+  // navigator.onLine is not enough (Wi-Fi with no internet, a server error): first ask the server something small, and refresh
+  // only once it answers; otherwise try again a little later, a few times. A newer call replaces a waiting one.
+  const relistTry = useRef(0);
+  useEffect(() => () => { relistTry.current = -1; }, []); // gone: stop trying
   const relist = useCallback(() => {
-    if (navigator.onLine) return router.refresh();
-    window.addEventListener("online", () => router.refresh(), { once: true });
+    const me = ++relistTry.current;
+    const attempt = async (left: number) => {
+      if (relistTry.current !== me) return;
+      const ok = navigator.onLine && await fetch("/api/cases/credit", { cache: "no-store" }).then((r) => r.status < 500, () => false);
+      if (relistTry.current !== me) return;
+      if (ok) return router.refresh();
+      if (left > 0) window.setTimeout(() => void attempt(left - 1), 10_000);
+    };
+    void attempt(5);
   }, [router]);
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
