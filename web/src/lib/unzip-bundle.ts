@@ -19,7 +19,7 @@ export class ZipRejected extends Error {
 const PHOTO = /\.(jpe?g|png|webp|heic)$/i;
 const TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic" };
 
-/** Reads the PDFs and photos inside a zip. Folders, hidden files (__MACOSX, .DS_Store), empty files and other types are skipped. Throws ZipRejected. */
+/** Reads the PDFs and photos inside a zip. Folders, hidden files and folders (__MACOSX, .DS_Store, .thumbnails/), empty files and other types are skipped. Throws ZipRejected. */
 export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[] {
   let total = 0;
   let count = 0;
@@ -32,7 +32,7 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
     files = unzipSync(buf, {
       filter: (f) => {
         const leaf = f.name.split("/").pop() ?? "";
-        if (f.name.endsWith("/") || f.name.startsWith("__MACOSX/") || leaf.startsWith(".") || leaf.startsWith("._")) return false;
+        if (f.name.endsWith("/") || f.name.startsWith("__MACOSX/") || f.name.split("/").some((p) => p.startsWith("."))) return false;
         if (!/\.pdf$/i.test(leaf) && !PHOTO.test(leaf)) return false;
         if (++count > limits.maxEntries) throw new ZipRejected("too_many", ZIP_WHY.too_many);
         if (f.originalSize > limits.maxEntryBytes) throw new ZipRejected("too_big", ZIP_WHY.entry_big);
@@ -67,7 +67,7 @@ export { MAX_VEHICLES };
 export type VehiclePlan = { prefix: string; plate: string; files: number };
 const usableIn = (name: string) => {
   const leaf = name.split("/").pop() ?? "";
-  return !name.endsWith("/") && !name.startsWith("__MACOSX/") && !leaf.startsWith(".") && (/\.pdf$/i.test(leaf) || PHOTO.test(leaf));
+  return !name.endsWith("/") && !name.startsWith("__MACOSX/") && !name.split("/").some((p) => p.startsWith(".")) && (/\.pdf$/i.test(leaf) || PHOTO.test(leaf)); // hidden folders too
 };
 
 /**

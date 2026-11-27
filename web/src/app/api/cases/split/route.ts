@@ -73,12 +73,12 @@ export async function POST(req: Request) {
 
   // Only one call at a time splits a given zip (two tabs, or a retry while the first call still runs), and cars an earlier call
   // already made are kept as they are, not made or charged again.
-  let release: (() => Promise<void>) | null;
+  let release: (() => Promise<void>) | null = null;
   let earlier: Map<string, string>;
   let todo: typeof plan;
   try {
     release = await lockSplit(me.orgId, me.user.id, name, size);
-    if (!release) return NextResponse.json({ error: "busy" }, { status: 409 }); // the zip stays: the running call deletes it
+    if (!release) { await dropZip(); return NextResponse.json({ error: "busy" }, { status: 409 }); } // this upload is its own copy: the running call deletes only its own
     earlier = await earlierCars(me.orgId, name, size);
     todo = plan.filter((v) => !earlier.has(v.prefix));
     if (todo.length && enforcing() && !exempt(me.orgId) && (await creditBalance(me.orgId)) < CASE_COST * todo.length) {
@@ -86,6 +86,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
     }
   } catch (e) {
+    if (release) await release();
+    await dropZip();
     console.error("split failed before making cases", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
@@ -128,6 +130,7 @@ export async function POST(req: Request) {
     await dropZip();
     await release();
     if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
+    if (e instanceof ZipRejected) return NextResponse.json({ error: e.code, why: e.message }, { status: 422 }); // a car folder that does not inflate
     console.error("split failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }

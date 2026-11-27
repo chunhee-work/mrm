@@ -90,3 +90,11 @@ test("numbered folders (Doc1, Car 2, Day 1) and month folders (Nov 2026) of one 
     assert.throws(() => planVehicles(z), (e: ZipRejected) => e.code === "empty", a);
   }
 });
+
+test("files in hidden folders inside a car folder are not case files", () => {
+  const pdf = strToU8("%PDF");
+  const z = zipSync({ "AAA1111/a.pdf": pdf, "AAA1111/.thumbs/t.jpg": strToU8("jpg"), "AAA1111/.x/b.pdf": pdf, "BBB2222/b.pdf": pdf });
+  assert.deepEqual(planVehicles(z).map((v) => v.files), [1, 1]);
+  assert.deepEqual(unzipVehicle(z, "AAA1111/").map((e) => e.name), ["a.pdf"]);
+  assert.deepEqual(unzipBundle(zipSync({ "Docs/a.pdf": pdf, "Docs/.cache/x.jpg": strToU8("jpg") })).map((e) => e.name), ["a.pdf"]);
+});
