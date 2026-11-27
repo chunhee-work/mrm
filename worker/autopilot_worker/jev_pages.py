@@ -122,7 +122,9 @@ def norm_model(v) -> str:
 
 
 def norm_cc(v) -> str:
-    return re.sub(r"\D", "", str(v or ""))
+    """Digits of a plain cc value (1798, 1,798, 1798 cc); anything else (1.5L, 1498.0) gives "" so the field is not asked."""
+    m = re.fullmatch(r"\s*(\d{1,3}(?:[,\s]\d{3})+|\d+)\s*(?:cc)?\s*", str(v or ""), re.I)
+    return re.sub(r"\D", "", m.group(1)) if m else ""
 
 
 def norm_date(v) -> str:
@@ -205,7 +207,10 @@ def _run(jev, case, fetch, env, now, day, cid) -> list[str]:
     if not files:
         return []
     # a file we did not open (a pdf row without a link, or an image that is not a photo) means we cannot prove a document is absent
-    complete = all(f.get("kind") in ("pdf", "photo", "bundle_zip") and (f.get("kind") != "pdf" or f.get("url")) for f in all_files)
+    def opened(z) -> bool:  # a zip counts only when its contents were stored as ordinary rows (url holds /unzipped-<zip id>/), same test as the web app
+        return any(f"/unzipped-{z.get('id')}/" in str(g.get("url") or "") for g in all_files)
+
+    complete = all(f.get("kind") in ("pdf", "photo", "bundle_zip") and (f.get("kind") != "pdf" or f.get("url")) and (f.get("kind") != "bundle_zip" or opened(f)) for f in all_files)
     t0 = now()
     docs: list[tuple[str, object]] = []  # (sha, open document), one per distinct PDF
     try:
@@ -244,7 +249,11 @@ def _run(jev, case, fetch, env, now, day, cid) -> list[str]:
             jev.log("page_sort", case_id=cid, ok=False, error_class="skip_daily_cap", model=PAGE_MODEL)
             return []
         # render here, one page at a time (a MuPDF document is not thread-safe); the pool only does the network call, with bytes
-        rendered = {k: _jpg(pages[k][2], pages[k][1]) for k in todo}
+        try:
+            rendered = {k: _jpg(pages[k][2], pages[k][1]) for k in todo}
+        except Exception:  # noqa: BLE001
+            jev.log("page_sort", case_id=cid, ok=False, error_class="skip_render", model=PAGE_MODEL)
+            return []
         qs = questions()
 
         def one(k):
@@ -294,6 +303,8 @@ def _present(results: list[dict | None], doc: str) -> bool:
 
 def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
     data = case.get("case_data") if isinstance(case.get("case_data"), dict) else {}
+    data = {**data, **{k: (data.get(k) if isinstance(data.get(k), dict) else {}) for k in ("police", "at_fault", "client_vehicle")},
+            "missing": data.get("missing") if isinstance(data.get("missing"), list) else []}
     out: list[str] = []
     # rule A: a needed document with no page, and the reader did not already say it is missing. Skipped when any page could not be read (no proof of absence).
     if complete and all(results):

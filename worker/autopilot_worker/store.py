@@ -245,7 +245,7 @@ class PgRepo:
             ))
         for line in (outcome.extra_events or [])[:4]:
             st.append((
-                "INSERT INTO case_events (case_id, step, message) SELECT %s, 'jev_check', %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s) "
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, 'jev_check', %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s AND deleted_at IS NULL) "
                 "AND NOT EXISTS (SELECT 1 FROM case_events WHERE case_id = %s AND step = 'jev_check' AND message = %s)",
                 (job["case_id"], line[:400], job["case_id"], job["case_id"], line[:400]),
             ))

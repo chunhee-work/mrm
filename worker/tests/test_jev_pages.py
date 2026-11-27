@@ -306,3 +306,23 @@ def test_an_odd_rc_answer_keeps_the_missing_document_line():
 
     jev.post = odd
     assert jp.run(jev, case, fetch) == ["Jev check: no Keputusan page found in the files"]
+
+
+def test_an_unexpanded_zip_means_no_absence_warning():
+    jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "kep"])
+    case["files"].append({"id": 9, "kind": "bundle_zip", "url": "https://x/z.zip", "name": "z.zip"})
+    assert jp.run(jev, case, fetch) == []
+    case["files"].append({"id": 10, "kind": "photo", "url": "https://x/unzipped-9/a.jpg", "name": "a.jpg"})  # its contents were stored: the zip is opened
+    jp._cache.clear()
+    assert jp.run(jev, case, fetch) == ["Jev check: no Keputusan page found in the files"]
+
+
+def test_cc_only_plain_values_are_asked():
+    assert jp.norm_cc("1,798") == "1798" and jp.norm_cc("1798 cc") == "1798" and jp.norm_cc("1798") == "1798"
+    assert jp.norm_cc("1.5L") == "" and jp.norm_cc("1498.0") == "" and jp.norm_cc("") == ""
+
+
+def test_odd_case_data_shapes_do_not_lose_the_lines():
+    d = dict(DATA, police="oops", at_fault=["x"], missing="none")
+    jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "rep"], d)
+    assert jp.run(jev, case, fetch) == []  # no client report number known: not warned, and nothing crashed
