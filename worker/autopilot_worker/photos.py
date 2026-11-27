@@ -63,11 +63,12 @@ def predict_command(python: str, script: str, images: list[str], *, vehicle: str
 
 
 def names_for_photos(photos: list[dict], preds: list[Prediction]) -> list[dict]:
-    """Match on the file name predict_case prints. Does not touch final_name."""
+    """Match on the file name predict_case prints: the local file it was given (<photo id>-<name>, so two photos with the same
+    name each get their own row), else the photo's own name. Does not touch final_name."""
     by = {os.path.basename(p.file): p for p in preds}
     rows = []
     for photo in photos:
-        base = os.path.basename(photo.get("src_name") or photo.get("file") or "")
+        base = os.path.basename(photo.get("local") or photo.get("src_name") or photo.get("file") or "")
         hit = by.get(base)
         if hit is None:
             rows.append({"id": photo["id"], "failed": True, "name_error": "worker: no prediction"})
