@@ -31,7 +31,8 @@ export function assertTextOnly(v: unknown, depth = 0): void {
   throw new TypeSafeImageError();
 }
 
-export type JevRequest = { state: string; questions: unknown[] };
+// The live API wants questions as an object keyed by question id ({ ins: { type, instructions, criteria } }); an array gets HTTP 422.
+export type JevRequest = { state: unknown; questions: Record<string, unknown> };
 
 /** The exact request that would be sent. Exported so a test can prove it never carries an image or the image header. */
 export function buildJevRequest(input: JevRequest, key: string): { url: string; init: RequestInit } {

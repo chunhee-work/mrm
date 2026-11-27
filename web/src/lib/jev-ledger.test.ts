@@ -16,3 +16,8 @@ test("a failed call is recorded as failed and still throws", async () => {
 test("a ledger error never breaks the call", async () => {
   assert.equal(await trackedJev({ purpose: "x" }, async () => "fine", async () => { throw new Error("db down"); }), "fine");
 });
+test("tokens come from the usage field", async () => {
+  const rows: Record<string, unknown>[] = [];
+  await trackedJev({ purpose: "jev_rc_check" }, async () => ({ usage: { input_tokens: 120, output_tokens: 7 } }), async (r) => { rows.push(r); });
+  assert.equal(rows[0].inputTokens, 120); assert.equal(rows[0].outputTokens, 7); assert.equal(rows[0].purpose, "jev_rc_check");
+});

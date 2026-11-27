@@ -11,13 +11,13 @@ const price = (): string | null => { const n = Number(process.env.TYPESAFE_COST_
 
 export async function trackedJev<T>(ctx: JevCtx, call: () => Promise<T>, record: (r: LedgerRow) => Promise<unknown> = recordCall): Promise<T> {
   const t0 = Date.now();
-  let ok = true, errorClass: string | undefined;
-  try { return await call(); }
+  let ok = true, errorClass: string | undefined, inputTokens = 0, outputTokens = 0;
+  try { const out = await call(); const u = (out as { usage?: { input_tokens?: unknown; output_tokens?: unknown } } | null)?.usage; inputTokens = Number(u?.input_tokens) || 0; outputTokens = Number(u?.output_tokens) || 0; return out; }
   catch (e) { ok = false; errorClass = e instanceof Error ? e.name : "Error"; throw e; }
   finally {
     await record({
       requestId: `jev:${randomUUID()}`, purpose: (ctx.purpose.startsWith("jev_") ? ctx.purpose : `jev_${ctx.purpose}`).slice(0, 60), model: "jev-latest",
-      userId: ctx.userId ?? null, caseId: ctx.caseId ?? null, costUsd: ok ? price() : null, latencyMs: Date.now() - t0, ok, errorClass,
+      userId: ctx.userId ?? null, caseId: ctx.caseId ?? null, costUsd: ok ? price() : null, inputTokens, outputTokens, latencyMs: Date.now() - t0, ok, errorClass,
     }).catch(() => undefined);
   }
 }
