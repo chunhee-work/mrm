@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -204,7 +204,13 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk }: { rows: C
   // a search typed while a line is open keeps that line (and the photo desk in it) on screen
   const kept = open && !found.some((x) => x.id === open) ? all.find((x) => x.id === open) : undefined;
   const rows = kept ? [...found, kept] : found;
-  const toggle = (id: string | null) => { setOpen(id); setOrder(id ? rows.map((x) => x.id) : null); };
+  // switching straight to another line keeps the order the user is looking at (built from what is on screen, not a fresh sort)
+  const toggle = (id: string | null) => {
+    setOpen(id);
+    if (!id) { setOrder(null); return; }
+    const seen = lines.map((x) => x.id);
+    setOrder(order ? [...seen, ...order.filter((o) => !seen.includes(o))] : seen);
+  };
   const at = (id: string) => { const i = order ? order.indexOf(id) : -1; return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
   const lines = order ? [...rows].sort((a, b) => at(a.id) - at(b.id)) : rows;
   // the open case left the list (deleted, or closed elsewhere): back to the normal list
@@ -270,6 +276,19 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const router = useRouter();
   const [q, setQ] = useState("");
   const [cred, setCred] = useState<Cred>(cred0);
+  // complete, but the login needs the user (a code from the phone, a wrong password), is still being checked, or is blocked
+  const loginNeeds = cred.complete && (cred.blocked || ["otp", "bad_credentials", "unknown", "locked", ...CHECKING].includes(cred.verifyState));
+  // once the check comes back fine the card stays a few seconds, so "login works" is seen before it goes
+  const [okHold, setOkHold] = useState(false);
+  const wasNeeded = useRef(loginNeeds);
+  useEffect(() => {
+    const before = wasNeeded.current;
+    wasNeeded.current = loginNeeds;
+    if (!before || loginNeeds || cred.verifyState !== "ok") return;
+    setOkHold(true);
+    const id = window.setTimeout(() => setOkHold(false), 5000);
+    return () => window.clearTimeout(id);
+  }, [loginNeeds, cred.verifyState]);
   useEffect(() => setCred(cred0), [cred0]);
   // a case can be started only with the details filled in; enforced only while saving really works (key set, migration applied)
   const blocked = cred.blocks;
@@ -324,8 +343,8 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           </div>
         </div>
         {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact={false} /></div>}
-        {/* complete, but the login needs the user (a code from the phone, a wrong password), is still being checked, or is blocked: say it here, not only on the details page */}
-        {cred.complete && (cred.blocked || ["otp", "bad_credentials", "unknown", "locked", ...CHECKING].includes(cred.verifyState)) && (
+        {/* the login needs the user: say it here, not only on the details page */}
+        {(loginNeeds || okHold) && (
           <div className="mt-8 max-w-[520px]"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact /></div>
         )}
         {/* a wide screen has Closed cases in the side bar (side-bar.tsx); New case stays here at every width */}

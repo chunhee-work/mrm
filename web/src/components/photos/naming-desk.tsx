@@ -121,6 +121,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frame = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
+  const onDoneRef = useRef(onDone); onDoneRef.current = onDone; // the first page passes a new function each render
   // embedded: the last press on the page was inside this desk (its keys follow it, its drops add photos)
   const active = useRef(false);
   useEffect(() => {
@@ -425,7 +426,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     if (c.done) {
       setDoneLocal(cid, false);
       const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: false });
-      if (r.ok) { say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(); } }); onDone?.(); } else void load(cid, true);
+      if (r.ok) { say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(); } }); onDoneRef.current?.(); } else void load(cid, true);
       return false;
     }
     const n = counts(c.photos);
@@ -443,14 +444,14 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       const status = String(r.body.status ?? "");
       const what = tt(status === "phase_b" ? "doneToast.phase_b" : status === "pending_doc" ? "doneToast.pending_doc" : "doneToast.other", { plate: c.plate });
       say(embedded ? what : left ? what : `${what}. ${tt("allDoneToast")}`);
-      onDone?.();
+      onDoneRef.current?.();
       return true;
     }
     const reason = r.body.reason as string | undefined;
     say(r.body.error === "status" ? tt("block.status") : reason ? tt(`block.${reason}`, { n: Number(r.body.count ?? 0) }) : tt("saveFailed"));
     void load(cid, true);
     return false;
-  }, [setDoneLocal, patchCase, say, load, jumpUnnamed, embedded, onDone]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setDoneLocal, patchCase, say, load, jumpUnnamed, embedded]); // eslint-disable-line react-hooks/exhaustive-deps
   pressDoneRef.current = pressDone;
 
   // ───────────── cases ─────────────
@@ -607,7 +608,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
 
   // ───────────── add photos ─────────────
   const onFiles = useCallback(async (files: File[]) => {
-    if (!files.length || up) return;
+    if (!files.length) return;
+    if (up) { say(tRef.current("upWait")); return; } // a second drop while photos go up: say so, do not lose it silently
     const cid = caseRef.current;
     const tt = tRef.current;
     setUp({ done: 0, total: files.length });

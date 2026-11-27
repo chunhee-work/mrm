@@ -34,9 +34,12 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    // keys as the old account menu: the first item takes the focus, Escape gives it back to the button, Tab leaves
+    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); trigger.current?.focus(); } };
     const down = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
     window.addEventListener("keydown", key); window.addEventListener("pointerdown", down);
     return () => { window.removeEventListener("keydown", key); window.removeEventListener("pointerdown", down); };
@@ -55,7 +58,7 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
   return (
     <div ref={ref} className={`relative border-t border-hair ${thin ? "p-2.5" : "p-2"}`} data-testid="side-account">
       {open && (
-        <div id="account-menu" role="menu" aria-label={email} className={`absolute bottom-[calc(100%+4px)] z-50 rounded-[4px] border border-hair bg-panel p-1 shadow-xl ${thin ? "left-2 w-[240px]" : "inset-x-2"}`}>
+        <div id="account-menu" role="menu" aria-label={email} onKeyDown={(e) => { if (e.key === "Tab") setOpen(false); }} className={`absolute bottom-[calc(100%+4px)] z-50 rounded-[4px] border border-hair bg-panel p-1 shadow-xl ${thin ? "left-2 w-[240px]" : "inset-x-2"}`}>
           <p className="truncate px-3 pb-1 pt-2 text-[12.5px] text-mute">{email}</p>
           <Link href="/settings" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`}><Gear className="shrink-0 text-mute" />{t("nav.settings")}</Link>
           <button type="button" role="menuitem" aria-expanded={langOpen} onClick={() => setLangOpen((v) => !v)} className={`${menuItem} text-fg`} data-testid="side-lang">
@@ -72,7 +75,7 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
           <button type="button" role="menuitem" disabled={busy} onClick={() => { setBusy(true); void logOut(); }} className={`${menuItem} text-[#dc2626] disabled:opacity-55`} data-testid="side-logout"><Exit className="shrink-0" />{t("nav.logout")}</button>
         </div>
       )}
-      <button type="button" aria-haspopup="menu" aria-expanded={open} aria-controls="account-menu" onClick={() => setOpen((v) => !v)} aria-label={thin ? `${who}${credits != null ? ` · ${credits}` : ""}` : undefined}
+      <button ref={trigger} type="button" aria-haspopup="menu" aria-expanded={open} aria-controls="account-menu" onClick={() => setOpen((v) => !v)} onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); } }} aria-label={thin ? `${who}${credits != null ? ` · ${credits}` : ""}` : undefined}
         className={`flex w-full items-center gap-3 rounded-[4px] py-2 text-left transition-colors duration-150 hover:bg-panel2 ${thin ? "justify-center px-0" : "px-2.5"}`}>
         <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fg text-[12px] font-bold text-panel">{initials}</span>
         {!thin && <span className="min-w-0 flex-1 leading-tight">
@@ -112,7 +115,7 @@ export default function SideBar({ email, name, credits, cred, closed, thin: thin
   // Billing sits at the very bottom, just above the account (owner 2026-11-27)
   const billing = { href: "/billing", d: BILLING, text: t("nav.billing"), here: path.startsWith("/billing"), id: "side-billing" };
   return (
-    <aside className={`sticky top-0 hidden h-screen h-dvh shrink-0 flex-col border-r border-hair bg-panel transition-[width] duration-200 motion-reduce:transition-none lg:flex ${thin ? "w-[68px]" : "w-[260px]"}`} data-testid="side-bar" data-thin={thin || undefined}>
+    <aside className={`sticky top-0 z-40 hidden h-screen h-dvh shrink-0 flex-col border-r border-hair bg-panel transition-[width] duration-200 motion-reduce:transition-none lg:flex ${thin ? "w-[68px]" : "w-[260px]"}`} data-testid="side-bar" data-thin={thin || undefined}>
       <div className={`flex flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden pb-4 pt-5 ${thin ? "px-2.5" : "px-4"}`}>
         <div className={`flex items-center ${thin ? "flex-col gap-4" : "justify-between pl-2"}`}>
           {/* folded: no panel button, the ball itself opens the bar again (owner 2026-11-27) */}
