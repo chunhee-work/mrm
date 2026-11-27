@@ -23,7 +23,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const r = await scanCase(id, "retry").catch(async (e) => {
     // failed before the read could start (database, network): the case is just as it was, so a credit taken for this press
     // goes back. Once the read has started, its own failure handling decides.
-    const [now] = await db.select({ status: schema.cases.status, error: schema.cases.error }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).catch(() => []);
+    const [now] = await db.select({ status: schema.cases.status, error: schema.cases.error }).from(schema.cases).where(and(eq(schema.cases.id, id), notDeleted)).limit(1).catch(() => []);
     if (paid === "charged" && now && now.status === c.status && now.error === c.error) await refundCase(me.orgId, id, "busy").catch(() => {});
     throw e;
   });

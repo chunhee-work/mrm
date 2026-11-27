@@ -106,7 +106,7 @@ def test_job_failure_pauses_without_another_try():
 
 
 def test_claim_sql_skips_locked_rows_and_bad_logins():
-    assert "FOR UPDATE OF j SKIP LOCKED" in CLAIM_SQL
+    assert "FOR UPDATE OF j, c SKIP LOCKED" in CLAIM_SQL
     assert "not_before" in CLAIM_SQL
     assert "merimen_credentials" in CLAIM_SQL
     assert "org_limit" in CLAIM_SQL

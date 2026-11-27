@@ -63,7 +63,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     await db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${files.length} more file(s)` });
     await db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.add_files", detail: id });
   } catch (e) {
-    await db.update(schema.cases).set({ status: c.status, pendingDoc: c.pendingDoc, error: c.error }).where(eq(schema.cases.id, id)).catch(() => {});
+    await db.update(schema.cases).set({ status: c.status, pendingDoc: c.pendingDoc, error: c.error }).where(and(eq(schema.cases.id, id), notDeleted)).catch(() => {});
     await db.delete(schema.jobs).where(and(eq(schema.jobs.caseId, id), eq(schema.jobs.step, "intake"), eq(schema.jobs.state, "queued"))).catch(() => {});
     await giveBack();
     throw e;

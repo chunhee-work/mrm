@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const have = await db.select({ slot: schema.merimenWorkshops.slot, name: schema.merimenWorkshops.name }).from(schema.merimenWorkshops).where(eq(schema.merimenWorkshops.orgId, me.orgId));
     const gone = [1, 2, 3].filter((n) => !keep.includes(n));
     const changed = [...gone, ...profile.workshops.filter((w) => have.some((h) => h.slot === w.slot && h.name !== w.name)).map((w) => w.slot)];
-    const open = sql`c.merimen_caseid IS NULL AND c.status IN (${sql.join(OPEN_STATUSES.map((x) => sql`${x}`), sql`, `)})`;
+    const open = sql`c.deleted_at IS NULL AND c.merimen_caseid IS NULL AND c.status IN (${sql.join(OPEN_STATUSES.map((x) => sql`${x}`), sql`, `)})`;
     const inUse = async (slots: number[]) => {
       // a case with no row is workshop 1; locked cases (the worker already used their workshop) do not count
       const r = await db.execute(sql`SELECT 1 FROM cases c LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id

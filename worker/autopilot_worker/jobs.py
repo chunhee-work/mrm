@@ -77,7 +77,7 @@ WHERE j.state = 'queued'
     )
   )
 ORDER BY j.created_at
-FOR UPDATE OF j SKIP LOCKED
+FOR UPDATE OF j, c SKIP LOCKED
 LIMIT 1
 )
 RETURNING id, case_id, step, attempts, (SELECT c3.org_id FROM cases c3 WHERE c3.id = jobs.case_id)

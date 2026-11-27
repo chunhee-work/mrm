@@ -1,3 +1,4 @@
+import { notDeleted } from "@/lib/case-delete";
 import { NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -18,7 +19,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const slot = parsed.data.workshop;
   const [c] = await db.select({ status: schema.cases.status, merimenCaseId: schema.cases.merimenCaseId }).from(schema.cases)
-    .where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId))).limit(1);
+    .where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId), notDeleted)).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
   const ws = await orgWorkshops(me.orgId);
   if (!canSwitchWorkshop(c)) return NextResponse.json({ error: "too_late" }, { status: 409 });

@@ -301,7 +301,12 @@ test("delete: the credit goes back for an unread case only, and not twice for a 
     const n = await mkCase("naming"); assert.ok(await debitCase(org, n)); // documents were read: no free read through delete
     assert.deepEqual(await deleteCase(org, "u1", n), { ok: true, refunded: false });
     assert.equal(await creditBalance(org), 4000);
-    await db.insert(schema.creditsLedger).values({ orgId: org, delta: 1000, reason: "top-up" });
+    // a read case that got more files sits in `uploaded` until the next read starts: its read was already paid, so no credit back
+    const r = await mkCase("uploaded"); assert.ok(await debitCase(org, r));
+    await db.update(schema.cases).set({ caseData: { read: true } as never }).where(sql`${schema.cases.id} = ${r}`);
+    assert.deepEqual(await deleteCase(org, "u1", r), { ok: true, refunded: false });
+    assert.equal(await creditBalance(org), 3000);
+    await db.insert(schema.creditsLedger).values({ orgId: org, delta: 2000, reason: "top-up" });
     const b = await mkCase("failed"); assert.ok(await debitCase(org, b));
     const { refundCase } = await import("../src/lib/payments/case-credit");
     assert.ok(await refundCase(org, b, "failed")); // the worker already gave it back
