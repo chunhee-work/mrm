@@ -5,19 +5,25 @@ import { holdDropped, takeDropped } from "./dropped-files";
 const f = (n: string) => new File(["x"], n);
 
 test("files dropped on the first page are handed over once", () => {
-  holdDropped([f("a.pdf")], 1000);
-  assert.deepEqual(takeDropped(2000).map((x) => x.name), ["a.pdf"]);
-  assert.equal(takeDropped(2000).length, 0, "a second take gets nothing (StrictMode runs the effect twice)");
-});
-
-test("files held too long are thrown away, so a later New case never gets another claim's files", () => {
-  holdDropped([f("a.pdf")], 1000);
-  assert.equal(takeDropped(1000 + 16_000).length, 0);
-  assert.equal(takeDropped(1000 + 16_000).length, 0, "and they are gone");
+  holdDropped([f("a.pdf")]);
+  assert.deepEqual(takeDropped().map((x) => x.name), ["a.pdf"]);
+  assert.equal(takeDropped().length, 0, "a second take gets nothing (StrictMode runs the effect twice)");
 });
 
 test("a second drop replaces the first", () => {
-  holdDropped([f("a.pdf")], 1000);
-  holdDropped([f("b.pdf")], 1100);
-  assert.deepEqual(takeDropped(1200).map((x) => x.name), ["b.pdf"]);
+  holdDropped([f("a.pdf")]);
+  holdDropped([f("b.pdf")]);
+  assert.deepEqual(takeDropped().map((x) => x.name), ["b.pdf"]);
+});
+
+test("a hold not taken within 15 s is let go", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  holdDropped([f("late.pdf")]);
+  t.mock.timers.tick(14_999);
+  holdDropped([f("again.pdf")]); // a new drop starts a new 15 s
+  t.mock.timers.tick(14_999);
+  assert.deepEqual(takeDropped().map((x) => x.name), ["again.pdf"]);
+  holdDropped([f("late.pdf")]);
+  t.mock.timers.tick(15_000);
+  assert.equal(takeDropped().length, 0, "nothing for a visit after 15 s");
 });
