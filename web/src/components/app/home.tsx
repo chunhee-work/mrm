@@ -143,15 +143,23 @@ function More({ r, orgId }: { r: CaseRow; orgId: string }) {
   const [sent, setSent] = useState(false);
   const [ask, setAsk] = useState(false);
   // a document is uploaded right here, with the same picker, limits and progress as the case page (one component, NeedCard)
+  // the photo desk, in this line: the job of step 2, and on the way while documents are still missing
+  const [deskOpen, setDeskOpen] = useState(false);
+  const desk = (
+    <div className="overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
+      <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={() => router.refresh()}
+        tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
+    </div>
+  );
   const job = r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null))
-    ? <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} /></ul>
-    : r.status === "failed" ? <RetryHere r={r} />
-    : bucketOf(r) === "photos" ? (
-      <div className="overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
-        <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={() => router.refresh()}
-          tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
-      </div>
+    ? (
+      <>
+        <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} onPhotos={() => setDeskOpen((v) => !v)} /></ul>
+        {deskOpen && desk}
+      </>
     )
+    : r.status === "failed" ? <RetryHere r={r} />
+    : bucketOf(r) === "photos" ? desk
     : null;
   const facts: [string, string][] = [[t("list.col.when"), r.createdAt ? whenOf(r.createdAt, lang) : "–"]];
   if (r.deskTotal) facts.push([t("steps.photos"), t("tray.more.photos", { n: String(r.deskTotal - (r.deskConfirm ?? 0)), total: String(r.deskTotal) })]);

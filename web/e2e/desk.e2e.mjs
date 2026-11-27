@@ -506,9 +506,17 @@ try {
     assert.equal(sent, 0, "a zip that makes several cases is not sent unseen");
     await page.unroute("**/api/cases/credit*");
     await page.goto(`${BASE}/dashboard`);
-    // a case waiting for the user has one button that goes straight to the job; the whole line opens the case
-    const desk = page.getByTestId("home-act").filter({ hasText: /Name photos|Press Done|命名照片|按「完成」|Namakan foto|Tekan Selesai/ }).first();
-    if (await desk.count()) { assert.match(await desk.getAttribute("href"), /^\/cases\/[^/]+\/photos$/, "the photo button opens the desk"); }
+    // every job is done on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
+    // the photo button opens the line with the photo desk inside it
+    assert.equal(await page.locator('[data-testid="home-act"][href]').count(), 0, "no action button leaves the first page");
+    const photoLine = page.getByTestId("home-list").locator(":scope > li[data-bucket=photos]").first();
+    if (await photoLine.count()) {
+      await photoLine.getByTestId("home-act").click();
+      await photoLine.getByTestId("home-desk").getByTestId("done-btn").waitFor();
+      assert.equal(new URL(page.url()).pathname, "/dashboard", "the photo desk opens inside the line");
+      await photoLine.getByTestId("home-row").click();
+      await photoLine.getByTestId("home-desk").waitFor({ state: "detached" });
+    }
     // a press on a line opens its details right there (owner 2026-11-27: "by clicking the whole box can open it down"); a second press closes them
     const row = page.getByTestId("home-row").first();
     await row.click();

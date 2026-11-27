@@ -19,7 +19,8 @@ export type Sent = "files";
  * A missing document is uploaded right here: choosing the files sends them, there is no second button.
  * `sent` comes from the page, which keeps the banner for a moment after the files went through, so the user sees they were received.
  */
-export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void }) {
+/** `onPhotos`: the photo desk opens on the same page (the first page's line) instead of on its own page. */
+export default function NeedCard({ row, orgId, sent, onSent, onPhotos }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void; onPhotos?: () => void }) {
   const { t } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -154,10 +155,17 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
         </button>
         {/* R3-B01 / B06: always one line about the photo names: how many to check, "press 完成", or confirmed */}
         {(row.deskTotal ?? 0) > 0 && (
-          <Link href={`/cases/${row.id}/photos`} className="btn-quiet !w-full sm:!w-auto" data-testid="photos-link">
-            {row.photosDone && !row.deskConfirm ? <Tick className="h-4 w-4 text-go" /> : <Photo />}
-            <span>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : row.photosDone ? t("dash.d.photosDone") : t("dash.d.photosPress")}</span>
-          </Link>
+          (() => {
+            const inner = (
+              <>
+                {row.photosDone && !row.deskConfirm ? <Tick className="h-4 w-4 text-go" /> : <Photo />}
+                <span>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : row.photosDone ? t("dash.d.photosDone") : t("dash.d.photosPress")}</span>
+              </>
+            );
+            return onPhotos
+              ? <button type="button" onClick={onPhotos} className="btn-quiet !w-full sm:!w-auto" data-testid="photos-link">{inner}</button>
+              : <Link href={`/cases/${row.id}/photos`} className="btn-quiet !w-full sm:!w-auto" data-testid="photos-link">{inner}</Link>;
+          })()
         )}
       </div>
     );
