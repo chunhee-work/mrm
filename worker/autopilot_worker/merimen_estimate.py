@@ -389,3 +389,42 @@ def _close(page):
         page.close()
     except Exception:  # noqa: BLE001
         pass
+
+
+MIN_TOTAL = 6000.0  # playbook 08: every case total >= RM6,000 (the Adj Rpt total on the Claim Subfolder page)
+
+
+def read_total(page_for, case: dict, *, timeout_scale: float = 1.0) -> float | None:
+    """adjtotal.mjs: the first RM figure on this case's Claim Subfolder page (dsp_clmheader). Read-only; None when it cannot be read."""
+    base = page_for()
+    q = session_query(base.url) if base is not None else None
+    cid = str(case.get("merimen_caseid") or "")
+    if not q or not re.fullmatch(r"\d{4,12}", cid):
+        return None
+    page = base.context.new_page()
+    page.on("dialog", lambda d: d.dismiss())
+    try:
+        page.goto(f"{CLAIMS}?fusebox=MTRroot&fuseaction=dsp_clmheader&caseid={cid}&{q}", wait_until="domcontentloaded")
+        page.wait_for_timeout(max(0, int(3500 * timeout_scale)))
+        if page.locator("input[type=password]").count() > 0:
+            return None
+        m = re.search(r"RM\s?([\d,]+\.\d\d)", page.evaluate("() => document.body.innerText") or "")
+        return _money(m.group(1)) if m else None
+    except Exception:  # noqa: BLE001
+        return None
+    finally:
+        _close(page)
+
+
+def gate(est: EstimateResult, total: float | None) -> list:
+    """Every check the owner set before a case may go to the insurer (2026-11-27). [] = all passed. The parts / photo-name two-way
+    check and the manual-row prices passed already (Step 2 stops the case otherwise)."""
+    out = []
+    if not est.ok:
+        out.append(est.line())
+    out += est.review
+    if total is None:
+        out.append("the case total could not be read")
+    elif total < MIN_TOTAL:
+        out.append(f"total RM{total:,.2f} is below RM6,000")
+    return out
