@@ -431,6 +431,37 @@ test("register: a retry of the same photo is a success: it comes back as added, 
   assert.ok((await caseNow(orgId, id)).photosDoneAt, "nothing new: 完成 stays");
 });
 
+test("register: a retry that overlaps the first try (or a second tab with the same file) is still one photo, added, listed once", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  for (const hash of [null, "e".repeat(64)]) {
+    const { orgId, id, c } = await newCase("waiting_user", 0);
+    const blobPath = `${orgId}/${id}/photos/ov1-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/ov1-s-IMG.jpg`;
+    for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, hash); writeFileSync(fileOf(p), "jpeg"); }
+    const item = { blobPath, thumbPath, name: "ov1.jpg", size: 4, hash };
+    // both look before either has written: the slower one finds the path stored when it comes to write
+    const [a, b] = await Promise.all([s.registerPhotos(c, orgId, [item]), s.registerPhotos(c, orgId, [item])]);
+    for (const r of [a, b]) {
+      assert.equal(r.status, 200);
+      assert.deepEqual([(r.body.added as unknown[]).length, r.body.duplicates, r.body.rejected], [1, [], []], "added, not 'already in the case'");
+    }
+    assert.equal((a.body.added as { id: number }[])[0].id, (b.body.added as { id: number }[])[0].id, "the same photo");
+    assert.equal((await rows(id)).length, 1);
+    assert.equal((await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).length, 1, "one file row, the photo is not listed twice");
+    assert.ok(existsSync(fileOf(blobPath)) && existsSync(fileOf(thumbPath)), "the stored photo's files are kept");
+  }
+  // the file row is written by a statement that skips a photo that has one: a try that still thinks the row is missing adds none
+  const { orgId, id, c } = await newCase("waiting_user", 0);
+  const blobPath = `${orgId}/${id}/photos/ov2-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/ov2-s-IMG.jpg`;
+  for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, null); writeFileSync(fileOf(p), "jpeg"); }
+  const item = { blobPath, thumbPath, name: "ov2.jpg", size: 4, hash: null };
+  await s.registerPhotos(c, orgId, [item]);
+  await Promise.all([1, 2, 3].map(async () => {
+    await db.delete(schema.caseFiles).where(eq(schema.caseFiles.caseId, id)); // as if the first try had not written it yet
+    return s.registerPhotos(c, orgId, [item]);
+  }));
+  assert.equal((await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).length, 1);
+});
+
 test("register: adding photos on the desk leaves the case status alone (a case moved to 'naming' was never picked up again)", opts, async () => {
   const { s } = await kit();
   for (const status of ["phase_a", "uploaded", "pending_doc", "waiting_user"]) {
