@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserOrNull } from "@/lib/session";
+import { profileBlocks } from "@/lib/ext/worker-store";
 import { CASE_COST, enforcing, exempt, hasCredit } from "@/lib/payments/case-credit";
 import { creditBalance } from "@/lib/payments/credit";
 import { earlierCars } from "@/lib/split-marks";
@@ -10,6 +11,7 @@ import { earlierCars } from "@/lib/split-marks";
 export async function GET(req: Request) {
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (await profileBlocks(me.orgId)) return NextResponse.json({ error: "profile_incomplete" }, { status: 403 }); // before a single byte goes up
   const sp = new URL(req.url).searchParams;
   let n = Math.min(30, Math.max(1, Number(sp.get("n")) || 1));
   const zip = sp.get("zip"); const size = Number(sp.get("size"));

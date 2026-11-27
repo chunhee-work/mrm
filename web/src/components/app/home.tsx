@@ -7,6 +7,7 @@ import { Chevron, Plus, Search, UploadArt } from "./marks";
 import { holdDropped } from "@/lib/dropped-files";
 import { useFileDrag } from "./drop-zone";
 import { OPEN_BUCKETS, type Bucket } from "./status";
+import ProfileCard, { type Cred } from "./profile-card";
 
 export type HomeCounts = Record<Bucket, number>;
 
@@ -17,10 +18,15 @@ const REFRESH_MS = 20_000;
  * and how many open cases wait for what. A row of the count opens the table of those cases.
  * Nothing is said twice: "Billing" is in the top bar only, and the bar drops its own "New case" on this page.
  */
-export default function Home({ name, counts, below }: { name: string; counts: HomeCounts; below?: React.ReactNode }) {
+export default function Home({ name, counts, cred: cred0, configured }: { name: string; counts: HomeCounts; cred: Cred; configured: boolean }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [cred, setCred] = useState<Cred>(cred0);
+  useEffect(() => setCred(cred0), [cred0]);
+  // a case can be started only with the details filled in; enforced only while saving really works (key set, migration applied)
+  const blocked = configured && cred.storageOk && !cred.complete;
+  const gotAll = (c: Cred) => { setCred(c); router.refresh(); };
   const open = OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0);
 
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
@@ -32,7 +38,7 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
   }, [live, router]);
 
   // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
-  const over = useFileDrag(true, (files) => { holdDropped(files); router.push("/cases/new"); });
+  const over = useFileDrag(!blocked, (files) => { holdDropped(files); router.push("/cases/new"); });
 
   // "On hold" is a row only when a case is on hold; the other three are always there, so the box keeps its shape
   const rows = OPEN_BUCKETS.filter((b) => b !== "hold" || counts.hold > 0).map((b) => ({ b, n: counts[b], hot: b !== "active" && counts[b] > 0 }));
@@ -70,7 +76,8 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
   // the order of the page the adjusters know: welcome and search, the buttons side by side, the count as a table
   return (
     <div className="wrap pb-14 pt-7 lg:pb-20 lg:pt-12">
-      <div className="mx-auto max-w-[760px]">
+      <div className={`mx-auto grid items-start gap-8 ${cred.complete ? "max-w-[1100px] lg:grid-cols-[minmax(0,1fr)_320px]" : "max-w-[760px]"}`}>
+      <div className="min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
           <h1 className="display-3 text-[22px] text-fg [text-wrap:balance] lg:text-[26px]" data-testid="home-welcome">{t("tray.welcome", { name })}</h1>
           <form
@@ -88,14 +95,20 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
             <button type="submit" className="btn-line shrink-0 !px-5">{t("tray.go")}</button>
           </form>
         </div>
+        {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={gotAll} configured={configured} compact={false} /></div>}
         <div className="mt-9 grid gap-3 sm:grid-cols-2">
-          <Link href="/cases/new" className="btn-primary !gap-2" data-testid="home-new"><Plus />{t("dash.new")}</Link>
+          {blocked
+            ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
+            : <Link href="/cases/new" className="btn-primary !gap-2" data-testid="home-new"><Plus />{t("dash.new")}</Link>}
           <Link href="/dashboard?view=closed" className="btn-line" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>
           </Link>
         </div>
+        {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
         <div className="mt-9">{table}</div>
+      </div>
+      {cred.complete && <aside className="min-w-0 lg:pt-[3.75rem]"><ProfileCard cred={cred} setCred={gotAll} configured={configured} compact /></aside>}
       </div>
       {over && (
         <div aria-hidden="true" data-testid="home-overlay" className="pointer-events-none fixed inset-0 z-50 bg-panel/90 p-4 backdrop-blur-[2px]">
@@ -105,7 +118,6 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
           </div>
         </div>
       )}
-      {below && <div className="mx-auto mt-10 max-w-[920px]">{below}</div>}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { db, schema } from "@/db";
 import { envOn } from "./gate";
 import { decideWorkerGate, missingRelation } from "./worker-gate";
 import type { ExtState } from "./gate";
+import { profileComplete } from "./profile";
+import { credKeyReady } from "@/lib/crypto/merimen-cred";
 
 export async function getWorkerState(orgId: string): Promise<ExtState> {
   if (!envOn()) return "off";
@@ -17,7 +19,13 @@ export async function getWorkerState(orgId: string): Promise<ExtState> {
   }
 }
 
-export type CredView = { saved: boolean; usernameHint: string | null; verifyState: string; blocked: boolean };
+export type CredView = {
+  saved: boolean; usernameHint: string | null; verifyState: string; blocked: boolean; updatedAt: string | null;
+  workshop: string | null; manager: string | null; adjuster: string | null;
+  complete: boolean; // login saved and the three names filled: a case may be started
+  storageOk: boolean; // false while the table or the 0013 columns are not in the database
+};
+const NONE: CredView = { saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false, storageOk: true };
 
 export async function credView(orgId: string): Promise<CredView> {
   try {
@@ -25,13 +33,26 @@ export async function credView(orgId: string): Promise<CredView> {
       usernameHint: schema.merimenCredentials.usernameHint,
       verifyState: schema.merimenCredentials.verifyState,
       blocked: schema.merimenCredentials.blocked,
+      updatedAt: schema.merimenCredentials.updatedAt,
+      workshop: schema.merimenCredentials.workshopName,
+      manager: schema.merimenCredentials.managerName,
+      adjuster: schema.merimenCredentials.adjusterName,
     }).from(schema.merimenCredentials).where(eq(schema.merimenCredentials.orgId, orgId)).limit(1);
-    if (!r) return { saved: false, usernameHint: null, verifyState: "none", blocked: false };
-    return { saved: true, usernameHint: r.usernameHint, verifyState: r.verifyState, blocked: r.blocked };
+    if (!r) return NONE;
+    const v = { saved: true, usernameHint: r.usernameHint, verifyState: r.verifyState, blocked: r.blocked, updatedAt: r.updatedAt.toISOString(), workshop: r.workshop, manager: r.manager, adjuster: r.adjuster };
+    return { ...v, complete: profileComplete(v), storageOk: true };
   } catch (e) {
-    if (missingRelation(e)) return { saved: false, usernameHint: null, verifyState: "none", blocked: false };
+    if (missingRelation(e)) return { ...NONE, storageOk: false };
     throw e;
   }
+}
+
+/** True when this account may NOT start a case yet. Only enforced while saving really works (key set, 0013 applied),
+ * so a missing key or migration can never lock every user out. */
+export async function profileBlocks(orgId: string): Promise<boolean> {
+  if (!credKeyReady()) return false;
+  const v = await credView(orgId);
+  return v.storageOk && !v.complete;
 }
 
 export async function workerOnline(): Promise<boolean> {

@@ -74,3 +74,6 @@ export function cleanSecret(v: unknown, max: number): string | null {
   if (!s || s.length > max) return null;
   return s;
 }
+
+/** True when the master key env var (MERIMEN_CRED_KEY, 32 bytes, base64) is set on this server. Saving needs it. */
+export const credKeyReady = (env: Record<string, string | undefined> = process.env) => masterKey(env.MERIMEN_CRED_KEY) !== null;

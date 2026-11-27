@@ -1,9 +1,7 @@
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
-import { getExtState } from "@/lib/ext/gate";
-import { workerUiOn } from "@/lib/ext/worker-gate";
-import { credView, getWorkerState } from "@/lib/ext/worker-store";
-import Connection from "@/components/app/connection";
+import { credView } from "@/lib/ext/worker-store";
+import { credKeyReady } from "@/lib/crypto/merimen-cred";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { CONFIRM_COUNT } from "@/lib/photos/confirm-sql";
 import CaseTable, { type CaseRow } from "@/components/app/case-table";
@@ -94,9 +92,5 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     counts[bucketOf({ status: g.status, deskConfirm: 1 })] += naming;
     counts[bucketOf({ status: g.status, deskConfirm: 0 })] += Number(g.n) - naming;
   }
-  const worker = workerUiOn();
-  const state = worker ? await getWorkerState(orgId) : await getExtState(orgId);
-  // while the Merimen connection is switched off there is nothing to do or read about it: the page ends with the count
-  const below = state === "off" ? undefined : <Connection embedded mode={worker ? "worker" : "browser"} cred={worker ? await credView(orgId) : null} state={state} cases={list.map((c) => ({ id: c.id, plate: c.plate }))} />;
-  return <Home name={user.name} counts={counts} below={below} />;
+  return <Home name={user.name} counts={counts} cred={await credView(orgId)} configured={credKeyReady()} />;
 }

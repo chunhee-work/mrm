@@ -4,6 +4,7 @@ import { del, get, put } from "@vercel/blob";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
+import { profileBlocks } from "@/lib/ext/worker-store";
 import { planVehicles, unzipVehicle, ZipRejected } from "@/lib/unzip-bundle";
 import { earlierCars, lockSplit, splitKey } from "@/lib/split-marks";
 import { CASE_COST, debitCase, enforcing, exempt, refundCase } from "@/lib/payments/case-credit";
@@ -46,6 +47,7 @@ async function writeCar(qs: Parameters<typeof db.batch>[0]) {
 export async function POST(req: Request) {
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (await profileBlocks(me.orgId)) return NextResponse.json({ error: "profile_incomplete" }, { status: 403 }); // details not filled in on the front page
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const { url, name, size, fallback } = parsed.data;

@@ -126,6 +126,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     try {
       // check the balance before a single byte goes up
       const pre = await fetch(`/api/cases/credit${multi ? `?n=${zipCars.current.get(keyOf(multi))!.length}&zip=${encodeURIComponent(multi.name)}&size=${multi.size}` : ""}`);
+      if (pre.status === 403) { window.location.assign("/dashboard"); return; } // details not filled in: the front page asks for them
       if (pre.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       const batchId = crypto.randomUUID();
       const done: { kind: Kind; url: string; name: string; size: number }[] = new Array(files.length);

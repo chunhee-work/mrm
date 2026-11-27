@@ -42,6 +42,8 @@ await db.query(`UPDATE "user" SET email_verified = true WHERE email = $1`, [emai
 const { rows: [m] } = await db.query(`SELECT m.org_id FROM memberships m JOIN "user" u ON u.id = m.user_id WHERE u.email = $1`, [email]);
 const orgId = m.org_id;
 await db.query(`INSERT INTO credits_ledger (org_id, delta, reason) VALUES ($1, 5, $2)`, [orgId, `qc-grant-${stamp}`]);
+// the front page asks for the login + workshop details before a case can start: this account has them already (fake, unusable ciphertext)
+await db.query(`INSERT INTO merimen_credentials (org_id, username_hint, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, password_nonce, verify_state, blocked, workshop_name, manager_name, adjuster_name, profile_version) VALUES ($1,'qc','x','x','x','x','x','x','ok',false,'QC Workshop','QC Manager','QC Adjuster',1)`, [orgId]);
 
 const ids = [];
 async function seed(key, plate, status, o = {}) {

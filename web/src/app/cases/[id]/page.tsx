@@ -16,6 +16,7 @@ import { pageMeta } from "@/lib/meta";
 import { SITE } from "@/lib/site";
 import { workerUiOn } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
+import { credKeyReady } from "@/lib/crypto/merimen-cred";
 import { timelineFor } from "@/lib/screenshots/server";
 import { missingRelation } from "@/lib/ext/worker-gate";
 
@@ -86,7 +87,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     photoPlan: plan ? { mode: plan.mode, action: plan.action, upload: plan.would.upload ?? 0, relabel: plan.would.relabel ?? 0, reorder: plan.would.reorder ?? 0 } : null,
     events: events.map((e) => ({ at: e.at.toISOString(), message: e.message })),
     stale,
-    cred: workerUiOn() ? await credView(orgId) : null,
+    cred: await credView(orgId),
+    credConfigured: credKeyReady(),
     // only the user who submitted the case gets this list; anyone else in the organisation gets none
     shots: workerUiOn() ? await timelineFor(id, user.id, c.createdBy).catch((e) => { if (missingRelation(e)) return null; throw e; }) : null,
   };

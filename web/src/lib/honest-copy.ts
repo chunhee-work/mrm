@@ -6,9 +6,9 @@ import type { Lang } from "./i18n";
 // Matching is by phrase, in any language; the replacement is chosen by the page language.
 
 const SAVED: Record<Lang, string> = {
-  en: "If you turn on the saved login, your Merimen user name and password are stored encrypted and used only by our worker to sign in for you, once. We never show them again, and you can remove them at any time on the Connection page.",
-  zh: "如果你开启「保存登录」，你的 Merimen 用户名和密码会加密保存，只用于我们的后台替你登录一次。我们不会再显示它们，你可以随时在「连接」页删除。",
-  ms: "Jika anda hidupkan log masuk tersimpan, nama pengguna dan kata laluan Merimen anda disimpan secara tersulit dan hanya digunakan oleh worker kami untuk log masuk untuk anda, sekali. Kami tidak memaparkannya semula, dan anda boleh memadamnya bila-bila masa di halaman Sambungan.",
+  en: "If you turn on the saved login, your Merimen user name and password are stored encrypted and used only by our worker to sign in for you, once. We never show them again, and you can remove them at any time in Settings.",
+  zh: "如果你开启「保存登录」，你的 Merimen 用户名和密码会加密保存，只用于我们的后台替你登录一次。我们不会再显示它们，你可以随时在「设置」页删除。",
+  ms: "Jika anda hidupkan log masuk tersimpan, nama pengguna dan kata laluan Merimen anda disimpan secara tersulit dan hanya digunakan oleh worker kami untuk log masuk untuk anda, sekali. Kami tidak memaparkannya semula, dan anda boleh memadamnya bila-bila masa di Tetapan.",
 };
 const SHORT: Record<Lang, string> = {
   en: "Your Merimen password is stored encrypted and used only to sign in for you.",

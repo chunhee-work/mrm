@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
+import { profileBlocks } from "@/lib/ext/worker-store";
 import { CaseBody, bodyProblem } from "@/lib/case-body";
 import { scanCase } from "@/lib/scan-case";
 import { debitCase, hasCredit, refundCase } from "@/lib/payments/case-credit";
@@ -11,6 +12,7 @@ export const maxDuration = 300; // the automatic read runs after the response, i
 export async function POST(req: Request) {
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (await profileBlocks(me.orgId)) return NextResponse.json({ error: "profile_incomplete" }, { status: 403 }); // details not filled in on the front page
   const parsed = CaseBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const problem = bodyProblem(parsed.data, me.orgId);

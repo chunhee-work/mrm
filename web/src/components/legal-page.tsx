@@ -2,14 +2,14 @@ import { getT } from "@/lib/i18n-server";
 import { localeOf } from "@/lib/i18n";
 import { honestCopy } from "@/lib/honest-copy";
 import { envOn } from "@/lib/ext/gate";
-import { workerUiOn } from "@/lib/ext/worker-gate";
+import { savedLoginOn } from "@/lib/ext/worker-gate";
 import { LEGAL_UPDATED, fillLegal, type LegalDoc } from "@/lib/legal";
 import { SITE, contactEmail, operatorName } from "@/lib/site";
 
 /** Privacy Notice / Terms of Service: numbered contents on the left, the text on the right. */
 export default async function LegalPage({ docs }: { docs: Record<string, LegalDoc> }) {
   const { lang, t } = await getT();
-  const doc = honestCopy(docs[lang], lang, workerUiOn(), !envOn());
+  const doc = honestCopy(docs[lang], lang, savedLoginOn(), !envOn());
   const f = (s: string) => fillLegal(s, { brand: SITE.brand, operator: operatorName(), email: contactEmail() });
   const date = new Intl.DateTimeFormat(localeOf(lang), { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(LEGAL_UPDATED));
   const toc = (

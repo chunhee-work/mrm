@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
 import type { ExtState } from "@/lib/ext/gate";
-import WorkerLogin, { type Cred } from "./worker-login";
+import Link from "next/link";
+import type { Cred } from "./profile-card";
 
 // The Connection card (plan #38, P1). With the feature off it only says "not available yet": no button, no form.
 type View =
@@ -93,7 +94,7 @@ export default function Connection({ state: initial, embedded = false, cases = [
             <button type="button" onClick={consent} disabled={!ok || busy} className="btn-primary mt-4 !h-12 w-full sm:w-auto sm:px-8">{t("conn.consentGo")}</button>
           </div>
         )}
-        {state === "ready" && mode === "worker" && cred && <WorkerLogin initial={cred} />}
+        {state === "ready" && mode === "worker" && cred && <Link href="/dashboard" className="btn-line mt-3 !h-11">{t("pf.title")}</Link>}
         {state === "ready" && mode !== "worker" && (
           <div className="mt-3">
             <div className="text-[17px] font-semibold text-fg">
