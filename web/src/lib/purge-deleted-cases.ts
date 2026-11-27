@@ -72,7 +72,7 @@ export async function purgeDeletedCases(remove: (path: string) => Promise<void>,
       const photos = await db.select({ id: schema.casePhotos.id, p: schema.casePhotos.blobPath, t: schema.casePhotos.thumbPath }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, k.id));
       const shots = await db.select({ id: schema.caseScreenshots.id, p: schema.caseScreenshots.blobPathname }).from(schema.caseScreenshots).where(eq(schema.caseScreenshots.caseId, k.id));
       const ups = await db.select({ p: schema.photoUploads.path }).from(schema.photoUploads).where(eq(schema.photoUploads.caseId, k.id));
-      const stray = opts.listPrefix ? await opts.listPrefix(`${k.orgId}/${k.id}/`) : []; // files that never got a row
+      const stray = opts.listPrefix ? [...await opts.listPrefix(`${k.orgId}/${k.id}/`), ...await opts.listPrefix(`${k.orgId}/${k.id}-add-`)] : []; // files that never got a row (also the folders of files added later)
       const paths = [...new Set([...stray, ...files.map((f) => f.p), ...photos.flatMap((p) => [p.p, p.t]), ...shots.map((s) => s.p), ...ups.map((u) => u.p)].filter(Boolean))];
       const used = await usedElsewhere(paths, k.id);
       const mine = paths.filter((p) => !used.has(p));
