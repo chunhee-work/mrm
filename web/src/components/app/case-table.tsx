@@ -50,12 +50,16 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
   const live = mine.some((r) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(r.status));
   useEffect(() => {
     if (!live) return;
-    const id = window.setInterval(() => { if (!document.hidden) router.refresh(); }, REFRESH_MS);
-    return () => window.clearInterval(id);
+    // not in a hidden tab, and not while offline: a refresh that cannot reach the server makes Next load the whole page again,
+    // and the browser then shows its own "no internet" page instead of the list. Back online, it is read again at once.
+    const tick = () => { if (!document.hidden && navigator.onLine) router.refresh(); };
+    const id = window.setInterval(tick, REFRESH_MS);
+    window.addEventListener("online", tick);
+    return () => { window.clearInterval(id); window.removeEventListener("online", tick); };
   }, [live, router]);
 
   const needle = squash(q);
-  const shown = mine.filter((r) => !needle || squash(r.plate ?? "").includes(needle));
+  const shown = mine.filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
   const title = !view ? (q.trim() ? t("list.found", { q: q.trim() }) : t("list.all"))
     : view === "all" ? t("list.all") : view === "open" ? t("tray.open") : view === "closed" ? t("tray.closed") : t(`tray.b.${view}`);
 
