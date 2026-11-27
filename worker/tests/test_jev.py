@@ -77,3 +77,25 @@ def test_jev_never_adds_an_alarm():
     post, sent = fake(lambda b: {k: 0.0 for k in b["questions"]})
     r = two_way(["Door Mirror RH"], [("Door Mirror RH", "1")], jev=Jev(post))
     assert r["ok"] and not sent
+
+
+def test_jev_cannot_create_a_remove_alarm():
+    # old name "Front Bumper Lip" was changed; the row is still ticked. Code rules cannot tell if they are the same part, Jev says they are:
+    # that must NOT become a REMOVE? (Jev only clears).
+    post, _ = fake(lambda b: {k: 0.95 for k in b["questions"]})
+    rows = [("Bumper Front Lower Cover", "1")]
+    assert two_way(["Grille"], rows, ["Front Bumper Lip"], jev=Jev(post))["remove"] == []
+
+
+def test_a_refused_ledger_write_switches_recording_off_for_the_run():
+    calls = []
+
+    def refuse(row):
+        calls.append(row)
+        raise RuntimeError("permission denied")
+
+    post, _ = fake(lambda b: {k: 0.9 for k in b["questions"]})
+    j = Jev(post, record=refuse)
+    j.same_parts([("A", "B", "1")])
+    j.same_parts([("A", "B", "1")])
+    assert len(calls) == 1

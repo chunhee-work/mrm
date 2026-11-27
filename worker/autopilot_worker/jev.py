@@ -45,7 +45,7 @@ def _post_json(key: str) -> Post:
             headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
         )
         last = ""
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 (fixed https URL)
                     return json.loads(r.read())
@@ -62,8 +62,9 @@ def _post_json(key: str) -> Post:
 
 
 class Jev:
-    def __init__(self, post: Post, *, record: Record | None = None, model: str = MODEL, timeout: float = 120.0):
+    def __init__(self, post: Post, *, record: Record | None = None, model: str = MODEL, timeout: float = 45.0):
         self.post, self.record, self.model, self.timeout = post, record, model, timeout
+        self.record_off = False  # set after the first refused ledger write (before migration 0016): stop trying, print once
 
     def ask(self, state: dict, questions: dict, *, purpose: str, case_id: str | None = None) -> dict:
         """One request. `questions` is an object keyed by question id (an array gets HTTP 422). Logs one row per call, success or not."""
@@ -80,11 +81,11 @@ class Jev:
             raise JevError(str(e)[:120]) from e
         finally:
             row["latency_ms"] = int((time.time() - t0) * 1000)
-            if self.record:
+            if self.record and not self.record_off:
                 try:
                     self.record(row)
-                except Exception:  # a ledger problem must never stop a case
-                    pass
+                except Exception:  # a ledger problem must never stop a case; one refusal switches the ledger off for this run
+                    self.record_off = True
 
     def same_parts(self, pairs: list[tuple[str, str, str]], *, case_id: str | None = None) -> dict[tuple[str, str, str], float]:
         """{(photo item, estimate row, qty): probability they are the same part} for the undecided pairs. Raises JevError on any failure."""
@@ -106,7 +107,7 @@ class Jev:
 
         chunks = [pairs[i:i + CHUNK] for i in range(0, len(pairs), CHUNK)]
         res: dict = {}
-        with ThreadPoolExecutor(len(chunks)) as ex:
+        with ThreadPoolExecutor(min(len(chunks), 4)) as ex:
             for d in ex.map(one, chunks):
                 res.update(d)
         return res

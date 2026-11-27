@@ -37,9 +37,9 @@ export function localInsurer(text: string): string | null {
 // Liberty files by region, chosen from the accident place (a branch "HQ" fails the create with VDV9302).
 const REGIONS: Record<string, { states: RegExp; note: string }> = {
   "East Coast": { states: /terengganu|pahang|kelantan|kuantan|kuala\s+terengganu|kota\s+bharu/i, note: "Terengganu, Pahang, Kelantan" },
-  "East Malaysia": { states: /sabah|sarawak|labuan|kuching|kota\s+kinabalu|miri|sibu/i, note: "Sabah, Sarawak, Labuan" },
-  "Klang Valley": { states: /selangor|kuala\s+lumpur|\bkl\b|putrajaya|petaling|shah\s+alam|klang|subang|cheras|kajang|gombak/i, note: "Selangor, Kuala Lumpur, Putrajaya" },
-  "Northern": { states: /penang|pulau\s+pinang|kedah|perlis|perak|ipoh|alor\s+setar|butterworth|georgetown/i, note: "Penang, Kedah, Perlis, Perak" },
+  "East Malaysia": { states: /sabah|sarawak|labuan|kuching|kota\s+kinabalu|\bmiri\b|\bsibu\b/i, note: "Sabah, Sarawak, Labuan" },
+  "Klang Valley": { states: /selangor|kuala\s+lumpur|\bkl\b|putrajaya|petaling|shah\s+alam|\bklang\b|subang|cheras|kajang|gombak/i, note: "Selangor, Kuala Lumpur, Putrajaya" },
+  "Northern": { states: /penang|pulau\s+pinang|kedah|perlis|\bperak\b|ipoh|alor\s+setar|butterworth|georgetown/i, note: "Penang, Kedah, Perlis, Perak" },
   "Southern": { states: /johor|melaka|malacca|negeri\s+sembilan|seremban|johor\s+bahru|\bjb\b/i, note: "Johor, Melaka, Negeri Sembilan" },
 };
 export function localRegion(place: string): string | null {
@@ -67,12 +67,13 @@ const closed = (names: readonly string[], none: string) => Object.fromEntries([.
  * An empty list means "nothing to say". Never throws, never takes more than `ms`.
  */
 export async function jevInsurerWarnings(data: CaseDataT, ctx: Omit<JevCtx, "purpose">, ask: Ask = defaultAsk, ms = 12_000): Promise<string[]> {
+  const str = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "");
   const targets: { key: "ins" | "cli"; label: string; text: string }[] = [];
-  const atFault = data.at_fault?.policy?.insurer?.trim();
-  const client = data.client_policy?.insurer?.trim();
+  const atFault = str(data.at_fault?.policy?.insurer);
+  const client = str(data.client_policy?.insurer);
   if (atFault) targets.push({ key: "ins", label: "at-fault", text: atFault });
   if (client) targets.push({ key: "cli", label: "client", text: client });
-  const place = data.police?.place?.trim() ?? "";
+  const place = str(data.police?.place);
   const liberty = localInsurer(atFault ?? "") === "Liberty";
   const questions: Record<string, unknown> = {};
   for (const t of targets) questions[t.key] = { type: "choice", instructions: `Which Merimen insurer is \`${t.key}\`?`, criteria: closed(MERIMEN_INSURERS, "None of these insurers.") };
@@ -90,13 +91,14 @@ export async function jevInsurerWarnings(data: CaseDataT, ctx: Omit<JevCtx, "pur
       const j = pick(r, t.key);
       if (!j || j.c < CONF) continue;
       const mine = localInsurer(t.text);
+      if (mine === null) continue; // our rules do not know this insurer (Maybank, Lonpac...): not a disagreement, nothing to say
       const jev = j.v === "__none__" ? null : j.v;
-      if (jev !== mine) out.push(`Jev check: ${t.label} insurer "${t.text}": Jev says ${jev ?? "none of the known insurers"}, our rules say ${mine ?? "no match"}`);
+      if (jev !== mine) out.push(`Jev check: ${t.label} insurer "${t.text}": Jev says ${jev ?? "-"}, our rules say ${mine}`);
     }
     if (questions.br) {
       const j = pick(r, "br");
       const mine = localRegion(place);
-      if (j && j.c >= CONF && j.v !== "__none__" && j.v !== mine) out.push(`Jev check: Liberty branch for "${place}": Jev says ${j.v}, our rules say ${mine ?? "unknown place"}`);
+      if (j && j.c >= CONF && j.v !== "__none__" && mine !== null && j.v !== mine) out.push(`Jev check: Liberty branch for "${place}": Jev says ${j.v}, our rules say ${mine}`);
     }
     return out;
   } catch {

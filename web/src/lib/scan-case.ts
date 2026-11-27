@@ -82,7 +82,7 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
     // Jev second vote on the insurers and the Liberty branch (playbook 02). It only adds a line to the case's activity; the case never
     // changes status because of it, and a failing or slow Jev adds nothing.
-    if (done.length) for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message }).catch(() => {});
+    if (done.length) { try { for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message }); } catch { /* a Jev problem never fails the read */ } }
     await photos; // the result is shown first; the case page and the desk pick the photos up when they are in
     await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
     return { ok: done.length > 0, missing: data.missing, claimed: true };

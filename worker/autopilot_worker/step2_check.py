@@ -148,25 +148,26 @@ def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[st
             from .jev import THRESHOLD
             pairs = undecided_pairs(set(names_set) | set(changed_from), rq)
             probs = jev.same_parts(pairs, case_id=case_id)
-            cleared = {(n, r) for (n, r, _q), p in probs.items() if p >= THRESHOLD}
+            cleared = {k for k, p in probs.items() if p >= THRESHOLD}
             note = f"jev checked {len(pairs)} pairs, cleared {len(cleared)}"
         except Exception as e:  # noqa: BLE001
             note = f"jev off ({type(e).__name__})"
     flipped = [re.sub(r"\b(LH|RH)\b", lambda m: "RH" if m.group(1) == "LH" else "LH", r) for r, q in rq if q == "2" and side(r)]
     old_rows = [r for r, _ in rq] + flipped  # qty 2 (playbook 08): the other side is covered too
 
-    def same(n: str, r: str) -> bool:
+    def same(n: str, r: str, use_jev: bool = True) -> bool:
         if matches(n, r):
             return True
         q = next((q for rr, q in rq if rr == r), "1")
-        return gate_rule(n, r, q) is True or (n, r) in cleared
+        return gate_rule(n, r, q) is True or (use_jev and (n, r, q) in cleared)
 
     add = [f"{n!r} has a photo but no estimate row" for n in sorted(names_set) if not VIEWS.search(n) and not any(same(n, r) for r in old_rows)]
     remove = []
     for old in sorted(set(changed_from) - names_set):
         if VIEWS.search(old):
             continue
-        hit = [r for r in old_rows if same(old, r) and not any(same(n, r) for n in names_set) and not KEEP.search(r)]
+        # Jev may only clear: the old name counts as ticked by the code rules alone, so Jev can never create a REMOVE?
+        hit = [r for r in old_rows if same(old, r, False) and not any(same(n, r) for n in names_set) and not KEEP.search(r)]
         if hit:
             remove.append(f"{old!r} no photo any more, still selected: {hit}")
     return {"add": add, "remove": remove, "ok": not add and not remove, "jev": note}

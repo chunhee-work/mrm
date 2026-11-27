@@ -55,3 +55,14 @@ test("sends text only: no asset, image or file field", async () => {
   assert.ok(sent.length > 0);
   assert.doesNotMatch(sent, /asset|image|file|photo/i);
 });
+
+test("our rules not knowing the insurer or the place is not a disagreement", async () => {
+  assert.deepEqual(await jevInsurerWarnings(data({ ins: "Lonpac Insurance Bhd" }), {}, reply({ ins: ["Allianz", 0.99], cli: ["Tokio Marine", 0.99] })), []);
+  assert.equal(localRegion("Jalan Ipoh, Kuala Lumpur"), null); // two regions hit: ambiguous
+  assert.deepEqual(await jevInsurerWarnings(data({ ins: "Liberty General Insurance Berhad", place: "Jalan Ipoh, Kuala Lumpur" }), {}, reply({ ins: ["Liberty", 0.99], cli: ["Tokio Marine", 0.99], br: ["Klang Valley", 0.9] })), []);
+});
+
+test("a number or object where the reader should have put text does not throw", async () => {
+  const bad = { at_fault: { policy: { insurer: 5 } }, client_policy: { insurer: {} }, police: { place: null } } as unknown as CaseDataT;
+  assert.deepEqual(await jevInsurerWarnings(bad, {}, reply({})), []);
+});
