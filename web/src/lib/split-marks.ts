@@ -12,7 +12,7 @@ import { db, schema } from "@/db";
 export const REPEAT_MS = 30 * 24 * 3600_000; // a second upload of the same zip within 30 days only makes the cars still missing
 export const LOCK_MS = 6 * 60_000; // a split runs at most 300 s
 
-export const splitKey = (name: string, size: number) => `${name}|${size}|`; // what a `case.split` mark holds after the case id
+export const splitKey = (name: string, size: number) => `${name.replace(/\|/g, "_")}|${size}|`; // no "|" inside the name part // what a `case.split` mark holds after the case id
 const sizeKey = (size: number) => `|${size}|`;
 const esc = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 const audit = schema.auditLog;

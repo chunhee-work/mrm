@@ -8,7 +8,7 @@ import ScanEdge from "@/components/scan-edge";
 import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
 import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { runPool } from "@/lib/pool";
-import { headOf, looksLikePhoto, MAX_VEHICLES, platesAnywhere, vehicleLayout, zipNames } from "@/lib/peek-files";
+import { headOf, looksLikePhoto, hasPdfName, MAX_VEHICLES, platesAnywhere, vehicleLayout, zipNames } from "@/lib/peek-files";
 import Link from "next/link";
 import { zipWhyKey } from "@/lib/case-text";
 import { DROPPED_PARAM, takeDropped } from "@/lib/dropped-files";
@@ -102,7 +102,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       if (k === "photo" && f.size > 0 && !looksLikePhoto(await headOf(f))) fake.add(f);
       if (k === "bundle_zip" && f.size > 0) {
         const names = await zipNames(f);
-        zipPdf.current.set(keyOf(f), names ? names.some((n) => /\.pdf$/i.test(n) && !/(^|\/)(__MACOSX\/|\._)/.test(n) && !n.endsWith("/")) : null);
+        zipPdf.current.set(keyOf(f), names ? hasPdfName(names) : null);
         if (names) { const l = vehicleLayout(names); zipCars.current.set(keyOf(f), l.cars.map((p) => p.slice(0, -1).split("/").pop() as string)); zipMixed.current.set(keyOf(f), l.cars.length > 1 && l.extras.length > 0); zipLayout.current.set(keyOf(f), l.cars.length < 2 && platesAnywhere(names) > 1); }
         else zipCars.current.set(keyOf(f), null);
       }

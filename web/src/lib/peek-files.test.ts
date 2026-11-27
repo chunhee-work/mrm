@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, vehicleLayout, PLATE_LIKE, isPlate, platesAnywhere } from "./peek-files";
+import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, vehicleLayout, PLATE_LIKE, isPlate, platesAnywhere, hasPdfName } from "./peek-files";
 
 const zip = (files: Record<string, string>) => new Blob([Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))))]);
 
@@ -92,4 +92,12 @@ test("zipNames: fewer entries than the end record says (list damaged part-way) c
   const e = good.length - 22;
   dv.setUint16(e + 10, 3, true);
   assert.equal(await zipNames(new Blob([good])), null);
+});
+
+test("vehicleLayout: a batch folder whose name looks like a plate is looked through when it holds two or more real plates", () => {
+  assert.deepEqual(vehicleLayout(["AIG2026/DCD4004/a.pdf", "AIG2026/NCH5773/b.pdf", "AIG2026/WA1234B/c.pdf"]).cars,
+    ["AIG2026/DCD4004/", "AIG2026/NCH5773/", "AIG2026/WA1234B/"]);
+  assert.deepEqual(vehicleLayout(["WA1234B/KP1/a.pdf", "WA1234B/KP2/b.pdf"]).cars, ["WA1234B/"]);
+  assert.equal(hasPdfName([".backup/claim.pdf", "Docs/.old/a.pdf", "x/__MACOSX/b.pdf"]), true); // only a top __MACOSX/ is hidden, as on the server
+  assert.equal(hasPdfName([".backup/claim.pdf", "Docs/.old/a.pdf"]), false);
 });

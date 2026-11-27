@@ -39,8 +39,12 @@ export async function zipNames(file: Sliceable): Promise<string[] | null> {
 export async function zipHasPdf(file: Sliceable): Promise<boolean | null> {
   const names = await zipNames(file);
   if (!names) return null;
-  return names.some((n) => /\.pdf$/i.test(n) && !n.startsWith("__MACOSX/") && !n.split("/").some((p) => p.startsWith(".")) && !n.endsWith("/"));
+  return hasPdfName(names);
 }
+
+/** Does a list of zip names hold a PDF that is not hidden? Hidden = under __MACOSX/ or any path part starting with a dot (as on the server). */
+export const hasPdfName = (names: string[]) =>
+  names.some((n) => /\.pdf$/i.test(n) && !n.startsWith("__MACOSX/") && !n.split("/").some((p) => p.startsWith(".")) && !n.endsWith("/"));
 
 /** A Malaysian car plate as people name folders: "DCD4004", "QAT110", "TBD 8129", "WA1234B". Words like "Policy" or dates are not. */
 export const PLATE_LIKE = /^[A-Z]{1,3}[\s-]?\d{1,4}[\s-]?[A-Z]{0,2}$/i;
@@ -83,7 +87,7 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
     const g = new Map<string, boolean>();
     for (const n of usable) { const parts = n.split("/"); if (parts.length > depth + 1) { const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); } }
     // a plate folder inside another plate folder ("WA1234B/KP1/") is part of that car, never a car of its own
-    const cars = [...g].filter(([k, hasPdf]) => { const s = k.slice(0, -1).split("/"); return hasPdf && isPlate(s[s.length - 1]) && !s.slice(0, -1).some(isPlate); }).map(([k]) => k);
+    const cars = [...g].filter(([k, hasPdf]) => { const s = k.slice(0, -1).split("/"); return hasPdf && isPlate(s[s.length - 1]) && !s.slice(base, -1).some(isPlate); }).map(([k]) => k);
     // everything else a case would take, named by its folder at the car level (or the file itself when it is loose)
     const extras = new Set<string>();
     for (const n of usable) {
@@ -102,7 +106,10 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
   let base = 0;
   for (;;) {
     const seg = usable.map((n) => n.split("/")).filter((p) => p.length > base + 1).map((p) => p[base]);
-    if (!usable.length || seg.length !== usable.length || new Set(seg).size !== 1 || isPlate(seg[0])) break;
+    if (!usable.length || seg.length !== usable.length || new Set(seg).size !== 1) break;
+    // a plate-named folder holding everything is that car ("WA1234B/KP1/"), unless it holds two or more different real plates
+    // (3+ digits) with PDFs: then it is a batch folder whose name only looks like a plate ("AIG2026/DCD4004/", "AIG2026/NCH5773/")
+    if (isPlate(seg[0]) && new Set(usable.filter((n) => /\.pdf$/i.test(n)).map((n) => n.split("/")).filter((p) => p.length > base + 2 && isPlate(p[base + 1]) && /\d{3}/.test(p[base + 1])).map((p) => normPlate(p[base + 1]))).size < 2) break;
     base++;
   }
   const top = at(base);
