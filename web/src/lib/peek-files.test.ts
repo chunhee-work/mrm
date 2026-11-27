@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { zipNames, zipHasPdf, looksLikePhoto } from "./peek-files";
+import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, PLATE_LIKE } from "./peek-files";
 
 const zip = (files: Record<string, string>) => new Blob([Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))))]);
 
@@ -25,4 +25,12 @@ test("R2-B10 a text file renamed .jpg is not a photo; real jpeg/png/webp/heic he
   assert.equal(looksLikePhoto(new TextEncoder().encode("RIFF\0\0\0\0WEBPVP8 ")), true);
   assert.equal(looksLikePhoto(new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63])), true);
   assert.equal(looksLikePhoto(new Uint8Array(0)), false);
+});
+
+test("vehicleFolders: plate-named folders with a PDF; folders named by content or date are not cars", () => {
+  assert.deepEqual(vehicleFolders(["DCD4004/a.pdf", "DCD4004/1.JPG", "TBD 8129/b.pdf", "Photos/1.jpg"]), ["DCD4004", "TBD 8129"]);
+  assert.deepEqual(vehicleFolders(["SINAR/QAT110/a.pdf", "SINAR/WA1234B/b.pdf"]), ["QAT110", "WA1234B"]);
+  assert.deepEqual(vehicleFolders(["Policy/a.pdf", "Claim/b.pdf"]), []);
+  for (const p of ["DCD4004", "QAT110", "TBD 8129", "WA1234B", "V 1"]) assert.ok(PLATE_LIKE.test(p), p);
+  for (const p of ["Policy", "Docs", "2026-11-01", "Photos 2", "SINAR"]) assert.ok(!PLATE_LIKE.test(p), p);
 });

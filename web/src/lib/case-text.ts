@@ -51,8 +51,7 @@ export function failTr(error: string | null): Tr {
   if (/^bad_file:\|too_long/.test(e)) return { key: "case.err.tooManyPages" }; // the PDFs open, but have too many pages for one read
   if (/^bad_file:\|/.test(e)) return { key: "case.err.corruptSome" }; // a PDF we cannot name (refused together, or a name two files share)
   if ((m = e.match(/^bad_file:([^|]+)\|(empty|corrupt|too_big)/))) return { key: `case.err.${m[2]}`, vars: { name: badFileNames(e).join("; ") || m[1] } };
-  if (/: the zip holds more than one vehicle$/.test(e)) return { key: "case.err.zipMulti" };
-  if (ZIP_REJECTED.test(e)) return { key: "case.err.zip" };
+  if ((m = e.match(ZIP_REJECTED))) return { key: zipWhyKey(m[1]) };
   if (/no PDF/i.test(e)) return { key: "case.err.noPdf" };
   if (/timed out/i.test(e)) return { key: "case.err.timeout" };
   if (/request_too_large|too large|exceeds? (the )?(maximum|limit)|32 ?MB|too many (pages|tokens)/i.test(e)) return { key: "case.err.tooBigAny" }; // cases failed before the size check existed
@@ -66,12 +65,18 @@ export function failTr(error: string | null): Tr {
 export const ZIP_WHY = {
   corrupt: "the zip cannot be opened",
   multi: "the zip holds more than one vehicle",
+  too_many_cars: "the zip holds too many vehicles",
   too_many: "too many files in the zip",
   entry_big: "a file in the zip is too large",
   too_big: "the zip is too large once opened",
   bomb: "the zip is suspiciously compressed",
   empty: "no PDF or photo inside the zip",
 } as const;
+/** The message key for one zip refusal reason: each reason says what is wrong, not one generic "could not be opened". */
+export const zipWhyKey = (why: string) => {
+  const code = (Object.keys(ZIP_WHY) as (keyof typeof ZIP_WHY)[]).find((k) => ZIP_WHY[k] === why);
+  return code === "multi" ? "case.err.zipMulti" : code && code !== "corrupt" ? `case.err.zip_${code}` : "case.err.zip";
+};
 const ZIP_REJECTED = new RegExp(`: (${Object.values(ZIP_WHY).join("|")})$`);
 /** The zip a `<zip name>: <why>` error is about, so "Replace files" can take it out of the case. */
 export const zipRejectedName = (error: string | null) => (error ?? "").match(new RegExp(`^(.+): (${Object.values(ZIP_WHY).join("|")})$`))?.[1] ?? null;

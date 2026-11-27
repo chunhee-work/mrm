@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { readCaseDocs, BadFile } from "@/lib/read-docs";
 import { expandBundles } from "@/lib/expand-bundles";
 import { importCasePhotos } from "@/lib/photos/import-files";
-import { userFixable } from "@/lib/case-text";
+import { userFixable, ZIP_WHY } from "@/lib/case-text";
 import { refundCase } from "@/lib/payments/case-credit";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
@@ -86,7 +86,10 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, e instanceof BadFile ? 4000 : 500) } /* a bad file's full name is how "Replace files" finds it */).where(mine).returning({ id: cid });
     if (failed.length) {
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
-      if (!(e instanceof BadFile) && !userFixable((e as Error).message)) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
+      // a zip of several cars that reached the one-case path (the browser could not look inside it) is not the customer's fault:
+      // the credit goes back, and the message tells them to upload it again so it is split
+      const multi = (e as Error).message.endsWith(`: ${ZIP_WHY.multi}`);
+      if (!(e instanceof BadFile) && (multi || !userFixable((e as Error).message))) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
     }
     await closeIntakeJobs(id);
     return { ok: false, missing: [], claimed: true };

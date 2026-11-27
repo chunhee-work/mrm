@@ -9,8 +9,13 @@ import { CONFIRM_COUNT } from "@/lib/photos/confirm-sql";
 import CaseTable, { type CaseRow } from "@/components/app/case-table";
 import Home, { type HomeCounts } from "@/components/app/home";
 import { bucketOf, VIEWS, type View } from "@/components/app/status";
+import { after } from "next/server";
+import { scanCase } from "@/lib/scan-case";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // a few waiting cases are read after the page is sent
+
+const HEAL_PER_VISIT = 3; // a zip of many cars makes many cases at once: each visit starts a few more of those still waiting
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string; q?: string }> }) {
   const { user, orgId } = await requireUser();
@@ -27,6 +32,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), sql`regexp_replace(${schema.cases.plate}, '\\s', '', 'g') ilike ${`%${needle}%`}`))
       .orderBy(desc(schema.cases.createdAt)).limit(1000)
     : [];
+  // Self-heal, as on the case page: a case still `uploaded` a minute after it was made never got its read started.
+  const waiting = newest.filter((c) => c.status === "uploaded" && Date.now() - c.createdAt.getTime() > 60_000).slice(0, HEAL_PER_VISIT);
+  if (waiting.length) after(async () => { await Promise.all(waiting.map((c) => scanCase(c.id, "auto").catch(() => {}))); });
   const have = new Set(newest.map((c) => c.id));
   const rows = [...newest, ...older.filter((c) => !have.has(c.id))];
   // only what the count and the table show: which case, whether it is done, and what (if anything) it is missing

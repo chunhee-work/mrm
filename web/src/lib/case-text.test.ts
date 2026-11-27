@@ -24,8 +24,11 @@ test("B09 missing docs: long AI sentences collapse to the fixed list", () => {
   for (const l of ["en", "zh", "ms"] as const) for (const k of ["police_result", "atfault_report", "isearch", "insurance", "jpj_rc", "client_report", "other"]) assert.ok((DICTS[l] as Record<string, string>)[`doc.${k}`], `${l} doc.${k}`);
 });
 
-test("a multi-vehicle zip gets its own plain reason, and the customer can fix it", () => {
+test("each zip refusal gets its own plain reason (not the generic 'could not be opened'), in every language", () => {
   assert.equal(failTr("SINAR.zip: the zip holds more than one vehicle").key, "case.err.zipMulti");
+  assert.equal(failTr("big.zip: too many files in the zip").key, "case.err.zip_too_many");
+  assert.equal(failTr("x.zip: the zip cannot be opened").key, "case.err.zip");
+  for (const why of Object.values(ZIP_WHY)) for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)[failTr(`a.zip: ${why}`).key], `${l} ${why}`);
   assert.equal(userFixable("SINAR.zip: the zip holds more than one vehicle"), true);
 });
 
@@ -58,11 +61,11 @@ test("R2-B12 an old failed case with a size error now says the file is too large
 test("only the zip's own refusals are the customer's; our download or storage errors about a zip are ours (refunded)", () => {
   for (const why of Object.values(ZIP_WHY)) {
     assert.equal(userFixable(`b.zip: ${why}`), true, why);
-    assert.equal(failTr(`b.zip: ${why}`).key, why === ZIP_WHY.multi ? "case.err.zipMulti" : "case.err.zip", why);
+    assert.match(failTr(`b.zip: ${why}`).key, /^case\.err\.zip/, why);
   }
   for (const ours of ["cannot download claim.zip", "blob not found: https://x.blob.vercel-storage.com/o/c/unzipped-5/a.pdf", "fetch failed for bundle.zip"]) {
     assert.equal(userFixable(ours), false, ours);
-    assert.notEqual(failTr(ours).key, "case.err.zip", ours);
+    assert.doesNotMatch(failTr(ours).key, /^case\.err\.zip/, ours);
   }
 });
 
