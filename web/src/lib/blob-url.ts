@@ -21,6 +21,18 @@ function localStore(): string | null {
 }
 
 /**
+ * The hosts of our own store, `<store id>.private…` (what this app uses) and `<store id>.public…`, so a file kept in somebody
+ * else's store on the same service never passes. The store id is the fourth part of the store's token
+ * (`vercel_blob_rw_<store id>_<secret>`); only that part is read, and nothing of the token is ever logged.
+ * null when there is no token (the browser has none) or it has another shape: then any host of the service passes, as it did
+ * before, rather than every upload being refused.
+ */
+function ownHosts(): string[] | null {
+  const id = /^vercel_blob_rw_([a-z0-9]+)_\S+$/i.exec((process.env.BLOB_READ_WRITE_TOKEN ?? "").trim())?.[1];
+  return id ? ["private", "public"].map((access) => `${id.toLowerCase()}.${access}${STORE_HOST}`) : null;
+}
+
+/**
  * Does a decoded path step out of its folder? True for a part that is `.` or `..` (also when it was written with %2e or %2f,
  * or hidden under a second layer of encoding) and for a backslash. Dots inside a file name ("report..final.pdf") are fine.
  */
@@ -39,14 +51,16 @@ export function climbs(path: string): boolean {
 }
 
 /**
- * The decoded path of an uploaded file when the URL is https, on our file store, and under the organisation's own folder
+ * The decoded path of an uploaded file when the URL is https, on our own file store, and under the organisation's own folder
  * (`/<orgId>/…`) without stepping out of it. Anything else gives null and must be refused.
  */
 export function ownBlobPath(url: string, orgId: string): string | null {
   let u: URL;
   let path: string;
   try { u = new URL(url); path = decodeURIComponent(u.pathname); } catch { return null; }
-  const onStore = (u.protocol === "https:" && u.hostname.endsWith(STORE_HOST) && u.port === "") || u.origin === localStore();
+  const hosts = ownHosts();
+  const ours = hosts ? hosts.includes(u.hostname) : u.hostname.endsWith(STORE_HOST); // a URL's host is always lower case
+  const onStore = (u.protocol === "https:" && ours && u.port === "") || u.origin === localStore();
   if (!onStore || u.username || u.password) return null;
   if (!orgId || !path.startsWith(`/${orgId}/`) || climbs(path)) return null;
   return path;

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CaseBody, bodyProblem } from "./case-body";
 
+delete process.env.BLOB_READ_WRITE_TOKEN; // no store is pinned here, whatever this machine has set: the hosts below are made up
 const ok = (over = {}) => ({ files: [{ kind: "pdf", url: "https://x.blob.vercel-storage.com/org1/b1/a.pdf", name: "a.pdf", size: 10, ...over }] });
 
 test("B05/B06 body: a normal pdf passes; empty or negative size, huge size and bad kind fail the schema", () => {

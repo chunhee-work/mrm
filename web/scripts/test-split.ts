@@ -16,6 +16,7 @@ import { zipSync, strToU8 } from "fflate";
 import * as nextServer from "next/server";
 import * as schema from "../src/db/schema";
 
+delete process.env.BLOB_READ_WRITE_TOKEN; // no store is pinned here, whatever this machine has set: the hosts below are made up
 const root = path.resolve(__dirname, "..");
 const pg = new PGlite();
 const db = drizzle(pg, { schema });
