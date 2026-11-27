@@ -190,7 +190,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
         if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
           // cases the rollback could not undo are in the case list: say so, whatever else went wrong
-          if (!sp.ok && (j as { kept?: number } | null)?.kept) { setMsg(j?.why ? `${t(zipWhyKey(j.why))} ${t("new.splitFail")}` : t("new.splitFail")); setStep(-1); setBusy(false); return; }
+          if (!sp.ok && (j as { kept?: number } | null)?.kept) {
+            const why = j?.why ? t(zipWhyKey(j.why)) : sp.status === 402 ? t("new.noCredits") : ""; // the reason first, then what was kept
+            setMsg(why ? `${why} ${t("new.splitFail")}` : t("new.splitFail")); setStep(-1); setBusy(false); return;
+          }
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
           if (sp.status === 403) { leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: nothing was made
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
