@@ -151,3 +151,13 @@ export function fileProblem(f: { name: string; type: string; size: number }, max
   if (f.size > maxBytes) return "size";
   return null;
 }
+
+/**
+ * What an answer of the upload token route means for one file: null = no refusal (allowed, or a fault on the server, so the upload is
+ * worth another try); otherwise the reason, and the file is not tried again. "duplicate" = this very photo is already in the case.
+ */
+export function uploadRefusal(status: number, error: unknown): "duplicate" | "limit" | "status" | "upload" | null {
+  if (status < 400 || status >= 500) return null;
+  if (error === "duplicate" || error === "taken") return "duplicate";
+  return error === "limit" || error === "status" ? error : "upload";
+}

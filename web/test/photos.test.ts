@@ -5,7 +5,7 @@ import {
   canonName, doneBlock, isPermutation, normalizePick, pathInCase, photoModel, photoPath, sliceCostUsd, sliceMatches,
   statusAfterDone, statusAfterRegister, costCapUsd, NONE, PART_NAMES,
 } from "../src/lib/photos/rules";
-import { altsOf, classifyPaste, counts, fileIdentity, fileProblem, moved, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
+import { altsOf, classifyPaste, counts, fileIdentity, fileProblem, moved, uploadRefusal, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
 import { logLine, safeError } from "../src/lib/photos/log";
 import { assertTextOnly, buildJevRequest, TypeSafeImageError } from "../src/lib/typesafe";
 import { pickContext, SYSTEM } from "../src/lib/photos/name-photos";
@@ -230,6 +230,14 @@ test("desk: a typing session that ends on the name it started from leaves no und
   assert.deepEqual(u.peek("c"), { caseId: "c", photoId: 1, prev: null, after: 3 }, "the older step follows the photo's new version");
   u.push({ caseId: "c", photoId: 2, prev: "Grille", after: 2, session: "t" }, "Grille Lower");
   assert.equal(u.size, 2, "a session that really changed the name is one step");
+});
+test("desk: a clear 'no' to an upload is not tried again and keeps its reason; a server fault is", () => {
+  assert.equal(uploadRefusal(409, "duplicate"), "duplicate");
+  assert.equal(uploadRefusal(400, "taken"), "duplicate", "the path of a stored photo: the photo is already there");
+  assert.equal(uploadRefusal(400, "limit"), "limit");
+  assert.equal(uploadRefusal(400, "status"), "status");
+  for (const [st, err] of [[400, "path"], [401, "unauthorized"], [404, "not_found"], [400, undefined]] as const) assert.equal(uploadRefusal(st, err), "upload");
+  for (const st of [200, 500, 502, 503]) assert.equal(uploadRefusal(st, "limit"), null, `${st}: try again`);
 });
 test("desk: move within the list", () => {
   assert.deepEqual(moved([1, 2, 3, 4, 5], 4, 1), [1, 5, 2, 3, 4]);
