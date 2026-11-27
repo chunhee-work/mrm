@@ -14,21 +14,14 @@ import { runPool } from "@/lib/pool";
 import { MAX_FILE_BYTES } from "@/lib/upload-rules";
 import { slotToStore } from "@/lib/ext/workshops";
 import { ZIP_WHY } from "@/lib/case-text";
+import { ownBlobPath } from "@/lib/blob-url";
+import { writeTogether, type Batch } from "@/lib/db-batch";
+import { noteSplitTry, sweepSplitLeftovers } from "@/lib/split-leftovers";
 
 export const maxDuration = 300; // the zip is opened and stored in this call; the reading of most cases starts later (see below)
 
 const Body = z.object({ url: z.string().url().max(1000), name: z.string().trim().min(1).max(300), size: z.number().int().positive().max(MAX_FILE_BYTES), fallback: z.boolean().optional(), workshop: z.number().int().min(1).max(3).optional() });
 
-
-/**
- * Writes the rows of one car together: on Neon one HTTP batch (one transaction), so a case never exists without its files,
- * its job and its split record. The local test database has no batch; there the rows go one after the other.
- */
-async function writeCar(qs: Parameters<typeof db.batch>[0]) {
-  const d = db as unknown as { batch?: (q: typeof qs) => Promise<unknown> };
-  if (typeof d.batch === "function") await d.batch(qs);
-  else for (const q of qs) await q;
-}
 
 /** The whole stream in one buffer sized from the declared size up front, so the zip is never held twice while it is read. */
 async function readAll(stream: ReadableStream<Uint8Array>, size: number): Promise<Uint8Array> {
@@ -56,7 +49,7 @@ async function readAll(stream: ReadableStream<Uint8Array>, size: number): Promis
  * of the organisation's new cases, since a rollback may still delete them.
  * On a thrown error every case made in this call is refunded and deleted and every stored blob removed. A function killed by the
  * time limit leaves the cars finished before it (each complete and charged once, or complete and not yet charged) and blobs of the
- * car in progress. The uploaded zip is deleted when the call ends, except when it is not a multi-car zip ("empty") and the browser
+ * car in progress; those blobs are removed by a later split of the organisation (split-leftovers.ts). The uploaded zip is deleted when the call ends, except when it is not a multi-car zip ("empty") and the browser
  * asked to fall back (`fallback`): then the browser makes it one ordinary case. A fallback zip that does hold several cars is not
  * split: 409 "cars" sends its plates back, so the user first sees the cars and their price and then sends it again.
  */
@@ -74,11 +67,10 @@ export async function POST(req: Request) {
   try { slot = await slotToStore(me.orgId, parsed.data.workshop); } // a database failure here answers like the other checks: 500, nothing made
   catch (e) { console.error("split failed reading the workshop", e); return NextResponse.json({ error: "failed", kept: 0 }, { status: 500 }); }
   if (slot === "unknown") return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
-  let u: URL;
-  let path: string;
-  try { u = new URL(url); path = decodeURIComponent(u.pathname); } catch { return NextResponse.json({ error: "prefix" }, { status: 400 }); }
-  if (u.protocol !== "https:" || !u.hostname.endsWith(".blob.vercel-storage.com") || !path.startsWith(`/${me.orgId}/`) || path.split("/").includes("..") || !/\.zip$/i.test(name))
-    return NextResponse.json({ error: "prefix" }, { status: 400 });
+  // https, on our file store, under the caller's own folder (the check every route that takes a file URL shares)
+  const path = ownBlobPath(url, me.orgId);
+  if (!path || !/\.zip$/i.test(name)) return NextResponse.json({ error: "prefix" }, { status: 400 });
+  const u = new URL(url);
   // Only the caller's own upload may be read and deleted here: `<org>/<batch>/<file>`, and the batch folder is not a case's folder
   // (case files live under `<org>/<case id>/`), so a stored case file can never be passed in and deleted.
   const seg = path.split("/");
@@ -156,6 +148,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "failed", kept: earlier.size }, { status: 500 }); // cars an earlier call made are listed
   }
   const key = splitKey(name, size);
+  // Files an earlier split stored for cars it never made (it was killed by its time limit) are removed now, and the case ids
+  // of this call are noted so the same can be done for it. Both are housekeeping: a failure is logged and the split goes on.
+  await sweepSplitLeftovers(me.orgId).catch((x) => console.error("split: removing leftover files failed", x));
+  const idOf = new Map(todo.map((v) => [v.prefix, crypto.randomUUID()]));
+  const forget = todo.length ? await noteSplitTry(me.orgId, me.user.id, [...idOf.values()]).catch((x) => { console.error("split: try note failed", x); return null; }) : null;
 
   const made: string[] = [];
   const madeFor = new Map<string, string>(); // folder prefix -> case id made in this call
@@ -163,20 +160,21 @@ export async function POST(req: Request) {
   const unsure = new Set<string>(); // a car whose write failed and whose case was not found: its blobs are never deleted
   try {
     for (const v of todo) {
-      const id = crypto.randomUUID();
+      const id = idOf.get(v.prefix) as string;
       const entries = unzipVehicle(buf, v.prefix);
       // planVehicles only keeps cars with a non-empty PDF: a car that still inflates to nothing is refused, never silently left out
       if (!entries.some((e) => e.kind === "pdf")) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf); // also when its PDFs inflate to nothing
       const names = storeNames(entries);
       const rows: (typeof schema.caseFiles.$inferInsert)[] = new Array(entries.length);
-      await runPool(entries.length, 4, async (i) => {
+      // One blob store call takes about 1.5 s: sixteen at a time, as when one case's zip is opened (expand-bundles.ts). The rows keep the zip's order.
+      await runPool(entries.length, 16, async (i) => {
         const e = entries[i];
         const b = await put(`${me.orgId}/${id}/${names[i]}`, Buffer.from(e.bytes.buffer, e.bytes.byteOffset, e.bytes.byteLength), { access: "private", contentType: e.type, addRandomSuffix: false, allowOverwrite: true });
         (stored.get(id) ?? stored.set(id, []).get(id)!).push(b.url);
         rows[i] = { caseId: id, kind: e.kind, blobUrl: b.url, originalName: names[i], size: e.bytes.length };
       });
       try {
-        await writeCar([
+        await writeTogether([
           db.insert(schema.cases).values({ id, orgId: me.orgId, createdBy: me.user.id, plate: normPlate(v.plate), status: "uploaded" }),
           db.insert(schema.caseFiles).values(rows),
           db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" }),
@@ -184,7 +182,7 @@ export async function POST(req: Request) {
           db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.create", detail: id }),
           db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.split", detail: `${id}|${key}${v.prefix}` }),
           ...(slot ? [db.insert(schema.merimenCaseWorkshop).values({ caseId: id, slot })] : []),
-        ] as Parameters<typeof db.batch>[0]);
+        ] as Batch);
       } catch (e) {
         // the batch may have committed although its answer was lost: then the case exists with its files, and the rollback must
         // treat it as made (refund, then delete it with its blobs), never delete its blobs and leave a case without files
@@ -213,7 +211,9 @@ export async function POST(req: Request) {
     // so the page never says "nothing was kept" while earlier cars of the same zip are listed
     const listed = kept.size + earlier.size;
     const gone = [...stored].filter(([id]) => !kept.has(id) && !unsure.has(id)).flatMap(([, urls]) => urls);
-    if (gone.length) await del(gone).catch((x) => console.error("split rollback: blob delete failed", x));
+    let clean = !unsure.size; // files that may still be in the store keep their note, so a later split removes them
+    if (gone.length) await del(gone).catch((x) => { clean = false; console.error("split rollback: blob delete failed", x); });
+    if (clean) await forget?.();
     await dropZip();
     await release();
     if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length, kept: listed }, { status: 402 });
@@ -221,6 +221,7 @@ export async function POST(req: Request) {
     console.error("split failed", e);
     return NextResponse.json({ error: "failed", kept: listed }, { status: 500 });
   }
+  await forget?.();
   await dropZip();
   await release();
   // No read starts here: a read takes up to 5 minutes and this call's 300 s are mostly spent. The dashboard and each case page

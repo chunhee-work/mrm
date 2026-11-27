@@ -25,6 +25,7 @@ let slot: number | null = null; // the workshop row the split writes (2 or 3), o
 const blobs = new Map<string, Buffer>();
 let failPutAt = 0; // when set, the put with this number (counted from when it was set) throws
 let puts = 0;
+let putDelay = 0, inflight = 0, maxInflight = 0; // a slow blob store: puts that overlap are counted
 const blobStub = {
   get: async (url: string) => {
     const b = blobs.get(url);
@@ -33,11 +34,15 @@ const blobStub = {
   put: async (p: string, body: Buffer) => {
     puts++;
     if (failPutAt && puts === failPutAt) throw new Error("blob store down");
+    inflight++; maxInflight = Math.max(maxInflight, inflight);
+    if (putDelay) await new Promise((r) => setTimeout(r, putDelay));
+    inflight--;
     const url = `https://store.public.blob.vercel-storage.com/${p}`;
     blobs.set(url, Buffer.from(body));
     return { url, pathname: p };
   },
   del: async (u: string | string[]) => { for (const x of [u].flat()) blobs.delete(x); },
+  list: async ({ prefix }: { prefix: string }) => ({ blobs: [...blobs.keys()].filter((k) => new URL(k).pathname.startsWith(`/${prefix}`)).map((url) => ({ url, pathname: new URL(url).pathname.slice(1) })), hasMore: false }),
 };
 const afters: (() => unknown)[] = []; // what a route asked to run after its response (the automatic read)
 const stubs: Record<string, unknown> = {
@@ -220,6 +225,38 @@ async function main() {
       await mk("r2", "bad_file:a.pdf|corrupt"); // the user's own bad file: still paid for
       assert.equal(await bal(), 1000);
       assert.equal((await send("r2")).status, 200); assert.equal(await bal(), 1000);
+    }],
+    ["U7 a car's files are stored up to 16 at a time (4 at a time ran out the 300 s call on a big zip)", async () => {
+      await reset(); await fund(2);
+      const files: Record<string, Uint8Array> = { "DCD4004/a.pdf": pdf("a"), "NCH5773/b.pdf": pdf("b") };
+      for (let i = 0; i < 40; i++) files[`DCD4004/p${String(i).padStart(2, "0")}.jpg`] = new Uint8Array([0xff, 0xd8, i]);
+      putDelay = 30; maxInflight = 0;
+      let r; try { r = await call(upload(files)); } finally { putDelay = 0; }
+      assert.equal(r.status, 200);
+      assert.ok(maxInflight > 4 && maxInflight <= 16, `puts overlap, more than 4 and at most 16 (got ${maxInflight})`);
+      const names = (await db.select().from(schema.caseFiles)).filter((f) => f.kind === "photo").map((f) => f.originalName);
+      assert.deepEqual(names, Object.keys(files).filter((k) => k.endsWith(".jpg")).map((k) => k.split("/").pop())); // the zip's order is kept
+    }],
+    ["U7 files a killed split left in the store are removed by a later split; a made case keeps its files; a clean split leaves no note", async () => {
+      await reset(); await fund(5);
+      const notes = () => db.select().from(schema.auditLog).where(and(eq(schema.auditLog.orgId, ORG), eq(schema.auditLog.action, "case.split.try")));
+      const orphan = crypto.randomUUID(), madeId = crypto.randomUUID(), running = crypto.randomUUID();
+      const at = (id: string, f: string) => `https://store.public.blob.vercel-storage.com/${ORG}/${id}/${f}`;
+      for (const id of [orphan, madeId, running]) { blobs.set(at(id, "a.pdf"), Buffer.from("x")); blobs.set(at(id, "1.jpg"), Buffer.from("y")); }
+      await db.insert(schema.cases).values({ id: madeId, orgId: ORG, plate: "OLD1", status: "uploaded" });
+      // the killed call noted its two cars ten minutes ago; another call noted one just now and may still be running
+      await db.insert(schema.auditLog).values({ orgId: ORG, userId: "u1", action: "case.split.try", detail: `${orphan},${madeId}`, at: new Date(Date.now() - 10 * 60_000) });
+      await db.insert(schema.auditLog).values({ orgId: ORG, userId: "u1", action: "case.split.try", detail: running });
+      const { status } = await call(upload(TWO));
+      assert.equal(status, 200);
+      assert.equal(blobs.has(at(orphan, "a.pdf")), false); assert.equal(blobs.has(at(orphan, "1.jpg")), false); // never made: removed
+      assert.equal(blobs.has(at(madeId, "a.pdf")), true); // its case exists
+      assert.equal(blobs.has(at(running, "a.pdf")), true); // too young to judge
+      assert.deepEqual((await notes()).map((n) => n.detail), [running]); // the old note is gone, this call's own note too
+      // a split that fails and rolls everything back leaves no note either
+      failPutAt = puts + 1;
+      assert.equal((await call(upload({ "AAA1/a.pdf": pdf("a"), "BBB2/b.pdf": pdf("b") }))).status, 500);
+      assert.deepEqual((await notes()).map((n) => n.detail), [running]);
     }],
     ["U6 new case: the case, its files, job and activity line are written, one credit is taken, the read is started", async () => {
       await reset(); await fund(2); slot = 2;
