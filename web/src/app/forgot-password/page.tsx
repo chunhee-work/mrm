@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import { badAddress } from "@/lib/auth-problem";
 import { useT } from "@/components/lang-provider";
 import { Field, FieldError, IconEnvelope, SheetBody, SheetFoot, SubmitButton, TextLink, Title } from "@/components/auth/parts";
 
@@ -22,15 +23,17 @@ export default function Forgot() {
     if (!email || !emailEl.validity.valid) { setBad(true); emailEl.focus(); return; }
     setBusy(true); setFail(null);
     // "Sent" only when the server took the request: refused for too many tries, offline or a server fault, nothing was sent.
-    let why: typeof fail = null;
+    let why: typeof fail | "email" = null;
     try {
       const { error } = await authClient.requestPasswordReset({ email, redirectTo: "/reset-password" });
-      if (error) why = error.status === 429 ? "tooMany" : "failed";
+      // the browser lets some addresses through that the server calls malformed (no dot after the @): trying again never helps
+      if (error) why = error.status === 429 ? "tooMany" : badAddress(error) ? "email" : "failed";
     } catch {
       why = "offline";
     }
     setBusy(false);
-    if (why) setFail(why);
+    if (why === "email") { setBad(true); emailEl.focus(); }
+    else if (why) setFail(why);
     else setSent(true); // same answer whether or not the email exists (the server answers OK for both)
   }
 

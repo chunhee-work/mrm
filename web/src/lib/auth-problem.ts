@@ -13,6 +13,11 @@ export type AuthProblem =
   | "passwordShort"
   | "other"; // anything else: say only that it did not work
 
+/** True when the server refused the request because the address in it is not a well-formed one (decided before any account is looked up). */
+export function badAddress(error: { status?: number; code?: string } | null | undefined): boolean {
+  return error?.status === 400 && (error.code === "VALIDATION_ERROR" || error.code === "INVALID_EMAIL");
+}
+
 export function authProblem(error: { status?: number; code?: string } | null | undefined): AuthProblem {
   if (!error?.status) return "offline";
   if (error.status === 429) return "tooMany";

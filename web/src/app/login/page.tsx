@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { authProblem } from "@/lib/auth-problem";
+import { authProblem, badAddress } from "@/lib/auth-problem";
 import { safeNext } from "@/lib/next-path";
 import { useT } from "@/components/lang-provider";
 import PasswordField from "@/components/auth/password-field";
@@ -14,7 +14,7 @@ export default function Login() {
   const [problem, setProblem] = useState<Problem>(null);
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState(""); // the address of the last attempt, for "send again"
-  const [resend, setResend] = useState<"idle" | "busy" | "sent" | "tooMany" | "offline" | "failed">("idle");
+  const [resend, setResend] = useState<"idle" | "busy" | "sent" | "tooMany" | "offline" | "failed" | "email">("idle");
   const [verified, setVerified] = useState(false); // back from the link in the confirmation email
   const [linkOld, setLinkOld] = useState(false); // back from that link, but it was too old or not a real one (the server adds ?error=…)
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function Login() {
     // "Sent" only when the server took the request. (It answers the same for any address, so this tells nothing about accounts.)
     try {
       const { error } = await authClient.sendVerificationEmail({ email, callbackURL: "/login?verified=1" });
-      setResend(!error ? "sent" : error.status === 429 ? "tooMany" : "failed");
+      setResend(!error ? "sent" : error.status === 429 ? "tooMany" : badAddress(error) ? "email" : "failed");
     } catch {
       setResend("offline");
     }
@@ -104,8 +104,8 @@ export default function Login() {
                 </button>
               )}
             </div>
-            {(resend === "tooMany" || resend === "offline" || resend === "failed") && (
-              <div className="ml-[18px]"><FieldError>{t(resend === "tooMany" ? "auth.tooMany" : resend === "offline" ? "login.offline" : "auth.notSent")}</FieldError></div>
+            {(resend === "tooMany" || resend === "offline" || resend === "failed" || resend === "email") && (
+              <div className="ml-[18px]"><FieldError>{t(resend === "tooMany" ? "auth.tooMany" : resend === "offline" ? "login.offline" : resend === "email" ? "login.needEmail" : "auth.notSent")}</FieldError></div>
             )}
           </div>
         )}

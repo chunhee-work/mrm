@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authProblem } from "./auth-problem";
+import { authProblem, badAddress } from "./auth-problem";
 
 test("a failed auth call is named by the server's reason, not by its status number", () => {
   assert.equal(authProblem({ status: 403, code: "EMAIL_NOT_VERIFIED" }), "unverified");
@@ -24,4 +24,14 @@ test("too many tries and no answer at all come before any code", () => {
   assert.equal(authProblem({}), "offline");
   assert.equal(authProblem({ status: 0 }), "offline");
   assert.equal(authProblem(null), "offline");
+});
+
+test("a malformed address is told from other refusals", () => {
+  assert.equal(badAddress({ status: 400, code: "VALIDATION_ERROR" }), true);
+  assert.equal(badAddress({ status: 400, code: "INVALID_EMAIL" }), true);
+  assert.equal(badAddress({ status: 400, code: "EMAIL_ALREADY_VERIFIED" }), false);
+  assert.equal(badAddress({ status: 400 }), false);
+  assert.equal(badAddress({ status: 429 }), false);
+  assert.equal(badAddress({ status: 500, code: "VALIDATION_ERROR" }), false);
+  assert.equal(badAddress(null), false);
 });
