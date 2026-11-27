@@ -110,7 +110,14 @@ export async function POST(req: Request) {
   } catch { return NextResponse.json({ error: "download" }, { status: 502 }); }
 
   let plan;
-  try { plan = planVehicles(buf); }
+  try {
+    plan = planVehicles(buf);
+    // Every car is opened once before anything is made: a car that cannot be inflated (a damaged stream) or whose PDFs open to
+    // nothing fails the same way on every try, so it is refused now, before any car is made or charged. Otherwise it could
+    // stop each retry at the same car, and the user's only way out (a fixed zip, of another size) would make the cars finished
+    // before it again. One car is held at a time.
+    for (const v of plan) if (!unzipVehicle(buf, v.prefix).some((e) => e.kind === "pdf")) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);
+  }
   catch (e) {
     const code = e instanceof ZipRejected ? e.code : "corrupt";
     if (!(e instanceof ZipRejected)) console.error("split: reading the zip threw", e); // answered as "cannot be opened", but logged
