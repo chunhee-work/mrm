@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   let n = Math.min(30, Math.max(1, Number(sp.get("n")) || 1));
   const zip = sp.get("zip")?.trim(); const size = Number(sp.get("size")); // trimmed like the split endpoint's name
-  if (n > 1 && zip && size > 0) n -= (await earlierCars(me.orgId, zip.slice(0, 300), size)).size;
+  if (n > 1 && zip && size > 0) n -= (await earlierCars(me.orgId, size)).size;
   if (n <= 0) return NextResponse.json({ ok: true });
   if (n > 1 && enforcing() && !exempt(me.orgId)) return (await creditBalance(me.orgId)) >= CASE_COST * n ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "no_credits", needed: n }, { status: 402 });
   return (await hasCredit(me.orgId)) ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "no_credits" }, { status: 402 });

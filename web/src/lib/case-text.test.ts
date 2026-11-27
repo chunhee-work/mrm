@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventTr, eventKind, docKey, failTr, userFixable, ZIP_WHY, badFileName } from "./case-text";
+import { eventTr, eventKind, docKey, failTr, userFixable, ZIP_WHY, badFileName, zipRefunded } from "./case-text";
 import { DICTS } from "./i18n";
 
 test("B09 events: every stored sentence maps to a key that exists in EN, 中文 and BM", () => {
@@ -98,4 +98,12 @@ test("activity status: every line gets one of five marks, and each mark has its 
   assert.equal(eventKind("Scan failed", true), "fail");
   assert.equal(eventKind("something new"), "note");
   for (const l of ["en", "zh", "ms"] as const) for (const k of ["ok", "work", "wait", "fail", "note"]) assert.ok((DICTS[l] as Record<string, string>)[`ev.s.${k}`], `${l} ev.s.${k}`);
+});
+
+test("zipRefunded: several cars or cars at different levels, only on a case never read before", () => {
+  assert.equal(zipRefunded(`x.zip: ${ZIP_WHY.multi}`, false), true);
+  assert.equal(zipRefunded(`x.zip: ${ZIP_WHY.layout}`, false), true);
+  assert.equal(zipRefunded(`x.zip: ${ZIP_WHY.multi}`, true), false);
+  assert.equal(zipRefunded(`x.zip: ${ZIP_WHY.corrupt}`, false), false);
+  assert.equal(zipRefunded(null, false), false);
 });

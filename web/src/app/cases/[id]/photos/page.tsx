@@ -9,6 +9,7 @@ import type { CaseState } from "@/lib/photos/desk-rules";
 import { photoT } from "@/lib/photos/strings";
 import { requireUser } from "@/lib/session";
 import NamingDesk, { type DeskTab } from "@/components/photos/naming-desk";
+import { notDeleted } from "@/lib/case-delete";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +39,11 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
   const [rows0, n, tr, first] = await Promise.all([
     db.select({ id: schema.cases.id, plate: schema.cases.plate, carModel: schema.cases.carModel, doneAt: schema.cases.photosDoneAt, status: schema.cases.status, createdAt: schema.cases.createdAt, data: schema.cases.caseData })
       .from(schema.cases)
-      .where(and(eq(schema.cases.orgId, orgId), or(and(ne(schema.cases.status, "done"), notInArray(schema.cases.status, NO_DESK)), eq(schema.cases.id, id))))
+      .where(and(eq(schema.cases.orgId, orgId), notDeleted, or(and(ne(schema.cases.status, "done"), notInArray(schema.cases.status, NO_DESK)), eq(schema.cases.id, id))))
       .orderBy(desc(schema.cases.createdAt)).limit(40),
     db.select({ caseId: schema.casePhotos.caseId, n: sql<number>`count(*)::int`, edited: sql<number>`(count(*) filter (where final_name is not null))::int` }).from(schema.casePhotos)
       .innerJoin(schema.cases, eq(schema.cases.id, schema.casePhotos.caseId))
-      .where(and(eq(schema.cases.orgId, orgId), notInArray(schema.cases.status, NO_DESK), or(ne(schema.cases.status, "done"), eq(schema.cases.id, id)))).groupBy(schema.casePhotos.caseId),
+      .where(and(eq(schema.cases.orgId, orgId), notDeleted, notInArray(schema.cases.status, NO_DESK), or(ne(schema.cases.status, "done"), eq(schema.cases.id, id)))).groupBy(schema.casePhotos.caseId),
     getT(),
     photoState(c),
   ]);

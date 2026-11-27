@@ -21,6 +21,7 @@ import { canSwitchWorkshop } from "@/lib/ext/workshop-rules";
 import { credKeyReady } from "@/lib/crypto/merimen-cred";
 import { timelineFor } from "@/lib/screenshots/server";
 import { missingRelation } from "@/lib/ext/worker-gate";
+import { notDeleted } from "@/lib/case-delete";
 
 /** R4-B04: the tab says which case it is ("WXY9999 · Case · Autopilotclaim"), so several open cases can be told apart.
  * `absolute`: the layout above sets a plain title, which drops the root "%s · brand" template for everything below it. */
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const base = await pageMeta("case.title", { index: false });
   const { t } = await getT();
   const { orgId } = await requireUser();
-  const [c] = await db.select({ plate: schema.cases.plate }).from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId))).limit(1);
+  const [c] = await db.select({ plate: schema.cases.plate }).from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId), notDeleted)).limit(1);
   const name = c ? `${c.plate || t("photos.noPlate")} · ${t("case.title")}` : t("case.title");
   return { ...base, title: { absolute: `${name} · ${SITE.brand}` } };
 }
@@ -39,7 +40,7 @@ export const maxDuration = 300; // a recovery read runs after the page is sent
 export default async function CasePage({ params }: { params: Promise<{ id: string }> }) {
   const { orgId, user } = await requireUser();
   const { id } = await params;
-  const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId))).limit(1);
+  const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId), notDeleted)).limit(1);
   if (!c) notFound();
   const events = await db.select().from(schema.caseEvents).where(eq(schema.caseEvents.caseId, id)).orderBy(asc(schema.caseEvents.at)).limit(100);
   const files = await db.select({ id: schema.caseFiles.id, name: schema.caseFiles.originalName, kind: schema.caseFiles.kind, size: schema.caseFiles.size }).from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id)).orderBy(asc(schema.caseFiles.id)).limit(400);
@@ -59,7 +60,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id));
   const [plan] = await db.select().from(schema.photoUploadLog).where(eq(schema.photoUploadLog.caseId, id)).orderBy(desc(schema.photoUploadLog.createdAt), desc(schema.photoUploadLog.id)).limit(1)
     .catch((e) => { if (missingRelation(e)) return []; throw e; }); // the table comes with migration 0010
-  const [same] = c.plate ? await db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), eq(schema.cases.plate, c.plate), sql`${schema.cases.id} <> ${id}`)) : [];
+  const [same] = c.plate ? await db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), eq(schema.cases.plate, c.plate), sql`${schema.cases.id} <> ${id}`, notDeleted)) : [];
   const ws = await caseSlot(id);
   const wsList = await orgWorkshops(orgId);
   const detail: CaseDetail = {

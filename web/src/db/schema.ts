@@ -93,6 +93,7 @@ export const cases = pgTable("cases", {
   photosRev: integer("photos_rev").notNull().default(0), // bumped on every reorder
   photosSnapshot: text("photos_snapshot"), // fingerprint of names + order + extras when 完成 was pressed (null = not done)
   photosArrangedAt: timestamp("photos_arranged_at", { withTimezone: true }), // opening order applied once after naming
+  deletedAt: timestamp("deleted_at", { withTimezone: true }), // soft delete by the user (0015): hidden everywhere, files and the audit row stay
 }, (t) => [index("cases_org_idx").on(t.orgId, t.createdAt)]);
 
 export const caseFiles = pgTable("case_files", {
