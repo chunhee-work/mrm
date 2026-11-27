@@ -79,7 +79,7 @@ export function StepDots({ status, photos, photosDone, busy = false, className =
                 {busy && s.state === "current" && <span className="step-flow absolute inset-y-0 left-0 w-2/5 bg-gradient-to-r from-transparent via-amber to-transparent" />}
               </span>
             )}
-            <span className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold ${circleOf({ state: s.state, open: s.state !== "locked" }, failedHere)} ${busy && s.state === "current" ? "step-breathe" : ""}`}>
+            <span className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold ${circleOf(s, failedHere)} ${busy && s.state === "current" ? "step-breathe" : ""}`}>
               {s.state === "complete" ? <Tick className="h-3 w-3" /> : failedHere ? "!" : i + 1}
             </span>
           </li>
