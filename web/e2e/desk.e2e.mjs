@@ -417,13 +417,13 @@ try {
     assert.ok(lines.length >= 4, `the four cases are listed: ${lines.length}`);
     for (const t of lines) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
     // the table has no "New case" of its own, so the bar keeps it there
-    assert.equal(await page.getByTestId("new-case").count(), 1, "New case in the bar of the table");
+    assert.equal(await page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').count(), 1, "one New case shows above the table");
     // the first page (owner 2026-11-22, reworked 2026-11-27): welcome, search, two buttons, and every open case with its own step bar
     await page.goto(`${BASE}/dashboard`);
     assert.match(await page.getByTestId("home-welcome").innerText(), /E2E Tester/);
     for (const id of ["home-search", "home-new", "home-closed", "home-open", "home-list"]) assert.equal(await page.getByTestId(id).count(), 1, id);
     // nothing twice (owner 2026-11-22): one "New case" (the page's, not the bar's) and one "Billing" (the bar's, not the page's)
-    assert.equal(await page.getByTestId("new-case").count(), 0, "no second New case in the bar of the first page");
+    assert.equal(await page.locator('[data-testid="new-case"], [data-testid="new-case-wide"]').count(), 0, "no second New case in the bar of the first page");
     assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
     assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
     assert.equal(await page.getByTestId("case-table").count(), 0, "no separate case table on the first page");

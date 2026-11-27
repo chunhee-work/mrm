@@ -38,65 +38,6 @@ export function Gear({ className = "" }: { className?: string }) {
   );
 }
 
-function AccountMenu({ email }: { email: string }) {
-  const { t } = useT();
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const settingsItem = useRef<HTMLAnchorElement>(null);
-  const close = useRef((refocus: boolean) => { setOpen(false); if (refocus) trigger.current?.focus(); }).current;
-  useDismiss(open, close, ref);
-  useEffect(() => { if (open) settingsItem.current?.focus(); }, [open]);
-  return (
-    <div ref={ref} className="relative hidden lg:block">
-      <button
-        ref={trigger}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls="account-menu"
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); } }}
-        className={`flex h-10 max-w-[260px] items-center gap-2 rounded-[3px] border px-3 text-[14px] font-medium text-fg transition-colors duration-150 hover:border-mute ${open ? "border-ice bg-panel" : "border-transparent"}`}
-      >
-        <span className="truncate">{email}</span>
-        <Chevron className={`shrink-0 text-mute transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div
-          id="account-menu"
-          role="menu"
-          aria-label={email}
-          onKeyDown={(e) => { if (e.key === "Tab") setOpen(false); }}
-          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[220px] rounded-[3px] menu border border-hair bg-panel p-1"
-        >
-          <Link
-            ref={settingsItem}
-            href="/settings"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="flex h-11 w-full items-center gap-3 rounded-[2px] px-3 text-left text-[15px] font-medium text-fg transition-colors duration-150 hover:bg-icetint hover:text-ice focus-visible:bg-icetint focus-visible:outline-offset-0"
-          >
-            <Gear className="shrink-0 text-ice" />
-            {t("nav.settings")}
-          </Link>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={busy}
-            onClick={() => { setBusy(true); void logOut(); }}
-            className="flex h-11 w-full items-center gap-3 rounded-[2px] px-3 text-left text-[15px] font-medium text-fg transition-colors duration-150 hover:bg-icetint hover:text-ice focus-visible:bg-icetint focus-visible:outline-offset-0 disabled:opacity-55"
-          >
-            <Exit className="shrink-0 text-ice" />
-            {t("nav.logout")}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** Phone menu: a "Language" row that says the current one; pressing it shows the three choices under it. */
 function MenuLang({ lang, label, pick }: { lang: Lang; label: string; pick: (l: Lang) => void }) {
   const [open, setOpen] = useState(false);
@@ -214,11 +155,11 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
 }
 
 /** "New case", the one main action of the bar. */
-function NewCase({ onNew, blocked = false }: { onNew: boolean; blocked?: boolean }) {
+function NewCase({ onNew, blocked = false, testId = "new-case" }: { onNew: boolean; blocked?: boolean; testId?: string }) {
   const { t } = useT();
   // details not filled in yet: the button is there but grey, and it leads to the front page where they are asked for
   if (blocked) return (
-    <Link href="/dashboard" title={t("pf.needFirst")} aria-disabled="true" data-testid="new-case"
+    <Link href="/dashboard" title={t("pf.needFirst")} aria-disabled="true" data-testid={testId}
       className="btn-primary !h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] opacity-55 lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px]">
       <Plus />
       <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
@@ -228,7 +169,7 @@ function NewCase({ onNew, blocked = false }: { onNew: boolean; blocked?: boolean
     <Link
       href="/cases/new"
       aria-current={onNew ? "page" : undefined}
-      data-testid="new-case"
+      data-testid={testId}
       className={`!h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px] ${onNew ? "btn-line bg-panel max-lg:hidden" : "btn-primary"}`}
     >
       <Plus />
@@ -265,16 +206,13 @@ function WideRow({ path, blocked }: { path: string; blocked: boolean }) {
   const sp = useSearchParams();
   const table = (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
   if ((path === "/dashboard" && !table) || path === "/cases/new") return null;
-  return <div className="hidden justify-end px-6 pt-5 lg:flex"><NewCase onNew={false} blocked={blocked} /></div>;
+  return <div className="hidden justify-end px-6 pt-5 lg:flex"><NewCase onNew={false} blocked={blocked} testId="new-case-wide" /></div>;
 }
 
 /** Top bar of the signed-in app: the working frame. */
 export default function AppBar({ email, newBlocked = false }: { email: string; newBlocked?: boolean }) {
-  const { t } = useT();
   const path = usePathname();
-  const onCases = path === "/dashboard";
   const onNew = path === "/cases/new";
-  const onBilling = path.startsWith("/billing");
   return (
     // a wide screen has the side bar instead (side-bar.tsx): this bar is for phones and tablets
     <header className="sticky top-0 z-40 border-b border-hair bg-panel lg:hidden">
@@ -282,28 +220,7 @@ export default function AppBar({ email, newBlocked = false }: { email: string; n
         <Link href="/dashboard" className="-my-2 flex items-center py-2">
           <Brand small />
         </Link>
-        <nav aria-label={t("nav.menu")} className="hidden self-stretch lg:flex">
-          <Link
-            href="/dashboard"
-            aria-current={onCases ? "page" : undefined}
-            className={`relative flex items-center px-1 text-[15px] transition-colors duration-150 after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:transition-colors after:duration-150 ${
-              onCases ? "font-semibold text-ice after:bg-ice" : "font-medium text-fg after:bg-transparent hover:text-ice"
-            }`}
-          >
-            {t("nav.cases")}
-          </Link>
-          <Link
-            href="/billing"
-            aria-current={onBilling ? "page" : undefined}
-            className={`relative ml-8 flex items-center px-1 text-[15px] transition-colors duration-150 after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:transition-colors after:duration-150 ${
-              onBilling ? "font-semibold text-ice after:bg-ice" : "font-medium text-fg after:bg-transparent hover:text-ice"
-            }`}
-          >
-            {t("nav.billing")}
-          </Link>
-        </nav>
         <div className="ml-auto flex items-center gap-1.5 lg:gap-4">
-          {email ? <AccountMenu email={email} /> : null}
           {/* the one main action is in the bar at every width: on a phone it used to sit inside the menu, two presses away */}
           <Suspense fallback={<NewCase onNew={onNew} blocked={newBlocked} />}><NewCaseUnlessHome path={path} blocked={newBlocked} /></Suspense>
           <MobileMenu email={email} path={path} />

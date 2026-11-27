@@ -35,11 +35,11 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  * before anything is sent. The password is never shown again; leaving it empty on an edit keeps the saved login.
  */
 /**
- * `look` (complete profile only): "side" = the card in a side column; "strip" = one slim line across the page (the first page,
- * owner 2026-11-27); "rail" = stacked in the left side bar of a wide screen; "page" = the form itself on its own page, filled in
+ * `look` (complete profile only): "side" = the summary card, shown on the first page only when the login needs the user (wrong
+ * password, a code from the phone, still being checked); "page" = the form itself on its own page, filled in
  * with what is saved (owner 2026-11-27: one link in the side bar leads there, the details are typed and changed right on it). A login that needs the user (wrong password, a code from the phone) always shows the full card.
  */
-export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "strip" | "rail" | "page" }) {
+export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "page" }) {
   const configured = cred.keyOk;
   const { t, lang } = useT();
   const [workshop, setWorkshop] = useState("");
@@ -69,7 +69,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   function fill() { setWorkshop(cred.workshop ?? ""); setManager(cred.manager ?? ""); setAdjuster(cred.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
   function openEdit() { fill(); setEditing(true); }
   // its own page: the saved details are in the boxes from the start
-  useEffect(() => { if (look === "page") fill(); }, [look, cred.workshop, cred.manager, cred.adjuster]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (look === "page") fill(); }, [look]); // eslint-disable-line react-hooks/exhaustive-deps -- once: a refresh must not wipe what is being typed
   function closeAll() { setEditing(false); setConfirming(false); setPass(""); setSure(false); }
 
   const first = !cred.saved;
@@ -166,8 +166,6 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   const bad = cred.verifyState === "bad_credentials" || cred.verifyState === "unknown" || cred.verifyState === "locked";
   const good = cred.verifyState === "ok" && !cred.blocked;
   const checking = CHECKING.includes(cred.verifyState);
-  const facts = [cred.workshop, cred.manager, cred.adjuster].filter(Boolean).join(" · ");
-  const state = checking ? t("w.checking") : t("w.ok");
   // what Merimen said about the login (and the code box when it asks for one)
   const stateBlock = (
       <div className="border-t border-hair px-4 py-2.5 text-[13.5px] text-mute">
@@ -205,37 +203,6 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
     );
   }
 
-  if ((good || checking) && look === "strip") {
-    // one line: the details, whether Merimen took the login, and Edit
-    return (
-      <section aria-labelledby="pf-title" className="flex min-h-[44px] flex-wrap items-center gap-x-4 gap-y-1 rounded-[4px] border border-hair bg-panel px-4 py-2" data-testid="pf-summary">
-        <h2 id="pf-title" className="sr-only">{t("pf.title")}</h2>
-        <span className={`h-2 w-2 shrink-0 rounded-full ${good ? "bg-go" : "bg-amber"}`} aria-hidden="true" />
-        <p className="min-w-0 flex-1 truncate text-[14px] text-fg" title={facts}>{facts}<span className="text-mute"> · {t("pf.login")} {cred.usernameHint}</span></p>
-        <span className="hidden text-[13px] text-mute md:inline" role="status">{state}</span>
-        <button type="button" onClick={openEdit} className="link shrink-0 text-[14px] font-semibold" data-testid="pf-edit">{t("pf.edit")}</button>
-        {modals}
-      </section>
-    );
-  }
-  if ((good || checking) && look === "rail") {
-    // the side bar: the four details stacked, one dot for the login, Edit by the title
-    return (
-      <section aria-labelledby="pf-title" className="rounded-[4px] border border-hair bg-panel2/50 px-3 py-3" data-testid="pf-summary">
-        <div className="flex items-center justify-between gap-2">
-          <h2 id="pf-title" className="text-[13px] font-semibold text-mute">{t("pf.title")}</h2>
-          <button type="button" onClick={openEdit} className="link text-[13px] font-semibold" data-testid="pf-edit">{t("pf.edit")}</button>
-        </div>
-        <dl className="mt-2 grid gap-1.5">
-          {([["pf.workshop", cred.workshop], ["pf.manager", cred.manager], ["pf.adjuster", cred.adjuster], ["pf.login", cred.usernameHint]] as [string, string | null][]).map(([k, v]) => (
-            <div key={k} className="min-w-0"><dt className="sr-only">{t(k)}</dt><dd className="truncate text-[13.5px] leading-snug text-fg" title={`${t(k)}: ${v ?? ""}`}>{k === "pf.login" ? <><span className="text-mute">{t(k)} · </span>{v}</> : v}</dd></div>
-          ))}
-        </dl>
-        <p className="mt-2 flex items-center gap-2 text-[12.5px] text-mute" role="status"><span className={`h-2 w-2 shrink-0 rounded-full ${good ? "bg-go" : "bg-amber"}`} aria-hidden="true" />{state}</p>
-        {modals}
-      </section>
-    );
-  }
   const rowCls = "flex flex-wrap items-baseline justify-between gap-x-3 border-b border-hair px-4 py-2.5 last:border-b-0";
   return (
     <section aria-labelledby="pf-title" className="rounded-[4px] border border-hair bg-panel" data-testid="pf-summary">

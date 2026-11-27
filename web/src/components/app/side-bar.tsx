@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Brand, BrandMark } from "@/components/brand-mark";
-import { Chevron, Exit } from "./marks";
+import { Chevron, Exit, Tick } from "./marks";
 import { LANGS, type Lang } from "@/lib/i18n";
 import { whatsappHref } from "@/lib/site";
 import { Gear, logOut } from "./app-bar";
@@ -53,15 +53,16 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
   return (
     <div ref={ref} className={`relative border-t border-hair ${thin ? "p-2.5" : "p-2"}`} data-testid="side-account">
       {open && (
-        <div role="menu" aria-label={email} className={`absolute bottom-[calc(100%+4px)] z-50 rounded-[4px] border border-hair bg-panel p-1 shadow-xl ${thin ? "left-2 w-[240px]" : "inset-x-2"}`}>
+        <div id="account-menu" role="menu" aria-label={email} className={`absolute bottom-[calc(100%+4px)] z-50 rounded-[4px] border border-hair bg-panel p-1 shadow-xl ${thin ? "left-2 w-[240px]" : "inset-x-2"}`}>
           <p className="truncate px-3 pb-1 pt-2 text-[12.5px] text-mute">{email}</p>
           <Link href="/settings" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`}><Gear className="shrink-0 text-mute" />{t("nav.settings")}</Link>
           <button type="button" role="menuitem" aria-expanded={langOpen} onClick={() => setLangOpen((v) => !v)} className={`${menuItem} text-fg`} data-testid="side-lang">
             <Icon d={GLOBE} /><span className="flex-1">{t("lang.label")}</span><span className="text-[13px] text-mute">{MENU_LANG[lang as Lang]}</span><Chevron className={`shrink-0 text-mute transition-transform ${langOpen ? "rotate-180" : "-rotate-90"}`} />
           </button>
           {langOpen && (
-            <div className="flex gap-1 px-2 pb-1" role="group" aria-label={t("lang.label")}>
-              {LANGS.map((l) => <button key={l} type="button" aria-pressed={l === lang} onClick={() => pickLang(l)} className={`h-9 flex-1 rounded-[3px] border text-[13.5px] ${l === lang ? "border-fg bg-fg font-semibold text-panel" : "border-hair text-fg hover:bg-panel2"}`}>{MENU_LANG[l]}</button>)}
+            <div className="pb-1 pl-9" role="group" aria-label={t("lang.label")}>
+              {/* three quiet rows, a tick on the one in use (owner 2026-11-27: the three big buttons looked massive) */}
+              {LANGS.map((l) => <button key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-pressed={l === lang} onClick={() => pickLang(l)} className={`flex h-8 w-full items-center justify-between rounded-[3px] px-3 text-left text-[13.5px] hover:bg-panel2 ${l === lang ? "font-semibold text-fg" : "text-mute"}`}>{MENU_LANG[l]}{l === lang && <Tick className="h-3.5 w-3.5" />}</button>)}
             </div>
           )}
           <a href={whatsappHref()} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`}><Icon d={HELP} /><span className="flex-1">{t("side.help")}</span><Icon d={OUT} /></a>
@@ -69,12 +70,12 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
           <button type="button" role="menuitem" disabled={busy} onClick={() => { setBusy(true); void logOut(); }} className={`${menuItem} text-[#dc2626] disabled:opacity-55`} data-testid="side-logout"><Exit className="shrink-0" />{t("nav.logout")}</button>
         </div>
       )}
-      <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)} aria-label={thin ? `${who}${credits != null ? ` · ${credits}` : ""}` : undefined}
+      <button type="button" aria-haspopup="menu" aria-expanded={open} aria-controls="account-menu" onClick={() => setOpen((v) => !v)} aria-label={thin ? `${who}${credits != null ? ` · ${credits}` : ""}` : undefined}
         className={`flex w-full items-center gap-3 rounded-[4px] py-2 text-left transition-colors duration-150 hover:bg-panel2 ${thin ? "justify-center px-0" : "px-2.5"}`}>
         <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fg text-[12px] font-bold text-panel">{initials}</span>
         {!thin && <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-[15px] font-medium text-fg">{who}</span>
-          {credits != null && <span className="block truncate text-[13px] text-mute" data-testid="side-credits">{t("bill.credits", { n: credits.toLocaleString(lang === "zh" ? "zh-CN" : lang === "ms" ? "ms-MY" : "en-MY") })}</span>}
+          {credits != null && <span className="block truncate text-[13px] text-mute" data-testid="side-credits">{credits === 1 ? t("bill.credit1") : t("bill.credits", { n: credits.toLocaleString(lang === "zh" ? "zh-CN" : lang === "ms" ? "ms-MY" : "en-MY") })}</span>}
         </span>}
         {!thin && <Chevron className={`shrink-0 text-mute transition-transform duration-150 ${open ? "" : "rotate-180"}`} />}
       </button>
@@ -99,11 +100,11 @@ export default function SideBar({ email, name, credits, cred, closed, thin: thin
   const item = (here: boolean) =>
     `relative flex h-10 items-center gap-3 rounded-[4px] text-[15px] transition-colors duration-150 ${thin ? "justify-center px-0" : "px-3"} ${here ? "bg-panel2 font-semibold text-fg" : "font-medium text-fg/80 hover:bg-panel2 hover:text-fg"}`;
   const label = (text: string) => (thin ? <span className="sr-only">{text}</span> : <span className="min-w-0 flex-1 truncate">{text}</span>);
-  const dot = cred ? (!cred.complete || cred.blocks || cred.blocked || cred.verifyState !== "ok" ? "bg-amber" : "bg-go") : "";
+  const dot = cred ? (!cred.complete || cred.blocks || cred.blocked || cred.verifyState !== "ok" ? "bg-amber" : "") : "";
   const links = [
     { href: "/dashboard", d: CASES, text: t("nav.cases"), here: (path === "/dashboard" && view !== "closed") || path.startsWith("/cases/"), id: "side-cases" },
     { href: "/dashboard?view=closed", d: CLOSED, text: t("tray.closed"), here: view === "closed", id: "side-closed", count: closed },
-    // the details APC bot uses: one line, the dot says whether Merimen took the login; the page itself holds the form
+    // the details APC bot uses: one line, an amber dot only when the login needs the user (owner 2026-11-27: no green dot); the page itself holds the form
     { href: "/details", d: DETAILS, text: t("pf.title"), here: path.startsWith("/details"), id: "side-details", dot },
   ];
   // Billing sits at the very bottom, just above the account (owner 2026-11-27)

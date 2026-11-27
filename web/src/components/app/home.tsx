@@ -319,6 +319,10 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           </div>
         </div>
         {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact={false} /></div>}
+        {/* complete, but the login needs the user (a code from the phone, a wrong password) or blocks new cases: say it here, not only on the details page */}
+        {cred.complete && (cred.blocked || ["otp", "bad_credentials", "unknown", "locked"].includes(cred.verifyState)) && (
+          <div className="mt-8 max-w-[520px]"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact /></div>
+        )}
         {/* a wide screen has Closed cases in the side bar (side-bar.tsx); New case stays here at every width */}
         <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:mt-7 lg:flex">
           {blocked
