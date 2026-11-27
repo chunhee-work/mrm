@@ -64,6 +64,9 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
   }, [cred.verifyState, setCred]);
 
   function fill() { const n = ["", "", ""]; for (const w of cred.workshops ?? []) if (w.slot >= 1 && w.slot <= 3) n[w.slot - 1] = w.name; if (!n[0] && cred.workshop) n[0] = cred.workshop; setNames(n); setOpened([true, false, false]); setManager(cred.manager ?? ""); setAdjuster(cred.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
+  // the full form opens with what is saved (the workshop list outlives a deleted login), so a save never drops workshops the user cannot see
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!compact) fill(); }, []);
   function openEdit() { fill(); setEditing(true); }
   function closeAll() { setShowPass(false); setEditing(false); setConfirming(false); setPass(""); setSure(false); }
 
