@@ -22,7 +22,7 @@ export function stepsOf(c: { status: string; photos: number; photosDone: boolean
   const at = STEP_IDS.indexOf(current);
   const deskOpen = !["uploaded", "reading", "failed"].includes(c.status) && c.photos > 0;
   return STEP_IDS.map((id, i) => {
-    const state: StepState = finished ? "complete" : i < at ? "complete" : i === at ? "current" : "locked";
+    const state: StepState = finished || i < at || (id === "photos" && c.photosDone && current === "docs") ? "complete" : i === at ? "current" : "locked"; // Done was pressed while a document is still missing: step 2 is complete, step 1 stays current
     // locked steps cannot be opened; the desk stays reachable while only documents are missing
     const open = state !== "locked" || (id === "photos" && deskOpen);
     return { id, state, open }; // open + locked = reachable but not the step you are on (the desk while a document is missing)

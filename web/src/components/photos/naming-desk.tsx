@@ -877,7 +877,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial 
             ))}
             {/* the end of a long list: Done is here too, with what it does, so nobody has to scroll back up (owner 2026-11-27) */}
             <div className="col-span-2 mt-2 flex flex-wrap items-center justify-between gap-4 rounded-[4px] border border-hair bg-panel px-4 py-4 max-sm:mb-16" data-testid="finish-card">
-              <p className="min-w-0 flex-1 text-[14.5px] text-fg [text-wrap:pretty]">{st.done ? t(st.status === "phase_b" ? "finish.done" : st.status === "pending_doc" ? "finish.doneDocs" : "finish.doneLater") : n && n.confirm > 0 ? t("finish.todo", { n: n.confirm }) : t("finish.ready")}</p>
+              <p className="min-w-0 flex-1 text-[14.5px] text-fg [text-wrap:pretty]">{st.done ? t(st.status === "phase_b" ? "finish.done" : st.status === "pending_doc" ? "finish.doneDocs" : st.status === "done" || st.status === "checking" ? "finish.doneOnly" : "finish.doneLater") : n && n.confirm > 0 ? t("finish.todo", { n: n.confirm }) : t("finish.ready")}</p>
               <button type="button" data-testid="done-btn-end" aria-pressed={st.done} title={st.done ? t("doneUndo") : undefined} onClick={() => void pressDone()} className={`flex h-12 items-center justify-center gap-2 rounded-[4px] px-5 text-[16px] font-bold leading-none max-sm:w-full ${st.done ? "bg-go text-bay" : "bg-ice text-bay hover:bg-icehi"}`}>
                 {st.done && <Tick className="h-4 w-4" />}{st.done ? t("doneOn") : t("doneBtn", { plate: st.plate || "" })}
               </button>
