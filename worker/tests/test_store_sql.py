@@ -20,7 +20,7 @@ class Rec:
 
     def batch(self, statements):
         self.batches.append(list(statements))
-        return []
+        return self.rows.get("batch", [])
 
 
 JOB = {"id": 1, "case_id": "c1", "step": "phase_a", "org_id": "o1"}
@@ -199,3 +199,34 @@ def test_workshop_before_migration_0014_is_the_one_workshop():
         def execute(self, sql, params=()):
             raise RuntimeError('relation "merimen_workshops" does not exist')
     assert PgRepo("", db=NoTable()).workshops_for("o1") == []
+
+
+def test_peek_workshop_reads_the_same_answer_but_writes_and_locks_nothing():
+    rec = Rec({"execute": [(2, "Bengkel Cheras")]})
+    assert PgRepo("", db=rec).peek_workshop_for_case("c1") == {"slot": 2, "name": "Bengkel Cheras"}
+    sql, params = rec.calls[0]
+    assert params == ("c1",) and "INSERT" not in sql.upper() and "UPDATE" not in sql.upper() and "locked_name" in sql
+    assert PgRepo("", db=Rec()).peek_workshop_for_case("nope") is None
+    assert PgRepo("", db=Rec({"execute": [(1, None)]})).peek_workshop_for_case("c1") is None  # no name: the caller stops, never workshop 1
+
+
+def test_record_merimen_id_never_overwrites_a_number():
+    rec = Rec()
+    PgRepo("", db=rec).record_merimen_id("c1", "123", "456")
+    sql, params = rec.calls[0]
+    assert "merimen_caseid IS NULL" in sql and params == ("123", "456", "c1")
+
+
+def test_create_marks_use_only_case_events_and_press_is_one_conditional_insert():
+    rec = Rec({"execute": [(7,)], "batch": [[], [(7,)]]})
+    m = PgRepo("", db=rec).create_marks("c1")
+    assert m.pressed() is True and m.press() is True
+    pressed_sql = rec.calls[0][0]
+    assert "create_submitted" in pressed_sql and "create_cleared" in pressed_sql and "INSERT" not in pressed_sql.upper()
+    lock_sql, press_sql = rec.batches[0][0][0], rec.batches[0][1][0]  # one transaction: advisory lock first, then the conditional insert
+    assert "pg_advisory_xact_lock" in lock_sql
+    assert press_sql.lstrip().upper().startswith("INSERT INTO CASE_EVENTS") and "WHERE NOT EXISTS" in press_sql.upper() and "RETURNING id" in press_sql
+    m.clear()
+    assert "create_cleared" in rec.calls[1][0]
+    none = PgRepo("", db=Rec()).create_marks("c1")
+    assert none.pressed() is False and none.press() is False  # an empty answer from the insert means a mark already stands

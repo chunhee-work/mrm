@@ -63,7 +63,7 @@ def milestones_after(step: str, outcome, *, saved: bool) -> list[str]:
     if outcome.job_state != "done":
         return []
     if step == "phase_a" and outcome.merimen_caseid:
-        return ["case_opened", "documents_uploaded"]
+        return ["case_opened"] if getattr(outcome, "partial", False) else ["case_opened", "documents_uploaded"]  # a create-only save proves no upload
     if step == "phase_b" and outcome.case_status == "checking":
         return ["photos_named"]
     if step == "checks" and outcome.done:
