@@ -9,7 +9,7 @@ export async function wipeAction(form: FormData) {
   await requireAdmin();
   const email = String(form.get("email") ?? "");
   const confirm = String(form.get("confirm") ?? "");
-  const r = await wipeUser(email, confirm, { remove: deletePhoto, listPrefix }).catch((e) => { console.error("wipe failed", e); return { ok: false as const, reason: "storage_failed" as const }; });
+  const r = await wipeUser(email, confirm, { remove: deletePhoto, listPrefix }).catch((e) => { console.error("wipe failed", e); return { ok: false as const, reason: "partial" as const }; });
   const q = new URLSearchParams({ email });
   if (r.ok) redirect(`/admin/wipe?${new URLSearchParams({ done: "1", cases: String(r.counts.cases), files: String(r.removedFiles), left: String(r.leftFiles) })}`);
   q.set("err", r.reason);

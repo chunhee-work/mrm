@@ -66,24 +66,23 @@ t("a storage failure leaves the rows so it can be run again", async () => {
   assert.equal(await n(sql`SELECT count(*)::int AS n FROM "user" WHERE id = 'ua'`), 1);
 });
 
-t("wipe erases the person and keeps the others and the money history without a person", async () => {
+t("white-out empties the account but keeps the account, login, balance and the other users", async () => {
   const r = await wipeUser("target@example.com", "Target@Example.com", store);
   assert.ok(r.ok); assert.equal(r.leftFiles, 0);
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM "user" WHERE id = 'ua'`), 0);
-  for (const tb of ["cases", "case_files", "merimen_credentials", "merimen_workshops", "memberships"]) {
-    assert.equal(await n(sql`SELECT count(*)::int AS n FROM ${sql.raw(tb)} WHERE ${sql.raw(tb === "memberships" || tb.startsWith("merimen") || tb === "cases" ? "org_id" : "case_id")} ${tb === "case_files" ? sql`LIKE 'ca%'` : sql`= 'orgA'`}`), 0, tb);
-  }
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM session WHERE user_id = 'ua'`), 0);
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM verification`), 1); // only the other person's row is left
+  // the account stays
+  assert.equal(await n(sql`SELECT count(*)::int AS n FROM "user" WHERE id = 'ua'`), 1);
+  assert.equal(await n(sql`SELECT count(*)::int AS n FROM session WHERE user_id = 'ua'`), 1);
+  assert.equal(await n(sql`SELECT count(*)::int AS n FROM memberships WHERE org_id = 'orgA'`), 1);
+  assert.equal(await n(sql`SELECT count(*)::int AS n FROM verification`), 2);
+  assert.equal(await n(sql`SELECT count(*)::int AS n FROM credits_ledger WHERE org_id = 'orgA'`), 1);
+  assert.equal(await n(sql`SELECT count(*)::int AS n FROM payment_orders WHERE org_id = 'orgA' AND user_id = 'ua'`), 1);
+  // everything inside is gone
+  for (const q of [sql`SELECT count(*)::int AS n FROM cases WHERE org_id = 'orgA'`, sql`SELECT count(*)::int AS n FROM case_files WHERE case_id LIKE 'ca%'`, sql`SELECT count(*)::int AS n FROM merimen_credentials WHERE org_id = 'orgA'`, sql`SELECT count(*)::int AS n FROM merimen_workshops WHERE org_id = 'orgA'`]) assert.equal(await n(q), 0);
   assert.deepEqual([...files].sort(), ["orgB/cb1/a.pdf", "orgB/keep.bin", "orgE/ce1/a.pdf"].sort());
   // the other users are intact
   assert.equal(await n(sql`SELECT count(*)::int AS n FROM cases WHERE org_id = 'orgB'`), 1);
   assert.equal(await n(sql`SELECT count(*)::int AS n FROM merimen_credentials WHERE org_id = 'orgB'`), 1);
-  // money history stays, with no person attached; the company shell has no name
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM payment_orders WHERE org_id = 'orgA' AND user_id IS NULL`), 1);
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM credits_ledger WHERE org_id = 'orgA'`), 1);
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM llm_calls WHERE user_id IS NULL AND org_id = 'orgA'`), 1);
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM organizations WHERE id = 'orgA' AND name = 'wiped-orgA'`), 1);
-  assert.equal(await n(sql`SELECT count(*)::int AS n FROM audit_log WHERE action = 'user.wipe' AND detail NOT ILIKE '%example.com%'`), 1);
-  assert.deepEqual(await previewWipe("target@example.com", store), { ok: false, reason: "not_found" }); // second run: nothing left
+  // a second white-out finds nothing left and is fine
+  const again = await wipeUser("target@example.com", "target@example.com", store);
+  assert.ok(again.ok); assert.equal(again.counts.cases, 0);
 });

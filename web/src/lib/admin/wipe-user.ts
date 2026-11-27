@@ -2,15 +2,14 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 
 /**
- * Admin "wipe user": erases one person completely, by e-mail. One way, no undo.
+ * Admin "white out": empties one account, by e-mail. One way, no undo. THE ACCOUNT STAYS (owner 2026-11-27): the user row, the login
+ * (password, sessions, verification), the company account and its membership, the credit balance and the payment history are kept, so the
+ * person can log in again and start from an empty account.
  *
- * Gone: the login (user, account, session, verification), the Merimen username and password, the manager / adjuster / workshops,
- * every case with its files, photos, screenshots, read text, jobs and events, the worker's saved session, the extension rows,
- * and every stored file (Blob) under the organisation and under screenshots/<user>/.
- * Kept, without a person attached: the payment orders and the credit ledger (money history; they hold no name, e-mail or address),
- * the AI cost rows and the audit rows (their user id is cleared). The organisation row stays as an empty shell renamed "wiped-…",
- * because those money rows point at it. No schema change is needed for this.
- * Refused (nothing is touched): the e-mail is unknown, the organisation still has another member, or a job is running.
+ * Gone: the Merimen username and password, the manager / adjuster / workshops, every case with its files, photos, screenshots, read
+ * text, jobs and events, the worker's saved session, the extension rows, and every stored file (Blob) under the company and under
+ * screenshots/<user>/. No schema change is needed.
+ * Refused (nothing is touched): the e-mail is unknown, the company account has another member, or a job is running.
  */
 
 type Rows<T> = { rows?: T[] } | T[];
@@ -25,7 +24,7 @@ export type WipeRefusal = "not_found" | "shared_org" | "running_job" | "bad_emai
 export type WipePreview =
   | { ok: true; userId: string; email: string; name: string; orgIds: string[]; counts: WipeCounts }
   | { ok: false; reason: WipeRefusal };
-export type WipeResult = { ok: true; counts: WipeCounts; removedFiles: number; leftFiles: number } | { ok: false; reason: WipeRefusal | "confirm_mismatch" | "storage_failed" };
+export type WipeResult = { ok: true; counts: WipeCounts; removedFiles: number; leftFiles: number } | { ok: false; reason: WipeRefusal | "confirm_mismatch" | "storage_failed" | "partial" };
 export type WipeStore = { remove: (path: string) => Promise<void>; listPrefix: (prefix: string) => Promise<string[]> };
 
 export const normEmail = (s: string) => s.trim().toLowerCase();
@@ -97,47 +96,40 @@ async function counts(userId: string, orgIds: string[], store: Pick<WipeStore, "
 
 /**
  * Wipes the user. `confirm` must be the e-mail typed again. Order is built so a failure half-way can simply be run again:
- * sessions first (the user is logged out), then the stored files, then the rows; the `user` row goes last and is the marker that
- * the wipe is finished (a second run finds nothing left to erase, and says not_found).
+ * running jobs are checked (queued ones cancelled) before anything goes, then the stored files, then the rows. A failure half-way can
+ * simply be run again (a second run finds nothing left and succeeds with zeros).
  */
 export async function wipeUser(rawEmail: string, confirm: string, store: WipeStore): Promise<WipeResult> {
   if (normEmail(rawEmail) !== normEmail(confirm)) return { ok: false, reason: "confirm_mismatch" };
   const p = await previewWipe(rawEmail, store);
   if (!p.ok) return p;
-  const { userId, orgIds, email } = p;
+  const { userId, orgIds } = p;
+  if (!orgIds.length) return { ok: true, counts: p.counts, removedFiles: 0, leftFiles: 0 };
+  const arr = inList(orgIds);
+  const running = async () => (rowsOf<{ n: number }>(await db.execute(sql`SELECT count(*)::int AS n FROM jobs j JOIN cases c ON c.id = j.case_id WHERE c.org_id IN ${arr} AND j.state = 'running'`))[0]?.n ?? 0) > 0;
 
-  await db.execute(sql`DELETE FROM session WHERE user_id = ${userId}`); // out of every device at once
+  // queued jobs first, so the worker cannot claim one while the wipe runs; then the running check, before anything is removed
+  await db.execute(sql`UPDATE jobs SET state = 'cancelled' WHERE state IN ('queued','paused') AND case_id IN (SELECT id FROM cases WHERE org_id IN ${arr})`);
+  if (await running()) return { ok: false, reason: "running_job" };
   const paths = await storedPaths(orgIds, userId, store);
   for (let i = 0; i < paths.length; i += 5) {
     try { await Promise.all(paths.slice(i, i + 5).map(store.remove)); }
     catch (e) { console.error("wipe: removing a stored file failed", e); return { ok: false, reason: "storage_failed" }; } // rows untouched: run it again
   }
-
-  if (orgIds.length) {
-    const arr = inList(orgIds.length ? orgIds : [""]);
-    // the running-job check again, right before the rows go (a job may have been claimed since the preview)
-    const running = rowsOf<{ n: number }>(await db.execute(sql`SELECT count(*)::int AS n FROM jobs j JOIN cases c ON c.id = j.case_id WHERE c.org_id IN ${arr} AND j.state = 'running'`))[0]?.n ?? 0;
-    if (running > 0) return { ok: false, reason: "running_job" };
+  try {
     await db.execute(sql`DELETE FROM cases WHERE org_id IN ${arr}`); // files, photos, jobs, events, usage, ext jobs, screenshots, plans... follow (ON DELETE CASCADE)
     for (const t of ["merimen_credentials", "merimen_workshops", "merimen_connections", "merimen_otp", "worker_sessions", "ext_org_settings", "ext_consents", "ext_pairing_codes", "ext_installs"]) {
       await db.execute(sql`DELETE FROM ${sql.raw(t)} WHERE org_id IN ${arr}`);
     }
-    await db.execute(sql`UPDATE organizations SET name = 'wiped-' || left(id, 8) WHERE id IN ${arr}`);
-    await db.execute(sql`DELETE FROM memberships WHERE org_id IN ${arr}`);
+    await db.execute(sql`DELETE FROM merimen_cred_audit WHERE org_id IN ${arr}`);
+    // files that landed while the wipe ran
+    const late = (await Promise.all(prefixes(orgIds, userId).map((x) => store.listPrefix(x)))).flat();
+    for (const f of late) await store.remove(f).catch((e) => console.error("wipe: late file", e));
+    const after = (await Promise.all(prefixes(orgIds, userId).map((x) => store.listPrefix(x)))).flat();
+    await db.execute(sql`INSERT INTO audit_log (org_id, user_id, action, detail) VALUES (${orgIds[0]}, ${userId}, 'user.wipe', ${`cases ${p.counts.cases}|files ${paths.length + late.length}`})`);
+    return { ok: true, counts: p.counts, removedFiles: paths.length + late.length, leftFiles: after.length };
+  } catch (e) {
+    console.error("wipe: database step failed", e);
+    return { ok: false, reason: "partial" };
   }
-  // history without a person: the user id goes, the amounts and dates stay
-  await db.execute(sql`UPDATE payment_orders SET user_id = NULL WHERE user_id = ${userId}`);
-  await db.execute(sql`UPDATE llm_calls SET user_id = NULL WHERE user_id = ${userId}`);
-  await db.execute(sql`UPDATE audit_log SET user_id = NULL WHERE user_id = ${userId}`);
-  await db.execute(sql`UPDATE merimen_cred_audit SET user_id = NULL WHERE user_id = ${userId}`);
-  await db.execute(sql`DELETE FROM verification WHERE lower(identifier) LIKE ${"%" + email.toLowerCase().replace(/[\\%_]/g, "\\$&") + "%"} OR value = ${userId}`);
-
-  // files that landed while the wipe ran
-  const left = orgIds.length || userId ? (await Promise.all(prefixes(orgIds, userId).map((x) => store.listPrefix(x)))).flat() : [];
-  for (const f of left) await store.remove(f).catch((e) => console.error("wipe: late file", e));
-  const after = orgIds.length ? (await Promise.all(prefixes(orgIds, userId).map((x) => store.listPrefix(x)))).flat() : [];
-
-  await db.execute(sql`DELETE FROM "user" WHERE id = ${userId}`); // account + session rows follow; this is the "finished" marker
-  await db.execute(sql`INSERT INTO audit_log (org_id, user_id, action, detail) VALUES (${orgIds[0] ?? null}, NULL, 'user.wipe', ${`${userId.slice(0, 8)}|cases ${p.counts.cases}|files ${paths.length + left.length}`})`);
-  return { ok: true, counts: p.counts, removedFiles: paths.length + left.length, leftFiles: after.length };
 }

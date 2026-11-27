@@ -20,7 +20,7 @@ export default async function Users({ searchParams }: { searchParams: Sp }) {
           <input name="q" type="search" defaultValue={q} placeholder="Name or email" aria-label="Search users" className="h-10 w-full rounded-[3px] border border-hair bg-panel pl-10 pr-3 text-[15px] placeholder:text-mute" />
         </form>
         <div className="ml-auto flex items-center gap-2">
-          <Link href="/admin/wipe" className="flex h-9 items-center rounded-[3px] border border-hair bg-panel px-3 text-[13px] font-medium text-mute hover:border-amber hover:text-fg">Wipe user</Link>
+          <Link href="/admin/wipe" className="flex h-9 items-center rounded-[3px] border border-hair bg-panel px-3 text-[13px] font-medium text-mute hover:border-amber hover:text-fg">White out</Link>
           <span className="num text-[13px] text-mute">{int(from)}–{int(to)} of {int(r.total)}</span>
           {page > 0 ? <Link href={base(page - 1)} aria-label="Newer users" className={`${step} hover:border-ice`}><IconPrev /></Link> : <span className={`${step} opacity-35`}><IconPrev /></span>}
           {(page + 1) * PAGE < r.total ? <Link href={base(page + 1)} aria-label="Older users" className={`${step} hover:border-ice`}><IconNext /></Link> : <span className={`${step} opacity-35`}><IconNext /></span>}

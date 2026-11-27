@@ -43,7 +43,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             { label: "Cost", cell: (c) => usd(c.cost_usd === null ? null : Number(c.cost_usd)), right: true },
           ]} />
         </Card>
-        <Link href={`/admin/wipe?email=${encodeURIComponent(String(u.email))}`} className="justify-self-start text-[13px] font-medium text-mute hover:text-amber">Wipe this user…</Link>
+        <Link href={`/admin/wipe?email=${encodeURIComponent(String(u.email))}`} className="justify-self-start text-[13px] font-medium text-mute hover:text-amber">White out this user…</Link>
       </div>
     </Shell>
   );
