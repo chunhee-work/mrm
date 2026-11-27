@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import sys
 import threading
 import time
 
@@ -41,6 +42,11 @@ class LeaseKeeper:
 
 
 _last_cleanup = [0.0]
+
+# org -> {"until", "n", "reason"}: a login check that was put back without a try (nothing was typed) is not asked for again at once.
+# Kept in this process only; the wait doubles from 2 s and is never longer than a minute.
+_verify_wait: dict[str, dict] = {}
+VERIFY_WAIT_MAX = 60
 
 
 # Which part of tick() was running, for the one log line when a tick fails (2026-11-27: the box only logged "tick DbError").
@@ -85,6 +91,33 @@ def maybe_cleanup(cfg: Config, repo: PgRepo, delete, *, every: float = 3600.0, n
         return 0
 
 
+def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=time.monotonic) -> None:
+    """At most one login check per tick. A check that is put back (key_mismatch, not_login_page, offline) waits before it is taken
+    again, and its reason goes to stderr and to the audit table once, not every tick. Other orgs are not held up by it."""
+    from .login_flow import run_verify
+    from .login_page import backoff_seconds
+
+    t = now()
+    skip = sorted(org for org, w in _verify_wait.items() if t < w["until"])
+    claimed = repo.claim_verify(skip=skip) if skip else repo.claim_verify()
+    if not claimed:
+        return
+    org = claimed["org_id"]
+    decision = run_verify(claimed, master, fetch_page)
+    if decision.get("release"):
+        reason = str(decision.get("reason") or "offline")
+        before = _verify_wait.get(org) or {"n": 0, "reason": None}
+        n = before["n"] + 1
+        _verify_wait[org] = {"until": t + min(VERIFY_WAIT_MAX, backoff_seconds(n)), "n": n, "reason": reason}
+        if before["reason"] != reason:
+            decision = {**decision, "audit": reason}
+            print(f"login check put back, no try counted: reason={reason}", file=sys.stderr, flush=True)
+    else:
+        _verify_wait.pop(org, None)
+    email = repo.owner_email(org) if decision.get("email") else None
+    repo.finish_verify(org, decision, email_to=email, poster=cfg.mailer)
+
+
 def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None) -> None:
     for row in repo.wanted():
         org = row["org_id"]
@@ -116,17 +149,12 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         repo.set_session(org, status=status, wanted="start", account=account, port=port, detail=reason)
 
 
-def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None) -> str | None:
+def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic) -> str | None:
     _at("heartbeat")
     repo.heartbeat(cfg.worker_id, cfg.hf_repo, chrome_ok=True)
     if cfg.merimen_login and fetch_page and master:
-        from .login_flow import run_verify
         _at("claim_verify")
-        claimed = repo.claim_verify()
-        if claimed:
-            decision = run_verify(claimed, master, fetch_page)
-            email = repo.owner_email(claimed["org_id"]) if decision.get("email") else None
-            repo.finish_verify(claimed["org_id"], decision, email_to=email, poster=cfg.mailer)
+        verify_once(cfg, repo, fetch_page, master, now=now)
     _at("reclaim_stale")
     repo.reclaim_stale(cfg.lease_seconds)
     _at("cleanup")

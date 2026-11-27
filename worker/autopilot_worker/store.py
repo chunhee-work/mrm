@@ -539,21 +539,23 @@ class PgRepo:
 
         return Marks
 
-    def claim_verify(self):
-        """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement."""
+    def claim_verify(self, skip=()):
+        """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement.
+        skip: orgs whose check was just put back without a try (loop.py waits a little before it asks for them again)."""
         sql = """
         UPDATE merimen_credentials AS m
         SET verify_state = 'checking', login_attempts = login_attempts + 1, updated_at = now()
         WHERE m.org_id = (
           SELECT org_id FROM merimen_credentials
           WHERE verify_state = 'queued' AND login_attempts = 0
+            AND NOT (org_id = ANY(string_to_array(%s::text, %s::text)))
           ORDER BY updated_at
           FOR UPDATE SKIP LOCKED
           LIMIT 1
         )
         RETURNING org_id, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, password_nonce
         """
-        rows = self.db.execute(sql)
+        rows = self.db.execute(sql, ("\n".join(str(o) for o in skip), "\n"))
         if not rows:
             return None
         keys = ("org_id", "wrapped_dek", "dek_nonce", "username_ct", "username_nonce", "password_ct", "password_nonce")
@@ -563,7 +565,8 @@ class PgRepo:
         from .login_page import login_email
 
         if decision.get("release"):
-            self.db.execute(
+            # only reached when nothing was typed into Merimen (login_flow.run_verify): the one try is given back
+            put_back = (
                 """
                 UPDATE merimen_credentials
                 SET verify_state = 'queued', login_attempts = 0, updated_at = now()
@@ -571,6 +574,10 @@ class PgRepo:
                 """,
                 (org_id,),
             )
+            if decision.get("audit"):  # why it was put back (key_mismatch, not_login_page, offline): one row, written by loop.py once per reason
+                self.db.batch([put_back, ("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, ("login_released_" + str(decision["audit"]))[:60]))])
+            else:
+                self.db.execute(*put_back)
             return
         event = str(decision.get("event") or "")[:400]
         st: list[tuple[str, object]] = [

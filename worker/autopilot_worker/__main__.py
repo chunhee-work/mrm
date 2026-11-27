@@ -231,20 +231,9 @@ def main() -> None:
         except ValueError:
             master = b""
 
-    def fetch_page(user: str, password: str):
-        proc = subprocess.run(
-            ["node", script, "login"],
-            input=json.dumps({"username": user, "password": password}),
-            text=True, capture_output=True, timeout=60,
-            env={**os.environ, "CDP_PORT": str(next(iter(cfg.accounts.values())))},
-        )
-        try:
-            data = json.loads(proc.stdout or "{}")
-        except json.JSONDecodeError:
-            return {"offline": True}
-        if proc.returncode != 0 or data.get("offline") or data.get("error"):
-            return {"offline": True}
-        return data
+    from .login_flow import script_fetch
+
+    fetch_page = script_fetch(script, next(iter(cfg.accounts.values())))  # one run of `cdp.mjs login` per check, never a second
 
     def put_blob(path: str, data: bytes) -> None:
         from .blobstore import blob_put
