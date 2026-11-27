@@ -8,7 +8,22 @@
 
 密码用 AES-256-GCM 信封加密。主密钥是环境变量 `MERIMEN_CRED_KEY`（32 字节的 base64）。每个机构一把数据密钥，由主密钥包起来。密码不会写进日志，也不会回到浏览器。审计表只记动作（save、delete、login_ok、login_bad_credentials），不记密码。
 
-Worker 只在 `MERIMEN_LOGIN=on` 时向 Merimen 提交登录，而且**只试一次**。Merimen 多次失败会锁定账号（locktime=15）。页面结果只有四种：成功、用户名或密码不对、账号已锁定、需要验证码。Chrome 没开好时不算一次失败，核对会留在队列里。
+Worker 只在 `MERIMEN_LOGIN=on` 时向 Merimen 提交登录，而且**只试一次**。Merimen 多次失败会锁定账号（locktime=15）。页面结果只有四种：成功、用户名或密码不对、账号已锁定、需要验证码。
+
+「只试一次」的规则（`cdp.mjs login` + `login_flow.py`）：
+
+- 只在 Merimen 自己的登录页上打字。登录页的判定（全部满足才算）：标签页的 origin 正好是 `https://www.merimen.com.my`（解析整个地址，不看地址里有没有这几个字）；页面**不是**已登录页（已登录页 = `/claims/…` 加 `CFID` 和 `RID`，和别处用的是同一条规则）；页面上**恰好一个**可见的密码框；**同一个 form 里**恰好一个可见的用户名文本框和一个可见的登录按钮。隐藏的 input 永远不当按钮。少一样就什么都不打，结果是 `not_login_page`。已登录页上的密码框（例如改密码页）不会被填。绝不点 Logout。
+- `session_live`：Chrome 里已经登录着 Merimen（已登录页，没有任何密码框）。什么都不打，核对按「成功」结束（`verify_state = 'ok'`，不封、不发邮件、不算一次尝试），审计表写一行 `login_session_live`。
+  注意：这种情况下**保存的密码没有被验证过**，只说明这台机器的 Chrome 现在是登录着的。
+- 提交之后只读不动（不点、不打字），每秒看一次，最多约 15 秒，等地址或页面变了再判断；「Continue Session」之类的页面上什么都不点。等完还看不明白就是 `unknown`。
+- 脚本整体限时 90 秒。超时后先杀掉脚本，再把它已经写出的内容全部读完再判断；超时后读不到输出一律当 `unknown`，绝不放回队列。
+- 脚本在打字**之前**先写一行 `{"submitted": true}`。之后任何失败（读不到结果、超时、脚本崩溃）一律是 `unknown`：`verify_state = 'unknown'`、`blocked = true`、该机构的 Merimen job 暂停、案子进 `waiting_user`，等用户重新保存登录。**worker 自己绝不会再提交一次。** 时间线和邮件写的是「Merimen 没有明确回复」，不说密码不对。
+- 只有「什么都没打」的四种情况会把核对放回 `queued`（不算一次、不封、不暂停、不发邮件）：
+  - `key_mismatch`：保存的登录用这台 worker 的 `MERIMEN_CRED_KEY` 解不开（网站和 worker 的密钥不一样，或那一行坏了）。**要修的是密钥，不是用户的密码。**
+  - `not_login_page`：没有打开着的 Merimen 登录页，也不是 `session_live`。
+  - `offline`：Chrome 的调试口连不上，或脚本在提交之前就停了。
+  - `no_account`：这个机构在这台 worker 上没有对应的 Chrome 配置（`WORKER_ACCOUNTS`）。核对只用该机构自己那份配置的调试口，不会借用第一份。
+- 被放回的核对不会每 2 秒再领一次：同一机构先等 2 秒，每次加倍，最长 60 秒（只记在进程里），其它机构不受影响。原因在 stderr 打一行，并在 `merimen_cred_audit` 写一行 `login_released_<原因>`；同一原因只写一次，不是每个 tick 一行。状态先单独改回 `queued`，审计行之后另写：审计写不进去（例如缺权限）只在 stderr 打一行错误类名，核对照样放回；`login_session_live` 也一样。查法：`SELECT org_id, action, at FROM merimen_cred_audit WHERE action LIKE 'login_released_%' ORDER BY at DESC LIMIT 20;`
 
 之后某个案子登录失败（例如用户在 Merimen 改了密码）：该机构的登录标成无效，Phase A / B / checks 暂停，案子状态改为 `waiting_user`，时间线写中英两句。网站在案子页和连接页用当前语言显示横幅。用户重新保存并且核对成功后，暂停的 job 自动回到 `queued`。可选：配置了 `RESEND_API_KEY` 和 `EMAIL_FROM` 时发一封双语邮件，正文里没有密码。
 
@@ -18,7 +33,7 @@ Worker 只在 `MERIMEN_LOGIN=on` 时向 Merimen 提交登录，而且**只试一
 
 HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING …`，多个 worker 进程不会领到同一个 job。一次结果的多条写入走一个事务（一次 HTTPS 请求）。只有 `SELECT` 在网络中断时会自动重试，写入不会盲目重发。
 
-租约：领到 job 的 worker 每 `JOB_LEASE_SECONDS`/3 秒续一次 `locked_at`（默认租约 900 秒）。租约过期仍是 `running` 的 job 会被放回队列，试满 3 次改为 `failed`。只有持有者能续约。
+租约：领到 job 的 worker 每 `JOB_LEASE_SECONDS`/3 秒续一次 `locked_at`（默认租约 900 秒）。租约过期仍是 `running` 的 job 会被放回队列（不等待），第 3 次被领取后再过期就改为 `failed`。只有持有者能续约。
 
 ## 进度截图（`WORKER_UI=on` 才开）
 
@@ -34,9 +49,23 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 
 ## 队列
 
-领取见上一节。同一机构同时运行的 Merimen job 数量由 `ORG_CONCURRENCY` 限制（默认 1）。暂时性错误用 `not_before` 退避，最长 5 分钟。密码错误不退避、不重试。
+领取见上一节。同一机构同时运行的 Merimen job 数量由 `ORG_CONCURRENCY` 限制（默认 1）。密码错误不退避、不重试。
+
+「稍后再试」（Merimen 读不到、没有已登录标签页、表单打不开等）：job 放回队列时写 `jobs.not_before = now() + backoff_seconds(attempts)`，到时间才会再被领取。顺序是：第 1 次 → 等 30 秒 → 第 2 次 → 等 2 分钟 → 第 3 次 → 等 10 分钟 → 第 4 次；**第 4 次还是不行才改为 `failed`**：时间线多一行「Stopped after 4 tries …」，案子的 `error` 写上原因，案子状态不变。另外两种情况仍是第 3 次被领取为止：worker 自己出错（前两次按上面的等待放回，第 3 次改为 `failed`）和租约过期（放回时不等待）。三种情况共用同一个 `attempts` 计数（每被领取一次加一）。不需要迁移（`not_before` 来自 0007）。
 
 一个 worker 可以开多份 Chrome 配置（`WORKER_ACCOUNTS=default:9222,b:9223`），一份配置一个 Merimen 登录。多台机器共用同一个 Neon，各领各的 job。
+
+## Chrome
+
+- 每个 tick 先问调试口（`/json/list`）。有回应就不再启动 Chrome；没回应才启动一次，30 秒内不重复启动（同一个配置目录再启动一次只会在原来的 Chrome 里多开一个标签页）。
+- Chrome 启动时**不继承 worker 的密钥**。只传这些环境变量（有才传）：`PATH`、`HOME`、`USER`、`LOGNAME`、`SHELL`、`TMPDIR`、`DISPLAY`、`XAUTHORITY`、`WAYLAND_DISPLAY`、`DBUS_SESSION_BUS_ADDRESS`、`DESKTOP_SESSION`、`GNOME_DESKTOP_SESSION_ID`、`KDE_FULL_SESSION`、`KDE_SESSION_VERSION`、`LANG`、`LANGUAGE`、`TZ`、`FONTCONFIG_FILE`、`FONTCONFIG_PATH`、代理变量（`http_proxy`、`https_proxy`、`no_proxy`、`all_proxy`、`auto_proxy`，大小写都算；`SOCKS_SERVER`、`SOCKS_VERSION`）、`CHROMIUM_FLAGS`、以及 `XDG_*` 和 `LC_*`。`XDG_RUNTIME_DIR` 和 `DBUS_SESSION_BUS_ADDRESS` 要留着：Wayland 的 socket 在前者里，Chrome 通过后者找桌面的密钥库（cookie 用它加密），少了会读不出已登录配置里的 cookie。
+- 这台机器的 Chrome 还需要别的变量（例如 `LD_LIBRARY_PATH`）：把**名字**写进 `CHROME_ENV_PASS`（逗号分隔）。名字里带 KEY / TOKEN / SECRET / PASSWORD / CREDENTIAL / COOKIE / DATABASE_URL 的一律不传，写了也不传。
+
+## 这台机器上的文件
+
+- 下载的照片放在 `<WORKER_STATE>/files/<案子 id>/<job id>/<照片 id>-<文件名>`（目录 0700、文件 0600），**job 一结束（成功或失败）只删它自己的 `<job id>` 目录**（案子目录空了也一并删），同一案子的另一个 job 的文件不受影响。只有 `photo_model` 这一步下载；intake 不再把案件 PDF 下载到这台机器（没有东西读它们，Jev 页面检查是直接在内存里读 Blob）。数据库里的文件名当作不可信：目录部分（`/`、`\`）和控制字符去掉，过长截短，所以写不到目录外面。
+- 启动时和之后每小时清一次：`<WORKER_STATE>/files` 下 6 小时没动过的东西全部删除（被强杀的 job 留下的、以及旧版本平铺在这个目录里的文件）。符号链接只删链接本身。
+- 环境文件里是全部密钥，只能给启动 worker 的那个账号读：`sudo chown root:root /etc/autopilot-worker.env && sudo chmod 600 /etc/autopilot-worker.env`（systemd 用 root 读 `EnvironmentFile`；用 pm2 或 docker compose 时把属主换成启动它的那个账号）。
 
 ## 照片
 
@@ -47,7 +76,8 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 单机：
 
 ```sh
-cp .env.example /etc/autopilot-worker.env
+sudo cp .env.example /etc/autopilot-worker.env
+sudo chown root:root /etc/autopilot-worker.env && sudo chmod 600 /etc/autopilot-worker.env  # 里面是密钥，别人不能读
 # 填上值。不要把这个文件提交。
 sudo cp autopilot-worker.service /etc/systemd/system/
 sudo systemctl enable --now autopilot-worker
@@ -55,7 +85,7 @@ sudo systemctl enable --now autopilot-worker
 
 也可用 pm2：`pm2 start /opt/mrm/worker/run.sh --name autopilot-worker --interpreter bash`。
 
-多台：`worker/docker-compose.yml`，或 `worker/fly.toml`（示例，机器规格要在 Fly 上另选）。健康检查是 `GET /health`（`WORKER_HEALTH_PORT`，默认 8080），不访问 Merimen。
+多台：`worker/docker-compose.yml`，或 `worker/fly.toml`（示例，机器规格要在 Fly 上另选）。镜像的构建目录是仓库根目录，Docker（BuildKit）读的是 `worker/Dockerfile.dockerignore`：只送 `worker/` 和 `typesafe/photo_train/` 进去，本地的 `.env`、状态目录、`__pycache__`、测试都不进镜像。`worker/.dockerignore` 是同一份规则，给以 `worker/` 为构建目录的情况用。健康检查是 `GET /health`（`WORKER_HEALTH_PORT`，默认 8080），不访问 Merimen。
 
 Phase A / B 在写入 Merimen 之前先做演练。`MERIMEN_WRITES` 和 `WORKER_SUBMIT` 都不是 `on` 时，不会提交。CI 不登录 Merimen。
 
@@ -70,7 +100,7 @@ Worker 用本机 Chrome 里已登录的 Merimen 标签页（Playwright 连本机
 
 演练先跑，确认没问题再开第二组。**`MERIMEN_DRYRUN=on` 优先于另外两个开关**：只要它开着，不管 `MERIMEN_WRITES` 和 `WORKER_SUBMIT` 是什么，都只填表检查、什么都不保存。真保存必须把它关掉（或不设）。
 
-停下来的情况（案子进入 `waiting_user`，时间线写明原因，不自动重试）：缺资料（写明缺哪项）、用户信息不全、工坊缺失或查到的不是恰好一行、保险公司不在 16 家表里（例如 Lonpac）、Liberty 看不出地区、车型没把握（前两名太接近）、某个下拉选项找不到、Merimen 出现“已有进行中的案子”提示（**不会自动确认**，因为崩溃后重试也会碰到同一个提示，会建出第二个案子）、Merimen 拒绝表单（显示它自己的话）、保存后落地页不明（重试前先看 worklist）。没有已登录标签页或表单打不开：稍后重试（沿用 3 次上限）。
+停下来的情况（案子进入 `waiting_user`，时间线写明原因，不自动重试）：缺资料（写明缺哪项）、用户信息不全、工坊缺失或查到的不是恰好一行、保险公司不在 16 家表里（例如 Lonpac）、Liberty 看不出地区、车型没把握（前两名太接近）、某个下拉选项找不到、Merimen 出现“已有进行中的案子”提示（**不会自动确认**，因为崩溃后重试也会碰到同一个提示，会建出第二个案子）、Merimen 拒绝表单（显示它自己的话）、保存后落地页不明（重试前先看 worklist）。没有已登录标签页或表单打不开：稍后重试（见「队列」：30 秒、2 分钟、10 分钟，第 4 次为止）。
 
 **放行一个被「按过 Next」标记挡住的案子**：先在 Merimen 工作清单（worklist）按车牌搜，确认真的没有这个案子，然后由人在 `case_events` 里给该案子插一行 `step = 'create_cleared'`（之后才可以重跑）。如果搜到了案子，把案号写进该案子的 `merimen_caseid` 即可，不要放行。
 

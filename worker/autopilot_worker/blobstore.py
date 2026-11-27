@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import re
+import shutil
+import time
 from urllib.parse import urlparse
 
 
@@ -28,11 +31,87 @@ def blob_request(url_or_path: str, token: str) -> tuple[str, dict[str, str]]:
     return private_url(url_or_path, token), {"Authorization": f"Bearer {token}"}
 
 
-def local_file(store_dir: str, name: str) -> str:
-    base = os.path.basename(name).replace("\x00", "")
-    if not base or base in (".", ".."):
-        raise ValueError("name")
-    return os.path.join(store_dir, base)
+# ---- downloaded case files on this machine: <state>/files/<case id>/<job id>/<item id>-<name>, removed when that job ends ----
+
+_ID_BAD = re.compile(r"[^A-Za-z0-9_-]")
+NAME_MAX_BYTES = 150
+
+
+def _safe_id(value) -> str:
+    """A case or photo id as one folder-safe word. Ids are ours, but nothing that came out of the database is used as a path as it is."""
+    s = _ID_BAD.sub("_", "" if value is None else str(value))[:80]
+    if not s:
+        raise ValueError("id")
+    return s
+
+
+def _safe_name(name) -> str:
+    """The file name a user uploaded, as stored in the database: untrusted. Directory parts (/ and \\) and control characters are
+    dropped, so it can only ever be a plain name; a long name is cut and keeps its ending."""
+    base = str(name or "").replace("\\", "/").rsplit("/", 1)[-1]
+    base = "".join(ch for ch in base if ch >= " " and ch != "\x7f").encode("utf-8", "ignore").decode("utf-8")
+    if base in ("", ".", ".."):
+        return "file"
+    if len(base.encode("utf-8")) > NAME_MAX_BYTES:
+        stem, ext = os.path.splitext(base)
+        ext = ext[:16]
+        base = stem.encode("utf-8")[: NAME_MAX_BYTES - len(ext.encode("utf-8"))].decode("utf-8", "ignore") + ext
+    return base
+
+
+def local_file(store_dir: str, case_id, job_id, item_id, name) -> str:
+    """Where one downloaded file goes. Each job has its own folder under the case, so two jobs of one case never share (or remove)
+    each other's files; the item id in front keeps two photos with the same name apart."""
+    return os.path.join(store_dir, _safe_id(case_id), _safe_id(job_id), f"{_safe_id(item_id)}-{_safe_name(name)}")
+
+
+def write_private(path: str, data: bytes) -> None:
+    """Folders 0700, file 0600: case photos and PDFs are customers' data."""
+    job_dir = os.path.dirname(path)
+    case_dir = os.path.dirname(job_dir)
+    for d in (os.path.dirname(case_dir), case_dir, job_dir):
+        os.makedirs(d, mode=0o700, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+
+
+def remove_job_files(store_dir: str, case_id, job_id) -> None:
+    """The job is over (done or failed): ITS downloads go, nothing of another job of the same case. The case folder goes too once
+    it is empty. Missing folder = nothing to do. Never raises."""
+    try:
+        case_dir = os.path.join(store_dir, _safe_id(case_id))
+        shutil.rmtree(os.path.join(case_dir, _safe_id(job_id)), ignore_errors=True)
+    except ValueError:
+        return
+    try:
+        os.rmdir(case_dir)  # only succeeds when nothing else is in it
+    except OSError:
+        pass
+
+
+def sweep_old_files(store_dir: str, max_age: float = 6 * 3600, now=time.time) -> int:
+    """Left-overs: a job that was killed never reached its clean-up, and files from before folders per case lie flat in store_dir.
+    Everything directly under store_dir that has not changed for max_age seconds is removed (far longer than any job runs).
+    A link is removed, never followed. Returns how many entries went."""
+    gone = 0
+    try:
+        entries = list(os.scandir(store_dir))
+    except OSError:
+        return 0
+    t = now()
+    for e in entries:
+        try:
+            if t - e.stat(follow_symlinks=False).st_mtime < max_age:
+                continue
+            if e.is_dir(follow_symlinks=False):
+                shutil.rmtree(e.path)
+            else:
+                os.unlink(e.path)
+            gone += 1
+        except OSError:
+            continue
+    return gone
 
 
 API = "https://vercel.com/api/blob"

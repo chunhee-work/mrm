@@ -158,7 +158,10 @@ def _namer_factory(cfg: Config):
 
 def _launch(argv: list[str]) -> None:
     # The debugging port is bound to 127.0.0.1 by chrome_argv. The profile keeps the human's login.
-    subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    # Chrome gets a short list of environment variables (chrome.chrome_env), never the worker's keys.
+    from .chrome import chrome_env
+
+    subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, env=chrome_env(os.environ))
 
 
 def _inspect(port: int):
@@ -259,20 +262,44 @@ def main() -> None:
     driver.jev = jev_mod.from_env(dict(os.environ), _record_jev)  # None with JEV=0 or without TYPESAFE_API_KEY: the code rules alone
     namer = _namer_factory(cfg)
 
-    def download(url: str, name: str) -> None:
+    files_root = os.path.join(cfg.state_dir, "files")  # downloads live here only while their job runs
+
+    def download(url: str, name: str, case_id, job_id, item_id):
+        """One photo to <state>/files/<case id>/<job id>/<photo id>-<name> (private). `name` is the uploaded file name: untrusted."""
         if not cfg.blob_token or not url:
-            return
-        from .blobstore import blob_request, local_file
+            return None
+        from .blobstore import blob_request, local_file, write_private
         import urllib.request
 
-        dest_dir = os.path.join(cfg.state_dir, "files")
-        os.makedirs(dest_dir, exist_ok=True)
-        target = local_file(dest_dir, name)
+        target = local_file(files_root, case_id, job_id, item_id, name)
         req_url, headers = blob_request(url, cfg.blob_token)
         req = urllib.request.Request(req_url, headers=headers)
-        with urllib.request.urlopen(req, timeout=60) as r, open(target, "wb") as f:
-            f.write(r.read())
+        with urllib.request.urlopen(req, timeout=60) as r:
+            write_private(target, r.read())
         return target
+
+    def forget_files(case_id, job_id) -> None:
+        from .blobstore import remove_job_files
+
+        remove_job_files(files_root, case_id, job_id)
+
+    last_sweep = [None]
+
+    def sweep_files() -> None:
+        """At start and then hourly: what a killed job left behind, and the flat files from before there was a folder per case."""
+        if last_sweep[0] is not None and time.monotonic() - last_sweep[0] < 3600:
+            return
+        last_sweep[0] = time.monotonic()
+        try:
+            from .blobstore import sweep_old_files
+
+            if os.path.isdir(files_root):
+                os.chmod(files_root, 0o700)
+            gone = sweep_old_files(files_root)
+            if gone:
+                print(f"old downloaded files removed: {gone}", flush=True)
+        except Exception as e:  # noqa: BLE001
+            print("file sweep skipped:", type(e).__name__, flush=True)
 
     def fetch_bytes(url: str):
         """A case PDF as bytes, in memory only (the Jev page check never writes a page or a PDF to disk)."""
@@ -307,20 +334,9 @@ def main() -> None:
         except ValueError:
             master = b""
 
-    def fetch_page(user: str, password: str):
-        proc = subprocess.run(
-            ["node", script, "login"],
-            input=json.dumps({"username": user, "password": password}),
-            text=True, capture_output=True, timeout=60,
-            env={**os.environ, "CDP_PORT": str(next(iter(cfg.accounts.values())))},
-        )
-        try:
-            data = json.loads(proc.stdout or "{}")
-        except json.JSONDecodeError:
-            return {"offline": True}
-        if proc.returncode != 0 or data.get("offline") or data.get("error"):
-            return {"offline": True}
-        return data
+    from .login_flow import script_fetch
+
+    fetch_page = script_fetch(script)  # fetch_page(user, password, port): one run of `cdp.mjs login` per check, on the org's own Chrome
 
     def put_blob(path: str, data: bytes) -> None:
         from .blobstore import blob_put
@@ -342,9 +358,11 @@ def main() -> None:
             pass
 
     while True:
+        sweep_files()
         try:
             tick(cfg, repo, launch=_launch, inspect=_inspect, namer=namer, driver=driver, download=download, keep=_keep, fetch_page=fetch_page, master=master,
-                 page_for=page_for if shots else None, put_blob=put_blob if shots else None, delete_blob=delete_blob if shots else None, side_check=side_check)
+                 page_for=page_for if shots else None, put_blob=put_blob if shots else None, delete_blob=delete_blob if shots else None, side_check=side_check,
+                 forget_files=forget_files)
         except Exception as e:
             print(tick_error_line(e), file=sys.stderr)
         time.sleep(cfg.poll_seconds)
