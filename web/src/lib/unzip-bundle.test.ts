@@ -67,3 +67,26 @@ test("planVehicles: limits per car, too many cars, and a one-car zip are refused
   assert.throws(() => planVehicles(zipSync(many)), (e: ZipRejected) => e.message === "the zip holds too many vehicles");
   assert.throws(() => planVehicles(zipSync({ "Docs/a.pdf": pdf, "Photos/1.jpg": jpg })), (e: ZipRejected) => e.code === "empty");
 });
+
+test("planVehicles: a car folder whose PDFs are all empty is dropped; a PDF too big to read is refused before anything is stored", () => {
+  const pdf = strToU8("%PDF-1.4 x");
+  const plan = planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "CCC3333/a.pdf": new Uint8Array(0), "CCC3333/1.jpg": strToU8("jpg") }));
+  assert.deepEqual(plan.map((v) => v.plate), ["AAA1111", "BBB2222"]);
+  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/b.pdf": pdf }), { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxPdfBytes: 5 }),
+    (e: ZipRejected) => e.code === "pdf_big" && e.message === "a PDF in the zip is larger than 25 MB");
+});
+
+test("planVehicles: more than 30 cars has its own code, not the one for too many files", () => {
+  const many: Record<string, Uint8Array> = {};
+  for (let i = 0; i < 31; i++) many[`AB${1000 + i}/a.pdf`] = strToU8("%PDF");
+  assert.throws(() => planVehicles(zipSync(many)), (e: ZipRejected) => e.code === "too_many_cars");
+});
+
+test("numbered folders (Doc1, Car 2, Day 1) and month folders (Nov 2026) of one car stay one case", () => {
+  const pdf = strToU8("%PDF");
+  for (const [a, b] of [["Doc1", "Doc2"], ["Car 1", "Car 2"], ["Day 1", "Day 2"], ["Nov 2026", "Dec 2026"], ["Set 1", "Set 2"]]) {
+    const z = zipSync({ [`${a}/a.pdf`]: pdf, [`${b}/b.pdf`]: pdf });
+    assert.equal(unzipBundle(z).length, 2, a);
+    assert.throws(() => planVehicles(z), (e: ZipRejected) => e.code === "empty", a);
+  }
+});
