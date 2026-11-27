@@ -30,6 +30,8 @@ export const TODO: TodoGroup[] = [
       { id: "desk-entry", who: "you", title: "Keep the \"Check photo names\" button, or hide it for now?", note: "Photo names were right 67% of the time in the last measurement. The button is live on every case." },
       { id: "terms-warning", who: "you", title: "Add a Merimen consent warning to the Terms?", note: "One line telling customers they need Merimen's consent before they let us work in their account." },
       { id: "merimen-name", who: "you", title: "Remove the Merimen name from the whole site?", note: "It is already out of titles and the headline. It still appears where the service is described, with a \"not affiliated\" line." },
+      { id: "jev-images", who: "you", title: "Let Jev (TypeSafe) see the document pages?", note: "Sorting the PDF pages by type and checking the RC card need page images sent to TypeSafe, a third party. Insurer, branch and photo-name checks send text only and are already built. Say yes or no for the page images." },
+      { id: "jev-price", who: "you", title: "How does TypeSafe charge?", note: "The Cost page can only show TypeSafe spend once it has a price per call (or per token)." },
       { id: "dev-db", who: "you", title: "Delete the test copy of the database?", note: "The copy named dev-photo-naming was only for testing. Deleting it needs your word." },
     ],
   },

@@ -14,6 +14,8 @@ export function eventTr(message: string): Tr & { raw?: string } {
   if (message === "Scan failed") return { key: "ev.failed" };
   if ((m = message.match(/^Opened (.+): (\d+) file\(s\)$/))) return { key: "ev.opened", vars: { name: m[1], n: m[2] } };
   if ((m = message.match(/^Pending: (.*)$/))) return { key: "ev.pending", vars: { docs: m[1] } };
+  if ((m = message.match(/^Jev check: (at-fault|client) insurer "(.*)": Jev says (.*), our rules say (.*)$/))) return { key: m[1] === "client" ? "ev.jevCli" : "ev.jevAt", vars: { text: m[2], jev: m[3], mine: m[4] } };
+  if ((m = message.match(/^Jev check: Liberty branch for "(.*)": Jev says (.*), our rules say (.*)$/))) return { key: "ev.jevBranch", vars: { place: m[1], jev: m[2], mine: m[3] } };
   return { key: "", raw: message };
 }
 
@@ -69,6 +71,7 @@ export const ZIP_WHY = {
   pdf_big: "a PDF in the zip is larger than 25 MB",
   mixed: "the zip holds car folders and other files beside them",
   car_no_pdf: "a car folder in the zip has no readable PDF",
+  name_long: "a file name in the zip is too long",
   too_many: "too many files in the zip",
   too_many_files: "the zip holds too many files to split at once",
   entry_big: "a file in the zip is too large",

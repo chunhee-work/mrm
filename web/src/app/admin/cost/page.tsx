@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
 import { orgSpend } from "@/lib/admin/anthropic-admin";
-import { costPage } from "@/lib/admin/queries";
-import { liveCost } from "@/lib/admin/live";
+import { costPage, jevSpend } from "@/lib/admin/queries";
+import { liveCost, ownSpendSince } from "@/lib/admin/live";
 import { ago, day as dayLabel } from "@/lib/admin/format";
 import { creditLeft } from "@/lib/admin/credit";
 import { AutoRefresh } from "./auto-refresh";
@@ -13,7 +13,7 @@ import { Bars, Card, CaseId, Empty, Shell, Stat, Status, Table, Tag, int, readSp
 export default async function Cost({ searchParams }: { searchParams: Sp }) {
   await requireAdmin();
   const { scope } = await readSp(searchParams);
-  const [c, org, live] = await Promise.all([costPage(scope), orgSpend(), liveCost(scope)]);
+  const [c, org, live, jev] = await Promise.all([costPage(scope), orgSpend(), liveCost(scope), jevSpend(scope)]);
   const orgDays = org.state === "ok" ? org.days : org.state === "unavailable" ? org.days ?? [] : [];
   const orgTotal = orgDays.reduce((a, d) => a + d.usd, 0);
   const total = c.byDay.reduce((a, d) => a + d.usd, 0);
@@ -28,6 +28,9 @@ export default async function Cost({ searchParams }: { searchParams: Sp }) {
   const compareTo = appKey ? appKey.usd : orgTotal;
   const diff = compareTo - total;
   const credit = org.state === "not_connected" ? null : creditLeft(orgDays);
+  // Anthropic lags by hours: add what this app has spent since its numbers stopped being complete, so the balance moves at once (an estimate).
+  const pending = credit && refreshedAt ? await ownSpendSince(new Date(refreshedAt)).catch(() => 0) : 0;
+  const creditNow = credit ? Math.max(0, credit.left - pending) : 0;
   return (
     <Shell current="cost" scope={scope} title={<>Cost <span className="ml-1 font-sans text-[14px] font-normal text-mute">Last 30 days</span> <span className="ml-2 align-middle font-sans"><AutoRefresh /></span></>}>
       {pricesStale() ? (
@@ -42,9 +45,14 @@ export default async function Cost({ searchParams }: { searchParams: Sp }) {
         <Stat icon={<IconChip />} label="Last AI call" value={live.lastCallAt ? ago(live.lastCallAt) : "–"} sub={live.lastCallAt ? when(live.lastCallAt) : "No calls yet"} />
         <Stat icon={<IconCost />} label={appKey ? "Anthropic today (this app's key)" : "Anthropic today"} value={org.state === "not_connected" ? "–" : usd(appKey ? appKey.today : orgDays.find((d) => d.date === today)?.usd ?? 0)} sub={refreshedAt ? `complete until ${when(refreshedAt)}` : "delayed by Anthropic"} />
       </div>
+      {jev.calls > 0 ? (
+        <div className="mb-3">
+          <Stat icon={<IconChip />} label="TypeSafe (Jev), 30 days" value={jev.unpriced === jev.calls ? `${int(jev.calls)} calls` : usd(jev.usd)} sub={`${int(jev.calls)} calls · ${int(jev.today)} today${jev.failed ? ` · ${int(jev.failed)} failed` : ""}${jev.unpriced ? ` · ${int(jev.unpriced)} without a price` : ""}${jev.lastAt ? ` · last ${when(jev.lastAt)}` : ""}`} />
+        </div>
+      ) : null}
       {credit ? (
         <div className="mb-3">
-          <Stat icon={<IconCost />} label="Plan credit left this month" value={usd(credit.left)} sub={`${usd(credit.used)} of ${usd(credit.total)} used since ${dayLabel(credit.since)} · renews ${dayLabel(credit.renews)}`} alert={credit.left < credit.total * 0.1 ? "Less than 10% of the credit is left" : false} />
+          <Stat icon={<IconCost />} label="Plan credit left this month" value={`${pending > 0 ? "≈ " : ""}${usd(creditNow)}`} sub={`${usd(credit.used + pending)} of ${usd(credit.total)} used since ${dayLabel(credit.since)} · renews ${dayLabel(credit.renews)}${pending > 0 ? ` · incl. ${usd(pending)} not yet on the Anthropic bill` : ""}`} alert={creditNow < credit.total * 0.1 ? "Less than 10% of the credit is left" : false} />
         </div>
       ) : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

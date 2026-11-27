@@ -4,9 +4,10 @@ import { db, schema } from "@/db";
 import { readCaseDocs, BadFile } from "@/lib/read-docs";
 import { expandBundles } from "@/lib/expand-bundles";
 import { importCasePhotos } from "@/lib/photos/import-files";
-import { userFixable, zipRefunded } from "@/lib/case-text";
+import { userFixable, zipRefunded, eventTr } from "@/lib/case-text";
 import { refundCase } from "@/lib/payments/case-credit";
 import { notDeleted } from "@/lib/case-delete";
+import { jevInsurerWarnings } from "@/lib/jev-checks";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
@@ -81,6 +82,17 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
     await photos; // the result is shown first; the case page and the desk pick the photos up when they are in
     await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
+    // Jev second vote on the insurers and the Liberty branch (playbook 02). It runs last, after the result is saved and shown, so the result never
+    // waits for it (a "Read again" button reply can wait at most a few seconds). It only adds a line to the case's activity (the same line is never added twice on a re-read); the case never changes status
+    // because of it, and a failing or slow Jev adds nothing.
+    if (done.length) {
+      try {
+        // the same finding is one (kind, source text) pair, however the line is worded
+        const keyOf = (m: string) => { const t = eventTr(m); return `${t.key}|${t.vars?.text ?? t.vars?.place ?? m}`; };
+        const seen = new Set((await db.select({ m: schema.caseEvents.message }).from(schema.caseEvents).where(and(eq(schema.caseEvents.caseId, id), eq(schema.caseEvents.step, "jev_check")))).map((r) => keyOf(r.m)));
+        for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) if (!seen.has(keyOf(message))) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message });
+      } catch { /* a Jev problem never fails the read */ }
+    }
     return { ok: done.length > 0, missing: data.missing, claimed: true };
   } catch (e) {
     await photos; // never leave the import running behind a failed read
