@@ -581,7 +581,8 @@ try {
     await row.click();
     await page.getByTestId("home-more").waitFor();
     assert.equal(await row.getAttribute("aria-expanded"), "true");
-    assert.match(await page.getByTestId("home-open-case").getAttribute("href"), /^\/cases\/[^/]+$/, "the details lead into the case page");
+    // everything stays on the first page (owner 2026-11-27): no way into the case page from an open line; its activity and files are here
+    assert.equal(await page.getByTestId("home-more").locator('a[href^="/cases/"]').count(), 0, "no link to the case page");
     assert.equal(new URL(page.url()).pathname, "/dashboard", "opening the details stays on the first page");
     await row.click();
     await page.getByTestId("home-more").waitFor({ state: "detached" });
@@ -593,9 +594,12 @@ try {
     await page.getByTestId("home-search").locator("input").fill("");
     assert.equal(await page.getByTestId("home-list").locator(":scope > li").count(), rows0);
     await page.getByTestId("home-search").locator("input").fill("e2ed");
-    await page.getByTestId("home-search").locator("button").click();
-    await page.waitForURL(/q=e2ed/);
-    assert.equal(await page.getByTestId("case-table").locator("li").count(), 1, "the search finds the one case");
+    // no Go button: Enter keeps the user here, with the list already narrowed (owner 2026-11-27)
+    assert.equal(await page.getByTestId("home-search").locator("button").count(), 0, "no Go button");
+    await page.getByTestId("home-search").locator("input").press("Enter");
+    await page.waitForTimeout(300);
+    assert.equal(new URL(page.url()).search, "", "Enter stays on the first page");
+    assert.equal(await page.getByTestId("home-list").locator(":scope > li").count(), 1, "the search finds the one case");
   });
 
   // ───────── phone width ─────────

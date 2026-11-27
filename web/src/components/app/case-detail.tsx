@@ -180,12 +180,16 @@ export default function NeedCard({ row, orgId, sent, onSent, onPhotos }: { row: 
   } else {
     // the photo names are waiting: the button opens this case on the naming desk
     need = <p className={say}>{t("dash.d.waiting")}</p>;
-    act = (
-      <Link href={`/cases/${row.id}/photos`} aria-labelledby={`${actId} ${titleId}`} className={button}>
+    const label = (
+      <>
         {row.photosDone && !row.deskConfirm ? <Tick className="h-4 w-4" /> : <Photo />}
         <span id={actId}>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : row.photosDone ? t("dash.d.photosDone") : (row.deskTotal ?? 0) > 0 ? t("dash.d.photosPress") : t("dash.d.photos")}</span>
-      </Link>
+      </>
     );
+    // on the first page the desk opens in the line itself (onPhotos); elsewhere the button goes to the desk page
+    act = onPhotos
+      ? <button type="button" aria-labelledby={`${actId} ${titleId}`} onClick={onPhotos} className={button}>{label}</button>
+      : <Link href={`/cases/${row.id}/photos`} aria-labelledby={`${actId} ${titleId}`} className={button}>{label}</Link>;
   }
 
   // no second box and no second heading: the banner sits right under the case's title
