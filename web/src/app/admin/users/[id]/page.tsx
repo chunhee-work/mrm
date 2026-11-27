@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/auth";
 import { userDetail } from "@/lib/admin/queries";
@@ -42,6 +43,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             { label: "Cost", cell: (c) => usd(c.cost_usd === null ? null : Number(c.cost_usd)), right: true },
           ]} />
         </Card>
+        <Link href={`/admin/wipe?email=${encodeURIComponent(String(u.email))}`} className="justify-self-start text-[13px] font-medium text-mute hover:text-amber">White out this user…</Link>
       </div>
     </Shell>
   );
