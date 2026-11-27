@@ -434,17 +434,41 @@ try {
       window.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
     }, [type, kind]);
     await drag("dragenter", "text");
+    await page.waitForTimeout(150);
     assert.equal(await page.getByTestId("home-overlay").count(), 0, "a text drag is not a file drop");
     await drag("dragenter");
     await page.getByTestId("home-overlay").waitFor();
-    await page.getByTestId("home-overlay").waitFor({ state: "detached", timeout: 3000 }); // no dragover, no dragleave: it clears by itself
-    await drag("dragenter");
+    for (let i = 0; i < 8; i++) { await page.waitForTimeout(250); await drag("dragover"); } // a file held still for 2 s
+    assert.equal(await page.getByTestId("home-overlay").count(), 1, "the overlay stays while dragover keeps coming");
+    await page.getByTestId("home-overlay").waitFor({ state: "detached", timeout: 2000 }); // then no dragover, no dragleave: it clears by itself
+    await drag("dragenter"); await drag("dragenter"); await drag("dragleave");
+    await page.waitForTimeout(150);
+    assert.equal(await page.getByTestId("home-overlay").count(), 1, "leaving a child element keeps it");
     await drag("dragleave");
-    assert.equal(await page.getByTestId("home-overlay").count(), 0, "leaving clears the overlay");
+    await page.getByTestId("home-overlay").waitFor({ state: "detached", timeout: 500 });
+    // a drop sends at once, with no press of Upload (owner 2026-11-27): the first thing it does is ask for the balance.
+    // Answer "no credit" here so nothing goes up and the page stays, showing the file and the refusal.
+    let creditAsked = 0;
+    await page.route("**/api/cases/credit*", (r) => { creditAsked++; return r.fulfill({ status: 402, body: "{}" }); });
     await drag("dragenter");
     await drag("drop");
-    await page.waitForURL(/\/cases\/new$/);
+    await page.waitForURL(/\/cases\/new$/); // the ?dropped=1 marker is taken off once read
     await page.getByText("dropped.pdf").waitFor();
+    assert.equal(await page.getByText("dropped.pdf").count(), 1, "listed once");
+    await page.locator('[role="alert"]').filter({ hasText: /no credits|点数不够|tiada kredit/i }).first().waitFor();
+    assert.equal(creditAsked, 1, "the upload started by itself, once");
+    await page.unroute("**/api/cases/credit*");
+    // the new-case drop zone runs on the same hook: it lights up, and a drop there adds the file
+    await drag("dragenter");
+    await page.locator('[data-over="true"]').first().waitFor();
+    await page.evaluate(() => {
+      const dt = new DataTransfer(); dt.items.add(new File(["%PDF-1.4"], "second.pdf", { type: "application/pdf" }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    await page.getByText("second.pdf").waitFor();
+    // a plain New case never gets dropped files; a ?dropped=1 visit with nothing held says so
+    await page.goto(`${BASE}/cases/new?dropped=1`);
+    await page.getByText(/did not arrive|没有带过来|tidak sampai/).waitFor();
     await page.goto(`${BASE}/dashboard`);
     const docs = page.locator('[data-bucket="docs"] a');
     assert.match(await docs.innerText(), /^\s*[1-9]/, "the count of cases waiting for documents");
@@ -565,6 +589,28 @@ try {
     await rename(2, "Door Mirror RH");
     await page.waitForTimeout(1500);
     assert.equal(await page.locator("article[data-unnamed]").count(), 1);
+  });
+  await step("case page after reading (owner 2026-11-27): says what happens now and next; on the user's turn the button is in that row, said once", async () => {
+    const W = await seed("E2EW5555", [], 30, "phase_a");
+    try {
+      await page.goto(`${BASE}/cases/${W}`);
+      const row = page.getByTestId("case-next");
+      await row.waitFor();
+      assert.match(await row.innerText(), /Merimen/);
+      assert.match(await row.innerText(), /Nothing for you to do|不需要你做什么|Tiada apa/);
+      assert.equal(await page.getByText(/^(Creating case|创建案件中|Mencipta kes)$/).count(), 0, "no second status at the top right");
+    } finally { await db.query(`DELETE FROM cases WHERE id = $1`, [W]); }
+    // a case still naming with a photo to check: the row is the user's turn and holds the one desk button
+    const Y = await seed("E2EY6666", [["Front Bumper", 0.4], ["Bonnet", 0.97]], 30, "naming");
+    try {
+      await page.goto(`${BASE}/cases/${Y}`);
+      const row = page.getByTestId("case-next");
+      await row.waitFor();
+      assert.match(await row.innerText(), /Your turn|轮到你|Giliran anda/);
+      assert.equal(await row.getByTestId("desk-link").count(), 1, "the button sits in the row");
+      assert.equal(await page.getByTestId("desk-link").count(), 1, "and nowhere else");
+      assert.ok(await page.getByTestId("case-log").isVisible(), "the activity list is open without a click");
+    } finally { await db.query(`DELETE FROM cases WHERE id = $1`, [Y]); }
   });
   await step("signed out while naming (session ended in another tab): the desk says so once and offers to log in again, back to this case", async () => {
     await page.goto(`${BASE}/cases/${B}/photos`);

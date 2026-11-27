@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Chevron, Plus, Search, UploadArt } from "./marks";
-import { holdDropped } from "@/lib/dropped-files";
+import { DROPPED_PARAM, holdDropped } from "@/lib/dropped-files";
 import { useFileDrag } from "./drop-zone";
 import { OPEN_BUCKETS, type Bucket } from "./status";
 
@@ -32,7 +32,9 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
   }, [live, router]);
 
   // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
-  const over = useFileDrag(true, (files) => { holdDropped(files); router.push("/cases/new"); });
+  // after the drop the overlay stays until the new-case page replaces this one, so the wait is not a blank moment
+  const [going, setGoing] = useState(false);
+  const over = useFileDrag(!going, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
 
   // "On hold" is a row only when a case is on hold; the other three are always there, so the box keeps its shape
   const rows = OPEN_BUCKETS.filter((b) => b !== "hold" || counts.hold > 0).map((b) => ({ b, n: counts[b], hot: b !== "active" && counts[b] > 0 }));
@@ -97,7 +99,7 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
         </div>
         <div className="mt-9">{table}</div>
       </div>
-      {over && (
+      {(over || going) && (
         <div aria-hidden="true" data-testid="home-overlay" className="pointer-events-none fixed inset-0 z-50 bg-panel/90 p-4 backdrop-blur-[2px]">
           <div className="app-dash flex h-full flex-col items-center justify-center gap-4 bg-icetint text-center" data-over="true">
             <span className="text-ice"><UploadArt size={72} lift /></span>

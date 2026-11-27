@@ -11,7 +11,7 @@ import { runPool } from "@/lib/pool";
 import { headOf, looksLikePhoto, vehicleFolders, zipNames } from "@/lib/peek-files";
 import Link from "next/link";
 import { zipWhyKey } from "@/lib/case-text";
-import { takeDropped } from "@/lib/dropped-files";
+import { DROPPED_PARAM, takeDropped } from "@/lib/dropped-files";
 
 const keyOf = (f: File) => `${f.name}:${f.size}`;
 function sizeOf(n: number) {
@@ -47,8 +47,17 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   // keep the file being uploaded in view inside the ledger
 
 
-  // files dropped on the first page arrive here and are checked like any chosen file
-  useEffect(() => { const f = takeDropped(); if (f.length) void addFiles(f); // eslint-disable-next-line react-hooks/exhaustive-deps
+  // files dropped on the first page arrive here, are checked like any chosen file, and go up at once (owner 2026-11-27:
+  // the drop was the decision, no second press of Upload). Only the visit the first page sent here (?dropped=1) takes them.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(DROPPED_PARAM)) return;
+    url.searchParams.delete(DROPPED_PARAM);
+    window.history.replaceState(window.history.state, "", url.pathname + url.search);
+    const f = takeDropped();
+    if (!f.length) { setMsg(t("new.dropLost")); return; }
+    void addFiles(f).then((ok) => { if (ok.length) void send(ok); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // B11: leaving or reloading while files go up throws the upload away, so ask first (links inside the app too)
@@ -67,7 +76,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     return () => { window.removeEventListener("beforeunload", stop); document.removeEventListener("click", click, true); };
   }, [busy, t]);
 
-  async function addFiles(list: File[]) {
+  // returns the files that passed, so a drop from the first page can send exactly those
+  async function addFiles(list: File[]): Promise<File[]> {
     const typed = list.filter(accepted);
     const why: string[] = [];
     // R2-B10: what is inside counts, not the name: a text file called .jpg is left out, and a zip is looked into
@@ -89,7 +99,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     });
     setNotes(why.slice(0, 5));
     setSkipped(list.filter((f) => !accepted(f)).map((f) => f.name));
-    if (!ok.length) return;
+    if (!ok.length) return [];
     setMsg(""); setFailed(null); setNoCredit(false);
     setFiles((cur) => {
       const seen = new Set(cur.map(keyOf));
@@ -97,14 +107,20 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       for (const f of ok) if (!seen.has(keyOf(f))) { seen.add(keyOf(f)); next.push(f); }
       return next;
     });
+    return ok.filter((f, i) => ok.findIndex((g) => keyOf(g) === keyOf(f)) === i);
   }
   function remove(f: File) {
     setFiles((cur) => cur.filter((x) => keyOf(x) !== keyOf(f)));
     if (failed === keyOf(f)) { setFailed(null); setMsg(""); }
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    void send(files);
+  }
+
+  // the list is passed in (not read from state) so a drop can send right after addFiles, before React re-renders
+  async function send(files: File[]) {
     if (busy) return; // a second click while uploading does nothing
     if (!files.some((f) => kindOf(f) === "pdf" || (kindOf(f) === "bundle_zip" && zipPdf.current.get(keyOf(f)) !== false))) {
       const photoZip = files.find((f) => kindOf(f) === "bundle_zip");
