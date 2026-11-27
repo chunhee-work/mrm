@@ -27,7 +27,7 @@ const en: GuideCopy = {
     tag: "Once",
     name: "Your details & workshop",
     lines: [
-      "Fill this in once, on the front page.",
+      "Fill this in once.", "Find it later in the side bar.",
       "We remember it for your account.",
       "No case can start until it is complete.",
       "You can edit it any time.",
@@ -60,10 +60,10 @@ const zh: GuideCopy = {
   stepsLabel: "四个步骤",
   setup: {
     tag: "只填一次",
-    name: "你的资料与工坊",
-    lines: ["在首页填一次。", "我们会记住，以后不用再填。", "填完整之前，不能开始案件。", "随时可以修改。"],
-    fields: ["Merimen 登录", "经理", "理算员", "工坊 1–3"],
-    locked: "在每个案件里选一个工坊。第 3 步（Merimen）开始后就不能改了。",
+    name: "你的资料和车厂",
+    lines: ["只填一次。", "之后在侧边栏里可以找到。", "我们会记住，以后不用再填。", "填完整之前，不能开始案件。", "随时可以修改。"],
+    fields: ["Merimen 登录", "经理", "理算员", "车厂 1–3"],
+    locked: "在每个案件里选一个车厂。第 3 步（Merimen）开始后就不能改了。",
   },
   steps: [
     { tag: "第 1 步", name: "文件", lines: ["按「新建案件」选文件，或把文件拖到首页。", "选好或拖入后马上上传。", "一个 zip，或 PDF 加照片。", "文件由我们帮你读。"] },
@@ -91,7 +91,7 @@ const ms: GuideCopy = {
   setup: {
     tag: "Sekali sahaja",
     name: "Butiran & bengkel anda",
-    lines: ["Isi sekali sahaja, di halaman utama.", "Kami simpan untuk akaun anda.", "Kes tidak boleh dimulakan selagi belum lengkap.", "Anda boleh ubah bila-bila masa."],
+    lines: ["Isi sekali sahaja.", "Anda boleh cari di bar sisi kemudian.", "Kami simpan untuk akaun anda.", "Kes tidak boleh dimulakan selagi belum lengkap.", "Anda boleh ubah bila-bila masa."],
     fields: ["Log masuk Merimen", "Pengurus", "Penyelaras", "Bengkel 1–3"],
     locked: "Pilih satu bengkel pada setiap kes. Ia tidak boleh ditukar selepas Langkah 3 (Merimen) bermula.",
   },

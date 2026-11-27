@@ -112,17 +112,17 @@ export default function Guide({ lang }: { lang: Lang }) {
   const names = c.steps.map((s) => s.name);
   const ids = ["docs", "photos", "merimen", "done"] as const;
   return (
-    <div className="wrap py-8 lg:py-12" data-testid="how-it-works">
-      <header className="mb-8 max-w-[640px]">
+    <div className="wrap py-8 lg:py-12" data-testid="how-it-works"><div className="mx-auto w-full max-w-[760px]">
+      <header className="mb-8 sm:text-center">
         <h1 className="display-2 text-[30px] text-fg lg:text-[36px]">{c.title}</h1>
         <p className="mt-2 text-[16px] text-mute">{c.lead}</p>
       </header>
 
-      <div className={`${card} mb-6 max-w-[760px] px-4 py-5 sm:px-8`} role="img" aria-label={c.stepsLabel}>
+      <div className={`${card} mb-6 px-4 py-5 sm:px-8`} role="img" aria-label={c.stepsLabel}>
         <Bar dots={["go", "go", "wait", "later"]} labels={names} />
       </div>
 
-      <div className="grid max-w-[760px] gap-5">
+      <div className="grid gap-5">
         <Block tag={c.setup.tag} name={c.setup.name} lines={[...c.setup.lines, c.setup.locked]} art={<Art id="setup" c={c} />} id="setup" />
         {c.steps.map((s, i) => <Block key={s.name} tag={s.tag} name={s.name} lines={s.lines} art={<Art id={ids[i]} c={c} />} id={ids[i]} />)}
 
@@ -156,9 +156,9 @@ export default function Guide({ lang }: { lang: Lang }) {
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 sm:text-center">
         <Link href="/dashboard" className="btn-primary inline-flex">{c.cta.cases}</Link>
       </div>
-    </div>
+    </div></div>
   );
 }
