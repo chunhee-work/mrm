@@ -27,7 +27,20 @@ const blobs = new Map<string, Buffer>();
 let failPutAt = 0; // when set, the put with this number (counted from when it was set) throws
 let puts = 0;
 let putDelay = 0, inflight = 0, maxInflight = 0; // a slow blob store: puts that overlap are counted
+// S-U4: what the store says one uploaded file holds, asked by the case routes. A file put into `blobs` holds what it holds;
+// for the made-up URLs of the case bodies below it is `stored` (null: no such file, "down": the store cannot be asked), else 10 bytes.
+class BlobNotFoundError extends Error {}
+const stored = new Map<string, number | null | "down">();
+const asked: string[] = [];
 const blobStub = {
+  BlobNotFoundError,
+  head: async (url: string) => {
+    asked.push(url);
+    const n = blobs.get(url)?.length ?? (stored.has(url) ? stored.get(url) : 10);
+    if (n === "down") throw new Error("store down");
+    if (n == null) throw new BlobNotFoundError();
+    return { size: n };
+  },
   get: async (url: string) => {
     const b = blobs.get(url);
     return b ? { statusCode: 200, stream: new Response(b as unknown as BodyInit).body, blob: { size: b.length, contentType: "application/zip" } } : null;
@@ -86,7 +99,7 @@ async function main() {
   process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
   const { POST } = await import("../src/app/api/cases/split/route");
   const call = async (body: unknown) => { const r = await POST(new Request("http://x/api/cases/split", { method: "POST", body: JSON.stringify(body) })); return { status: r.status, j: (await r.json()) as any }; };
-  const reset = async () => { await pg.exec("DELETE FROM cases; DELETE FROM credits_ledger; DELETE FROM audit_log;"); blobs.clear(); failPutAt = 0; puts = 0; slot = null; afters.length = 0; };
+  const reset = async () => { await pg.exec("DELETE FROM cases; DELETE FROM credits_ledger; DELETE FROM audit_log;"); blobs.clear(); stored.clear(); asked.length = 0; failPutAt = 0; puts = 0; slot = null; afters.length = 0; };
   const children = async () => Number(((await db.execute(sql`SELECT (SELECT count(*) FROM case_files) + (SELECT count(*) FROM jobs) + (SELECT count(*) FROM case_events) + (SELECT count(*) FROM merimen_case_workshop) AS n`)) as any).rows[0].n);
   const fund = (n: number) => db.insert(schema.creditsLedger).values({ orgId: ORG, delta: 1000 * n, reason: `purchase:${crypto.randomUUID()}` });
   // the credit calls of the routes imported from here on go through a wrapper that can fail on demand
@@ -346,6 +359,54 @@ async function main() {
       const r = await addFiles("w0", [{ kind: "pdf", url: `https://x.example/${ORG}/w0-add-1/a.pdf`, name: "a.pdf", size: 10 }]);
       assert.equal(r.status, 400);
       assert.equal((await cases())[0].status, "pending_doc"); assert.equal(await children(), 0);
+      assert.deepEqual(asked, []); // S-U4: the store is never asked about a URL that is not ours
+    }],
+    ["S-U4 new case: the sizes kept are the ones the file store holds; a file that claims to be small and is not, or is not there, makes no case and takes no credit", async () => {
+      await reset(); await fund(2);
+      const MB = 1024 * 1024;
+      const [pdfUrl, photoUrl] = newBody().files.map((f) => f.url);
+      // the request says 10 and 5 bytes; the store knows better, and that is what the case keeps
+      stored.set(pdfUrl, 4 * MB); stored.set(photoUrl, 30 * MB);
+      const made = await create(newBody());
+      assert.equal(made.status, 200);
+      assert.deepEqual((await db.select().from(schema.caseFiles)).map((f) => [f.originalName, f.size]), [["report..final.pdf", 4 * MB], ["IMG..1.jpg", 30 * MB]]);
+      assert.deepEqual(asked.sort(), [pdfUrl, photoUrl].sort()); // one question per file
+      assert.equal(await bal(), 1000);
+      // a PDF over the limit that says 10 bytes: the answer a PDF too big gets
+      stored.set(pdfUrl, 23 * MB + 1);
+      const lie = await create(newBody());
+      assert.deepEqual([lie.status, lie.j.error], [400, "pdf_big"]);
+      // zips that say 10 bytes each and hold more than a case may in all
+      const zips = Array.from({ length: 5 }, (_, i) => ({ kind: "bundle_zip", url: store(`b2/z${i}.zip`), name: `z${i}.zip`, size: 10 }));
+      for (const z of zips) stored.set(z.url, 450 * MB);
+      const heavy = await create({ files: zips });
+      assert.deepEqual([heavy.status, heavy.j.error], [400, "total"]);
+      // a file that is not in the store, or is empty there
+      stored.set(pdfUrl, null);
+      assert.deepEqual([(await create(newBody())).status, (await create(newBody())).j.error], [400, "invalid"]);
+      stored.set(pdfUrl, 0);
+      assert.equal((await create(newBody())).status, 400);
+      // the store cannot be asked: no case is made on the request's word
+      stored.set(pdfUrl, "down");
+      const quiet = console.error; console.error = () => {};
+      try { const down = await create(newBody()); assert.deepEqual([down.status, down.j.error], [502, "failed"]); } finally { console.error = quiet; }
+      assert.equal((await cases()).length, 1); assert.equal(await bal(), 1000); assert.equal(afters.length, 1); // only the first one
+    }],
+    ["S-U4 added files: the same check before the case is queued again; a refused file leaves the case waiting as it was", async () => {
+      await reset(); await fund(1);
+      const MB = 1024 * 1024;
+      await db.insert(schema.cases).values({ id: "w1", orgId: ORG, plate: "", status: "pending_doc", pendingDoc: "police report" });
+      const f = addFile("w1", "police.pdf");
+      stored.set(f.url, 23 * MB + 1);
+      const lie = await addFiles("w1", [f]);
+      assert.deepEqual([lie.status, (await lie.json()).error], [400, "pdf_big"]);
+      stored.set(f.url, null);
+      assert.equal((await addFiles("w1", [f])).status, 400);
+      assert.deepEqual([(await cases())[0].status, (await cases())[0].pendingDoc, await children()], ["pending_doc", "police report", 0]);
+      stored.set(f.url, 2 * MB);
+      assert.equal((await addFiles("w1", [f])).status, 200);
+      assert.deepEqual((await db.select().from(schema.caseFiles)).map((x) => [x.originalName, x.size]), [["police.pdf", 2 * MB]]);
+      assert.equal((await cases())[0].status, "uploaded");
     }],
     ["U12 Replace files: in one step the case is queued, the file that could not be opened leaves and the new one (same name) arrives", async () => {
       await reset();
