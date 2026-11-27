@@ -86,3 +86,16 @@
 - Zip bundles are unzipped on the server (limits: 300 entries, 250 MB total, ratio 200); photos in them go to the photo desk.
 - Case events keep their English text in the database (the retry counter reads it) and are translated at render time.
 - When `WORKER_UI` is on, the privacy and FAQ copy says the Merimen password is stored encrypted; when off, the old "we never store it" copy stays.
+
+## Security hardening (2026-11-27)
+- No approval step for new sign-ups (owner 2026-11-27): protections must not block a sign-up.
+- Cross-site writes: middleware answers 403 to a POST/PUT/PATCH/DELETE on `/api/*` that carries one of our cookies and comes from another site (`Origin` / `Sec-Fetch-Site`). `/api/auth/*` is left to the auth server's own check; requests without our cookie (worker, cron, payment callbacks) are untouched.
+- Pages carry a Content-Security-Policy (own scripts, styles, fonts and pictures only; uploads to Vercel's file store; `'wasm-unsafe-eval'` and `blob:` for the 3D landing models). A new outside script, frame or form target must be added in `next.config.mjs`.
+- Limits are counted in the database (rows `rl:…` and `upload-tokens:…` of `verification`, no migration), so they hold across server instances; a database that does not answer lets requests through.
+  - Log-in: per client address 3 tries per 10 s; wrong passwords per account and client address 10 per 10 min; per account from all addresses 200 an hour. A password reset clears them.
+  - Emails: 3 reset and 3 confirm emails an hour per address; sign-up 10 per 10 min per client address; "you already have an account" 1 per 10 min.
+  - Admin key: 5 wrong keys per client address per 15 min. No cap for everyone together (it let anyone close the form for the owner).
+  - Reading documents: 12 reads an hour per case, 150 per organisation; "Read again" over it answers 429.
+  - Upload tokens: 6,000 case uploads and 12,000 desk photos an hour per organisation; a desk photo token lives 3 minutes.
+- Every size limit is checked against the size the file store reports, not the size the browser sent.
+- Reset links are stored as a hash; using one ends the others. `/api/auth/verify-password` is switched off.
