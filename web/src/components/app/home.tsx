@@ -36,8 +36,9 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
   const [going, setGoing] = useState(false);
   // files held by a drop whose trip to the new-case page was cut short are let go when this page shows again
   useEffect(() => { takeDropped(); }, []);
-  // if the trip never ends (navigation stalled or replaced), the overlay goes after 15 s and drops work again
-  useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), 15_000); return () => window.clearTimeout(id); }, [going]);
+  // if the trip never ends (navigation stalled or replaced), after 15 s the held files are let go (a late arrival then
+  // says "did not arrive" instead of sending unseen), the overlay goes and drops work again
+  useEffect(() => { if (!going) return; const id = window.setTimeout(() => { takeDropped(); setGoing(false); }, 15_000); return () => window.clearTimeout(id); }, [going]);
   const over = useFileDrag(!going, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
 
   // "On hold" is a row only when a case is on hold; the other three are always there, so the box keeps its shape

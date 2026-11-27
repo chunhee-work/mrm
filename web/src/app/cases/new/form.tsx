@@ -43,6 +43,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const zipPdf = useRef<Map<string, boolean | null>>(new Map()); // R2-B10: does each chosen zip hold a PDF (null: cannot tell)
   const zipCars = useRef<Map<string, string[] | null>>(new Map()); // vehicle folders of each chosen zip (null: its file list could not be read)
   const leaving = useRef(false); // R2-B01: set once the case exists, so our own redirect never trips the leave guard
+  const carsOf = (f: File) => (kindOf(f) === "bundle_zip" ? zipCars.current.get(keyOf(f))?.length ?? 0 : 0); // vehicles in a zip, 0 if none or unknown
   // false once the page is gone (Back during a send): the files already up stay, but no case is made and no credit spent
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -63,10 +64,11 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     // empty, too big), or a zip holds several cars and will make several cases. Until then the drop zone is closed (busy),
     // so nothing dropped meanwhile is listed but left out of the send.
     setBusy(true);
-    void addFiles(f).then((ok) => {
-      const split = ok.some((x) => kindOf(x) === "bundle_zip" && (zipCars.current.get(keyOf(x))?.length ?? 0) > 1);
+    void addFiles(f).then(({ ok, leftOut }) => {
       setBusy(false);
-      if (ok.length && ok.length === f.length && !split) void send(ok);
+      // a zip whose list could not be read may still hold several cars, so it waits too
+      const unsure = ok.some((x) => carsOf(x) > 1 || (kindOf(x) === "bundle_zip" && zipCars.current.get(keyOf(x)) === null));
+      if (ok.length && !leftOut && !unsure) void send(ok);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -87,8 +89,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     return () => { window.removeEventListener("beforeunload", stop); document.removeEventListener("click", click, true); };
   }, [busy, t]);
 
-  // returns the files that passed, so a drop from the first page can send exactly those
-  async function addFiles(list: File[]): Promise<File[]> {
+  // returns the files that passed (so a drop can send exactly those) and whether a "left out" note is now shown
+  async function addFiles(list: File[]): Promise<{ ok: File[]; leftOut: boolean }> {
     const typed = list.filter(accepted);
     const why: string[] = [];
     // R2-B10: what is inside counts, not the name: a text file called .jpg is left out, and a zip is looked into
@@ -109,8 +111,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       return true;
     });
     setNotes(why.slice(0, 5));
-    setSkipped(list.filter((f) => !accepted(f)).map((f) => f.name));
-    if (!ok.length) return [];
+    const skip = list.filter((f) => !accepted(f)).map((f) => f.name);
+    setSkipped(skip);
+    const leftOut = why.length > 0 || skip.length > 0;
+    if (!ok.length) return { ok: [], leftOut };
     setMsg(""); setFailed(null); setNoCredit(false);
     setFiles((cur) => {
       const seen = new Set(cur.map(keyOf));
@@ -118,7 +122,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       for (const f of ok) if (!seen.has(keyOf(f))) { seen.add(keyOf(f)); next.push(f); }
       return next;
     });
-    return ok.filter((f, i) => ok.findIndex((g) => keyOf(g) === keyOf(f)) === i);
+    return { ok: ok.filter((f, i) => ok.findIndex((g) => keyOf(g) === keyOf(f)) === i), leftOut };
   }
   function remove(f: File) {
     setFiles((cur) => cur.filter((x) => keyOf(x) !== keyOf(f)));
@@ -137,7 +141,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       const photoZip = files.find((f) => kindOf(f) === "bundle_zip");
       setMsg(photoZip ? t("new.zipNoPdf", { name: photoZip.name }) : t("new.noDocs")); return;
     }
-    const multi = files.find((f) => kindOf(f) === "bundle_zip" && (zipCars.current.get(keyOf(f))?.length ?? 0) > 1);
+    const multi = files.find((f) => carsOf(f) > 1);
     if (multi && files.length > 1) { setMsg(t("new.zipMultiAlone", { name: multi.name })); return; }
     if (multi && zipCars.current.get(keyOf(multi))!.length > MAX_VEHICLES) { setMsg(t("case.err.zip_too_many_cars")); return; }
     // a zip alone whose file list the browser could not read (zip64, a damaged list) may still hold several cars: the server
@@ -179,6 +183,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
           if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : t("new.splitFail")); setStep(-1); setBusy(false); return; }
+          if (!alive.current) return; // left meanwhile: the cases exist, but the user is not pulled back
           leaving.current = true;
           window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
           return;
@@ -188,6 +193,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
       const { id } = (await r.json()) as { id: string };
+      if (!alive.current) return; // left meanwhile: the case exists, but the user is not pulled back
       leaving.current = true;
       window.location.href = `/cases/${id}`; // Claude starts reading the files by itself
     } catch (e) {
@@ -222,7 +228,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
               inputId="case-files"
               compact={n > 0}
               disabled={busy}
-              onFiles={addFiles}
+              onFiles={(l) => void addFiles(l)}
               title={t("new.drop")}
               hint={t("new.dropHint")}
               browse={t("new.browse")}

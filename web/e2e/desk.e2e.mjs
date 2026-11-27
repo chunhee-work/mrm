@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
+const { zipSync, strToU8 } = createRequire(import.meta.url)("fflate");
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -486,6 +487,21 @@ try {
     await page.getByText(/notes\.txt/).first().waitFor();
     await page.waitForTimeout(800);
     assert.equal(sent, 0, "nothing sent while a file was left out");
+    // a drop of one zip holding two cars does not send either: the "makes 2 cases" line waits for a press
+    const twoCars = Buffer.from(zipSync({ "DCD4004/claim.pdf": strToU8("%PDF-1.4"), "TBD8129/claim.pdf": strToU8("%PDF-1.4") })).toString("base64");
+    await page.goto(`${BASE}/dashboard`);
+    await page.getByTestId("home-new").waitFor();
+    await page.evaluate((b64) => {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const dt = new DataTransfer();
+      dt.items.add(new File([bytes], "two-cars.zip", { type: "application/zip" }));
+      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    }, twoCars);
+    await page.waitForURL(/\/cases\/new$/);
+    await page.getByText(/holds 2 cars|2 辆|2 kereta/).first().waitFor();
+    await page.waitForTimeout(800);
+    assert.equal(sent, 0, "a zip that makes several cases is not sent unseen");
     await page.unroute("**/api/cases/credit*");
     await page.goto(`${BASE}/dashboard`);
     const docs = page.locator('[data-bucket="docs"] a');
