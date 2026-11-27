@@ -84,6 +84,14 @@ export const zipWhyKey = (why: string) => {
   const code = (Object.keys(ZIP_WHY) as (keyof typeof ZIP_WHY)[]).find((k) => ZIP_WHY[k] === why);
   return code === "multi" ? "case.err.zipMulti" : code && code !== "corrupt" ? `case.err.zip_${code}` : "case.err.zip";
 };
+
+/**
+ * A one-case read refused because the zip holds several cars (or cars at different levels) is not the customer's fault: its credit
+ * goes back, and new files for that case take a credit again. Only for a case never read before: a case that was read already
+ * keeps its result on the page, so its read stays paid for (and new files for it are free, as for any case waiting for files).
+ */
+export const zipRefunded = (error: string | null | undefined, readBefore: boolean) =>
+  !readBefore && !!error && (error.endsWith(`: ${ZIP_WHY.multi}`) || error.endsWith(`: ${ZIP_WHY.layout}`));
 const ZIP_REJECTED = new RegExp(`: (${Object.values(ZIP_WHY).join("|")})$`);
 /** The zip a `<zip name>: <why>` error is about, so "Replace files" can take it out of the case. */
 export const zipRejectedName = (error: string | null) => (error ?? "").match(new RegExp(`^(.+): (${Object.values(ZIP_WHY).join("|")})$`))?.[1] ?? null;

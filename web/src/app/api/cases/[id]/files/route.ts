@@ -4,7 +4,7 @@ import { dropBadFiles } from "@/lib/drop-bad-files";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { CaseBody, bodyProblem } from "@/lib/case-body";
-import { userFixable, ZIP_WHY } from "@/lib/case-text";
+import { userFixable, zipRefunded } from "@/lib/case-text";
 import { debitRetry, refundCase } from "@/lib/payments/case-credit";
 
 // The same file rules as a new case (names, kinds, sizes, at least one file). "Read again" is /scan, not an empty list here:
@@ -42,8 +42,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!waiting) return NextResponse.json({ error: "not waiting" }, { status: 409 });
   // A zip of several cars (or of cars at different levels) that reached the one-case path got its credit back (scan-case),
   // so a read with new files takes one again.
-  const err = c.error ?? "";
-  const refunded = c.status === "failed" && (err.endsWith(`: ${ZIP_WHY.multi}`) || err.endsWith(`: ${ZIP_WHY.layout}`));
+  const refunded = c.status === "failed" && zipRefunded(c.error, c.caseData != null);
   const paid = refunded ? await debitRetry(me.orgId, id) : "free";
   if (paid === false) return NextResponse.json({ error: "no_credits" }, { status: 402 });
   const giveBack = () => (paid === "charged" ? refundCase(me.orgId, id, "add_files").catch(() => false) : Promise.resolve(false));

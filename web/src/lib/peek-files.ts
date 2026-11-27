@@ -22,6 +22,8 @@ export async function zipNames(file: Sliceable): Promise<string[] | null> {
     const buf = await file.slice(cdOff, cdOff + cdSize).arrayBuffer();
     const v = new DataView(buf);
     const names: string[] = [];
+    // a list that does not start with an entry is damaged (or the zip is self-extracting): it cannot be told, never "no PDF"
+    if (buf.byteLength < 46 || u32(v, 0) !== 0x02014b50) return null;
     for (let p = 0; p + 46 <= buf.byteLength && u32(v, p) === 0x02014b50 && names.length < 20000;) {
       const n = u16(v, p + 28), x = u16(v, p + 30), c = u16(v, p + 32);
       names.push(new TextDecoder().decode(new Uint8Array(buf, p + 46, Math.min(n, buf.byteLength - p - 46))));
@@ -78,7 +80,8 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
   const at = (depth: number) => {
     const g = new Map<string, boolean>();
     for (const n of usable) { const parts = n.split("/"); if (parts.length > depth + 1) { const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); } }
-    const cars = [...g].filter(([k, hasPdf]) => hasPdf && isPlate(k.slice(0, -1).split("/").pop() ?? "")).map(([k]) => k);
+    // a plate folder inside another plate folder ("WA1234B/KP1/") is part of that car, never a car of its own
+    const cars = [...g].filter(([k, hasPdf]) => { const s = k.slice(0, -1).split("/"); return hasPdf && isPlate(s[s.length - 1]) && !s.slice(0, -1).some(isPlate); }).map(([k]) => k);
     // everything else a case would take, named by its folder at the car level (or the file itself when it is loose)
     const extras = new Set<string>();
     for (const n of usable) {
@@ -114,8 +117,8 @@ export function platesAnywhere(names: string[]): number {
   const plates = new Set<string>();
   for (const n of names) {
     if (n.endsWith("/") || n.startsWith("__MACOSX/") || !/\.pdf$/i.test(n)) continue;
+    if (n.split("/").some((p) => p.startsWith("."))) continue; // hidden, as everywhere else ("._a.pdf" too)
     const parts = n.split("/").slice(0, -1);
-    if (parts.some((p) => p.startsWith("."))) continue;
     // only the outermost plate-named folder of a path is a car: "WA1234B/KP1/" is one car with a sub-folder, not two plates
     const p = parts.find(isPlate);
     if (p) plates.add(normPlate(p));

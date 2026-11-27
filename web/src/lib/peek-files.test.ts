@@ -64,3 +64,19 @@ test("platesAnywhere: only the outermost plate-named folder of a path counts (a 
   assert.equal(platesAnywhere(["DCD4004/a.pdf", "More/NCH5773/e.pdf"]), 2);
   assert.equal(platesAnywhere(["Docs/a.pdf", "__MACOSX/AAA1111/b.pdf", ".x/BBB2222/c.pdf"]), 0);
 });
+
+test("vehicleLayout: plate-like folders inside one car's plate folder are part of that car, never cars of their own", () => {
+  assert.deepEqual(vehicleLayout(["WA1234B/claim.pdf", "WA1234B/KP1/a.pdf", "WA1234B/KP2/b.pdf"]).cars, ["WA1234B/"]);
+  assert.deepEqual(vehicleLayout(["WA1234B/KP1/a.pdf", "WA1234B/KP2/b.pdf"]).cars, ["WA1234B/"]);
+  assert.deepEqual(vehicleLayout(["S/AAA1111/a.pdf", "S/BBB2222/b.pdf"]).cars, ["S/AAA1111/", "S/BBB2222/"]);
+  assert.equal(platesAnywhere(["WA1234B/a.pdf", "X/NCH5773/._a.pdf"]), 1);
+});
+
+test("zipNames: a central directory that does not start with an entry cannot be told (null), never an empty list", async () => {
+  const good = new Uint8Array(await zip({ "a.pdf": "x" }).arrayBuffer());
+  const bad = good.slice();
+  const dv = new DataView(bad.buffer);
+  const eocd = bad.length - 22;
+  dv.setUint32(eocd + 16, 0, true); // point the list at the first local header
+  assert.equal(await zipNames(new Blob([bad])), null);
+});
