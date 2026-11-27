@@ -29,8 +29,9 @@ export function climbs(path: string): boolean {
   let p = path;
   for (let layer = 0; layer < 3; layer++) {
     if (p.split(/[\\/]/).some((part) => part === "." || part === "..")) return true;
-    let next: string;
-    try { next = decodeURIComponent(p); } catch { return false; } // a plain "%" in a name: nothing more to decode
+    // One escape at a time, and only plain characters (the dot, the slashes and % are among them). Decoding the whole path at once
+    // stopped at the first "%" that is no escape ("100%" in a name) and so let a `..` hidden behind it through.
+    const next = p.replace(/%([0-7][0-9a-f])/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
     if (next === p) return false;
     p = next;
   }

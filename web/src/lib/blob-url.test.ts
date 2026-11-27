@@ -18,6 +18,13 @@ test("U3: two dots inside a file name are fine; only a real step out of the fold
   assert.equal(ownBlobPath(`${S}/org1/b1%2f.%2fa.pdf`, "org1"), null); // a `.` part
   assert.equal(ownBlobPath(`${S}/org1/b1%5c..%5ca.pdf`, "org1"), null); // backslashes
   assert.equal(ownBlobPath(`${S}/org1/%zz/a.pdf`, "org1"), null); // not decodable
+  // a "%" that is no escape (a name with "100%") must not end the look for a hidden `..`
+  assert.equal(ownBlobPath(`${S}/org1/%252e%252e%252forg2/100%25/a.pdf`, "org1"), null);
+  assert.equal(climbs("/org1/%2e%2e%2forg2/100%/a.pdf"), true);
+  assert.equal(climbs("/org1/b/100%/%2e%2e/a.pdf"), true);
+  assert.equal(climbs("/org1/b/100%25%5c..%5ca.pdf"), true); // an escaped backslash next to it
+  assert.equal(ownBlobPath(`${S}/org1/b1/100%25%20sure..ok.pdf`, "org1"), "/org1/b1/100% sure..ok.pdf"); // and such a name alone is fine
+  assert.equal(climbs("/org1/b/caf%C3%A9 100%.pdf"), false); // letters outside plain ASCII stay as they are
   assert.equal(climbs("/org1/b/a..b.pdf"), false);
   assert.equal(climbs("/org1/b/../a.pdf"), true);
 });
