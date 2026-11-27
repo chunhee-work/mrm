@@ -91,11 +91,17 @@ def maybe_cleanup(cfg: Config, repo: PgRepo, delete, *, every: float = 3600.0, n
         return 0
 
 
+def verify_wait_seconds(n: int) -> int:
+    """How long a login check that was put back waits before it is taken again: 2 s, doubling, never longer than a minute."""
+    return min(VERIFY_WAIT_MAX, 2 ** max(n, 1))
+
+
 def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=time.monotonic) -> None:
-    """At most one login check per tick. A check that is put back (key_mismatch, not_login_page, offline) waits before it is taken
-    again, and its reason goes to stderr and to the audit table once, not every tick. Other orgs are not held up by it."""
+    """At most one login check per tick, against the Chrome of the org's own account (fetch_page(user, password, port)).
+    A check that is put back (key_mismatch, not_login_page, offline, no_account) waits before it is taken again, and its reason goes
+    to stderr and to the audit table once, not every tick. Other orgs are not held up by it."""
     from .login_flow import run_verify
-    from .login_page import backoff_seconds
+    from .login_page import release_verify
 
     t = now()
     skip = sorted(org for org, w in _verify_wait.items() if t < w["until"])
@@ -103,12 +109,17 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
     if not claimed:
         return
     org = claimed["org_id"]
-    decision = run_verify(claimed, master, fetch_page)
+    account = account_for(org, cfg.accounts, cfg.org_accounts)
+    if not account:  # several Chrome profiles and no mapping for this org: never guess whose Chrome to type into
+        decision = release_verify("no_account")
+    else:
+        port = cfg.accounts[account]
+        decision = run_verify(claimed, master, lambda user, password: fetch_page(user, password, port))
     if decision.get("release"):
         reason = str(decision.get("reason") or "offline")
         before = _verify_wait.get(org) or {"n": 0, "reason": None}
         n = before["n"] + 1
-        _verify_wait[org] = {"until": t + min(VERIFY_WAIT_MAX, backoff_seconds(n)), "n": n, "reason": reason}
+        _verify_wait[org] = {"until": t + verify_wait_seconds(n), "n": n, "reason": reason}
         if before["reason"] != reason:
             decision = {**decision, "audit": reason}
             print(f"login check put back, no try counted: reason={reason}", file=sys.stderr, flush=True)

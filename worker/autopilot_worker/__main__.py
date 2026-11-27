@@ -260,7 +260,7 @@ def main() -> None:
 
     from .login_flow import script_fetch
 
-    fetch_page = script_fetch(script, next(iter(cfg.accounts.values())))  # one run of `cdp.mjs login` per check, never a second
+    fetch_page = script_fetch(script)  # fetch_page(user, password, port): one run of `cdp.mjs login` per check, on the org's own Chrome
 
     def put_blob(path: str, data: bytes) -> None:
         from .blobstore import blob_put

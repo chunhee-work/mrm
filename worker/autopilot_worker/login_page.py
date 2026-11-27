@@ -17,6 +17,9 @@ RESULT_OTP = "otp"
 RESULT_UNKNOWN = "unknown"
 # Not a result of a try: no Merimen login page was open (for example the tab is already logged in), so nothing was typed.
 RESULT_NOT_LOGIN_PAGE = "not_login_page"
+# Not a try either: a person is logged in on the worker Chrome (logged-in address, no password box). Nothing was typed; the check
+# ends "ok" like a login that went through, and the saved password stays untested (audit: login_session_live).
+RESULT_SESSION_LIVE = "session_live"
 
 _LOCKED = (
     "account has been locked",
@@ -118,7 +121,8 @@ def finish_verify(result: str) -> dict:
 
 def release_verify(reason: str) -> dict:
     """Nothing was typed into Merimen, so the one try is NOT spent: the check goes back to queued. No block, no pause, no mail.
-    reason: key_mismatch (the saved login cannot be opened with this worker's MERIMEN_CRED_KEY), not_login_page, offline."""
+    reason: key_mismatch (the saved login cannot be opened with this worker's MERIMEN_CRED_KEY), not_login_page, offline,
+    no_account (no Chrome is set up for this org: WORKER_ACCOUNTS / WORKER_ORG_ACCOUNTS)."""
     return {"verify_state": "queued", "blocked": False, "pause": False, "resume": False, "event": "", "email": None, "release": True, "reason": reason}
 
 

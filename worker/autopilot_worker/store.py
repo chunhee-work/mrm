@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 from .db import make_db
 from .gate import worker_gate
@@ -581,12 +582,21 @@ class PgRepo:
         keys = ("org_id", "wrapped_dek", "dek_nonce", "username_ct", "username_nonce", "password_ct", "password_nonce")
         return dict(zip(keys, rows[0]))
 
+    def _audit(self, org_id: str, action: str) -> None:
+        """One merimen_cred_audit row that nothing depends on: if the insert is refused (the worker role's grants are not all in the
+        repo) or the database is away, the state change before it stands. Only the error's class name is logged."""
+        try:
+            self.db.execute("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, action[:60]))
+        except Exception as e:  # noqa: BLE001
+            print("login audit row skipped:", type(e).__name__, file=sys.stderr, flush=True)
+
     def finish_verify(self, org_id: str, decision: dict, email_to: str | None = None, poster=None) -> None:
         from .login_page import login_email
 
         if decision.get("release"):
-            # only reached when nothing was typed into Merimen (login_flow.run_verify): the one try is given back
-            put_back = (
+            # only reached when nothing was typed into Merimen (login_flow.run_verify): the one try is given back.
+            # The release is its own statement; the audit row comes after it and may fail without undoing it.
+            self.db.execute(
                 """
                 UPDATE merimen_credentials
                 SET verify_state = 'queued', login_attempts = 0, updated_at = now()
@@ -594,23 +604,25 @@ class PgRepo:
                 """,
                 (org_id,),
             )
-            if decision.get("audit"):  # why it was put back (key_mismatch, not_login_page, offline): one row, written by loop.py once per reason
-                self.db.batch([put_back, ("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, ("login_released_" + str(decision["audit"]))[:60]))])
-            else:
-                self.db.execute(*put_back)
+            if decision.get("audit"):  # why it was put back (key_mismatch, not_login_page, offline, no_account); loop.py asks once per reason
+                self._audit(org_id, "login_released_" + str(decision["audit"]))
             return
+        # session_live: a person is logged in on the worker Chrome, nothing was typed. Same state change as a login that went
+        # through, but the try is given back (login_attempts = 0) and the audit row says the saved password was not tested.
+        live = bool(decision.get("session_live"))
         event = str(decision.get("event") or "")[:400]
         st: list[tuple[str, object]] = [
             (
                 """
                 UPDATE merimen_credentials
-                SET verify_state = %s, blocked = %s, updated_at = now()
+                SET verify_state = %s, blocked = %s, """ + ("login_attempts = 0, " if live else "") + """updated_at = now()
                 WHERE org_id = %s AND verify_state IN ('checking', 'otp', 'otp_submitted')
                 """,
                 (decision["verify_state"], bool(decision["blocked"]), org_id),
             ),
-            ("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, "login_" + str(decision["verify_state"])[:40])),
         ]
+        if not live:
+            st.append(("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, "login_" + str(decision["verify_state"])[:40])))
         if decision.get("pause"):
             st.append((
                 """
@@ -645,6 +657,8 @@ class PgRepo:
                 (event, org_id),
             ))
         self.db.batch(st)
+        if live:
+            self._audit(org_id, "login_session_live")  # after the state change, never part of it
         if decision.get("email") and email_to and poster:
             try:
                 subject, html = login_email(decision["email"])

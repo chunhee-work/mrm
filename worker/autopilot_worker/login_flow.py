@@ -1,8 +1,11 @@
 """One Merimen login check. The password is handed to `fetch_page` and nowhere else.
 
-ONE try means: once the login form may have been sent, the check is never put back in the queue by the worker. Only three things put
-it back, and in all three nothing was typed into Merimen: the saved login could not be opened (key_mismatch), no Merimen login page
-was open (not_login_page), Chrome or the script could not be reached before the form was sent (offline)."""
+ONE try means: once the login form may have been sent, the check is never put back in the queue by the worker. It is put back only
+when nothing was typed into Merimen: the saved login could not be opened (key_mismatch), no Merimen login page was open
+(not_login_page), Chrome or the script could not be reached before the form was sent (offline), or the org has no Chrome (no_account).
+
+A tab where a person is already logged in (session_live) is not a try either: nothing is typed, the check ends "ok" like a login
+that went through, and the audit says the saved password was NOT tested."""
 
 from __future__ import annotations
 
@@ -11,7 +14,7 @@ import os
 import subprocess
 
 from .crypto import open_secret
-from .login_page import RESULT_NOT_LOGIN_PAGE, RESULT_UNKNOWN, classify_login, finish_verify, release_verify
+from .login_page import RESULT_NOT_LOGIN_PAGE, RESULT_OK, RESULT_SESSION_LIVE, RESULT_UNKNOWN, classify_login, finish_verify, release_verify
 
 _OFFLINE = {"offline": True, "submitted": False}
 _SENT_UNREAD = {"result": RESULT_UNKNOWN, "submitted": True}
@@ -27,7 +30,11 @@ def run_verify(row: dict, master: bytes, fetch_page) -> dict:
     try:
         page = fetch_page(user, password)
         if page.get("submitted") is not True:
-            # nothing was typed, so nothing is concluded from the page: never "ok" (a tab that is already logged in), never "bad password"
+            if page.get("result") == RESULT_SESSION_LIVE and page.get("submitted") is False:
+                # a person is logged in on the worker Chrome: the same outcome a successful login had (ok, no block, no mail, paused
+                # work goes on), but no password try was made; store.finish_verify gives the try back and audits login_session_live
+                return {**finish_verify(RESULT_OK), "session_live": True}
+            # nothing was typed, and nothing else is concluded from a page that was only looked at: never "bad password"
             return release_verify(RESULT_NOT_LOGIN_PAGE if page.get("result") == RESULT_NOT_LOGIN_PAGE else "offline")
         if page.get("offline") or page.get("result"):  # sent, and the answer was not read
             result = RESULT_UNKNOWN
@@ -65,28 +72,48 @@ def read_login_output(stdout) -> dict:
     if not submitted:
         if final.get("result") == RESULT_NOT_LOGIN_PAGE:
             return {"result": RESULT_NOT_LOGIN_PAGE, "submitted": False}
+        if final.get("result") == RESULT_SESSION_LIVE:
+            # only believed when the script never wrote its mark; with the mark it contradicts itself and the safe reading is "sent"
+            return dict(_SENT_UNREAD) if marked else {"result": RESULT_SESSION_LIVE, "submitted": False}
         return dict(_OFFLINE)
     if final.get("result") or final.get("offline") or final.get("error") or not isinstance(final.get("url"), str):
         return dict(_SENT_UNREAD)
     return {"submitted": True, "url": final["url"], "text": str(final.get("text") or ""), "has_password": bool(final.get("has_password")), "has_otp": bool(final.get("has_otp"))}
 
 
-def script_fetch(script: str, port: int, *, run=subprocess.run, timeout: int = 60):
-    """fetch_page for run_verify: ONE run of `node cdp.mjs login`, the login on stdin. A time-out or a script that cannot start is
-    never followed by a second run; what was printed before it stopped decides offline (nothing typed) or unknown (maybe sent)."""
-
-    def fetch_page(user: str, password: str) -> dict:
+def run_script(argv: list[str], payload: str, env: dict, timeout: float, popen=subprocess.Popen) -> tuple[str | None, bool]:
+    """(everything the script wrote to stdout, timed_out). On a time-out the script is killed and the pipe is then read to its end,
+    so a line written just before the deadline is not lost (subprocess.run does not read again after the kill on Linux).
+    None = it timed out and its output could not be read at all."""
+    proc = popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=env)
+    try:
+        out, _ = proc.communicate(payload, timeout=timeout)
+        return out, False
+    except subprocess.TimeoutExpired:
+        proc.kill()
         try:
-            proc = run(
-                ["node", script, "login"],
-                input=json.dumps({"username": user, "password": password}),
-                text=True, capture_output=True, timeout=timeout,
-                env={**os.environ, "CDP_PORT": str(port)},
+            out, _ = proc.communicate(timeout=15)
+        except Exception:  # noqa: BLE001
+            return None, True
+        return out, True
+
+
+def script_fetch(script: str, *, popen=subprocess.Popen, timeout: float = 90, node: str = "node"):
+    """fetch_page(user, password, port) for the loop: ONE run of `node cdp.mjs login` against the Chrome on `port`, the login on
+    stdin. A time-out or a script that cannot start is never followed by a second run. What it printed before it stopped decides:
+    no "submitted" mark = offline (nothing typed), mark = unknown (maybe sent). A timed-out script whose output cannot be read is
+    unknown too, never put back."""
+
+    def fetch_page(user: str, password: str, port: int) -> dict:
+        try:
+            out, timed_out = run_script(
+                [node, script, "login"], json.dumps({"username": user, "password": password}),
+                {**os.environ, "CDP_PORT": str(int(port))}, timeout, popen,
             )
-        except subprocess.TimeoutExpired as e:
-            return read_login_output(e.stdout)
         except OSError:  # node is not installed or cannot start: nothing ran
             return dict(_OFFLINE)
-        return read_login_output(proc.stdout)
+        if out is None:
+            return dict(_SENT_UNREAD)
+        return read_login_output(out)
 
     return fetch_page
