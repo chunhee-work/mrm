@@ -26,7 +26,6 @@ export default function Home({ name, counts, cred: cred0, configured }: { name: 
   useEffect(() => setCred(cred0), [cred0]);
   // a case can be started only with the details filled in; enforced only while saving really works (key set, migration applied)
   const blocked = configured && cred.storageOk && !cred.complete;
-  const gotAll = (c: Cred) => { setCred(c); router.refresh(); };
   const open = OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0);
 
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
@@ -95,7 +94,7 @@ export default function Home({ name, counts, cred: cred0, configured }: { name: 
             <button type="submit" className="btn-line shrink-0 !px-5">{t("tray.go")}</button>
           </form>
         </div>
-        {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={gotAll} configured={configured} compact={false} /></div>}
+        {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} configured={configured} compact={false} /></div>}
         <div className="mt-9 grid gap-3 sm:grid-cols-2">
           {blocked
             ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
@@ -108,7 +107,7 @@ export default function Home({ name, counts, cred: cred0, configured }: { name: 
         {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
         <div className="mt-9">{table}</div>
       </div>
-      {cred.complete && <aside className="min-w-0 lg:pt-[3.75rem]"><ProfileCard cred={cred} setCred={gotAll} configured={configured} compact /></aside>}
+      {cred.complete && <aside className="min-w-0 lg:pt-[3.75rem]"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} configured={configured} compact /></aside>}
       </div>
       {over && (
         <div aria-hidden="true" data-testid="home-overlay" className="pointer-events-none fixed inset-0 z-50 bg-panel/90 p-4 backdrop-blur-[2px]">

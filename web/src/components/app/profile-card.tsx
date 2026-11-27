@@ -34,7 +34,7 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  * Not complete: the whole form on the front page. Complete: a small summary with Edit. An edit asks "replace?" in a pop-up
  * before anything is sent. The password is never shown again; leaving it empty on an edit keeps the saved login.
  */
-export default function ProfileCard({ cred, setCred, configured, compact }: { cred: Cred; setCred: (c: Cred) => void; configured: boolean; compact: boolean }) {
+export default function ProfileCard({ cred, setCred, onSaved, configured, compact }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; configured: boolean; compact: boolean }) {
   const { t, lang } = useT();
   const [workshop, setWorkshop] = useState("");
   const [manager, setManager] = useState("");
@@ -78,7 +78,7 @@ export default function ProfileCard({ cred, setCred, configured, compact }: { cr
       const r = await fetch("/api/ext/worker/credentials", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop, manager, adjuster, ...(loginTyped ? { username: user, password: pass } : {}), consent: true }) });
       if (r.status === 503) { setErr(t("ml.notReady")); setConfirming(false); }
       else if (!r.ok) { setErr(t("w.err")); setConfirming(false); }
-      else { setCred(await r.json()); closeAll(); fill(); }
+      else { setCred(await r.json()); closeAll(); fill(); onSaved?.(); }
     } catch { setErr(t("w.err")); setConfirming(false); } finally { setPass(""); setBusy(false); }
   }
   async function remove() {
@@ -87,7 +87,7 @@ export default function ProfileCard({ cred, setCred, configured, compact }: { cr
     setBusy(true);
     try {
       const r = await fetch("/api/ext/worker/credentials", { method: "DELETE" });
-      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false }); closeAll(); fill(); }
+      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false }); closeAll(); fill(); onSaved?.(); }
     } finally { setBusy(false); setSure(false); }
   }
 

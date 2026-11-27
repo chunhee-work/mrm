@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { envOn } from "./gate";
@@ -27,7 +28,9 @@ export type CredView = {
 };
 const NONE: CredView = { saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false, storageOk: true };
 
-export async function credView(orgId: string): Promise<CredView> {
+// one read per page render (the layout, the page and the banner all ask)
+export const credView = cache(credViewUncached);
+async function credViewUncached(orgId: string): Promise<CredView> {
   try {
     const [r] = await db.select({
       usernameHint: schema.merimenCredentials.usernameHint,
