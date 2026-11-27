@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -151,7 +151,8 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
   // the photo desk, in this line: the job of step 2, and on the way while documents are still missing.
   // Once shown it stays while the line is open: after 完成 the case moves to step 3, and the desk keeps its message and its undo.
   const [deskOpen, setDeskOpen] = useState(bucketOf(r) === "photos");
-  useEffect(() => { if (bucketOf(r) === "photos") setDeskOpen(true); }, [r]);
+  // documents being read (or a read that failed): the desk waits, as on the case page
+  useEffect(() => { if (bucketOf(r) === "photos") setDeskOpen(true); else if (["uploaded", "reading", "failed"].includes(r.status)) setDeskOpen(false); }, [r]);
   // while a line shows the photo desk or an upload of its own, a dropped file does not start a new case (the page-wide drop is
   // off: it would be unclear where the file goes); a line with nothing to drop into leaves the page-wide drop on
   const takesFiles = deskOpen || r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null));
@@ -280,17 +281,15 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const [cred, setCred] = useState<Cred>(cred0);
   // complete, but the login needs the user (a code from the phone, a wrong password), is still being checked, or is blocked
   const loginNeeds = cred.complete && (cred.blocked || ["otp", "bad_credentials", "unknown", "locked", ...CHECKING].includes(cred.verifyState));
-  // once the check comes back fine the card stays a few seconds, so "login works" is seen before it goes
+  // once the check comes back fine the card stays a few seconds, so "login works" is seen before it goes.
+  // Worked out while rendering (not in an effect), so the card is never gone for a frame in between.
   const [okHold, setOkHold] = useState(false);
-  const wasNeeded = useRef(loginNeeds);
-  useEffect(() => {
-    const before = wasNeeded.current;
-    wasNeeded.current = loginNeeds;
-    if (!before || loginNeeds || cred.verifyState !== "ok") { setOkHold(false); return; }
-    setOkHold(true);
-    const id = window.setTimeout(() => setOkHold(false), 5000);
-    return () => window.clearTimeout(id);
-  }, [loginNeeds, cred.verifyState]);
+  const [wasNeeded, setWasNeeded] = useState(loginNeeds);
+  if (wasNeeded !== loginNeeds) {
+    setWasNeeded(loginNeeds);
+    setOkHold(wasNeeded && !loginNeeds && cred.verifyState === "ok");
+  }
+  useEffect(() => { if (!okHold) return; const id = window.setTimeout(() => setOkHold(false), 5000); return () => window.clearTimeout(id); }, [okHold]);
   useEffect(() => setCred(cred0), [cred0]);
   // a case can be started only with the details filled in; enforced only while saving really works (key set, migration applied)
   const blocked = cred.blocks;
