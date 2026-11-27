@@ -1,5 +1,6 @@
 import { unzipSync } from "fflate";
-import { ZIP_WHY } from "@/lib/case-text"; // the same words userFixable looks for
+import { ZIP_WHY } from "@/lib/case-text";
+import { vehicleFolders } from "@/lib/peek-files"; // the same words userFixable looks for
 
 /** Limits for opening a customer's zip. A zip is untrusted input: count, size and ratio are all capped (zip-bomb guard). */
 export const ZIP_LIMITS = {
@@ -11,7 +12,7 @@ export const ZIP_LIMITS = {
 
 export type BundleEntry = { name: string; kind: "pdf" | "photo"; bytes: Uint8Array; type: string };
 export class ZipRejected extends Error {
-  constructor(public code: "corrupt" | "too_many" | "too_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
+  constructor(public code: "corrupt" | "multi" | "too_many" | "too_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
 }
 
 const PHOTO = /\.(jpe?g|png|webp|heic)$/i;
@@ -23,6 +24,10 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
   let count = 0;
   let files: Record<string, Uint8Array>;
   try {
+    // first look at the names only (nothing is inflated): a zip of several vehicles is one case per vehicle, not one case
+    const names: string[] = [];
+    unzipSync(buf, { filter: (f) => { names.push(f.name); return false; } });
+    if (vehicleFolders(names).length > 1) throw new ZipRejected("multi", ZIP_WHY.multi);
     files = unzipSync(buf, {
       filter: (f) => {
         const leaf = f.name.split("/").pop() ?? "";

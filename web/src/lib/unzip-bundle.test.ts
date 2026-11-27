@@ -35,3 +35,14 @@ test("B01 unzip: a zip bomb (huge ratio) is rejected before it is expanded", () 
   const bomb = zipSync({ "a.pdf": new Uint8Array(5_000_000) }, { level: 9 });
   assert.throws(() => unzipBundle(bomb, { maxEntries: 9, maxEntryBytes: 1e9, maxTotalBytes: 1e9, maxRatio: 50 }), (e: ZipRejected) => e.code === "bomb");
 });
+
+test("a zip of several vehicles (one folder each, each with its own PDF) is refused as multi; one vehicle in Docs/ + Photos/ is not", () => {
+  const cars = zipSync({ "AAA1/a.pdf": pdf, "AAA1/1.jpg": jpg, "BBB2/b.pdf": pdf, "BBB2/1.jpg": jpg });
+  assert.throws(() => unzipBundle(cars), (e: ZipRejected) => e.code === "multi");
+  const wrapped = zipSync({ "ALL/AAA1/a.pdf": pdf, "ALL/BBB2/b.pdf": pdf });
+  assert.throws(() => unzipBundle(wrapped), (e: ZipRejected) => e.code === "multi");
+  const one = zipSync({ "Docs/rc.pdf": pdf, "Photos/1.jpg": jpg });
+  assert.equal(unzipBundle(one).length, 2);
+  const oneWrapped = zipSync({ "AAA1/Docs/rc.pdf": pdf, "AAA1/Photos/1.jpg": jpg });
+  assert.equal(unzipBundle(oneWrapped).length, 2);
+});

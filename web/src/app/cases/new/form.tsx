@@ -8,7 +8,7 @@ import ScanEdge from "@/components/scan-edge";
 import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
 import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { runPool } from "@/lib/pool";
-import { headOf, looksLikePhoto, zipHasPdf } from "@/lib/peek-files";
+import { headOf, looksLikePhoto, vehicleFolders, zipNames } from "@/lib/peek-files";
 import Link from "next/link";
 
 const keyOf = (f: File) => `${f.name}:${f.size}`;
@@ -39,6 +39,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const [ups, setUps] = useState<Record<number, number>>({}); // per-file progress while several upload at once
   const ledger = useRef<HTMLUListElement>(null);
   const zipPdf = useRef<Map<string, boolean | null>>(new Map()); // R2-B10: does each chosen zip hold a PDF (null: cannot tell)
+  const zipCars = useRef<Map<string, string[]>>(new Map()); // vehicle folders of each chosen zip: more than one is refused at once
   const leaving = useRef(false); // R2-B01: set once the case exists, so our own redirect never trips the leave guard
 
   // keep the file being uploaded in view inside the ledger
@@ -68,11 +69,17 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     await Promise.all(typed.map(async (f) => {
       const k = kindOf(f);
       if (k === "photo" && f.size > 0 && !looksLikePhoto(await headOf(f))) fake.add(f);
-      if (k === "bundle_zip" && f.size > 0) zipPdf.current.set(keyOf(f), await zipHasPdf(f));
+      if (k === "bundle_zip" && f.size > 0) {
+        const names = await zipNames(f);
+        zipPdf.current.set(keyOf(f), names ? names.some((n) => /\.pdf$/i.test(n) && !/(^|\/)(__MACOSX\/|\._)/.test(n) && !n.endsWith("/")) : null);
+        zipCars.current.set(keyOf(f), names ? vehicleFolders(names) : []);
+      }
     }));
     const ok = typed.filter((f) => {
       if (fake.has(f)) { why.push(t("new.notPhoto", { name: f.name })); return false; }
       if (f.size === 0) { why.push(t("new.empty", { name: f.name })); return false; }
+      const cars = zipCars.current.get(keyOf(f)) ?? [];
+      if (kindOf(f) === "bundle_zip" && cars.length > 1) { why.push(t("new.zipMulti", { name: f.name, n: String(cars.length), list: cars.slice(0, 3).join(", ") })); return false; }
       if (f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES)) { why.push(t("new.tooBig", { name: f.name, mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })); return false; }
       return true;
     });
