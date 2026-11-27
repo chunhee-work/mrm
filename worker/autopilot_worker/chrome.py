@@ -64,13 +64,16 @@ def chrome_argv(binary: str, port: int, profile: str) -> list[str]:
 #   reaches the desktop key store over the session bus. It picks the store from the desktop names; with them gone it would fall
 #   back to another store and could no longer read the cookies of the profile that is logged in.
 # - LANG, LANGUAGE, LC_*, TZ: language and time. FONTCONFIG_*: fonts.
-# - the proxy variables: on a box that reaches the internet through a proxy Chrome needs them too.
+# - the proxy variables: on a box that reaches the internet through a proxy Chrome needs them too (auto_proxy = a PAC file,
+#   SOCKS_SERVER / SOCKS_VERSION = a SOCKS proxy).
+# - CHROMIUM_FLAGS: some distro start scripts for Chromium read their extra flags from it.
 _CHROME_ENV = (
     "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR",
     "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY",
     "DBUS_SESSION_BUS_ADDRESS", "DESKTOP_SESSION", "GNOME_DESKTOP_SESSION_ID", "KDE_FULL_SESSION", "KDE_SESSION_VERSION",
     "LANG", "LANGUAGE", "TZ", "FONTCONFIG_FILE", "FONTCONFIG_PATH",
     "http_proxy", "https_proxy", "no_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY",
+    "auto_proxy", "AUTO_PROXY", "SOCKS_SERVER", "SOCKS_VERSION", "CHROMIUM_FLAGS",
 )
 _CHROME_ENV_PREFIX = ("XDG_", "LC_")
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

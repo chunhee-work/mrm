@@ -23,6 +23,13 @@ def test_only_what_chrome_needs_is_passed():
         assert name not in env
 
 
+def test_proxy_and_distro_flag_names_reach_chrome():
+    """A box behind a PAC file or a SOCKS proxy, and a distro wrapper that reads its flags from the environment."""
+    extra = {"auto_proxy": "http://proxy/wpad.dat", "AUTO_PROXY": "http://proxy/wpad.dat", "SOCKS_SERVER": "proxy:1080", "SOCKS_VERSION": "5",
+             "CHROMIUM_FLAGS": "--ozone-platform=x11"}
+    assert chrome_env({**SECRETS, "PATH": "/usr/bin", **extra}) == {"PATH": "/usr/bin", **extra}
+
+
 def test_missing_variables_are_not_invented():
     assert chrome_env({"PATH": "/usr/bin", "DATABASE_URL": "x"}) == {"PATH": "/usr/bin"}
 
