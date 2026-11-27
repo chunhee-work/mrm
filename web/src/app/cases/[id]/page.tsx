@@ -61,6 +61,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     .catch((e) => { if (missingRelation(e)) return []; throw e; }); // the table comes with migration 0010
   const [same] = c.plate ? await db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), eq(schema.cases.plate, c.plate), sql`${schema.cases.id} <> ${id}`)) : [];
   const ws = await caseSlot(id);
+  const wsList = await orgWorkshops(orgId);
+  const stranded = !c.merimenCaseId && !wsList.some((w) => w.slot === ws.slot); // its workshop was removed: the user may pick another
   const detail: CaseDetail = {
     sameCount: Number(same?.n ?? 0),
     createdAt: c.createdAt.toISOString(),
@@ -92,9 +94,9 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     stale,
     cred: await credView(orgId),
     credConfigured: credKeyReady(),
-    workshops: await orgWorkshops(orgId),
+    workshops: wsList,
     workshopSlot: ws.slot,
-    workshopLocked: (ws.locked && (await orgWorkshops(orgId)).some((w) => w.slot === ws.slot)) || !canSwitchWorkshop({ status: c.status, merimenCaseId: c.merimenCaseId }),
+    workshopLocked: !stranded && (ws.locked || !canSwitchWorkshop({ status: c.status, merimenCaseId: c.merimenCaseId })),
     // only the user who submitted the case gets this list; anyone else in the organisation gets none
     shots: workerUiOn() ? await timelineFor(id, user.id, c.createdBy).catch((e) => { if (missingRelation(e)) return null; throw e; }) : null,
   };

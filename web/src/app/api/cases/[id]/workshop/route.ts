@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
-import { orgWorkshops } from "@/lib/ext/workshops";
+import { orgWorkshops, caseSlot } from "@/lib/ext/workshops";
 import { missingRelation } from "@/lib/ext/worker-gate";
 import { canSwitchWorkshop } from "@/lib/ext/workshop-rules";
 
@@ -17,11 +17,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const slot = parsed.data.workshop;
+  const cur = await caseSlot(id);
   const [c] = await db.select({ status: schema.cases.status, merimenCaseId: schema.cases.merimenCaseId }).from(schema.cases)
     .where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId))).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (!canSwitchWorkshop(c)) return NextResponse.json({ error: "too_late" }, { status: 409 });
   const ws = await orgWorkshops(me.orgId);
+  // a case whose workshop was removed (the worker could not use it) can be moved at any status, as long as it is not in Merimen
+  const stranded = !c.merimenCaseId && !ws.some((w) => w.slot === (cur.slot));
+  if (!canSwitchWorkshop(c) && !stranded) return NextResponse.json({ error: "too_late" }, { status: 409 });
   const target = ws.find((w) => w.slot === slot);
   if (!target) return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
   try {

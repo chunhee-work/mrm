@@ -53,8 +53,9 @@ async function readCred(orgId: string): Promise<Omit<CredView, "keyOk" | "blocks
       manager: schema.merimenCredentials.managerName,
       adjuster: schema.merimenCredentials.adjusterName,
     }).from(schema.merimenCredentials).where(eq(schema.merimenCredentials.orgId, orgId)).limit(1);
-    if (!r) return NONE;
     const ws = await db.select({ slot: schema.merimenWorkshops.slot, name: schema.merimenWorkshops.name }).from(schema.merimenWorkshops).where(eq(schema.merimenWorkshops.orgId, orgId)).orderBy(schema.merimenWorkshops.slot);
+    // the workshop list outlives the saved login (deleting the login keeps it), so it is shown even when there is no login row
+    if (!r) return { ...NONE, workshops: ws as Workshop[], workshop: ws.find((w) => w.slot === 1)?.name ?? null };
     const v = { workshops: ws as Workshop[], saved: true, usernameHint: r.usernameHint, verifyState: r.verifyState, blocked: r.blocked, updatedAt: r.updatedAt.toISOString(), workshop: ws.find((w) => w.slot === 1)?.name ?? null, manager: r.manager, adjuster: r.adjuster };
     return { ...v, complete: profileComplete(v), storageOk: true };
   } catch (e) {

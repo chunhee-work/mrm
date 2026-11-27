@@ -106,7 +106,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
     setBusy(true);
     try {
       const r = await fetch("/api/ext/worker/credentials", { method: "DELETE" });
-      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, workshops: [], manager: null, adjuster: null, complete: false, blocks: cred.keyOk && cred.storageOk }); closeAll(); fill(); onSaved?.(); }
+      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, manager: null, adjuster: null, complete: false, blocks: cred.keyOk && cred.storageOk }); closeAll(); fill(); onSaved?.(); }
     } finally { setBusy(false); setSure(false); }
   }
 
