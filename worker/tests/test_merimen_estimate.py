@@ -150,9 +150,20 @@ def test_the_driver_saves_b_only_with_both_switches_and_never_claims_checks(monk
     d.case = CASE
     for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on"), ("MERIMEN_DRYRUN", "off")):
         monkeypatch.setenv(k, v)
+    from autopilot_worker import merimen_estimate as me
+
+    monkeypatch.setattr(me, "read_total", lambda pf, case: 7123.4)
     d._estimate = lambda: Est(EstimateResult(ok=True, mode="live", parts=3, misc={"Underseal": "60.00"}))
     r = d.save("B", ())
-    assert not r.ok and r.error == "step_not_ported" and "Estimate details set: conditions on 3 part rows" in r.line and "not automated yet" in r.line
+    assert not r.ok and r.error == "step_not_ported" and "Estimate details set: conditions on 3 part rows" in r.line
+    assert "All checks passed (total RM7,123.40). Ready to submit in Merimen by hand." in r.line and r.total_rm == "7123.40"  # never submitted
+    monkeypatch.setattr(me, "read_total", lambda pf, case: 5200.0)
+    r = d.save("B", ())
+    assert r.fatal and r.error == "checks" and "total RM5,200.00 is below RM6,000" in r.line
+    monkeypatch.setattr(me, "read_total", lambda pf, case: 9000.0)
+    d._estimate = lambda: Est(EstimateResult(ok=True, mode="live", parts=3, review=["Bonnet Hinge qty 1 (2, single row)"]))
+    r = d.save("B", ())
+    assert r.fatal and r.error == "checks" and "Not submitted, 1 to fix: Bonnet Hinge qty 1" in r.line
     d._estimate = lambda: Est(EstimateResult(ok=False, mode="live", code="empty_conditions", empty=1))
     r = d.save("B", ())
     assert r.fatal and r.error == "estimate"
@@ -164,3 +175,36 @@ def test_the_driver_saves_b_only_with_both_switches_and_never_claims_checks(monk
     assert d.save("B", ()).error == "step_not_ported" and called == []  # dry run: never saves
     d._estimate = lambda: Est(None)
     assert d.dry_run("B", ()).line.startswith("Estimate details would set")
+
+
+def test_read_back_review_lists_quantities_and_comments_for_the_person_who_submits():
+    from autopilot_worker.merimen_estimate import review_rows
+
+    rows = [[1, "Bumper Clips", False, "Necessary", "1", ""], [2, "Bumper Clips", False, "Necessary", "30", ""], [3, "Grille Clips", False, "Necessary", "9", ""],
+            [4, "Bonnet Hinge", False, "Bent", "1", ""], [5, "Grille Badge", False, "Broken", "1", "proton"], [6, "Boot Lid Badge", False, "Broken", "1", "(SAGA)"],
+            [7, "Door Front Hinge LH", False, "Bent", "2", ""], [8, "Bonnet Support Strut LH", False, "Broken", "1", "LH"],
+            [9, "Door Front Hinge LH", False, "Bent", "2", "Upper LH & Lower LH"], [10, "Bumper Rear Bracket Side", False, "Bracket cracked", "2", ""]]
+    got = review_rows(rows)
+    assert got == ["Bumper Clips qty 1 (15 per bumper)", "Bonnet Hinge qty 1 (2, single row)", "Grille Badge: comment should be the badge name in capitals, e.g. (PROTON)",
+                   "Door Front Hinge LH: comment Upper / Lower missing", "Bonnet Support Strut LH: has LH/RH, no comment needed",
+                   "Bumper Rear Bracket Side: qty 2 needs the sides in the comment (Front LH & Front RH)"]
+
+
+def test_the_total_is_read_from_the_claim_subfolder_page_only(browser):  # noqa: F811
+    from autopilot_worker.merimen_estimate import read_total
+
+    ctx = browser.new_context()
+    urls = []
+
+    def route(r):
+        urls.append(r.request.url)
+        body = "<html><body>Adj Rpt RM10,668.09 Est RM9,000.00</body></html>" if "dsp_clmheader" in r.request.url else "<html><body>home</body></html>"
+        r.fulfill(content_type="text/html", body=body)
+
+    ctx.route("https://www.merimen.com.my/**", route)
+    base = ctx.new_page()
+    base.goto(LOGGED_IN)
+    assert read_total(lambda: base, CASE, timeout_scale=0.02) == 10668.09
+    assert "fusebox=MTRroot&fuseaction=dsp_clmheader&caseid=22322999&" in urls[-1]
+    assert read_total(lambda: None, CASE) is None and len(ctx.pages) == 1
+    ctx.close()

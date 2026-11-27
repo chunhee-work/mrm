@@ -55,7 +55,7 @@ def test_apply_ticks_saves_and_goes_next_then_rows_read_back(browser):  # noqa: 
     ctx, base, _ = site(browser)
     s2 = RealStep2(lambda: base, timeout_scale=0.02)
     s2.apply(CASE, {"CP": ["10@1", "10@2"], "N": ["Rear Bumper R/R"], "R": [], "manual": ["Bumper Clips"]})
-    assert s2.last == "ticked 2 parts, labour N 1 R 0, misc 0"
+    assert s2.last == "ticked 2 parts, labour N 1 R 0, misc 0, manual rows 0"  # this stand-in page has no add-row box
     assert s2.selected(CASE) == [("Bumper Rear Cover", "1"), ("Tail Lamp LH", "1")]
     assert len(ctx.pages) == 1
     ctx.close()

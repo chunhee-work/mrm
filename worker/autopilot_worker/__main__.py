@@ -127,8 +127,17 @@ class _CdpDriver(Driver):
             r = est.fill(self.case or {})
             if not r.ok:  # unreadable = try again later (setting the same values again is safe); anything else waits for a person
                 return DriveResult(ok=False, fatal=r.code != "unreadable", error="estimate", line=r.line())
-            # filled and saved; manual rows, comments, quantities, the RM6,000 check and the submit are not automated: the case stops here
-            return DriveResult(ok=False, error="step_not_ported", line=r.line() + " Checks and submit are not automated yet.")
+            from .merimen_estimate import gate, read_total
+
+            case = self.case or {}
+            total = read_total(lambda: self.page_for(case.get("org_id") or "", strict=True), case)
+            left = gate(r, total)
+            if left:  # the owner's rule: submit only when EVERY check passed; otherwise the case waits for a person with the list
+                return DriveResult(ok=False, fatal=True, error="checks", total_rm=f"{total:.2f}" if total else None,
+                                   line=(f"Estimate details saved. Not submitted, {len(left)} to fix: " + "; ".join(left[:5]))[:380])
+            # all checks passed. Submitting to the insurer is deferred (owner 2026-11-28): a person submits in Merimen
+            return DriveResult(ok=False, error="step_not_ported", total_rm=f"{total:.2f}",
+                               line=f"{r.line()} All checks passed (total RM{total:,.2f}). Ready to submit in Merimen by hand.")
         return DriveResult(ok=False, error="step_not_ported")
 
 
