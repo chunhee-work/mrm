@@ -454,6 +454,86 @@ class PgRepo:
             return None
         return {"slot": int(rows[0][0]), "name": rows[0][1]}
 
+    def peek_workshop_for_case(self, case_id: str) -> dict | None:
+        """The same answer as claim_workshop_for_case, but READ ONLY: nothing is locked, so the user can still switch the workshop.
+        For a dry run, which fills Merimen's form without saving it. Returns {"slot", "name"} or None (stop, never fall back to workshop 1)."""
+        try:
+            rows = self.db.execute(
+                """
+                SELECT COALESCE(cw.slot, 1)::int,
+                       CASE WHEN cw.locked_at IS NOT NULL THEN cw.locked_name
+                            WHEN COALESCE(cw.slot, 1) = 1 THEN COALESCE(w.name, mc.workshop_name)
+                            ELSE w.name END
+                FROM cases c
+                LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id
+                LEFT JOIN merimen_workshops w ON w.org_id = c.org_id AND w.slot = COALESCE(cw.slot, 1)
+                LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id
+                WHERE c.id = %s
+                """,
+                (case_id,),
+            )
+        except Exception as e:
+            if not _missing_workshops(e):
+                raise
+            rows = self.db.execute(
+                "SELECT 1, mc.workshop_name FROM cases c LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id WHERE c.id = %s",
+                (case_id,),
+            )
+        if not rows or not rows[0][1]:
+            return None
+        return {"slot": int(rows[0][0]), "name": rows[0][1]}
+
+    def record_merimen_id(self, case_id: str, merimen_caseid: str, merimen_extid: str | None = None) -> None:
+        """Write the Merimen case number the moment the case exists, before the manager and adjuster are set and before the job ends.
+        A crash after this can never make a second case: the next run sees the number and skips the create. Never overwrites a number."""
+        self.db.execute(
+            "UPDATE cases SET merimen_caseid = %s, merimen_extid = COALESCE(%s, merimen_extid) WHERE id = %s AND merimen_caseid IS NULL",
+            (merimen_caseid, merimen_extid, case_id),
+        )
+
+    def create_marks(self, case_id: str):
+        """The three calls the create step needs to be safe after a crash. They only use case_events, so no migration:
+        pressed() -> True if an earlier attempt pressed Next and nothing says it did not make a case (a retry could make a second case);
+        press()   -> write the mark right before Next, returns False if one is already standing; clear() -> Merimen refused, no case was made."""
+        db = self.db
+
+        class Marks:
+            @staticmethod
+            def pressed() -> bool:
+                rows = db.execute(
+                    """
+                    SELECT 1 FROM case_events s WHERE s.case_id = %s AND s.step = 'create_submitted'
+                      AND NOT EXISTS (SELECT 1 FROM case_events c WHERE c.case_id = s.case_id AND c.step = 'create_cleared' AND c.id > s.id)
+                    LIMIT 1
+                    """,
+                    (case_id,),
+                )
+                return bool(rows)
+
+            @staticmethod
+            def press() -> bool:
+                rows = db.execute(
+                    """
+                    INSERT INTO case_events (case_id, step, message)
+                    SELECT %s, 'create_submitted', 'Create pressed in Merimen'
+                    WHERE NOT EXISTS (
+                      SELECT 1 FROM case_events s WHERE s.case_id = %s AND s.step = 'create_submitted'
+                        AND NOT EXISTS (SELECT 1 FROM case_events c WHERE c.case_id = s.case_id AND c.step = 'create_cleared' AND c.id > s.id))
+                    RETURNING id
+                    """,
+                    (case_id, case_id),
+                )
+                return bool(rows)
+
+            @staticmethod
+            def clear() -> None:
+                db.execute(
+                    "INSERT INTO case_events (case_id, step, message) VALUES (%s, 'create_cleared', 'Merimen did not accept the create, no case was made')",
+                    (case_id,),
+                )
+
+        return Marks
+
     def claim_verify(self):
         """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement."""
         sql = """

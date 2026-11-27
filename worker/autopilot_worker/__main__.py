@@ -17,28 +17,38 @@ from .store import PgRepo
 
 
 class _CdpDriver(Driver):
-    """Dry-run is local. Save shells to cdp.mjs, which exits before any socket unless MERIMEN_WRITES=on."""
+    """Phase A step 1 (create the case) is real: a dry run fills the create form without saving it (MERIMEN_DRYRUN=on), a live save needs
+    MERIMEN_WRITES=on and WORKER_SUBMIT=on. Every other save step is still "not ported" and changes nothing in Merimen."""
 
-    def __init__(self, script: str):
+    def __init__(self, script: str, page_for=None):
         self.script = script
+        self.page_for = page_for or (lambda _org: None)
+        self.profile = lambda: None  # set per job (loop.tick): the user's manager and adjuster
+        self.workshop = lambda _lock: None  # set per job: the case's workshop; True locks it (claim), False only looks (peek)
+        self.record = None  # set per job: writes the Merimen case number the moment the case exists
+        self.marks = None  # set per job: returns the "Next was pressed" marks (PgRepo.create_marks); only asked for a live save
+
+    def _create(self, live: bool):
+        from .create_step import run_create_step
+
+        return run_create_step(self.case or {}, profile=self.profile, workshop=self.workshop, page_for=self.page_for, live=live, progress=self.progress, record=self.record, marks=self.marks() if live and self.marks else None)
 
     def dry_run(self, phase: str, steps: tuple):
         from .pipeline import DriveResult
 
+        # MERIMEN_DRYRUN=on fills Merimen's create form without saving it. While it is on nothing is ever saved (see save).
+        if phase == "A" and os.environ.get("MERIMEN_DRYRUN") == "on":
+            return self._create(False)
         return DriveResult(ok=True)
 
     def save(self, phase: str, steps: tuple):
         from .pipeline import DriveResult
 
-        if os.environ.get("MERIMEN_WRITES") != "on" or os.environ.get("WORKER_SUBMIT") != "on":
+        if os.environ.get("MERIMEN_WRITES") != "on" or os.environ.get("WORKER_SUBMIT") != "on" or os.environ.get("MERIMEN_DRYRUN") == "on":
             return DriveResult(ok=False, error="step_not_ported")
-        proc = subprocess.run(
-            ["node", self.script, "commit", phase],
-            capture_output=True, text=True, timeout=120, env=os.environ.copy(),
-        )
-        if proc.returncode != 0:
-            return DriveResult(ok=False, fatal=True, error="not_saved")
-        return DriveResult(ok=True)
+        if phase == "A":
+            return self._create(True)  # the first step of Phase A; the rest of the phase is not ported yet (the result says so)
+        return DriveResult(ok=False, error="step_not_ported")
 
 
 def _namer_factory(cfg: Config):
@@ -137,7 +147,8 @@ def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
     repo = PgRepo(cfg.database_url, cfg.db_transport)
     script = os.path.join(os.path.dirname(__file__), "..", "cdp.mjs")
-    driver = _CdpDriver(script)
+    page_for = _page_provider(cfg)
+    driver = _CdpDriver(script, page_for=page_for)
     from . import step2_ai
 
     driver.step2_reviewer = step2_ai.from_env(dict(os.environ))  # None unless STEP2_AI=on and ANTHROPIC_API_KEY is set
@@ -220,8 +231,6 @@ def main() -> None:
         if proc.returncode != 0 or data.get("offline") or data.get("error"):
             return {"offline": True}
         return data
-
-    page_for = _page_provider(cfg)
 
     def put_blob(path: str, data: bytes) -> None:
         from .blobstore import blob_put

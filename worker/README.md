@@ -59,6 +59,21 @@ sudo systemctl enable --now autopilot-worker
 
 Phase A / B 在写入 Merimen 之前先做演练。`MERIMEN_WRITES` 和 `WORKER_SUBMIT` 都不是 `on` 时，不会提交。CI 不登录 Merimen。
 
+## 建案子（Phase A 第 1 步，计划 issue #113）
+
+Worker 用本机 Chrome 里已登录的 Merimen 标签页（Playwright 连本机调试口，和截图同一种方式）打开建案表单 `dsp_clmreg`，按 `cases.case_data`、用户保存的 manager / adjuster、以及这个案子的工坊（见下）填表。选择器和顺序来自主人的脚本 `tools/mrm-bot/createpar2_sinar.mjs` 和 `playbook/02-create-case.md`。session 标记（CFID、CFTOKEN、USID、RID）只从已登录标签页的地址里取，不写日志、不存库。
+
+两个开关，默认都关：
+
+1. `MERIMEN_DRYRUN=on`：演练。新开一个标签页，填完整张表，逐项读回检查，关掉标签页。**不保存。** 案子时间线写一行：检查了什么，或缺什么。演练时工坊只“看”（`peek_workshop_for_case`），不锁定，用户还能改。
+2. `MERIMEN_WRITES=on` 且 `WORKER_SUBMIT=on`：真保存。先调用 `claim_workshop_for_case` 锁定工坊（返回 `None` 就停，绝不退回工坊 1），再填表、检查，**只有全部通过才点 Next**。保存后设 manager 和 adjuster，把 caseid（和 extid）写回案子。
+
+演练先跑，确认没问题再开第二组。两组都开时不再多做一次演练填表（真保存自己先检查）。
+
+停下来的情况（案子进入 `waiting_user`，时间线写明原因，不自动重试）：缺资料（写明缺哪项）、用户信息不全、工坊缺失或查到的不是恰好一行、保险公司不在 16 家表里（例如 Lonpac）、Liberty 看不出地区、车型没把握（前两名太接近）、某个下拉选项找不到、Merimen 出现“已有进行中的案子”提示（**不会自动确认**，因为崩溃后重试也会碰到同一个提示，会建出第二个案子）、Merimen 拒绝表单（显示它自己的话）、保存后落地页不明（重试前先看 worklist）。没有已登录标签页或表单打不开：稍后重试（沿用 3 次上限）。
+
+只自动化了建案这一步。建好之后案子进入 `waiting_user`，时间线写明 Adjuster Report、文件和照片还没有自动化，截图里程碑只记“案件已打开”。已有 Merimen 编号的案子不会再建第二个。manager 或 adjuster 在 Merimen 里匹配不上：案子照样记下编号，时间线请人手动补。
+
 ## 迁移
 
 `web/drizzle/0007_worker.sql` 只新增表和 `jobs.not_before`。`web/drizzle/0008_case_screenshots.sql` 只新增表 `case_screenshots`（可重复执行），并在角色 `autopilot_worker` 存在时给它 `SELECT, INSERT, UPDATE`（没有 DELETE）。生产库要等主人点头之后再跑 `npm run db:migrate`。本文件不会替你执行。
