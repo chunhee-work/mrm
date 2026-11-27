@@ -9,7 +9,7 @@ import { LANGS, type Lang } from "@/lib/i18n";
 import { whatsappHref } from "@/lib/site";
 import { Gear, logOut } from "./app-bar";
 import type { Cred } from "./profile-card";
-import { needsUser, SIDE_REFRESH } from "@/lib/ext/login-state";
+import { SIDE_REFRESH } from "@/lib/ext/login-state";
 
 function Icon({ d }: { d: string }) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0"><path d={d} /></svg>;
@@ -125,8 +125,8 @@ export default function SideBar({ email, name, credits: credits0, cred: cred0, c
   const item = (here: boolean) =>
     `relative flex h-10 items-center gap-3 rounded-[4px] text-[15px] transition-colors duration-150 ${thin ? "justify-center px-0" : "px-3"} ${here ? "bg-panel2 font-semibold text-fg" : "font-medium text-fg/80 hover:bg-panel2 hover:text-fg"}`;
   const label = (text: string) => (thin ? <span className="sr-only">{text}</span> : <span className="min-w-0 flex-1 truncate">{text}</span>);
-  // amber only when the user has something to do (not while the login is being checked: nothing to do yet)
-  const dot = cred ? (!cred.complete || needsUser(cred) ? "bg-amber" : "") : "";
+  // amber only while the details are not saved (owner 2026-11-27): a login check result never keeps it on; /details shows that
+  const dot = cred ? (!cred.complete ? "bg-amber" : "") : "";
   const links = [
     { href: "/dashboard", d: CASES, text: t("nav.cases"), here: (path === "/dashboard" && view !== "closed") || path.startsWith("/cases/"), id: "side-cases" },
     { href: "/dashboard?view=closed", d: CLOSED, text: t("tray.closed"), here: view === "closed", id: "side-closed", count: closed },

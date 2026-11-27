@@ -216,10 +216,12 @@ test("toyyibPay: many success rows credit once; malformed or down answers 503 an
 });
 
 test("unapproved packs are refused in live mode, allowed in test mode", () => {
+  const unapproved = { ...pack, approved: false };
   process.env.PAYMENTS_MODE = "live";
-  assert.equal(packSellable(pack), false);
+  assert.equal(packSellable(unapproved), false);
+  assert.equal(packSellable(pack), true); // the shipped packs are approved (owner, 2026-11-27)
   process.env.PAYMENTS_MODE = "test";
-  assert.equal(packSellable(pack), true);
+  assert.equal(packSellable(unapproved), true);
   delete process.env.PAYMENTS_MODE;
 });
 

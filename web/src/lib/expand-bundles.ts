@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { get, put } from "@vercel/blob";
 import { db, schema } from "@/db";
 import { unzipBundle } from "@/lib/unzip-bundle";
+import { runPool } from "@/lib/pool";
 
 /**
  * A `bundle_zip` case file is opened on the server: its PDFs and photos are stored as ordinary case files
@@ -22,14 +23,20 @@ export async function expandBundles(caseId: string, orgId: string): Promise<numb
     let entries;
     try { entries = unzipBundle(bytes); } catch (e) { throw new Error(`${z.originalName}: ${(e as Error).message}`); }
     const seen = new Set<string>();
-    const opened: (typeof schema.caseFiles.$inferInsert)[] = [];
-    for (const e of entries) {
+    const names: string[] = entries.map((e) => {
       let name = e.name; // two folders may hold the same file name
       for (let n = 2; seen.has(name); n++) name = e.name.replace(/(\.[^.]+)?$/, `-${n}$1`);
       seen.add(name);
-      const b = await put(`${orgId}/${caseId}${marker}${name}`, Buffer.from(e.bytes), { access: "private", contentType: e.type, addRandomSuffix: false, allowOverwrite: true });
-      opened.push({ caseId, kind: e.kind, blobUrl: b.url, originalName: name, size: e.bytes.length });
-    }
+      return name;
+    });
+    // One blob store call takes about 1.5 s, so 80 photos one after the other used up most of the call's 300 seconds (a slow day ran
+    // out: the case stayed on "Reading documents"). Sixteen at a time; the rows keep the zip's order.
+    const opened: (typeof schema.caseFiles.$inferInsert)[] = new Array(entries.length);
+    await runPool(entries.length, 16, async (i) => {
+      const e = entries[i];
+      const b = await put(`${orgId}/${caseId}${marker}${names[i]}`, Buffer.from(e.bytes), { access: "private", contentType: e.type, addRandomSuffix: false, allowOverwrite: true });
+      opened[i] = { caseId, kind: e.kind, blobUrl: b.url, originalName: names[i], size: e.bytes.length };
+    });
     // All rows in one statement, after every blob is stored: a failure halfway leaves no marker row, so the next read opens
     // the whole zip again (the blobs are overwritten) instead of taking a partial set as "already opened".
     await db.insert(schema.caseFiles).values(opened);

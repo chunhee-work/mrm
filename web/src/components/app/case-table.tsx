@@ -124,7 +124,8 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
               return (
                 <li key={r.id} className={`relative border-b border-hairsoft px-4 py-3 transition-colors duration-150 last:border-b-0 hover:bg-panel2 lg:min-h-[56px] lg:px-6 lg:py-2 ${COLS}`} data-bucket={bucketOf(r)}>
                   <div className="flex items-center justify-between gap-4 lg:contents">
-                    <Link href={`/cases/${r.id}`} className={plateCls}>{plate}</Link>
+                    {/* an open case opens in its line on the Cases page (everything stays on the first page); a closed one has its record page */}
+                    <Link href={r.status === "done" ? `/cases/${r.id}` : `/dashboard?open=${encodeURIComponent(r.id)}`} className={plateCls}>{plate}</Link>
                     {/* a phone: the status ends the first line; a wide screen: it is the fifth column */}
                     <span className="flex min-w-0 shrink-0 items-center gap-2 text-[14px] leading-none text-fg max-lg:max-w-[62%] lg:order-5 lg:shrink">{status(r)}</span>
                     <span className="hidden min-w-0 truncate text-[15px] text-fg lg:block">{r.carModel || "–"}</span>

@@ -18,7 +18,7 @@ export const maxDuration = 300; // a few waiting cases are read after the page i
 
 const HEAL_PER_VISIT = 3; // a zip of many cars makes many cases at once: each visit starts a few more of those still waiting
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string; q?: string }> }) {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string; q?: string; open?: string }> }) {
   const { user, orgId } = await requireUser();
   const sp = await searchParams;
   const view = (VIEWS as readonly string[]).includes(sp.view ?? "") ? (sp.view as View) : null;
@@ -71,7 +71,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       .orderBy(sql`case when ${schema.cases.status} in ('failed', 'pending_doc') then 0 when ${schema.cases.status} not in ('uploaded', 'reading', 'checking') and ${schema.cases.photosDoneAt} is null then 1 else 2 end`, desc(schema.cases.createdAt)).limit(500)
     : openHere);
   const [cred, workshops] = await Promise.all([credView(orgId), orgWorkshops(orgId)]); // credView never throws: a failed read comes back as storageOk false
-  return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => Number(g.n) > 0 && systemBusy(g))} cred={cred} workshops={workshops} />;
+  return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => Number(g.n) > 0 && systemBusy(g))} cred={cred} workshops={workshops} openId={typeof sp.open === "string" ? sp.open : undefined} />;
 }
 
 /** What the first page and the table need of each case: which case, its step, and what (if anything) it waits for. */
