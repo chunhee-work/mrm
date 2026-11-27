@@ -59,9 +59,12 @@ async function readAll(stream: ReadableStream<Uint8Array>, size: number): Promis
  * asked to fall back (`fallback`): then the browser makes it one ordinary case.
  */
 export async function POST(req: Request) {
-  const me = await getUserOrNull();
-  if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (await profileBlocks(me.orgId)) return NextResponse.json({ error: "profile_incomplete" }, { status: 403 }); // details not filled in on the front page
+  let me: Awaited<ReturnType<typeof getUserOrNull>>;
+  try {
+    me = await getUserOrNull();
+    if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    if (await profileBlocks(me.orgId)) return NextResponse.json({ error: "profile_incomplete" }, { status: 403 }); // details not filled in on the front page
+  } catch (e) { console.error("split failed before reading the request", e); return NextResponse.json({ error: "failed", kept: 0 }, { status: 500 }); }
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const { url, name, size, fallback } = parsed.data;
@@ -93,7 +96,9 @@ export async function POST(req: Request) {
   try {
     const r = await get(url, { access: "private" });
     if (!r || r.statusCode !== 200) return NextResponse.json({ error: "download" }, { status: 502 });
-    buf = await readAll(r.stream, size);
+    // the size sent is the zip's key for the lock and the repeat check: it must be the stored file's real size
+    if (r.blob.size !== size) return NextResponse.json({ error: "invalid" }, { status: 400 });
+    buf = await readAll(r.stream, r.blob.size);
   } catch { return NextResponse.json({ error: "download" }, { status: 502 }); }
 
   let plan;
@@ -110,9 +115,9 @@ export async function POST(req: Request) {
   let earlier = new Map<string, string>();
   let todo: typeof plan;
   try {
-    release = await lockSplit(me.orgId, me.user.id, name, size);
+    release = await lockSplit(me.orgId, me.user.id, size);
     if (!release) { await dropZip(); return NextResponse.json({ error: "busy" }, { status: 409 }); } // this upload is its own copy: the running call deletes only its own
-    earlier = await earlierCars(me.orgId, name, size);
+    earlier = await earlierCars(me.orgId, size);
     todo = plan.filter((v) => !earlier.has(v.prefix));
     if (todo.length && enforcing() && !exempt(me.orgId) && (await creditBalance(me.orgId)) < CASE_COST * todo.length) {
       await release(); await dropZip();
@@ -129,6 +134,7 @@ export async function POST(req: Request) {
   const made: string[] = [];
   const madeFor = new Map<string, string>(); // folder prefix -> case id made in this call
   const stored = new Map<string, string[]>(); // case id -> its stored blobs (also for the car in progress, which has no case yet)
+  const unsure = new Set<string>(); // a car whose write failed and whose case was not found: its blobs are never deleted
   try {
     for (const v of todo) {
       const id = crypto.randomUUID();
@@ -155,8 +161,12 @@ export async function POST(req: Request) {
       } catch (e) {
         // the batch may have committed although its answer was lost: then the case exists with its files, and the rollback must
         // treat it as made (refund, then delete it with its blobs), never delete its blobs and leave a case without files
-        const exists = await db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).then((r) => r.length > 0, () => true);
-        if (exists) { made.push(id); madeFor.set(v.prefix, id); }
+        // A lost answer can also mean the transaction has not committed YET: look again twice, 1.5 s apart, and when the case is
+        // still not there keep its blobs anyway (a late commit then finds its files; otherwise a few files are left unused).
+        const check = () => db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).then((r) => r.length > 0, () => true);
+        let exists = await check();
+        for (let k = 0; !exists && k < 2; k++) { await new Promise((r) => setTimeout(r, 1500)); exists = await check(); }
+        if (exists) { made.push(id); madeFor.set(v.prefix, id); } else unsure.add(id);
         throw e;
       }
       made.push(id); madeFor.set(v.prefix, id);
@@ -173,7 +183,7 @@ export async function POST(req: Request) {
     // `kept` = cars of this zip now in the case list: the ones this call could not undo plus the ones an earlier call made,
     // so the page never says "nothing was kept" while earlier cars of the same zip are listed
     const listed = kept.size + earlier.size;
-    const gone = [...stored].filter(([id]) => !kept.has(id)).flatMap(([, urls]) => urls);
+    const gone = [...stored].filter(([id]) => !kept.has(id) && !unsure.has(id)).flatMap(([, urls]) => urls);
     if (gone.length) await del(gone).catch((x) => console.error("split rollback: blob delete failed", x));
     await dropZip();
     await release();
