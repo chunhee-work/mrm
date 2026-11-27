@@ -173,6 +173,7 @@ class FakeRepo(Repo):
     def heartbeat(self, *a, **k): pass
     def claim_verify(self): return None
     def reclaim_stale(self, *a): return 0
+    def ensure_sessions(self): return []
     def wanted(self): return []
     def followup_cases(self): return []
     def claim(self, **k): return {"id": 7, "case_id": "case1", "step": self.step, "attempts": 1, "org_id": "o1"}
