@@ -505,6 +505,7 @@ try {
     // New case opens the file picker at once (owner 2026-11-27): no page first; the picked files are sent by themselves
     await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
     const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("home-new").click()]);
+    await page.waitForTimeout(500);
     assert.match(page.url(), /\/dashboard$/, "the picker opens on the first page, no jump");
     sent = 0;
     await chooser.setFiles([{ name: "picked.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
