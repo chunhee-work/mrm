@@ -12,8 +12,13 @@ import { MAX_PDF_BYTES } from "./upload-rules";
 // Step 1 of the workflow (playbook 01): read the case bundle and return the case data.
 // Anthropic compiles the output schema and refuses more than 16 nullable/union fields. So plain text fields are
 // strings that are "" when the bundle does not have them; only a few whole objects and one enum stay nullable (6 in all).
+// Adjuster Report fields (playbook 04): date of birth, gender and the address split are read here so the worker never guesses them.
 const Person = z.object({
   name: z.string(), nric: z.string(), address: z.string(), phone: z.string(),
+  dob: z.string().describe("YYYY-MM-DD; from the document, or the NRIC's first six digits (YYMMDD) when it is a 12-digit Malaysian NRIC"),
+  gender: z.string().describe("Male or Female. From the document; else the NRIC's last digit (odd = Male, even = Female); \"\" if neither"),
+  state: z.string().describe("Full Merimen state name, e.g. Terengganu Darul Iman, Pulau Pinang (Island); \"\" if not in the address"),
+  city: z.string(), postcode: z.string().describe("5 digits, \"\" if not in the address"),
 });
 const Policy = z.object({
   insurer: z.string(),
@@ -36,6 +41,8 @@ export const CaseData = z.object({
     report_no: z.string().describe("No spaces, e.g. TRAFIKKUANTAN/008375/26"),
     report_datetime: z.string(), place: z.string(), accident_datetime: z.string(),
     blamed_plate: z.string(), client_report_no: z.string(),
+    station: z.string().describe("The police station (IPD / balai) of OUR client's report, e.g. 'BP Pekan'; \"\" if not stated"),
+    loss_state: z.string(), loss_city: z.string(), loss_postcode: z.string().describe("Where the accident happened, as in Person.state/city/postcode"),
   }),
   client_driver: Person.nullable(),
   at_fault: z.object({
@@ -76,6 +83,7 @@ Rules:
 - Lock the at-fault party: the police result names the "disalahkan" plate; the at-fault insurer is the I-SEARCH page for that exact plate. An insurance page naming a different plate is misfiled: ignore it. In a chain collision, claim against the vehicle that directly hit our client, whose insurance is in the bundle.
 - Several policies on the I-SEARCH: pick the one whose period covers the accident date.
 - Unclear digit or word that IS in the bundle: zoom mentally and give your best reading.
+- People: read date of birth, gender, state, city and postcode of every person you return. A Malaysian 12-digit NRIC gives the date of birth (YYMMDD; 00-29 = 20xx unless the age makes it impossible) and gender (last digit odd = Male, even = Female). Never invent an address part that is not in the bundle.
 - When a text field is not in the bundle, return exactly "" (empty text). Never write N/A, -, none, unknown or similar; null only where the field allows it. Dates as YYYY-MM-DD.
 
 ${playbookBlock("read_docs")}`;
