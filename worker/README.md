@@ -8,7 +8,17 @@
 
 密码用 AES-256-GCM 信封加密。主密钥是环境变量 `MERIMEN_CRED_KEY`（32 字节的 base64）。每个机构一把数据密钥，由主密钥包起来。密码不会写进日志，也不会回到浏览器。审计表只记动作（save、delete、login_ok、login_bad_credentials），不记密码。
 
-Worker 只在 `MERIMEN_LOGIN=on` 时向 Merimen 提交登录，而且**只试一次**。Merimen 多次失败会锁定账号（locktime=15）。页面结果只有四种：成功、用户名或密码不对、账号已锁定、需要验证码。Chrome 没开好时不算一次失败，核对会留在队列里。
+Worker 只在 `MERIMEN_LOGIN=on` 时向 Merimen 提交登录，而且**只试一次**。Merimen 多次失败会锁定账号（locktime=15）。页面结果只有四种：成功、用户名或密码不对、账号已锁定、需要验证码。
+
+「只试一次」的规则（`cdp.mjs login` + `login_flow.py`）：
+
+- 只在 Merimen 自己的登录页上打字：标签页的 origin 必须正好是 `https://www.merimen.com.my`（解析整个地址，不看地址里有没有这几个字），而且页面上要有密码框、可见的用户名框和登录按钮。少一样就什么都不打，结果是 `not_login_page`（例如 Chrome 里已经登录着）。绝不点 Logout。
+- 脚本在打字**之前**先写一行 `{"submitted": true}`。之后任何失败（读不到结果、超时、脚本崩溃）一律是 `unknown`：`verify_state = 'unknown'`、`blocked = true`、该机构的 Merimen job 暂停、案子进 `waiting_user`，等用户重新保存登录。**worker 自己绝不会再提交一次。** 时间线和邮件写的是「Merimen 没有明确回复」，不说密码不对。
+- 只有「什么都没打」的三种情况会把核对放回 `queued`（不算一次、不封、不暂停、不发邮件）：
+  - `key_mismatch`：保存的登录用这台 worker 的 `MERIMEN_CRED_KEY` 解不开（网站和 worker 的密钥不一样，或那一行坏了）。**要修的是密钥，不是用户的密码。**
+  - `not_login_page`：没有打开着的 Merimen 登录页。
+  - `offline`：Chrome 的调试口连不上，或脚本在提交之前就停了。
+- 被放回的核对不会每 2 秒再领一次：同一机构先等 2 秒，每次加倍，最长 60 秒（只记在进程里），其它机构不受影响。原因在 stderr 打一行，并在 `merimen_cred_audit` 写一行 `login_released_<原因>`；同一原因只写一次，不是每个 tick 一行。查法：`SELECT org_id, action, at FROM merimen_cred_audit WHERE action LIKE 'login_released_%' ORDER BY at DESC LIMIT 20;`
 
 之后某个案子登录失败（例如用户在 Merimen 改了密码）：该机构的登录标成无效，Phase A / B / checks 暂停，案子状态改为 `waiting_user`，时间线写中英两句。网站在案子页和连接页用当前语言显示横幅。用户重新保存并且核对成功后，暂停的 job 自动回到 `queued`。可选：配置了 `RESEND_API_KEY` 和 `EMAIL_FROM` 时发一封双语邮件，正文里没有密码。
 
@@ -34,9 +44,23 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 
 ## 队列
 
-领取见上一节。同一机构同时运行的 Merimen job 数量由 `ORG_CONCURRENCY` 限制（默认 1）。暂时性错误用 `not_before` 退避，最长 5 分钟。密码错误不退避、不重试。
+领取见上一节。同一机构同时运行的 Merimen job 数量由 `ORG_CONCURRENCY` 限制（默认 1）。密码错误不退避、不重试。
+
+「稍后再试」（Merimen 读不到、没有已登录标签页、表单打不开等）：job 放回队列时写 `jobs.not_before = now() + backoff_seconds(attempts)`（第 1 次之后等 2 秒，第 2 次之后等 4 秒），到时间才会再被领取。**第 3 次还是不行就改为 `failed`**：时间线多一行「Stopped after 3 tries」，案子的 `error` 写上原因，案子状态不变。租约过期、worker 出错也算在这 3 次里。不需要迁移（`not_before` 来自 0007）。
 
 一个 worker 可以开多份 Chrome 配置（`WORKER_ACCOUNTS=default:9222,b:9223`），一份配置一个 Merimen 登录。多台机器共用同一个 Neon，各领各的 job。
+
+## Chrome
+
+- 每个 tick 先问调试口（`/json/list`）。有回应就不再启动 Chrome；没回应才启动一次，30 秒内不重复启动（同一个配置目录再启动一次只会在原来的 Chrome 里多开一个标签页）。
+- Chrome 启动时**不继承 worker 的密钥**。只传这些环境变量（有才传）：`PATH`、`HOME`、`USER`、`LOGNAME`、`SHELL`、`TMPDIR`、`DISPLAY`、`XAUTHORITY`、`WAYLAND_DISPLAY`、`DBUS_SESSION_BUS_ADDRESS`、`DESKTOP_SESSION`、`GNOME_DESKTOP_SESSION_ID`、`KDE_FULL_SESSION`、`KDE_SESSION_VERSION`、`LANG`、`LANGUAGE`、`TZ`、`FONTCONFIG_FILE`、`FONTCONFIG_PATH`、代理变量（`http_proxy`、`https_proxy`、`no_proxy`、`all_proxy`，大小写都算）、以及 `XDG_*` 和 `LC_*`。`XDG_RUNTIME_DIR` 和 `DBUS_SESSION_BUS_ADDRESS` 要留着：Wayland 的 socket 在前者里，Chrome 通过后者找桌面的密钥库（cookie 用它加密），少了会读不出已登录配置里的 cookie。
+- 这台机器的 Chrome 还需要别的变量（例如 `LD_LIBRARY_PATH`）：把**名字**写进 `CHROME_ENV_PASS`（逗号分隔）。名字里带 KEY / TOKEN / SECRET / PASSWORD / CREDENTIAL / COOKIE / DATABASE_URL 的一律不传，写了也不传。
+
+## 这台机器上的文件
+
+- 下载的案件文件和照片放在 `<WORKER_STATE>/files/<案子 id>/<照片或文件 id>-<文件名>`（目录 0700、文件 0600），**job 一结束（成功或失败）就删掉整个案子目录**。数据库里的文件名当作不可信：目录部分（`/`、`\`）和控制字符去掉，过长截短，所以写不到目录外面。
+- 启动时和之后每小时清一次：`<WORKER_STATE>/files` 下 6 小时没动过的东西全部删除（被强杀的 job 留下的、以及旧版本平铺在这个目录里的文件）。符号链接只删链接本身。
+- 环境文件里是全部密钥，只能给启动 worker 的那个账号读：`sudo chown root:root /etc/autopilot-worker.env && sudo chmod 600 /etc/autopilot-worker.env`（systemd 用 root 读 `EnvironmentFile`；用 pm2 或 docker compose 时把属主换成启动它的那个账号）。
 
 ## 照片
 
@@ -47,7 +71,8 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 单机：
 
 ```sh
-cp .env.example /etc/autopilot-worker.env
+sudo cp .env.example /etc/autopilot-worker.env
+sudo chown root:root /etc/autopilot-worker.env && sudo chmod 600 /etc/autopilot-worker.env  # 里面是密钥，别人不能读
 # 填上值。不要把这个文件提交。
 sudo cp autopilot-worker.service /etc/systemd/system/
 sudo systemctl enable --now autopilot-worker
@@ -55,7 +80,7 @@ sudo systemctl enable --now autopilot-worker
 
 也可用 pm2：`pm2 start /opt/mrm/worker/run.sh --name autopilot-worker --interpreter bash`。
 
-多台：`worker/docker-compose.yml`，或 `worker/fly.toml`（示例，机器规格要在 Fly 上另选）。健康检查是 `GET /health`（`WORKER_HEALTH_PORT`，默认 8080），不访问 Merimen。
+多台：`worker/docker-compose.yml`，或 `worker/fly.toml`（示例，机器规格要在 Fly 上另选）。镜像的构建目录是仓库根目录，Docker（BuildKit）读的是 `worker/Dockerfile.dockerignore`：只送 `worker/` 和 `typesafe/photo_train/` 进去，本地的 `.env`、状态目录、`__pycache__`、测试都不进镜像。`worker/.dockerignore` 是同一份规则，给以 `worker/` 为构建目录的情况用。健康检查是 `GET /health`（`WORKER_HEALTH_PORT`，默认 8080），不访问 Merimen。
 
 Phase A / B 在写入 Merimen 之前先做演练。`MERIMEN_WRITES` 和 `WORKER_SUBMIT` 都不是 `on` 时，不会提交。CI 不登录 Merimen。
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from urllib.parse import parse_qs, urlparse
 
@@ -53,6 +54,43 @@ def chrome_argv(binary: str, port: int, profile: str) -> list[str]:
         *(["--no-sandbox"] if os.environ.get("CHROME_NO_SANDBOX") == "on" else []),
         MERIMEN_START,
     ]
+
+
+# What Chrome gets from the worker's environment. Everything else (DATABASE_URL, MERIMEN_CRED_KEY, the Blob, Hugging Face and
+# mail keys, ...) stays in the worker: a browser that opens web pages has no use for them.
+# - PATH, HOME, USER, LOGNAME, SHELL, TMPDIR: to start at all.
+# - DISPLAY, XAUTHORITY, WAYLAND_DISPLAY: the screen.
+# - XDG_RUNTIME_DIR, DBUS_SESSION_BUS_ADDRESS and the desktop names: the Wayland socket lives in the runtime folder, and Chrome
+#   reaches the desktop key store over the session bus. It picks the store from the desktop names; with them gone it would fall
+#   back to another store and could no longer read the cookies of the profile that is logged in.
+# - LANG, LANGUAGE, LC_*, TZ: language and time. FONTCONFIG_*: fonts.
+# - the proxy variables: on a box that reaches the internet through a proxy Chrome needs them too.
+_CHROME_ENV = (
+    "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR",
+    "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY",
+    "DBUS_SESSION_BUS_ADDRESS", "DESKTOP_SESSION", "GNOME_DESKTOP_SESSION_ID", "KDE_FULL_SESSION", "KDE_SESSION_VERSION",
+    "LANG", "LANGUAGE", "TZ", "FONTCONFIG_FILE", "FONTCONFIG_PATH",
+    "http_proxy", "https_proxy", "no_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY",
+)
+_CHROME_ENV_PREFIX = ("XDG_", "LC_")
+_ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ENV_SECRET = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|COOKIE|DATABASE_URL", re.I)
+
+
+def chrome_env(environ) -> dict[str, str]:
+    """The environment Chrome is started with: the short list above, plus the names in CHROME_ENV_PASS (comma separated; for a box
+    whose Chrome needs one more, e.g. LD_LIBRARY_PATH). A name that looks like a secret is never passed, listed or not."""
+    extra = [n.strip() for n in (environ.get("CHROME_ENV_PASS") or "").split(",")]
+    env: dict[str, str] = {}
+    for name in _CHROME_ENV:
+        if name in environ:
+            env[name] = environ[name]
+    for name, value in environ.items():
+        if name in env or not _ENV_NAME.match(name) or _ENV_SECRET.search(name):
+            continue
+        if name.startswith(_CHROME_ENV_PREFIX) or name in extra:
+            env[name] = value
+    return env
 
 
 def profile_dir(state_dir: str, account: str) -> str:

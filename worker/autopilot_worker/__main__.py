@@ -82,7 +82,10 @@ def _namer_factory(cfg: Config):
 
 def _launch(argv: list[str]) -> None:
     # The debugging port is bound to 127.0.0.1 by chrome_argv. The profile keeps the human's login.
-    subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    # Chrome gets a short list of environment variables (chrome.chrome_env), never the worker's keys.
+    from .chrome import chrome_env
+
+    subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, env=chrome_env(os.environ))
 
 
 def _inspect(port: int):
