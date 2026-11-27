@@ -156,9 +156,7 @@ def test_the_driver_saves_b_only_with_both_switches_and_never_claims_checks(monk
     d._estimate = lambda: Est(EstimateResult(ok=True, mode="live", parts=3, misc={"Underseal": "60.00"}))
     r = d.save("B", ())
     assert not r.ok and r.error == "step_not_ported" and "Estimate details set: conditions on 3 part rows" in r.line
-    assert "All checks passed (total RM7,123.40). Ready to submit; not submitted: MERIMEN_AUTO_SUBMIT is off." in r.line and r.total_rm == "7123.40"
-    monkeypatch.setenv("MERIMEN_AUTO_SUBMIT", "on")
-    assert "the submit button is not automated yet" in d.save("B", ()).line  # never a guessed button
+    assert "All checks passed (total RM7,123.40). Ready to submit in Merimen by hand." in r.line and r.total_rm == "7123.40"  # never submitted
     monkeypatch.setattr(me, "read_total", lambda pf, case: 5200.0)
     r = d.save("B", ())
     assert r.fatal and r.error == "checks" and "total RM5,200.00 is below RM6,000" in r.line

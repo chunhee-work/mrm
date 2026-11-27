@@ -135,10 +135,9 @@ class _CdpDriver(Driver):
             if left:  # the owner's rule: submit only when EVERY check passed; otherwise the case waits for a person with the list
                 return DriveResult(ok=False, fatal=True, error="checks", total_rm=f"{total:.2f}" if total else None,
                                    line=(f"Estimate details saved. Not submitted, {len(left)} to fix: " + "; ".join(left[:5]))[:380])
-            # all checks passed. Submitting to the insurer cannot be undone: its own switch, and the button is not ported yet
-            why = "the submit button is not automated yet" if os.environ.get("MERIMEN_AUTO_SUBMIT") == "on" else "MERIMEN_AUTO_SUBMIT is off"
+            # all checks passed. Submitting to the insurer is deferred (owner 2026-11-28): a person submits in Merimen
             return DriveResult(ok=False, error="step_not_ported", total_rm=f"{total:.2f}",
-                               line=f"{r.line()} All checks passed (total RM{total:,.2f}). Ready to submit; not submitted: {why}.")
+                               line=f"{r.line()} All checks passed (total RM{total:,.2f}). Ready to submit in Merimen by hand.")
         return DriveResult(ok=False, error="step_not_ported")
 
 
