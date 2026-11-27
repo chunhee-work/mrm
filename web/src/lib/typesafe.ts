@@ -1,4 +1,5 @@
 import "server-only";
+import { trackedJev, type JevCtx } from "./jev-ledger";
 
 // TypeSafe "jev": text judgments only (condition, model variant, misc line, narrative).
 // Owner's rule: jev never reads car damage images. This client refuses anything that looks like an image or an asset,
@@ -48,7 +49,12 @@ export function buildJevRequest(input: JevRequest, key: string): { url: string; 
   };
 }
 
-export async function askJev(input: JevRequest): Promise<unknown> {
+/** Pass ctx ({ purpose, userId?, caseId? }) to log the call in the llm_calls ledger (shown on the Cost page). */
+export async function askJev(input: JevRequest, ctx?: JevCtx): Promise<unknown> {
+  return ctx ? trackedJev(ctx, () => callJev(input)) : callJev(input);
+}
+
+async function callJev(input: JevRequest): Promise<unknown> {
   const key = process.env.TYPESAFE_API_KEY;
   if (!key) throw new Error("TYPESAFE_API_KEY is not set");
   const { url, init } = buildJevRequest(input, key);
