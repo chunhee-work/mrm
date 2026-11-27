@@ -90,14 +90,25 @@ export type UndoEntry = { caseId: string; photoId: number; prev: string | null; 
 export class UndoStack {
   private list: UndoEntry[] = [];
   get size() { return this.list.length; }
-  /** Recorded only after the server confirmed the write. Saves of one typing session collapse into one step. */
-  push(e: UndoEntry) {
+  /**
+   * Recorded only after the server confirmed the write. Saves of one typing session collapse into one step. `now` is the name after
+   * this save: a session that ends on the name it started from (Escape after an autosave) leaves no step at all.
+   */
+  push(e: UndoEntry, now?: string | null) {
     const top = this.list[this.list.length - 1];
-    if (e.session && top && top.session === e.session && top.photoId === e.photoId && top.caseId === e.caseId) { top.after = e.after; return; }
+    if (e.session && top && top.session === e.session && top.photoId === e.photoId && top.caseId === e.caseId) {
+      if (now !== undefined && now === top.prev) this.done(top, e.after);
+      else top.after = e.after;
+      return;
+    }
     this.list.push(e);
     if (this.list.length > 200) this.list.shift();
   }
-  peek(): UndoEntry | undefined { return this.list[this.list.length - 1]; }
+  /** The newest step, of `caseId` only when one is given: Ctrl+Z on one case never takes back a change made on another. */
+  peek(caseId?: string): UndoEntry | undefined {
+    for (let i = this.list.length - 1; i >= 0; i--) if (caseId === undefined || this.list[i].caseId === caseId) return this.list[i];
+    return undefined;
+  }
   /** The undo went through as version `newVersion`: the entry leaves, and the step before it on that photo now follows the new version. */
   done(e: UndoEntry, newVersion: number) {
     this.list = this.list.filter((x) => x !== e);
@@ -139,4 +150,14 @@ export function fileProblem(f: { name: string; type: string; size: number }, max
   if (!/^image\/(jpeg|png|webp)$/.test(f.type)) return "type";
   if (f.size > maxBytes) return "size";
   return null;
+}
+
+/**
+ * What an answer of the upload token route means for one file: null = no refusal (allowed, or a fault on the server, so the upload is
+ * worth another try); otherwise the reason, and the file is not tried again. "duplicate" = this very photo is already in the case.
+ */
+export function uploadRefusal(status: number, error: unknown): "duplicate" | "limit" | "status" | "upload" | null {
+  if (status < 400 || status >= 500) return null;
+  if (error === "duplicate" || error === "taken") return "duplicate";
+  return error === "limit" || error === "status" ? error : "upload";
 }

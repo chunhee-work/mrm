@@ -5,7 +5,7 @@ import {
   canonName, doneBlock, isPermutation, normalizePick, pathInCase, photoModel, photoPath, sliceCostUsd, sliceMatches,
   statusAfterDone, statusAfterRegister, costCapUsd, NONE, PART_NAMES,
 } from "../src/lib/photos/rules";
-import { altsOf, classifyPaste, counts, fileIdentity, fileProblem, moved, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
+import { altsOf, classifyPaste, counts, fileIdentity, fileProblem, moved, uploadRefusal, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
 import { logLine, safeError } from "../src/lib/photos/log";
 import { assertTextOnly, buildJevRequest, TypeSafeImageError } from "../src/lib/typesafe";
 import { pickContext, SYSTEM } from "../src/lib/photos/name-photos";
@@ -103,9 +103,9 @@ test("status rule: only the naming statuses ever move", () => {
   for (const s of ["uploaded", "phase_a", "pending_doc", "reading", "failed", "done", "checking"]) assert.equal(statusAfterDone(s, true), s);
   assert.equal(statusAfterDone("phase_b", false), "waiting_user");
   for (const s of ["done", "checking", "naming", "uploaded"]) assert.equal(statusAfterDone(s, false), s);
-  assert.equal(statusAfterRegister("uploaded"), "naming");
-  assert.equal(statusAfterRegister("phase_a"), "naming");
-  assert.equal(statusAfterRegister("reading"), "reading");
+});
+test("status rule: adding photos on the desk never moves the case (the worker has no step for 'naming', so the case would wait for ever)", () => {
+  for (const s of ["uploaded", "reading", "pending_doc", "phase_a", "naming", "waiting_user", "phase_b", "failed"]) assert.equal(statusAfterRegister(s), s);
 });
 test("photo paths stay inside the organisation and case", () => {
   const p = photoPath("org1", "case1", "abc123", "s", "../../IMG 0001 (1).JPG");
@@ -209,6 +209,35 @@ test("desk: undo is newest first, one step per typing session, and steps of a ph
   assert.equal(u.size, 1);
   u.dropPhoto("c", 1); // a 409 on undo
   assert.equal(u.size, 0);
+});
+test("desk: undo belongs to the open case, never to another one", () => {
+  const u = new UndoStack();
+  u.push({ caseId: "a", photoId: 1, prev: null, after: 1 });
+  u.push({ caseId: "b", photoId: 7, prev: "Bonnet", after: 4 });
+  assert.equal(u.peek("a")!.photoId, 1, "case a: its own last change, not the newer one of case b");
+  assert.equal(u.peek("b")!.photoId, 7);
+  assert.equal(u.peek("c"), undefined, "a case with no changes has nothing to undo");
+  u.done(u.peek("a")!, 2);
+  assert.equal(u.peek("a"), undefined);
+  assert.equal(u.size, 1, "the step of case b is still there");
+});
+test("desk: a typing session that ends on the name it started from leaves no undo step", () => {
+  const u = new UndoStack();
+  u.push({ caseId: "c", photoId: 1, prev: null, after: 1 }, "Bonnet");
+  u.push({ caseId: "c", photoId: 1, prev: "Bonnet", after: 2, session: "s" }, "Bon"); // saved while typing
+  u.push({ caseId: "c", photoId: 1, prev: "Bon", after: 3, session: "s" }, "Bonnet"); // Escape: back to the name before the edit
+  assert.equal(u.size, 1);
+  assert.deepEqual(u.peek("c"), { caseId: "c", photoId: 1, prev: null, after: 3 }, "the older step follows the photo's new version");
+  u.push({ caseId: "c", photoId: 2, prev: "Grille", after: 2, session: "t" }, "Grille Lower");
+  assert.equal(u.size, 2, "a session that really changed the name is one step");
+});
+test("desk: a clear 'no' to an upload is not tried again and keeps its reason; a server fault is", () => {
+  assert.equal(uploadRefusal(409, "duplicate"), "duplicate");
+  assert.equal(uploadRefusal(400, "taken"), "duplicate", "the path of a stored photo: the photo is already there");
+  assert.equal(uploadRefusal(400, "limit"), "limit");
+  assert.equal(uploadRefusal(400, "status"), "status");
+  for (const [st, err] of [[400, "path"], [401, "unauthorized"], [404, "not_found"], [400, undefined]] as const) assert.equal(uploadRefusal(st, err), "upload");
+  for (const st of [200, 500, 502, 503]) assert.equal(uploadRefusal(st, "limit"), null, `${st}: try again`);
 });
 test("desk: move within the list", () => {
   assert.deepEqual(moved([1, 2, 3, 4, 5], 4, 1), [1, 5, 2, 3, 4]);

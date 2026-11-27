@@ -7,7 +7,7 @@ import {
   classifyPaste, counts, isEnterPair, moved, nextUnnamed, shownName, visible, UndoStack,
   type CaseState, type Extra, type Filter, type Photo,
 } from "@/lib/photos/desk-rules";
-import { canonName, inList, PART_NAMES } from "@/lib/photos/rules";
+import { canonName, inList, MAX_EXTRAS, PART_NAMES } from "@/lib/photos/rules";
 import { photoT } from "@/lib/photos/strings";
 import { whenOf } from "@/lib/fmt-when";
 import { PhotoCard, type CardActions, type Editing } from "./photo-card";
@@ -19,10 +19,11 @@ import { loginUrl } from "@/lib/next-path";
 export type DeskTab = { id: string; plate: string; carModel: string | null; done: boolean; photos: number; at: string; dup: boolean; edited: number; workshop?: string | null };
 type Reply = { ok: boolean; status: number; body: Record<string, unknown> };
 
-async function api(method: string, url: string, body?: unknown): Promise<Reply> {
+/** `ms`: give up after this long (the caller then reads what the server holds), for a request the page waits on. */
+async function api(method: string, url: string, body?: unknown, ms?: number): Promise<Reply> {
   try {
     const r = await fetch(url, {
-      method, cache: "no-store",
+      method, cache: "no-store", signal: ms ? AbortSignal.timeout(ms) : undefined,
       headers: body === undefined ? undefined : { "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -91,9 +92,10 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const [frozen, setFrozen] = useState<number[] | null>(null);
   const [cur, setCur] = useState<number | null>(null);
   const curRef = useRef(cur); curRef.current = cur;
-  const [editing, setEditingRaw] = useState<(Editing & { guard?: string }) | null>(null);
+  // `orig` = the name the photo had when the box opened (what Escape goes back to)
+  const [editing, setEditingRaw] = useState<(Editing & { guard?: string; orig: string | null }) | null>(null);
   const editingRef = useRef(editing);
-  const setEditing = useCallback((e: (Editing & { guard?: string }) | null) => { editingRef.current = e; setEditingRaw(e); }, []);
+  const setEditing = useCallback((e: (Editing & { guard?: string; orig: string | null }) | null) => { editingRef.current = e; setEditingRaw(e); }, []);
   const [toast, setToast] = useState<{ msg: string; key: number; action?: { label: string; run: () => void } } | null>(null);
   const [hl, setHl] = useState<number | null>(null); // the unnamed photo the last 完成 click jumped to
   const hlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,6 +119,31 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const writes = useRef(new Map<number, { busy: boolean; next?: { target: string | null; session?: string } }>());
   const order = useRef(new Map<string, { busy: boolean; next: boolean }>()); // one saving queue per case
   const undo = useRef(new UndoStack());
+  // Saves of a case that are on their way (names, order, parts, undo). 完成 waits for them; `n` counts every one that was started.
+  const flying = useRef(new Map<string, { n: number; set: Set<Promise<unknown>> }>());
+  const track = useCallback(<T,>(cid: string, p: Promise<T>): Promise<T> => {
+    let f = flying.current.get(cid);
+    if (!f) { f = { n: 0, set: new Set() }; flying.current.set(cid, f); }
+    const q = f;
+    q.n++;
+    q.set.add(p);
+    const off = () => { q.set.delete(p); };
+    p.then(off, off);
+    return p;
+  }, []);
+  /** Waits until no save of the case is on its way. Not for ever: a request that hangs must not leave 完成 dead (20 s, then go on). */
+  const settle = useCallback(async (cid: string) => {
+    const all = (async () => { for (let f = flying.current.get(cid); f && f.set.size;) await Promise.allSettled([...f.set]); })();
+    await Promise.race([all, sleep(20_000)]);
+  }, []);
+  const started = (cid: string) => flying.current.get(cid)?.n ?? 0;
+  const inFlight = (cid: string) => flying.current.get(cid)?.set.size ?? 0;
+  // `tick` numbers the answers in the order they were asked for. `shownAt` = per case, the newest answer the page already shows: a load
+  // that was asked for before it is out of date (a save of this page, or a later load, came back first) and must not be put on the page.
+  const tick = useRef(0);
+  const shownAt = useRef(new Map<string, number>());
+  const touch = useCallback((cid: string) => { shownAt.current.set(cid, ++tick.current); }, []);
+  const doneBusy = useRef(false); // one 完成 at a time: a second press while the first is on its way would turn it straight back
   const clip = useRef("");
   const dragId = useRef<number | null>(null);
   const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -171,9 +198,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
 
   // ───────────── load / refresh ─────────────
   const load = useCallback(async (cid: string, quiet: boolean) => {
-    const r = await api("GET", `/api/cases/${cid}/photos`);
-    if (!r.ok) { if (!quiet && caseRef.current === cid) setLoadFailed(true); return null; }
-    const fresh = r.body as unknown as CaseState;
+    let fresh: CaseState;
+    for (let again = 0; ; again++) {
+      const asked = ++tick.current;
+      const r = await api("GET", `/api/cases/${cid}/photos`);
+      if (!r.ok) { if (!quiet && caseRef.current === cid) setLoadFailed(true); return null; }
+      fresh = r.body as unknown as CaseState;
+      // out of date (see shownAt): old names, an old order or an old 完成 are not put back on the page. Asked again, twice at most.
+      if (asked > (shownAt.current.get(cid) ?? 0)) { shownAt.current.set(cid, asked); break; }
+      if (again >= 2) return fresh;
+    }
     const old = statesRef.current[cid];
     let photos = fresh.photos.map((p) => {
       if (writes.current.get(p.id)?.busy && old) return old.photos.find((x) => x.id === p.id) ?? p; // a save is on its way: keep what the user sees
@@ -258,7 +292,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   }, [hasWaiting, shown, caseId, capped, load, kick, patchCase]);
 
   // ───────────── names ─────────────
-  const rename = useCallback(async (cid: string, id: number, target: string | null, session?: string) => {
+  const renameNow = useCallback(async (cid: string, id: number, target: string | null, session?: string) => {
     const c = statesRef.current[cid];
     const p = c?.photos.find((x) => x.id === id);
     if (!c || !p) return;
@@ -275,8 +309,10 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       const r = await api("PATCH", `/api/cases/${cid}/photos/${id}`, { finalName: job.target, version: base.version });
       if (r.ok) {
         const row = r.body.photo as Photo;
-        if (row.finalName !== base.finalName) undo.current.push({ caseId: cid, photoId: id, prev: base.finalName, after: row.version, session: job.session });
+        if (row.finalName !== base.finalName) undo.current.push({ caseId: cid, photoId: id, prev: base.finalName, after: row.version, session: job.session }, row.finalName);
         server.current.set(id, row);
+        touch(cid);
+        if (r.body.done === false) setDoneLocal(cid, false); // a saved name takes 完成 back on the server: the page follows, whatever a load showed in between
         if (w.next) { job = w.next; w.next = undefined; continue; }
         patchPhoto(cid, id, () => row);
         break;
@@ -285,9 +321,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       if (r.status === 409 && r.body.photo) {
         const row = r.body.photo as Photo;
         server.current.set(id, row);
+        touch(cid);
         patchPhoto(cid, id, () => row);
         undo.current.dropPhoto(cid, id);
         say(tRef.current("changedElsewhere"));
+        void load(cid, true); // nothing was saved, so a 完成 the page took back at the first key is still on: show what is stored
       } else {
         patchPhoto(cid, id, () => base);
         say(tRef.current(r.body.error === "name" ? "nameTooLong" : failKey(r)));
@@ -297,10 +335,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       break;
     }
     w.busy = false;
-  }, [patchPhoto, cancelDone, say, load]);
+  }, [patchPhoto, cancelDone, setDoneLocal, touch, say, load]);
+  const rename = useCallback((cid: string, id: number, target: string | null, session?: string) => track(cid, renameNow(cid, id, target, session)), [track, renameNow]);
 
   const undoLast = useCallback(async () => {
-    const e = undo.current.peek();
+    const e = undo.current.peek(caseRef.current); // the open case only: Ctrl+Z here never takes back a change made on another case
     if (!e) { say(tRef.current("undoNone")); return; }
     const w = writes.current.get(e.photoId) ?? { busy: false };
     writes.current.set(e.photoId, w);
@@ -308,10 +347,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     const base = server.current.get(e.photoId);
     if (!base) { undo.current.dropPhoto(e.caseId, e.photoId); say(tRef.current("undoNone")); return; }
     w.busy = true;
-    const r = await api("PATCH", `/api/cases/${e.caseId}/photos/${e.photoId}`, { finalName: e.prev, version: base.version });
+    const r = await track(e.caseId, api("PATCH", `/api/cases/${e.caseId}/photos/${e.photoId}`, { finalName: e.prev, version: base.version }));
     w.busy = false;
     const queued = w.next; // a name picked while the undo was on its way: it goes out next, on top of the undo
     w.next = undefined;
+    if (r.ok || (r.status === 409 && r.body.photo)) touch(e.caseId);
     if (r.ok) {
       const row = r.body.photo as Photo;
       undo.current.done(e, row.version);
@@ -335,7 +375,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       if (known) patchPhoto(e.caseId, e.photoId, () => known); // back to what is stored, so the queued name counts as a change
       void rename(e.caseId, e.photoId, queued.target, queued.session);
     }
-  }, [patchPhoto, setDoneLocal, say, rename]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [patchPhoto, setDoneLocal, say, rename, track, touch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const photoOf = (id: number) => statesRef.current[caseRef.current]?.photos.find((x) => x.id === id);
 
@@ -348,14 +388,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     const o = q;
     if (o.busy) { o.next = true; return; }
     o.busy = true;
-    void (async () => {
+    void track(cid, (async () => {
       for (;;) {
         o.next = false;
         const c = statesRef.current[cid];
         if (!c) break;
         const r = await api("PUT", `/api/cases/${cid}/photos/order`, { ids: c.photos.map((p) => p.id), rev: c.rev });
         if (r.ok) {
+          touch(cid);
           patchCase(cid, (x) => ({ ...x, rev: Number(r.body.rev) }));
+          if (r.body.done === false) setDoneLocal(cid, false); // a saved order takes 完成 back on the server: the page follows
           if (o.next) continue;
           break;
         }
@@ -365,8 +407,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
         return;
       }
       o.busy = false;
-    })();
-  }, [patchCase, cancelDone, say, load]);
+    })());
+  }, [patchCase, cancelDone, setDoneLocal, track, touch, say, load]);
 
   function reveal(id: number) {
     requestAnimationFrame(() => {
@@ -420,39 +462,64 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
 
   const pressDoneRef = useRef<() => Promise<boolean>>(async () => false);
   const pressDone = useCallback(async (): Promise<boolean> => {
-    const cid = caseRef.current;
-    const c = statesRef.current[cid];
-    const tt = tRef.current;
-    if (!c) return false;
-    if (c.done) {
-      setDoneLocal(cid, false);
-      const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: false });
-      if (r.ok) { say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(); } }); onDoneRef.current?.(); } else void load(cid, true);
+    // one press at a time: a double click (or Enter, Enter twice) would send 完成 twice, and the second one would take it back
+    if (doneBusy.current) return false;
+    doneBusy.current = true;
+    try {
+      const cid = caseRef.current;
+      const tt = tRef.current;
+      if (!statesRef.current[cid]) return false;
+      // What is still on its way goes first: a name left in the box, then every save of this case. 完成 is pressed on what is stored;
+      // a save that reached the server after it would take it back while the page still said "Finished".
+      const e = editingRef.current;
+      if (e && !(e.guard !== undefined && e.text === e.guard)) commitEdit(false);
+      await settle(cid);
+      const c = statesRef.current[cid];
+      if (!c || caseRef.current !== cid) return false; // another case was opened while the saves finished
+      if (c.done) {
+        setDoneLocal(cid, false);
+        const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: false }, 60_000);
+        if (r.ok) {
+          touch(cid);
+          setDoneLocal(cid, false); // again: a load that came back meanwhile may have shown the old "Finished"
+          say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(); } });
+          onDoneRef.current?.();
+        } else void load(cid, true);
+        return false;
+      }
+      const n = counts(c.photos);
+      if (!n.total) { say(tt("block.empty")); return false; }
+      if (n.naming) { say(tt("block.naming", { n: n.naming })); return false; }
+      if (n.unnamed) { jumpUnnamed(); return false; }
+      lastJump.current = null;
+      setHl(null);
+      const before = started(cid) - inFlight(cid); // a save that is still on its way (it hung past the wait above) counts as racing too
+      const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: true }, 60_000);
+      if (r.ok) {
+        touch(cid);
+        setDoneLocal(cid, true);
+        if (typeof r.body.status === "string") patchCase(cid, (x) => ({ ...x, status: String(r.body.status) })); // the card and the step bar follow the new status at once
+        // A change sent while 完成 was on its way may have reached the server after it and taken it back. Which came first is
+        // only known there: wait for that change, then show what the server holds.
+        if (started(cid) !== before) {
+          await settle(cid);
+          if (!(await load(cid, true))) setDoneLocal(cid, false); // cannot ask: "not done" is the safe thing to show (完成 can be pressed again)
+          if (!statesRef.current[cid]?.done) { say(tt("doneCancelled")); onDoneRef.current?.(); return false; }
+        }
+        const left = tabsRef.current.filter((x) => x.id !== cid && !x.done).length;
+        // R3-B02: say what really happens: only a case that is already at the photo step is queued for the worker
+        const status = String(statesRef.current[cid]?.status ?? r.body.status ?? "");
+        const what = tt(status === "phase_b" ? "doneToast.phase_b" : status === "pending_doc" ? "doneToast.pending_doc" : "doneToast.other", { plate: c.plate });
+        say(embedded ? what : left ? what : `${what}. ${tt("allDoneToast")}`);
+        onDoneRef.current?.();
+        return true;
+      }
+      const reason = r.body.reason as string | undefined;
+      say(r.body.error === "status" ? tt("block.status") : reason ? tt(`block.${reason}`, { n: Number(r.body.count ?? 0) }) : tt("saveFailed"));
+      void load(cid, true);
       return false;
-    }
-    const n = counts(c.photos);
-    if (!n.total) { say(tt("block.empty")); return false; }
-    if (n.naming) { say(tt("block.naming", { n: n.naming })); return false; }
-    if (n.unnamed) { jumpUnnamed(); return false; }
-    lastJump.current = null;
-    setHl(null);
-    const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: true });
-    if (r.ok) {
-      setDoneLocal(cid, true);
-      if (typeof r.body.status === "string") patchCase(cid, (x) => ({ ...x, status: String(r.body.status) })); // the card and the step bar follow the new status at once
-      const left = tabsRef.current.filter((x) => x.id !== cid && !x.done).length;
-      // R3-B02: say what really happens: only a case that is already at the photo step is queued for the worker
-      const status = String(r.body.status ?? "");
-      const what = tt(status === "phase_b" ? "doneToast.phase_b" : status === "pending_doc" ? "doneToast.pending_doc" : "doneToast.other", { plate: c.plate });
-      say(embedded ? what : left ? what : `${what}. ${tt("allDoneToast")}`);
-      onDoneRef.current?.();
-      return true;
-    }
-    const reason = r.body.reason as string | undefined;
-    say(r.body.error === "status" ? tt("block.status") : reason ? tt(`block.${reason}`, { n: Number(r.body.count ?? 0) }) : tt("saveFailed"));
-    void load(cid, true);
-    return false;
-  }, [setDoneLocal, patchCase, say, load, jumpUnnamed, embedded]); // eslint-disable-line react-hooks/exhaustive-deps
+    } finally { doneBusy.current = false; }
+  }, [setDoneLocal, patchCase, say, load, jumpUnnamed, embedded, settle, touch]); // eslint-disable-line react-hooks/exhaustive-deps
   pressDoneRef.current = pressDone;
 
   // ───────────── cases ─────────────
@@ -533,7 +600,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       const p = photoOf(id);
       if (!p) return;
       setCur(id);
-      setEditing({ id, text: shownName(p) ?? "", hint: null, session: uid() });
+      setEditing({ id, text: shownName(p) ?? "", hint: null, session: uid(), orig: p.finalName });
     },
     editText: (text, picked) => {
       const e = editingRef.current;
@@ -549,7 +616,14 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       if (e?.guard !== undefined && e.text === e.guard && !(confirmed && e.text.trim())) { setEditing(null); return; }
       commitEdit(close);
     },
-    cancelEdit: () => { if (idle.current) clearTimeout(idle.current); setEditing(null); },
+    cancelEdit: () => {
+      const e = editingRef.current;
+      if (idle.current) clearTimeout(idle.current);
+      setEditing(null);
+      // Escape = the name as it was when the box opened. What was typed may already be saved (a second after the last key): the old name is saved back.
+      const p = e ? photoOf(e.id) : undefined;
+      if (e && p && p.finalName !== e.orig) void rename(caseRef.current, e.id, e.orig, e.session);
+    },
     copy: (id) => {
       const name = photoOf(id) ? shownName(photoOf(id)!) : null;
       if (!name) return;
@@ -571,8 +645,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       if (act.kind === "noop") say(tt("pasteSame"));
       else if (act.kind === "restore") { void rename(cid, id, null); say(tt("restored")); }
       else if (act.kind === "save") void rename(cid, id, act.name);
-      else if (act.kind === "confirm") setEditing({ id, text: act.text, hint: tt("pasteCheck"), session: uid(), guard: act.text });
-      else setEditing({ id, text: "", hint: tt("pasteHint"), session: uid(), guard: "" });
+      else if (act.kind === "confirm") setEditing({ id, text: act.text, hint: tt("pasteCheck"), session: uid(), guard: act.text, orig: p.finalName });
+      else setEditing({ id, text: "", hint: tt("pasteHint"), session: uid(), guard: "", orig: p.finalName });
     },
     pick: (id, name) => { setCur(id); const p = photoOf(id); void rename(caseRef.current, id, p && name === p.modelName ? null : name); },
     restore: (id) => { setCur(id); void rename(caseRef.current, id, null); say(tRef.current("restored")); },
@@ -591,21 +665,32 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   focusName.current = (id) => actions.startEdit(id);
 
   // ───────────── parts with no photo ─────────────
-  const addExtra = useCallback(async (name: string) => {
+  const addExtra = useCallback((name: string) => {
     const cid = caseRef.current;
-    const r = await api("POST", `/api/cases/${cid}/photos/extras`, { name });
-    if (!r.ok) { say(tRef.current(r.body.error === "name" ? "nameTooLong" : failKey(r))); return; }
-    const extra = r.body.extra as Extra;
-    patchCase(cid, (c) => (c.extras.some((e) => e.id === extra.id) ? c : { ...c, extras: [...c.extras, extra] }));
-    cancelDone(cid, tRef.current("partAdded", { name: extra.name }));
-  }, [patchCase, cancelDone, say]);
-  const removeExtra = useCallback(async (e: Extra) => {
+    return track(cid, (async () => {
+      const r = await api("POST", `/api/cases/${cid}/photos/extras`, { name });
+      if (!r.ok) { say(tRef.current(r.body.error === "name" ? "nameTooLong" : r.body.error === "limit" ? "partsFull" : failKey(r), { n: MAX_EXTRAS })); return; }
+      const extra = r.body.extra as Extra;
+      touch(cid);
+      patchCase(cid, (c) => (c.extras.some((e) => e.id === extra.id) ? c : { ...c, extras: [...c.extras, extra] }));
+      const added = tRef.current("partAdded", { name: extra.name });
+      if (r.body.changed === false) say(added); // it was there already (added in another tab): nothing changed, so 完成 stays
+      else cancelDone(cid, added);
+    })());
+  }, [patchCase, cancelDone, say, track, touch]);
+  const removeExtra = useCallback((e: Extra) => {
     const cid = caseRef.current;
     patchCase(cid, (c) => ({ ...c, extras: c.extras.filter((x) => x.id !== e.id) }));
-    const r = await api("DELETE", `/api/cases/${cid}/photos/extras/${e.id}`);
-    if (r.ok) cancelDone(cid, tRef.current("partRemoved", { name: e.name }));
-    else { say(tRef.current(failKey(r))); void load(cid, true); }
-  }, [patchCase, cancelDone, say, load]);
+    return track(cid, (async () => {
+      const r = await api("DELETE", `/api/cases/${cid}/photos/extras/${e.id}`);
+      if (!r.ok) { say(tRef.current(failKey(r))); void load(cid, true); return; }
+      touch(cid);
+      patchCase(cid, (c) => ({ ...c, extras: c.extras.filter((x) => x.id !== e.id) })); // again: a load that came back meanwhile may have put it back
+      const removed = tRef.current("partRemoved", { name: e.name });
+      if (r.body.changed === false) say(removed); // already gone: nothing changed, so 完成 stays
+      else cancelDone(cid, removed);
+    })());
+  }, [patchCase, cancelDone, say, load, track, touch]);
 
   // ───────────── add photos ─────────────
   const onFiles = useCallback(async (files: File[]) => {
@@ -628,7 +713,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     if (rep.duplicates.length) parts.push(tt("up.dup", { n: rep.duplicates.length }));
     if (rep.failed.length) {
       const why = rep.failed[0].reason;
-      parts.push(`${tt("up.failed", { n: rep.failed.length })}${["heic", "type", "size", "limit"].includes(why) ? `: ${tt(`up.${why}`)}` : ""}`);
+      // "status" = the case went past the point where photos can be added while the page was open
+      parts.push(`${tt("up.failed", { n: rep.failed.length })}${["heic", "type", "size", "limit"].includes(why) ? `: ${tt(`up.${why}`)}` : why === "status" ? `: ${tt("block.status")}` : ""}`);
     }
     if (rep.unchecked) parts.push(tt("up.unchecked", { n: rep.unchecked }));
     say(parts.length ? parts.join(" · ") : tt("up.none"));
