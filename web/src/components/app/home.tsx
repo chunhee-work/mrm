@@ -299,7 +299,8 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const blocked = cred.blocks;
 
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
-  const live = busy; // something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
+  const [upBusy, setUpBusy] = useState(false); // the box is uploading: New case and the page drop wait
+  const live = busy && !upBusy; // something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
   useEffect(() => {
     if (!live) return;
     // not in a hidden tab, and not while offline: a refresh that cannot reach the server makes Next reload the whole page,
@@ -311,16 +312,17 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // a new case is uploaded right on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
   // files picked with New case or dropped anywhere on the page open the upload box above the list, which checks and sends them.
   // `key` gives every new start its own box, so a fresh pick never inherits the list or the message of the last one.
-  const [panel, setPanel] = useState<{ key: number; initial: File[] | "lost" } | null>(null);
-  const [upBusy, setUpBusy] = useState(false); // the box is uploading: New case and the page drop wait
+  const [panel, setPanel] = useState<{ key: number; initial: File[] | "lost"; more?: { n: number; files: File[] } } | null>(null);
   const [made, setMade] = useState<"one" | "many" | null>(null); // "Case started" for a few seconds once the box is done
   useEffect(() => { if (!made) return; const id = window.setTimeout(() => setMade(null), 6000); return () => window.clearTimeout(id); }, [made]);
   const start = (initial: File[] | "lost") => { setMade(null); setPanel((p) => ({ key: (p?.key ?? 0) + 1, initial })); };
+  // a pick while the box is open adds to it (a fresh box would throw away files still waiting there for a press of Upload)
+  const pick = (files: File[]) => { if (!panel) return start(files); setPanel((p) => p && { ...p, more: { n: (p.more?.n ?? 0) + 1, files } }); };
   // New case pressed on another page: its files wait in memory for this page (?dropped=1); a plain visit lets any old hold go
   useEffect(() => {
     const url = new URL(window.location.href);
     const handed = url.searchParams.has(DROPPED_PARAM);
-    if (handed) { url.searchParams.delete(DROPPED_PARAM); window.history.replaceState(window.history.state, "", url.pathname + url.search); }
+    if (handed) { url.searchParams.delete(DROPPED_PARAM); window.history.replaceState(null, "", url.pathname + url.search); } // null: Next takes the new address in
     const f = takeDropped();
     if (handed && !blocked) start(f.length ? f : "lost");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -352,7 +354,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           <div className="flex w-full min-w-0 flex-wrap items-center gap-3 sm:w-auto sm:flex-nowrap">
           <form
             role="search" className="flex w-full min-w-0 gap-2 sm:w-[320px]" data-testid="home-search"
-            onSubmit={(e) => { e.preventDefault(); const v = q.trim(); router.push(v ? `/dashboard?q=${encodeURIComponent(v)}` : "/dashboard?view=all"); }}
+            onSubmit={(e) => { e.preventDefault(); if (upBusy && !window.confirm(t("new.leave"))) return; const v = q.trim(); router.push(v ? `/dashboard?q=${encodeURIComponent(v)}` : "/dashboard?view=all"); }}
           >
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mute" />
@@ -375,17 +377,17 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
         <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:mt-7 lg:flex">
           {blocked
             ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
-            : <NewCasePick className="btn-primary !gap-2 lg:!px-8" testId="home-new" held={upBusy} onPicked={(f) => start(f)}><Plus />{t("dash.new")}</NewCasePick>}
+            : <NewCasePick className="btn-primary !gap-2 lg:!px-8" testId="home-new" held={upBusy} onPicked={pick}><Plus />{t("dash.new")}</NewCasePick>}
           <Link href="/dashboard?view=closed" className="btn-line lg:hidden" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>
           </Link>
         </div>
         {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
-        {panel && !blocked && (
+        {panel && (!blocked || upBusy) && (
           <div ref={boxRef} className="mt-6 scroll-mt-4">
             <NewCaseForm key={panel.key} orgId={orgId} workshops={workshops}
-              embed={{ initial: panel.initial, onBusy: setUpBusy, onClose: () => setPanel(null), onMade: (id) => { setPanel(null); setMade(id ? "one" : "many"); router.refresh(); } }} />
+              embed={{ initial: panel.initial, more: panel.more, onBusy: setUpBusy, onClose: () => setPanel(null), onMade: (id) => { setPanel(null); setMade(id ? "one" : "many"); router.refresh(); } }} />
           </div>
         )}
         {made && <p role="status" className="mt-6 flex items-center gap-2 text-[15px] font-medium text-fg" data-testid="home-made"><Tick className="h-4 w-4 shrink-0 text-ice" />{t(made === "one" ? "new.made" : "new.madeN")}</p>}

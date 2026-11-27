@@ -34,7 +34,7 @@ const TAIL = 9; // characters of a long file name that always stay visible (the 
  * the files the user picked or dropped there (`initial`, or "lost" when a hand-off from another page found nothing). When the
  * case is made it says so through `onMade` and the first page lists it; nothing navigates away.
  */
-export type Embed = { initial: File[] | "lost"; onMade: (id: string | null) => void; onClose: () => void; onBusy?: (busy: boolean) => void };
+export type Embed = { initial: File[] | "lost"; more?: { n: number; files: File[] }; onMade: (id: string | null) => void; onClose: () => void; onBusy?: (busy: boolean) => void };
 
 export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: string; workshops?: WorkshopOpt[]; embed?: Embed }) {
   const router = useRouter();
@@ -95,6 +95,10 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // files picked with New case while this box is open join its list, like files dropped on it: nothing in the box is thrown away
+  const more = embed?.more;
+  useEffect(() => { if (more?.files.length) void addFiles(more.files); }, [more?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the first page turns its own drop and New case off while this form uploads
   const onBusy = embed?.onBusy;

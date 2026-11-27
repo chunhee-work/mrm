@@ -535,12 +535,13 @@ try {
     await box.locator('[role="alert"]').filter({ hasText: /no credits|点数不够|tiada kredit/i }).first().waitFor();
     await page.waitForTimeout(300);
     assert.equal(sent, 1, "sent once");
-    // once the send has stopped, New case starts a fresh box with the new pick
+    // once the send has stopped, a new pick joins the open box (like a drop): the files waiting there are not thrown away
     const [chooserB] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("home-new").click()]);
     await chooserB.setFiles([{ name: "again.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
     await box.getByText("again.pdf").waitFor();
-    assert.equal(await box.getByText("picked.pdf").count(), 0, "a new pick starts a new box");
-    await box.locator('[role="alert"]').filter({ hasText: /no credits|点数不够|tiada kredit/i }).first().waitFor(); // its slowed send is answered first
+    assert.equal(await box.getByText("picked.pdf").count(), 1, "the files already in the box stay");
+    await page.waitForTimeout(500);
+    assert.equal(sent, 1, "an added file waits for a press of Upload");
     await page.unroute("**/api/cases/credit*");
     await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
     // the New case of the top bar (on the case table) opens the picker too, and the files go up on the first page

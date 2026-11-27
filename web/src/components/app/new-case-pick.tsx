@@ -27,7 +27,7 @@ export default function NewCasePick({ className, testId, children, labelClass = 
   return (
     <>
       <Link
-        href="/cases/new" className={className} data-testid={testId} data-no-progress="" aria-busy={opening || undefined}
+        href="/cases/new" className={className} data-testid={testId} data-no-progress="" aria-busy={opening || undefined} aria-disabled={held || undefined}
         onClick={(e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
           e.preventDefault();
