@@ -22,6 +22,8 @@ export async function zipNames(file: Sliceable): Promise<string[] | null> {
     const buf = await file.slice(cdOff, cdOff + cdSize).arrayBuffer();
     const v = new DataView(buf);
     const names: string[] = [];
+    // a list that does not start with an entry is damaged (or the zip is self-extracting): it cannot be told, never "no PDF"
+    if (buf.byteLength < 46 || u32(v, 0) !== 0x02014b50) return null;
     for (let p = 0; p + 46 <= buf.byteLength && u32(v, p) === 0x02014b50 && names.length < 20000;) {
       const n = u16(v, p + 28), x = u16(v, p + 30), c = u16(v, p + 32);
       names.push(new TextDecoder().decode(new Uint8Array(buf, p + 46, Math.min(n, buf.byteLength - p - 46))));
@@ -78,7 +80,8 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
   const at = (depth: number) => {
     const g = new Map<string, boolean>();
     for (const n of usable) { const parts = n.split("/"); if (parts.length > depth + 1) { const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); } }
-    const cars = [...g].filter(([k, hasPdf]) => hasPdf && isPlate(k.slice(0, -1).split("/").pop() ?? "")).map(([k]) => k);
+    // a plate folder inside another plate folder ("WA1234B/KP1/") is part of that car, never a car of its own
+    const cars = [...g].filter(([k, hasPdf]) => { const s = k.slice(0, -1).split("/"); return hasPdf && isPlate(s[s.length - 1]) && !s.slice(0, -1).some(isPlate); }).map(([k]) => k);
     // everything else a case would take, named by its folder at the car level (or the file itself when it is loose)
     const extras = new Set<string>();
     for (const n of usable) {
@@ -93,10 +96,34 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
   // and "WA 1234B") are one car sorted into folders and the zip stays one case. With two or more different plates the zip is
   // several cars even when one plate repeats; planVehicles then refuses it ("dup_plate"), it is never read as one case.
   const ok = (r: { cars: string[] }) => new Set(r.cars.map((c) => normPlate(c.slice(0, -1).split("/").pop() ?? ""))).size >= 2;
-  const top = at(0);
+  // wrapping folders that hold everything ("SINAR/SINAR/…", common after re-zipping) are looked through first
+  let base = 0;
+  for (;;) {
+    const seg = usable.map((n) => n.split("/")).filter((p) => p.length > base + 1).map((p) => p[base]);
+    if (!usable.length || seg.length !== usable.length || new Set(seg).size !== 1 || isPlate(seg[0])) break;
+    base++;
+  }
+  const top = at(base);
   if (ok(top)) return top;
-  const inner = at(1);
+  const inner = at(base + 1);
   return ok(inner) ? inner : { cars: top.cars.length >= 2 ? [] : top.cars, extras: top.extras };
+}
+
+/**
+ * How many different plates name the outermost plate-named folder above a PDF, at any depth. Two or more while vehicleLayout finds fewer than two
+ * cars means car folders at different levels ("DCD4004/" beside "More/NCH5773/"): never one case, refused as "layout".
+ */
+export function platesAnywhere(names: string[]): number {
+  const plates = new Set<string>();
+  for (const n of names) {
+    if (n.endsWith("/") || n.startsWith("__MACOSX/") || !/\.pdf$/i.test(n)) continue;
+    if (n.split("/").some((p) => p.startsWith("."))) continue; // hidden, as everywhere else ("._a.pdf" too)
+    const parts = n.split("/").slice(0, -1);
+    // only the outermost plate-named folder of a path is a car: "WA1234B/KP1/" is one car with a sub-folder, not two plates
+    const p = parts.find(isPlate);
+    if (p) plates.add(normPlate(p));
+  }
+  return plates.size;
 }
 
 /** The plate a car folder's name stands for, as stored on its case: upper case, no spaces or hyphens ("TBD 8129" -> "TBD8129"). */

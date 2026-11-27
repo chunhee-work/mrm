@@ -4,8 +4,9 @@ import { db, schema } from "@/db";
 import { readCaseDocs, BadFile } from "@/lib/read-docs";
 import { expandBundles } from "@/lib/expand-bundles";
 import { importCasePhotos } from "@/lib/photos/import-files";
-import { userFixable, ZIP_WHY } from "@/lib/case-text";
+import { userFixable, zipRefunded } from "@/lib/case-text";
 import { refundCase } from "@/lib/payments/case-credit";
+import { notDeleted } from "@/lib/case-delete";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
@@ -43,7 +44,7 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     mode === "auto" ? and(eq(cid, id), eq(schema.cases.status, "uploaded")) :
     mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["uploaded", "failed", "pending_doc"])) :
     and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, tries);
-  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(where).returning({ id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate });
+  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted)).returning({ id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate, readBefore: sql<boolean>`${schema.cases.caseData} is not null` });
   if (!claimed.length) {
     if (mode === "recover") { // out of attempts: stop waiting, show Failed + the retry button
       const gaveUp = await db.update(schema.cases).set({ status: "failed", error: "Reading timed out" })
@@ -87,8 +88,8 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     if (failed.length) {
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
       // a zip of several cars that reached the one-case path (the browser could not look inside it) is not the customer's fault:
-      // the credit goes back, and the message tells them to upload it again so it is split
-      const multi = (e as Error).message.endsWith(`: ${ZIP_WHY.multi}`);
+      // the credit goes back (unless the case was read before), and the message tells them to upload it again so it is split
+      const multi = zipRefunded((e as Error).message, !!claimed[0].readBefore);
       if (!(e instanceof BadFile) && (multi || !userFixable((e as Error).message))) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
     }
     await closeIntakeJobs(id);

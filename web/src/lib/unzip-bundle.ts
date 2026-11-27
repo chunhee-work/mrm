@@ -1,6 +1,6 @@
 import { unzipSync } from "fflate";
 import { ZIP_WHY } from "@/lib/case-text"; // the same words userFixable looks for
-import { MAX_VEHICLES, normPlate, vehicleFolders, vehicleLayout } from "@/lib/peek-files";
+import { MAX_VEHICLES, normPlate, platesAnywhere, vehicleFolders, vehicleLayout } from "@/lib/peek-files";
 import { MAX_PDF_BYTES } from "@/lib/upload-rules";
 
 /** Limits for opening a customer's zip. A zip is untrusted input: count, size and ratio are all capped (zip-bomb guard). */
@@ -13,7 +13,7 @@ export const ZIP_LIMITS = {
 
 export type BundleEntry = { name: string; kind: "pdf" | "photo"; bytes: Uint8Array; type: string };
 export class ZipRejected extends Error {
-  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "car_big" | "dup_plate" | "mixed" | "car_no_pdf" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
+  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "car_big" | "dup_plate" | "layout" | "mixed" | "car_no_pdf" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
 }
 
 const PHOTO = /\.(jpe?g|png|webp|heic)$/i;
@@ -29,6 +29,7 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
     const names: string[] = [];
     unzipSync(buf, { filter: (f) => { names.push(f.name); return false; } });
     if (vehicleFolders(names).length > 1) throw new ZipRejected("multi", ZIP_WHY.multi);
+    if (platesAnywhere(names) > 1) throw new ZipRejected("layout", ZIP_WHY.layout); // cars at different levels: never one case
     files = unzipSync(buf, {
       filter: (f) => {
         const leaf = f.name.split("/").pop() ?? "";
@@ -80,14 +81,17 @@ const usableIn = (name: string) => {
  * Throws ZipRejected; "empty" when it is not a multi-vehicle zip.
  */
 export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number; maxCarBytes?: number; maxFiles?: number } = SPLIT_LIMITS): VehiclePlan[] {
-  const all: { name: string; size: number }[] = [];
-  try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize }); return false; } }); }
+  const all: { name: string; size: number; method: number }[] = [];
+  try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize, method: f.compression }); return false; } }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }
   // the same names-only layout the browser saw; an empty loose file is not an extra, a car whose PDFs are all empty is refused below
   const { cars: prefixes, extras: named } = vehicleLayout(all.map((f) => f.name));
   const nonEmpty = new Set(all.filter((f) => f.size > 0).map((f) => f.name));
   const extras = named.filter((x) => !x.endsWith("/") ? nonEmpty.has(x) : all.some((f) => f.size > 0 && f.name.startsWith(x) && usableIn(f.name)));
-  if (prefixes.length < 2) throw new ZipRejected("empty", ZIP_WHY.empty);
+  if (prefixes.length < 2) {
+    if (platesAnywhere(all.map((f) => f.name)) > 1) throw new ZipRejected("layout", ZIP_WHY.layout);
+    throw new ZipRejected("empty", ZIP_WHY.empty);
+  }
   if (prefixes.length > MAX_VEHICLES) throw new ZipRejected("too_many_cars", ZIP_WHY.too_many_cars);
   if (extras.length) throw new ZipRejected("mixed", ZIP_WHY.mixed); // a split would leave these files out of every case
   if (new Set(prefixes.map((p) => normPlate(p.slice(0, -1).split("/").pop() ?? ""))).size < prefixes.length) throw new ZipRejected("dup_plate", ZIP_WHY.dup_plate); // the user puts that car into one folder
@@ -98,6 +102,8 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
   for (const f of all) {
     const pre = prefixes.find((p) => f.name.startsWith(p));
     if (!pre || !usableIn(f.name) || f.size === 0) continue;
+    // only stored (0) and deflate (8) entries open here: refuse others now, before a car is made, not halfway through the split
+    if (f.method !== 0 && f.method !== 8) throw new ZipRejected("corrupt", ZIP_WHY.corrupt);
     const n = (counts.get(pre) ?? 0) + 1; counts.set(pre, n);
     if (limits.maxFiles && ++files > limits.maxFiles) throw new ZipRejected("too_many_files", ZIP_WHY.too_many_files);
     const pdf = /\.pdf$/i.test(f.name);

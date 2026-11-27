@@ -4,7 +4,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
-import { Chevron, Photo, Plus, Search, Tick, Upload, UploadArt, Working } from "./marks";
+import { Bin, Chevron, Photo, Plus, Search, Tick, Upload, UploadArt, Working } from "./marks";
+import ConfirmDelete from "./confirm-delete";
 import NeedCard from "./case-detail";
 import { failTr, userFixable } from "@/lib/case-text";
 import { DROPPED_PARAM, HOLD_MS, holdDropped, takeDropped } from "@/lib/dropped-files";
@@ -140,6 +141,7 @@ function More({ r, orgId }: { r: CaseRow; orgId: string }) {
   const step = currentStepOf(r);
   const a = useAct()(r);
   const [sent, setSent] = useState(false);
+  const [ask, setAsk] = useState(false);
   // a document is uploaded right here, with the same picker, limits and progress as the case page (one component, NeedCard)
   const job = r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null))
     ? <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} /></ul>
@@ -160,8 +162,16 @@ function More({ r, orgId }: { r: CaseRow; orgId: string }) {
         <dl className="flex flex-wrap gap-x-10 gap-y-2 text-[14px]">
           {facts.map(([k, v]) => <div key={k} className="min-w-0"><dt className="text-[12.5px] text-mute">{k}</dt><dd className="text-fg" suppressHydrationWarning>{v}</dd></div>)}
         </dl>
-        <Link href={`/cases/${r.id}`} className="btn-quiet !min-h-[40px] shrink-0 !px-3 text-[14px]" data-testid="home-open-case">{t("tray.more.open")} →</Link>
+        <div className="flex shrink-0 items-center gap-1">
+          {/* a case the worker has not taken yet can still be deleted (same pop-up and rules as the case list) */}
+          {r.canDelete && (
+            <button type="button" onClick={() => setAsk(true)} data-testid="del-open" aria-label={t("del.aria", { plate: r.plate || r.firstFile || t("dash.noPlate") })}
+              className="btn-quiet !min-h-[40px] !gap-1.5 !px-3 text-[14px] text-mute hover:text-fg"><Bin />{t("del.btn")}</button>
+          )}
+          <Link href={`/cases/${r.id}`} className="btn-quiet !min-h-[40px] !px-3 text-[14px]" data-testid="home-open-case">{t("tray.more.open")} →</Link>
+        </div>
       </div>
+      <ConfirmDelete row={ask ? { id: r.id, plate: r.plate || r.firstFile || "" } : null} onClose={() => setAsk(false)} onGone={() => router.refresh()} onStale={() => router.refresh()} />
       {/* the sentence about what comes next, only when no job is waiting here (the job says it already) */}
       {!job && a.kind === null && <p className="text-[13.5px] text-mute">{t(step === "merimen" && r.status === "checking" ? "case.pp.next.checking" : `steps.next.${step}`)}</p>}
     </div>

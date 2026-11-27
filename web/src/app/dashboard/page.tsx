@@ -9,6 +9,7 @@ import { bucketOf, VIEWS, type View } from "@/components/app/status";
 import { after } from "next/server";
 import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 import { splitRunning } from "@/lib/split-marks";
+import { canDelete, notDeleted } from "@/lib/case-delete";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a few waiting cases are read after the page is sent
@@ -22,12 +23,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const q = typeof sp.q === "string" ? sp.q.slice(0, 40) : "";
   // A row of the count was opened: its table must hold every case the count counted (counts are over all cases), so no 200 cap there.
   const cap = view ? 5000 : 200;
-  const newest = await db.select().from(schema.cases).where(eq(schema.cases.orgId, orgId)).orderBy(desc(schema.cases.createdAt)).limit(cap);
+  const newest = await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted)).orderBy(desc(schema.cases.createdAt)).limit(cap);
   // A search looks at every case, not only the newest 200: older matches join the list (the table filters it as before).
   // The needle is squashed like the table's own filter, and % _ \ are escaped so they match themselves.
   const needle = q.replace(/\s+/g, "").toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`);
   const older = needle && newest.length === cap
-    ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), sql`regexp_replace(${schema.cases.plate}, '\\s', '', 'g') ilike ${`%${needle}%`}`))
+    ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted, sql`regexp_replace(${schema.cases.plate}, '\\s', '', 'g') ilike ${`%${needle}%`}`))
       .orderBy(desc(schema.cases.createdAt)).limit(1000)
     : [];
   // Self-heal, as on the case page: a case still `uploaded` a minute after it was made never got its read started.
@@ -55,7 +56,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     status: schema.cases.status,
     photosDone: sql<boolean>`(${schema.cases.photosDoneAt} is not null)`,
     n: sql<number>`count(*)::int`,
-  }).from(schema.cases).where(eq(schema.cases.orgId, orgId)).groupBy(schema.cases.status, sql`(${schema.cases.photosDoneAt} is not null)`);
+  }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted)).groupBy(schema.cases.status, sql`(${schema.cases.photosDoneAt} is not null)`);
   const counts: HomeCounts = { docs: 0, photos: 0, hold: 0, active: 0, closed: 0 };
   for (const g of groups) counts[bucketOf({ status: g.status, photosDone: g.photosDone })] += Number(g.n);
   // every open case, newest first, each with its own step bar on the first page. The newest 200 above hold them all unless the
@@ -63,7 +64,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const openCount = counts.docs + counts.photos + counts.active + counts.hold;
   const openHere = list.filter((r) => r.status !== "done");
   const openRows = openCount > openHere.length
-    ? await caseRows(await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), ne(schema.cases.status, "done"))).orderBy(desc(schema.cases.createdAt)).limit(500))
+    ? await caseRows(await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted, ne(schema.cases.status, "done"))).orderBy(desc(schema.cases.createdAt)).limit(500))
     : openHere;
   return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} cred={await credView(orgId)} />;
 }
@@ -92,6 +93,7 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     createdAt: c.createdAt.toISOString(),
     firstFile: first.get(c.id) ?? null,
     id: c.id,
+    canDelete: canDelete(c),
     plate: c.plate,
     carModel: c.carModel,
     insurer: c.insurer,
