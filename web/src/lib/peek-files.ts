@@ -109,6 +109,8 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
     if (!usable.length || seg.length !== usable.length || new Set(seg).size !== 1) break;
     // a plate-named folder holding everything is that car ("WA1234B/KP1/"), unless it holds two or more different real plates
     // (3+ digits) with PDFs: then it is a batch folder whose name only looks like a plate ("AIG2026/DCD4004/", "AIG2026/NCH5773/")
+    // A plate folder with files of its own directly inside is a car, whatever sub-folders it holds.
+    if (isPlate(seg[0]) && usable.some((n) => n.split("/").length === base + 2)) break;
     if (isPlate(seg[0]) && new Set(usable.filter((n) => /\.pdf$/i.test(n)).map((n) => n.split("/")).filter((p) => p.length > base + 2 && isPlate(p[base + 1]) && /\d{3}/.test(p[base + 1])).map((p) => normPlate(p[base + 1]))).size < 2) break;
     base++;
   }
