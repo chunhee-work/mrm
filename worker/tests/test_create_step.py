@@ -225,3 +225,22 @@ def test_switch_table(monkeypatch, dryrun, writes, submit, dry_fills, saves):
     assert Config.from_env(env).live_writes is saves  # the pipeline, photos and Step 2 agree with the driver
 
 
+
+
+def test_a_workshop_that_is_gone_when_locking_is_a_stop_not_a_retry_and_never_falls_back_to_workshop_1():
+    FakeRun.log = []
+    m = Marks()
+    n = {"i": 0}
+
+    def ws(lock):
+        n["i"] += 1
+        return WORKSHOP if n["i"] <= 2 else None  # spec ask and peek see it; the lock finds none
+
+    r = run_create_step(case(), profile=lambda: PROFILE, workshop=ws, page_for=lambda org: object(), live=True, progress=None,
+                        factory=lambda pg, **kw: FakeRun(pg, CreateReport(ok=True, case_id="9"), **kw), marks=m, record=None)
+    assert not r.ok and r.fatal and r.error == "workshop_missing" and m.calls == []
+
+
+def test_a_finished_create_tells_the_person_what_to_check_by_hand():
+    r, _ = step(case(), live=True, rep=CreateReport(ok=True, case_id="22322999"), marks=Marks())
+    assert "check by hand" in (r.line or "")

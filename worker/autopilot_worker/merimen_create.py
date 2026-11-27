@@ -138,8 +138,13 @@ _RADIO = """({n, v}) => { var r = document.querySelector('input[name=' + n + '][
   r.checked = true; r.click(); r.dispatchEvent(new Event('change', {bubbles: true})); return 1; }"""
 _OPTS = """(n) => { var s = document.querySelector('select[name=' + n + ']'); if (!s) return null;
   return [...s.options].map(o => [o.value, o.text.trim(), o.className || '']); }"""
+# Clicks a visible OK only after reading the box around it: a box that asks something (confirm, duplicate, overwrite, delete) is NOT clicked and its text
+# comes back as "STOP:<text>" so the worker stops instead of answering a question the owner's script never answered.
 _OK = """() => { var t = [...document.querySelectorAll('input,button')].find(e => ((e.value || e.innerText || '').trim() === 'OK') && e.offsetParent !== null);
-  if (t) { t.click(); return true; } return false; }"""
+  if (!t) return ''; var b = t, tx = '';
+  for (var i = 0; i < 6 && b.parentElement; i++) { b = b.parentElement; tx = (b.innerText || '').trim(); if (tx.length > 12) break; }
+  if (/confirm|already|duplicate|overwrite|delete|cancel|are you sure/i.test(tx)) return 'STOP:' + tx.slice(0, 120);
+  t.click(); return 'OK'; }"""
 _MSGS = """() => { var o = []; document.querySelectorAll('*').forEach(e => { var t = (e.childNodes[0] && e.childNodes[0].nodeValue || '').trim();
   if (t && /should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t) && e.offsetParent !== null && t.length < 160) o.push(t); });
   return [...new Set(o)].slice(0, 6); }"""
@@ -179,7 +184,11 @@ class MerimenCreate:
 
     def _ok_loop(self, rounds: int, gap: int = 1500):
         for _ in range(rounds):
-            if not self.cur.evaluate(_OK):
+            r = self.cur.evaluate(_OK)
+            if not r:
+                break
+            if str(r).startswith("STOP:"):
+                self.unexpected.append(redact(str(r)[5:]))  # a question box: left unanswered, the case stops
                 break
             self.cur.wait_for_timeout(self._ms(gap))
 
@@ -212,6 +221,7 @@ class MerimenCreate:
                 with cur.expect_popup(timeout=8000) as pi:
                     cur.locator("#MTRworkshopbtn").click(force=True, timeout=6000)
                 pop = pi.value
+                pop.on("dialog", self._dialog)
             except Exception:  # noqa: BLE001
                 rep.problems.append("workshop_popup")
                 return
@@ -453,7 +463,9 @@ class MerimenCreate:
                 rep.ok, rep.code = False, "create_unclear"
                 rep.messages = ["still on the create form, no reason shown"]
                 return rep
-            rep.ok, rep.code, rep.cleared = False, "form_rejected", True  # the form says why it was not accepted: Merimen made no case
+            # cleared only when the create form itself is still there AND said why; an act_clmreg page with no form leaves the mark
+            form_here = bool(cur.locator("select[name=ddlbInsurer]").count())
+            rep.ok, rep.code, rep.cleared = False, "form_rejected", form_here
             return rep
         if "adjclmref" not in url:
             # Next was pressed and the page is neither the form nor the manager page: the case may exist. Keep what is safe to keep (the page

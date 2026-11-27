@@ -43,9 +43,15 @@ def run_create_step(case: dict, *, profile, workshop, page_for, live: bool, prog
         return bool(w) and (int(w.get("slot") or 1), " ".join((w.get("name") or "").split())) == (spec.workshop_slot, spec.workshop_name)
 
     def before_submit():
-        if not same(workshop(False)):
+        peek = workshop(False)
+        if not peek:
+            return "workshop_missing"  # no workshop for this case any more: stop, never fall back to workshop 1
+        if not same(peek):
             return "workshop_changed"  # the user switched it while the form was filled: nothing is locked, nothing was pressed
-        if not same(workshop(True)):  # locks it: from here the user cannot switch this case's workshop (a switch right now is caught here)
+        locked = workshop(True)  # locks it: from here the user cannot switch this case's workshop (a switch right now is caught here)
+        if not locked:
+            return "workshop_missing"
+        if not same(locked):
             return "workshop_changed"
         if marks is not None and not marks.press():
             return "create_unclear"
@@ -70,6 +76,7 @@ def run_create_step(case: dict, *, profile, workshop, page_for, live: bool, prog
             progress("create_case")
         minutes = f"{(time.monotonic() - started) / 60:.2f}"
         line = {"manager_adjuster_not_set": "Manager or adjuster was not found in Merimen: set them by hand"}.get(rep.note or "", "")
+        line = (line + "; " if line else "") + "check by hand: the claimant insurer and policy stored on the case, and the manager and adjuster"
         if rep.white_model:
             line = (line + "; " if line else "") + "the model has no price data (white option)"
         return DriveResult(ok=True, case_id=rep.case_id, ext_id=rep.ext_id, minutes=minutes, partial=True, line=line or None)
