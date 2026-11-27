@@ -214,7 +214,7 @@ function StepTable({ rows, needle, orgId, total, onDesk }: { rows: CaseRow[]; ne
     if (top < 0 || top > window.innerHeight * 0.6) el.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [open]);
   // wide screens: vehicle | steps | action | arrow. The step and action tracks give way before the vehicle no. does.
-  const COLS = "xl:grid xl:grid-cols-[minmax(150px,1fr)_minmax(220px,280px)_minmax(170px,auto)_20px] xl:items-center xl:gap-x-6";
+  const COLS = "xl:grid xl:grid-cols-[minmax(150px,1fr)_260px_220px_20px] xl:items-center xl:gap-x-6";
   return (
     <section aria-labelledby="open-title" className="sheet overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-open">
       <div className={`border-b border-hair bg-panel2 px-4 py-3 xl:px-5 ${COLS}`}>

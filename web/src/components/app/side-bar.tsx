@@ -5,6 +5,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Brand, BrandMark } from "@/components/brand-mark";
 import { Chevron, Exit } from "./marks";
+import { LANGS, type Lang } from "@/lib/i18n";
+import { whatsappHref } from "@/lib/site";
 import { Gear, logOut } from "./app-bar";
 import type { Cred } from "./profile-card";
 
@@ -12,6 +14,10 @@ function Icon({ d }: { d: string }) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0"><path d={d} /></svg>;
 }
 const CASES = "M4 5h16M4 12h16M4 19h10";
+const GLOBE = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z";
+const HELP = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01";
+const OUT = "M14 4h6v6M20 4l-8 8M18 14v6H4V6h6";
+const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 const CLOSED = "M5 12.5l4.5 4.5L19 7.5";
 const BILLING = "M3 7h18v11H3zM3 11h18";
 const DETAILS = "M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z";
@@ -38,12 +44,28 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
   const who = name.trim() || email;
   const initials = (who.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("") || "?").toUpperCase();
   const menuItem = "flex h-10 w-full items-center gap-3 rounded-[3px] px-3 text-left text-[14.5px] font-medium transition-colors duration-150 hover:bg-panel2";
+  const [langOpen, setLangOpen] = useState(false);
+  function pickLang(l: Lang) {
+    document.cookie = `lang=${l}; path=/; max-age=31536000; samesite=lax`;
+    setOpen(false);
+    window.location.reload();
+  }
   return (
     <div ref={ref} className={`relative border-t border-hair ${thin ? "p-2.5" : "p-2"}`} data-testid="side-account">
       {open && (
         <div role="menu" aria-label={email} className={`absolute bottom-[calc(100%+4px)] z-50 rounded-[4px] border border-hair bg-panel p-1 shadow-xl ${thin ? "left-2 w-[240px]" : "inset-x-2"}`}>
           <p className="truncate px-3 pb-1 pt-2 text-[12.5px] text-mute">{email}</p>
           <Link href="/settings" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`}><Gear className="shrink-0 text-mute" />{t("nav.settings")}</Link>
+          <button type="button" role="menuitem" aria-expanded={langOpen} onClick={() => setLangOpen((v) => !v)} className={`${menuItem} text-fg`} data-testid="side-lang">
+            <Icon d={GLOBE} /><span className="flex-1">{t("lang.label")}</span><span className="text-[13px] text-mute">{MENU_LANG[lang as Lang]}</span><Chevron className={`shrink-0 text-mute transition-transform ${langOpen ? "rotate-180" : "-rotate-90"}`} />
+          </button>
+          {langOpen && (
+            <div className="flex gap-1 px-2 pb-1" role="group" aria-label={t("lang.label")}>
+              {LANGS.map((l) => <button key={l} type="button" aria-pressed={l === lang} onClick={() => pickLang(l)} className={`h-9 flex-1 rounded-[3px] border text-[13.5px] ${l === lang ? "border-fg bg-fg font-semibold text-panel" : "border-hair text-fg hover:bg-panel2"}`}>{MENU_LANG[l]}</button>)}
+            </div>
+          )}
+          <a href={whatsappHref()} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`}><Icon d={HELP} /><span className="flex-1">{t("side.help")}</span><Icon d={OUT} /></a>
+          <div className="my-1 border-t border-hair" />
           <button type="button" role="menuitem" disabled={busy} onClick={() => { setBusy(true); void logOut(); }} className={`${menuItem} text-[#dc2626] disabled:opacity-55`} data-testid="side-logout"><Exit className="shrink-0" />{t("nav.logout")}</button>
         </div>
       )}
@@ -90,9 +112,12 @@ export default function SideBar({ email, name, credits, cred, closed, thin: thin
     <aside className={`sticky top-0 hidden h-screen h-dvh shrink-0 flex-col border-r border-hair bg-panel transition-[width] duration-200 motion-reduce:transition-none lg:flex ${thin ? "w-[68px]" : "w-[260px]"}`} data-testid="side-bar" data-thin={thin || undefined}>
       <div className={`flex flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden pb-4 pt-5 ${thin ? "px-2.5" : "px-4"}`}>
         <div className={`flex items-center ${thin ? "flex-col gap-4" : "justify-between pl-2"}`}>
-          <Link href="/dashboard" aria-label={t("nav.cases")}>{thin ? <BrandMark size={30} /> : <Brand small />}</Link>
-          <button type="button" onClick={fold} aria-label={t(thin ? "side.open" : "side.close")} title={t(thin ? "side.open" : "side.close")} aria-expanded={!thin}
-            className="flex h-9 w-9 items-center justify-center rounded-[4px] text-mute transition-colors hover:bg-panel2 hover:text-fg" data-testid="side-fold"><Icon d={PANEL} /></button>
+          {/* folded: no panel button, the ball itself opens the bar again (owner 2026-11-27) */}
+          {thin
+            ? <button type="button" onClick={fold} aria-label={t("side.open")} title={t("side.open")} aria-expanded={false} className="rounded-full" data-testid="side-fold"><BrandMark size={30} /></button>
+            : <Link href="/dashboard" aria-label={t("nav.cases")}><Brand small /></Link>}
+          {!thin && <button type="button" onClick={fold} aria-label={t("side.close")} title={t("side.close")} aria-expanded
+            className="flex h-9 w-9 items-center justify-center rounded-[4px] text-mute transition-colors hover:bg-panel2 hover:text-fg" data-testid="side-fold"><Icon d={PANEL} /></button>}
         </div>
         <nav aria-label={t("nav.menu")} className="grid gap-0.5">
           {links.map((l) => (
