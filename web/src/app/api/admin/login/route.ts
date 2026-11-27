@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_COOKIE, ADMIN_COOKIE_SECURE, ADMIN_SESSION_MAX_AGE_MS, adminKey, signSession } from "@/lib/admin/key";
-import { clearFails, keyMatches, recordFail, throttled } from "@/lib/admin/key-node";
+import { clientAddress, countKeyTry, keyMatches, keyTryWasRight } from "@/lib/admin/key-node";
 
 export const dynamic = "force-dynamic";
 
@@ -13,16 +13,15 @@ export async function POST(req: NextRequest) {
   const key = adminKey();
   if (!key) return new NextResponse(null, { status: 404 });
 
-  const who = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  if (throttled(who)) return to(req, "/admin?e=2");
+  const who = clientAddress(req.headers);
+  if (!(await countKeyTry(who))) return to(req, "/admin?e=2"); // locked: the key is not even looked at
 
   const typed = String((await req.formData().catch(() => null))?.get("key") ?? "");
   if (!typed || !keyMatches(typed, key)) {
-    recordFail(who);
     await new Promise((r) => setTimeout(r, 400)); // slows a guesser; the real defence is the 24+ character key
     return to(req, "/admin?e=1");
   }
-  clearFails(who);
+  await keyTryWasRight(who);
   const res = to(req, "/admin");
   res.cookies.set(ADMIN_COOKIE, await signSession(key), {
     httpOnly: true, secure: ADMIN_COOKIE_SECURE, sameSite: "strict", path: "/", maxAge: ADMIN_SESSION_MAX_AGE_MS / 1000,

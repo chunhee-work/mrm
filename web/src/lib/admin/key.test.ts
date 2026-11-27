@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ADMIN_KEY_MIN_LENGTH, ADMIN_SESSION_MAX_AGE_MS, adminKey, signSession, verifySession } from "./key";
-import { clearFails, keyMatches, recordFail, resetThrottleForTests, throttled } from "./key-node";
+import { keyMatches } from "./key-node";
 
 const KEY = "k".repeat(ADMIN_KEY_MIN_LENGTH) + "-test-only";
 const quiet = async (f: () => unknown) => { const e = console.error; console.error = () => {}; try { return await f(); } finally { console.error = e; } };
@@ -47,15 +47,4 @@ test("forged, tampered, empty or other-key cookies are refused", async () => {
   assert.equal(await verifySession(`${v}.${now + 10 * ADMIN_SESSION_MAX_AGE_MS}.${mac}`, KEY, now), false);
 });
 
-test("five wrong keys lock a visitor for 15 minutes; a right key clears it", () => {
-  resetThrottleForTests();
-  const t0 = 1_000_000;
-  for (let i = 0; i < 4; i++) recordFail("1.2.3.4", t0 + i);
-  assert.equal(throttled("1.2.3.4", t0 + 10), false);
-  recordFail("1.2.3.4", t0 + 5);
-  assert.equal(throttled("1.2.3.4", t0 + 10), true);
-  assert.equal(throttled("5.6.7.8", t0 + 10), false);
-  assert.equal(throttled("1.2.3.4", t0 + 16 * 60_000), false);
-  recordFail("9.9.9.9", t0); clearFails("9.9.9.9");
-  assert.equal(throttled("9.9.9.9", t0), false);
-});
+// The wrong-key lock and log-out are kept in the database: tested in ../rate-limit.test.ts.
