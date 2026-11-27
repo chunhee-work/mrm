@@ -166,11 +166,13 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         if job["step"] in ("phase_a", "phase_b") and cfg.live_writes and os.environ.get("MERIMEN_DRYRUN") != "on":
             # the originals go to Merimen (documents and photos); only when writes are really on, never in a dry run
             for f in case["files"]:
-                local = download(f["url"], f["name"])
+                if not (f.get("name") or "").lower().endswith(".pdf"):
+                    continue  # only the documents; zips and photos are not uploaded as documents
+                local = download(f["url"], f"{case['id']}-f{f['id']}-{f['name']}")
                 if local:
                     f["local"] = local
-            for d in case.get("desk") or []:
-                local = download(d.get("blob_path") or "", d.get("src_name") or "photo.jpg")
+            for d in case.get("desk") or []:  # a per-photo file name: two photos called IMG_0001.jpg must not share one file
+                local = download(d.get("blob_path") or "", f"{case['id']}-p{d['id']}-{d.get('src_name') or 'photo.jpg'}")
                 if local:
                     d["local"] = local
         gate = repo.gate(job["org_id"], env_on=cfg.ext_connect)

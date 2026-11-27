@@ -211,9 +211,11 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
     if phase == "A":
         if desk is not None:
             try:
-                rep = photo_a({**case, "merimen_caseid": saved.case_id or case.get("merimen_caseid")})
+                rep = photo_a({**case, "merimen_caseid": saved.case_id or case.get("merimen_caseid"), "merimen_extid": saved.ext_id or case.get("merimen_extid")})
             except photo_sync.NotPorted:
                 rep = None
+            except Exception as e:  # noqa: BLE001
+                return _o("failed", case_status="waiting_user", error="photos", event=_photo_error(phase, e), merimen_caseid=saved.case_id, merimen_extid=saved.ext_id)
             stop = _photo_stop(phase, rep) if rep else None
             if stop:
                 return stop

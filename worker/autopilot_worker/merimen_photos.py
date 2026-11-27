@@ -95,8 +95,11 @@ class RealPhotos:
                 tab.locator("button.start,button:has-text('Start upload')").first.click(force=True)
                 for _ in range(900):  # up to 15 minutes, one second apart
                     tab.wait_for_timeout(self.mp.ms(1000))
-                    if not tab.evaluate("()=>document.querySelectorAll('.template-upload').length"):
-                        break
+                    try:
+                        if not tab.evaluate("()=>document.querySelectorAll('.template-upload').length"):
+                            break
+                    except Exception:  # noqa: BLE001
+                        break  # the page moved on or closed: the upload is over, verify() reads the list
                 tab.wait_for_timeout(self.mp.ms(2000))
                 self.mp.close_tab(tab)
         finally:
@@ -115,13 +118,15 @@ class RealPhotos:
                 popup = info.value
             except Exception:  # noqa: BLE001
                 popup = None
+            if popup:
+                self.mp.tabs.append(popup)  # closed with the others, also when the step stops
             target = popup or tab
             target.wait_for_timeout(self.mp.ms(2500))
             count = target.evaluate("()=>document.querySelectorAll('input[name^=ONM]').length")
-            if count:
+            if count > 20:  # the photos' page (the documents' link leads to a short list)
                 return target, count
             if popup:
-                popup.close()
+                self.mp.close_tab(popup)
             else:
                 tab.go_back()
                 tab.wait_for_timeout(self.mp.ms(1500))

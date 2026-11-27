@@ -138,14 +138,25 @@ class MerimenPage:
         return self.open(f"{CLAIMS}?{DOC_VIEW.format(cid=case_id, ext=ext_id)}&{self.query()}")
 
     def rows(self, case_id: str, ext_id: str) -> list[str]:
-        """The captions of every document and photo row of the case, in Merimen order (text of each row, whitespace squeezed)."""
-        tab = self.docview(case_id, ext_id)
-        try:
-            return tab.evaluate(
-                "()=>[...document.querySelectorAll('a[href*=\"SVCDOCAttView\"]')].map(a=>{const t=a.closest('tr');return t?t.innerText.replace(/\\s+/g,' ').trim():''})"
-            ) or []
-        finally:
-            self.close_tab(tab)
+        """The captions of every document and photo row of the case, in Merimen order, one per attachment id (text of its row, whitespace
+        squeezed). Waits for the list to render; an empty list is read once more before it is believed (a half-rendered page reads 0)."""
+        js = ("()=>{const seen=new Set(),out=[];document.querySelectorAll('a[href*=\"SVCDOCAttView\"]').forEach(a=>{"
+              "const id=(a.getAttribute('href').match(/SVCDOCAttView\\((\\d+)/)||[])[1]||a.getAttribute('href');if(seen.has(id))return;seen.add(id);"
+              "const t=a.closest('tr');out.push(t?t.innerText.replace(/\\s+/g,' ').trim():'');});return out;}")
+        got: list[str] = []
+        for attempt in range(2):
+            tab = self.docview(case_id, ext_id)
+            try:
+                for _ in range(10):
+                    got = tab.evaluate(js) or []
+                    if got:
+                        break
+                    tab.wait_for_timeout(self.ms(1000))
+            finally:
+                self.close_tab(tab)
+            if got:
+                break
+        return got
 
     def close_tab(self, tab) -> None:
         try:
@@ -185,11 +196,13 @@ def run_docs(page, case: dict, case_id: str, ext_id: str, *, writes: bool) -> Do
             raise DocError("docs_partial", f"Merimen has {have_docs} of {len(plan)} documents")
         if not writes:
             return rep
-        for d in todo:
+        ready = []
+        for d in todo:  # every file is checked and shrunk BEFORE the first upload: a late stop would leave a half-uploaded case
             if not d.get("local"):
                 raise DocError("file_missing", d["name"][:60])
-            path = shrink(d["local"])
-            _upload_one(mp, case_id, ext_id, path, d["label"])
+            ready.append((shrink(d["local"]), d["label"]))
+        for path, label in ready:
+            _upload_one(mp, case_id, ext_id, path, label)
             rep.uploaded += 1
         after = mp.rows(case_id, ext_id)
         if todo and len(pdf_rows(after)) < len(pdf_rows(have)) + len(todo):
@@ -227,8 +240,14 @@ def _upload_one(mp: MerimenPage, case_id: str, ext_id: str, path: str, label: st
         )
         if not ok:
             raise DocError("upload_form_unexpected")  # no "Other" type or no description box: never upload with an empty type (silent failure)
-        popup.get_by_role("button", name=re.compile("Start upload", re.I)).first.click(force=True, timeout=mp.ms(3000))
-        popup.wait_for_timeout(mp.ms(6000))
+        try:
+            popup.get_by_role("button", name=re.compile("Start upload", re.I)).first.click(force=True, timeout=mp.ms(3000))
+        except Exception:  # noqa: BLE001
+            popup.evaluate("()=>{var b=[...document.querySelectorAll('button,a,input')].find(e=>/Start upload/i.test((e.innerText||e.value||'')));if(b)b.click();}")
+        try:
+            popup.wait_for_timeout(mp.ms(6000))  # Merimen may close the popup itself when it is done
+        except Exception:  # noqa: BLE001
+            pass
     finally:
         try:
             popup.close()

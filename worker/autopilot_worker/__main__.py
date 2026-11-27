@@ -51,6 +51,10 @@ class _CdpDriver(Driver):
         case = self.case or {}
         cid, ext = case_id or case.get("merimen_caseid"), ext_id or case.get("merimen_extid")
         page = self.page_for(case.get("org_id") or "", strict=True) if (cid and ext) else None
+        if cid and not ext and writes:
+            from .merimen_docs import DocReport
+
+            return DocReport(ok=False, code="no_ext", note="the Merimen ext id is not stored")
         if cid and ext and page is None:
             from .merimen_docs import DocReport
 
