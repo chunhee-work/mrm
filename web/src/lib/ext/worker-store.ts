@@ -39,6 +39,9 @@ async function credViewUncached(orgId: string): Promise<CredView> {
 }
 async function readCred(orgId: string): Promise<Omit<CredView, "keyOk" | "blocks">> {
   try {
+    // the version sequence of migration 0013 must exist and be usable too, or saving would fail while cases were blocked
+    const seq = await db.execute(sql`SELECT (to_regclass('merimen_profile_seq') IS NOT NULL) AND has_sequence_privilege(current_user, to_regclass('merimen_profile_seq'), 'USAGE') AS ok`);
+    if (((seq as unknown as { rows?: { ok: boolean }[] }).rows ?? [])[0]?.ok !== true) return { ...NONE, storageOk: false };
     const [r] = await db.select({
       usernameHint: schema.merimenCredentials.usernameHint,
       verifyState: schema.merimenCredentials.verifyState,
