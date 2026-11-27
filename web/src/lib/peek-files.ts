@@ -84,12 +84,18 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
     }
     return { cars, extras: [...extras] };
   };
-  // cars sit at the top, or one level down inside a wrapping folder (with anything else beside it counted as extra)
+  // cars sit at the top, or one level down inside a wrapping folder (with anything else beside it counted as extra).
+  // A level where two folders name the same plate ("Policy/WA1234B/" and "Claim/WA1234B/", or "WA1234B" and "WA 1234B") is one
+  // car sorted into folders, never several cars: that level is not used, and such a zip stays one case.
+  const ok = (r: { cars: string[] }) => r.cars.length >= 2 && new Set(r.cars.map((c) => normPlate(c.slice(0, -1).split("/").pop() ?? ""))).size === r.cars.length;
   const top = at(0);
-  if (top.cars.length >= 2) return top;
+  if (ok(top)) return top;
   const inner = at(1);
-  return inner.cars.length >= 2 ? inner : top;
+  return ok(inner) ? inner : { cars: top.cars.length >= 2 ? [] : top.cars, extras: top.extras };
 }
+
+/** The plate a car folder's name stands for, as stored on its case: upper case, no spaces or hyphens ("TBD 8129" -> "TBD8129"). */
+export const normPlate = (folder: string) => folder.toUpperCase().replace(/[\s-]+/g, "").slice(0, 20);
 
 /** Path prefixes of the car folders ("DCD4004/" or "SINAR/DCD4004/"). */
 export const vehiclePrefixes = (names: string[]): string[] => vehicleLayout(names).cars;

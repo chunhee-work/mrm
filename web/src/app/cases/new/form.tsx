@@ -189,9 +189,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
           if (!sp.ok && (j as { kept?: number } | null)?.kept) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
-          // 400/502: no case was made, so not the "some cars may be made" text
-          // 400/502: no case was made; 500 with nothing kept: all were rolled back; else (time-out, kept cases) some cars may be made
-          const undone = sp.status === 400 || sp.status === 502 || (sp.status === 500 && j?.error === "failed" && !(j as { kept?: number }).kept);
+          // 400/401/502: no case was made; 500 with nothing kept: all were rolled back; else (time-out, kept cases) some cars may be made
+          const undone = sp.status === 400 || sp.status === 401 || sp.status === 502 || (sp.status === 500 && j?.error === "failed" && !(j as { kept?: number }).kept);
           if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : undone ? t(sp.status === 500 ? "new.splitUndone" : "new.fail") : t("new.splitFail")); setStep(-1); setBusy(false); return; }
           if (!alive.current) return; // left meanwhile: the cases exist, but the user is not pulled back
           leaving.current = true;

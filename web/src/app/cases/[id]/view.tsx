@@ -12,6 +12,7 @@ import NeedCard from "@/components/app/case-detail";
 import { failTr, userFixable } from "@/lib/case-text";
 import CaseLog from "@/components/app/case-log";
 import BackLink from "@/components/app/back-link";
+import CaseSteps from "@/components/app/case-steps";
 import { whenOf } from "@/lib/fmt-when";
 import type { Cred } from "@/components/app/profile-card";
 
@@ -262,6 +263,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   return shell(
     <>
       {Header()}
+      <div className="border-b border-hair px-5 py-3 sm:px-8"><CaseSteps caseId={c.id} status={c.status} photos={c.desk?.total ?? c.photos} photosDone={!!c.desk?.doneAt} hint={false} /></div>
       {(c.sameCount ?? 0) > 0 && (
         <p className="border-b border-hair px-5 py-2.5 text-[14px] text-mute sm:px-8" data-testid="same-plate">{t("case.samePlate", { n: String(c.sameCount) })}</p>
       )}

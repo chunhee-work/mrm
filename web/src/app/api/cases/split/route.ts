@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { del, get, put } from "@vercel/blob";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { profileBlocks } from "@/lib/ext/worker-store";
 import { planVehicles, unzipVehicle, ZipRejected } from "@/lib/unzip-bundle";
+import { normPlate } from "@/lib/peek-files";
 import { earlierCars, lockSplit, splitKey } from "@/lib/split-marks";
 import { CASE_COST, debitCase, enforcing, exempt, refundCase } from "@/lib/payments/case-credit";
 import { creditBalance } from "@/lib/payments/credit";
@@ -17,7 +18,6 @@ export const maxDuration = 300; // the zip is opened and stored in this call; th
 
 const Body = z.object({ url: z.string().url().max(1000), name: z.string().trim().min(1).max(300), size: z.number().int().positive().max(MAX_FILE_BYTES), fallback: z.boolean().optional() });
 
-const normPlate = (folder: string) => folder.toUpperCase().replace(/[\s-]+/g, "").slice(0, 20);
 
 /**
  * Writes the rows of one car together: on Neon one HTTP batch (one transaction), so a case never exists without its files,
@@ -27,6 +27,20 @@ async function writeCar(qs: Parameters<typeof db.batch>[0]) {
   const d = db as unknown as { batch?: (q: typeof qs) => Promise<unknown> };
   if (typeof d.batch === "function") await d.batch(qs);
   else for (const q of qs) await q;
+}
+
+/** The whole stream in one buffer sized from the declared size up front, so the zip is never held twice while it is read. */
+async function readAll(stream: ReadableStream<Uint8Array>, size: number): Promise<Uint8Array> {
+  let buf = new Uint8Array(size);
+  let n = 0;
+  const rd = stream.getReader();
+  for (;;) {
+    const { done, value } = await rd.read();
+    if (done) break;
+    if (n + value.length > buf.length) { if (n + value.length > MAX_FILE_BYTES) throw new Error("too_large"); const b = new Uint8Array(Math.min(MAX_FILE_BYTES, Math.max(n + value.length, buf.length * 2))); b.set(buf.subarray(0, n)); buf = b; }
+    buf.set(value, n); n += value.length;
+  }
+  return n === buf.length ? buf : buf.subarray(0, n);
 }
 
 /**
@@ -59,16 +73,27 @@ export async function POST(req: Request) {
   // Only the caller's own upload may be read and deleted here: `<org>/<batch>/<file>`, and the batch folder is not a case's folder
   // (case files live under `<org>/<case id>/`), so a stored case file can never be passed in and deleted.
   const seg = path.split("/");
-  if (seg.length !== 4) return NextResponse.json({ error: "prefix" }, { status: 400 });
-  if (/^[0-9a-f-]{36}$/i.test(seg[2]) && (await db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, seg[2])).limit(1)).length)
-    return NextResponse.json({ error: "prefix" }, { status: 400 });
+  // Ordinary case files also live under `<org>/<batch>/<file>` (new cases) or `<org>/<case id>-add-<uuid>/<file>` (added files),
+  // so three checks: the stored file itself is a zip, its folder is not (and does not start with) a case id, and no case file row
+  // points at this URL. A stored case file can then never be read or deleted here.
+  if (seg.length !== 4 || !/\.zip$/i.test(seg[3])) return NextResponse.json({ error: "prefix" }, { status: 400 });
+  const caseLike = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i.exec(seg[2])?.[1];
+  try {
+    if (caseLike && (await db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, caseLike.toLowerCase())).limit(1)).length)
+      return NextResponse.json({ error: "prefix" }, { status: 400 });
+    if ((await db.select({ id: schema.caseFiles.id }).from(schema.caseFiles).where(inArray(schema.caseFiles.blobUrl, [...new Set([url, `${u.origin}${u.pathname}`, `${u.origin}${path}`, `${u.origin}${encodeURI(path)}`])])).limit(1)).length)
+      return NextResponse.json({ error: "prefix" }, { status: 400 });
+  } catch (e) { // not yet known to be the caller's own upload, so it is not deleted
+    console.error("split failed before reading the zip", e);
+    return NextResponse.json({ error: "failed" }, { status: 500 });
+  }
   const dropZip = () => del(url).catch(() => {}); // the cars are stored on their own (or the zip was refused): the big zip is not kept
 
   let buf: Uint8Array;
   try {
     const r = await get(url, { access: "private" });
     if (!r || r.statusCode !== 200) return NextResponse.json({ error: "download" }, { status: 502 });
-    buf = new Uint8Array(await new Response(r.stream).arrayBuffer());
+    buf = await readAll(r.stream, size);
   } catch { return NextResponse.json({ error: "download" }, { status: 502 }); }
 
   let plan;
@@ -82,7 +107,7 @@ export async function POST(req: Request) {
   // Only one call at a time splits a given zip (two tabs, or a retry while the first call still runs), and cars an earlier call
   // already made are kept as they are, not made or charged again.
   let release: (() => Promise<void>) | null = null;
-  let earlier: Map<string, string>;
+  let earlier = new Map<string, string>();
   let todo: typeof plan;
   try {
     release = await lockSplit(me.orgId, me.user.id, name, size);
@@ -97,7 +122,7 @@ export async function POST(req: Request) {
     if (release) await release();
     await dropZip();
     console.error("split failed before making cases", e);
-    return NextResponse.json({ error: "failed" }, { status: 500 });
+    return NextResponse.json({ error: "failed", kept: earlier.size }, { status: 500 }); // cars an earlier call made are listed
   }
   const key = splitKey(name, size);
 
@@ -118,14 +143,22 @@ export async function POST(req: Request) {
         (stored.get(id) ?? stored.set(id, []).get(id)!).push(b.url);
         rows[i] = { caseId: id, kind: e.kind, blobUrl: b.url, originalName: names[i], size: e.bytes.length };
       });
-      await writeCar([
-        db.insert(schema.cases).values({ id, orgId: me.orgId, createdBy: me.user.id, plate: normPlate(v.plate), status: "uploaded" }),
-        db.insert(schema.caseFiles).values(rows),
-        db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" }),
-        db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${rows.length} file(s)` }),
-        db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.create", detail: id }),
-        db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.split", detail: `${id}|${key}${v.prefix}` }),
-      ]);
+      try {
+        await writeCar([
+          db.insert(schema.cases).values({ id, orgId: me.orgId, createdBy: me.user.id, plate: normPlate(v.plate), status: "uploaded" }),
+          db.insert(schema.caseFiles).values(rows),
+          db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" }),
+          db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${rows.length} file(s)` }),
+          db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.create", detail: id }),
+          db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.split", detail: `${id}|${key}${v.prefix}` }),
+        ]);
+      } catch (e) {
+        // the batch may have committed although its answer was lost: then the case exists with its files, and the rollback must
+        // treat it as made (refund, then delete it with its blobs), never delete its blobs and leave a case without files
+        const exists = await db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).then((r) => r.length > 0, () => true);
+        if (exists) { made.push(id); madeFor.set(v.prefix, id); }
+        throw e;
+      }
       made.push(id); madeFor.set(v.prefix, id);
       if (!(await debitCase(me.orgId, id))) throw new Error("no_credits");
     }
@@ -137,14 +170,17 @@ export async function POST(req: Request) {
       if (!back) { kept.add(id); continue; }
       await db.delete(schema.cases).where(eq(schema.cases.id, id)).catch((x) => { kept.add(id); console.error("split rollback: delete failed", id, x); });
     }
+    // `kept` = cars of this zip now in the case list: the ones this call could not undo plus the ones an earlier call made,
+    // so the page never says "nothing was kept" while earlier cars of the same zip are listed
+    const listed = kept.size + earlier.size;
     const gone = [...stored].filter(([id]) => !kept.has(id)).flatMap(([, urls]) => urls);
     if (gone.length) await del(gone).catch((x) => console.error("split rollback: blob delete failed", x));
     await dropZip();
     await release();
-    if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length, kept: kept.size }, { status: 402 });
-    if (e instanceof ZipRejected) return NextResponse.json({ error: e.code, why: e.message, kept: kept.size }, { status: 422 }); // a car folder that does not inflate
+    if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length, kept: listed }, { status: 402 });
+    if (e instanceof ZipRejected) return NextResponse.json({ error: e.code, why: e.message, kept: listed }, { status: 422 }); // a car folder that does not inflate
     console.error("split failed", e);
-    return NextResponse.json({ error: "failed", kept: kept.size }, { status: 500 });
+    return NextResponse.json({ error: "failed", kept: listed }, { status: 500 });
   }
   await dropZip();
   await release();
