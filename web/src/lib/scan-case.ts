@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { readCaseDocs, BadFile } from "@/lib/read-docs";
 import { expandBundles } from "@/lib/expand-bundles";
 import { importCasePhotos } from "@/lib/photos/import-files";
-import { userFixable, zipRefunded } from "@/lib/case-text";
+import { userFixable, zipRefunded, eventTr } from "@/lib/case-text";
 import { refundCase } from "@/lib/payments/case-credit";
 import { notDeleted } from "@/lib/case-delete";
 import { jevInsurerWarnings } from "@/lib/jev-checks";
@@ -87,8 +87,10 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     // because of it, and a failing or slow Jev adds nothing.
     if (done.length) {
       try {
-        const seen = new Set((await db.select({ m: schema.caseEvents.message }).from(schema.caseEvents).where(and(eq(schema.caseEvents.caseId, id), eq(schema.caseEvents.step, "jev_check")))).map((r) => r.m));
-        for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) if (!seen.has(message)) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message });
+        // the same finding is one (kind, source text) pair, however the line is worded
+        const keyOf = (m: string) => { const t = eventTr(m); return `${t.key}|${t.vars?.text ?? t.vars?.place ?? m}`; };
+        const seen = new Set((await db.select({ m: schema.caseEvents.message }).from(schema.caseEvents).where(and(eq(schema.caseEvents.caseId, id), eq(schema.caseEvents.step, "jev_check")))).map((r) => keyOf(r.m)));
+        for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) if (!seen.has(keyOf(message))) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message });
       } catch { /* a Jev problem never fails the read */ }
     }
     return { ok: done.length > 0, missing: data.missing, claimed: true };

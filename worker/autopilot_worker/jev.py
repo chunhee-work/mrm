@@ -18,7 +18,7 @@ ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 MODEL = "jev-latest"
 CHUNK = 150  # pairs per request: more than ~750 answers fail with HTTP 400 max_tokens_exceeded
 THRESHOLD = 0.7  # 0.6 hid real misses (Cowl Panel 0.66, Quarter Panel RH 0.64)
-MAX_PAIRS = 600  # per check: more than this and Jev is skipped (the code rules stand); keeps one Step 2 check short and cheap
+MAX_PAIRS = 300  # per check = two chunks of 150, both started at once (PARALLEL): more than this and Jev is skipped, so no paid call is ever started and then thrown away
 PARALLEL = 2
 BUDGET_S = 30.0  # wall-clock budget for the whole check; when it runs out the code rules stand
 
