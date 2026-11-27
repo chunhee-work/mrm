@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { keepSignedIn } from "@/lib/keep-signed-in";
 import { useT } from "@/components/lang-provider";
 import { Brand } from "@/components/brand-mark";
 import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
@@ -16,9 +17,19 @@ const isTableView = (sp: { get(k: string): string | null }) => (VIEWS as readonl
 // three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 
-export async function logOut() {
-  await authClient.signOut();
+/**
+ * Signs out and leaves for the front page. Answers false (and stays on the page) when the sign-out did not get through:
+ * the user is still signed in then, so the caller gives the button back for another press. Never throws.
+ */
+export async function logOut(): Promise<boolean> {
+  try {
+    const { error } = await authClient.signOut();
+    if (error) return false;
+  } catch {
+    return false;
+  }
   window.location.href = "/";
+  return true;
 }
 
 /** Closes on Escape (focus back to the trigger) and on a press outside `ref`. */
@@ -147,7 +158,7 @@ function MobileMenu({ email, path, needsYou }: { email: string; path: string; ne
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => { setBusy(true); void logOut(); }}
+                onClick={() => { setBusy(true); void logOut().then((out) => { if (!out) setBusy(false); }); }}
                 className="-mr-1 flex h-11 shrink-0 items-center gap-2.5 px-1 text-[15px] font-semibold text-ice disabled:opacity-55"
               >
                 {t("nav.logout")}
@@ -214,6 +225,17 @@ function WideRow({ path, blocked }: { path: string; blocked: boolean }) {
 export default function AppBar({ email, newBlocked = false, needsYou = false }: { email: string; newBlocked?: boolean; needsYou?: boolean }) {
   const path = usePathname();
   const onNew = path === "/cases/new";
+  // Signed in: the browser asks the auth server for its session at most once a day, which renews the cookie (keep-signed-in.ts).
+  // Looked at when a page opens, every hour a page stays open, and when the tab is looked at again. Nothing is shown.
+  useEffect(() => {
+    if (!email) return;
+    const check = () => { void keepSignedIn(async () => !!(await authClient.getSession()).data); };
+    check();
+    const id = setInterval(check, 60 * 60 * 1000);
+    const onShow = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onShow);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onShow); };
+  }, [email]);
   return (
     // a wide screen has the side bar instead (side-bar.tsx): this bar is for phones and tablets
     <header className="sticky top-0 z-40 border-b border-hair bg-panel lg:hidden">
