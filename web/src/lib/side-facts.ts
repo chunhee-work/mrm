@@ -4,10 +4,13 @@ import { credView } from "@/lib/ext/worker-store";
 import { notDeleted } from "@/lib/case-delete";
 import { creditBalance } from "@/lib/payments/credit";
 
+/** A details store that cannot be read, or no key, is unknown (null): no amber dot the user cannot clear. */
+export const credForSide = <C extends { storageOk: boolean; keyOk: boolean }>(c: C): C | null => (c.storageOk && c.keyOk ? c : null);
+
 /** What the side bar shows: the details (for the amber dot), the closed-case count and the credits left. One place for the layout and /api/side. */
 export async function sideFacts(orgId: string) {
   const [cred, closed, credits] = await Promise.all([
-    credView(orgId).then((c) => (c.storageOk && c.keyOk ? c : null)).catch(() => null), // unreadable is unknown: no dot the user cannot clear
+    credView(orgId).then(credForSide).catch(() => null),
     db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), eq(schema.cases.status, "done"), notDeleted)).then((r): number | null => Number(r[0]?.n ?? 0)).catch(() => null), // unknown, not a confident 0
     creditBalance(orgId).catch(() => null),
   ]);
