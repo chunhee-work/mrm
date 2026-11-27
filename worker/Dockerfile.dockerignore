@@ -1,0 +1,28 @@
+# Read by Docker (BuildKit, the default builder) for worker/Dockerfile. The build context is the REPO ROOT (docker-compose.yml:
+# context "..", `docker build -f worker/Dockerfile .`), so the paths here start at the repo root. A plain worker/.dockerignore is
+# not read for that build; it holds the same list for a build whose context is worker/.
+# Only the two folders the Dockerfile copies are sent to the builder. The rest of the repo (web/, tools/, .git, any .env) is not.
+*
+!worker
+!typesafe/photo_train
+# local secrets, caches and tests: not needed to run the worker
+**/.env
+**/.env.*
+!worker/.env.example
+**/*.key
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/node_modules
+**/.venv*
+**/*.log
+worker/tests
+worker/cdp.test.mjs
+# a WORKER_STATE that someone pointed inside worker/: Chrome profiles (logged-in sessions), downloaded case files, model weights
+worker/state
+worker/.state
+worker/var
+worker/files
+worker/chrome
+worker/photo-model
+worker/NEED_LOGIN
