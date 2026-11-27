@@ -19,11 +19,14 @@ export async function earlierCars(orgId: string, name: string, size: number): Pr
   const key = splitKey(name, size);
   const marks = await db.select({ detail: audit.detail }).from(audit).where(and(eq(audit.orgId, orgId), eq(audit.action, "case.split"),
     like(audit.detail, `%|${esc(key)}%`), gt(audit.at, new Date(Date.now() - REPEAT_MS))));
+  // one folder can have several marks (a case rolled back or deleted by the user leaves its mark): the folder counts as made
+  // when ANY of its marked cases still exists, whatever order the rows come back in
+  const all: [string, string][] = [];
+  for (const m of marks) { const d = m.detail ?? ""; const i = d.indexOf("|"); if (d.slice(i + 1).startsWith(key)) all.push([d.slice(i + 1 + key.length), d.slice(0, i)]); }
   const out = new Map<string, string>();
-  for (const m of marks) { const d = m.detail ?? ""; const i = d.indexOf("|"); if (d.slice(i + 1).startsWith(key)) out.set(d.slice(i + 1 + key.length), d.slice(0, i)); }
-  if (!out.size) return out;
-  const alive = new Set((await db.select({ id: schema.cases.id }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), inArray(schema.cases.id, [...out.values()])))).map((c) => c.id));
-  for (const [p, id] of out) if (!alive.has(id)) out.delete(p);
+  if (!all.length) return out;
+  const alive = new Set((await db.select({ id: schema.cases.id }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), inArray(schema.cases.id, [...new Set(all.map(([, id]) => id))])))).map((c) => c.id));
+  for (const [p, id] of all) if (alive.has(id) && !out.has(p)) out.set(p, id);
   return out;
 }
 
