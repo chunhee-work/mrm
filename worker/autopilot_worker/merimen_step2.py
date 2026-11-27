@@ -4,8 +4,8 @@ tools/mrm-bot/selcat2.mjs (read the Select Parts page), tickall.mjs + gonext.mjs
 
 Same rules as the other Merimen steps: only this case's dsp_selection / dsp_details addresses (case id + ext id stored by Phase A), session
 marks never logged, a question box is never answered. Ticking only ADDS ticks (tickall never unticks): a name the user changed is caught by
-the two-way check afterwards and left for a person. Manual rows are not added here: they need a reference price (playbook 08); the two-way
-check lists them for a person."""
+the two-way check afterwards and left for a person. Manual rows (parts the catalogue does not have) are added on dsp_details after Next, with a group, quantity and reference
+price from manual_price.py (addparts.mjs); a row without a usable price is left out, so the two-way check lists it for a person."""
 
 from __future__ import annotations
 
@@ -32,6 +32,18 @@ _THATCHAM = """() => { const t = [...document.querySelectorAll('input,button,a,t
 _OK = """() => { const t = [...document.querySelectorAll('input,button')].find(e => /^OK$/.test((e.value || e.innerText || '').trim()) && e.offsetParent !== null);
   if (!t) return ''; const box = t.closest('[role=dialog],[class*=modal],[class*=dialog],[class*=popup]') || t.parentElement; const tx = (box.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 140);
   if (/are you sure|delete|overwrite|duplicate|remove/i.test(tx)) return 'STOP:' + tx; t.click(); return 'OK'; }"""
+_ADD = """(R) => { const out = []; const have = []; const n0 = +((document.querySelector('[name=PROWCNT]') || {}).value || 0);
+  for (let i = 1; i <= n0; i++) { const d = document.getElementById('PDS' + i); if (d && d.value) have.push(d.value.trim().toLowerCase()); }
+  for (const [g, desc, price, qty, cmt] of R) { if (have.includes(desc.toLowerCase())) { out.push('have'); continue; }
+    const gp = document.getElementById('PADDGP'), ds = document.getElementById('PADDDS'), pt = document.getElementById('PADDPT');
+    if (!gp || !ds || !pt || typeof PCloneRow !== 'function' || typeof oest === 'undefined' || !oest.PGrp || !(g in oest.PGrp)) { out.push('nogroup'); continue; }
+    gp.setAttribute('KEY', g); gp.value = oest.PGrp[g]; ds.value = desc; pt.value = price;
+    try { PCloneRow(null, true); } catch (e) { out.push('err'); continue; }
+    const row = document.getElementById('PROWCNT').value;
+    if (qty && qty !== '1') { const q = document.getElementsByName('PBT' + row)[0]; if (q) { q.value = qty; if (typeof FormStoreUpdate === 'function') FormStoreUpdate(q); q.dispatchEvent(new Event('change', {bubbles: true})); } }
+    if (cmt) { const c = document.getElementById('PCM' + row); if (c) { c.value = cmt; if (c.onblur) c.onblur(); } }
+    have.push(desc.toLowerCase()); out.push('ok'); }
+  return out; }"""
 _ROWS = """() => { const cnt = document.querySelector('[name=PROWCNT]'); if (!cnt) return null; const n = +cnt.value; const o = [];
   for (let i = 1; i <= n; i++) { const pt = document.querySelector('[name=PPT' + i + ']'); if (!pt) continue; const tr = pt.closest('tr');
     const e = document.getElementById('PDS' + i) || document.getElementById('PTDS' + i); const d = e ? (e.tagName === 'INPUT' ? e.value : e.textContent) : (tr && tr.cells[1] ? tr.cells[1].textContent : '');
@@ -49,11 +61,15 @@ class Step2Error(RuntimeError):
 class RealStep2:
     """`page_for()` returns the logged-in Merimen tab (or None). Every call opens its own tab and closes it."""
 
-    def __init__(self, page_for, *, timeout_scale: float = 1.0):
+    def __init__(self, page_for, *, timeout_scale: float = 1.0, rows_for=None):
         self.page_for = page_for
         self.scale = timeout_scale
         self.unexpected: list[str] = []
         self.last = ""  # one short line of what apply did, for the timeline
+        self._cat: list = []  # the catalogue read last (manual rows take the group of a sibling part)
+        self._veh = ""  # Merimen's "Vehicle Model:" text (the reference price looks up this model)
+        self.rows_for = rows_for  # (missing, cat, model) -> (rows, unpriced); default manual_price.rows_for
+        self.manual: dict = {}  # what the manual-row step did: added / unpriced, for the timeline
 
     def _ms(self, ms):
         return max(0, int(ms * self.scale))
@@ -99,6 +115,7 @@ class RealStep2:
             r = page.evaluate(_READ)
             if not r.get("cat"):
                 return None
+            self._cat, self._veh = r["cat"], (r.get("veh") or "").strip()
             return {"cat": r["cat"], "labs": r["labs"], "make": (r.get("veh") or "").split(" ")[0]}
         except Exception:  # noqa: BLE001
             return None
@@ -150,6 +167,43 @@ class RealStep2:
             if self.unexpected:
                 raise Step2Error("unexpected_dialog")
             self.last = f"ticked {p} parts, labour N {n} R {r}, misc {m}"
+        finally:
+            self._close(page)
+        missing = list(plan.get("manual") or [])
+        if missing:
+            self._manual(case, missing)
+
+    def _manual(self, case: dict, missing: list) -> None:
+        """addparts.mjs: one row per missing part on dsp_details (a name already there is skipped), then Save. Rows without a usable
+        price are never added: the two-way check then lists them for a person."""
+        if self.rows_for is None:
+            from .manual_price import rows_for as default
+
+            self.rows_for = default
+        rows, unpriced = self.rows_for(missing, self._cat, self._veh or str(case.get("car_model") or ""))
+        self.manual = {"rows": rows, "unpriced": unpriced, "added": 0}
+        if not rows:
+            return
+        page = self._open(case, "dsp_details")
+        if page is None:
+            raise Step2Error("unreadable")
+        try:
+            res = page.evaluate(_ADD, rows)
+            self.manual["added"] = res.count("ok")
+            if "ok" in res:
+                for _ in range(2):
+                    page.wait_for_timeout(self._ms(250))
+                    self._oks(page, 2)
+                page.evaluate("() => document.querySelectorAll('img').forEach(im => im.style.pointerEvents = 'none')")
+                btn = page.get_by_text("Save", exact=True)
+                if btn.count() == 0:
+                    raise Step2Error("no_save_button")
+                btn.first.click(force=True)
+                page.wait_for_timeout(self._ms(6000))
+                self._oks(page)
+            if self.unexpected:
+                raise Step2Error("unexpected_dialog")
+            self.last += f", manual rows {self.manual['added']}" + (f" ({len(unpriced)} without a price)" if unpriced else "")
         finally:
             self._close(page)
 

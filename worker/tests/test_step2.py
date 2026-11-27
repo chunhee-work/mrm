@@ -320,3 +320,12 @@ def test_phase_b_estimate_details_that_did_not_stick_wait_for_a_person():
             return DriveResult(ok=False, fatal=True, error="estimate", line="Estimate details stopped: 1 part rows still have no Damage Condition.")
     o = run_phase("B", case_b(), writes=True, driver=Est())
     assert o.job_state == "failed" and o.case_status == "waiting_user" and "no Damage Condition" in o.event
+
+
+def test_phase_b_a_failed_pre_submit_check_says_saved_and_waits_for_a_person():
+    class Est(D):
+        def save(self, phase, steps):
+            return DriveResult(ok=False, fatal=True, error="checks", line="Estimate details saved. Not submitted, 1 to fix: total RM5,200.00 is below RM6,000")
+    o = run_phase("B", case_b(), writes=True, driver=Est())
+    assert o.job_state == "failed" and o.case_status == "waiting_user" and o.error == "checks"
+    assert o.event.startswith("Phase B: Estimate details saved. Not submitted") and "not saved" not in o.event

@@ -191,7 +191,9 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             return _o("done", event=ev[:400],
                       **({} if live else {"photo_log": _log(rep)}))
         if saved.fatal and saved.line:
-            return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"Phase {phase} not saved. {saved.line}"[:400])
+            # "checks": Merimen was saved, but a check the owner set before submitting failed: the list waits for a person
+            lead = f"Phase {phase}:" if saved.error == "checks" else f"Phase {phase} not saved."
+            return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"{lead} {saved.line}"[:400])
         return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
     if phase == "A" and saved.partial:
         # the case exists in Merimen (made now, or by an earlier run: nothing is made twice). Its number is stored so no second case is made.
