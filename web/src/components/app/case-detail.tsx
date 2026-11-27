@@ -47,6 +47,7 @@ export default function NeedCard({ row, orgId, sent, onSent }: { row: CaseRow; o
       }
       saving = true;
       const r = await fetch(`/api/cases/${row.id}/files`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
+      if (r.status === 402) { setErr(t("new.noCredits")); return; } // a zip of several cars was refunded: reading it again takes a credit
       if (!r.ok) throw new Error("not saved");
       onSent(row.id, "files");
       router.refresh();
