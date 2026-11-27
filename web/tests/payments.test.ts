@@ -8,6 +8,7 @@ import { createPendingOrder, displayStatus, getOrder } from "../src/lib/payments
 import { creditBalance, creditOrder, refundOrder } from "../src/lib/payments/credit";
 import { debitCase } from "../src/lib/payments/case-credit";
 import { deleteCase } from "../src/lib/case-delete";
+import { purgeDeletedCases } from "../src/lib/purge-deleted-cases";
 import { PACKS, packSellable } from "../src/lib/payments/packs";
 import { decimalToMinor } from "../src/lib/payments/money";
 import { handleLemonSqueezyWebhook, verifySignature } from "../src/lib/payments/providers/lemonsqueezy";
@@ -313,4 +314,40 @@ test("delete: the credit goes back for an unread case only, and not twice for a 
     assert.deepEqual(await deleteCase(org, "u1", b), { ok: true, refunded: false });
     assert.equal(await creditBalance(org), 5000);
   } finally { delete process.env.CREDITS_ENFORCE; }
+});
+
+// ---- the files of a deleted case are removed after 7 days (lib/purge-deleted-cases) ----
+const mkDeleted = async (daysAgo: number | null) => {
+  const id = randomUUID();
+  await db.insert(schema.cases).values({ id, orgId: org, plate: "PUR1234", status: "failed", caseData: { read: true } as never,
+    deletedAt: daysAgo == null ? null : new Date(Date.now() - daysAgo * 86_400_000) });
+  await db.insert(schema.caseFiles).values({ caseId: id, kind: "pdf", blobUrl: `https://blob.example/${id}/a.pdf`, originalName: "a.pdf", size: 1 });
+  await db.insert(schema.casePhotos).values({ caseId: id, position: 0, origN: 1, srcName: "1.jpg", blobPath: `${org}/${id}/photos/1.jpg`, thumbPath: `${org}/${id}/photos/t1.jpg` });
+  return id;
+};
+const rowsOf = async (id: string) => ({
+  files: (await db.select().from(schema.caseFiles).where(sql`${schema.caseFiles.caseId} = ${id}`)).length,
+  photos: (await db.select().from(schema.casePhotos).where(sql`${schema.casePhotos.caseId} = ${id}`)).length,
+  data: (await db.select({ d: schema.cases.caseData }).from(schema.cases).where(sql`${schema.cases.id} = ${id}`))[0].d,
+});
+
+test("purge: only a case deleted more than 7 days ago loses its files, photos and read text; the case row and audit stay; a second run does nothing", async () => {
+  const old = await mkDeleted(8), fresh = await mkDeleted(3), live = await mkDeleted(null);
+  const removed: string[] = [];
+  const r = await purgeDeletedCases(async (p) => { removed.push(p); });
+  assert.deepEqual(r, { cases: 1, files: 3, failed: 0 });
+  assert.equal(removed.length, 3); assert.ok(removed.every((p) => p.includes(old)));
+  assert.deepEqual(await rowsOf(old), { files: 0, photos: 0, data: null });
+  assert.equal((await rowsOf(fresh)).files, 1); assert.equal((await rowsOf(live)).photos, 1);
+  assert.equal((await db.select().from(schema.cases).where(sql`${schema.cases.id} = ${old}`)).length, 1);
+  assert.equal((await db.select().from(schema.auditLog).where(sql`${schema.auditLog.action} = 'case.purge'`)).length, 1);
+  assert.deepEqual(await purgeDeletedCases(async () => { throw new Error("nothing is due"); }), { cases: 0, files: 0, failed: 0 });
+});
+
+test("purge: a file that cannot be removed leaves the case whole for the next run", async () => {
+  const id = await mkDeleted(9);
+  const r = await purgeDeletedCases(async () => { throw new Error("store down"); });
+  assert.deepEqual(r, { cases: 0, files: 0, failed: 1 });
+  assert.deepEqual(await rowsOf(id), { files: 1, photos: 1, data: { read: true } });
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 1);
 });
