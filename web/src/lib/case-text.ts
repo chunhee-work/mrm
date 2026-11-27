@@ -70,8 +70,10 @@ export const ZIP_WHY = {
   mixed: "the zip holds car folders and other files beside them",
   car_no_pdf: "a car folder in the zip has no readable PDF",
   too_many: "too many files in the zip",
+  too_many_files: "the zip holds too many files to split at once",
   entry_big: "a file in the zip is too large",
   too_big: "the zip is too large once opened",
+  car_big: "one car in the zip is too large once opened",
   bomb: "the zip is suspiciously compressed",
   empty: "no PDF or photo inside the zip",
 } as const;

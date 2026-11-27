@@ -7,7 +7,7 @@ import { db, schema } from "@/db";
  * - `case.split.lock` row while a split runs: `<zip name>|<zip size>|`. The oldest live lock of a zip wins; it is removed when the
  *   call ends, and one older than LOCK_MS (a function killed by its time limit) no longer counts.
  */
-export const REPEAT_MS = 24 * 3600_000; // a second upload of the same zip within a day only makes the cars still missing
+export const REPEAT_MS = 30 * 24 * 3600_000; // a second upload of the same zip within 30 days only makes the cars still missing
 export const LOCK_MS = 6 * 60_000; // a split runs at most 300 s
 
 export const splitKey = (name: string, size: number) => `${name}|${size}|`;

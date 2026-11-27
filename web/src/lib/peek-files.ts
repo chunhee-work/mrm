@@ -22,7 +22,7 @@ export async function zipNames(file: Sliceable): Promise<string[] | null> {
     const buf = await file.slice(cdOff, cdOff + cdSize).arrayBuffer();
     const v = new DataView(buf);
     const names: string[] = [];
-    for (let p = 0; p + 46 <= buf.byteLength && u32(v, p) === 0x02014b50 && names.length < 5000;) {
+    for (let p = 0; p + 46 <= buf.byteLength && u32(v, p) === 0x02014b50 && names.length < 20000;) {
       const n = u16(v, p + 28), x = u16(v, p + 30), c = u16(v, p + 32);
       names.push(new TextDecoder().decode(new Uint8Array(buf, p + 46, Math.min(n, buf.byteLength - p - 46))));
       p += 46 + n + x + c;
@@ -50,13 +50,17 @@ const NUMBERED_WORD = new Set(["DOC", "PDF", "CAR", "SET", "IMG", "PIC", "PIX", 
 const MONTH = new Set(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", // English
   "MAC", "MEI", "OGO", "OKT", "DIS"]); // Malay (the others are the same as in English)
 
-/** A folder name that is a car plate: PLATE_LIKE, but not a numbering or date word followed by digits only ("Doc1", "Nov 2026"). */
+/** A folder name that is a car plate: PLATE_LIKE, but not a numbering or date word followed by a short number or a year ("Doc1", "Nov 2026"). */
 export function isPlate(name: string): boolean {
   const m = name.match(/^([A-Z]{1,3})[\s-]?(\d{1,4})[\s-]?([A-Z]{0,2})$/i);
   if (!m) return false;
-  const [, letters, , tail] = m;
+  const [, letters, digits, tail] = m;
   const w = letters.toUpperCase();
-  if (!tail && (NUMBERED_WORD.has(w) || MONTH.has(w))) return false;
+  if (tail) return true;
+  // "Doc1", "IMG 001", "Nov 3", "Mac 26", "Nov 2026" are numbering or dates; "JAN 1234" or "CAR 5678" (real Johor or other
+  // plates) are not: only 1-2 digits, a leading zero, or (after a month) a year count as numbering
+  const numbering = digits.length <= 2 || digits.startsWith("0") || (MONTH.has(w) && /^(19|20)\d\d$/.test(digits));
+  if (numbering && (NUMBERED_WORD.has(w) || MONTH.has(w))) return false;
   return true;
 }
 

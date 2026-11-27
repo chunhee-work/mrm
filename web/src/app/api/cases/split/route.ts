@@ -85,7 +85,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "prefix" }, { status: 400 });
   } catch (e) { // not yet known to be the caller's own upload, so it is not deleted
     console.error("split failed before reading the zip", e);
-    return NextResponse.json({ error: "failed" }, { status: 500 });
+    return NextResponse.json({ error: "failed", kept: 0 }, { status: 500 });
   }
   const dropZip = () => del(url).catch(() => {}); // the cars are stored on their own (or the zip was refused): the big zip is not kept
 

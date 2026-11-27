@@ -36,7 +36,7 @@ test("vehicleFolders: plate-named folders with a PDF; folders named by content o
 });
 
 test("isPlate: real plates yes; numbered words and month-year folder names no", () => {
-  for (const p of ["DCD4004", "QAT110", "TBD 8129", "WA1234B", "V 1", "NOV2026A", "PDF 1234A"]) assert.ok(isPlate(p), p);
+  for (const p of ["DCD4004", "QAT110", "TBD 8129", "WA1234B", "V 1", "NOV2026A", "PDF 1234A", "JAN 1234", "CAR 5678", "MAR 345", "SET 777"]) assert.ok(isPlate(p), p);
   for (const p of ["Doc1", "DOC 2", "Car 1", "Set3", "IMG 2", "IMG 001", "Doc 001", "Day 1", "PDF2", "Nov 2026", "Nov 26", "Nov 3", "JAN2025",
     "Mac 2026", "Mei 2026", "Okt 2026", "Dis 2025", "Policy", "2026-11-01"]) assert.ok(!isPlate(p), p);
 });
