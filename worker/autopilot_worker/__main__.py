@@ -84,7 +84,25 @@ class _CdpDriver(Driver):
                 d = self._docs(False, None, None)
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
             return res
+        if phase == "B" and os.environ.get("MERIMEN_DRYRUN") == "on":
+            est = self._estimate()
+            if est is not None:  # read-only: what the estimate details step would set (the parts are not ticked in a dry run)
+                return DriveResult(ok=True, line=est.read(self.case or {}).line())
         return DriveResult(ok=True)
+
+    def _estimate(self):
+        """The estimate details adapter (merimen_estimate.py) for a case that exists in Merimen and has a strict logged-in tab; None otherwise."""
+        case = self.case or {}
+        if not (case.get("org_id") and case.get("merimen_caseid") and case.get("merimen_extid")):
+            return None
+        only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
+        if only and str(case.get("id")) != only:
+            return None
+        if self.page_for(case["org_id"], strict=True) is None:
+            return None
+        from .merimen_estimate import MerimenEstimate
+
+        return MerimenEstimate(lambda: self.page_for(case["org_id"], strict=True))
 
     def save(self, phase: str, steps: tuple):
         from .pipeline import DriveResult
@@ -102,6 +120,15 @@ class _CdpDriver(Driver):
                 d = self._docs(True, res.case_id, res.ext_id)  # step 2: the documents (skips what Merimen already has)
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
             return res
+        if phase == "B":
+            est = self._estimate()
+            if est is None:
+                return DriveResult(ok=False, error="step_not_ported")
+            r = est.fill(self.case or {})
+            if not r.ok:  # unreadable = try again later (setting the same values again is safe); anything else waits for a person
+                return DriveResult(ok=False, fatal=r.code != "unreadable", error="estimate", line=r.line())
+            # filled and saved; manual rows, comments, quantities, the RM6,000 check and the submit are not automated: the case stops here
+            return DriveResult(ok=False, error="step_not_ported", line=r.line() + " Checks and submit are not automated yet.")
         return DriveResult(ok=False, error="step_not_ported")
 
 

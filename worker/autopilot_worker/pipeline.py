@@ -182,8 +182,13 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             # a live photo step already wrote to Merimen: its list stays logged (side), only a dry one is logged here
             live = bool(rep and rep.mode == "live")
             ticked = bool(s2 is not None and s2.mode == "live" and s2.action == "applied")
-            return _o("done", event=(f"Phase {phase}: {s2.line()}. Estimate details are not automated yet." if ticked else
-                                     f"Phase {phase} checked. Merimen was not saved" + (" (photos were relabelled)." if live and side.get("photo_log") else ".")),
+            if ticked:
+                ev = f"Phase {phase}: {s2.line()}. {saved.line or 'Estimate details are not automated yet.'}"
+            elif saved.line:  # the estimate details were saved (nothing new to tick): say so, never "not saved"
+                ev = f"Phase {phase}: {saved.line}"
+            else:
+                ev = f"Phase {phase} checked. Merimen was not saved" + (" (photos were relabelled)." if live and side.get("photo_log") else ".")
+            return _o("done", event=ev[:400],
                       **({} if live else {"photo_log": _log(rep)}))
         if saved.fatal and saved.line:
             return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"Phase {phase} not saved. {saved.line}"[:400])
