@@ -55,8 +55,10 @@ async function readCred(orgId: string): Promise<Omit<CredView, "keyOk" | "blocks
     const v = { saved: true, usernameHint: r.usernameHint, verifyState: r.verifyState, blocked: r.blocked, updatedAt: r.updatedAt.toISOString(), workshop: r.workshop, manager: r.manager, adjuster: r.adjuster };
     return { ...v, complete: profileComplete(v), storageOk: true };
   } catch (e) {
-    if (missingRelation(e)) return { ...NONE, storageOk: false };
-    throw e;
+    // Any other read failure (permissions, timeout) must not take the whole site down or lock customers out:
+    // treat it as "not ready" and log only the error code, never the message (it may carry query parameters).
+    if (!missingRelation(e)) console.error("credView read failed", (e as { code?: string })?.code ?? "unknown");
+    return { ...NONE, storageOk: false };
   }
 }
 

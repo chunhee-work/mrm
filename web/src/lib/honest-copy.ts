@@ -6,9 +6,9 @@ import type { Lang } from "./i18n";
 // Matching is by phrase, in any language; the replacement is chosen by the page language.
 
 const SAVED: Record<Lang, string> = {
-  en: "If you turn on the saved login, your Merimen user name and password are stored encrypted and used only by our worker to sign in for you, once. We never show them again, and you can remove them at any time in Settings.",
-  zh: "如果你开启「保存登录」，你的 Merimen 用户名和密码会加密保存，只用于我们的后台替你登录一次。我们不会再显示它们，你可以随时在「设置」页删除。",
-  ms: "Jika anda hidupkan log masuk tersimpan, nama pengguna dan kata laluan Merimen anda disimpan secara tersulit dan hanya digunakan oleh worker kami untuk log masuk untuk anda, sekali. Kami tidak memaparkannya semula, dan anda boleh memadamnya bila-bila masa di Tetapan.",
+  en: "To start cases, you enter your Merimen user name and password once. They are stored encrypted and used only by our worker to sign in for you. We never show them again, and you can delete them at any time from the details card on the Cases page.",
+  zh: "开始办案前，你需要填写一次 Merimen 用户名和密码。它们会加密保存，只用于我们的后台替你登录。我们不会再显示它们，你可以随时在案件页的资料卡里删除。",
+  ms: "Untuk memulakan kes, anda memasukkan nama pengguna dan kata laluan Merimen sekali. Ia disimpan secara tersulit dan hanya digunakan oleh worker kami untuk log masuk untuk anda. Kami tidak memaparkannya semula, dan anda boleh memadamnya bila-bila masa dari kad butiran di halaman Kes.",
 };
 const SHORT: Record<Lang, string> = {
   en: "Your Merimen password is stored encrypted and used only to sign in for you.",
@@ -16,9 +16,9 @@ const SHORT: Record<Lang, string> = {
   ms: "Kata laluan Merimen anda disimpan secara tersulit dan hanya digunakan untuk log masuk untuk anda.",
 };
 const FAQ: Record<Lang, string> = {
-  en: "Only if you choose the saved login. You enter it once; it is stored encrypted and used only by our worker to sign in. You can delete it any time.",
-  zh: "只有你选择「保存登录」时才需要。你填写一次，加密保存，只用于我们的后台登录。你可以随时删除。",
-  ms: "Hanya jika anda memilih log masuk tersimpan. Anda memasukkannya sekali; ia disimpan secara tersulit dan hanya digunakan oleh worker kami. Anda boleh memadamnya bila-bila masa.",
+  en: "Yes, once, before your first case. It is stored encrypted and used only by our worker to sign in. You can delete it any time from the details card on the Cases page.",
+  zh: "需要，在第一个案件之前填写一次。它会加密保存，只用于我们的后台登录。你可以随时在案件页的资料卡里删除。",
+  ms: "Ya, sekali sahaja sebelum kes pertama. Ia disimpan secara tersulit dan hanya digunakan oleh worker kami. Anda boleh memadamnya bila-bila masa dari kad butiran di halaman Kes.",
 };
 
 // R2-B13: with the saved-login worker off AND the secure browser window off, "you log in yourself in a secure browser window"

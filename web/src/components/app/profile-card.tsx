@@ -141,7 +141,9 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
         {note}
         <form onSubmit={submit} autoComplete="off" className="grid gap-4">
           {Fields(false)}
-          <div><button type="submit" disabled={!canSend} className="btn-primary !h-12 w-full sm:w-auto sm:px-8" data-testid="pf-save">{busy ? t("set.saving") : t("pf.save")}</button></div>
+          <div className="flex flex-wrap items-center gap-2"><button type="submit" disabled={!canSend} className="btn-primary !h-12 w-full sm:w-auto sm:px-8" data-testid="pf-save">{busy ? t("set.saving") : t("pf.save")}</button>
+            {cred.saved && <button type="button" onClick={remove} disabled={busy} className="btn-quiet !h-12 !text-mute sm:ml-3" data-testid="pf-delete">{sure ? t("ml.removeSure") : t("ml.remove")}</button>}
+          </div>
         </form>
       </section>
     );
