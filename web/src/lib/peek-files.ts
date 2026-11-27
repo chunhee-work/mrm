@@ -38,9 +38,13 @@ export async function zipHasPdf(file: Sliceable): Promise<boolean | null> {
   return names.some((n) => /\.pdf$/i.test(n) && !/(^|\/)(__MACOSX\/|\._)/.test(n) && !n.endsWith("/"));
 }
 
+/** A Malaysian car plate as people name folders: "DCD4004", "QAT110", "TBD 8129", "WA1234B". Words like "Policy" or dates are not. */
+export const PLATE_LIKE = /^[A-Z]{1,3}[\s-]?\d{1,4}[\s-]?[A-Z]{0,2}$/i;
+
 /**
- * The vehicle folders of a zip: top-level folders that each hold their own PDF (one folder per car plate, e.g. "DCD4004/…pdf").
- * One folder wrapping everything is looked through. A zip with "Docs/x.pdf" and "Photos/*.jpg" is ONE vehicle, so it gives 1.
+ * The vehicle folders of a zip: top-level folders named like a car plate that each hold their own PDF ("DCD4004/…pdf").
+ * One folder wrapping everything is looked through. Folders named by what they hold ("Docs/", "Policy/", "Photos/") are
+ * never vehicles, so a one-car zip sorted into such folders stays one case.
  */
 export function vehiclePrefixes(names: string[]): string[] {
   const usable = names.filter((n) => !n.endsWith("/") && !n.startsWith("__MACOSX/") && !(n.split("/").pop() ?? "").startsWith("."));
@@ -51,7 +55,7 @@ export function vehiclePrefixes(names: string[]): string[] {
   };
   let g = split(0);
   if (g.size === 1) g = split(1); // everything sits in one wrapping folder
-  return [...g].filter(([, hasPdf]) => hasPdf).map(([k]) => k);
+  return [...g].filter(([k, hasPdf]) => hasPdf && PLATE_LIKE.test(k.slice(0, -1).split("/").pop() ?? "")).map(([k]) => k);
 }
 
 /** Just the folder names (the plates) of vehiclePrefixes. */

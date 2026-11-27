@@ -10,6 +10,7 @@ import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib
 import { runPool } from "@/lib/pool";
 import { headOf, looksLikePhoto, vehicleFolders, zipNames } from "@/lib/peek-files";
 import Link from "next/link";
+import { zipWhyKey } from "@/lib/case-text";
 import { takeDropped } from "@/lib/dropped-files";
 
 const keyOf = (f: File) => `${f.name}:${f.size}`;
@@ -120,7 +121,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     let bad = -1; // the file whose upload failed (three go up at once, so it is caught per file, not "the last one started")
     try {
       // check the balance before a single byte goes up
-      const pre = await fetch("/api/cases/credit");
+      const pre = await fetch(`/api/cases/credit${multi ? `?n=${zipCars.current.get(keyOf(multi))!.length}` : ""}`);
       if (pre.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       const batchId = crypto.randomUUID();
       const done: { kind: Kind; url: string; name: string; size: number }[] = new Array(files.length);
@@ -138,9 +139,12 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       if (multi) { // one zip, several vehicles: the server makes one case per vehicle
         const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(done[0]) });
         if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
-        if (!sp.ok) throw new Error(t("new.fail"));
+        if (!sp.ok) {
+          const j = (await sp.json().catch(() => ({}))) as { why?: string };
+          setMsg(j.why ? t(zipWhyKey(j.why)) : t("new.splitFail")); setStep(-1); setBusy(false); return;
+        }
         leaving.current = true;
-        window.location.href = "/cases";
+        window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
         return;
       }
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
@@ -218,7 +222,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
             )}
 
             {n === 1 && (zipCars.current.get(keyOf(files[0]))?.length ?? 0) > 1 && (
-              <p role="status" className="text-[14px] text-fg">{t("new.zipSplit", { name: files[0].name, n: String(zipCars.current.get(keyOf(files[0]))!.length) })}</p>
+              <p role="status" className="text-[14px] text-fg">{t("new.zipSplit", { name: files[0].name, n: String(zipCars.current.get(keyOf(files[0]))!.length), list: zipCars.current.get(keyOf(files[0]))!.slice(0, 4).join(", ") + (zipCars.current.get(keyOf(files[0]))!.length > 4 ? "…" : "") })}</p>
             )}
 
             {n > 0 && busy && (

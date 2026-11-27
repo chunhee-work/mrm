@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { unzipBundle, unzipVehicles, ZipRejected } from "./unzip-bundle";
+import { unzipBundle, planVehicles, unzipVehicle, ZipRejected } from "./unzip-bundle";
 
 const pdf = strToU8("%PDF-1.4 fake");
 const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
@@ -36,28 +36,34 @@ test("B01 unzip: a zip bomb (huge ratio) is rejected before it is expanded", () 
   assert.throws(() => unzipBundle(bomb, { maxEntries: 9, maxEntryBytes: 1e9, maxTotalBytes: 1e9, maxRatio: 50 }), (e: ZipRejected) => e.code === "bomb");
 });
 
-test("a zip of several vehicles (one folder each, each with its own PDF) is refused as multi; one vehicle in Docs/ + Photos/ is not", () => {
+test("a zip of several cars (plate-named folders, each with its own PDF) is refused as multi on the one-case path", () => {
   const cars = zipSync({ "AAA1/a.pdf": pdf, "AAA1/1.jpg": jpg, "BBB2/b.pdf": pdf, "BBB2/1.jpg": jpg });
   assert.throws(() => unzipBundle(cars), (e: ZipRejected) => e.code === "multi");
-  const wrapped = zipSync({ "ALL/AAA1/a.pdf": pdf, "ALL/BBB2/b.pdf": pdf });
+  const wrapped = zipSync({ "ALL/WA1234B/a.pdf": pdf, "ALL/TBD 8129/b.pdf": pdf });
   assert.throws(() => unzipBundle(wrapped), (e: ZipRejected) => e.code === "multi");
-  const one = zipSync({ "Docs/rc.pdf": pdf, "Photos/1.jpg": jpg });
-  assert.equal(unzipBundle(one).length, 2);
-  const oneWrapped = zipSync({ "AAA1/Docs/rc.pdf": pdf, "AAA1/Photos/1.jpg": jpg });
-  assert.equal(unzipBundle(oneWrapped).length, 2);
 });
 
-test("unzipVehicles: one entry list per plate folder (a wrapping folder is looked through); a folder without a PDF is dropped", () => {
+test("one car sorted into folders by what they hold stays one case (Docs/Photos, Policy/Claim/Police Report, dates)", () => {
+  assert.equal(unzipBundle(zipSync({ "Docs/rc.pdf": pdf, "Photos/1.jpg": jpg })).length, 2);
+  assert.equal(unzipBundle(zipSync({ "Policy/p.pdf": pdf, "Claim/c.pdf": pdf, "Police Report/r.pdf": pdf })).length, 3);
+  assert.equal(unzipBundle(zipSync({ "2026-11-01/a.pdf": pdf, "2026-11-02/b.pdf": pdf })).length, 2);
+  assert.equal(unzipBundle(zipSync({ "AAA1/Docs/rc.pdf": pdf, "AAA1/Photos/1.jpg": jpg })).length, 2);
+});
+
+test("planVehicles: one plan per plate folder from the file list; a plate folder without a PDF is not a car", () => {
   const z = zipSync({ "ALL/AAA1/a.pdf": pdf, "ALL/AAA1/1.jpg": jpg, "ALL/AAA1/2.JPG": jpg, "ALL/BBB2/b.pdf": pdf, "ALL/BBB2/x.txt": strToU8("x"), "ALL/CCC3/1.jpg": jpg, "__MACOSX/ALL/._a": pdf });
-  const v = unzipVehicles(z);
-  assert.deepEqual([...v.keys()].sort(), ["AAA1", "BBB2"]);
-  assert.equal(v.get("AAA1")!.length, 3);
-  assert.equal(v.get("BBB2")!.length, 1);
+  const plan = planVehicles(z);
+  assert.deepEqual(plan.map((v) => [v.plate, v.files]), [["AAA1", 3], ["BBB2", 1]]);
+  assert.deepEqual(unzipVehicle(z, plan[0].prefix).map((e) => e.name).sort(), ["1.jpg", "2.JPG", "a.pdf"]);
+  assert.deepEqual(unzipVehicle(z, plan[1].prefix).map((e) => e.name), ["b.pdf"]);
 });
 
-test("unzipVehicles: the entry limit counts per vehicle, and a one-vehicle zip is refused as empty", () => {
-  const z = zipSync({ "A/a.pdf": pdf, "A/1.jpg": jpg, "A/2.jpg": jpg, "B/b.pdf": pdf });
-  assert.throws(() => unzipVehicles(z, { maxEntries: 2, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6 }), (e: ZipRejected) => e.code === "too_many");
-  assert.equal(unzipVehicles(z, { maxEntries: 3, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6 }).size, 2);
-  assert.throws(() => unzipVehicles(zipSync({ "Docs/a.pdf": pdf, "Photos/1.jpg": jpg })), (e: ZipRejected) => e.code === "empty");
+test("planVehicles: limits per car, too many cars, and a one-car zip are refused before anything is inflated", () => {
+  const z = zipSync({ "AA1/a.pdf": pdf, "AA1/1.jpg": jpg, "AA1/2.jpg": jpg, "BB2/b.pdf": pdf });
+  assert.throws(() => planVehicles(z, { maxEntries: 2, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6 }), (e: ZipRejected) => e.code === "too_many" && e.message === "too many files in the zip");
+  assert.equal(planVehicles(z, { maxEntries: 3, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6 }).length, 2);
+  const many: Record<string, Uint8Array> = {};
+  for (let i = 0; i < 31; i++) many[`C${i}/a.pdf`] = pdf;
+  assert.throws(() => planVehicles(zipSync(many)), (e: ZipRejected) => e.message === "the zip holds too many vehicles");
+  assert.throws(() => planVehicles(zipSync({ "Docs/a.pdf": pdf, "Photos/1.jpg": jpg })), (e: ZipRejected) => e.code === "empty");
 });
