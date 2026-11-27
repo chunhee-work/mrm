@@ -25,13 +25,16 @@ const SANDBOX_HOST = "https://dev.toyyibpay.com";
  * test checkout can never reach live FPX. A live-account key does not work on the sandbox: the health check
  * then fails and toyyibPay is not offered, which is the safe outcome.
  */
+function hostOf(u: string): string {
+  try { return new URL(u).hostname; } catch { return ""; }
+}
 export function baseUrl(mode: "test" | "live" = paymentsMode(), override = process.env.TOYYIBPAY_BASE_URL): string {
   const o = (override || "").replace(/\/$/, "");
-  if (mode !== "live") return /dev\.toyyibpay\.com/.test(o) ? o : SANDBOX_HOST;
+  if (mode !== "live") return hostOf(o) === "dev.toyyibpay.com" ? o : SANDBOX_HOST;
   return o || LIVE_HOST;
 }
 const base = () => baseUrl();
-export const isSandbox = () => /dev\.toyyibpay\.com/.test(base());
+export const isSandbox = () => hostOf(base()) === "dev.toyyibpay.com";
 
 async function form(path: string, params: Record<string, string>): Promise<unknown> {
   const key = process.env.TOYYIBPAY_SECRET_KEY;
