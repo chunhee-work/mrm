@@ -50,6 +50,7 @@
 - No claimant insurance in the bundle → NOT a blocker: leave the INS fields blank, untick TPOWN, say so in the final report. [merimen-claimant-insurance-fields]
 - Odometer unreadable (LCD off / no cluster photo) → key `0`; never blank, never guess. [merimen-missing-photo-data-rules]
 - Colour → what the PHOTO shows, even if wrapped in film (SMG5678 pink/rose); never the catalogue/document colour. [merimen-missing-photo-data-rules]
+- In `data/<PLATE>.json`, `missing` is ONLY for documents that block the case. Notes (no claimant INS, transmission unknown, no road-tax disc, at-fault owner = driver) go in `notes`, or phase_a.py skips the case (TM2555, 2026-11-19).
 
 ## Insurers (claimant's insurer `ddlb3INSCOID` values)
 - Allianz `35` · Etiqa General Insurance `9517` · Etiqa General Takaful `9516` · Liberty `61` · Syarikat Takaful Malaysia Am `72` · Takaful Ikhlas `1713` · Zurich General Insurance `70` · Zurich General Takaful `9616` · Generali `37` · Berjaya Sompo `32` · MSIG `44` · RHB `67` · Tokio Marine `64` · AIG `29` · Pacific & Orient `38` · The Pacific `57`. [merimen-claimant-insurance-fields]

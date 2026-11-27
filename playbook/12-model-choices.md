@@ -64,6 +64,7 @@ Read with playbook 02 "Vehicle model" before every create. **The RC always wins*
 | Mitsubishi Lancer / ASX | 2.0 GT / 2WD | `2 GT` / `2 2WD` |
 | Subaru XV | XV2.0I | `2.0i-Premium` |
 | Mercedes (import) | E300 | `E300 AMG Line`, body as in the photos |
+| Mercedes old local (1976–85) | MERCEDES BENZ / 200, chassis `123…` | `200 4 DR SAL 2.0 W123 (M)` (value 595; chassis 123 = W123, W115 ended 1976; pick_model gives UNSURE) |
 
 7. **The make on the RC is not always the Merimen make.** "BMW / MINI COOPER S" → make `MINI`, `Cooper 2021 On 3 Dr Hatch 2 Cooper S`. "MERCEDES BENZ" → `MERCEDES-BENZ`. Inokom and Naza rebadges: see 11.
 8. **Two options mean the same variant** (e.g. `1.30 Premium X AUTO` and `1.3 Premium X`) → take the green one; if both are green, take the normal spelling, which is also the one most adjusters chose.
