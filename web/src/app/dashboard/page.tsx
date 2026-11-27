@@ -8,22 +8,11 @@ import CaseTable, { type CaseRow } from "@/components/app/case-table";
 import Home, { type HomeCounts } from "@/components/app/home";
 import { bucketOf, VIEWS, type View } from "@/components/app/status";
 import { systemBusy } from "@/lib/case-steps";
-import { after } from "next/server";
 import { canDelete, notDeleted } from "@/lib/case-delete";
-import { stuckReads, type HealRow } from "./stuck-reads";
+import { healWaiting } from "./stuck-reads";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a few waiting cases are read after the page is sent
-
-/**
- * Self-heal, as on the case page: a case still `uploaded` a minute after it was made never got its read started, and a read
- * cut off by its time limit stays `reading` (after STALE_MS it is started again). Run over every case this visit shows, not
- * only the newest 200: an older case that is stuck is on the page too, and nothing else would ever start it again.
- */
-async function healShown(orgId: string, shown: HealRow[]) {
-  const heal = await stuckReads(orgId, shown);
-  if (heal.length) after(async () => { await Promise.all(heal.map((run) => run().catch(() => {}))); });
-}
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string; q?: string; open?: string }> }) {
   const { user, orgId } = await requireUser();
@@ -32,7 +21,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const q = typeof sp.q === "string" ? sp.q.slice(0, 40) : "";
   // A row of the count was opened: its table must hold every case the count counted (counts are over all cases), so no 200 cap there.
   const cap = view ? 5000 : 200;
-  const newest = await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted)).orderBy(desc(schema.cases.createdAt)).limit(cap);
+  // Self-heal, as on the case page: a case still `uploaded` a minute after it was made never got its read started, and a read
+  // cut off by its time limit stays `reading`. It has its own small query over every waiting case of the organisation, so it
+  // does not depend on which rows this page shows (the newest 200 here, at most 500 open cases on the first page).
+  const [newest, waiting] = await Promise.all([
+    db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted)).orderBy(desc(schema.cases.createdAt)).limit(cap),
+    healWaiting(orgId),
+  ]);
   // A search looks at every case, not only the newest 200: older matches join the list (the table filters it as before).
   // The needle is squashed like the table's own filter, and % _ \ are escaped so they match themselves.
   const needle = q.replace(/\s+/g, "").toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -43,7 +38,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const have = new Set(newest.map((c) => c.id));
   const rows = [...newest, ...older.filter((c) => !have.has(c.id))];
   // a row of the count was opened, or something was searched for: the table of those cases
-  if (view || q) { await healShown(orgId, rows); return <CaseTable rows={await caseRows(rows)} view={view} q0={q} />; }
+  if (view || q) return <CaseTable rows={await caseRows(rows)} view={view} q0={q} />;
 
   // the first page: who is logged in, a search, two buttons, and every open case with its step bar
   // Counted over every case of the org, not only the newest 200: per status, and how many of those still have photos to name
@@ -60,15 +55,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const openCount = counts.docs + counts.photos + counts.active + counts.hold;
   // the file and photo lookups run only for the open cases that are shown
   const openHere = rows.filter((r) => r.status !== "done");
-  const openShown = openCount > openHere.length
+  const openRows = await caseRows(openCount > openHere.length
     ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted, ne(schema.cases.status, "done")))
       // cases waiting on the user first, so the cap never cuts them: failed / missing documents, then photos not confirmed
       .orderBy(sql`case when ${schema.cases.status} in ('failed', 'pending_doc') then 0 when ${schema.cases.status} not in ('uploaded', 'reading', 'checking') and ${schema.cases.photosDoneAt} is null then 1 else 2 end`, desc(schema.cases.createdAt)).limit(500)
-    : openHere;
-  await healShown(orgId, openShown); // the lines on the page, so every one of them can recover (no extra query: the rows are already here)
-  const openRows = await caseRows(openShown);
+    : openHere);
   const [cred, workshops] = await Promise.all([credView(orgId), orgWorkshops(orgId)]); // credView never throws: a failed read comes back as storageOk false
-  return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => Number(g.n) > 0 && systemBusy(g))} cred={cred} workshops={workshops} openId={typeof sp.open === "string" ? sp.open : undefined} />;
+  return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => Number(g.n) > 0 && systemBusy(g))} waiting={waiting > 0} cred={cred} workshops={workshops} openId={typeof sp.open === "string" ? sp.open : undefined} />;
 }
 
 /** What the first page and the table need of each case: which case, its step, and what (if anything) it waits for. */

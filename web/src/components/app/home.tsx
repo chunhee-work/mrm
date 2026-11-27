@@ -10,6 +10,7 @@ import NeedCard from "./case-detail";
 import { failTr, userFixable } from "@/lib/case-text";
 import { DROPPED_PARAM, takeDropped } from "@/lib/dropped-files";
 import { keepOrder } from "@/app/dashboard/line-order";
+import { LOOK_MS, readAgain } from "@/app/cases/[id]/read-again";
 import { useFileDrag } from "./drop-zone";
 import { bucketOf, OPEN_BUCKETS, type Bucket } from "./status";
 import { StepDots, StepHeads } from "./case-steps";
@@ -27,8 +28,6 @@ const NamingDesk = dynamic(() => import("@/components/photos/naming-desk"), { ss
 export type HomeCounts = Record<Bucket, number>;
 
 const REFRESH_MS = 20_000;
-const LOOK_MS = 5_000; // while the answer to "Read again" is out: how often the list is read, so the line shows the read once it has started
-const START_MS = 20_000; // the server takes a press of "Read again" within a second or two: this long with nothing taken means it never got there
 
 const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 // the user's turn first (on hold, then missing documents, then photos to name), then what is being read, then what the worker has; newest first inside
@@ -109,16 +108,15 @@ function Empty({ needle, blocked = false }: { needle: string; blocked?: boolean 
  * "Try again" right on this page, after one more press that says it can use a credit.
  * The server answers only when the read is over, which can take minutes. So the button does not wait for the answer to show
  * what is going on: while the answer is out the list is read every few seconds (`look`), and as soon as the server has
- * started the read the line shows it as being read (this card is gone then). A press that never got to the server is given
- * up after START_MS, and the line is back as it was, with the message.
+ * started the read the line shows it as being read (this card is gone then). When the list could not be read meanwhile
+ * (a hidden tab, the upload box open), the server itself is asked what the case is doing before anything is called a
+ * failure (readAgain): only a press that never got there brings the line back as it was, with the message.
  */
 function RetryHere({ r, look, relist }: { r: CaseRow; look: () => void; relist: () => void }) {
   const { t } = useT();
   const [ask, setAsk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const here = useRef(true); // false once this card is gone: the line shows the case being read (or it was closed)
-  useEffect(() => { here.current = true; return () => { here.current = false; }; }, []);
   useEffect(() => {
     if (!busy) return;
     const id = window.setInterval(look, LOOK_MS);
@@ -127,16 +125,11 @@ function RetryHere({ r, look, relist }: { r: CaseRow; look: () => void; relist: 
   async function again() {
     if (busy) return;
     setBusy(true); setErr("");
-    const stop = new AbortController();
-    const giveUp = window.setTimeout(() => { if (here.current) stop.abort(); }, START_MS);
-    try {
-      const res = await fetch(`/api/cases/${r.id}/scan`, { method: "POST", signal: stop.signal });
-      if (res.status === 402) { setErr(t("new.noCredits")); return; }
-      if (!res.ok && res.status !== 409) throw new Error("retry");
-    } catch { setErr(t("case.retryFail")); } finally {
-      window.clearTimeout(giveUp); setBusy(false); setAsk(false);
-      relist(); // whatever became of the request, the line shows what the server has (a read it did start, the new result)
-    }
+    const out = await readAgain(r.id, { onLate: relist });
+    if (out === "no_credits") setErr(t("new.noCredits"));
+    else if (out === "fail") setErr(t("case.retryFail")); // the server still has the case as failed: the read never started
+    setBusy(false); setAsk(false);
+    relist(); // whatever became of the request, the line shows what the server has (a read it did start, the new result)
   }
   return (
     <div className="rounded-[4px] border border-[#dc2626]/30 bg-[#fef2f2] px-4 py-3">
@@ -379,7 +372,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
  * where it can be done here, the job itself. Nothing is said twice: "Billing" is in the side bar (the phone menu on a phone) only, and the bar drops its own
  * "New case" on this page.
  */
-export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId, workshops = [], openId }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string; workshops?: WorkshopOpt[]; openId?: string }) {
+export default function Home({ name, counts, cases, busy = false, waiting = false, cred: cred0, orgId, workshops = [], openId }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; waiting?: boolean; cred: Cred; orgId: string; workshops?: WorkshopOpt[]; openId?: string }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -410,15 +403,22 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // Cases waiting to be read (a zip of many cars makes many at once) are started a few at a time, each time the server is
   // asked for this page. That must not wait for the user to look at the tab, or for the upload box to close: whenever the page
   // is not reading itself again, a small request asks the server to carry on with the next ones. It changes nothing on screen.
-  const waiting = cases.some((r) => r.status === "uploaded" || r.status === "reading");
-  const noneLeft = useRef(false); // the server said nothing is waiting any more (this list can be old in a hidden tab)
-  useEffect(() => { noneLeft.current = false; }, [cases]);
+  // `waiting` comes from the server's own count of cases still to be read, not from the lines on this page (the list is cut at 500).
+  // It stops for good when the server says nothing is waiting any more (this page can be old in a hidden tab), and when the
+  // server refuses it (signed out in another tab: 401, or any answer that is not ours); a new reading of the page starts it again.
+  const stopped = useRef(false);
+  useEffect(() => { stopped.current = false; }, [cases]);
   useEffect(() => {
     if (!waiting) return;
     const id = window.setInterval(() => {
-      if (!navigator.onLine || noneLeft.current || (live && !document.hidden)) return; // the refresh above does it while it runs
-      void fetch("/dashboard/heal", { method: "POST" }).then((x) => (x.ok ? x.json() : null))
-        .then((j: { waiting?: number } | null) => { if (j?.waiting === 0) noneLeft.current = true; }, () => {});
+      if (!navigator.onLine || stopped.current || (live && !document.hidden)) return; // the refresh above does it while it runs
+      void fetch("/api/cases/heal", { method: "POST", redirect: "manual" }).then(async (x) => {
+        // a redirect (never followed) or a 4xx is a "no": nothing more to ask for. A 5xx or a lost connection is tried again next time.
+        if (x.type === "opaqueredirect" || x.redirected || (x.status >= 300 && x.status < 500)) { stopped.current = true; return; }
+        if (!x.ok) return;
+        const j = (await x.json()) as { waiting?: number };
+        if (j.waiting === 0) stopped.current = true;
+      }).catch(() => {});
     }, REFRESH_MS);
     return () => window.clearInterval(id);
   }, [waiting, live]);
