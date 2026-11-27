@@ -43,8 +43,8 @@ export async function documentRefusal(content: Anthropic.Messages.ContentBlockPa
 export type CallCtx = { userId: string | null; orgId: string | null; caseId: string | null; purpose: "read_docs" | "name_photos" | "system_other"; playbook?: string };
 export type ParseParams = MessageCreateParamsNonStreaming;
 
-/** request: per-call limits (a shorter timeout, fewer tries) for calls that sit inside a time-boxed route. */
-type Deps = { client?: { messages: { create: Anthropic["messages"]["create"] } }; record?: (row: LedgerRow) => Promise<unknown>; request?: { timeout?: number; maxRetries?: number } };
+/** request: per-call limits (a shorter timeout, fewer tries, a signal that ends the call and its retries at a set time) for calls that sit inside a time-boxed route. */
+type Deps = { client?: { messages: { create: Anthropic["messages"]["create"] } }; record?: (row: LedgerRow) => Promise<unknown>; request?: { timeout?: number; maxRetries?: number; signal?: AbortSignal } };
 
 /**
  * messages.create() + parseMessage() (what messages.parse() does) plus one ledger row per call. The row is written as soon as the

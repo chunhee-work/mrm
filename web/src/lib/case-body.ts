@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { kindOf } from "@/lib/file-kind";
+import { ownBlobPath } from "@/lib/blob-url";
 import { UPLOAD_EXT, UPLOAD_TYPES, MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES, MAX_PDF_BYTES } from "@/lib/upload-rules";
 
 export { UPLOAD_EXT, UPLOAD_TYPES, MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES, MAX_PDF_BYTES };
@@ -17,14 +18,15 @@ export const CaseBody = z.object({
 
 export type CaseBodyT = z.infer<typeof CaseBody>;
 
-/** Why a body cannot be accepted for this organisation, or null. Files must sit under the org's own storage prefix and match their kind. */
+/**
+ * Why a body cannot be accepted for this organisation, or null. Files must be on our file store under the org's own folder
+ * (blob-url.ts: the one check every route that takes file URLs shares) and match their kind.
+ */
 export function bodyProblem(b: CaseBodyT, orgId: string): "prefix" | "kind" | "total" | "no_docs" | "pdf_big" | null {
   let total = 0;
   for (const f of b.files) {
     total += f.size;
-    let path = "";
-    try { path = decodeURIComponent(new URL(f.url).pathname); } catch { return "prefix"; }
-    if (!path.startsWith(`/${orgId}/`) || path.includes("..")) return "prefix";
+    if (!ownBlobPath(f.url, orgId)) return "prefix";
     if (!UPLOAD_EXT.test(f.name) || kindOf(f) !== f.kind) return "kind";
     if (f.kind === "pdf" && f.size > MAX_PDF_BYTES) return "pdf_big";
   }

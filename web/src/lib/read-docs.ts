@@ -129,6 +129,25 @@ export function asBadFile(e: unknown, names: string[]): BadFile | null {
 
 type Verdict = "refused" | "long" | "accepted" | "unknown";
 const tooLong = () => new BadFile("", "too_long");
+
+// U5: one request to the model may weigh 32 MB, and a PDF travels as base64 (4 bytes for every 3). Every PDF of a case goes
+// in the same request (the reader needs them side by side), so PDFs that pass the per-file limit can still be too much together.
+const MAX_REQUEST = 32 * 1024 * 1024;
+/**
+ * Called as each PDF is loaded, with the base64 lengths so far (in `names` order): throws the customer's-file refusal as soon as
+ * the PDFs no longer fit one request, before the rest is downloaded or anything is sent. One PDF that is too much alone is named
+ * ("send a smaller PDF"); several that are too much together are "too long for one case" (the same answer the model's own
+ * "request too large" gets). A set this check lets through and the model still refuses is handled by refusalOf.
+ */
+export function checkFits(names: string[], sizes: number[]): void {
+  const last = sizes.length - 1;
+  if (sizes[last] > MAX_REQUEST) throw unique(names, names[last]) ? new BadFile(names[last], "too_big") : tooLong();
+  if (sizes.reduce((a, b) => a + b, 0) > MAX_REQUEST) throw tooLong();
+}
+
+/** What the case shows when a read ran out of time ("Reading took too long. Press Read again."; our failure, the credit goes back). */
+export const TIMED_OUT = "Reading timed out";
+const READ_MS = 240_000; // when the caller gives no deadline: well under the 300 s a function may run
 /**
  * What a refused read becomes, or null when it is not about the PDFs (then the error stays as it is). `verdicts` are the token
  * counter's answers for each PDF alone, in `names` order.
@@ -160,37 +179,54 @@ async function blobBase64(url: string, name = "file.pdf"): Promise<string> {
   return buf.toString("base64");
 }
 
-export async function readCaseDocs(files: { kind: string; blobUrl: string; originalName: string }[], ctx: Omit<CallCtx, "purpose">) {
+/**
+ * `deadline` (a time in ms): the model call, with its retries, is ended at that time and the read fails as TIMED_OUT. Without
+ * it a hung call held the function until the platform killed it and the case stayed on "Reading documents" (U10).
+ * `load` and `parse` are replaced in tests only.
+ */
+type ReadOpts = { deadline?: number; load?: typeof blobBase64; parse?: typeof trackedParse };
+
+export async function readCaseDocs(files: { kind: string; blobUrl: string; originalName: string }[], ctx: Omit<CallCtx, "purpose">, opts: ReadOpts = {}) {
   const pdfs = files.filter((f) => f.kind === "pdf");
   if (!pdfs.length) throw new Error("no PDF in this case");
+  const deadline = opts.deadline ?? Date.now() + READ_MS;
+  const load = opts.load ?? blobBase64;
   const content: Block[] = [];
   const docs: { name: string; block: Block }[] = [];
+  const all = pdfs.map((x) => x.originalName);
+  const sizes: number[] = [];
   for (const f of pdfs) {
     // a file two PDFs share the name of is not named ("Replace files" would take both out): it is "one of the PDFs" then
-    const data = await blobBase64(f.blobUrl, f.originalName).catch((e) => {
-      throw e instanceof BadFile && !unique(pdfs.map((x) => x.originalName), f.originalName) ? new BadFile("", e.why) : e;
+    const data = await load(f.blobUrl, f.originalName).catch((e) => {
+      throw e instanceof BadFile && !unique(all, f.originalName) ? new BadFile("", e.why) : e;
     });
+    sizes.push(data.length);
+    checkFits(all, sizes);
     const block: Block = { type: "document", source: { type: "base64", media_type: "application/pdf", data } };
     docs.push({ name: f.originalName, block });
     content.push({ type: "text", text: `File: ${f.originalName}` }, block);
   }
   content.push({ type: "text", text: "Extract the case data from the files above." });
 
-  const res = await trackedParse({ ...ctx, purpose: "read_docs", playbook: playbookTag() }, {
+  const left = deadline - Date.now();
+  if (left < 1000) throw new Error(TIMED_OUT); // opening the files used up the time: no call is started that cannot finish
+  const signal = AbortSignal.timeout(left); // wall-clock limit over every try (the SDK's own timeout is per try)
+  const res = await (opts.parse ?? trackedParse)({ ...ctx, purpose: "read_docs", playbook: playbookTag() }, {
     model: MODEL,
     max_tokens: 16000,
     thinking: { type: "adaptive" },
     output_config: { effort: "high", format: zodOutputFormat(CaseData) },
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content }],
-  }).catch(async (e) => {
+  }, { request: { signal, timeout: left } }).catch(async (e) => {
+    if (signal.aborted) throw new Error(TIMED_OUT);
     const names = docs.map((d) => d.name);
     if (!refusalOf(e, names)) throw e;
     if (docs.length < 2 || !/^bad_file:\|corrupt$/.test(refusalOf(e, names)!.message)) throw refusalOf(e, names)!; // already decided
     // several PDFs and the refusal does not say which: ask the free token counter about each one alone, so "Replace files"
     // can take out exactly that file (without it the same bad PDF would stay in the case and fail every read)
     const verdicts: Verdict[] = docs.map(() => "unknown");
-    const until = Date.now() + 60_000; // no check starts after 60 s (one started just before may run 30 s more), so the read ends in time
+    const until = Math.min(Date.now() + 60_000, deadline); // no check starts after 60 s or past the read's deadline (one started just before may run 30 s more), so the read ends in time
     await runPool(docs.length, 4, async (i) => {
       if (Date.now() > until) return; // left "unknown"
       const v = await documentRefusal([docs[i].block]).catch(() => undefined); // undefined: the check itself failed (rate limit, network)

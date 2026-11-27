@@ -18,12 +18,16 @@ const db = drizzle(pg, { schema });
 
 // Swap the three modules scan-case.ts imports: server-only (throws outside Next), the db, and the Claude call.
 let claude: () => Promise<any> = async () => { throw new Error("claude not set"); };
+let readOpts: { deadline?: number } | undefined; // what the last read was called with
+const noneLeftOut = { heic: 0, big: 0, limit: 0, unreadable: 0 };
+let photoImport: () => Promise<any> = async () => ({ added: 0, skipped: [], leftOut: noneLeftOut });
+let unzip: () => Promise<number> = async () => 0;
 const stubs: Record<string, unknown> = {
   "server-only": {},
   "@/db": { db, schema },
-  "@/lib/read-docs": { readCaseDocs: () => claude(), BadFile: class BadFile extends Error {} },
-  "@/lib/expand-bundles": { expandBundles: async () => 0 },
-  "@/lib/photos/import-files": { importCasePhotos: async () => ({ added: 0, skipped: [] }) },
+  "@/lib/read-docs": { readCaseDocs: (_f: unknown, _c: unknown, o?: { deadline?: number }) => { readOpts = o; return claude(); }, BadFile: class BadFile extends Error {} },
+  "@/lib/expand-bundles": { expandBundles: () => unzip() },
+  "@/lib/photos/import-files": { importCasePhotos: () => photoImport() },
 };
 const origLoad = (Module as any)._load;
 (Module as any)._load = function (request: string, ...rest: unknown[]) {
@@ -53,7 +57,7 @@ async function main() {
     for (const s of readFileSync(path.join(dir, f), "utf8").split("--> statement-breakpoint")) if (s.trim()) await pg.exec(s);
   await pg.exec("set session_replication_role = replica"); // no org/user rows needed for these tests
 
-  const { scanCase, leaseTime } = await import("../src/lib/scan-case");
+  const { scanCase, leaseTime, safeError, leftOutLines } = await import("../src/lib/scan-case");
   const { dropBadFiles } = await import("../src/lib/drop-bad-files");
   const tests: [string, () => Promise<void>][] = [
     ["R2-B02 Replace files: the bad file leaves the case, the good ones stay; other failures remove nothing", async () => {
@@ -155,7 +159,7 @@ async function main() {
       claude = async () => { throw new Error("api down"); };
       const id = await newCase("uploaded", null, { caseData: { keep: true } });
       await scanCase(id, "auto"); const c = await get(id);
-      assert.equal(c.status, "failed"); assert.equal(c.error, "api down"); assert.deepEqual(c.caseData, { keep: true });
+      assert.equal(c.status, "failed"); assert.equal(c.error, "Reading failed"); assert.deepEqual(c.caseData, { keep: true }); // U11: never the exception's own words
       assert.equal(await usageRows(id), 0); assert.deepEqual(await events(id), ["Reading documents", "Scan failed"]);
     }],
     ["no PDF -> failed with a message", async () => {
@@ -252,6 +256,68 @@ async function main() {
       assert.ok(a || b); assert.equal(await bal("rich"), 0); // one debit, never two
       assert.equal(await debitCase("free-org", "c-free"), true); assert.equal(await bal("free-org"), 0);
       delete process.env.CREDITS_ENFORCE; delete process.env.CREDITS_EXEMPT_ORGS;
+    }],
+    ["U11: a failed read stores only a fixed text the case page knows; the exception's own words never reach the case", async () => {
+      const { ZIP_WHY, failTr, userFixable } = await import("../src/lib/case-text");
+      const BadFile = (stubs["@/lib/read-docs"] as any).BadFile;
+      const raw = ['connect ECONNREFUSED 10.0.0.5:5432', 'Failed query: select "id" from "cases" where secret = $1\nparams: abc', "401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"},\"request_id\":\"req_1\"}",
+        "cannot download claim.zip", "claim.zip: unexpected EOF", "400 max_tokens: too large", "no structured output (stop_reason: max_tokens)"];
+      for (const m of raw) assert.equal(safeError(new Error(m)), "Reading failed", m);
+      assert.equal(safeError("a string"), "Reading failed"); assert.equal(safeError(null), "Reading failed");
+      // the texts the page understands are kept as they are
+      assert.equal(safeError(new BadFile("bad_file:a.pdf|corrupt")), "bad_file:a.pdf|corrupt");
+      assert.equal(safeError(new Error(`cars.zip: ${ZIP_WHY.multi}`)), `cars.zip: ${ZIP_WHY.multi}`);
+      assert.equal(safeError(new Error("no PDF in this case")), "no PDF in this case");
+      assert.equal(safeError(new Error("Reading timed out")), "Reading timed out");
+      // and the plain text is our failure on the page: "Read again", not "Replace files"
+      assert.equal(failTr("Reading failed").key, "case.err.other"); assert.equal(userFixable("Reading failed"), false);
+      // through a real read: the stored text and the credit rule agree
+      claude = async () => { throw new Error('Failed query: select 1\nparams: secret'); };
+      const id = await newCase("uploaded"); await scanCase(id, "auto");
+      assert.equal((await get(id)).error, "Reading failed");
+      unzip = async () => { throw new Error(`cars.zip: ${ZIP_WHY.corrupt}`); };
+      try { const z = await newCase("uploaded"); await scanCase(z, "auto"); assert.equal((await get(z)).error, `cars.zip: ${ZIP_WHY.corrupt}`); } finally { unzip = async () => 0; }
+    }],
+    ["U10: the read is given a deadline under the function limit; a read that runs out of time fails as 'Reading timed out' and the credit goes back", async () => {
+      process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
+      const { debitCase } = await import("../src/lib/payments/case-credit");
+      await db.insert(schema.creditsLedger).values({ orgId: "o", delta: 1000, reason: "purchase:u10" });
+      const bal = async () => Number(((await db.execute(sql`SELECT COALESCE(SUM(delta),0)::int AS b FROM credits_ledger WHERE org_id = 'o'`)) as any).rows[0].b);
+      const id = await newCase("uploaded"); await debitCase("o", id); const paid = await bal();
+      const t0 = Date.now();
+      claude = async () => { throw new Error("Reading timed out"); }; // what readCaseDocs throws when its deadline passes
+      await scanCase(id, "auto");
+      assert.ok(readOpts?.deadline && readOpts.deadline - t0 > 200_000 && readOpts.deadline - t0 < 290_000, `deadline ${readOpts?.deadline && readOpts.deadline - t0} ms after the start`);
+      const c = await get(id);
+      assert.equal(c.status, "failed"); assert.equal(c.error, "Reading timed out");
+      assert.deepEqual(await events(id), ["Reading documents", "Scan failed"]);
+      assert.equal(await bal(), paid + 1000);
+      delete process.env.CREDITS_ENFORCE;
+    }],
+    ["U2: photos that could not be used are said on the case's activity list, one line per reason, once", async () => {
+      assert.deepEqual(leftOutLines({ leftOut: { heic: 3, big: 2, limit: 1, unreadable: 4 } }),
+        ["Photos left out: 3 (HEIC)", "Photos left out: 2 (over 25 MB)", "Photos left out: 1 (more than 300 photos)", "Photos left out: 4 (cannot be opened)"]);
+      assert.deepEqual(leftOutLines({ leftOut: noneLeftOut }), []); assert.deepEqual(leftOutLines(undefined), []);
+      try {
+        photoImport = async () => ({ added: 31, skipped: [], leftOut: { heic: 6, big: 0, limit: 0, unreadable: 3 } });
+        claude = ok(["police report"]); const id = await newCase("uploaded");
+        await scanCase(id, "auto");
+        assert.deepEqual(await events(id), ["Reading documents", "Pending: police report", "Photos left out: 6 (HEIC)", "Photos left out: 3 (cannot be opened)"]);
+        // read again: the same photos are still left out, and that is not said a second time; a new count is
+        photoImport = async () => ({ added: 0, skipped: [], leftOut: { heic: 6, big: 0, limit: 0, unreadable: 4 } });
+        claude = ok(); await scanCase(id, "retry");
+        assert.deepEqual((await events(id)).filter((m) => m.startsWith("Photos")), ["Photos left out: 6 (HEIC)", "Photos left out: 3 (cannot be opened)", "Photos left out: 4 (cannot be opened)"]);
+        // a failed read says it too, after the failure line
+        photoImport = async () => ({ added: 1, skipped: [], leftOut: { heic: 0, big: 2, limit: 0, unreadable: 0 } });
+        claude = async () => { throw new Error("api down"); }; const bad = await newCase("uploaded");
+        await scanCase(bad, "auto");
+        assert.deepEqual(await events(bad), ["Reading documents", "Scan failed", "Photos left out: 2 (over 25 MB)"]);
+        // an import that itself fails adds nothing and never fails the read
+        photoImport = async () => { throw new Error("store down"); };
+        claude = ok(); const fine = await newCase("uploaded");
+        assert.equal((await scanCase(fine, "auto")).ok, true);
+        assert.deepEqual(await events(fine), ["Reading documents", "Documents read"]);
+      } finally { photoImport = async () => ({ added: 0, skipped: [], leftOut: noneLeftOut }); }
     }],
     ["leaseTime reads the lease time, ignores other text", async () => {
       assert.equal(leaseTime("lease:2026-01-01T00:00:00.000Z|abc"), Date.parse("2026-01-01T00:00:00.000Z"));

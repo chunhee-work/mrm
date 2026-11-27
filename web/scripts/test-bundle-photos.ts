@@ -126,6 +126,40 @@ async function main() {
       await addFile(id, "photo", "ok.jpg", await jpeg([1, 2, 3])); await addFile(id, "photo", "x.heic", Buffer.from("heic")); await addFile(id, "photo", "bad.jpg", Buffer.from("not an image"));
       const r = await importCasePhotos(id, ORG);
       assert.equal(r.added, 1); assert.deepEqual(r.skipped.sort(), ["bad.jpg", "x.heic"]);
+      assert.deepEqual(r.leftOut, { heic: 1, big: 0, limit: 0, unreadable: 1 }); // U2: each with its reason
+    }],
+    ["U2: a photo over 25 MB is left out as too large, without being downloaded", async () => {
+      const id = await newCase();
+      await addFile(id, "photo", "ok.jpg", await jpeg([4, 5, 6]));
+      await db.insert(schema.caseFiles).values({ caseId: id, kind: "photo", blobUrl: "https://blob.test/never-fetched", originalName: "huge.jpg", size: 26 * 1024 * 1024 });
+      const r = await importCasePhotos(id, ORG);
+      assert.equal(r.added, 1); assert.deepEqual(r.skipped, ["huge.jpg"]);
+      assert.deepEqual(r.leftOut, { heic: 0, big: 1, limit: 0, unreadable: 0 });
+    }],
+    ["P14: the 300-photo limit counts new photos only: with 298 on the desk, 3 old + 3 new files add the first 2 new ones (by name) and leave 1 out", async () => {
+      const id = await newCase();
+      for (const [i, nm] of ["a.jpg", "b.jpg", "c.jpg"].entries()) await addFile(id, "photo", nm, await jpeg([10 + i, 20, 30]));
+      assert.equal((await importCasePhotos(id, ORG)).added, 3);
+      // 295 more photos came in on the desk itself
+      await db.insert(schema.casePhotos).values(Array.from({ length: 295 }, (_, i) => ({ caseId: id, origN: 4 + i, position: 3 + i, srcName: `desk${i}.jpg`, blobPath: `x/${i}-f`, thumbPath: `x/${i}-s`, contentHash: `desk-${id}-${i}`, nameState: "named" })));
+      // three new files, later in name order than the three already imported (the old count by position dropped all of them)
+      for (const [i, nm] of ["x1.jpg", "x2.jpg", "x3.jpg"].entries()) await addFile(id, "photo", nm, await jpeg([200, 100 + i, 50]));
+      const r = await importCasePhotos(id, ORG);
+      assert.equal(r.added, 2); assert.deepEqual(r.skipped, ["x3.jpg"]);
+      assert.deepEqual(r.leftOut, { heic: 0, big: 0, limit: 1, unreadable: 0 });
+      const ph = await desk(id);
+      assert.equal(ph.length, 300);
+      assert.deepEqual(ph.filter((p) => /^x\d/.test(p.srcName)).map((p) => p.srcName).sort(), ["x1.jpg", "x2.jpg"]);
+      // again with the desk full: nothing new fits, the old ones are not counted, the same one is reported
+      const again = await importCasePhotos(id, ORG);
+      assert.equal(again.added, 0); assert.deepEqual(again.leftOut, { heic: 0, big: 0, limit: 1, unreadable: 0 });
+    }],
+    ["U3: a photo named with two dots in a row is imported; its stored path has no '..'", async () => {
+      const id = await newCase();
+      await addFile(id, "photo", "IMG..1.jpg", await jpeg([77, 66, 55]));
+      assert.equal((await importCasePhotos(id, ORG)).added, 1);
+      const [p] = await desk(id);
+      assert.equal(p.srcName, "IMG..1.jpg"); assert.ok(!p.blobPath.includes("..") && !p.thumbPath.includes(".."), p.blobPath);
     }],
     ["R2-B09/B14: photos come onto the desk in file-name order (zip-entry order is not used), many at once, none lost or doubled", async () => {
       const id = await newCase();
