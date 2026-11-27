@@ -75,6 +75,10 @@ class _CdpDriver(Driver):
         try:
             names = [d.get("final_name") or d.get("model_name") or "" for d in (case.get("desk") or [])]
             veh = (case.get("case_data") or {}).get("client_vehicle") or {}
+            if not veh.get("colour") and getattr(self, "fetch_bytes", None):
+                from . import jev_colour  # owner 2026-11-27: Jev reads the colour from one overview photo
+
+                veh = {**veh, **jev_colour.read(getattr(self, "jev", None), case, self.fetch_bytes)}
             D = build_report(case.get("case_data"), case_id=str(cid), ext_id=str(ext or ""), workshop=self.workshop(False), photo_names=names,
                              extras={"colour": veh.get("colour") or "", "odometer": veh.get("odometer") or ""})
             prof = self.profile() or {}
@@ -288,6 +292,7 @@ def main() -> None:
         with urllib.request.urlopen(urllib.request.Request(req_url, headers=headers), timeout=60) as r:  # noqa: S310
             return r.read(jev_pages.MAX_PDF_BYTES + 1)
 
+    driver.fetch_bytes = fetch_bytes  # the report's colour read fetches one photo the same way (in memory only)
     side_check = None
     if driver.jev is not None and jev_pages.enabled(dict(os.environ)):
         if jev_pages.pymupdf_ok():
