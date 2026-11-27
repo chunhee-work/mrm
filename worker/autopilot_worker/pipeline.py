@@ -53,6 +53,7 @@ class _NoMerimenStep2:
 
 
 class Driver:
+    jev = None  # Jev (jev.py): may only clear a false alarm in the Step 2 two-way check; None = code rules alone
     step2_reviewer = None  # the AI that reviews the Step 2 plan with the playbook's "step2" files; None = the rule plan stands
     progress = None  # set per job: a driver that ports a Merimen step calls progress("create_case") after it
     guard = staticmethod(lambda: True)  # set per job: False once Done was undone or the names changed, asked before every photo write
@@ -143,7 +144,7 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             if rep.mode == "live":  # Merimen now holds these names: log it on every outcome, so a Phase B run again compares with them
                 side["photo_log"] = _log(rep)
         try:
-            s2 = step2_run.run(case, desk, case.get("extras") or [], writes=writes, merimen=driver.merimen_step2(case), reviewer=driver.step2_reviewer, guard=driver.guard)
+            s2 = step2_run.run(case, desk, case.get("extras") or [], writes=writes, merimen=driver.merimen_step2(case), reviewer=driver.step2_reviewer, guard=driver.guard, jev=driver.jev)
         except photo_sync.NotPorted:
             s2 = None
         if s2 is not None and (s2.plan or not s2.ok):

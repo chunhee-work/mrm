@@ -121,27 +121,62 @@ def gate_rule(name, row, qty):
 
 
 
-def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[str] = ()) -> dict:
+def undecided_pairs(names, rows) -> list[tuple[str, str, str]]:
+    """(photo name, row, qty) pairs the code rules cannot decide: the only ones Jev is asked about."""
+    out = []
+    for n in sorted(set(names)):
+        if VIEWS.search(n):
+            continue
+        for r, q in rows:
+            q = str(q).strip()
+            if not matches(n, r) and gate_rule(n, r, q) is None:
+                out.append((n, r, q))
+    return out
+
+
+def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[str] = (), jev=None, case_id: str | None = None) -> dict:
     """names: every final photo name plus the Space parts. rows: (estimate row label, qty) as Select Parts holds them now.
     changed_from: the model's names that the adjuster changed (corrections): they must not be left ticked.
     Returns {"add": [...], "remove": [...], "ok": bool}."""
     names_set = set(names)
     rq = [(r, str(q).strip()) for r, q in rows]
+    # Jev (owner 2026-11-10): may only CLEAR a false ADD?/REMOVE?, never add one. Off or any error: the code rules alone ("jev off").
+    cleared: set = set()
+    clean = clean_q = lambda t: t  # replaced below when Jev is on: keys are the cleaned text Jev was asked about
+    shown: list = []
+    note = "jev off"
+    if jev is not None:
+        try:
+            from .jev import THRESHOLD, clean as _c, clean_q as _cq
+            clean, clean_q = _c, _cq
+            pairs = undecided_pairs(set(names_set) | set(changed_from), rq)
+            probs = jev.same_parts(pairs, case_id=case_id)
+            hits = {k: p for k, p in probs.items() if p >= THRESHOLD}
+            per_name: dict[str, int] = {}
+            for (n, _r, _q) in hits:
+                per_name[n] = per_name.get(n, 0) + 1
+            # a name is cleared only when exactly ONE row scored high: with several, a false clear is likelier than the owner's test measured
+            cleared = {k for k in hits if per_name[k[0]] == 1}
+            shown = [f"{n} = {r} ({hits[(n, r, q)]:.2f})" for (n, r, q) in sorted(cleared)][:30]
+            note = f"jev checked {len(pairs)} pairs, cleared {len(cleared)}"
+        except Exception as e:  # noqa: BLE001
+            note = f"jev off ({type(e).__name__})"
     flipped = [re.sub(r"\b(LH|RH)\b", lambda m: "RH" if m.group(1) == "LH" else "LH", r) for r, q in rq if q == "2" and side(r)]
     old_rows = [r for r, _ in rq] + flipped  # qty 2 (playbook 08): the other side is covered too
 
-    def same(n: str, r: str) -> bool:
+    def same(n: str, r: str, use_jev: bool = True) -> bool:
         if matches(n, r):
             return True
         q = next((q for rr, q in rq if rr == r), "1")
-        return gate_rule(n, r, q) is True
+        return gate_rule(n, r, q) is True or (use_jev and (clean(n), clean(r), clean_q(q)) in cleared)
 
     add = [f"{n!r} has a photo but no estimate row" for n in sorted(names_set) if not VIEWS.search(n) and not any(same(n, r) for r in old_rows)]
     remove = []
     for old in sorted(set(changed_from) - names_set):
         if VIEWS.search(old):
             continue
-        hit = [r for r in old_rows if same(old, r) and not any(same(n, r) for n in names_set) and not KEEP.search(r)]
+        # Jev may only clear: the old name counts as ticked by the code rules alone, so Jev can never create a REMOVE?
+        hit = [r for r in old_rows if same(old, r, False) and not any(same(n, r) for n in names_set) and not KEEP.search(r)]
         if hit:
             remove.append(f"{old!r} no photo any more, still selected: {hit}")
-    return {"add": add, "remove": remove, "ok": not add and not remove}
+    return {"add": add, "remove": remove, "ok": not add and not remove, "jev": note, "jev_cleared": shown}

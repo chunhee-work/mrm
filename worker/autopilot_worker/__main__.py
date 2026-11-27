@@ -141,6 +141,15 @@ def main() -> None:
     from . import step2_ai
 
     driver.step2_reviewer = step2_ai.from_env(dict(os.environ))  # None unless STEP2_AI=on and ANTHROPIC_API_KEY is set
+    from . import jev as jev_mod
+
+    def _record_jev(row: dict) -> None:
+        try:
+            repo.record_llm_call(row)
+        except Exception as e:  # noqa: BLE001  (before migration 0016 the insert is refused: skip it, never stop a case)
+            print("jev ledger skipped:", type(e).__name__, flush=True)
+
+    driver.jev = jev_mod.from_env(dict(os.environ), _record_jev)  # None with JEV=0 or without TYPESAFE_API_KEY: the code rules alone
     namer = _namer_factory(cfg)
 
     def download(url: str, name: str) -> None:
