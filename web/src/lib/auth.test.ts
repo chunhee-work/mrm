@@ -55,9 +55,9 @@ async function http(p: string, body?: unknown, cookie?: string) {
     body: body === undefined ? undefined : JSON.stringify(body),
   }));
   const text = await r.text();
-  let json: { code?: string } | null = null;
+  let json: ({ code?: string } & Record<string, unknown>) | null = null;
   try { json = JSON.parse(text); } catch { /* no body */ }
-  return { status: r.status, code: json?.code, setCookie: r.headers.get("set-cookie") ?? "" };
+  return { status: r.status, code: json?.code, json, setCookie: r.headers.get("set-cookie") ?? "" };
 }
 let n = 0;
 /** A confirmed account that is logged in; `cookie` is what its browser sends. */
@@ -89,34 +89,84 @@ test("sign-up makes one organization with the user as owner, under the id worked
   assert.notEqual(await own.ownOrgId(me.id), await own.ownOrgId(`${me.id}x`));
 });
 
-for (const [what, table] of [["the organization", schema.organizations], ["the membership", schema.memberships]] as const) {
-  test(`the database fails while sign-up makes ${what}: the account is made, the email goes out, and the first signed-in page lets the user in`, async () => {
-    const { session } = await kit();
-    const email = `blip${++n}@test.invalid`;
-    const sent = mails.length;
-    const before = (await orgs()).length;
-    failInsertInto = table;
-    const up = await http("/sign-up/email", { name: "Blip", email, password: PASSWORD });
-    assert.equal(failInsertInto, null, "the failure really happened");
-    assert.equal(up.status, 200, "sign-up is not reported as failed: the account exists");
-    assert.deepEqual(mails.slice(sent), [{ to: email, kind: "verify" }]);
-    const u = await userOf(email);
-    assert.equal((await members(u.id)).length, 0, "the state that used to lock the account out");
+test("the database fails while sign-up makes the organization: the account is made, the email goes out, and the first signed-in page lets the user in", async () => {
+  const { session } = await kit();
+  const email = `blip${++n}@test.invalid`;
+  const sent = mails.length;
+  const before = (await orgs()).length;
+  failInsertInto = schema.organizations;
+  const up = await http("/sign-up/email", { name: "Blip", email, password: PASSWORD });
+  assert.equal(failInsertInto, null, "the failure really happened");
+  assert.equal(up.status, 200, "sign-up is not reported as failed: the account exists");
+  assert.deepEqual(mails.slice(sent), [{ to: email, kind: "verify" }]);
+  const u = await userOf(email);
+  assert.equal((await members(u.id)).length, 0, "the state that used to lock the account out");
+  assert.equal((await orgs()).length, before, "nothing was made");
 
-    await real.update(schema.user).set({ emailVerified: true }).where(eq(schema.user.id, u.id));
-    const inn = await http("/sign-in/email", { email, password: PASSWORD });
-    reqHeaders = new Headers({ cookie: inn.setCookie.split(";")[0] });
-    // two pages at the same moment (layout and page, or two tabs)
-    const [a, b] = await Promise.all([session.requireUser(), session.getUserOrNull()]);
-    assert.equal(a.user.id, u.id);
-    assert.equal(a.orgId, b?.orgId);
-    assert.equal((await members(u.id)).length, 1);
-    assert.equal((await orgs()).length, before + 1, "one organization, also when one was left half made");
-    // and nothing more is made on later pages
-    await session.requireUser();
-    assert.equal((await orgs()).length, before + 1);
-  });
-}
+  await real.update(schema.user).set({ emailVerified: true }).where(eq(schema.user.id, u.id));
+  const inn = await http("/sign-in/email", { email, password: PASSWORD });
+  reqHeaders = new Headers({ cookie: inn.setCookie.split(";")[0] });
+  // two pages at the same moment (layout and page, or two tabs)
+  const [a, b] = await Promise.all([session.requireUser(), session.getUserOrNull()]);
+  assert.equal(a.user.id, u.id);
+  assert.equal(a.orgId, b?.orgId);
+  assert.equal((await members(u.id)).length, 1);
+  assert.equal((await orgs()).length, before + 1);
+  // and nothing more is made on later pages
+  await session.requireUser();
+  assert.equal((await orgs()).length, before + 1);
+});
+
+test("half made (the organization row is there, the owner membership is not): the membership is added to that same organization", async () => {
+  const { own, session } = await kit();
+  const me = await signedUp();
+  const orgId = await own.ownOrgId(me.id);
+  // the state a failure between the two inserts leaves on a database without a batch
+  await real.delete(schema.memberships).where(eq(schema.memberships.userId, me.id));
+  assert.deepEqual((await orgs()).filter((o) => o.id === orgId).map((o) => o.name), [`User ${n}`]);
+  assert.equal((await members(me.id)).length, 0);
+  const before = (await orgs()).length;
+
+  assert.equal(await own.ensureOwnOrg({ id: me.id, name: "Another name", email: me.email }, db as never), orgId);
+  assert.deepEqual((await members(me.id)).map((m) => [m.orgId, m.role]), [[orgId, "owner"]]);
+  assert.equal((await orgs()).length, before, "no second organization");
+  assert.deepEqual((await orgs()).filter((o) => o.id === orgId).map((o) => o.name), [`User ${n}`], "the row that was there is kept as it is");
+
+  // the same through a page: the signed-in user with only the organization row gets in
+  await real.delete(schema.memberships).where(eq(schema.memberships.userId, me.id));
+  reqHeaders = new Headers({ cookie: me.cookie });
+  assert.equal((await session.requireUser()).orgId, orgId);
+  assert.equal((await members(me.id)).length, 1);
+  assert.equal((await orgs()).length, before);
+});
+
+test("on the production database both rows go in one batch (one transaction), organization first", async () => {
+  const { own } = await kit();
+  type Stmt = { table: unknown; values: Record<string, unknown>; unlessThere: boolean; ranAlone: boolean; then?: unknown };
+  const batches: Stmt[][] = [];
+  const made: Stmt[] = [];
+  // a stand-in with the one thing Neon's database object has and the test database lacks: batch()
+  const fake = {
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown>) => ({
+        onConflictDoNothing: () => {
+          const st: Stmt = { table, values, unlessThere: true, ranAlone: false };
+          Object.defineProperty(st, "then", { enumerable: false, value: (ok: (v: unknown) => void) => { st.ranAlone = true; ok(undefined); } });
+          made.push(st);
+          return st;
+        },
+      }),
+    }),
+    batch: async (qs: Stmt[]) => { batches.push([...qs]); },
+  };
+  const orgId = await own.ensureOwnOrg({ id: "user-1", name: "", email: "ahmad@abc.my" }, fake as never);
+  assert.equal(orgId, await own.ownOrgId("user-1"));
+  assert.equal(batches.length, 1, "one batch");
+  assert.equal(batches[0].length, 2);
+  assert.deepEqual(batches[0].map((q) => q.table), [schema.organizations, schema.memberships]);
+  assert.deepEqual(batches[0].map((q) => q.values), [{ id: orgId, name: "ahmad@abc.my" }, { orgId, userId: "user-1", role: "owner" }]);
+  assert.ok(made.every((q) => q.unlessThere && !q.ranAlone), "neither statement was also run on its own");
+});
 
 test("making the own organization twice at once, or again later, makes one", async () => {
   const { own } = await kit();
@@ -141,11 +191,9 @@ test("nobody signed in, or a dead cookie: a page still sends to log in and makes
   assert.equal((await orgs()).length, before);
 });
 
-test("account name: sign-up cuts a longer one and answers the same; a change is refused when empty or too long", async () => {
+test("account name: sign-up cuts a longer one; a change is refused when empty or too long", async () => {
   const long = await signedUp("x".repeat(5000));
   assert.equal((await userOf(long.email)).name, "x".repeat(MAX_NAME));
-  // an address that already has an account gets the same answer for the same request (no way to ask "is this one registered?")
-  assert.equal((await http("/sign-up/email", { name: "x".repeat(5000), email: long.email, password: PASSWORD })).status, 200);
   const blank = await signedUp("   ");
   assert.equal((await userOf(blank.email)).name, blank.email.split("@")[0]);
 
@@ -158,6 +206,26 @@ test("account name: sign-up cuts a longer one and answers the same; a change is 
   assert.equal((await userOf(me.email)).name, "Ahmad");
   assert.equal((await http("/update-user", { name: "  Ahmad Motor  " }, me.cookie)).status, 200);
   assert.equal((await userOf(me.email)).name, "Ahmad Motor");
+});
+
+test("sign-up answers the same for an address with an account and one without, whatever name is sent", async () => {
+  // everything in the answer except what is random or a clock time
+  const shape = (r: Awaited<ReturnType<typeof http>>) => {
+    const { user, ...rest } = r.json as { user: Record<string, unknown> };
+    const { id, createdAt, updatedAt, email, ...fields } = user;
+    assert.equal(typeof id, "string"); assert.equal(typeof createdAt, "string"); assert.equal(typeof updatedAt, "string");
+    return { status: r.status, rest, fields, keys: Object.keys(user).sort(), idLength: (id as string).length, email };
+  };
+  for (const name of ["x".repeat(MAX_NAME + 40), "   Ahmad Motor   ", "", "   ", "Ahmad", "😀".repeat(MAX_NAME + 3)]) {
+    const email = `probe${++n}@test.invalid`;
+    const body = { name, email, password: PASSWORD };
+    const fresh = shape(await http("/sign-up/email", body)); // the address is new: an account is made
+    assert.equal((await userOf(email)).name, fresh.fields.name, "the answer shows the name as it is stored");
+    const taken = shape(await http("/sign-up/email", body)); // the same request again: the address has an account now
+    assert.deepEqual(taken, fresh, `name ${JSON.stringify(name).slice(0, 24)}`);
+    // and with the address typed in capitals
+    assert.deepEqual(shape(await http("/sign-up/email", { ...body, email: email.toUpperCase() })), fresh);
+  }
 });
 
 test("the reasons the pages read are the ones the server sends", async () => {
@@ -184,8 +252,15 @@ test("forgot password answers OK for an address with an account and one without"
   const sent = mails.length;
   assert.equal((await http("/request-password-reset", { email: me.email, redirectTo: "/reset-password" })).status, 200);
   assert.equal((await http("/request-password-reset", { email: "nobody@test.invalid", redirectTo: "/reset-password" })).status, 200);
-  await new Promise((r) => setTimeout(r, 50)); // the mail goes out after the answer
   assert.deepEqual(mails.slice(sent), [{ to: me.email, kind: "reset" }]);
+});
+
+test("an address the browser lets through but the server calls malformed is a 400, before any account is looked up", async () => {
+  // <input type="email"> accepts a host without a dot; the server does not
+  const forgot = await http("/request-password-reset", { email: "ahmad@gmail", redirectTo: "/reset-password" });
+  assert.deepEqual([forgot.status, forgot.code], [400, "VALIDATION_ERROR"]);
+  const again = await http("/send-verification-email", { email: "ahmad@gmail", callbackURL: "/login?verified=1" });
+  assert.deepEqual([again.status, again.code], [400, "VALIDATION_ERROR"]);
 });
 
 test("a page only reads the session; the browser's own request renews it and gets the cookie with 7 new days", async () => {
