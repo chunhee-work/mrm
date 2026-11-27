@@ -1,11 +1,7 @@
 import { getUserOrNull } from "@/lib/session";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
-import { and, eq, sql } from "drizzle-orm";
-import { db, schema } from "@/db";
-import { credView } from "@/lib/ext/worker-store";
-import { notDeleted } from "@/lib/case-delete";
-import { creditBalance } from "@/lib/payments/credit";
+import { sideFacts } from "@/lib/side-facts";
 import AppBar, { WideNewCase } from "./app/app-bar";
 import SideBar from "./app/side-bar";
 import NavProgress from "./app/nav-progress";
@@ -15,13 +11,7 @@ import { PageSlot } from "./lang-provider"; // R5-B03: see PageSlot
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const me = await getUserOrNull(); // the pages themselves call requireUser()
   // the side bar of a wide screen holds the user's details and the closed-case count
-  const [cred, closed, credits] = me
-    ? await Promise.all([
-        credView(me.orgId).catch(() => null),
-        db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, me.orgId), eq(schema.cases.status, "done"), notDeleted)).then((r) => Number(r[0]?.n ?? 0)).catch(() => 0),
-        creditBalance(me.orgId).catch(() => null),
-      ])
-    : [null, 0, null];
+  const { cred, closed, credits } = me ? await sideFacts(me.orgId) : { cred: null, closed: 0, credits: null };
   const email = me?.user.email ?? "";
   const newBlocked = cred?.blocks ?? false;
   return (

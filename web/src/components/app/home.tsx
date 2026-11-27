@@ -95,9 +95,10 @@ function ActButton({ r, onHere }: { r: CaseRow; onHere: () => void }) {
   return <button type="button" onClick={onHere} className={cls} data-testid="home-act" data-act="here"><ActIcon icon={a.icon} /><span className="truncate">{a.say}</span></button>;
 }
 
-function Empty({ needle }: { needle: string }) {
+function Empty({ needle, blocked = false }: { needle: string; blocked?: boolean }) {
   const { t } = useT();
-  return <p className="px-5 py-10 text-center text-[15px] text-mute" data-testid="home-empty">{t(needle ? "tray.noMatch" : "tray.empty")}</p>;
+  // details missing: no drop and no New case yet, so the line does not point at them
+  return <p className="px-5 py-10 text-center text-[15px] text-mute" data-testid="home-empty">{t(needle ? "tray.noMatch" : blocked ? "tray.emptyBlocked" : "tray.empty")}</p>;
 }
 
 /** "Try again" right on this page, after one more press that says it can use a credit. */
@@ -152,10 +153,12 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
   // Once shown it stays while the line is open: after 完成 the case moves to step 3, and the desk keeps its message and its undo.
   const [deskOpen, setDeskOpen] = useState(bucketOf(r) === "photos");
   // documents being read (or a read that failed): the desk waits, as on the case page
-  useEffect(() => { if (bucketOf(r) === "photos") setDeskOpen(true); else if (["uploaded", "reading", "failed"].includes(r.status)) setDeskOpen(false); }, [r]);
-  // while a line shows the photo desk or an upload of its own, a dropped file does not start a new case (the page-wide drop is
-  // off: it would be unclear where the file goes); a line with nothing to drop into leaves the page-wide drop on
-  const takesFiles = deskOpen || r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null));
+  // keyed on the step, not the row object (a new one comes with every refresh): a desk the user closed stays closed
+  const bucket = bucketOf(r);
+  useEffect(() => { if (bucket === "photos") setDeskOpen(true); else if (["uploaded", "reading", "failed"].includes(r.status)) setDeskOpen(false); }, [bucket, r.status]);
+  // while a line shows the photo desk, a dropped file goes to the desk and does not start a new case (the page-wide drop is off);
+  // a line with nothing to drop into leaves the page-wide drop on
+  const takesFiles = deskOpen; // the upload of a missing document is a picker only, so a page drop there still starts a new case
   useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
   const desk = (
     <div className="overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
@@ -199,7 +202,7 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
 }
 
 /** One line per case, the step names once over the step column. A press on the line opens its details right under it. */
-function StepTable({ rows: found, all, needle, orgId, total, onDesk }: { rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void }) {
+function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked }: { rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void; blocked: boolean }) {
   const { t } = useT();
   const [open, setOpen] = useState<string | null>(null);
   // while a line is open the list keeps its order: a case that moves on (完成 pressed in it) stays where the user is looking
@@ -234,7 +237,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk }: { rows: C
         <h2 id="open-title" className="whitespace-nowrap text-[15px] font-semibold leading-none text-fg">{t("tray.open")} <span className="num ml-1 font-mono text-[13px] font-medium text-mute">{total}</span></h2>
         <StepHeads className="mt-3 pr-8 text-[12px] font-medium text-mute xl:mt-0 xl:pr-0" />
       </div>
-      {rows.length === 0 ? <Empty needle={needle} /> : (
+      {rows.length === 0 ? <Empty needle={needle} blocked={blocked} /> : (
         <ul className={open ? "" : "max-h-[min(680px,72vh)] overflow-y-auto overscroll-contain"} data-testid="home-list">
           {lines.map((r) => {
             const on = open === r.id;
@@ -271,7 +274,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk }: { rows: C
 /**
  * The first page after log in (owner 2026-11-22, reworked 2026-11-27): who is logged in, a search, two buttons, and every open case
  * on one line with its own step bar, so nothing has to be opened to see where a case is. A press on a line opens its details and,
- * where it can be done here, the job itself. Nothing is said twice: "Billing" is in the top bar only, and the bar drops its own
+ * where it can be done here, the job itself. Nothing is said twice: "Billing" is in the side bar (the phone menu on a phone) only, and the bar drops its own
  * "New case" on this page.
  */
 export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string }) {
@@ -317,7 +320,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
   const needle = squash(q);
   const shown = sortCases(cases).filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
-  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setLineOpen} />;
+  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setLineOpen} blocked={blocked} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
   return (

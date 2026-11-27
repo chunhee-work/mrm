@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useT } from "@/components/lang-provider";
 import { Tick } from "@/components/app/marks";
-import { stepsOf, type StepId, type StepState } from "@/lib/case-steps";
+import { STEP_IDS, stepsOf, type StepId, type StepState } from "@/lib/case-steps";
 
 /** One colour rule for every step circle: green done, amber the step a case waits at, red a step that failed, grey later. */
 export const circleOf = (s: { state: StepState; open: boolean }, failedHere: boolean) =>
@@ -94,7 +94,7 @@ export function StepHeads({ className = "" }: { className?: string }) {
   const { t } = useT();
   return (
     <div aria-hidden="true" className={`flex ${className}`}>
-      {(["docs", "photos", "merimen", "done"] as const).map((id) => <span key={id} className="min-w-0 flex-1 px-0.5 text-center leading-tight [overflow-wrap:anywhere]">{t(`steps.${id}`)}</span>)}
+      {STEP_IDS.map((id) => <span key={id} className="min-w-0 flex-1 px-0.5 text-center leading-tight [overflow-wrap:anywhere]">{t(`steps.${id}`)}</span>)}
     </div>
   );
 }

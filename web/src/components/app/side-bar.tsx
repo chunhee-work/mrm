@@ -92,10 +92,22 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
 
 const PANEL = "M4 4h16v16H4zM9.5 4v16";
 
-export default function SideBar({ email, name, credits, cred, closed, thin: thin0 }: { email: string; name: string; credits: number | null; cred: Cred | null; closed: number; thin: boolean }) {
+export default function SideBar({ email, name, credits: credits0, cred: cred0, closed: closed0, thin: thin0 }: { email: string; name: string; credits: number | null; cred: Cred | null; closed: number; thin: boolean }) {
   const { t } = useT();
   const path = usePathname();
   const sp = useSearchParams();
+  // the numbers come with the page; a move inside the app (where the layout is not drawn again) reads them again
+  const [facts, setFacts] = useState({ credits: credits0, cred: cred0, closed: closed0 });
+  useEffect(() => { setFacts({ credits: credits0, cred: cred0, closed: closed0 }); }, [credits0, cred0, closed0]);
+  const where = `${path}?${sp.toString()}`;
+  const firstWhere = useRef(where);
+  useEffect(() => {
+    if (where === firstWhere.current) return;
+    let live = true;
+    fetch("/api/side").then((r) => (r.ok ? r.json() : null)).then((f) => { if (live && f) setFacts(f); }).catch(() => {});
+    return () => { live = false; };
+  }, [where]);
+  const { credits, cred, closed } = facts;
   // the panel button folds the bar to a thin strip of icons and back; remembered in a cookie so the next page opens the same way
   const [thin, setThin] = useState(thin0);
   function fold() {

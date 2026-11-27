@@ -219,7 +219,8 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
     return (
       <section aria-labelledby="pf-title" className="rounded-[4px] border border-hair bg-panel p-5" data-testid="pf-form">
         <h2 id="pf-title" className="text-[18px] font-semibold leading-snug text-fg">{t("pf.title")}</h2>
-        <p className="mb-4 mt-1 text-[14.5px] leading-snug text-mute [text-wrap:pretty]">{t("pf.lead")}</p>
+        {/* "no case until it is complete" only while it is not; the page itself is enough when it is */}
+        {!cred.complete ? <p className="mb-4 mt-1 text-[14.5px] leading-snug text-mute [text-wrap:pretty]">{t("pf.lead")}</p> : <div className="mb-4" />}
         {note}
         <form onSubmit={submit} autoComplete="off" className="grid gap-4">
           {Fields(false)}
