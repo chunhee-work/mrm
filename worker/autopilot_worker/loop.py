@@ -160,7 +160,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         repo.set_session(org, status=status, wanted="start", account=account, port=port, detail=reason)
 
 
-def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic) -> str | None:
+def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic, forget_files=None) -> str | None:
     _at("heartbeat")
     repo.heartbeat(cfg.worker_id, cfg.hf_repo, chrome_ok=True)
     if cfg.merimen_login and fetch_page and master:
@@ -192,42 +192,50 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             emitted.add(step)
 
     try:
-        if job["step"] == "intake":
-            for f in case["files"]:
-                download(f["url"], f["name"])
-        if job["step"] == "photo_model":
-            for p in case["photos"]:
-                local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg")
-                if local:
-                    p["local"] = local
-        gate = repo.gate(job["org_id"], env_on=cfg.ext_connect)
-        session = repo.session_status(job["org_id"])
-        if job["step"] == "phase_a" and gate == "ready" and session == "connected":
-            shoot("login_verified")
-        driver.progress = lambda code: shoot(CODE_TO_STEP.get(code, ""))
-        # the create-case step (Phase A) reads these: the user's manager/adjuster, and the case's workshop (True locks it, False only looks)
-        driver.profile = lambda: repo.profile_for(job["org_id"])
-        driver.marks = lambda: repo.create_marks(job["case_id"])
-        driver.record = lambda cid, eid: repo.record_merimen_id(job["case_id"], cid, eid)
-        driver.workshop = lambda lock: repo.claim_workshop_for_case(job["case_id"]) if lock else repo.peek_workshop_for_case(job["case_id"])
-        # asked before every photo write in Merimen: Done must still be pressed on the same version of the names
-        driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
-        with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
-            outcome = handle_job(
-                job, case, case["photos"], gate=gate, session=session,
-                photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
-            )
-            if side_check and job["step"] == "phase_a" and outcome.job_state == "done":
-                try:  # Jev page check (plan #103): after Phase A, warn only, never changes the outcome; the lease is kept alive meanwhile
-                    outcome.extra_events = list(side_check(case))[:4]
-                except Exception:  # noqa: BLE001
-                    pass
-        for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
-            shoot(step)
-    except Exception:
-        outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
-        if job["step"] in ("phase_a", "phase_b", "checks"):
-            shoot("failed")
+        try:
+            # downloads go to <state>/files/<case id>/<item id>-<name>; the names come from the database and are made safe by the downloader
+            if job["step"] == "intake":
+                for f in case["files"]:
+                    download(f["url"], f["name"], job["case_id"], f"file-{f['id']}")
+            if job["step"] == "photo_model":
+                for p in case["photos"]:
+                    local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg", job["case_id"], p["id"])
+                    if local:
+                        p["local"] = local
+            gate = repo.gate(job["org_id"], env_on=cfg.ext_connect)
+            session = repo.session_status(job["org_id"])
+            if job["step"] == "phase_a" and gate == "ready" and session == "connected":
+                shoot("login_verified")
+            driver.progress = lambda code: shoot(CODE_TO_STEP.get(code, ""))
+            # the create-case step (Phase A) reads these: the user's manager/adjuster, and the case's workshop (True locks it, False only looks)
+            driver.profile = lambda: repo.profile_for(job["org_id"])
+            driver.marks = lambda: repo.create_marks(job["case_id"])
+            driver.record = lambda cid, eid: repo.record_merimen_id(job["case_id"], cid, eid)
+            driver.workshop = lambda lock: repo.claim_workshop_for_case(job["case_id"]) if lock else repo.peek_workshop_for_case(job["case_id"])
+            # asked before every photo write in Merimen: Done must still be pressed on the same version of the names
+            driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
+            with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
+                outcome = handle_job(
+                    job, case, case["photos"], gate=gate, session=session,
+                    photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
+                )
+                if side_check and job["step"] == "phase_a" and outcome.job_state == "done":
+                    try:  # Jev page check (plan #103): after Phase A, warn only, never changes the outcome; the lease is kept alive meanwhile
+                        outcome.extra_events = list(side_check(case))[:4]
+                    except Exception:  # noqa: BLE001
+                        pass
+            for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
+                shoot(step)
+        except Exception:
+            outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
+            if job["step"] in ("phase_a", "phase_b", "checks"):
+                shoot("failed")
+    finally:
+        if forget_files:  # the job is over, done or failed: its downloaded files leave this machine
+            try:
+                forget_files(job["case_id"])
+            except Exception:  # noqa: BLE001  (the hourly sweep takes what is left)
+                pass
     _at("apply")
     repo.apply(job, outcome)
     return job["step"]
