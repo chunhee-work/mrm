@@ -100,3 +100,9 @@ test("hintMatches compares only head and tail of the key", () => {
   assert.equal(hintMatches(null, APP), false);
   assert.equal(hintMatches("sk-ant-api03-Abc...WXYZ", undefined), false);
 });
+
+test("a failure on a later page is an error, not a silent fallback", async () => {
+  _resetCache();
+  const r = await orgSpend({ key: "k", now: T, fetchImpl: f((u) => !u.includes("/analytics/cost") ? keysOk() : u.includes("page=p2") ? new Response("{}", { status: 400 }) : analytics([row("2026-11-27", "a", "100")], { has_more: true, next_page: "p2" })) });
+  assert.ok(r.state === "unavailable" && r.reason.includes("400"));
+});

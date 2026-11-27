@@ -78,6 +78,8 @@ export async function orgSpend(opts: { key?: string; appKey?: string; fetchImpl?
     if (status === 401 || status === 403) return fail("Admin key rejected");
     if (status === 429 || status >= 500) return fail("Anthropic unavailable, retry later");
     if (bad) return fail("Unexpected response");
+    // only a first page that the endpoint does not offer (404 / 400) falls back to the old report; any later failure is an error
+    if (status !== 200 && rows.length > 0) return fail(`Unexpected answer (${status})`);
     if (status === 200) {
       const perDay = new Map<string, number>();
       const perKey = new Map<string, { usd: number; today: number }>();

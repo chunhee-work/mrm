@@ -36,7 +36,7 @@ export default async function Cost({ searchParams }: { searchParams: Sp }) {
       ) : null}
       <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={<IconCost />} label="Last 5 minutes" value={usd(live.last5min.usd)} sub={`${int(live.last5min.calls)} AI calls`} />
-        <Stat icon={<IconCost />} label="Last hour" value={usd(live.lastHour.usd)} sub={`${int(live.lastHour.calls)} calls`} alert={live.lastHour.failed ? `${int(live.lastHour.failed)} failed` : false} />
+        <Stat icon={<IconCost />} label="Last hour" value={usd(live.lastHour.usd)} sub={`${int(live.lastHour.calls)} calls`} alert={live.lastHour.failed ? `${int(live.lastHour.calls)} calls, ${int(live.lastHour.failed)} failed` : false} />
         <Stat icon={<IconChip />} label="Last AI call" value={live.lastCallAt ? ago(live.lastCallAt) : "–"} sub={live.lastCallAt ? when(live.lastCallAt) : "No calls yet"} />
         <Stat icon={<IconCost />} label={appKey ? "Anthropic today (this app's key)" : "Anthropic today"} value={org.state === "not_connected" ? "–" : usd(appKey ? appKey.today : orgDays.find((d) => d.date === today)?.usd ?? 0)} sub={refreshedAt ? `complete until ${when(refreshedAt)}` : "delayed by Anthropic"} />
       </div>
