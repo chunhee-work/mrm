@@ -145,7 +145,7 @@ export async function POST(req: Request) {
       const id = crypto.randomUUID();
       const entries = unzipVehicle(buf, v.prefix);
       // planVehicles only keeps cars with a non-empty PDF: a car that still inflates to nothing is refused, never silently left out
-      if (!entries.length) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);
+      if (!entries.some((e) => e.kind === "pdf")) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf); // also when its PDFs inflate to nothing
       const seen = new Set<string>();
       const names = entries.map((e) => { let n = e.name; for (let k = 2; seen.has(n); k++) n = e.name.replace(/(\.[^.]+)?$/, `-${k}$1`); seen.add(n); return n; });
       const rows: (typeof schema.caseFiles.$inferInsert)[] = new Array(entries.length);

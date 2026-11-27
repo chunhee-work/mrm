@@ -101,3 +101,7 @@ test("vehicleLayout: a batch folder whose name looks like a plate is looked thro
   assert.equal(hasPdfName([".backup/claim.pdf", "Docs/.old/a.pdf", "x/__MACOSX/b.pdf"]), true); // only a top __MACOSX/ is hidden, as on the server
   assert.equal(hasPdfName([".backup/claim.pdf", "Docs/.old/a.pdf"]), false);
 });
+
+test("vehicleLayout: a car folder holding its own files plus other plates' folders stays that one car (never looked through)", () => {
+  assert.deepEqual(vehicleLayout(["WA1234B/claim.pdf", "WA1234B/NCH5773/r.pdf", "WA1234B/DCD4004/s.pdf"]).cars, ["WA1234B/"]);
+});
