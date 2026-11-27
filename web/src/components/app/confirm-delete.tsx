@@ -6,7 +6,7 @@ import { useT } from "@/components/lang-provider";
  * The pop-up before a case is deleted: the vehicle no. is in the title. The server decides (a case the worker has just taken answers
  * 409 and stays); on success `onGone` tells the list to drop the row. 404 counts as gone too (deleted in another tab).
  */
-export default function ConfirmDelete({ row, onClose, onGone }: { row: { id: string; plate: string } | null; onClose: () => void; onGone: (id: string) => void }) {
+export default function ConfirmDelete({ row, onClose, onGone, onStale }: { row: { id: string; plate: string } | null; onClose: () => void; onGone: (id: string) => void; onStale: () => void }) {
   const { t } = useT();
   const ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export default function ConfirmDelete({ row, onClose, onGone }: { row: { id: str
     const res = await fetch(`/api/cases/${encodeURIComponent(row.id)}`, { method: "DELETE" }).catch(() => null);
     setBusy(false);
     if (res?.ok || res?.status === 404) { onGone(row.id); onClose(); }
-    else setErr(t(res?.status === 409 ? "del.late" : "del.fail"));
+    else { setErr(t(res?.status === 409 ? "del.late" : "del.fail")); if (res?.status === 409) onStale(); } // the case moved on: the row shows its new status
   }
 
   const title = t("del.title", { plate: row?.plate || t("dash.noPlate") });

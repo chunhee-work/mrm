@@ -148,7 +148,7 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
         </div>
       )}
       <ConfirmDelete row={ask && { id: ask.id, plate: label(ask) }} onClose={() => setAsk(null)}
-        onGone={(id) => { setGone((g) => new Set([...g, id])); router.refresh(); }} />
+        onGone={(id) => { setGone((g) => new Set([...g, id])); router.refresh(); }} onStale={() => router.refresh()} />
     </div>
   );
 }
