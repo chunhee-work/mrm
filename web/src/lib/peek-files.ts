@@ -61,26 +61,38 @@ export function isPlate(name: string): boolean {
 }
 
 /**
- * The vehicle folders of a zip: top-level folders named like a car plate that each hold their own PDF ("DCD4004/…pdf").
- * One folder wrapping everything is looked through. Folders named by what they hold ("Docs/", "Policy/", "Photos/") are
- * never vehicles, so a one-car zip sorted into such folders stays one case. Names only: a car whose PDFs are all empty files is
- * dropped later, by planVehicles, which sees the sizes.
+ * The layout of a zip of cars: `cars` are the top-level folders named like a car plate that each hold their own PDF
+ * ("DCD4004/…pdf"); `extras` is everything else at that level that a case would take: other folders with PDFs or photos
+ * ("Policy/", "Photos/", a plate folder with photos only) and loose PDFs or photos. Cars one level down, inside a wrapping
+ * folder, count too; then whatever sits beside that folder is extra. Folders named by what they hold are never cars, so a one-car zip sorted into such folders stays one case.
+ * A split never drops anything: a zip with two or more cars and any extra is refused, so the user moves those files first.
+ * Names only: a car whose PDFs are all empty files is found later, by planVehicles, which sees the sizes.
  */
-export function vehiclePrefixes(names: string[]): string[] {
-  // only what a case takes counts, also for "one wrapping folder": a readme.txt or a hidden folder (".x/") next to it changes nothing
+export function vehicleLayout(names: string[]): { cars: string[]; extras: string[] } {
+  // only what a case takes counts: a readme.txt or a hidden folder (".x/") changes nothing
   const usable = names.filter((n) => !n.endsWith("/") && !n.startsWith("__MACOSX/") && !n.split("/").some((p) => p.startsWith(".")) && /\.(pdf|jpe?g|png|webp|heic)$/i.test(n));
-  const split = (depth: number) => {
+  const at = (depth: number) => {
     const g = new Map<string, boolean>();
-    for (const n of usable) { const parts = n.split("/"); if (parts.length <= depth + 1) continue; const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); }
-    return g;
+    for (const n of usable) { const parts = n.split("/"); if (parts.length > depth + 1) { const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); } }
+    const cars = [...g].filter(([k, hasPdf]) => hasPdf && isPlate(k.slice(0, -1).split("/").pop() ?? "")).map(([k]) => k);
+    // everything else a case would take, named by its folder at the car level (or the file itself when it is loose)
+    const extras = new Set<string>();
+    for (const n of usable) {
+      if (cars.some((c) => n.startsWith(c))) continue;
+      const parts = n.split("/");
+      extras.add(parts.length > depth + 1 ? parts.slice(0, depth + 1).join("/") + "/" : n);
+    }
+    return { cars, extras: [...extras] };
   };
-  let g = split(0);
-  if (g.size === 1) g = split(1); // everything sits in one wrapping folder
-  // Every folder that holds a PDF must be a plate: one that is not ("SINAR-1/", "Policy/") would be dropped by a split, so then the
-  // zip is not treated as several cars at all (it stays one case, or is refused with a reason).
-  const withPdf = [...g].filter(([, hasPdf]) => hasPdf).map(([k]) => k);
-  return withPdf.every((k) => isPlate(k.slice(0, -1).split("/").pop() ?? "")) ? withPdf : [];
+  // cars sit at the top, or one level down inside a wrapping folder (with anything else beside it counted as extra)
+  const top = at(0);
+  if (top.cars.length >= 2) return top;
+  const inner = at(1);
+  return inner.cars.length >= 2 ? inner : top;
 }
+
+/** Path prefixes of the car folders ("DCD4004/" or "SINAR/DCD4004/"). */
+export const vehiclePrefixes = (names: string[]): string[] => vehicleLayout(names).cars;
 
 /** Just the folder names (the plates) of vehiclePrefixes. */
 export const vehicleFolders = (names: string[]): string[] => vehiclePrefixes(names).map((p) => p.slice(0, -1).split("/").pop() as string);

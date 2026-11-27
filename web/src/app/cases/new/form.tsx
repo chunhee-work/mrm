@@ -8,7 +8,7 @@ import ScanEdge from "@/components/scan-edge";
 import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
 import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { runPool } from "@/lib/pool";
-import { headOf, looksLikePhoto, MAX_VEHICLES, vehicleFolders, zipNames } from "@/lib/peek-files";
+import { headOf, looksLikePhoto, MAX_VEHICLES, vehicleLayout, zipNames } from "@/lib/peek-files";
 import Link from "next/link";
 import { zipWhyKey } from "@/lib/case-text";
 import { takeDropped } from "@/lib/dropped-files";
@@ -41,6 +41,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const [ups, setUps] = useState<Record<number, number>>({}); // per-file progress while several upload at once
   const ledger = useRef<HTMLUListElement>(null);
   const zipPdf = useRef<Map<string, boolean | null>>(new Map()); // R2-B10: does each chosen zip hold a PDF (null: cannot tell)
+  const zipMixed = useRef<Map<string, boolean>>(new Map()); // several cars and other files beside them: refused before upload
   const zipCars = useRef<Map<string, string[] | null>>(new Map()); // vehicle folders of each chosen zip (null: its file list could not be read)
   const leaving = useRef(false); // R2-B01: set once the case exists, so our own redirect never trips the leave guard
 
@@ -78,7 +79,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       if (k === "bundle_zip" && f.size > 0) {
         const names = await zipNames(f);
         zipPdf.current.set(keyOf(f), names ? names.some((n) => /\.pdf$/i.test(n) && !/(^|\/)(__MACOSX\/|\._)/.test(n) && !n.endsWith("/")) : null);
-        zipCars.current.set(keyOf(f), names ? vehicleFolders(names) : null);
+        if (names) { const l = vehicleLayout(names); zipCars.current.set(keyOf(f), l.cars.map((p) => p.slice(0, -1).split("/").pop() as string)); zipMixed.current.set(keyOf(f), l.cars.length > 1 && l.extras.length > 0); }
+        else zipCars.current.set(keyOf(f), null);
       }
     }));
     const ok = typed.filter((f) => {
@@ -113,6 +115,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     const multi = files.find((f) => kindOf(f) === "bundle_zip" && (zipCars.current.get(keyOf(f))?.length ?? 0) > 1);
     if (multi && files.length > 1) { setMsg(t("new.zipMultiAlone", { name: multi.name })); return; }
     if (multi && zipCars.current.get(keyOf(multi))!.length > MAX_VEHICLES) { setMsg(t("case.err.zip_too_many_cars")); return; }
+    if (multi && zipMixed.current.get(keyOf(multi))) { setMsg(t("case.err.zip_mixed")); return; } // a split would leave those files out
     // a zip alone whose file list the browser could not read (zip64, a damaged list) may still hold several cars: the server
     // looks first, and when it is not a multi-car zip it becomes one ordinary case below
     const unknown = !multi && files.length === 1 && kindOf(files[0]) === "bundle_zip" && zipCars.current.get(keyOf(files[0])) === null;
@@ -147,10 +150,14 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         if (!sp) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
         const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
         if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
+          // cases the rollback could not undo are in the case list: say so, whatever else went wrong
+          if (!sp.ok && (j as { kept?: number } | null)?.kept) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
           // 400/502: no case was made, so not the "some cars may be made" text
-          if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : sp.status === 400 || sp.status === 502 ? t("new.fail") : t("new.splitFail")); setStep(-1); setBusy(false); return; }
+          // 400/502: no case was made; 500 with nothing kept: all were rolled back; else (time-out, kept cases) some cars may be made
+          const undone = sp.status === 400 || sp.status === 502 || (sp.status === 500 && j?.error === "failed" && !(j as { kept?: number }).kept);
+          if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : undone ? t(sp.status === 500 ? "new.splitUndone" : "new.fail") : t("new.splitFail")); setStep(-1); setBusy(false); return; }
           leaving.current = true;
           window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
           return;

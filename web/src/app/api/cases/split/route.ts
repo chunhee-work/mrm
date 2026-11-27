@@ -54,6 +54,12 @@ export async function POST(req: Request) {
   try { u = new URL(url); path = decodeURIComponent(u.pathname); } catch { return NextResponse.json({ error: "prefix" }, { status: 400 }); }
   if (u.protocol !== "https:" || !u.hostname.endsWith(".blob.vercel-storage.com") || !path.startsWith(`/${me.orgId}/`) || path.split("/").includes("..") || !/\.zip$/i.test(name))
     return NextResponse.json({ error: "prefix" }, { status: 400 });
+  // Only the caller's own upload may be read and deleted here: `<org>/<batch>/<file>`, and the batch folder is not a case's folder
+  // (case files live under `<org>/<case id>/`), so a stored case file can never be passed in and deleted.
+  const seg = path.split("/");
+  if (seg.length !== 4) return NextResponse.json({ error: "prefix" }, { status: 400 });
+  if (/^[0-9a-f-]{36}$/i.test(seg[2]) && (await db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, seg[2])).limit(1)).length)
+    return NextResponse.json({ error: "prefix" }, { status: 400 });
   const dropZip = () => del(url).catch(() => {}); // the cars are stored on their own (or the zip was refused): the big zip is not kept
 
   let buf: Uint8Array;
@@ -124,17 +130,19 @@ export async function POST(req: Request) {
   } catch (e) {
     const kept = new Set<string>(); // a case whose row could not be deleted keeps its files, so it is never a case without files
     for (const id of made) {
-      await refundCase(me.orgId, id).catch((x) => console.error("split rollback: refund failed", id, x));
+      // a case whose credit could not be given back is kept too: it stays paid for, counts as made, and is not charged again
+      const back = await refundCase(me.orgId, id).then(() => true, (x) => { console.error("split rollback: refund failed", id, x); return false; });
+      if (!back) { kept.add(id); continue; }
       await db.delete(schema.cases).where(eq(schema.cases.id, id)).catch((x) => { kept.add(id); console.error("split rollback: delete failed", id, x); });
     }
     const gone = [...stored].filter(([id]) => !kept.has(id)).flatMap(([, urls]) => urls);
     if (gone.length) await del(gone).catch((x) => console.error("split rollback: blob delete failed", x));
     await dropZip();
     await release();
-    if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
-    if (e instanceof ZipRejected) return NextResponse.json({ error: e.code, why: e.message }, { status: 422 }); // a car folder that does not inflate
+    if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length, kept: kept.size }, { status: 402 });
+    if (e instanceof ZipRejected) return NextResponse.json({ error: e.code, why: e.message, kept: kept.size }, { status: 422 }); // a car folder that does not inflate
     console.error("split failed", e);
-    return NextResponse.json({ error: "failed" }, { status: 500 });
+    return NextResponse.json({ error: "failed", kept: kept.size }, { status: 500 });
   }
   await dropZip();
   await release();
