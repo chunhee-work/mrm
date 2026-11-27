@@ -516,9 +516,15 @@ try {
     await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
     const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
     await page.waitForTimeout(500);
-    assert.match(page.url(), /view=all/, "the picker opens in place; picking nothing stays put");
+    assert.match(page.url(), /view=all/, "the picker opens in place");
+    assert.equal(await page.getByTestId("nav-progress").count(), 0, "no progress bar while the picker is open");
     sent = 0;
-    await chooser2.setFiles([{ name: "bar.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
+    await chooser2.setFiles([]); // nothing picked
+    await page.waitForTimeout(500);
+    assert.match(page.url(), /view=all/, "picking nothing stays put");
+    assert.equal(sent, 0, "picking nothing sends nothing");
+    const [chooser3] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
+    await chooser3.setFiles([{ name: "bar.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
     await page.waitForURL(/\/cases\/new$/);
     await page.getByText("bar.pdf").waitFor();
     for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);

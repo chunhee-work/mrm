@@ -23,17 +23,17 @@ export default function NewCasePick({ className, testId, children }: { className
   return (
     <>
       <Link
-        href="/cases/new" className={className} data-testid={testId} aria-busy={opening || undefined}
+        href="/cases/new" className={className} data-testid={testId} data-no-progress="" aria-busy={opening || undefined}
         onClick={(e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
           e.preventDefault();
           if (!opening) input.current?.click();
         }}
       >
-        {opening ? <span>{t("new.opening")}</span> : children}
+        {opening ? <span role="status">{t("new.opening")}</span> : children}
       </Link>
       <input
-        ref={input} type="file" multiple accept={ACCEPT} tabIndex={-1} hidden
+        ref={input} type="file" multiple accept={ACCEPT} tabIndex={-1} aria-hidden="true" className="sr-only"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           e.target.value = "";
