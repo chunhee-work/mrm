@@ -15,6 +15,7 @@ from concurrent.futures import TimeoutError as FutureTimeout
 from typing import Callable
 
 ENDPOINT = "https://api.typesafe.ai/v1/systemone"
+IMAGE_HEADER = {"TypeSafe-Danger-Zone-Images": "true"}  # sent ONLY on a request that carries `assets` (document pages); text calls never have it
 MODEL = "jev-latest"
 CHUNK = 150  # pairs per request: more than ~750 answers fail with HTTP 400 max_tokens_exceeded
 THRESHOLD = 0.7  # 0.6 hid real misses (Cowl Panel 0.66, Quarter Panel RH 0.64)
@@ -54,10 +55,11 @@ def _post_json(key: str) -> Post:
     def post(body: dict, timeout: float) -> dict:
         req = urllib.request.Request(
             ENDPOINT, data=json.dumps(body).encode(), method="POST",
-            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json", **(IMAGE_HEADER if body.get("assets") else {})},
         )
         last = ""
-        for attempt in range(2):
+        tries = 1 if body.get("assets") else 2  # a page call is never repeated: it is the expensive one and the pass has a wall-clock budget
+        for attempt in range(tries):
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 (fixed https URL)
                     return json.loads(r.read())
@@ -67,7 +69,7 @@ def _post_json(key: str) -> Post:
                     break
             except (urllib.error.URLError, TimeoutError, OSError) as e:
                 last = type(e).__name__
-            if attempt == 0:
+            if attempt + 1 < tries:
                 time.sleep(1)  # one retry only; no pointless wait after the last attempt
         raise JevError(last or "request failed")
 
@@ -79,13 +81,26 @@ class Jev:
         self.post, self.record, self.model, self.timeout = post, record, model, timeout
         self.record_off = False  # set after the first refused ledger write (before migration 0016): stop trying, print once
 
-    def ask(self, state: dict, questions: dict, *, purpose: str, case_id: str | None = None) -> dict:
+    def log(self, purpose: str, *, case_id: str | None, ok: bool, error_class: str | None, model: str | None = None) -> None:
+        """One ledger row for a call that was skipped or never sent (reason in error_class), so /admin/cost shows why nothing was asked."""
+        if self.record and not self.record_off:
+            try:
+                self.record({"request_id": "jev:" + uuid.uuid4().hex, "purpose": "jev_" + purpose, "model": model or self.model, "case_id": case_id,
+                             "ok": ok, "error_class": error_class, "input_tokens": 0, "output_tokens": 0, "latency_ms": 0})
+            except Exception:  # noqa: BLE001
+                self.record_off = True
+
+    def ask(self, state: dict, questions: dict, *, purpose: str, case_id: str | None = None, assets: dict | None = None, model: str | None = None) -> dict:
         """One request. `questions` is an object keyed by question id (an array gets HTTP 422). Logs one row per call, success or not."""
         t0 = time.time()
-        row = {"request_id": "jev:" + uuid.uuid4().hex, "purpose": "jev_" + purpose, "model": self.model, "case_id": case_id, "ok": True, "error_class": None,
+        model = model or self.model
+        row = {"request_id": "jev:" + uuid.uuid4().hex, "purpose": "jev_" + purpose, "model": model, "case_id": case_id, "ok": True, "error_class": None,
                "input_tokens": 0, "output_tokens": 0}
         try:
-            out = self.post({"state": state, "model": self.model, "questions": questions}, self.timeout)
+            body = {"state": state, "model": model, "questions": questions}
+            if assets:
+                body["assets"] = assets
+            out = self.post(body, self.timeout)
             use = out.get("usage") or {}
             row["input_tokens"], row["output_tokens"] = int(use.get("input_tokens") or 0), int(use.get("output_tokens") or 0)
             return out

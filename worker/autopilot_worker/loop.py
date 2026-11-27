@@ -82,7 +82,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         repo.set_session(org, status=status, wanted="start", account=account, port=port, detail=reason)
 
 
-def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None) -> str | None:
+def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None) -> str | None:
     repo.heartbeat(cfg.worker_id, cfg.hf_repo, chrome_ok=True)
     if cfg.merimen_login and fetch_page and master:
         from .login_flow import run_verify
@@ -131,6 +131,11 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
                 job, case, case["photos"], gate=gate, session=session,
                 photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
             )
+            if side_check and job["step"] == "phase_a" and outcome.job_state == "done":
+                try:  # Jev page check (plan #103): after Phase A, warn only, never changes the outcome; the lease is kept alive meanwhile
+                    outcome.extra_events = list(side_check(case))[:4]
+                except Exception:  # noqa: BLE001
+                    pass
         for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
             shoot(step)
     except Exception:

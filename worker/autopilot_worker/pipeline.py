@@ -94,6 +94,7 @@ class Outcome:
     # set: the case update and the queued jobs are written only if 完成 is still pressed with this fingerprint (checked in the
     # same transaction as the write, so a name changed after the last check cannot be carried on to checks)
     require_snapshot: str | None = None
+    extra_events: list[str] | None = None  # Jev page-check lines (step jev_check); each written once per case, never makes a job fail
     stale_event: str | None = None  # with require_snapshot: written instead of `event` when 完成 or the names changed meanwhile
 
 

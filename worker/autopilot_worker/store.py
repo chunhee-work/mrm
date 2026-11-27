@@ -243,6 +243,12 @@ class PgRepo:
                 "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
                 (job["case_id"], job["step"], outcome.event[:400], job["case_id"]) + final_args,
             ))
+        for line in (outcome.extra_events or [])[:4]:
+            st.append((
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, 'jev_check', %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s AND deleted_at IS NULL) "
+                "AND NOT EXISTS (SELECT 1 FROM case_events WHERE case_id = %s AND step = 'jev_check' AND message = %s)",
+                (job["case_id"], line[:400], job["case_id"], job["case_id"], line[:400]),
+            ))
         if outcome.stale_event and final_sql:
             st.append((
                 "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE NOT EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
