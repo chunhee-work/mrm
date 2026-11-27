@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -8,7 +8,7 @@ import { Bin, Chevron, Photo, Plus, Search, Tick, Upload, UploadArt, Working } f
 import ConfirmDelete from "./confirm-delete";
 import NeedCard from "./case-detail";
 import { failTr, userFixable } from "@/lib/case-text";
-import { DROPPED_PARAM, HOLD_MS, holdDropped, takeDropped } from "@/lib/dropped-files";
+import { DROPPED_PARAM, takeDropped } from "@/lib/dropped-files";
 import { useFileDrag } from "./drop-zone";
 import { bucketOf, OPEN_BUCKETS, type Bucket } from "./status";
 import { StepDots, StepHeads } from "./case-steps";
@@ -18,6 +18,8 @@ import { whenOf } from "@/lib/fmt-when";
 import ProfileCard, { useServerCred, type Cred } from "./profile-card";
 import { checking as loginChecking, needsUser } from "@/lib/ext/login-state";
 import NewCasePick from "./new-case-pick";
+import NewCaseForm from "@/app/cases/new/form";
+import type { WorkshopOpt } from "./workshop-picker";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
 const NamingDesk = dynamic(() => import("@/components/photos/naming-desk"), { ssr: false, loading: () => <p className="px-1 py-6 text-[14px] text-mute">…</p> });
@@ -277,7 +279,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked }: 
  * where it can be done here, the job itself. Nothing is said twice: "Billing" is in the side bar (the phone menu on a phone) only, and the bar drops its own
  * "New case" on this page.
  */
-export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string }) {
+export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId, workshops = [] }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string; workshops?: WorkshopOpt[] }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -306,16 +308,33 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
     return () => window.clearInterval(id);
   }, [live, router]);
 
-  // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
-  // after the drop the overlay stays until the new-case page replaces this one, so the wait is not a blank moment
-  const [going, setGoing] = useState(false);
-  // files held by a drop whose trip to the new-case page was cut short are let go when this page shows again
-  useEffect(() => { takeDropped(); }, []);
-  // if the trip never ends (navigation stalled), the overlay goes when the hold runs out and drops work again
-  useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), HOLD_MS); return () => window.clearTimeout(id); }, [going]);
+  // a new case is uploaded right on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
+  // files picked with New case or dropped anywhere on the page open the upload box above the list, which checks and sends them.
+  // `key` gives every new start its own box, so a fresh pick never inherits the list or the message of the last one.
+  const [panel, setPanel] = useState<{ key: number; initial: File[] | "lost" } | null>(null);
+  const [upBusy, setUpBusy] = useState(false); // the box is uploading: New case and the page drop wait
+  const [made, setMade] = useState<"one" | "many" | null>(null); // "Case started" for a few seconds once the box is done
+  useEffect(() => { if (!made) return; const id = window.setTimeout(() => setMade(null), 6000); return () => window.clearTimeout(id); }, [made]);
+  const start = (initial: File[] | "lost") => { setMade(null); setPanel((p) => ({ key: (p?.key ?? 0) + 1, initial })); };
+  // New case pressed on another page: its files wait in memory for this page (?dropped=1); a plain visit lets any old hold go
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const handed = url.searchParams.has(DROPPED_PARAM);
+    if (handed) { url.searchParams.delete(DROPPED_PARAM); window.history.replaceState(window.history.state, "", url.pathname + url.search); }
+    const f = takeDropped();
+    if (handed && !blocked) start(f.length ? f : "lost");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // the box opens under New case, which can be below the fold (a phone, the details card above): bring it into view
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!panel) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    boxRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  }, [panel?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [deskShown, setDeskShown] = useState(false); // an open line shows the photo desk (it takes the drops then)
-  const [picking, setPicking] = useState(false); // a file picked from New case is on its way
-  const over = useFileDrag(!going && !picking && !blocked && !deskShown, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
+  // while the box is open its own drop zone takes the window's drops (added to its list; refused while it uploads)
+  const over = useFileDrag(panel ? "off" : !blocked && !deskShown, (files) => start(files));
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
@@ -356,18 +375,25 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
         <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:mt-7 lg:flex">
           {blocked
             ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
-            : <NewCasePick className="btn-primary !gap-2 lg:!px-8" testId="home-new" onOpening={setPicking} held={going}><Plus />{t("dash.new")}</NewCasePick>}
+            : <NewCasePick className="btn-primary !gap-2 lg:!px-8" testId="home-new" held={upBusy} onPicked={(f) => start(f)}><Plus />{t("dash.new")}</NewCasePick>}
           <Link href="/dashboard?view=closed" className="btn-line lg:hidden" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>
           </Link>
         </div>
         {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
+        {panel && !blocked && (
+          <div ref={boxRef} className="mt-6 scroll-mt-4">
+            <NewCaseForm key={panel.key} orgId={orgId} workshops={workshops}
+              embed={{ initial: panel.initial, onBusy: setUpBusy, onClose: () => setPanel(null), onMade: (id) => { setPanel(null); setMade(id ? "one" : "many"); router.refresh(); } }} />
+          </div>
+        )}
+        {made && <p role="status" className="mt-6 flex items-center gap-2 text-[15px] font-medium text-fg" data-testid="home-made"><Tick className="h-4 w-4 shrink-0 text-ice" />{t(made === "one" ? "new.made" : "new.madeN")}</p>}
         {/* a complete profile has its own page (/details), linked from the side bar and the phone menu */}
         <div className="mt-9 lg:mt-6">{table}</div>
       </div>
       </div>
-      {(over || going) && (
+      {over && (
         <div aria-hidden="true" data-testid="home-overlay" className="pointer-events-none fixed inset-0 z-50 bg-panel/90 p-4 backdrop-blur-[2px]">
           <div className="app-dash flex h-full flex-col items-center justify-center gap-4 bg-icetint text-center" data-over="true">
             <span className="text-ice"><UploadArt size={72} lift /></span>

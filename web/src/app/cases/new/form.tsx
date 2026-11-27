@@ -13,6 +13,7 @@ import { headOf, looksLikePhoto, hasPdfName, MAX_VEHICLES, platesAnywhere, vehic
 import Link from "next/link";
 import { zipWhyKey } from "@/lib/case-text";
 import { DROPPED_PARAM, takeDropped } from "@/lib/dropped-files";
+import { useRouter } from "next/navigation";
 
 const keyOf = (f: File) => `${f.name}:${f.size}`;
 function sizeOf(n: number) {
@@ -28,7 +29,15 @@ const TAG: Record<Kind, string> = {
 };
 const TAIL = 9; // characters of a long file name that always stay visible (the end + extension)
 
-export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; workshops?: WorkshopOpt[] }) {
+/**
+ * Embedded on the first page (owner 2026-11-27: "all done in the first page, never jump to others pages"): the same form, with
+ * the files the user picked or dropped there (`initial`, or "lost" when a hand-off from another page found nothing). When the
+ * case is made it says so through `onMade` and the first page lists it; nothing navigates away.
+ */
+export type Embed = { initial: File[] | "lost"; onMade: (id: string | null) => void; onClose: () => void; onBusy?: (busy: boolean) => void };
+
+export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: string; workshops?: WorkshopOpt[]; embed?: Embed }) {
+  const router = useRouter();
   const [ws, setWs] = useState(1); // which workshop the case belongs to (only asked when the account has two or more)
   const wsBody = workshops.length >= 2 && ws !== 1 ? { workshop: ws } : {};
   const { t } = useT();
@@ -58,12 +67,21 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
 
   // files dropped on the first page arrive here, are checked like any chosen file, and go up at once (owner 2026-11-27:
   // the drop was the decision, no second press of Upload). Only the visit the first page sent here (?dropped=1) takes them.
+  const started = useRef(false); // the files the first page handed over are taken once (React may run this effect twice)
   useEffect(() => {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has(DROPPED_PARAM)) return;
-    url.searchParams.delete(DROPPED_PARAM);
-    window.history.replaceState(window.history.state, "", url.pathname + url.search);
-    const f = takeDropped();
+    if (started.current) return;
+    started.current = true;
+    let f: File[];
+    if (embed) {
+      if (embed.initial === "lost") { setMsg(t("new.dropLost")); return; }
+      f = embed.initial;
+    } else {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has(DROPPED_PARAM)) return;
+      url.searchParams.delete(DROPPED_PARAM);
+      window.history.replaceState(window.history.state, "", url.pathname + url.search);
+      f = takeDropped();
+    }
     if (!f.length) { setMsg(t("new.dropLost")); return; }
     // the send waits for a press of Upload when the user has something to read first: a file was left out (wrong type,
     // empty, too big), or a zip holds several cars and will make several cases. Until then the drop zone is closed (busy),
@@ -78,6 +96,11 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // the first page turns its own drop and New case off while this form uploads
+  const onBusy = embed?.onBusy;
+  useEffect(() => { onBusy?.(busy); }, [busy, onBusy]);
+  useEffect(() => () => onBusy?.(false), [onBusy]);
+
   // B11: leaving or reloading while files go up throws the upload away, so ask first (links inside the app too)
   useEffect(() => {
     if (!busy) return;
@@ -85,7 +108,7 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
     const click = (e: MouseEvent) => {
       if (leaving.current) return;
       const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (a && a.target !== "_blank" && !a.href.startsWith("javascript:") && a.origin === location.origin && a.pathname !== location.pathname && !window.confirm(t("new.leave"))) {
+      if (a && a.target !== "_blank" && !a.href.startsWith("javascript:") && a.origin === location.origin && a.pathname + a.search !== location.pathname + location.search && !window.confirm(t("new.leave"))) {
         e.preventDefault(); e.stopPropagation();
       }
     };
@@ -165,7 +188,7 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
     try {
       // check the balance before a single byte goes up
       const pre = await fetch(`/api/cases/credit${multi ? `?n=${zipCars.current.get(keyOf(multi))!.length}&zip=${encodeURIComponent(multi.name)}&size=${multi.size}` : ""}`);
-      if (pre.status === 403) { leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: the front page asks for them
+      if (pre.status === 403) { if (embed) { setBusy(false); setStep(-1); router.refresh(); embed.onClose(); return; } leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: the front page asks for them
       if (pre.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       // a split needs the count of cars still to make: when the check itself failed, do not send a large zip up for nothing
       if (multi && !pre.ok) { setMsg(t("new.fail")); setStep(-1); setBusy(false); return; }
@@ -205,13 +228,14 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
             setMsg(why ? `${why} ${t("new.splitFail")}` : t("new.splitFail")); setStep(-1); setBusy(false); return;
           }
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
-          if (sp.status === 403) { leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: nothing was made
+          if (sp.status === 403) { if (embed) { setBusy(false); setStep(-1); router.refresh(); embed.onClose(); return; } leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: nothing was made
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
           // 400/401/502: no case was made; 500 with nothing kept: all were rolled back; else (time-out, kept cases) some cars may be made
           const undone = sp.status === 400 || sp.status === 401 || sp.status === 502 || (sp.status === 500 && j?.error === "failed" && !(j as { kept?: number }).kept);
           if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : undone ? t(sp.status === 500 ? "new.splitUndone" : "new.fail") : t("new.splitFail")); setStep(-1); setBusy(false); return; }
           if (!alive.current) return; // left meanwhile: the cases exist, but the user is not pulled back
           leaving.current = true;
+          if (embed) { setBusy(false); embed.onMade(null); return; } // already on the first page: it lists the new cases
           window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
           return;
         }
@@ -223,6 +247,7 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
       const { id } = (await r.json()) as { id: string };
       if (!alive.current) return; // left meanwhile: the case exists, but the user is not pulled back
       leaving.current = true;
+      if (embed) { setBusy(false); embed.onMade(id); return; } // the first page lists it; nothing navigates away
       window.location.href = `/cases/${id}`; // Claude starts reading the files by itself
     } catch (e) {
       setMsg(e instanceof UploadStalled ? t("new.stalled") : uploading ? t("new.failUpload") : t("new.fail"));
@@ -240,11 +265,17 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
   const sent = files.reduce((sum, f, i) => sum + (f.size * Math.min(100, ups[i] ?? 0)) / 100, 0);
 
   return (
-    <form onSubmit={onSubmit} aria-busy={busy} className="relative mx-auto w-full max-w-[720px]">
-      <ScanEdge />
+    <form onSubmit={onSubmit} aria-busy={busy} className={`relative w-full max-w-[720px] ${embed ? "" : "mx-auto"}`} data-testid={embed ? "home-upload" : undefined}>
+      {!embed && <ScanEdge />}
       <div className="sheet rounded-[3px] border border-hair bg-panel">
         <div className="flex h-[60px] items-center border-b border-hair px-5 sm:h-[68px] sm:px-8">
-          <h1 className="display-2 text-[24px] text-fg sm:text-[28px]">{t("new.title")}</h1>
+          {embed
+            ? <h2 className="display-3 text-[20px] text-fg sm:text-[22px]">{t("new.title")}</h2>
+            : <h1 className="display-2 text-[24px] text-fg sm:text-[28px]">{t("new.title")}</h1>}
+          {embed && !busy && (
+            <button type="button" onClick={embed.onClose} aria-label={t("new.close")} title={t("new.close")} data-testid="home-upload-close"
+              className="ml-auto flex h-11 w-11 items-center justify-center text-mute transition-colors duration-150 hover:text-fg"><Cross /></button>
+          )}
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-7 px-5 py-6 sm:px-8 sm:py-8">
