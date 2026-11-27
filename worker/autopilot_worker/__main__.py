@@ -44,6 +44,19 @@ class _CdpDriver(Driver):
         local = {d["id"]: d.get("local") for d in (case.get("desk") or [])}
         return RealPhotos(page, lambda pid: local.get(pid))
 
+    def merimen_step2(self, case: dict):
+        """The real Select Parts adapter (merimen_step2.py) for a case that exists in Merimen; the default (reads nothing) otherwise."""
+        if not (case.get("org_id") and case.get("merimen_caseid") and case.get("merimen_extid")):
+            return super().merimen_step2(case)
+        only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
+        if only and str(case.get("id")) != only:  # the supervised first live case: every other case is left alone in Phase B too
+            return super().merimen_step2(case)
+        if self.page_for(case["org_id"], strict=True) is None:
+            return super().merimen_step2(case)
+        from .merimen_step2 import RealStep2
+
+        return RealStep2(lambda: self.page_for(case["org_id"], strict=True))
+
     def _docs(self, writes: bool, case_id, ext_id):
         """Documents of Phase A (merimen_docs.py): the plan in a dry run (read-only when the case already exists), the upload when writes are on."""
         from .merimen_docs import run_docs
