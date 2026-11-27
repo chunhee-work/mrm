@@ -117,11 +117,11 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="field"><span className="label">{t("w.user")}</span>
-          <input value={user} onChange={(e) => setUser(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={80} className="input" data-testid="pf-user" disabled={!configured} placeholder={editMode ? (cred.usernameHint ?? "") : ""} /></label>
+          <input value={user} onChange={(e) => setUser(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={80} className="input" data-testid="pf-user" disabled={!configured} placeholder={(editMode || cred.saved) ? (cred.usernameHint ?? "") : ""} /></label>
         <label className="field"><span className="label">{t("w.pass")}</span>
-          <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" autoComplete="new-password" maxLength={200} className="input" data-testid="pf-pass" disabled={!configured} placeholder={editMode ? "••••••••" : ""} /></label>
+          <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" autoComplete="new-password" maxLength={200} className="input" data-testid="pf-pass" disabled={!configured} placeholder={(editMode || cred.saved) ? "••••••••" : ""} /></label>
       </div>
-      {editMode && <p className="-mt-2 text-[13.5px] text-mute">{t("pf.keep")}</p>}
+      {(editMode || cred.saved) && <p className="-mt-2 text-[13.5px] text-mute">{t("pf.keep")}</p>}
       <label className="flex cursor-pointer items-start gap-3 text-[14.5px] leading-snug text-fg">
         <input type="checkbox" className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-ice" checked={ok} onChange={(e) => setOk(e.target.checked)} data-testid="pf-consent" disabled={!configured} />
         <span>{t("ml.consent")}</span>

@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { missingRelation } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
-import { cleanPassword, cleanSecret, masterKey, seal } from "@/lib/crypto/merimen-cred";
+import { cleanPassword, masterKey, seal } from "@/lib/crypto/merimen-cred";
 import { cleanProfile } from "@/lib/ext/profile";
 
 // The user types their own Merimen login here; it is sealed (AES-GCM) and the worker tries it once.
@@ -26,18 +26,19 @@ export async function POST(req: Request) {
   const profile = cleanProfile(body);
   if (!profile) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const wantsLogin = !!(body?.username || body?.password);
-  const username = wantsLogin ? cleanSecret(body?.username, 80) : null;
+  const rawUser = typeof body?.username === "string" ? body.username.trim() : body?.username;
+  const username = wantsLogin ? cleanPassword(rawUser, 80) : null; // refuses control characters instead of silently changing the name
   const password = wantsLogin ? cleanPassword(body?.password, 200) : null;
   if (wantsLogin && (!username || !password)) return NextResponse.json({ error: "invalid" }, { status: 400 });
   // each new login re-queues one check by the worker, so a loop of saves must not become a loop of Merimen log-ins:
-  // at most 5 login saves per organisation in 10 minutes. The audit row is written FIRST and then counted, so parallel
+  // at most 3 login saves (a wrong password retried must not lock the Merimen account) per organisation in 10 minutes. The audit row is written FIRST and then counted, so parallel
   // requests cannot all pass the count; refused attempts count too (a sliding limit). An error here is not allowed to pass.
   if (wantsLogin) {
     try {
       await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: "save_consent" });
       const r = await db.execute(sql`SELECT count(*)::int AS n FROM merimen_cred_audit WHERE org_id = ${me.orgId} AND action = 'save_consent' AND at > now() - interval '10 minutes'`);
       const n = Number(((r as unknown as { rows?: { n: number }[] }).rows ?? [])[0]?.n ?? 99);
-      if (n > 5) return NextResponse.json({ error: "too_many" }, { status: 429 });
+      if (n > 3) return NextResponse.json({ error: "too_many" }, { status: 429 });
     } catch (e) { if (missingRelation(e)) return NextResponse.json({ error: "not_configured" }, { status: 503 }); throw e; }
   }
   // from a database sequence: atomic, and still rising after a delete and a new first save (the worker compares versions)
