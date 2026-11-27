@@ -118,7 +118,8 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   // charging was off, and reads free as it always did when it comes back with new files).
   const c = claimed[0];
   const paid = Number(c.debits) > Number(c.refunds) || (Number(c.debits) === 0 && c.triedBefore);
-  if (mode === "auto" && enforcing() && !exempt(c.orgId) && !paid) {
+  // "recover" too: a read that died right after it was claimed (before this check could mark it) comes back that way.
+  if (mode !== "retry" && enforcing() && !exempt(c.orgId) && !paid) {
     const failed = await db.update(schema.cases).set({ status: "failed", error: NOT_PAID }).where(mine).returning({ id: cid });
     if (failed.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
     await closeIntakeJobs(id); // the worker must not read it either

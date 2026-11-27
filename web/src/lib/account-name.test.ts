@@ -26,6 +26,11 @@ test("a new account's name: what the form sends is kept; too long is cut, never 
   assert.equal(nameAtSignUp("x".repeat(5000), "a@abc.my"), "x".repeat(MAX_NAME));
   assert.equal(nameAtSignUp("   ", "ahmad@abc.my"), "ahmad");
   assert.equal(nameAtSignUp(undefined, "ahmad@abc.my"), "ahmad");
+  // characters the database refuses never reach it (a refused row made sign-up tell a new address from a known one)
+  assert.equal(nameAtSignUp("a\u0000b", "a@abc.my"), "a b");
+  assert.equal(nameAtSignUp("\u0000", "ahmad@abc.my"), "ahmad");
+  assert.equal(nameAtSignUp("Ah\ud83dmad\n", "a@abc.my"), "Ah\ufffdmad");
+  assert.equal(cleanName("Ahmad\u0000 Motor"), "Ahmad  Motor");
   // a name the sign-up form makes always passes the check a changed name gets
   const long = `${"a".repeat(200)}@abc.my`;
   assert.equal(cleanName(nameFromEmail(long)), nameFromEmail(long));

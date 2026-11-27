@@ -321,6 +321,10 @@ async function main() {
         // 3. the same pick-up twice at once: still no read
         const twice = await newCase("uploaded"); await Promise.all([scanCase(twice, "auto"), scanCase(twice, "auto")]);
         assert.equal((await get(twice)).error, NOT_PAID); assert.deepEqual(await events(twice), ["Scan failed"]); assert.equal(reads, 1);
+        // 3b. an unpaid case whose automatic read died right after it was taken (before it could be marked): picked up again later, still not read
+        const died = await newCase("reading", "lease:2026-01-01T00:00:00.000Z|died");
+        assert.equal((await scanCase(died, "recover", "lease:2026-01-01T00:00:00.000Z|died")).claimed, false);
+        assert.equal((await get(died)).error, NOT_PAID); assert.equal(reads, 1);
         // 4. a paid case is read as always; so is one whose retry was paid for after a refund
         const paid = await newCase("uploaded"); await debitCase("o", paid);
         assert.equal((await scanCase(paid, "auto")).ok, true); assert.equal(reads, 2);

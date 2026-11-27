@@ -39,7 +39,8 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (!open) { setOutErr(null); return; }
+    setOutErr(null); // on closing and on opening: a failure that came back after the menu was closed is not shown later
+    if (!open) return;
     // keys as the old account menu: the first item takes the focus, Escape gives it back to the button, Tab leaves
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); trigger.current?.focus(); } };

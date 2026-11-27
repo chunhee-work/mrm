@@ -98,7 +98,7 @@ function MobileMenu({ email, path, needsYou }: { email: string; path: string; ne
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [outErr, setOutErr] = useState<string | null>(null); // log out did not work: said under the button until the menu is closed
-  useEffect(() => { if (!open) setOutErr(null); }, [open]);
+  useEffect(() => { setOutErr(null); }, [open]); // on closing and on opening: a failure that came back after the menu was closed is not shown later
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const close = useRef((refocus: boolean) => { setOpen(false); if (refocus) trigger.current?.focus(); }).current;
