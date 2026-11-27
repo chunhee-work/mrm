@@ -403,3 +403,15 @@ test("purge: a file with no row (listed by the case folder) is removed, the erro
   assert.deepEqual(row, { e: null, d: null });
   assert.equal((await db.select().from(schema.auditLog).where(sql`${schema.auditLog.action} = 'case.purge'`)).length, 1);
 });
+
+test("purge: a shared file is kept even when the other case stored its name escaped differently", async () => {
+  const gone = randomUUID(), live = randomUUID();
+  const old = new Date(Date.now() - 9 * 86_400_000);
+  await db.insert(schema.cases).values([{ id: gone, orgId: org, plate: "G1", status: "failed", deletedAt: old }, { id: live, orgId: org, plate: "L1", status: "naming" }]);
+  await db.insert(schema.caseFiles).values({ caseId: gone, kind: "pdf", blobUrl: `https://blob.example/${org}/${gone}/Car%20%5B1%5D.pdf`, originalName: "Car [1].pdf", size: 1 });
+  await db.insert(schema.caseFiles).values({ caseId: live, kind: "pdf", blobUrl: `https://blob.example/${org}/${gone}/Car%20[1].pdf`, originalName: "Car [1].pdf", size: 1 });
+  const removed: string[] = [];
+  const r = await purgeDeletedCases(async (p) => { removed.push(p); });
+  assert.deepEqual(removed, []);
+  assert.equal(r.skipped, 1);
+});

@@ -4,14 +4,18 @@ import { db, schema } from "@/db";
 /** How long the files of a case the user deleted are kept (the user can still be helped meanwhile; owner 2026-11-27: 7 days). */
 export const DELETED_KEEP_DAYS = 7;
 
+class BudgetOver extends Error {}
 export type PurgeResult = { cases: number; files: number; failed: number; skipped?: number };
 
 const BUDGET_MS = 45_000; // the route may run 60 s: no new case is started after this
 const PARALLEL = 5;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** The case or upload folder inside `<org>/<folder>/…` or `screenshots/<user>/<folder>/…` (not the organisation's own id); "" when there is none. */
+const folderOf = (bare: string) => { const seg = bare.split("/"); return [seg[1], seg[2]].find((x) => x && UUID.test(x) && x !== seg[0]) ?? ""; };
 const bareOf = (p: string) => { try { return /^https?:\/\//.test(p) ? decodeURIComponent(new URL(p).pathname.replace(/^\//, "")) : p; } catch { return p; } };
 
-/** Of these stored paths, the ones another case (alive or not) still points at: two cases can be made from the same uploaded URL. One query. */
+/** Of these stored paths, the ones another case (alive or not) still points at: two cases can be made from the same uploaded URL. */
 async function usedElsewhere(paths: string[], caseId: string): Promise<Set<string>> {
   if (!paths.length) return new Set();
   const rows = paths.map((p) => { const b = bareOf(p); return sql`(${p}, ${b}, ${encodeURI(b)})`; });
@@ -20,7 +24,22 @@ async function usedElsewhere(paths: string[], caseId: string): Promise<Set<strin
       EXISTS (SELECT 1 FROM case_files f WHERE f.case_id <> ${caseId} AND (f.blob_url IN (t.p, t.b, t.e) OR right(f.blob_url, length(t.b) + 1) = '/' || t.b OR right(f.blob_url, length(t.e) + 1) = '/' || t.e))
       OR EXISTS (SELECT 1 FROM case_photos p WHERE p.case_id <> ${caseId} AND (p.blob_path IN (t.p, t.b) OR p.thumb_path IN (t.p, t.b)))
       OR EXISTS (SELECT 1 FROM case_screenshots s WHERE s.case_id <> ${caseId} AND s.blob_pathname IN (t.p, t.b))`);
-  return new Set(((r as unknown as { rows?: { p: string }[] }).rows ?? (r as unknown as { p: string }[])).map((x) => x.p));
+  const used = new Set(((r as unknown as { rows?: { p: string }[] }).rows ?? (r as unknown as { p: string }[])).map((x) => x.p));
+  // a file name can be escaped in more than one way (%23 or #): rows of other cases that mention the same folder id are compared decoded
+  const left = paths.filter((p) => !used.has(p));
+  const folders = [...new Set(left.map((p) => folderOf(bareOf(p))).filter(Boolean))];
+  if (folders.length) {
+    const other = new Set<string>();
+    for (const f of folders) {
+      for (const col of ["case_files.blob_url", "case_photos.blob_path", "case_photos.thumb_path", "case_screenshots.blob_pathname"]) {
+        const t = col.split(".")[0];
+        const q = await db.execute(sql`SELECT ${sql.raw(col.split(".")[1])} AS v FROM ${sql.raw(t)} WHERE case_id <> ${caseId} AND position(${f} in ${sql.raw(col.split(".")[1])}) > 0`);
+        for (const x of ((q as unknown as { rows?: { v: string }[] }).rows ?? (q as unknown as { v: string }[]))) other.add(bareOf(x.v));
+      }
+    }
+    for (const p of left) if (other.has(bareOf(p))) used.add(p);
+  }
+  return used;
 }
 
 /**
@@ -59,9 +78,11 @@ export async function purgeDeletedCases(remove: (path: string) => Promise<void>,
       const mine = paths.filter((p) => !used.has(p));
       if (paths.length > mine.length) out.skipped = (out.skipped ?? 0) + (paths.length - mine.length);
       for (let i = 0; i < mine.length; i += PARALLEL) {
-        if (Date.now() - t0 > BUDGET_MS + 10_000) throw new Error("time budget used up inside a case"); // the case stays whole for the next run
+        if (Date.now() - t0 > BUDGET_MS + 10_000) { out.skipped = (out.skipped ?? 0) + 1; throw new BudgetOver(); } // the case stays whole for the next run
         await Promise.all(mine.slice(i, i + PARALLEL).map(remove));
       }
+      // the case row keeps plate, car and insurer (owner's choice); the text a bad file's name or a missing-document note can carry goes (first: a run that stops later still finds the rows left and tries again)
+      await db.update(c).set({ caseData: null, error: null, pendingDoc: null, photosSnapshot: null }).where(and(eq(c.id, k.id), isNotNull(c.deletedAt)));
       if (files.length) await db.delete(schema.caseFiles).where(inArray(schema.caseFiles.id, files.map((f) => f.id)));
       if (photos.length) await db.delete(schema.casePhotos).where(inArray(schema.casePhotos.id, photos.map((p) => p.id)));
       if (shots.length) await db.delete(schema.caseScreenshots).where(inArray(schema.caseScreenshots.id, shots.map((x) => x.id)));
@@ -70,11 +91,10 @@ export async function purgeDeletedCases(remove: (path: string) => Promise<void>,
       // labels (their photos are gone) and the extra part names. The case row (plate, car, insurer), usage, jobs and the credit/audit rows stay.
       for (const t of ["case_events", "step2_log", "photo_upload_log", "photo_learning", "case_extras"]) await db.execute(sql`DELETE FROM ${sql.raw(t)} WHERE case_id = ${k.id}`);
       await db.update(schema.jobs).set({ state: "cancelled" }).where(and(eq(schema.jobs.caseId, k.id), inArray(schema.jobs.state, ["queued", "paused"])));
-      // the case row keeps plate, car and insurer (owner's choice); the text a bad file's name or a missing-document note can carry goes
-      await db.update(c).set({ caseData: null, error: null, pendingDoc: null, photosSnapshot: null }).where(and(eq(c.id, k.id), isNotNull(c.deletedAt)));
       await db.insert(schema.auditLog).values({ orgId: k.orgId, userId: null, action: "case.purge", detail: `${k.id}|${mine.length}` }); // last: a retry never writes a second row
       out.cases++; out.files += mine.length;
     } catch (e) {
+      if (e instanceof BudgetOver) break;
       out.failed++;
       console.error("purge of a deleted case failed", k.id, e);
     }
