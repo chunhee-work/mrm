@@ -417,6 +417,32 @@ async function main() {
       const next = await newCase("uploaded", null, { orgId: "cap-b" });
       assert.equal((await scanCase(next, "auto")).claimed, false);
     }],
+    ["S-U9: upload tokens are counted per organisation, kind and clock hour; over the limit none is given until the next hour", async () => {
+      const { takeUploadToken, CASE_TOKENS_PER_HOUR, PHOTO_TOKENS_PER_HOUR } = await import("../src/lib/upload-cap");
+      assert.ok(CASE_TOKENS_PER_HOUR >= 300 * 10 && PHOTO_TOKENS_PER_HOUR >= 2 * 300 * 10); // ten full cases in an hour never meet it
+      const H = 3600_000, t0 = 500_000 * H + 5; // some clock hour
+      const count = async (key: string) => (await db.select().from(schema.verification).where(eq(schema.verification.identifier, key))).map((r) => r.value);
+      // requests at the same moment are all counted
+      assert.deepEqual(await Promise.all(Array.from({ length: 20 }, () => takeUploadToken("tok-a", "case", t0))), new Array(20).fill(true));
+      assert.deepEqual(await count("upload-tokens:case:tok-a"), ["20"]);
+      // at the limit: the last one is given, the next is not, and it stays refused for the rest of the hour
+      await db.execute(sql`update verification set value = ${String(CASE_TOKENS_PER_HOUR - 1)} where identifier = 'upload-tokens:case:tok-a'`);
+      assert.equal(await takeUploadToken("tok-a", "case", t0 + 1000), true);
+      assert.equal(await takeUploadToken("tok-a", "case", t0 + 2000), false);
+      assert.equal(await takeUploadToken("tok-a", "case", t0 + H - 10), false);
+      // desk photos are counted apart, and so is every other organisation
+      assert.equal(await takeUploadToken("tok-a", "photo", t0), true);
+      assert.equal(await takeUploadToken("tok-b", "case", t0), true);
+      // the next clock hour starts at one again; the row of an hour that is over is removed once it has run out
+      await db.execute(sql`update verification set expires_at = now() - interval '1 minute' where identifier = 'upload-tokens:case:tok-a'`);
+      assert.equal(await takeUploadToken("tok-a", "case", t0 + H), true);
+      assert.deepEqual(await count("upload-tokens:case:tok-a"), ["1"]);
+      // rows that are not ours (sign-in codes live in the same table) are never touched
+      await db.insert(schema.verification).values({ id: "other", identifier: "signup-again:a@b.c", value: "1", expiresAt: new Date(Date.now() - 60_000) });
+      await db.execute(sql`delete from verification where identifier = 'upload-tokens:case:tok-b'`);
+      assert.equal(await takeUploadToken("tok-b", "case", t0 + H), true);
+      assert.deepEqual(await count("signup-again:a@b.c"), ["1"]);
+    }],
     ["leaseTime reads the lease time, ignores other text", async () => {
       assert.equal(leaseTime("lease:2026-01-01T00:00:00.000Z|abc"), Date.parse("2026-01-01T00:00:00.000Z"));
       assert.equal(leaseTime("api down"), null); assert.equal(leaseTime(null), null);
