@@ -17,14 +17,14 @@ const REFRESH_MS = 20_000;
  * and how many open cases wait for what. A row of the count opens the table of those cases.
  * Nothing is said twice: "Billing" is in the top bar only, and the bar drops its own "New case" on this page.
  */
-export default function Home({ name, counts, below }: { name: string; counts: HomeCounts; below?: React.ReactNode }) {
+export default function Home({ name, counts, busy = false, below }: { name: string; counts: HomeCounts; busy?: boolean; below?: React.ReactNode }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
   const open = OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0);
 
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
-  const live = counts.active > 0 || counts.docs > 0;
+  const live = busy; // a document is being read: the numbers move by themselves (a case waiting for the user does not)
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => { if (!document.hidden) router.refresh(); }, REFRESH_MS);

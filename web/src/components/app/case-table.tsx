@@ -42,7 +42,7 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
   const searchRef = useRef<HTMLInputElement>(null);
 
   const mine = view ? rows.filter((r) => inView(r, view)) : rows;
-  const live = mine.some((r) => bucketOf(r) === "active");
+  const live = mine.some((r) => r.status === "uploaded" || r.status === "reading");
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => { if (!document.hidden) router.refresh(); }, REFRESH_MS);
