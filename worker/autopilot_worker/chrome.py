@@ -96,6 +96,27 @@ def chrome_env(environ) -> dict[str, str]:
     return env
 
 
+def chrome_running(profile: str) -> bool:
+    """True while a Chrome process holds this profile. Chrome keeps a `SingletonLock` link in the profile folder pointing at
+    "<host>-<pid>"; a lock whose process is gone (a crash) does not count. Starting Chrome again on a profile that is in use only
+    opens one more tab in the running Chrome (item 8, 2026-11-27: 21 claims tabs and climbing)."""
+    lock = os.path.join(profile, "SingletonLock")
+    try:
+        target = os.readlink(lock)
+    except OSError:
+        return False
+    pid = target.rsplit("-", 1)[-1]
+    if not pid.isdigit():
+        return True  # a lock we cannot read: assume Chrome is there rather than open another tab
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def profile_dir(state_dir: str, account: str) -> str:
     if state_dir.startswith("/Users/") or not account or "/" in account or ".." in account:
         raise ValueError("profile")
