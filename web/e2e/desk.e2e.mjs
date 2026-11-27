@@ -323,7 +323,7 @@ try {
     const line = await page.getByTestId("photo-plan-line").innerText();
     assert.ok(line.trim().length > 20, "the Merimen photo plan box is never empty");
     assert.match(line, /missing documents|缺的文件|dokumen yang hilang/);
-    assert.equal(await page.getByRole("link", { name: /Name photos|给照片命名|Namakan gambar|Open photo names|打开照片名称/ }).count(), 1, "one link to the desk, not two");
+    assert.equal(await page.getByRole("link", { name: /Name photos|给照片命名|Namakan gambar|Open photo names|打开照片名称/ }).filter({ hasNot: page.locator("[data-testid^=step-]") }).and(page.locator(":not([data-testid^=step-])")).count(), 1, "one button to the desk, not two (the step bar is its own way back)");
     await shot("case-page-photo-status");
   });
 
@@ -425,7 +425,7 @@ try {
     // nothing twice (owner 2026-11-22): one "New case" (the page's, not the bar's) and one "Billing" (the bar's, not the page's)
     assert.equal(await page.getByTestId("new-case").count(), 0, "no second New case in the bar of the first page");
     assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
-    assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
+    assert.equal(await page.locator('a[href="/cases/new"]').count() + await page.getByRole("button", { name: /New case|新建案件|Kes baharu/ }).count(), 1, "one way to a new case (a button that opens the file picker)");
     assert.equal(await page.getByTestId("case-table").count(), 0, "no case list on the first page");
     // files dragged onto the first page: a full-page overlay while they hover, a text drag shows nothing,
     // the overlay clears on its own if the browser misses the dragleave, and a drop opens New case with the files
@@ -489,7 +489,7 @@ try {
     assert.equal(sent, 0, "nothing sent while a file was left out");
     // a drop of one zip holding two cars does not send either: the "makes 2 cases" line waits for a press
     const twoCars = Buffer.from(zipSync({ "DCD4004/claim.pdf": strToU8("%PDF-1.4"), "TBD8129/claim.pdf": strToU8("%PDF-1.4") })).toString("base64");
-    await page.goto(`${BASE}/dashboard`);
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" }); // the drop listener exists only once the page is live
     await page.getByTestId("home-new").waitFor();
     await page.evaluate((b64) => {
       const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -502,6 +502,22 @@ try {
     await page.getByText(/holds 2 cars|2 辆|2 kereta/).first().waitFor();
     await page.waitForTimeout(800);
     assert.equal(sent, 0, "a zip that makes several cases is not sent unseen");
+    // New case opens the file picker at once (owner 2026-11-27): no page first; the picked files are sent by themselves
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("home-new").click()]);
+    assert.match(page.url(), /\/dashboard$/, "the picker opens on the first page, no jump");
+    sent = 0;
+    await chooser.setFiles([{ name: "picked.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
+    await page.waitForURL(/\/cases\/new$/);
+    await page.getByText("picked.pdf").waitFor();
+    for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
+    assert.equal(sent, 1, "picked files are sent without a press of Upload");
+    // the New case of the top bar (on the case table) opens the picker too
+    await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
+    const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
+    await chooser2.setFiles([]);
+    await page.waitForTimeout(300);
+    assert.match(page.url(), /view=all/, "cancelling the picker stays put");
     await page.unroute("**/api/cases/credit*");
     await page.goto(`${BASE}/dashboard`);
     const docs = page.locator('[data-bucket="docs"] a');

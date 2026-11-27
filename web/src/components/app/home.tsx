@@ -8,6 +8,7 @@ import { DROPPED_PARAM, HOLD_MS, holdDropped, takeDropped } from "@/lib/dropped-
 import { useFileDrag } from "./drop-zone";
 import { OPEN_BUCKETS, type Bucket } from "./status";
 import ProfileCard, { type Cred } from "./profile-card";
+import NewCasePick from "./new-case-pick";
 
 export type HomeCounts = Record<Bucket, number>;
 
@@ -104,7 +105,7 @@ export default function Home({ name, counts, busy = false, cred: cred0 }: { name
         <div className="mt-9 grid gap-3 sm:grid-cols-2">
           {blocked
             ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
-            : <Link href="/cases/new" className="btn-primary !gap-2" data-testid="home-new"><Plus />{t("dash.new")}</Link>}
+            : <NewCasePick className="btn-primary !gap-2" testId="home-new"><Plus />{t("dash.new")}</NewCasePick>}
           <Link href="/dashboard?view=closed" className="btn-line" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>
