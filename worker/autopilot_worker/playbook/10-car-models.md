@@ -169,3 +169,13 @@ Format per model: Merimen model text · case(s) · photo name → catalogue item
 
 ## MINI
 - **MINI Cooper 2021 On 3 Dr Hatch Cooper S (PRY826, LKH)** — front RH hit: the user wants **Front Panel Assembly** and **Front Chassis Member** selected in Select Parts (user 2026-10-30), even when no photo is named that way (the front panel / chassis member is behind the bumper, bracket and headlamp damage).
+
+## Mercedes-Benz 200 W123 (1980, TM2555, batch 12 2026-11-19)
+- Merimen option `200 4 DR SAL 2.0 W123 (M)` (white, no catalogue): every part is a manual row; only labour N/R + misc tick.
+- No price data for W123: price_lookup falls back to modern Mercedes (too high). Old-Mercedes references: our W126 cases WDA2828 / BGG4991.
+- Steel wheelhouse, no plastic fender liner; rear-wheel drive → no front Driveshaft; no bumper sensors.
+- Front-RH hit: final total RM32,448.17 after the user's names (first draft with wrong LH/Rear corners RM44,928).
+
+## Toyota Vios NCP93 (2008, CCG1323) / Vios 2023 NGC102 (VLH9486) / Perodua Viva 1.0 EZ (CCJ3521), batch 12
+- Vios NCP93: photo Runningboard Panel RH = catalogue Centre Pillar & Runningboard RH (61411, rocker outer); Fender Front RH with signal-lamp hole option.
+- Vios 2023: Rear Bumper Inner Sensor LH/RH = one Bumper Rear Sensor row qty 2 "Rear LH & Rear RH (Inner)"; Boot Floor has no catalogue item (manual) next to Spare Wheel Well 58311BZ470.
