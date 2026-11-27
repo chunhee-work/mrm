@@ -121,7 +121,7 @@ class PgRepo:
             SELECT id, org_id, status, plate, case_data, photos_done_at, merimen_caseid, car_model,
                    (SELECT count(*) FROM case_files f WHERE f.case_id = cases.id),
                    (SELECT count(*) FROM case_photos p WHERE p.case_id = cases.id),
-                   created_by
+                   created_by, merimen_extid
             FROM cases WHERE id = %s
             """,
             (case_id,),
@@ -148,7 +148,7 @@ class PgRepo:
             "id": c[0], "org_id": c[1], "status": c[2], "plate": c[3], "case_data": c[4],
             "photos_done_at": c[5].isoformat() if c[5] else None,
             "merimen_caseid": c[6], "car_model": c[7], "file_count": c[8], "photo_count": c[9],
-            "created_by": c[10],
+            "created_by": c[10], "merimen_extid": c[11],
             "photos": [{"id": p[0], "src_name": p[1], "file": p[1], "blob_path": p[2]} for p in photos],
             "files": [{"id": f[0], "kind": f[1], "url": f[2], "name": f[3]} for f in files],
             # the whole desk in order (photo step of Phase A/B), the parts with no photo, the fingerprint taken at 完成, and the list Phase A uploaded
