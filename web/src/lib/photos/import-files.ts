@@ -25,11 +25,11 @@ export async function importCasePhotos(caseId: string, orgId: string): Promise<{
   let count = have.length;
   const skipped: string[] = [];
   let added = 0;
-  // R2-B14: the slow part (download, thumbnail, two stores) runs 4 photos at a time; the rows are written afterwards in name order
+  // R2-B14: the slow part (download, thumbnail, two stores) runs 8 photos at a time; the rows are written afterwards in name order
   type Done = { f: (typeof files)[number]; hash: string; blobPath: string; thumbPath: string } | null;
   const results: Done[] = new Array(files.length).fill(null);
   const room = Math.max(0, MAX_PHOTOS - count);
-  await runPool(files.length, 4, async (i) => {
+  await runPool(files.length, 8, async (i) => {
     const f = files[i];
     if (/\.(heic|heif)$/i.test(f.originalName) || f.size > MAX_BYTES || i >= room) { skipped.push(f.originalName); return; }
     try {
