@@ -128,6 +128,7 @@ function RetryHere({ r, look, relist }: { r: CaseRow; look: () => void; relist: 
     setBusy(true); setErr("");
     const out = await readAgain(r.id, { onLate: relist });
     if (out === "no_credits") setErr(t("new.noCredits"));
+    else if (out === "too_many") setErr(t("auth.tooMany"));
     else if (out === "fail") setErr(t("case.retryFail")); // the server still has the case as failed: the read never started
     setBusy(false); setAsk(false);
     relist(); // whatever became of the request, the line shows what the server has (a read it did start, the new result)
