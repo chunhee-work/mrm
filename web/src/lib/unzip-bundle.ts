@@ -81,9 +81,10 @@ const usableIn = (name: string) => {
  * Throws ZipRejected; "empty" when it is not a multi-vehicle zip.
  */
 export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number; maxCarBytes?: number; maxFiles?: number } = SPLIT_LIMITS): VehiclePlan[] {
-  const all: { name: string; size: number; method: number }[] = [];
-  try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize, method: f.compression }); return false; } }); }
+  const all: { name: string; size: number; stored: number; method: number }[] = [];
+  try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize, stored: f.size, method: f.compression }); return false; } }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }
+  if (anyEncrypted(buf)) throw new ZipRejected("corrupt", ZIP_WHY.corrupt); // a password zip never opens here: refused before anything is made
   // the same names-only layout the browser saw; an empty loose file is not an extra, a car whose PDFs are all empty is refused below
   const { cars: prefixes, extras: named } = vehicleLayout(all.map((f) => f.name));
   const nonEmpty = new Set(all.filter((f) => f.size > 0).map((f) => f.name));
@@ -101,7 +102,10 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
   let files = 0;
   for (const f of all) {
     const pre = prefixes.find((p) => f.name.startsWith(p));
-    if (!pre || !usableIn(f.name) || f.size === 0) continue;
+    if (!pre || !usableIn(f.name)) continue;
+    // a stored entry opens as its stored bytes, whatever size it declares: the sizes must agree, or every limit below means nothing
+    if (f.method === 0 && f.stored !== f.size) throw new ZipRejected("corrupt", ZIP_WHY.corrupt);
+    if (f.size === 0) continue;
     // only stored (0) and deflate (8) entries open here: refuse others now, before a car is made, not halfway through the split
     if (f.method !== 0 && f.method !== 8) throw new ZipRejected("corrupt", ZIP_WHY.corrupt);
     const n = (counts.get(pre) ?? 0) + 1; counts.set(pre, n);
@@ -120,10 +124,26 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
   return prefixes.map((prefix) => ({ prefix, plate: prefix.slice(0, -1).split("/").pop() as string, files: counts.get(prefix) ?? 0 }));
 }
 
+/** Does any entry of the zip's central directory carry the "encrypted" flag (bit 0)? fflate does not check it. */
+function anyEncrypted(buf: Uint8Array): boolean {
+  const v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let e = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (v.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) return false; // unzipSync already read this zip; a zip64 end record is not looked into (accepted)
+  const off = v.getUint32(e + 16, true);
+  if (off === 0xffffffff) return false;
+  for (let p = off; p + 46 <= buf.length && v.getUint32(p, true) === 0x02014b50;) {
+    if (v.getUint16(p + 8, true) & 1) return true;
+    p += 46 + v.getUint16(p + 28, true) + v.getUint16(p + 30, true) + v.getUint16(p + 32, true);
+  }
+  return false;
+}
+
 /** The PDFs and photos of ONE vehicle folder of a planned zip (only that folder is inflated, so memory follows one car). */
 export function unzipVehicle(buf: Uint8Array, prefix: string): BundleEntry[] {
   let files: Record<string, Uint8Array>;
-  try { files = unzipSync(buf, { filter: (f) => f.name.startsWith(prefix) && usableIn(f.name) }); }
+  // only what planVehicles counted: non-empty entries, stored ones with matching sizes (deflate output is capped at the declared size)
+  try { files = unzipSync(buf, { filter: (f) => f.name.startsWith(prefix) && usableIn(f.name) && f.originalSize > 0 && (f.compression !== 0 || f.size === f.originalSize) }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }
   const out: BundleEntry[] = [];
   for (const [name, bytes] of Object.entries(files)) {

@@ -124,7 +124,7 @@ export async function POST(req: Request) {
     todo = plan.filter((v) => !earlier.has(v.prefix));
     if (todo.length && enforcing() && !exempt(me.orgId) && (await creditBalance(me.orgId)) < CASE_COST * todo.length) {
       await release(); await dropZip();
-      return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
+      return NextResponse.json({ error: "no_credits", needed: todo.length, kept: earlier.size }, { status: 402 });
     }
   } catch (e) {
     if (release) await release();
