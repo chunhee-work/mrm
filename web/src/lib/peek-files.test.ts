@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, PLATE_LIKE, isPlate } from "./peek-files";
+import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, vehicleLayout, PLATE_LIKE, isPlate } from "./peek-files";
 
 const zip = (files: Record<string, string>) => new Blob([Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))))]);
 
@@ -36,11 +36,25 @@ test("vehicleFolders: plate-named folders with a PDF; folders named by content o
 });
 
 test("isPlate: real plates yes; numbered words and month-year folder names no", () => {
-  for (const p of ["DCD4004", "QAT110", "TBD 8129", "WA1234B", "V 1", "PDF 1234", "CAR 888", "MAR 12", "NOV2026A"]) assert.ok(isPlate(p), p);
-  for (const p of ["Doc1", "DOC 2", "Car 1", "Set3", "IMG 2", "Day 1", "PDF2", "Nov 2026", "JAN2025", "Policy", "2026-11-01"]) assert.ok(!isPlate(p), p);
+  for (const p of ["DCD4004", "QAT110", "TBD 8129", "WA1234B", "V 1", "NOV2026A", "PDF 1234A"]) assert.ok(isPlate(p), p);
+  for (const p of ["Doc1", "DOC 2", "Car 1", "Set3", "IMG 2", "IMG 001", "Doc 001", "Day 1", "PDF2", "Nov 2026", "Nov 26", "Nov 3", "JAN2025",
+    "Mac 2026", "Mei 2026", "Okt 2026", "Dis 2025", "Policy", "2026-11-01"]) assert.ok(!isPlate(p), p);
 });
 
 test("vehicleFolders: a readme or a hidden folder beside the wrapping folder does not hide the cars", () => {
   const names = ["SINAR/AAA1111/a.pdf", "SINAR/BBB2222/b.pdf", "notes/readme.txt", ".x/c.pdf", "__MACOSX/SINAR/._a.pdf"];
   assert.deepEqual(vehicleFolders(names), ["AAA1111", "BBB2222"]);
+});
+
+test("vehicleLayout: every other folder or loose file a case would take is an extra (a split then refuses, nothing is dropped)", () => {
+  assert.deepEqual(vehicleLayout(["AAA1111/a.pdf", "BBB2222/b.pdf", "SINAR-1/c.pdf"]), { cars: ["AAA1111/", "BBB2222/"], extras: ["SINAR-1/"] });
+  assert.deepEqual(vehicleLayout(["S/AAA1111/a.pdf", "S/BBB2222/b.pdf", "S/Gambar/1.jpg", "S/cover.pdf"]).extras.sort(), ["S/Gambar/", "S/cover.pdf"]);
+  assert.deepEqual(vehicleLayout(["AAA1111/a.pdf", "BBB2222/b.pdf", "CCC3333/1.jpg", "notes.txt"]).extras, ["CCC3333/"]);
+  assert.deepEqual(vehicleLayout(["AAA1111/a.pdf", "BBB2222/b.pdf"]).extras, []);
+});
+
+test("vehicleLayout: cars inside a wrapping folder are found even with a loose file or another folder beside it (both are extras)", () => {
+  assert.deepEqual(vehicleLayout(["SINAR/AAA1111/a.pdf", "SINAR/BBB2222/b.pdf", "cover.pdf"]), { cars: ["SINAR/AAA1111/", "SINAR/BBB2222/"], extras: ["cover.pdf"] });
+  assert.deepEqual(vehicleLayout(["SINAR/AAA1111/a.pdf", "SINAR/BBB2222/b.pdf", "Photos/1.jpg"]).extras, ["Photos/1.jpg"]);
+  assert.deepEqual(vehicleLayout(["Docs/a.pdf", "Photos/1.jpg", "cover.pdf"]), { cars: [], extras: ["Docs/", "Photos/", "cover.pdf"] });
 });

@@ -15,3 +15,15 @@ test("a second drop replaces the first", () => {
   holdDropped([f("b.pdf")]);
   assert.deepEqual(takeDropped().map((x) => x.name), ["b.pdf"]);
 });
+
+test("a hold not taken within 15 s is let go", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  holdDropped([f("late.pdf")]);
+  t.mock.timers.tick(14_999);
+  holdDropped([f("again.pdf")]); // a new drop starts a new 15 s
+  t.mock.timers.tick(14_999);
+  assert.deepEqual(takeDropped().map((x) => x.name), ["again.pdf"]);
+  holdDropped([f("late.pdf")]);
+  t.mock.timers.tick(15_000);
+  assert.equal(takeDropped().length, 0, "nothing for a visit after 15 s");
+});

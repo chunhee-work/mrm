@@ -82,21 +82,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // the first page: who is logged in, a search, two buttons, and how many open cases wait for what
   // Counted over every case of the org, not only the newest 200: per status, and how many of those still have photos to name
   // (bucketOf needs only that, and only for open cases). Then bucketOf places each group, so the rule stays in one place.
-  const toName = sql`(select ${CONFIRM_COUNT} from ${schema.casePhotos} where ${schema.casePhotos.caseId} = ${schema.cases.id})`;
   const groups = await db.select({
     status: schema.cases.status,
+    photosDone: sql<boolean>`(${schema.cases.photosDoneAt} is not null)`,
     n: sql<number>`count(*)::int`,
-    naming: sql<number>`(count(*) filter (where ${schema.cases.status} not in ('done', 'failed') and ${toName} > 0))::int`,
-  }).from(schema.cases).where(eq(schema.cases.orgId, orgId)).groupBy(schema.cases.status);
+  }).from(schema.cases).where(eq(schema.cases.orgId, orgId)).groupBy(schema.cases.status, sql`(${schema.cases.photosDoneAt} is not null)`);
   const counts: HomeCounts = { docs: 0, photos: 0, hold: 0, active: 0, closed: 0 };
-  for (const g of groups) {
-    const naming = Number(g.naming);
-    counts[bucketOf({ status: g.status, deskConfirm: 1 })] += naming;
-    counts[bucketOf({ status: g.status, deskConfirm: 0 })] += Number(g.n) - naming;
-  }
+  for (const g of groups) counts[bucketOf({ status: g.status, photosDone: g.photosDone })] += Number(g.n);
   const worker = workerUiOn();
   const state = worker ? await getWorkerState(orgId) : await getExtState(orgId);
   // while the Merimen connection is switched off there is nothing to do or read about it: the page ends with the count
   const below = state === "off" ? undefined : <Connection embedded mode={worker ? "worker" : "browser"} cred={worker ? await credView(orgId) : null} state={state} cases={list.map((c) => ({ id: c.id, plate: c.plate }))} />;
-  return <Home name={user.name} counts={counts} below={below} />;
+  return <Home name={user.name} counts={counts} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} below={below} />;
 }
