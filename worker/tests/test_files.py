@@ -198,3 +198,37 @@ def test_a_clean_up_that_fails_does_not_lose_the_job_result(tmp_path):
 
     tick(Config.from_env({}), repo, launch=lambda a: None, inspect=lambda p: None, namer=None, driver=Driver(), download=lambda *a: None, forget_files=forget)
     assert len(repo.applied) == 1 and repo.applied[0].job_state == "done"
+
+
+@pytest.mark.parametrize("dryrun, expect", [("", True), ("on", False)])
+def test_phase_a_documents_and_desk_photos_go_into_the_jobs_own_folder(tmp_path, monkeypatch, dryrun, expect):
+    """Phase A with writes on downloads the case PDFs and the desk photos; they land in <case>/<job>/ like the photo model's
+    files ("f"/"p" keeps a file and a photo with the same id apart), never as flat files, and go when the job ends. A dry run downloads nothing."""
+    loop._last_cleanup[0] = 1e12
+    monkeypatch.setenv("MERIMEN_DRYRUN", dryrun)
+    root = str(tmp_path / "files")
+    got = []
+
+    class PhaseA(Repo):
+        def load(self, case_id):
+            case = super().load(case_id)
+            case["files"] = [{"id": 5, "kind": "doc", "url": "u5", "name": "../../report.pdf"}, {"id": 6, "kind": "doc", "url": "u6", "name": "photos.zip"}]
+            case["desk"] = [{"id": 5, "src_name": "IMG.jpg", "blob_path": "p/5"}]
+            return case
+
+    def download(url, name, case_id, job_id, item_id):
+        target = local_file(root, case_id, job_id, item_id, name)
+        write_private(target, b"data")
+        got.append(os.path.relpath(target, root))
+        return target
+
+    cfg = Config.from_env({"MERIMEN_WRITES": "on", "WORKER_SUBMIT": "on"})
+    assert cfg.live_writes
+    repo = PhaseA("phase_a")
+    tick(cfg, repo, launch=lambda a: None, inspect=lambda p: None, namer=None, driver=Driver(), download=download,
+         forget_files=lambda c, j: remove_job_files(root, c, j))
+    if expect:
+        assert got == [os.path.join("case1", "7", "f5-report.pdf"), os.path.join("case1", "7", "p5-IMG.jpg")]
+    else:
+        assert got == []
+    assert not os.path.exists(os.path.join(root, "case1", "7"))

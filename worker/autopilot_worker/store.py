@@ -50,6 +50,22 @@ def _missing_workshops(e: Exception) -> bool:
     return "42P01" in t or "42703" in t or "does not exist" in t
 
 
+# The same login + consent conditions the claim statement checks (jobs.CLAIM_SQL), so a row is only asked for when a
+# Phase A job could really be claimed once Chrome is connected.
+ENSURE_SESSIONS_SQL = """
+INSERT INTO worker_sessions (org_id, account_key, status, wanted, last_seen_at, detail)
+SELECT mc.org_id, 'default', 'idle', 'start', now(), 'auto'
+FROM merimen_credentials mc
+JOIN ext_org_settings g ON g.org_id = mc.org_id
+WHERE mc.verify_state = 'ok' AND NOT mc.blocked
+  AND g.enabled AND btrim(coalesce(g.consent_reference, '')) <> ''
+  AND EXISTS (SELECT 1 FROM ext_consents k WHERE k.org_id = mc.org_id)
+ON CONFLICT (org_id) DO UPDATE SET wanted = 'start', detail = 'auto', last_seen_at = now()
+WHERE worker_sessions.wanted = 'none' AND worker_sessions.status <> 'stopped'
+RETURNING org_id
+"""
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -112,7 +128,7 @@ class PgRepo:
             SELECT id, org_id, status, plate, case_data, photos_done_at, merimen_caseid, car_model,
                    (SELECT count(*) FROM case_files f WHERE f.case_id = cases.id),
                    (SELECT count(*) FROM case_photos p WHERE p.case_id = cases.id),
-                   created_by
+                   created_by, merimen_extid
             FROM cases WHERE id = %s
             """,
             (case_id,),
@@ -139,7 +155,7 @@ class PgRepo:
             "id": c[0], "org_id": c[1], "status": c[2], "plate": c[3], "case_data": c[4],
             "photos_done_at": c[5].isoformat() if c[5] else None,
             "merimen_caseid": c[6], "car_model": c[7], "file_count": c[8], "photo_count": c[9],
-            "created_by": c[10],
+            "created_by": c[10], "merimen_extid": c[11],
             "photos": [{"id": p[0], "src_name": p[1], "file": p[1], "blob_path": p[2]} for p in photos],
             "files": [{"id": f[0], "kind": f[1], "url": f[2], "name": f[3]} for f in files],
             # the whole desk in order (photo step of Phase A/B), the parts with no photo, the fingerprint taken at 完成, and the list Phase A uploaded
@@ -175,6 +191,14 @@ class PgRepo:
     def session_status(self, org_id: str) -> str:
         rows = self.db.execute("SELECT status FROM worker_sessions WHERE org_id = %s", (org_id,))
         return rows[0][0] if rows else "idle"
+
+    def ensure_sessions(self) -> list[str]:
+        """Item 7 (2026-11-27): nothing ever created a worker_sessions row, so Phase A was never claimed. An org whose saved
+        Merimen login checked ok (not blocked) and whose consent is complete (ext_org_settings.enabled + consent_reference +
+        an ext_consents row) gets a row asking for its Chrome session. A row someone stopped (status 'stopped') is left alone,
+        and a row already asking (start/stop) is not touched. No login happens here: sync_sessions only opens the profile."""
+        rows = self.db.execute(ENSURE_SESSIONS_SQL)
+        return [r[0] for r in rows]
 
     def wanted(self) -> list[dict]:
         rows = self.db.execute(

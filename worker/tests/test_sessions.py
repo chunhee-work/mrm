@@ -10,6 +10,9 @@ class Repo:
     def __init__(self, rows):
         self.rows, self.sessions = rows, []
 
+    def ensure_sessions(self):
+        self.ensured = True
+
     def wanted(self):
         return self.rows
 

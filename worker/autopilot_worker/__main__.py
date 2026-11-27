@@ -33,12 +33,44 @@ class _CdpDriver(Driver):
 
         return run_create_step(self.case or {}, profile=self.profile, workshop=self.workshop, page_for=(lambda org: self.page_for(org, strict=True)) if getattr(self, 'strict_tabs', True) and live is not None else self.page_for, live=live, progress=self.progress, record=self.record, marks=self.marks() if live and self.marks else None)
 
+    def merimen_photos(self, case: dict):
+        """The real photo step (merimen_photos.py) when a logged-in tab exists; the "not ported" default otherwise. Reads are always safe;
+        photo_sync only writes with writes on."""
+        page = self.page_for(case.get("org_id") or "", strict=True) if case.get("org_id") else None
+        if page is None:
+            return super().merimen_photos(case)
+        from .merimen_photos import RealPhotos
+
+        local = {d["id"]: d.get("local") for d in (case.get("desk") or [])}
+        return RealPhotos(page, lambda pid: local.get(pid))
+
+    def _docs(self, writes: bool, case_id, ext_id):
+        """Documents of Phase A (merimen_docs.py): the plan in a dry run (read-only when the case already exists), the upload when writes are on."""
+        from .merimen_docs import run_docs
+
+        case = self.case or {}
+        cid, ext = case_id or case.get("merimen_caseid"), ext_id or case.get("merimen_extid")
+        page = self.page_for(case.get("org_id") or "", strict=True) if (cid and ext) else None
+        if cid and not ext and writes:
+            from .merimen_docs import DocReport
+
+            return DocReport(ok=False, code="no_ext", note="the Merimen ext id is not stored")
+        if cid and ext and page is None:
+            from .merimen_docs import DocReport
+
+            return DocReport(ok=False, code="no_tab", planned=0)
+        return run_docs(page, case, str(cid or ""), str(ext or ""), writes=writes)
+
     def dry_run(self, phase: str, steps: tuple):
         from .pipeline import DriveResult
 
         # MERIMEN_DRYRUN=on fills Merimen's create form without saving it. While it is on nothing is ever saved (see save).
         if phase == "A" and os.environ.get("MERIMEN_DRYRUN") == "on":
-            return self._create(False)
+            res = self._create(False)
+            if res.ok:
+                d = self._docs(False, None, None)
+                res.line = ((res.line + "; ") if res.line else "") + d.line()
+            return res
         return DriveResult(ok=True)
 
     def save(self, phase: str, steps: tuple):
@@ -52,7 +84,11 @@ class _CdpDriver(Driver):
                 return DriveResult(ok=False, error="step_not_ported")
             if int(os.environ.get("ORG_CONCURRENCY") or "1") > 1:  # the supported setup is ONE create at a time: refuse before anything opens
                 return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1; set it and restart the worker")
-            return self._create(True)  # the first step of Phase A; the rest of the phase is not ported yet (the result says so)
+            res = self._create(True)  # step 1 of Phase A
+            if res.ok and (res.case_id or (self.case or {}).get("merimen_caseid")):
+                d = self._docs(True, res.case_id, res.ext_id)  # step 2: the documents (skips what Merimen already has)
+                res.line = ((res.line + "; ") if res.line else "") + d.line()
+            return res
         return DriveResult(ok=False, error="step_not_ported")
 
 
