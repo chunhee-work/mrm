@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import re
 import threading
 import time
@@ -161,6 +163,16 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
                 local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg")
                 if local:
                     p["local"] = local
+        if job["step"] in ("phase_a", "phase_b") and cfg.live_writes and os.environ.get("MERIMEN_DRYRUN") != "on":
+            # the originals go to Merimen (documents and photos); only when writes are really on, never in a dry run
+            for f in case["files"]:
+                local = download(f["url"], f["name"])
+                if local:
+                    f["local"] = local
+            for d in case.get("desk") or []:
+                local = download(d.get("blob_path") or "", d.get("src_name") or "photo.jpg")
+                if local:
+                    d["local"] = local
         gate = repo.gate(job["org_id"], env_on=cfg.ext_connect)
         session = repo.session_status(job["org_id"])
         if job["step"] == "phase_a" and gate == "ready" and session == "connected":
