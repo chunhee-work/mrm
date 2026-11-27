@@ -184,7 +184,7 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
         return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
     if phase == "A" and saved.partial:
         # the case exists in Merimen (made now, or by an earlier run: nothing is made twice). Its number is stored so no second case is made.
-        # After the create come the documents (done by the driver, in `saved.line`) and the photos here; the Adjuster Report is not automated yet.
+        # After the create come the Adjuster Report and the documents (done by the driver, in `saved.line`) and the photos here.
         existed = bool(case.get("merimen_caseid"))
         done_case = {**case, "merimen_caseid": saved.case_id or case.get("merimen_caseid"), "merimen_extid": saved.ext_id or case.get("merimen_extid")}
         if desk is not None:
@@ -199,7 +199,7 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
                 stop.merimen_caseid, stop.merimen_extid = saved.case_id, saved.ext_id
                 return stop
         photo_note = f" {rep.line()}" if rep and (rep.photos or not rep.ok) else ""
-        tail = " The Adjuster Report is not automated yet."
+        tail = ""
         if existed:
             return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}{photo_note}{tail}".strip()[:400], partial=True, photo_log=_log(rep))
         return _o(

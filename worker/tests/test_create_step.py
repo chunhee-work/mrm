@@ -177,7 +177,7 @@ def test_a_create_only_save_stores_the_case_number_and_claims_no_upload():
     d = D(save=DriveResult(ok=True, case_id="22322999", ext_id="9800111", partial=True, minutes="0.80"))
     o = run_phase("A", case(photos_done_at="2026-11-27T10:00:00"), writes=True, driver=d)
     assert (o.job_state, o.merimen_caseid, o.merimen_extid, o.partial) == ("done", "22322999", "9800111", True)
-    assert o.case_status == "phase_b" and o.enqueue == ["phase_b"] and "not automated yet" in o.event  # 完成 was already pressed: Phase B gets its turn
+    assert o.case_status == "phase_b" and o.enqueue == ["phase_b"]  # 完成 was already pressed: Phase B gets its turn
     assert milestones_after("phase_a", o, saved=True) == ["case_opened"]  # no "documents uploaded"
     o2 = run_phase("A", case(), writes=True, driver=D(save=DriveResult(ok=True, case_id="22322999", partial=True)))
     assert o2.case_status == "waiting_user" and o2.enqueue == []
@@ -212,6 +212,7 @@ def test_switch_table(monkeypatch, dryrun, writes, submit, dry_fills, saves):
     calls = []
     d = _CdpDriver("x.mjs")
     d._create = lambda live: calls.append(live) or DriveResult(ok=True, case_id="1", partial=True)
+    d._report = lambda live, cid, ext: (True, False, "report " + ("saved" if live else "filled"))  # the report step has its own tests
     d.dry_run("A", ())
     assert calls == ([False] if dry_fills else [])
     calls.clear()
@@ -284,3 +285,17 @@ def test_with_a_one_case_limit_only_the_named_case_can_reach_a_live_create(monke
     d = _CdpDriver("x", lambda org: None)
     d.case = {"id": "c-other"}
     assert d.save("A", ()).error == "step_not_ported"
+
+
+def test_live_save_stops_after_the_case_when_the_report_is_not_saved(monkeypatch):
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on")):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    d = _CdpDriver("x.mjs")
+    d._create = lambda live: DriveResult(ok=True, case_id="22322999", ext_id="9800111", partial=True)
+    d._report = lambda live, cid, ext: (False, False, "Adjuster Report not filled: colour_unknown")
+    docs = []
+    d._docs = lambda *a: docs.append(a)
+    r = d.save("A", ())
+    assert not r.ok and r.fatal and r.case_id == "22322999" and "colour_unknown" in r.line
+    assert docs == []  # documents wait until the report is saved (playbook order)
