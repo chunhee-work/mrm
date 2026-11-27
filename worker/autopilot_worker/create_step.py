@@ -7,8 +7,8 @@ live save (live=True), in this order:
   1. a case that already has its Merimen number is skipped; a case whose earlier attempt pressed Next but stored no number STOPS
      (a retry could make a second case: a person looks in the worklist);
   2. the form is filled and every check must pass (the workshop is only looked at so far);
-  3. right before Next: the workshop is LOCKED (claim_workshop_for_case, and it must be the one the form holds), then the "Next pressed"
-     mark is written. A stop before this point locks nothing and leaves no mark;
+  3. right before Next: the workshop is looked at again (a switch stops the case, nothing locked), then LOCKED (claim_workshop_for_case, and it
+     must still be the one the form holds), then the "Next pressed" mark is written. A stop before the lock leaves both untouched;
   4. Next; the case number is written the moment the page shows it, before the manager and adjuster are set."""
 
 from __future__ import annotations
@@ -39,10 +39,14 @@ def run_create_step(case: dict, *, profile, workshop, page_for, live: bool, prog
     if page is None:
         return DriveResult(ok=False, error="no_tab", line="No logged-in Merimen tab")
 
+    def same(w) -> bool:
+        return bool(w) and (int(w.get("slot") or 1), " ".join((w.get("name") or "").split())) == (spec.workshop_slot, spec.workshop_name)
+
     def before_submit():
-        w = workshop(True)  # locks it: from here the user cannot switch this case's workshop
-        if not w or (int(w.get("slot") or 1), (w.get("name") or "").strip()) != (spec.workshop_slot, spec.workshop_name):
-            return "workshop_changed"  # the user switched it while the form was filled: nothing was pressed, the next try uses the locked one
+        if not same(workshop(False)):
+            return "workshop_changed"  # the user switched it while the form was filled: nothing is locked, nothing was pressed
+        if not same(workshop(True)):  # locks it: from here the user cannot switch this case's workshop (a switch right now is caught here)
+            return "workshop_changed"
         if marks is not None and not marks.press():
             return "create_unclear"
         return None

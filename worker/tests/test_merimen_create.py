@@ -22,6 +22,10 @@ def test_pick_person_prefers_the_exact_name_and_the_hq_option():
     assert pick_person(opts, "terrence  chia") == "2"
     assert pick_person([("1", "Someone Else")], "Terrence Chia") is None
     assert pick_person(opts, "") is None
+    # no exact name: a short option text inside a longer typed name is NOT a match, and two partial hits are not guessed between
+    assert pick_person([("1", "Tan"), ("2", "Ng")], "Tan Ah Kow") is None
+    assert pick_person([("1", "Tan Ah Kow Junior"), ("2", "Tan Ah Kow Senior")], "Tan Ah Kow") is None
+    assert pick_person([("1", "Tan Ah Kow Junior"), ("2", "Lim")], "Tan Ah Kow") == "1"
 
 
 def test_pick_workshop_row_is_exactly_one_never_the_first_of_several():
@@ -344,4 +348,12 @@ def test_a_white_model_option_is_flagged(browser):
     rep = run.fill(spec())
     run.close()
     assert rep.ok and rep.white_model is False and rep.readback.startswith("ddlbInsurer=Allianz")
+    ctx.close()
+
+
+def test_a_form_that_stays_without_saying_why_is_unclear_and_keeps_the_mark(browser):
+    ctx, base, _ = site(browser, next_action="act_clmreg")
+    ctx.route("https://www.merimen.com.my/claims/index.cfm?*fuseaction=act_clmreg*", lambda r: r.fulfill(content_type="text/html", body="<html><body><p>Saving</p></body></html>"))
+    rep = MerimenCreate(base, timeout_scale=0.02).create(spec())
+    assert not rep.ok and rep.code == "create_unclear" and rep.cleared is False and rep.case_id is None
     ctx.close()

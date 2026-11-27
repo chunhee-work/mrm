@@ -42,27 +42,25 @@ def norm(text: str) -> str:
 
 
 def pick_person(options: list[tuple[str, str]], name: str) -> str | None:
-    """The option value for a manager or adjuster typed by the user. Exact name (the "(HQ)" mark ignored) beats a partial one, an
-    "(HQ)" option beats a plain one (playbook 02), the first of equals wins. None when nothing fits: the caller stops, never guesses."""
+    """The option value for a manager or adjuster typed by the user. An exact name (the "(HQ)" mark ignored) wins and an "(HQ)" option beats
+    a plain one (playbook 02); the first of equals wins. With no exact name, a partial hit counts only when the typed name sits inside
+    exactly one option's text; two or more, or none, is None: the caller stops and says so, never guesses."""
     want = norm(name)
     if not want:
         return None
-    best: tuple[int, str] | None = None
+    exact: list[tuple[int, str]] = []
+    partial: list[str] = []
     for value, text in options:
         if not value:
             continue
         t = norm(text)
         if t == want:
-            rank = 0
-        elif want in t or (t and t in want):
-            rank = 2
-        else:
-            continue
-        if "(hq)" in (text or "").lower():
-            rank -= 1
-        if best is None or rank < best[0]:
-            best = (rank, value)
-    return best[1] if best else None
+            exact.append((0 if "(hq)" in (text or "").lower() else 1, value))
+        elif f" {want} " in f" {t} ":
+            partial.append(value)
+    if exact:
+        return min(exact, key=lambda x: x[0])[1]  # min keeps the first of equals
+    return partial[0] if len(partial) == 1 else None
 
 
 def pick_workshop_row(rows: list[str], name: str) -> tuple[int | None, str]:
@@ -434,6 +432,13 @@ class MerimenCreate:
         self._ok_loop(6)
         w(2500)
         url = cur.url or ""
+        # a slow Merimen still shows the form while it saves: wait (up to ~20 s more) for the page to move or to say why it will not
+        for _ in range(10):
+            if not re.search(r"act_clmreg|dsp_clmreg", url) or self.unexpected or cur.evaluate(_MSGS) or cur.evaluate(
+                    "(rx) => new RegExp(rx, 'i').test(document.body.innerText || '')", DUP.pattern):
+                break
+            w(2000)
+            url = cur.url or ""
         if self.unexpected and re.search(r"act_clmreg|dsp_clmreg", url):
             rep.ok, rep.code, rep.cleared = False, "unexpected_dialog", True  # dismissed = not submitted: still on the form, no case
             rep.messages = list(self.unexpected)[:3]
@@ -443,8 +448,12 @@ class MerimenCreate:
                 # the owner's script confirms this warning; a retry after a crash would also land here, so the worker stops and a person decides
                 rep.ok, rep.code = False, "duplicate_warning"
                 return rep
-            rep.ok, rep.code, rep.cleared = False, "form_rejected", True  # still on the form: Merimen made no case
             rep.messages = [m[:160] for m in cur.evaluate(_MSGS)]
+            if not rep.messages:  # still the form but nothing says why: the save may still be running, so the mark stays
+                rep.ok, rep.code = False, "create_unclear"
+                rep.messages = ["still on the create form, no reason shown"]
+                return rep
+            rep.ok, rep.code, rep.cleared = False, "form_rejected", True  # the form says why it was not accepted: Merimen made no case
             return rep
         if "adjclmref" not in url:
             # Next was pressed and the page is neither the form nor the manager page: the case may exist. Keep what is safe to keep (the page

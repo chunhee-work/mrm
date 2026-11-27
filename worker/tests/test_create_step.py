@@ -71,7 +71,7 @@ def test_a_dry_run_fills_only_looks_at_the_workshop_and_always_closes():
 def test_a_live_save_looks_first_locks_the_workshop_only_right_before_next_then_marks():
     m = Marks()
     r, asked = step(case(), live=True, rep=CreateReport(ok=True, case_id="22322999", ext_id="9800111"), marks=m)
-    assert (r.ok, r.case_id, r.ext_id, r.partial) == (True, "22322999", "9800111", True) and asked == [False, True] and m.calls == ["press"]
+    assert (r.ok, r.case_id, r.ext_id, r.partial) == (True, "22322999", "9800111", True) and asked == [False, False, True] and m.calls == ["press"]
     assert FakeRun.log == ["create", "close", "progress:create_case"] and float(r.minutes) >= 0
 
 
@@ -86,7 +86,7 @@ def test_a_workshop_switched_while_the_form_was_filled_stops_before_next_and_is_
     m = Marks()
     moved = {"slot": 2, "name": "Bengkel Cheras"}
     r, asked = step(case(), live=True, rep=CreateReport(ok=True, case_id="9"), claimed=moved, marks=m)
-    assert not r.ok and not r.fatal and r.error == "workshop_changed" and m.calls == [] and asked == [False, True]
+    assert not r.ok and not r.fatal and r.error == "workshop_changed" and m.calls == [] and asked == [False, False, True]
     r, _ = step(case(), live=True, rep=CreateReport(ok=True, case_id="9"), workshop=None, marks=m)
     assert not r.ok and r.error == "workshop_missing" and "workshop_missing" in r.line  # no workshop name at all: never workshop 1
 
