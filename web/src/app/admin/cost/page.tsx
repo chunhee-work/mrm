@@ -3,7 +3,8 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { orgSpend } from "@/lib/admin/anthropic-admin";
 import { costPage } from "@/lib/admin/queries";
 import { liveCost } from "@/lib/admin/live";
-import { ago } from "@/lib/admin/format";
+import { ago, day as dayLabel } from "@/lib/admin/format";
+import { creditLeft } from "@/lib/admin/credit";
 import { AutoRefresh } from "./auto-refresh";
 import { PRICES, pricesStale } from "@/lib/pricing";
 import { IconCases, IconChip, IconCost, IconErrors, IconUsers } from "../_icons";
@@ -26,6 +27,7 @@ export default async function Cost({ searchParams }: { searchParams: Sp }) {
   // With the app's own key known, compare like with like (that key vs our count); otherwise the whole organization vs our count.
   const compareTo = appKey ? appKey.usd : orgTotal;
   const diff = compareTo - total;
+  const credit = org.state === "not_connected" ? null : creditLeft(orgDays);
   return (
     <Shell current="cost" scope={scope} title={<>Cost <span className="ml-1 font-sans text-[14px] font-normal text-mute">Last 30 days</span> <span className="ml-2 align-middle font-sans"><AutoRefresh /></span></>}>
       {pricesStale() ? (
@@ -40,6 +42,11 @@ export default async function Cost({ searchParams }: { searchParams: Sp }) {
         <Stat icon={<IconChip />} label="Last AI call" value={live.lastCallAt ? ago(live.lastCallAt) : "–"} sub={live.lastCallAt ? when(live.lastCallAt) : "No calls yet"} />
         <Stat icon={<IconCost />} label={appKey ? "Anthropic today (this app's key)" : "Anthropic today"} value={org.state === "not_connected" ? "–" : usd(appKey ? appKey.today : orgDays.find((d) => d.date === today)?.usd ?? 0)} sub={refreshedAt ? `complete until ${when(refreshedAt)}` : "delayed by Anthropic"} />
       </div>
+      {credit ? (
+        <div className="mb-3">
+          <Stat icon={<IconCost />} label="Plan credit left this month" value={usd(credit.left)} sub={`${usd(credit.used)} of ${usd(credit.total)} used since ${dayLabel(credit.since)} · renews ${dayLabel(credit.renews)}`} alert={credit.left < credit.total * 0.1 ? "Less than 10% of the credit is left" : false} />
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icon={<IconCost />} label="Today" value={usd(sum(today))} />
         <Stat icon={<IconCost />} label="7 days" value={usd(sum(week))} />
