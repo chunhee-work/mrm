@@ -89,9 +89,10 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
     return { cars, extras: [...extras] };
   };
   // cars sit at the top, or one level down inside a wrapping folder (with anything else beside it counted as extra).
-  // A level where two folders name the same plate ("Policy/WA1234B/" and "Claim/WA1234B/", or "WA1234B" and "WA 1234B") is one
-  // car sorted into folders, never several cars: that level is not used, and such a zip stays one case.
-  const ok = (r: { cars: string[] }) => r.cars.length >= 2 && new Set(r.cars.map((c) => normPlate(c.slice(0, -1).split("/").pop() ?? ""))).size === r.cars.length;
+  // A level counts by its different plates: folders that all name one plate ("Policy/WA1234B/" and "Claim/WA1234B/", or "WA1234B"
+  // and "WA 1234B") are one car sorted into folders and the zip stays one case. With two or more different plates the zip is
+  // several cars even when one plate repeats; planVehicles then refuses it ("dup_plate"), it is never read as one case.
+  const ok = (r: { cars: string[] }) => new Set(r.cars.map((c) => normPlate(c.slice(0, -1).split("/").pop() ?? ""))).size >= 2;
   const top = at(0);
   if (ok(top)) return top;
   const inner = at(1);

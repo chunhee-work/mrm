@@ -129,3 +129,11 @@ test("planVehicles: more files in all than one call can store is refused before 
   assert.throws(() => planVehicles(z, { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxFiles: 2 }), (e: ZipRejected) => e.code === "too_many_files");
   assert.equal(planVehicles(z, { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxFiles: 3 }).length, 2);
 });
+
+test("several cars where one plate repeats in two folders are refused (dup_plate), never read as one case", () => {
+  const pdf = strToU8("%PDF");
+  const z = zipSync({ "DCD4004/a.pdf": pdf, "NCH5773/b.pdf": pdf, "NCH 5773/c.pdf": pdf });
+  assert.throws(() => unzipBundle(z), (e: ZipRejected) => e.code === "multi");
+  assert.throws(() => planVehicles(z), (e: ZipRejected) => e.code === "dup_plate");
+  assert.throws(() => planVehicles(zipSync({ "S/DCD4004/a.pdf": pdf, "S/NCH5773/b.pdf": pdf, "T/NCH5773/c.pdf": pdf })), (e: ZipRejected) => e.code === "dup_plate");
+});
