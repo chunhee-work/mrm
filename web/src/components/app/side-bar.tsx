@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Brand, BrandMark } from "@/components/brand-mark";
 import { Chevron, Exit, Tick } from "./marks";
@@ -45,10 +45,12 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
   const initials = (who.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("") || "?").toUpperCase();
   const menuItem = "flex h-10 w-full items-center gap-3 rounded-[3px] px-3 text-left text-[14.5px] font-medium transition-colors duration-150 hover:bg-panel2";
   const [langOpen, setLangOpen] = useState(false);
+  const router = useRouter();
   function pickLang(l: Lang) {
     document.cookie = `lang=${l}; path=/; max-age=31536000; samesite=lax`;
     setOpen(false);
-    window.location.reload();
+    setLangOpen(false);
+    router.refresh(); // like the phone menu: a reload would drop what is being typed or uploaded
   }
   return (
     <div ref={ref} className={`relative border-t border-hair ${thin ? "p-2.5" : "p-2"}`} data-testid="side-account">

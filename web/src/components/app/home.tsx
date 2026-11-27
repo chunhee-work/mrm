@@ -15,7 +15,7 @@ import { StepDots, StepHeads } from "./case-steps";
 import type { CaseRow } from "./case-table";
 import { currentStepOf } from "@/lib/case-steps";
 import { whenOf } from "@/lib/fmt-when";
-import ProfileCard, { type Cred } from "./profile-card";
+import ProfileCard, { CHECKING, type Cred } from "./profile-card";
 import NewCasePick from "./new-case-pick";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
@@ -196,16 +196,19 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
 }
 
 /** One line per case, the step names once over the step column. A press on the line opens its details right under it. */
-function StepTable({ rows, needle, orgId, total, onDesk }: { rows: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void }) {
+function StepTable({ rows: found, all, needle, orgId, total, onDesk }: { rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void }) {
   const { t } = useT();
   const [open, setOpen] = useState<string | null>(null);
   // while a line is open the list keeps its order: a case that moves on (完成 pressed in it) stays where the user is looking
   const [order, setOrder] = useState<string[] | null>(null);
+  // a search typed while a line is open keeps that line (and the photo desk in it) on screen
+  const kept = open && !found.some((x) => x.id === open) ? all.find((x) => x.id === open) : undefined;
+  const rows = kept ? [...found, kept] : found;
   const toggle = (id: string | null) => { setOpen(id); setOrder(id ? rows.map((x) => x.id) : null); };
   const at = (id: string) => { const i = order ? order.indexOf(id) : -1; return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
   const lines = order ? [...rows].sort((a, b) => at(a.id) - at(b.id)) : rows;
   // the open case left the list (deleted, or closed elsewhere): back to the normal list
-  useEffect(() => { if (open && !rows.some((x) => x.id === open)) { setOpen(null); setOrder(null); } }, [open, rows]);
+  useEffect(() => { if (open && !all.some((x) => x.id === open)) { setOpen(null); setOrder(null); } }, [open, all]);
   // the list loses its own scroll box while a line is open: bring the opened line to the top of the screen
   useEffect(() => {
     if (!open) return;
@@ -294,7 +297,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
   const needle = squash(q);
   const shown = sortCases(cases).filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
-  const table = <StepTable rows={shown} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setLineOpen} />;
+  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setLineOpen} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
   return (
@@ -321,8 +324,8 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           </div>
         </div>
         {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact={false} /></div>}
-        {/* complete, but the login needs the user (a code from the phone, a wrong password) or blocks new cases: say it here, not only on the details page */}
-        {cred.complete && (cred.blocked || ["otp", "bad_credentials", "unknown", "locked"].includes(cred.verifyState)) && (
+        {/* complete, but the login needs the user (a code from the phone, a wrong password), is still being checked, or is blocked: say it here, not only on the details page */}
+        {cred.complete && (cred.blocked || ["otp", "bad_credentials", "unknown", "locked", ...CHECKING].includes(cred.verifyState)) && (
           <div className="mt-8 max-w-[520px]"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact /></div>
         )}
         {/* a wide screen has Closed cases in the side bar (side-bar.tsx); New case stays here at every width */}

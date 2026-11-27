@@ -1,5 +1,4 @@
 import { getUserOrNull } from "@/lib/session";
-import { profileBlocks } from "@/lib/ext/worker-store";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { and, eq, sql } from "drizzle-orm";
@@ -24,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ])
     : [null, 0, null];
   const email = me?.user.email ?? "";
-  const newBlocked = me ? await profileBlocks(me.orgId).catch(() => false) : false;
+  const newBlocked = cred?.blocks ?? false;
   return (
     <div className="theme-light flex min-h-screen min-h-dvh bg-bay text-fg">
       {me && <Suspense fallback={null}><SideBar email={email} name={me.user.name ?? ""} credits={credits} cred={cred} closed={closed} thin={(await cookies()).get("side")?.value === "thin"} /></Suspense>}

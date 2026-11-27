@@ -8,7 +8,7 @@ export type Cred = {
   workshop: string | null; workshops: { slot: number; name: string }[]; manager: string | null; adjuster: string | null; complete: boolean; storageOk: boolean; keyOk: boolean; blocks: boolean;
 };
 
-const CHECKING = ["queued", "checking", "otp_submitted"];
+export const CHECKING = ["queued", "checking", "otp_submitted"];
 
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -68,7 +68,8 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
     return () => clearInterval(id);
   }, [cred.verifyState, setCred]);
 
-  function fill() { const n = ["", "", ""]; for (const w of cred.workshops ?? []) if (w.slot >= 1 && w.slot <= 3) n[w.slot - 1] = w.name; if (!n[0] && cred.workshop) n[0] = cred.workshop; setNames(n); setOpened([true, false, false]); setManager(cred.manager ?? ""); setAdjuster(cred.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
+  // `c`: what to put in the boxes, the saved answer right after a save (the `cred` prop is still the old one then)
+  function fill(c: Cred = cred) { const n = ["", "", ""]; for (const w of c.workshops ?? []) if (w.slot >= 1 && w.slot <= 3) n[w.slot - 1] = w.name; if (!n[0] && c.workshop) n[0] = c.workshop; setNames(n); setOpened([true, false, false]); setManager(c.manager ?? ""); setAdjuster(c.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
   // the full form opens with what is saved (the workshop list outlives a deleted login), so a save never drops workshops the user cannot see
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (!compact) fill(); }, []);
@@ -98,7 +99,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
       else if (r.status === 503) { setErr(t("ml.notReady")); setConfirming(false); }
       else if (r.status === 429) { setErr(t("pf.tooMany")); setConfirming(false); }
       else if (!r.ok) { setErr(t("w.err")); setConfirming(false); }
-      else { setCred(await r.json()); closeAll(); fill(); onSaved?.(); }
+      else { const next: Cred = await r.json(); setCred(next); closeAll(); fill(next); onSaved?.(); }
     } catch { setErr(t("w.err")); setConfirming(false); } finally { setPass(""); setShowPass(false); setBusy(false); }
   }
   async function sendCode(e: React.FormEvent) {
@@ -116,7 +117,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
     setBusy(true);
     try {
       const r = await fetch("/api/ext/worker/credentials", { method: "DELETE" });
-      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, manager: null, adjuster: null, complete: false, blocks: cred.keyOk && cred.storageOk }); closeAll(); fill(); onSaved?.(); }
+      if (r.ok) { const next: Cred = { ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, manager: null, adjuster: null, complete: false, blocks: cred.keyOk && cred.storageOk }; setCred(next); closeAll(); fill(next); onSaved?.(); }
     } finally { setBusy(false); setSure(false); }
   }
 

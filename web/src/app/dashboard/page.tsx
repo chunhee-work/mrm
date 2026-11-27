@@ -45,9 +45,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   if (heal.length) after(async () => { await Promise.all(heal.map((run) => run().catch(() => {}))); });
   const have = new Set(newest.map((c) => c.id));
   const rows = [...newest, ...older.filter((c) => !have.has(c.id))];
-  const list = await caseRows(rows);
   // a row of the count was opened, or something was searched for: the table of those cases
-  if (view || q) return <CaseTable rows={list} view={view} q0={q} />;
+  if (view || q) return <CaseTable rows={await caseRows(rows)} view={view} q0={q} />;
 
   // the first page: who is logged in, a search, two buttons, and every open case with its step bar
   // Counted over every case of the org, not only the newest 200: per status, and how many of those still have photos to name
@@ -62,10 +61,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // every open case, newest first, each with its own step bar on the first page. The newest 200 above hold them all unless the
   // count says more are open: then only the open cases are fetched (up to 500; past that a link opens the full table).
   const openCount = counts.docs + counts.photos + counts.active + counts.hold;
-  const openHere = list.filter((r) => r.status !== "done");
-  const openRows = openCount > openHere.length
-    ? await caseRows(await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted, ne(schema.cases.status, "done"))).orderBy(desc(schema.cases.createdAt)).limit(500))
-    : openHere;
+  // the file and photo lookups run only for the open cases that are shown
+  const openHere = rows.filter((r) => r.status !== "done");
+  const openRows = await caseRows(openCount > openHere.length
+    ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted, ne(schema.cases.status, "done"))).orderBy(desc(schema.cases.createdAt)).limit(500)
+    : openHere);
   return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} cred={await credView(orgId)} />;
 }
 

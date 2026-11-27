@@ -297,7 +297,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
             <p className="text-[16px] font-semibold leading-snug text-fg">{t(c.cred && c.cred.complete ? "w.banner" : "pf.needTitle")}</p>
             <p className="mt-1 text-[14.5px] leading-snug text-fg/80 [text-wrap:pretty]">{t("pf.needSub")}</p>
           </div>
-          <Link href="/dashboard" className="btn-primary !h-11">{t("pf.edit")}</Link>
+          <Link href="/details" className="btn-primary !h-11">{t("pf.edit")}</Link>
         </div>
       )}
       {needsFiles ? (
