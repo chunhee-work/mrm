@@ -42,17 +42,20 @@ export async function zipHasPdf(file: Sliceable): Promise<boolean | null> {
  * The vehicle folders of a zip: top-level folders that each hold their own PDF (one folder per car plate, e.g. "DCD4004/…pdf").
  * One folder wrapping everything is looked through. A zip with "Docs/x.pdf" and "Photos/*.jpg" is ONE vehicle, so it gives 1.
  */
-export function vehicleFolders(names: string[]): string[] {
+export function vehiclePrefixes(names: string[]): string[] {
   const usable = names.filter((n) => !n.endsWith("/") && !n.startsWith("__MACOSX/") && !(n.split("/").pop() ?? "").startsWith("."));
-  const split = (list: string[], depth: number) => {
+  const split = (depth: number) => {
     const g = new Map<string, boolean>();
-    for (const n of list) { const parts = n.split("/"); if (parts.length <= depth + 1) continue; const k = parts[depth]; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); }
+    for (const n of usable) { const parts = n.split("/"); if (parts.length <= depth + 1) continue; const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); }
     return g;
   };
-  let g = split(usable, 0);
-  if (g.size === 1) g = split(usable, 1); // everything sits in one wrapping folder
+  let g = split(0);
+  if (g.size === 1) g = split(1); // everything sits in one wrapping folder
   return [...g].filter(([, hasPdf]) => hasPdf).map(([k]) => k);
 }
+
+/** Just the folder names (the plates) of vehiclePrefixes. */
+export const vehicleFolders = (names: string[]): string[] => vehiclePrefixes(names).map((p) => p.slice(0, -1).split("/").pop() as string);
 
 /** The first bytes of a file look like a picture we can take (jpeg, png, webp, heic)? A text file renamed .jpg does not. */
 export function looksLikePhoto(head: Uint8Array): boolean {

@@ -78,8 +78,6 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     const ok = typed.filter((f) => {
       if (fake.has(f)) { why.push(t("new.notPhoto", { name: f.name })); return false; }
       if (f.size === 0) { why.push(t("new.empty", { name: f.name })); return false; }
-      const cars = zipCars.current.get(keyOf(f)) ?? [];
-      if (kindOf(f) === "bundle_zip" && cars.length > 1) { why.push(t("new.zipMulti", { name: f.name, n: String(cars.length), list: cars.slice(0, 3).join(", ") })); return false; }
       if (f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES)) { why.push(t("new.tooBig", { name: f.name, mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })); return false; }
       return true;
     });
@@ -106,6 +104,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       const photoZip = files.find((f) => kindOf(f) === "bundle_zip");
       setMsg(photoZip ? t("new.zipNoPdf", { name: photoZip.name }) : t("new.noDocs")); return;
     }
+    const multi = files.find((f) => kindOf(f) === "bundle_zip" && (zipCars.current.get(keyOf(f))?.length ?? 0) > 1);
+    if (multi && files.length > 1) { setMsg(t("new.zipMultiAlone", { name: multi.name })); return; }
     // the server refuses more files or more bytes than this; say so now instead of after everything went up
     if (files.length > MAX_FILES) { setMsg(t("new.tooMany", { max: String(MAX_FILES), n: String(files.length) })); return; }
     const bytes = files.reduce((s, f) => s + f.size, 0);
@@ -130,6 +130,14 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         setUps((u) => ({ ...u, [i]: 100 })); finished++; setStep(finished);
       });
       uploading = false; setStep(files.length);
+      if (multi) { // one zip, several vehicles: the server makes one case per vehicle
+        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(done[0]) });
+        if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+        if (!sp.ok) throw new Error(t("new.fail"));
+        leaving.current = true;
+        window.location.href = "/cases";
+        return;
+      }
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
@@ -202,6 +210,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
                 <p className="num" aria-live="polite">{[nZip ? `${nZip} zip` : "", nPdf ? `${nPdf} PDF` : "", nPhoto ? t(nPhoto === 1 ? "new.photosOne" : "new.photosN", { n: String(nPhoto) }) : "", sizeOf(total)].filter(Boolean).join(" · ")}</p>
                 {!busy && <button type="button" className="btn-quiet" onClick={() => { setFiles([]); setNotes([]); setMsg(""); setFailed(null); }}>{t("new.removeAll")}</button>}
               </div>
+            )}
+
+            {n === 1 && (zipCars.current.get(keyOf(files[0]))?.length ?? 0) > 1 && (
+              <p role="status" className="text-[14px] text-fg">{t("new.zipSplit", { name: files[0].name, n: String(zipCars.current.get(keyOf(files[0]))!.length) })}</p>
             )}
 
             {n > 0 && busy && (

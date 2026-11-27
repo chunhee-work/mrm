@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { unzipBundle, ZipRejected } from "./unzip-bundle";
+import { unzipBundle, unzipVehicles, ZipRejected } from "./unzip-bundle";
 
 const pdf = strToU8("%PDF-1.4 fake");
 const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
@@ -45,4 +45,19 @@ test("a zip of several vehicles (one folder each, each with its own PDF) is refu
   assert.equal(unzipBundle(one).length, 2);
   const oneWrapped = zipSync({ "AAA1/Docs/rc.pdf": pdf, "AAA1/Photos/1.jpg": jpg });
   assert.equal(unzipBundle(oneWrapped).length, 2);
+});
+
+test("unzipVehicles: one entry list per plate folder (a wrapping folder is looked through); a folder without a PDF is dropped", () => {
+  const z = zipSync({ "ALL/AAA1/a.pdf": pdf, "ALL/AAA1/1.jpg": jpg, "ALL/AAA1/2.JPG": jpg, "ALL/BBB2/b.pdf": pdf, "ALL/BBB2/x.txt": strToU8("x"), "ALL/CCC3/1.jpg": jpg, "__MACOSX/ALL/._a": pdf });
+  const v = unzipVehicles(z);
+  assert.deepEqual([...v.keys()].sort(), ["AAA1", "BBB2"]);
+  assert.equal(v.get("AAA1")!.length, 3);
+  assert.equal(v.get("BBB2")!.length, 1);
+});
+
+test("unzipVehicles: the entry limit counts per vehicle, and a one-vehicle zip is refused as empty", () => {
+  const z = zipSync({ "A/a.pdf": pdf, "A/1.jpg": jpg, "A/2.jpg": jpg, "B/b.pdf": pdf });
+  assert.throws(() => unzipVehicles(z, { maxEntries: 2, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6 }), (e: ZipRejected) => e.code === "too_many");
+  assert.equal(unzipVehicles(z, { maxEntries: 3, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6 }).size, 2);
+  assert.throws(() => unzipVehicles(zipSync({ "Docs/a.pdf": pdf, "Photos/1.jpg": jpg })), (e: ZipRejected) => e.code === "empty");
 });
