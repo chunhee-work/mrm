@@ -60,8 +60,9 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
 /**
  * Limits for a zip of several vehicles: each vehicle is held to the single-zip entry limit, the whole archive gets more room, and a
  * PDF must fit what the reader takes in one call (a bigger one would only fail later, as the customer's fault, after the charge).
+ * One car opened is at most what a single-car zip may hold (250 MB): the split holds the zip and one opened car in memory at once.
  */
-export const SPLIT_LIMITS = { ...ZIP_LIMITS, maxTotalBytes: 600 * 1024 * 1024, maxPdfBytes: MAX_PDF_BYTES };
+export const SPLIT_LIMITS = { ...ZIP_LIMITS, maxTotalBytes: 600 * 1024 * 1024, maxPdfBytes: MAX_PDF_BYTES, maxCarBytes: ZIP_LIMITS.maxTotalBytes };
 export { MAX_VEHICLES };
 
 export type VehiclePlan = { prefix: string; plate: string; files: number };
@@ -77,18 +78,19 @@ const usableIn = (name: string) => {
  * case would take ("mixed"), refuses the zip; so does a car folder whose PDFs are all empty ("car_no_pdf").
  * Throws ZipRejected; "empty" when it is not a multi-vehicle zip.
  */
-export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number } = SPLIT_LIMITS): VehiclePlan[] {
+export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number; maxCarBytes?: number } = SPLIT_LIMITS): VehiclePlan[] {
   const all: { name: string; size: number }[] = [];
   try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize }); return false; } }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }
   // the same names-only layout the browser saw; an empty loose file is not an extra, a car whose PDFs are all empty is refused below
   const { cars: prefixes, extras: named } = vehicleLayout(all.map((f) => f.name));
   const nonEmpty = new Set(all.filter((f) => f.size > 0).map((f) => f.name));
-  const extras = named.filter((x) => !x.endsWith("/") ? nonEmpty.has(x) : all.some((f) => f.size > 0 && f.name.startsWith(x)));
+  const extras = named.filter((x) => !x.endsWith("/") ? nonEmpty.has(x) : all.some((f) => f.size > 0 && f.name.startsWith(x) && usableIn(f.name)));
   if (prefixes.length < 2) throw new ZipRejected("empty", ZIP_WHY.empty);
   if (prefixes.length > MAX_VEHICLES) throw new ZipRejected("too_many_cars", ZIP_WHY.too_many_cars);
   if (extras.length) throw new ZipRejected("mixed", ZIP_WHY.mixed); // a split would leave these files out of every case
   const counts = new Map<string, number>();
+  const carBytes = new Map<string, number>();
   let total = 0;
   for (const f of all) {
     const pre = prefixes.find((p) => f.name.startsWith(p));
@@ -99,7 +101,8 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
     if (f.size > limits.maxEntryBytes) throw new ZipRejected("too_big", ZIP_WHY.entry_big);
     if (pdf && limits.maxPdfBytes && f.size > limits.maxPdfBytes) throw new ZipRejected("pdf_big", ZIP_WHY.pdf_big);
     total += f.size;
-    if (total > limits.maxTotalBytes) throw new ZipRejected("too_big", ZIP_WHY.too_big);
+    const car = (carBytes.get(pre) ?? 0) + f.size; carBytes.set(pre, car);
+    if (total > limits.maxTotalBytes || (limits.maxCarBytes && car > limits.maxCarBytes)) throw new ZipRejected("too_big", ZIP_WHY.too_big);
     if (buf.length > 0 && total / buf.length > limits.maxRatio) throw new ZipRejected("bomb", ZIP_WHY.bomb);
   }
   for (const p of prefixes) if (!all.some((f) => f.size > 0 && f.name.startsWith(p) && /\.pdf$/i.test(f.name) && usableIn(f.name))) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);

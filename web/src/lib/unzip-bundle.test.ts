@@ -105,3 +105,20 @@ test("files in hidden folders inside a car folder are not case files", () => {
   assert.deepEqual(unzipVehicle(z, "AAA1111/").map((e) => e.name), ["a.pdf"]);
   assert.deepEqual(unzipBundle(zipSync({ "Docs/a.pdf": pdf, "Docs/.cache/x.jpg": strToU8("jpg") })).map((e) => e.name), ["a.pdf"]);
 });
+
+test("one car sorted by type into folders that each name its plate stays one case, never several charged cases of the same plate", () => {
+  const pdf = strToU8("%PDF");
+  const z = zipSync({ "Policy/WA1234B/p.pdf": pdf, "Claim/WA1234B/c.pdf": pdf });
+  assert.equal(unzipBundle(z).length, 2);
+  assert.throws(() => planVehicles(z), (e: ZipRejected) => e.code === "empty");
+  assert.throws(() => planVehicles(zipSync({ "WA1234B/a.pdf": pdf, "WA 1234B/b.pdf": pdf })), (e: ZipRejected) => e.code === "empty");
+  assert.equal(planVehicles(zipSync({ "A/DCD1/a.pdf": pdf, "A/NCH2/b.pdf": pdf })).length, 2);
+});
+
+test("planVehicles: one car larger than a single-car zip may be is refused before anything is stored; ignored files beside cars are not extras", () => {
+  const pdf = strToU8("%PDF-1.4 x");
+  const z = zipSync({ "AAA1111/a.pdf": pdf, "AAA1111/b.pdf": pdf, "BBB2222/a.pdf": pdf });
+  assert.throws(() => planVehicles(z, { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxCarBytes: 15 }), (e: ZipRejected) => e.code === "too_big");
+  assert.equal(planVehicles(z, { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxCarBytes: 25 }).length, 2);
+  assert.equal(planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "Photos/.DS_Store": strToU8("x"), "Photos/a.jpg": new Uint8Array(0) })).length, 2);
+});
