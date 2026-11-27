@@ -43,6 +43,9 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const zipPdf = useRef<Map<string, boolean | null>>(new Map()); // R2-B10: does each chosen zip hold a PDF (null: cannot tell)
   const zipCars = useRef<Map<string, string[] | null>>(new Map()); // vehicle folders of each chosen zip (null: its file list could not be read)
   const leaving = useRef(false); // R2-B01: set once the case exists, so our own redirect never trips the leave guard
+  // false once the page is gone (Back during a send): the files already up stay, but no case is made and no credit spent
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   // keep the file being uploaded in view inside the ledger
 
@@ -56,7 +59,15 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     window.history.replaceState(window.history.state, "", url.pathname + url.search);
     const f = takeDropped();
     if (!f.length) { setMsg(t("new.dropLost")); return; }
-    void addFiles(f).then((ok) => { if (ok.length) void send(ok); });
+    // the send waits for a press of Upload when the user has something to read first: a file was left out (wrong type,
+    // empty, too big), or a zip holds several cars and will make several cases. Until then the drop zone is closed (busy),
+    // so nothing dropped meanwhile is listed but left out of the send.
+    setBusy(true);
+    void addFiles(f).then((ok) => {
+      const split = ok.some((x) => kindOf(x) === "bundle_zip" && (zipCars.current.get(keyOf(x))?.length ?? 0) > 1);
+      setBusy(false);
+      if (ok.length && ok.length === f.length && !split) void send(ok);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -143,6 +154,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       // check the balance before a single byte goes up
       const pre = await fetch(`/api/cases/credit${multi ? `?n=${zipCars.current.get(keyOf(multi))!.length}&zip=${encodeURIComponent(multi.name)}&size=${multi.size}` : ""}`);
       if (pre.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+      if (!alive.current) return;
       const batchId = crypto.randomUUID();
       const done: { kind: Kind; url: string; name: string; size: number }[] = new Array(files.length);
       let finished = 0;
@@ -156,6 +168,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         setUps((u) => ({ ...u, [i]: 100 })); finished++; setStep(finished);
       });
       uploading = false; setStep(files.length);
+      if (!alive.current) return; // the user left while the files went up
       if (multi || unknown) { // one zip, several vehicles: the server makes one case per vehicle
         // a lost connection does not stop the server: cars may be made, so the message is the split one, not "nothing happened"
         const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...done[0], fallback: unknown }) })

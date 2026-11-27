@@ -469,6 +469,24 @@ try {
     // a plain New case never gets dropped files; a ?dropped=1 visit with nothing held says so
     await page.goto(`${BASE}/cases/new?dropped=1`);
     await page.getByText(/did not arrive|没有带过来|tidak sampai/).waitFor();
+    // a drop with a file left out does not send: the note stays and Upload waits for a press
+    await page.goto(`${BASE}/dashboard`);
+    await page.getByTestId("home-new").waitFor();
+    let sent = 0;
+    await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
+    await page.evaluate(() => {
+      const dt = new DataTransfer();
+      dt.items.add(new File(["%PDF-1.4"], "mixed.pdf", { type: "application/pdf" }));
+      dt.items.add(new File(["hello"], "notes.txt", { type: "text/plain" }));
+      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    await page.waitForURL(/\/cases\/new$/);
+    await page.getByText("mixed.pdf").waitFor();
+    await page.getByText(/notes\.txt/).first().waitFor();
+    await page.waitForTimeout(800);
+    assert.equal(sent, 0, "nothing sent while a file was left out");
+    await page.unroute("**/api/cases/credit*");
     await page.goto(`${BASE}/dashboard`);
     const docs = page.locator('[data-bucket="docs"] a');
     assert.match(await docs.innerText(), /^\s*[1-9]/, "the count of cases waiting for documents");

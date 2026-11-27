@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Chevron, Plus, Search, UploadArt } from "./marks";
-import { DROPPED_PARAM, holdDropped } from "@/lib/dropped-files";
+import { DROPPED_PARAM, holdDropped, takeDropped } from "@/lib/dropped-files";
 import { useFileDrag } from "./drop-zone";
 import { OPEN_BUCKETS, type Bucket } from "./status";
 
@@ -34,6 +34,10 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
   // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
   // after the drop the overlay stays until the new-case page replaces this one, so the wait is not a blank moment
   const [going, setGoing] = useState(false);
+  // files held by a drop whose trip to the new-case page was cut short are let go when this page shows again
+  useEffect(() => { takeDropped(); }, []);
+  // if the trip never ends (navigation stalled or replaced), the overlay goes after 15 s and drops work again
+  useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), 15_000); return () => window.clearTimeout(id); }, [going]);
   const over = useFileDrag(!going, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
 
   // "On hold" is a row only when a case is on hold; the other three are always there, so the box keeps its shape
