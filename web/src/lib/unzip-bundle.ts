@@ -1,6 +1,6 @@
 import { unzipSync } from "fflate";
 import { ZIP_WHY } from "@/lib/case-text"; // the same words userFixable looks for
-import { MAX_VEHICLES, vehicleFolders, vehicleLayout } from "@/lib/peek-files";
+import { MAX_VEHICLES, normPlate, vehicleFolders, vehicleLayout } from "@/lib/peek-files";
 import { MAX_PDF_BYTES } from "@/lib/upload-rules";
 
 /** Limits for opening a customer's zip. A zip is untrusted input: count, size and ratio are all capped (zip-bomb guard). */
@@ -13,7 +13,7 @@ export const ZIP_LIMITS = {
 
 export type BundleEntry = { name: string; kind: "pdf" | "photo"; bytes: Uint8Array; type: string };
 export class ZipRejected extends Error {
-  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "car_big" | "mixed" | "car_no_pdf" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
+  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "car_big" | "dup_plate" | "mixed" | "car_no_pdf" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
 }
 
 const PHOTO = /\.(jpe?g|png|webp|heic)$/i;
@@ -90,6 +90,7 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
   if (prefixes.length < 2) throw new ZipRejected("empty", ZIP_WHY.empty);
   if (prefixes.length > MAX_VEHICLES) throw new ZipRejected("too_many_cars", ZIP_WHY.too_many_cars);
   if (extras.length) throw new ZipRejected("mixed", ZIP_WHY.mixed); // a split would leave these files out of every case
+  if (new Set(prefixes.map((p) => normPlate(p.slice(0, -1).split("/").pop() ?? ""))).size < prefixes.length) throw new ZipRejected("dup_plate", ZIP_WHY.dup_plate); // the user puts that car into one folder
   const counts = new Map<string, number>();
   const carBytes = new Map<string, number>();
   let total = 0;
