@@ -1,5 +1,5 @@
-// Linux CDP helper for the worker Chrome. A person logs in themselves in that window.
-// This file never types a password and never prints a query string (CFID / CFTOKEN live there).
+// Linux CDP helper for the worker Chrome. A person logs in themselves in that window, or (MERIMEN_LOGIN=on) the `login`
+// command types the saved login ONCE into Merimen's own login page. The password is never written to stdout or a log.
 import { pathToFileURL } from "node:url";
 
 export const MERIMEN_START = "https://www.merimen.com.my/claims/index.cfm";
@@ -50,34 +50,229 @@ export function fillExpression(fields) {
   })()`;
 }
 
-async function evalOn(port, expression) {
-  const list = await fetch(`http://127.0.0.1:${port}/json/list`).then((r) => r.json());
-  const page = (list || []).find((t) => t.type === "page" && /merimen\.com\.my/.test(t.url || ""));
-  if (!page || !page.webSocketDebuggerUrl) return { ok: false, error: "no_tab", loggedIn: false, hasPassword: false };
-  const loggedIn = isLoggedInUrl(page.url || "");
+export const MERIMEN_ORIGIN = "https://www.merimen.com.my";
+
+// The whole origin must be Merimen's. A piece of the address is not enough: "https://evil.example/?x=merimen.com.my" is not Merimen.
+export function isMerimenOrigin(raw) {
+  try {
+    return new URL(raw).origin === MERIMEN_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
+export function pickMerimenTab(list) {
+  return (list || []).find((t) => t && t.type === "page" && t.webSocketDebuggerUrl && isMerimenOrigin(t.url || "")) || null;
+}
+
+const STEP_MS = 8000; // every wait on Chrome ends by itself, so the script always reports where it stopped
+
+function within(promise, ms) {
+  let timer;
+  const late = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error("cdp timeout")), ms); });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+}
+
+async function listTabs(port, ms = 5000) {
+  const r = await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(ms) });
+  return r.json();
+}
+
+// One debugging socket to one tab. eval() gives the value back, or throws (socket error, page error, no answer in time).
+async function attachTab(page, { openMs = 5000, evalMs = STEP_MS } = {}) {
   const ws = new WebSocket(page.webSocketDebuggerUrl);
-  await new Promise((res, rej) => {
+  await within(new Promise((res, rej) => {
     ws.addEventListener("open", res, { once: true });
     ws.addEventListener("error", () => rej(new Error("cdp")), { once: true });
-  });
+  }), openMs);
   let n = 0;
   const pending = new Map();
+  const fail = () => {
+    for (const p of pending.values()) p.reject(new Error("cdp"));
+    pending.clear();
+  };
   ws.addEventListener("message", (ev) => {
     const m = JSON.parse(ev.data);
-    if (m.id && pending.has(m.id)) pending.get(m.id)(m);
+    if (m.id && pending.has(m.id)) {
+      pending.get(m.id).resolve(m);
+      pending.delete(m.id);
+    }
   });
-  const send = (method, params) => new Promise((resolve) => {
-    const id = ++n;
-    pending.set(id, resolve);
-    ws.send(JSON.stringify({ id, method, params }));
-  });
+  ws.addEventListener("close", fail);
+  ws.addEventListener("error", fail);
+  return {
+    async eval(expression) {
+      const ran = await within(new Promise((resolve, reject) => {
+        const id = ++n;
+        pending.set(id, { resolve, reject });
+        ws.send(JSON.stringify({ id, method: "Runtime.evaluate", params: { expression, returnByValue: true } }));
+      }), evalMs);
+      if (ran.error || (ran.result && ran.result.exceptionDetails)) throw new Error("cdp eval");
+      return ran.result && ran.result.result ? ran.result.result.value : null;
+    },
+    close() {
+      try { ws.close(); } catch { /* already closed */ }
+    },
+  };
+}
+
+async function evalOn(port, expression) {
+  const page = pickMerimenTab(await listTabs(port));
+  if (!page) return { ok: false, error: "no_tab", loggedIn: false, hasPassword: false };
+  const loggedIn = isLoggedInUrl(page.url || "");
+  const tab = await attachTab(page);
   try {
-    const ran = await send("Runtime.evaluate", { expression, returnByValue: true });
-    const value = ran.result && ran.result.result ? ran.result.result.value : null;
+    const value = await tab.eval(expression);
     return { ok: true, value, loggedIn, hasPassword: value === "password_page" || value === true };
   } finally {
-    ws.close();
+    tab.close();
   }
+}
+
+// ---- login: one try ----
+// What a page is, decided inside the page. Read only.
+//   login_page    Merimen's own origin, NOT a logged-in address, exactly ONE visible password box, and in the SAME form exactly one
+//                 visible user-name text box and one visible login control. Only this page is ever typed into.
+//   session_live  Merimen's own origin, a logged-in address (the same rule as isLoggedInUrl: /claims/ with CFID and RID) and no
+//                 password box at all: a person is logged in here. Nothing is typed; the saved password is not tested.
+//   not_login_page everything else: a change-password page, a page with several password boxes, a form without a login control...
+// The login control is a visible <input type=submit|button|image>, <button> or <a> inside that form. A hidden input is never it
+// (its value may well say "login"), and neither is anything that says logout, forgot or help.
+const LOGIN_PARTS = `
+  const ORIGIN = ${JSON.stringify(MERIMEN_ORIGIN)};
+  const href = String(location.href);
+  const query = href.split("#")[0].split("?")[1] || "";
+  const has = (k) => new RegExp("(^|&)" + k + "=[^&]+").test(query);
+  const onMerimen = location.origin === ORIGIN;
+  const loggedIn = onMerimen && href.split("?")[0].startsWith(ORIGIN + "/claims/") && has("CFID") && has("RID");
+  const kind = (e) => String(e.tagName || "").toUpperCase();
+  const type = (e) => String(e.type || "").toLowerCase();
+  const shown = (e) => !!e && !!e.offsetParent && type(e) !== "hidden";
+  const passAll = [...document.querySelectorAll("input[type=password]")];
+  const passShown = passAll.filter(shown);
+  const p = passShown.length === 1 ? passShown[0] : null;
+  const form = p ? (p.form || null) : null;
+  const inForm = (e) => !!form && (e.form === form || (typeof e.closest === "function" && e.closest("form") === form));
+  const users = form ? [...document.querySelectorAll("input")].filter((i) => i !== p && inForm(i) && shown(i) && /^(text|email)$/.test(type(i) || "text")) : [];
+  const txt = users.length === 1 ? users[0] : null;
+  const label = (e) => String(e.value || e.innerText || e.alt || e.title || "").replace(/\\s+/g, " ").trim();
+  const controls = form ? [...document.querySelectorAll("input,button,a")].filter((e) => e !== p && e !== txt && inForm(e) && shown(e) && (
+    (kind(e) === "INPUT" && /^(submit|button|image)$/.test(type(e))) || (kind(e) === "BUTTON" && type(e) !== "reset") || kind(e) === "A")) : [];
+  const loginWord = (t) => t.length <= 24 && /^(log ?in|sign ?in|log ?masuk|masuk|submit)\\b/i.test(t) && !/out|keluar|forgot|lupa|help|history|[?]/i.test(t);
+  const named = controls.filter((e) => loginWord(label(e)));
+  const real = controls.filter((e) => (kind(e) === "INPUT" && /^(submit|image)$/.test(type(e))) || (kind(e) === "BUTTON" && /^(submit)?$/.test(type(e))));
+  const b = named.length === 1 ? named[0] : (named.length === 0 && real.length === 1 ? real[0] : null);
+  const state = onMerimen && !loggedIn && !!p && !!txt && !!b ? "login_page" : (loggedIn && passAll.length === 0 ? "session_live" : "not_login_page");
+`;
+
+// Read only. JSON: { state: "login_page" | "session_live" | "not_login_page", href }.
+export const LOGIN_PROBE = `(() => {${LOGIN_PARTS}
+  return JSON.stringify({ state, href });
+})()`;
+
+// Checks again inside the page (it may have changed since the probe), then types and clicks once. "sent" or "not_login_page".
+export function loginFillExpression(user, pass) {
+  return `(() => {${LOGIN_PARTS}
+    if (state !== "login_page") return "not_login_page";
+    const fire = (e) => { e.dispatchEvent(new Event("input", { bubbles: true })); e.dispatchEvent(new Event("change", { bubbles: true })); };
+    txt.value = ${JSON.stringify(String(user))}; fire(txt);
+    p.value = ${JSON.stringify(String(pass))}; fire(p);
+    b.click();
+    return "sent";
+  })()`;
+}
+
+// Read only: what the page looks like after the submit. Never clicks anything (also not on a "Continue Session" page).
+export const LOGIN_SIGNALS = `(() => JSON.stringify({
+  href: location.href,
+  ready: document.readyState,
+  hasPassword: !!document.querySelector("input[type=password]"),
+  hasOtp: !!document.querySelector("input[autocomplete='one-time-code'], input[name*=otp i], input[name*=tac i]"),
+  text: (((document.querySelector(".error, .err, #msg, .alert, .warning") || {}).innerText) || "").replace(/\\s+/g, " ").slice(0, 500)
+}))()`;
+
+export const AFTER_SUBMIT_MS = 15000; // how long the page is watched after the one submit
+export const AFTER_SUBMIT_EVERY_MS = 1000;
+
+// The one login try. Returns exactly one of:
+//   { offline: true, submitted: false }             Chrome could not be asked; nothing was typed
+//   { result: "not_login_page", submitted: false }  no Merimen login page is open; nothing was typed
+//   { result: "session_live", submitted: false }    a person is logged in on this tab; nothing was typed, the password was not tested
+//   { result: "unknown", submitted: true }          the form may have been sent and the answer could not be read: NEVER try again by itself
+//   { submitted: true, url, text, has_password, has_otp }  the form was sent and the page was read
+// emit({ submitted: true }) is written BEFORE the evaluate that types, so a caller that kills this script still knows.
+export async function runLogin({ port, cred, tabs = listTabs, attach = attachTab, wait = (ms) => new Promise((r) => setTimeout(r, ms)), now = Date.now, emit = () => {} }) {
+  const OFFLINE = { offline: true, submitted: false };
+  const NOT_LOGIN = { result: "not_login_page", submitted: false };
+  const UNKNOWN = { result: "unknown", submitted: true };
+  if (!cred || !cred.username || !cred.password) return OFFLINE; // an empty form is never sent
+  let page;
+  try {
+    page = pickMerimenTab(await tabs(port));
+  } catch {
+    return OFFLINE;
+  }
+  if (!page) return NOT_LOGIN;
+  let tab;
+  try {
+    tab = await attach(page);
+  } catch {
+    return OFFLINE;
+  }
+  let submitted = false;
+  let before = "";
+  try {
+    let probe;
+    try { probe = JSON.parse(await tab.eval(LOGIN_PROBE)); } catch { return OFFLINE; }
+    if (!probe || typeof probe !== "object") return OFFLINE;
+    // both must agree: the page's own test and the address Chrome lists for the tab
+    if (probe.state === "session_live") return isLoggedInUrl(page.url || "") ? { result: "session_live", submitted: false } : NOT_LOGIN;
+    if (probe.state !== "login_page") return NOT_LOGIN;
+    before = String(probe.href || "");
+    emit({ submitted: true });
+    submitted = true;
+    const sent = await tab.eval(loginFillExpression(cred.username, cred.password));
+    if (sent === "not_login_page") return NOT_LOGIN; // the page itself says nothing was typed
+    if (sent !== "sent") return UNKNOWN;
+  } catch {
+    return submitted ? UNKNOWN : OFFLINE;
+  } finally {
+    tab.close();
+  }
+  // Watch the same tab, read only, until the address or the page changes (or the time is up). A read that fails while the page
+  // is loading is just tried again. Nothing is clicked and nothing is typed from here on.
+  const read = async () => {
+    let after;
+    try {
+      const again = (await tabs(port, 2000)).find((t) => t && t.id === page.id && t.webSocketDebuggerUrl && isMerimenOrigin(t.url || ""));
+      if (!again) return null;
+      after = await attach(again, { openMs: 2000, evalMs: 3000 });
+      const seen = JSON.parse(await after.eval(LOGIN_SIGNALS));
+      return seen && typeof seen.href === "string" ? seen : null;
+    } catch {
+      return null;
+    } finally {
+      if (after) after.close();
+    }
+  };
+  const end = now() + AFTER_SUBMIT_MS;
+  let last = null;
+  for (;;) {
+    await wait(AFTER_SUBMIT_EVERY_MS);
+    const seen = await read();
+    if (seen) {
+      last = seen;
+      const changed = seen.href !== before || !seen.hasPassword || !!seen.hasOtp || !!seen.text;
+      if (changed && seen.ready === "complete") {
+        await wait(AFTER_SUBMIT_EVERY_MS); // let the new page settle, then take the picture that is classified
+        last = (await read()) || last;
+        break;
+      }
+    }
+    if (now() >= end) break;
+  }
+  if (!last) return UNKNOWN;
+  return { submitted: true, url: last.href, text: String(last.text || ""), has_password: !!last.hasPassword, has_otp: !!last.hasOtp };
 }
 
 function refuseWrites() {
@@ -95,39 +290,17 @@ async function main() {
       process.stdout.write(JSON.stringify({ ok: false, error: "login_off" }) + "\n");
       process.exit(2);
     }
-    const { readFileSync } = await import("node:fs");
+    const { readFileSync, writeSync } = await import("node:fs");
     let cred = {};
     try { cred = JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { cred = {}; }
-    const user = String(cred.username || "");
-    const pass = String(cred.password || "");
-    const port = Number(process.env.CDP_PORT || "9222");
-    const fill = `(() => {
-      const fire = (e) => { e.dispatchEvent(new Event("input", { bubbles: true })); e.dispatchEvent(new Event("change", { bubbles: true })); };
-      const txt = [...document.querySelectorAll("input")].find((i) => /text|email/i.test(i.type || "text") && i.offsetParent);
-      const p = document.querySelector("input[type=password]");
-      if (txt) { txt.value = ${JSON.stringify(user)}; fire(txt); }
-      if (p) { p.value = ${JSON.stringify(pass)}; fire(p); }
-      const b = [...document.querySelectorAll("input,button,a")].find((e) => /login|log in|sign in/i.test(((e.value || e.innerText || "") + "").trim()));
-      if (b) b.click();
-      return "sent";
-    })()`;
-    const signals = `(() => JSON.stringify({
-      href: location.href,
-      hasPassword: !!document.querySelector("input[type=password]"),
-      hasOtp: !!document.querySelector("input[autocomplete='one-time-code'], input[name*=otp i], input[name*=tac i]"),
-      text: (((document.querySelector(".error, .err, #msg, .alert, .warning") || {}).innerText) || "").replace(/\\s+/g, " ").slice(0, 500)
-    }))()`;
-    try {
-      await evalOn(port, fill);
-      await new Promise((r) => setTimeout(r, 3000));
-      const read = await evalOn(port, signals);
-      const parsed = JSON.parse(read.value || "{}");
-      process.stdout.write(JSON.stringify({ url: parsed.href || "", text: parsed.text || "", has_password: !!parsed.hasPassword, has_otp: !!parsed.hasOtp }) + "\n");
-    } catch {
-      process.stdout.write(JSON.stringify({ offline: true }) + "\n");
-      process.exit(1);
-    }
-    return;
+    const line = (o) => writeSync(1, JSON.stringify(o) + "\n"); // written at once: the caller reads the mark even if it stops this script
+    const out = await runLogin({
+      port: Number(process.env.CDP_PORT || "9222"),
+      cred: { username: String(cred.username || ""), password: String(cred.password || "") },
+      emit: line,
+    });
+    line(out);
+    process.exit(out.offline ? 1 : 0);
   }
   if (cmd === "commit" || cmd === "fill") {
     refuseWrites();

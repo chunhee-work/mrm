@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import pytest
 
 from autopilot_worker import merimen_docs as md
@@ -90,3 +93,29 @@ def test_real_photos_without_case_number_reads_none():
         url = "https://www.merimen.com.my/claims/index.cfm?CFID=1&CFTOKEN=2&USID=3&RID=4"
 
     assert mp.RealPhotos(P(), lambda _i: None).labels({"merimen_caseid": None}) is None
+
+
+def test_a_shrunk_pdf_stays_in_the_jobs_own_folder(tmp_path, monkeypatch):
+    """The smaller copy of a big PDF is a customer's document too: it goes next to the original (the job's folder, removed when the
+    job ends), keeps the file name, is private (0700 folder, 0600 file), and failed tries leave nothing behind. Never a system temp folder."""
+    import fitz
+
+    job = tmp_path / "case1" / "7"
+    job.mkdir(parents=True)
+    src = job / "f5-report.pdf"
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "FAKE TEST DOCUMENT")
+    doc.save(str(src))
+    doc.close()
+    monkeypatch.setattr(md, "MAX_BYTES", 10)  # every file counts as big
+    sizes = iter([10**9, 10**9, 1])  # the first two tries are still too big
+    real = md.os.path.getsize
+    monkeypatch.setattr(md.os.path, "getsize", lambda p: real(p) if p == str(src) else next(sizes))
+    temp_before = set(os.listdir(tempfile.gettempdir()))
+    out = md.shrink(str(src))
+    assert os.path.dirname(os.path.dirname(out)) == str(job) and os.path.basename(out) == "f5-report.pdf"
+    assert sorted(os.listdir(job)) == ["f5-report.pdf", os.path.basename(os.path.dirname(out))]
+    assert os.listdir(os.path.dirname(out)) == ["f5-report.pdf"]  # the two failed tries are gone
+    assert oct(os.stat(os.path.dirname(out)).st_mode & 0o777) == "0o700" and oct(os.stat(out).st_mode & 0o777) == "0o600"
+    assert not {n for n in set(os.listdir(tempfile.gettempdir())) - temp_before if n.startswith("doc-")}

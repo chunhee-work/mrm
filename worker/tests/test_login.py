@@ -72,7 +72,7 @@ def test_verify_calls_the_page_once_and_does_not_keep_the_password():
 
     def fetch(user, password):
         seen.append((user, password))
-        return {"text": "Invalid User ID or password", "has_password": True, "url": "https://www.merimen.com.my/login"}
+        return {"submitted": True, "text": "Invalid User ID or password", "has_password": True, "url": "https://www.merimen.com.my/login"}
 
     decision = run_verify(row, master_key(KEY), fetch)
     assert seen == [("abuser", "s3cret-pass")]
@@ -110,8 +110,7 @@ def test_claim_sql_skips_locked_rows_and_bad_logins():
     assert "not_before" in CLAIM_SQL
     assert "merimen_credentials" in CLAIM_SQL
     assert "org_limit" in CLAIM_SQL
-    assert backoff_seconds(1) == 2
-    assert backoff_seconds(10) == 300
+    assert [backoff_seconds(n) for n in (0, 1, 2, 3, 4, 10)] == [30, 30, 120, 600, 600, 600]
 
 
 def test_python_ciphertext_opens_in_node():

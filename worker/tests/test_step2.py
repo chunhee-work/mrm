@@ -292,3 +292,31 @@ def test_phase_b_goes_on_to_checks_only_if_the_names_it_saved_are_still_final():
     assert o.job_state == "done" and o.case_status == "checking" and o.enqueue == ["checks"]
     assert o.require_snapshot == c["photos_snapshot"] and o.require_snapshot
     assert "names changed meanwhile" in o.stale_event
+
+
+def test_phase_b_a_broken_select_parts_page_stops_for_a_person():
+    from autopilot_worker.merimen_step2 import Step2Error
+
+    class Broken(FakeStep2):
+        def apply(self, case, plan):
+            raise Step2Error("no_save_button")
+
+    o = run_phase("B", case_b(), writes=True, driver=D(Broken(), Fake(held=[])))
+    assert o.job_state == "failed" and o.case_status == "waiting_user" and o.error == "step2" and "no_save_button" in o.event
+
+
+def test_phase_b_estimate_details_saved_stops_before_checks_and_says_so():
+    class Est(D):
+        def save(self, phase, steps):  # what _CdpDriver.save("B") returns after merimen_estimate filled and saved the details
+            return DriveResult(ok=False, error="step_not_ported", line="Estimate details set: conditions on 3 part rows, misc 2. Checks and submit are not automated yet.")
+    o = run_phase("B", case_b(), writes=True, driver=Est())
+    assert o.job_state == "done" and o.case_status is None and o.enqueue == []  # never "Case finished" without checks
+    assert "Parts and labour" in o.event and "Estimate details set" in o.event and "not automated yet" in o.event
+
+
+def test_phase_b_estimate_details_that_did_not_stick_wait_for_a_person():
+    class Est(D):
+        def save(self, phase, steps):
+            return DriveResult(ok=False, fatal=True, error="estimate", line="Estimate details stopped: 1 part rows still have no Damage Condition.")
+    o = run_phase("B", case_b(), writes=True, driver=Est())
+    assert o.job_state == "failed" and o.case_status == "waiting_user" and "no Damage Condition" in o.event
