@@ -415,14 +415,13 @@ class PgRepo:
                   INSERT INTO merimen_case_workshop (case_id, slot, locked_at, locked_name)
                   SELECT id, slot, now(), name FROM cur WHERE name IS NOT NULL
                   ON CONFLICT (case_id) DO UPDATE SET locked_at = COALESCE(merimen_case_workshop.locked_at, now()),
-                                                      locked_name = CASE WHEN EXCLUDED.slot = merimen_case_workshop.slot
-                                                          THEN COALESCE(merimen_case_workshop.locked_name, EXCLUDED.locked_name)
-                                                          ELSE merimen_case_workshop.locked_name END
+                                                      locked_name = COALESCE(merimen_case_workshop.locked_name, EXCLUDED.locked_name)
+                  -- the user moved the case between our read and now: write nothing (no lock); the case then comes back as None
+                  WHERE merimen_case_workshop.slot = EXCLUDED.slot
                   RETURNING slot, locked_name
                 )
-                -- if the user moved the case between reading and locking, slot and name no longer match: return no name (the caller stops; asking again works)
                 SELECT COALESCE(claim.slot, cur.slot)::int,
-                       CASE WHEN claim.slot IS NULL OR claim.slot = cur.slot THEN COALESCE(claim.locked_name, cur.locked_name, cur.name) END
+                       CASE WHEN claim.slot IS NOT NULL THEN claim.locked_name WHEN cur.locked_at IS NOT NULL THEN cur.locked_name END
                 FROM cur LEFT JOIN claim ON true
                 """,
                 (case_id,),

@@ -280,10 +280,10 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     <>
       {Header()}
       <div className="border-b border-hair px-5 py-3 sm:px-8"><CaseSteps caseId={c.id} status={c.status} photos={c.desk?.total ?? c.photos} photosDone={!!c.desk?.doneAt} hint={false} /></div>
-      {(c.workshops?.length ?? 0) >= 2 && (
+      {((c.workshops?.length ?? 0) >= 2 || (!!c.workshops?.length && !c.workshops.some((w) => w.slot === (c.workshopSlot ?? 1)))) && (
         <div className="grid gap-2 border-b border-hair px-5 py-3 sm:px-8" data-testid="case-ws">
           <span className="label">{t("pf.caseWs")}</span>
-          <WorkshopPicker workshops={c.workshops!} value={c.workshopSlot ?? 1} onChange={(n) => void moveTo(n)} disabled={wsBusy || !!c.workshopLocked} testid="case-ws-picker" />
+          <WorkshopPicker workshops={c.workshops!} value={c.workshopSlot ?? 1} onChange={(n) => void moveTo(n)} disabled={wsBusy || !!c.workshopLocked} testid="case-ws-picker" always />
           {c.workshopLocked && <p className="text-[13.5px] text-mute">{t("pf.caseWsLocked")}</p>}
           {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
         </div>
