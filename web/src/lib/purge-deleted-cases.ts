@@ -59,7 +59,7 @@ export async function purgeDeletedCases(remove: (path: string) => Promise<void>,
       OR EXISTS (SELECT 1 FROM case_events e WHERE e.case_id = ${c.id}) OR EXISTS (SELECT 1 FROM step2_log l WHERE l.case_id = ${c.id})
       OR EXISTS (SELECT 1 FROM photo_upload_log g WHERE g.case_id = ${c.id}) OR EXISTS (SELECT 1 FROM photo_learning n WHERE n.case_id = ${c.id})
       OR EXISTS (SELECT 1 FROM case_extras x WHERE x.case_id = ${c.id})
-      OR (${c.caseData} IS NOT NULL AND ${c.caseData} <> 'null'::jsonb))
+      OR (${c.caseData} IS NOT NULL AND ${c.caseData} <> 'null'::jsonb) OR ${c.error} IS NOT NULL OR ${c.pendingDoc} IS NOT NULL OR ${c.photosSnapshot} IS NOT NULL)
       AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.case_id = ${c.id} AND j.state = 'running')`))
     .orderBy(sql`random()`).limit(opts.limit ?? 50); // random: a case that keeps failing cannot starve the others
   const out: PurgeResult = { cases: 0, files: 0, failed: 0 };
@@ -83,6 +83,7 @@ export async function purgeDeletedCases(remove: (path: string) => Promise<void>,
       }
       // the case row keeps plate, car and insurer (owner's choice); the text a bad file's name or a missing-document note can carry goes (first: a run that stops later still finds the rows left and tries again)
       await db.update(c).set({ caseData: null, error: null, pendingDoc: null, photosSnapshot: null }).where(and(eq(c.id, k.id), isNotNull(c.deletedAt)));
+      await db.update(schema.jobs).set({ state: "cancelled" }).where(and(eq(schema.jobs.caseId, k.id), inArray(schema.jobs.state, ["queued", "paused"])));
       if (files.length) await db.delete(schema.caseFiles).where(inArray(schema.caseFiles.id, files.map((f) => f.id)));
       if (photos.length) await db.delete(schema.casePhotos).where(inArray(schema.casePhotos.id, photos.map((p) => p.id)));
       if (shots.length) await db.delete(schema.caseScreenshots).where(inArray(schema.caseScreenshots.id, shots.map((x) => x.id)));
@@ -90,7 +91,6 @@ export async function purgeDeletedCases(remove: (path: string) => Promise<void>,
       // what else the case holds of the customer's documents: the worker's event texts, the plans, the photo upload log, the training
       // labels (their photos are gone) and the extra part names. The case row (plate, car, insurer), usage, jobs and the credit/audit rows stay.
       for (const t of ["case_events", "step2_log", "photo_upload_log", "photo_learning", "case_extras"]) await db.execute(sql`DELETE FROM ${sql.raw(t)} WHERE case_id = ${k.id}`);
-      await db.update(schema.jobs).set({ state: "cancelled" }).where(and(eq(schema.jobs.caseId, k.id), inArray(schema.jobs.state, ["queued", "paused"])));
       await db.insert(schema.auditLog).values({ orgId: k.orgId, userId: null, action: "case.purge", detail: `${k.id}|${mine.length}` }); // last: a retry never writes a second row
       out.cases++; out.files += mine.length;
     } catch (e) {
