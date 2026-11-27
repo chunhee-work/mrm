@@ -7,6 +7,7 @@ import { missingRelation } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
 import { cleanPassword, masterKey, seal } from "@/lib/crypto/merimen-cred";
 import { cleanProfile } from "@/lib/ext/profile";
+import { grantWorkerConsent, revokeWorkerConsent } from "@/lib/ext/consent-grant";
 
 // The user types their own Merimen login here; it is sealed (AES-GCM) and the worker tries it once.
 // Always reachable for a signed-in user (owner 2026-11-27: the form must be there). The old org gate is replaced by the
@@ -92,6 +93,8 @@ export async function POST(req: Request) {
         .where(eq(schema.merimenCredentials.orgId, me.orgId));
     }
     if (!wantsLogin) await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: "save_names" });
+    // the tick box (required above) is the consent the worker's Phase A gate needs
+    await grantWorkerConsent(me.orgId, me.user.id, wantsLogin);
   } catch (e) { if (missingRelation(e)) return NextResponse.json({ error: "not_configured" }, { status: 503 }); throw e; }
   return NextResponse.json(await credView(me.orgId));
 }
@@ -102,6 +105,7 @@ export async function DELETE() {
   try {
     await db.delete(schema.merimenCredentials).where(eq(schema.merimenCredentials.orgId, me.orgId));
     await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: "delete" });
+    await revokeWorkerConsent(me.orgId);
   } catch (e) { if (missingRelation(e)) return NextResponse.json({ error: "not_configured" }, { status: 503 }); throw e; }
   return NextResponse.json({ saved: false });
 }
