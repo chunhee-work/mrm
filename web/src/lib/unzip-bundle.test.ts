@@ -122,3 +122,10 @@ test("planVehicles: one car larger than a single-car zip may be is refused befor
   assert.equal(planVehicles(z, { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxCarBytes: 25 }).length, 2);
   assert.equal(planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "Photos/.DS_Store": strToU8("x"), "Photos/a.jpg": new Uint8Array(0) })).length, 2);
 });
+
+test("planVehicles: more files in all than one call can store is refused before anything is stored", () => {
+  const pdf = strToU8("%PDF");
+  const z = zipSync({ "AAA1111/a.pdf": pdf, "AAA1111/b.pdf": pdf, "BBB2222/a.pdf": pdf });
+  assert.throws(() => planVehicles(z, { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxFiles: 2 }), (e: ZipRejected) => e.code === "too_many");
+  assert.equal(planVehicles(z, { maxEntries: 300, maxEntryBytes: 1e6, maxTotalBytes: 1e7, maxRatio: 1e6, maxFiles: 3 }).length, 2);
+});

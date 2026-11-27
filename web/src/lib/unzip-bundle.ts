@@ -61,8 +61,9 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
  * Limits for a zip of several vehicles: each vehicle is held to the single-zip entry limit, the whole archive gets more room, and a
  * PDF must fit what the reader takes in one call (a bigger one would only fail later, as the customer's fault, after the charge).
  * One car opened is at most what a single-car zip may hold (250 MB): the split holds the zip and one opened car in memory at once.
+ * At most 2000 files in all (SINAR.zip has 1227): every file is stored one by one within the call's 300 seconds.
  */
-export const SPLIT_LIMITS = { ...ZIP_LIMITS, maxTotalBytes: 600 * 1024 * 1024, maxPdfBytes: MAX_PDF_BYTES, maxCarBytes: ZIP_LIMITS.maxTotalBytes };
+export const SPLIT_LIMITS = { ...ZIP_LIMITS, maxTotalBytes: 600 * 1024 * 1024, maxPdfBytes: MAX_PDF_BYTES, maxCarBytes: ZIP_LIMITS.maxTotalBytes, maxFiles: 2000 };
 export { MAX_VEHICLES };
 
 export type VehiclePlan = { prefix: string; plate: string; files: number };
@@ -78,7 +79,7 @@ const usableIn = (name: string) => {
  * case would take ("mixed"), refuses the zip; so does a car folder whose PDFs are all empty ("car_no_pdf").
  * Throws ZipRejected; "empty" when it is not a multi-vehicle zip.
  */
-export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number; maxCarBytes?: number } = SPLIT_LIMITS): VehiclePlan[] {
+export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number; maxCarBytes?: number; maxFiles?: number } = SPLIT_LIMITS): VehiclePlan[] {
   const all: { name: string; size: number }[] = [];
   try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize }); return false; } }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }
@@ -92,10 +93,12 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
   const counts = new Map<string, number>();
   const carBytes = new Map<string, number>();
   let total = 0;
+  let files = 0;
   for (const f of all) {
     const pre = prefixes.find((p) => f.name.startsWith(p));
     if (!pre || !usableIn(f.name) || f.size === 0) continue;
     const n = (counts.get(pre) ?? 0) + 1; counts.set(pre, n);
+    if (limits.maxFiles && ++files > limits.maxFiles) throw new ZipRejected("too_many", ZIP_WHY.too_many);
     const pdf = /\.pdf$/i.test(f.name);
     if (n > limits.maxEntries) throw new ZipRejected("too_many", ZIP_WHY.too_many);
     if (f.size > limits.maxEntryBytes) throw new ZipRejected("too_big", ZIP_WHY.entry_big);
