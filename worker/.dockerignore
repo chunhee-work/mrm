@@ -1,0 +1,23 @@
+# Used when the build context is this folder (worker/). The compose build uses the repo root as context: Docker (BuildKit)
+# then reads Dockerfile.dockerignore next to the Dockerfile instead. Keep the two lists the same.
+# Nothing here is needed to run the worker: local secrets, state, caches and tests stay out of the image.
+.env
+.env.*
+!.env.example
+**/*.key
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/node_modules
+**/.venv*
+**/*.log
+tests
+cdp.test.mjs
+# a WORKER_STATE that someone pointed inside this folder: Chrome profiles (logged-in sessions), downloaded case files, model weights
+state
+.state
+var
+files
+chrome
+photo-model
+NEED_LOGIN

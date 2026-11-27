@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import json
+import sys
 
 from .db import make_db
 from .gate import worker_gate
 from .jobs import CLAIM_SQL, RECLAIM_SQL, TOUCH_SQL, claim_params
+from .login_page import backoff_seconds
 from .pipeline import Outcome
+
+MAX_ATTEMPTS = 3  # a lease that ran out (jobs.RECLAIM_SQL) or a worker error (loop.py): the third claim is the last
+# "Try again later" (Outcome "requeue"): try 1 -> wait 30 s -> try 2 -> wait 2 min -> try 3 -> wait 10 min -> try 4 -> failed.
+# jobs.attempts counts every claim of the job, whatever ended it, so the three waits are backoff_seconds(1), (2), (3).
+REQUEUE_MAX_ATTEMPTS = 4
 
 _DETAIL_BAD = ("cfid", "cftoken", "http", "password=")
 
@@ -108,7 +115,7 @@ class PgRepo:
         r = rows[0]
         return {"id": r[0], "case_id": r[1], "step": r[2], "attempts": r[3], "org_id": r[4]}
 
-    def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = 3) -> int:
+    def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = MAX_ATTEMPTS) -> int:
         return len(self.db.execute(RECLAIM_SQL, (max_attempts, int(lease_seconds))))
 
     def touch_job(self, job_id: int, worker_id: str) -> bool:
@@ -214,10 +221,21 @@ class PgRepo:
 
     def apply(self, job: dict, outcome: Outcome) -> None:
         """All writes of one outcome go out as one transaction (one HTTPS request on the http transport)."""
-        state = "queued" if outcome.job_state == "requeue" else outcome.job_state
+        state = outcome.job_state
         st: list[tuple[str, object]] = []
+        gave_up = False
+        if outcome.job_state == "requeue":
+            # put back with a wait (jobs.not_before, migration 0007), and only so many times: `attempts` is the number of claims so far
+            attempts = int(job.get("attempts") or 1)
+            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS
+            state = "failed" if gave_up else "queued"
         if outcome.job_state == "hold":
             st.append(("UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running'", (job["id"],)))
+        elif state == "queued":
+            st.append((
+                "UPDATE jobs SET state = 'queued', locked_by = NULL, locked_at = NULL, not_before = now() + (%s || ' seconds')::interval WHERE id = %s AND state = 'running'",
+                (str(backoff_seconds(attempts)), job["id"]),
+            ))
         else:
             st.append((
                 "UPDATE jobs SET state = %s, locked_by = NULL, locked_at = NULL WHERE id = %s AND state = 'running'",
@@ -245,7 +263,8 @@ class PgRepo:
             st.append(("SELECT 1 FROM cases WHERE id = %s FOR UPDATE", (job["case_id"],)))
             if outcome.total_rm:  # the estimate is saved in Merimen either way
                 st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
-        if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or outcome.error:
+        error = outcome.error or ("gave up after %d tries" % attempts if gave_up else None)
+        if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or error:
             st.append((
                 """
                 UPDATE cases SET
@@ -259,13 +278,18 @@ class PgRepo:
                 WHERE id = %s AND deleted_at IS NULL""" + final_sql,
                 (
                     outcome.case_status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
-                    outcome.pending_doc, (outcome.error or None), bool(outcome.done), job["case_id"],
+                    outcome.pending_doc, error, bool(outcome.done), job["case_id"],
                 ) + final_args,
             ))
         if outcome.event:
             st.append((
                 "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
                 (job["case_id"], job["step"], outcome.event[:400], job["case_id"]) + final_args,
+            ))
+        if gave_up:
+            st.append((
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s)",
+                (job["case_id"], job["step"], "Stopped after %d tries (it waited 30 s, 2 min and 10 min in between). It will not be tried again by itself." % attempts, job["case_id"]),
             ))
         for line in (outcome.extra_events or [])[:4]:
             st.append((
@@ -563,30 +587,42 @@ class PgRepo:
 
         return Marks
 
-    def claim_verify(self):
-        """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement."""
+    def claim_verify(self, skip=()):
+        """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement.
+        skip: orgs whose check was just put back without a try (loop.py waits a little before it asks for them again)."""
         sql = """
         UPDATE merimen_credentials AS m
         SET verify_state = 'checking', login_attempts = login_attempts + 1, updated_at = now()
         WHERE m.org_id = (
           SELECT org_id FROM merimen_credentials
           WHERE verify_state = 'queued' AND login_attempts = 0
+            AND NOT (org_id = ANY(string_to_array(%s::text, %s::text)))
           ORDER BY updated_at
           FOR UPDATE SKIP LOCKED
           LIMIT 1
         )
         RETURNING org_id, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, password_nonce
         """
-        rows = self.db.execute(sql)
+        rows = self.db.execute(sql, ("\n".join(str(o) for o in skip), "\n"))
         if not rows:
             return None
         keys = ("org_id", "wrapped_dek", "dek_nonce", "username_ct", "username_nonce", "password_ct", "password_nonce")
         return dict(zip(keys, rows[0]))
 
+    def _audit(self, org_id: str, action: str) -> None:
+        """One merimen_cred_audit row that nothing depends on: if the insert is refused (the worker role's grants are not all in the
+        repo) or the database is away, the state change before it stands. Only the error's class name is logged."""
+        try:
+            self.db.execute("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, action[:60]))
+        except Exception as e:  # noqa: BLE001
+            print("login audit row skipped:", type(e).__name__, file=sys.stderr, flush=True)
+
     def finish_verify(self, org_id: str, decision: dict, email_to: str | None = None, poster=None) -> None:
         from .login_page import login_email
 
         if decision.get("release"):
+            # only reached when nothing was typed into Merimen (login_flow.run_verify): the one try is given back.
+            # The release is its own statement; the audit row comes after it and may fail without undoing it.
             self.db.execute(
                 """
                 UPDATE merimen_credentials
@@ -595,19 +631,25 @@ class PgRepo:
                 """,
                 (org_id,),
             )
+            if decision.get("audit"):  # why it was put back (key_mismatch, not_login_page, offline, no_account); loop.py asks once per reason
+                self._audit(org_id, "login_released_" + str(decision["audit"]))
             return
+        # session_live: a person is logged in on the worker Chrome, nothing was typed. Same state change as a login that went
+        # through, but the try is given back (login_attempts = 0) and the audit row says the saved password was not tested.
+        live = bool(decision.get("session_live"))
         event = str(decision.get("event") or "")[:400]
         st: list[tuple[str, object]] = [
             (
                 """
                 UPDATE merimen_credentials
-                SET verify_state = %s, blocked = %s, updated_at = now()
+                SET verify_state = %s, blocked = %s, """ + ("login_attempts = 0, " if live else "") + """updated_at = now()
                 WHERE org_id = %s AND verify_state IN ('checking', 'otp', 'otp_submitted')
                 """,
                 (decision["verify_state"], bool(decision["blocked"]), org_id),
             ),
-            ("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, "login_" + str(decision["verify_state"])[:40])),
         ]
+        if not live:
+            st.append(("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, "login_" + str(decision["verify_state"])[:40])))
         if decision.get("pause"):
             st.append((
                 """
@@ -642,6 +684,8 @@ class PgRepo:
                 (event, org_id),
             ))
         self.db.batch(st)
+        if live:
+            self._audit(org_id, "login_session_live")  # after the state change, never part of it
         if decision.get("email") and email_to and poster:
             try:
                 subject, html = login_email(decision["email"])
