@@ -386,3 +386,20 @@ test("purge: events and upload rows go too, and a case with a running job is lef
   assert.equal((await db.select().from(schema.photoUploads).where(sql`${schema.photoUploads.caseId} = ${id}`)).length, 0);
   assert.equal((await db.select().from(schema.jobs).where(sql`${schema.jobs.caseId} = ${id}`))[0].state, "cancelled");
 });
+
+test("purge: a file with no row (listed by the case folder) is removed, the error text goes, a full-URL file shared with another case's bare path is kept", async () => {
+  const gone = await mkDeleted(9), live = randomUUID();
+  await db.update(schema.cases).set({ error: "scan failed: Jane Tan IC.pdf", pendingDoc: "insurance form" }).where(sql`${schema.cases.id} = ${gone}`);
+  await db.insert(schema.cases).values({ id: live, orgId: org, plate: "LIVE1", status: "naming" });
+  const url = `https://blob.example/${org}/${gone}/photos/1.jpg`; // a full URL for the very path the live case holds as a bare pathname
+  await db.update(schema.caseFiles).set({ blobUrl: url }).where(sql`${schema.caseFiles.caseId} = ${gone}`);
+  await db.insert(schema.casePhotos).values({ caseId: live, position: 0, origN: 1, srcName: "x.jpg", blobPath: `${org}/${gone}/photos/1.jpg`, thumbPath: "" });
+  const removed: string[] = [];
+  const r = await purgeDeletedCases(async (p) => { removed.push(p); }, { listPrefix: async () => [`${org}/${gone}/orphan.jpg`] });
+  assert.equal(r.cases, 1);
+  assert.ok(removed.includes(`${org}/${gone}/orphan.jpg`));
+  assert.ok(!removed.includes(url));
+  const [row] = await db.select({ e: schema.cases.error, d: schema.cases.pendingDoc }).from(schema.cases).where(sql`${schema.cases.id} = ${gone}`);
+  assert.deepEqual(row, { e: null, d: null });
+  assert.equal((await db.select().from(schema.auditLog).where(sql`${schema.auditLog.action} = 'case.purge'`)).length, 1);
+});
