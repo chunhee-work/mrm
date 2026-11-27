@@ -162,6 +162,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       const pre = await fetch(`/api/cases/credit${multi ? `?n=${zipCars.current.get(keyOf(multi))!.length}&zip=${encodeURIComponent(multi.name)}&size=${multi.size}` : ""}`);
       if (pre.status === 403) { window.location.assign("/dashboard"); return; } // details not filled in: the front page asks for them
       if (pre.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+      // a split needs the count of cars still to make: when the check itself failed, do not send a large zip up for nothing
+      if (multi && !pre.ok) { setMsg(t("new.fail")); setStep(-1); setBusy(false); return; }
       if (!alive.current) return;
       const batchId = crypto.randomUUID();
       const done: { kind: Kind; url: string; name: string; size: number }[] = new Array(files.length);
@@ -188,6 +190,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
           // cases the rollback could not undo are in the case list: say so, whatever else went wrong
           if (!sp.ok && (j as { kept?: number } | null)?.kept) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+          if (sp.status === 403) { leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: nothing was made
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
           // 400/401/502: no case was made; 500 with nothing kept: all were rolled back; else (time-out, kept cases) some cars may be made
           const undone = sp.status === 400 || sp.status === 401 || sp.status === 502 || (sp.status === 500 && j?.error === "failed" && !(j as { kept?: number }).kept);
