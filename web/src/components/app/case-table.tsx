@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
-import { Chevron, Cross, NoMatchArt, Search, Tick, Working } from "./marks";
+import { Bin, Chevron, Cross, NoMatchArt, Search, Tick, Working } from "./marks";
+import ConfirmDelete from "./confirm-delete";
 import BackLink from "./back-link";
 import { bucketOf, inView, type View } from "./status";
 import { whenOf } from "@/lib/fmt-when";
@@ -24,12 +25,13 @@ export type CaseRow = {
   deskTotal?: number; // photos of the case
   photosDone?: boolean; // 完成 was pressed on the desk
   firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
+  canDelete?: boolean; // the worker has not taken it: it can still be deleted from the list
 };
 
 const REFRESH_MS = 20_000;
 const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 // vehicle no. · vehicle · insurer · received · status · the arrow
-const COLS = "lg:grid lg:grid-cols-[160px_minmax(0,1.1fr)_minmax(0,1.3fr)_132px_minmax(0,1.2fr)_12px] lg:items-center lg:gap-x-6";
+const COLS = "lg:grid lg:grid-cols-[160px_minmax(0,1.1fr)_minmax(0,1.3fr)_132px_minmax(0,1.2fr)_12px_36px] lg:items-center lg:gap-x-6";
 
 /**
  * The cases behind one row of the home page's count (or behind a search), as a plain table: one case per line, the whole line
@@ -41,7 +43,10 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
   const [q, setQ] = useState(q0);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const mine = view ? rows.filter((r) => inView(r, view)) : rows;
+  const [gone, setGone] = useState<Set<string>>(new Set()); // rows deleted in this visit: gone at once, the refresh confirms it
+  const [ask, setAsk] = useState<CaseRow | null>(null); // the row the pop-up asks about
+
+  const mine = (view ? rows.filter((r) => inView(r, view)) : rows).filter((r) => !gone.has(r.id));
   const live = mine.some((r) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(r.status));
   useEffect(() => {
     if (!live) return;
@@ -59,6 +64,7 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
    * so the line only gives the detail (never the same words twice).
    */
   const alone = !!view && view !== "open" && view !== "all";
+  const label = (r: CaseRow) => r.plate || r.firstFile || "";
   const status = (r: CaseRow) => {
     const b = bucketOf(r);
     if (b === "closed") return <><Tick className="h-4 w-4 shrink-0 text-go" /><span className="min-w-0 truncate">{money(r.totalRm) ?? t("dash.done")}</span></>;
@@ -108,23 +114,31 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
       ) : (
         <div className="sheet mt-5 overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="case-table">
           <div aria-hidden="true" className={`hidden border-b border-hair bg-panel2 px-6 py-3 text-[13px] font-semibold leading-none text-mute ${COLS}`}>
-            <span>{t("list.col.plate")}</span><span>{t("list.col.car")}</span><span>{t("list.col.insurer")}</span><span>{t("list.col.when")}</span><span>{t("list.col.status")}</span><span />
+            <span>{t("list.col.plate")}</span><span>{t("list.col.car")}</span><span>{t("list.col.insurer")}</span><span>{t("list.col.when")}</span><span>{t("list.col.status")}</span><span /><span />
           </div>
           <ul>
             {shown.map((r) => {
               const when = r.createdAt ? whenOf(r.createdAt, lang) : "";
+              const plateCls = `num min-w-0 truncate text-left font-mono text-[16px] font-semibold tracking-[0.01em] text-fg underline-offset-4 before:absolute before:inset-0 before:content-[''] hover:underline`;
+              const plate = r.plate || <span className="font-sans text-[15px] font-normal text-mute">{r.firstFile || t("dash.noPlate")}</span>;
               return (
                 <li key={r.id} className={`relative border-b border-hairsoft px-4 py-3 transition-colors duration-150 last:border-b-0 hover:bg-panel2 lg:min-h-[56px] lg:px-6 lg:py-2 ${COLS}`} data-bucket={bucketOf(r)}>
                   <div className="flex items-center justify-between gap-4 lg:contents">
-                    <Link href={`/cases/${r.id}`} className="num min-w-0 truncate font-mono text-[16px] font-semibold tracking-[0.01em] text-fg underline-offset-4 before:absolute before:inset-0 before:content-[''] hover:underline">
-                      {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{r.firstFile || t("dash.noPlate")}</span>}
-                    </Link>
+                    <Link href={`/cases/${r.id}`} className={plateCls}>{plate}</Link>
                     {/* a phone: the status ends the first line; a wide screen: it is the fifth column */}
                     <span className="flex min-w-0 shrink-0 items-center gap-2 text-[14px] leading-none text-fg max-lg:max-w-[62%] lg:order-5 lg:shrink">{status(r)}</span>
                     <span className="hidden min-w-0 truncate text-[15px] text-fg lg:block">{r.carModel || "–"}</span>
                     <span className="hidden min-w-0 truncate text-[15px] text-fg lg:block">{r.insurer || "–"}</span>
                     <span className="hidden text-[14px] text-mute lg:block" suppressHydrationWarning>{when}</span>
                     <Chevron className="hidden -rotate-90 text-mute lg:order-6 lg:block" />
+                    {r.canDelete && (
+                      <button type="button" aria-label={t("del.aria", { plate: label(r) || t("dash.noPlate") })} title={t("del.btn")} data-testid="del-open" onClick={() => setAsk(r)}
+                        className="relative z-10 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-[3px] text-mute transition-colors hover:bg-panel hover:text-fg lg:order-7 lg:mr-0 lg:h-9 lg:w-9">
+                        <Bin />
+                      </button>
+                    )}
+                    {/* a case without the button keeps the same room, so the statuses of a phone's rows start at the same place */}
+                    {!r.canDelete && <span aria-hidden="true" className="-mr-2 h-11 w-11 shrink-0 lg:hidden" />}
                   </div>
                   <p className="mt-1.5 truncate text-[13.5px] leading-snug text-mute lg:hidden" suppressHydrationWarning>{[r.carModel, r.insurer, when].filter(Boolean).join(" · ")}</p>
                 </li>
@@ -133,6 +147,8 @@ export default function CaseTable({ rows, view, q0 }: { rows: CaseRow[]; view: V
           </ul>
         </div>
       )}
+      <ConfirmDelete row={ask && { id: ask.id, plate: label(ask) }} onClose={() => setAsk(null)}
+        onGone={(id) => { setGone((g) => new Set([...g, id])); router.refresh(); }} />
     </div>
   );
 }

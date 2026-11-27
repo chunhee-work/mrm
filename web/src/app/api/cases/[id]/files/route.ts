@@ -6,6 +6,7 @@ import { getUserOrNull } from "@/lib/session";
 import { CaseBody, bodyProblem } from "@/lib/case-body";
 import { userFixable, ZIP_WHY } from "@/lib/case-text";
 import { debitRetry, refundCase } from "@/lib/payments/case-credit";
+import { notDeleted } from "@/lib/case-delete";
 
 // The same file rules as a new case (names, kinds, sizes, at least one file). "Read again" is /scan, not an empty list here:
 // an empty list would put a failed case back in the queue without paying for the read.
@@ -26,7 +27,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
-  const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId))).limit(1);
+  const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId), notDeleted)).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });

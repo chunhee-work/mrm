@@ -5,6 +5,7 @@ import { getUserOrNull } from "@/lib/session";
 import { workerUiOn } from "@/lib/ext/worker-gate";
 import { openPhoto } from "@/lib/photos/store";
 import { shotHandlers, type ShotRow } from "./access";
+import { notDeleted } from "@/lib/case-delete";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const toRow = (r: typeof schema.caseScreenshots.$inferSelect): ShotRow => ({
@@ -15,7 +16,7 @@ export const handlers = shotHandlers({
   enabled: () => workerUiOn(),
   viewer: async () => { const me = await getUserOrNull(); return me ? { userId: me.user.id, orgId: me.orgId } : null; },
   loadCase: async (id) => {
-    const [c] = await db.select({ id: schema.cases.id, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1);
+    const [c] = await db.select({ id: schema.cases.id, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy }).from(schema.cases).where(and(eq(schema.cases.id, id), notDeleted)).limit(1);
     return c ?? null;
   },
   listShots: async (caseId, userId) =>

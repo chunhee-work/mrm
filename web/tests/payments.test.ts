@@ -6,6 +6,8 @@ import { sql } from "drizzle-orm";
 import { db, schema } from "../src/db";
 import { createPendingOrder, displayStatus, getOrder } from "../src/lib/payments/orders";
 import { creditBalance, creditOrder, refundOrder } from "../src/lib/payments/credit";
+import { debitCase } from "../src/lib/payments/case-credit";
+import { deleteCase } from "../src/lib/case-delete";
 import { PACKS, packSellable } from "../src/lib/payments/packs";
 import { decimalToMinor } from "../src/lib/payments/money";
 import { handleLemonSqueezyWebhook, verifySignature } from "../src/lib/payments/providers/lemonsqueezy";
@@ -243,4 +245,56 @@ test("owner-only free code: sent only for allow-listed email", async () => {
   assert.equal(bodies[0].data.attributes.checkout_options.discount, true);
   assert.equal(bodies[1].data.attributes.checkout_options.discount, false);
   delete process.env.OWNER_FREE_EMAILS; delete process.env.LEMONSQUEEZY_OWNER_CODE;
+});
+
+// ---- a user deletes a case from the list (soft delete, lib/case-delete) ----
+const mkCase = async (status: string, o: { orgId?: string; merimen?: string } = {}) => {
+  const id = randomUUID();
+  await db.insert(schema.cases).values({ id, orgId: o.orgId ?? org, plate: "DEL1234", status, merimenCaseId: o.merimen ?? null });
+  await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" });
+  return id;
+};
+const deletedAt = async (id: string) => (await db.select({ d: schema.cases.deletedAt }).from(schema.cases).where(sql`${schema.cases.id} = ${id}`))[0]?.d ?? null;
+
+test("delete: a case the worker has not taken is hidden, its job cancelled, files and the case row kept, one audit row", async () => {
+  for (const st of ["uploaded", "naming", "pending_doc", "failed"]) {
+    const id = await mkCase(st);
+    assert.deepEqual(await deleteCase(org, "u1", id), { ok: true, refunded: false }); // charging is off: nothing to give back
+    assert.ok(await deletedAt(id), st);
+    assert.equal((await db.select().from(schema.jobs).where(sql`${schema.jobs.caseId} = ${id}`))[0].state, "cancelled");
+    assert.equal((await db.select().from(schema.auditLog).where(sql`${schema.auditLog.detail} = ${id}`)).length, 1);
+    assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "not_found" }); // a second press finds nothing
+  }
+});
+
+test("delete: reading, the worker's steps, a case made in Merimen and a done case are refused and stay", async () => {
+  for (const st of ["reading", "phase_a", "waiting_user", "phase_b", "checking", "done"]) {
+    const id = await mkCase(st);
+    assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "busy" }, st);
+    assert.equal(await deletedAt(id), null);
+  }
+  const made = await mkCase("failed", { merimen: "M123" });
+  assert.deepEqual(await deleteCase(org, "u1", made), { ok: false, reason: "busy" });
+});
+
+test("delete: another organisation's case looks like no case at all", async () => {
+  const id = await mkCase("failed", { orgId: org2 });
+  assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "not_found" });
+  assert.equal(await deletedAt(id), null);
+});
+
+test("delete: the credit goes back once, and not twice for a case already refunded for failing", async () => {
+  process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
+  try {
+    await db.insert(schema.creditsLedger).values({ orgId: org, delta: 5000, reason: "grant" });
+    const a = await mkCase("naming"); assert.ok(await debitCase(org, a));
+    assert.equal(await creditBalance(org), 4000);
+    assert.deepEqual(await deleteCase(org, "u1", a), { ok: true, refunded: true });
+    assert.equal(await creditBalance(org), 5000);
+    const b = await mkCase("failed"); assert.ok(await debitCase(org, b));
+    const { refundCase } = await import("../src/lib/payments/case-credit");
+    assert.ok(await refundCase(org, b, "failed")); // the worker already gave it back
+    assert.deepEqual(await deleteCase(org, "u1", b), { ok: true, refunded: false });
+    assert.equal(await creditBalance(org), 5000);
+  } finally { delete process.env.CREDITS_ENFORCE; }
 });
