@@ -732,7 +732,7 @@ try {
       assert.ok(await page.getByTestId("case-log").isVisible(), "the activity list is open without a click");
     } finally { await db.query(`DELETE FROM cases WHERE id = $1`, [Y]); }
   });
-  await step("side bar (owner 2026-11-27): folds to icons and stays folded on the next page; the account menu works by keyboard; one line open at a time", async () => {
+  await step("side bar (owner 2026-11-27): folds to icons and stays folded on the next page; the account menu works by keyboard", async () => {
     await page.goto(`${BASE}/dashboard`);
     const bar = page.getByTestId("side-bar");
     await bar.waitFor();
@@ -754,7 +754,9 @@ try {
     assert.ok((await bar.boundingBox()).width < wide / 2, "still folded on the next page");
     await page.getByTestId("side-fold").click();
     await page.waitForFunction(() => document.cookie.includes("side=wide"));
-    // only one line open at a time
+  });
+
+  await step("Cases page: only one line open at a time", async () => {
     await page.goto(`${BASE}/dashboard`);
     const rows = page.getByTestId("home-row");
     assert.ok((await rows.count()) >= 2, "two open cases to try");

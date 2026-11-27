@@ -311,15 +311,15 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   useEffect(() => { takeDropped(); }, []);
   // if the trip never ends (navigation stalled), the overlay goes when the hold runs out and drops work again
   useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), HOLD_MS); return () => window.clearTimeout(id); }, [going]);
-  const [lineOpen, setLineOpen] = useState(false); // a line of the list is open
+  const [deskShown, setDeskShown] = useState(false); // an open line shows the photo desk (it takes the drops then)
   const [picking, setPicking] = useState(false); // a file picked from New case is on its way
-  const over = useFileDrag(!going && !picking && !blocked && !lineOpen, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
+  const over = useFileDrag(!going && !picking && !blocked && !deskShown, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
   const needle = squash(q);
   const shown = sortCases(cases).filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
-  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setLineOpen} blocked={blocked} />;
+  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setDeskShown} blocked={blocked} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
   return (

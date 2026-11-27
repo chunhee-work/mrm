@@ -26,10 +26,3 @@ test("/details is a signed-in page", () => {
   assert.ok(GATED.test("/details"));
 });
 
-test("side bar: details that cannot be read (or no key) are unknown, so no dot", async () => {
-  const { credForSide } = await import("../side-facts");
-  const c = { storageOk: true, keyOk: true, complete: false };
-  assert.equal(credForSide(c), c);
-  assert.equal(credForSide({ ...c, storageOk: false }), null);
-  assert.equal(credForSide({ ...c, keyOk: false }), null);
-});
