@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { missingRelation } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
-import { cleanSecret, masterKey, seal } from "@/lib/crypto/merimen-cred";
+import { cleanPassword, cleanSecret, masterKey, seal } from "@/lib/crypto/merimen-cred";
 import { cleanProfile } from "@/lib/ext/profile";
 
 // The user types their own Merimen login here; it is sealed (AES-GCM) and the worker tries it once.
@@ -27,8 +27,17 @@ export async function POST(req: Request) {
   if (!profile) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const wantsLogin = !!(body?.username || body?.password);
   const username = wantsLogin ? cleanSecret(body?.username, 80) : null;
-  const password = wantsLogin ? cleanSecret(body?.password, 200) : null;
+  const password = wantsLogin ? cleanPassword(body?.password, 200) : null;
   if (wantsLogin && (!username || !password)) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  // each new login re-queues one check by the worker, so a loop of saves must not become a loop of Merimen log-ins:
+  // at most 5 login saves per organisation in 10 minutes (counted in the audit table)
+  if (wantsLogin) {
+    const r = await db.execute(sql`SELECT count(*)::int AS n FROM merimen_cred_audit WHERE org_id = ${me.orgId} AND action = 'save_consent' AND at > now() - interval '10 minutes'`).catch(() => null);
+    const n = Number(((r as unknown as { rows?: { n: number }[] } | null)?.rows ?? [])[0]?.n ?? 0);
+    if (n >= 5) return NextResponse.json({ error: "too_many" }, { status: 429 });
+  }
+  // from a database sequence: atomic, and still rising after a delete and a new first save (the worker compares versions)
+  const nextVersion = sql<number>`nextval('merimen_profile_seq')::int`;
   try {
     const [row] = await db.select({ id: schema.merimenCredentials.orgId }).from(schema.merimenCredentials).where(eq(schema.merimenCredentials.orgId, me.orgId)).limit(1);
     // first time: the login is needed. Later: the three names alone may be changed, the stored login stays as it is.
@@ -42,10 +51,10 @@ export async function POST(req: Request) {
         // blocked stays as it is until the worker's single check succeeds, so a job cannot log in during the check
         verifyState: "queued", loginAttempts: 0,
       };
-      await db.insert(schema.merimenCredentials).values({ orgId: me.orgId, ...login, ...names, profileVersion: 1, updatedBy: me.user.id })
-        .onConflictDoUpdate({ target: schema.merimenCredentials.orgId, set: { ...login, ...names, profileVersion: sql`${schema.merimenCredentials.profileVersion} + 1`, updatedAt: new Date(), updatedBy: me.user.id } });
+      await db.insert(schema.merimenCredentials).values({ orgId: me.orgId, ...login, ...names, profileVersion: nextVersion, updatedBy: me.user.id })
+        .onConflictDoUpdate({ target: schema.merimenCredentials.orgId, set: { ...login, ...names, profileVersion: nextVersion, updatedAt: new Date(), updatedBy: me.user.id } });
     } else {
-      await db.update(schema.merimenCredentials).set({ ...names, profileVersion: sql`${schema.merimenCredentials.profileVersion} + 1`, updatedAt: new Date(), updatedBy: me.user.id })
+      await db.update(schema.merimenCredentials).set({ ...names, profileVersion: nextVersion, updatedAt: new Date(), updatedBy: me.user.id })
         .where(eq(schema.merimenCredentials.orgId, me.orgId));
     }
     await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: wantsLogin ? "save_consent" : "save_names" });
@@ -56,7 +65,9 @@ export async function POST(req: Request) {
 export async function DELETE() {
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  await db.delete(schema.merimenCredentials).where(eq(schema.merimenCredentials.orgId, me.orgId));
-  await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: "delete" });
+  try {
+    await db.delete(schema.merimenCredentials).where(eq(schema.merimenCredentials.orgId, me.orgId));
+    await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: "delete" });
+  } catch (e) { if (missingRelation(e)) return NextResponse.json({ error: "not_configured" }, { status: 503 }); throw e; }
   return NextResponse.json({ saved: false });
 }

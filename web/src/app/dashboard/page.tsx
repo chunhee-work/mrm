@@ -1,7 +1,6 @@
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import { credView } from "@/lib/ext/worker-store";
-import { credKeyReady } from "@/lib/crypto/merimen-cred";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { CONFIRM_COUNT } from "@/lib/photos/confirm-sql";
 import CaseTable, { type CaseRow } from "@/components/app/case-table";
@@ -87,5 +86,5 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   }).from(schema.cases).where(eq(schema.cases.orgId, orgId)).groupBy(schema.cases.status, sql`(${schema.cases.photosDoneAt} is not null)`);
   const counts: HomeCounts = { docs: 0, photos: 0, hold: 0, active: 0, closed: 0 };
   for (const g of groups) counts[bucketOf({ status: g.status, photosDone: g.photosDone })] += Number(g.n);
-  return <Home name={user.name} counts={counts} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} cred={await credView(orgId)} configured={credKeyReady()} />;
+  return <Home name={user.name} counts={counts} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} cred={await credView(orgId)} />;
 }

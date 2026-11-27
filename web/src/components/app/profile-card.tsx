@@ -5,7 +5,7 @@ import { whenOf } from "@/lib/fmt-when";
 
 export type Cred = {
   saved: boolean; usernameHint: string | null; verifyState: string; blocked: boolean; updatedAt?: string | null;
-  workshop: string | null; manager: string | null; adjuster: string | null; complete: boolean; storageOk: boolean;
+  workshop: string | null; manager: string | null; adjuster: string | null; complete: boolean; storageOk: boolean; keyOk: boolean; blocks: boolean;
 };
 
 const CHECKING = ["queued", "checking", "otp_submitted"];
@@ -34,7 +34,8 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  * Not complete: the whole form on the front page. Complete: a small summary with Edit. An edit asks "replace?" in a pop-up
  * before anything is sent. The password is never shown again; leaving it empty on an edit keeps the saved login.
  */
-export default function ProfileCard({ cred, setCred, onSaved, configured, compact }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; configured: boolean; compact: boolean }) {
+export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean }) {
+  const configured = cred.keyOk;
   const { t, lang } = useT();
   const [workshop, setWorkshop] = useState("");
   const [manager, setManager] = useState("");
@@ -47,11 +48,14 @@ export default function ProfileCard({ cred, setCred, onSaved, configured, compac
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [sure, setSure] = useState(false);
+  const [code, setCode] = useState("");
 
   // poll while the worker checks the login
   useEffect(() => {
     if (!CHECKING.includes(cred.verifyState)) return;
+    let ticks = 0;
     const id = setInterval(async () => {
+      if (++ticks > 90) { clearInterval(id); return; } // 3 minutes, then stop asking (the worker may be offline)
       try { const r = await fetch("/api/ext/worker/credentials"); if (r.ok) setCred(await r.json()); } catch { /* next tick */ }
     }, 2000);
     return () => clearInterval(id);
@@ -77,9 +81,19 @@ export default function ProfileCard({ cred, setCred, onSaved, configured, compac
     try {
       const r = await fetch("/api/ext/worker/credentials", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop, manager, adjuster, ...(loginTyped ? { username: user, password: pass } : {}), consent: true }) });
       if (r.status === 503) { setErr(t("ml.notReady")); setConfirming(false); }
+      else if (r.status === 429) { setErr(t("pf.tooMany")); setConfirming(false); }
       else if (!r.ok) { setErr(t("w.err")); setConfirming(false); }
       else { setCred(await r.json()); closeAll(); fill(); onSaved?.(); }
     } catch { setErr(t("w.err")); setConfirming(false); } finally { setPass(""); setBusy(false); }
+  }
+  async function sendCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy || !code) return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/ext/worker/otp", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code }) });
+      if (r.ok) { setCode(""); setCred({ ...cred, verifyState: "otp_submitted" }); }
+    } finally { setBusy(false); }
   }
   async function remove() {
     if (busy) return;
@@ -153,7 +167,16 @@ export default function ProfileCard({ cred, setCred, onSaved, configured, compac
         {checking && <p role="status">{t("w.checking")}</p>}
         {good && <p role="status">{t("w.ok")}{cred.updatedAt ? ` · ${t("ml.when", { when: whenOf(cred.updatedAt, lang) })}` : ""}</p>}
         {bad && <p role="alert" className="field-error">{cred.verifyState === "locked" ? t("w.locked") : t("w.bad")}</p>}
-        {!checking && !good && !bad && cred.updatedAt && <p>{t("ml.when", { when: whenOf(cred.updatedAt, lang) })}</p>}
+        {cred.verifyState === "otp" && (
+          <form onSubmit={sendCode} className="grid gap-2">
+            <p className="text-[14px] text-fg">{t("w.otp")}</p>
+            <div className="flex gap-2">
+              <input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="numeric" maxLength={12} className="input min-w-0 flex-1" aria-label={t("w.otp")} data-testid="pf-otp" />
+              <button type="submit" disabled={busy || !code} className="btn-primary !h-11">{t("w.otpGo")}</button>
+            </div>
+          </form>
+        )}
+        {!checking && !good && !bad && cred.verifyState !== "otp" && cred.updatedAt && <p>{t("ml.when", { when: whenOf(cred.updatedAt, lang) })}</p>}
       </div>
       <Modal open={editing && !confirming} onClose={() => { if (!confirming) closeAll(); }} title={t("pf.editTitle")}>
         {note}

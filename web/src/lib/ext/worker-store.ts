@@ -25,12 +25,19 @@ export type CredView = {
   workshop: string | null; manager: string | null; adjuster: string | null;
   complete: boolean; // login saved and the three names filled: a case may be started
   storageOk: boolean; // false while the table or the 0013 columns are not in the database
+  keyOk: boolean; // the master key is set on this server
+  blocks: boolean; // a case may NOT be started: details incomplete AND saving really works. ONE definition, used by server and page
 };
-const NONE: CredView = { saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false, storageOk: true };
+const NONE: Omit<CredView, "keyOk" | "blocks"> = { saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false, storageOk: true };
 
 // one read per page render (the layout, the page and the banner all ask)
 export const credView = cache(credViewUncached);
 async function credViewUncached(orgId: string): Promise<CredView> {
+  const v = await readCred(orgId);
+  const keyOk = credKeyReady();
+  return { ...v, keyOk, blocks: keyOk && v.storageOk && !v.complete };
+}
+async function readCred(orgId: string): Promise<Omit<CredView, "keyOk" | "blocks">> {
   try {
     const [r] = await db.select({
       usernameHint: schema.merimenCredentials.usernameHint,
@@ -53,9 +60,7 @@ async function credViewUncached(orgId: string): Promise<CredView> {
 /** True when this account may NOT start a case yet. Only enforced while saving really works (key set, 0013 applied),
  * so a missing key or migration can never lock every user out. */
 export async function profileBlocks(orgId: string): Promise<boolean> {
-  if (!credKeyReady()) return false;
-  const v = await credView(orgId);
-  return v.storageOk && !v.complete;
+  return (await credView(orgId)).blocks;
 }
 
 export async function workerOnline(): Promise<boolean> {
