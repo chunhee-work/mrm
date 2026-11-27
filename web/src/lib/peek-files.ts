@@ -93,10 +93,32 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
   // and "WA 1234B") are one car sorted into folders and the zip stays one case. With two or more different plates the zip is
   // several cars even when one plate repeats; planVehicles then refuses it ("dup_plate"), it is never read as one case.
   const ok = (r: { cars: string[] }) => new Set(r.cars.map((c) => normPlate(c.slice(0, -1).split("/").pop() ?? ""))).size >= 2;
-  const top = at(0);
+  // wrapping folders that hold everything ("SINAR/SINAR/…", common after re-zipping) are looked through first
+  let base = 0;
+  for (;;) {
+    const seg = usable.map((n) => n.split("/")).filter((p) => p.length > base + 1).map((p) => p[base]);
+    if (!usable.length || seg.length !== usable.length || new Set(seg).size !== 1 || isPlate(seg[0])) break;
+    base++;
+  }
+  const top = at(base);
   if (ok(top)) return top;
-  const inner = at(1);
+  const inner = at(base + 1);
   return ok(inner) ? inner : { cars: top.cars.length >= 2 ? [] : top.cars, extras: top.extras };
+}
+
+/**
+ * How many different plates name a folder that holds a PDF, at any depth. Two or more while vehicleLayout finds fewer than two
+ * cars means car folders at different levels ("DCD4004/" beside "More/NCH5773/"): never one case, refused as "layout".
+ */
+export function platesAnywhere(names: string[]): number {
+  const plates = new Set<string>();
+  for (const n of names) {
+    if (n.endsWith("/") || n.startsWith("__MACOSX/") || !/\.pdf$/i.test(n)) continue;
+    const parts = n.split("/").slice(0, -1);
+    if (parts.some((p) => p.startsWith("."))) continue;
+    for (const p of parts) if (isPlate(p)) plates.add(normPlate(p));
+  }
+  return plates.size;
 }
 
 /** The plate a car folder's name stands for, as stored on its case: upper case, no spaces or hyphens ("TBD 8129" -> "TBD8129"). */

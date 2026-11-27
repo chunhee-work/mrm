@@ -137,3 +137,13 @@ test("several cars where one plate repeats in two folders are refused (dup_plate
   assert.throws(() => planVehicles(z), (e: ZipRejected) => e.code === "dup_plate");
   assert.throws(() => planVehicles(zipSync({ "S/DCD4004/a.pdf": pdf, "S/NCH5773/b.pdf": pdf, "T/NCH5773/c.pdf": pdf })), (e: ZipRejected) => e.code === "dup_plate");
 });
+
+test("cars inside two wrapping folders are found; cars at different levels are refused (layout), never one case", () => {
+  const pdf = strToU8("%PDF");
+  assert.deepEqual(planVehicles(zipSync({ "SINAR/SINAR/DCD4004/a.pdf": pdf, "SINAR/SINAR/NCH5773/b.pdf": pdf })).map((v) => v.plate), ["DCD4004", "NCH5773"]);
+  const mixedLevels = zipSync({ "DCD4004/a.pdf": pdf, "More/NCH5773/b.pdf": pdf });
+  assert.throws(() => unzipBundle(mixedLevels), (e: ZipRejected) => e.code === "layout");
+  assert.throws(() => planVehicles(mixedLevels), (e: ZipRejected) => e.code === "layout");
+  assert.equal(unzipBundle(zipSync({ "WA1234B/Docs/a.pdf": pdf, "WA1234B/Photos/1.jpg": jpg })).length, 2);
+  assert.equal(unzipBundle(zipSync({ "Policy/WA1234B/p.pdf": pdf, "Claim/WA1234B/c.pdf": pdf })).length, 2);
+});
