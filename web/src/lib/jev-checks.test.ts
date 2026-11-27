@@ -79,3 +79,18 @@ test("JEV=0 turns the web check off", async () => {
 test("below 0.9 confidence nothing is shown", async () => {
   assert.deepEqual(await jevInsurerWarnings(data(), {}, reply({ ins: ["Zurich General Insurance", 0.85], cli: ["Tokio Marine", 0.99] })), []);
 });
+
+test("page-check lines from the worker translate and exist in every language", () => {
+  const lines: [string, string][] = [
+    ["Jev check: no RC page found in the files", "ev.jevNoRc"], ["Jev check: no our insurance page found in the files", "ev.jevNoIns"],
+    ["Jev check: no I-SEARCH page found in the files", "ev.jevNoIsearch"], ["Jev check: no our police report page found in the files", "ev.jevNoReport"],
+    ["Jev check: no Keputusan page found in the files", "ev.jevNoKep"],
+    ['Jev check: RC model "TOYOTA / WISH" not seen on the RC card by Jev', "ev.jevRcModel"], ['Jev check: RC cc "1798" not seen on the RC card by Jev', "ev.jevRcCc"],
+    ['Jev check: RC registration date "2012-03-04" not seen on the RC card by Jev', "ev.jevRcDate"],
+  ];
+  for (const [msg, key] of lines) {
+    assert.equal(eventTr(msg).key, key, msg);
+    for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)[key], `${l} ${key}`);
+  }
+  assert.deepEqual(eventTr('Jev check: RC cc "1798" not seen on the RC card by Jev').vars, { v: "1798" });
+});

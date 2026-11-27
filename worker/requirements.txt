@@ -3,3 +3,4 @@ cryptography==44.0.2
 pytest==8.4.2
 playwright==1.49.1
 pillow==11.0.0
+pymupdf==1.24.14  # Jev page check (JEV_PAGES=1); AGPL, used only on our own worker box, not redistributed

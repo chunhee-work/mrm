@@ -142,6 +142,7 @@ def main() -> None:
 
     driver.step2_reviewer = step2_ai.from_env(dict(os.environ))  # None unless STEP2_AI=on and ANTHROPIC_API_KEY is set
     from . import jev as jev_mod
+    from . import jev_pages
 
     def _record_jev(row: dict) -> None:
         try:
@@ -166,6 +167,24 @@ def main() -> None:
         with urllib.request.urlopen(req, timeout=60) as r, open(target, "wb") as f:
             f.write(r.read())
         return target
+
+    def fetch_bytes(url: str):
+        """A case PDF as bytes, in memory only (the Jev page check never writes a page or a PDF to disk)."""
+        if not cfg.blob_token or not url:
+            return None
+        from .blobstore import blob_request
+        import urllib.request
+
+        req_url, headers = blob_request(url, cfg.blob_token)
+        with urllib.request.urlopen(urllib.request.Request(req_url, headers=headers), timeout=60) as r:  # noqa: S310
+            return r.read(jev_pages.MAX_PDF_BYTES + 1)
+
+    side_check = None
+    if driver.jev is not None and jev_pages.enabled(dict(os.environ)):
+        if jev_pages.pymupdf_ok():
+            side_check = lambda case: jev_pages.run(driver.jev, case, fetch_bytes, env=dict(os.environ))  # noqa: E731
+        else:
+            print("jev page check off: PyMuPDF is not installed", flush=True)
 
     def _keep(port: int) -> None:
         subprocess.run(
@@ -221,7 +240,7 @@ def main() -> None:
     while True:
         try:
             tick(cfg, repo, launch=_launch, inspect=_inspect, namer=namer, driver=driver, download=download, keep=_keep, fetch_page=fetch_page, master=master,
-                 page_for=page_for if shots else None, put_blob=put_blob if shots else None, delete_blob=delete_blob if shots else None)
+                 page_for=page_for if shots else None, put_blob=put_blob if shots else None, delete_blob=delete_blob if shots else None, side_check=side_check)
         except Exception as e:
             print(f"tick {type(e).__name__}", file=sys.stderr)
         time.sleep(cfg.poll_seconds)
