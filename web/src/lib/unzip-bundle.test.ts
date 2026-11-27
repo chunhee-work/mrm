@@ -146,4 +146,6 @@ test("cars inside two wrapping folders are found; cars at different levels are r
   assert.throws(() => planVehicles(mixedLevels), (e: ZipRejected) => e.code === "layout");
   assert.equal(unzipBundle(zipSync({ "WA1234B/Docs/a.pdf": pdf, "WA1234B/Photos/1.jpg": jpg })).length, 2);
   assert.equal(unzipBundle(zipSync({ "Policy/WA1234B/p.pdf": pdf, "Claim/WA1234B/c.pdf": pdf })).length, 2);
+  // one car with a plate-like sub-folder ("KP1") stays one ordinary case
+  assert.equal(unzipBundle(zipSync({ "WA1234B/KP1/x.pdf": pdf, "WA1234B/Docs/y.pdf": pdf })).length, 2);
 });

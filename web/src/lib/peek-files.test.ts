@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, vehicleLayout, PLATE_LIKE, isPlate } from "./peek-files";
+import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, vehicleLayout, PLATE_LIKE, isPlate, platesAnywhere } from "./peek-files";
 
 const zip = (files: Record<string, string>) => new Blob([Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))))]);
 
@@ -57,4 +57,10 @@ test("vehicleLayout: cars inside a wrapping folder are found even with a loose f
   assert.deepEqual(vehicleLayout(["SINAR/AAA1111/a.pdf", "SINAR/BBB2222/b.pdf", "cover.pdf"]), { cars: ["SINAR/AAA1111/", "SINAR/BBB2222/"], extras: ["cover.pdf"] });
   assert.deepEqual(vehicleLayout(["SINAR/AAA1111/a.pdf", "SINAR/BBB2222/b.pdf", "Photos/1.jpg"]).extras, ["Photos/1.jpg"]);
   assert.deepEqual(vehicleLayout(["Docs/a.pdf", "Photos/1.jpg", "cover.pdf"]), { cars: [], extras: ["Docs/", "Photos/", "cover.pdf"] });
+});
+
+test("platesAnywhere: only the outermost plate-named folder of a path counts (a plate-like sub-folder of one car is not a second car)", () => {
+  assert.equal(platesAnywhere(["WA1234B/KP1/x.pdf", "WA1234B/Docs/y.pdf"]), 1);
+  assert.equal(platesAnywhere(["DCD4004/a.pdf", "More/NCH5773/e.pdf"]), 2);
+  assert.equal(platesAnywhere(["Docs/a.pdf", "__MACOSX/AAA1111/b.pdf", ".x/BBB2222/c.pdf"]), 0);
 });

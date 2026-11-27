@@ -40,8 +40,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   // The status (and the error) is checked again in the update itself, so two requests at once cannot queue the case twice.
   const waiting = c.status === "pending_doc" || (c.status === "failed" && userFixable(c.error));
   if (!waiting) return NextResponse.json({ error: "not waiting" }, { status: 409 });
-  // A zip of several cars that reached the one-case path got its credit back (scan-case), so a read with new files takes one again.
-  const refunded = c.status === "failed" && (c.error ?? "").endsWith(`: ${ZIP_WHY.multi}`);
+  // A zip of several cars (or of cars at different levels) that reached the one-case path got its credit back (scan-case),
+  // so a read with new files takes one again.
+  const err = c.error ?? "";
+  const refunded = c.status === "failed" && (err.endsWith(`: ${ZIP_WHY.multi}`) || err.endsWith(`: ${ZIP_WHY.layout}`));
   const paid = refunded ? await debitRetry(me.orgId, id) : "free";
   if (paid === false) return NextResponse.json({ error: "no_credits" }, { status: 402 });
   const giveBack = () => (paid === "charged" ? refundCase(me.orgId, id, "add_files").catch(() => false) : Promise.resolve(false));

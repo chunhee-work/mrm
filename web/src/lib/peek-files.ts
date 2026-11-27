@@ -107,7 +107,7 @@ export function vehicleLayout(names: string[]): { cars: string[]; extras: string
 }
 
 /**
- * How many different plates name a folder that holds a PDF, at any depth. Two or more while vehicleLayout finds fewer than two
+ * How many different plates name the outermost plate-named folder above a PDF, at any depth. Two or more while vehicleLayout finds fewer than two
  * cars means car folders at different levels ("DCD4004/" beside "More/NCH5773/"): never one case, refused as "layout".
  */
 export function platesAnywhere(names: string[]): number {
@@ -116,7 +116,9 @@ export function platesAnywhere(names: string[]): number {
     if (n.endsWith("/") || n.startsWith("__MACOSX/") || !/\.pdf$/i.test(n)) continue;
     const parts = n.split("/").slice(0, -1);
     if (parts.some((p) => p.startsWith("."))) continue;
-    for (const p of parts) if (isPlate(p)) plates.add(normPlate(p));
+    // only the outermost plate-named folder of a path is a car: "WA1234B/KP1/" is one car with a sub-folder, not two plates
+    const p = parts.find(isPlate);
+    if (p) plates.add(normPlate(p));
   }
   return plates.size;
 }
