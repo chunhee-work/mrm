@@ -59,9 +59,12 @@ async function readAll(stream: ReadableStream<Uint8Array>, size: number): Promis
  * asked to fall back (`fallback`): then the browser makes it one ordinary case.
  */
 export async function POST(req: Request) {
-  const me = await getUserOrNull();
-  if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (await profileBlocks(me.orgId)) return NextResponse.json({ error: "profile_incomplete" }, { status: 403 }); // details not filled in on the front page
+  let me: Awaited<ReturnType<typeof getUserOrNull>>;
+  try {
+    me = await getUserOrNull();
+    if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    if (await profileBlocks(me.orgId)) return NextResponse.json({ error: "profile_incomplete" }, { status: 403 }); // details not filled in on the front page
+  } catch (e) { console.error("split failed before reading the request", e); return NextResponse.json({ error: "failed", kept: 0 }, { status: 500 }); }
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const { url, name, size, fallback } = parsed.data;
@@ -93,7 +96,9 @@ export async function POST(req: Request) {
   try {
     const r = await get(url, { access: "private" });
     if (!r || r.statusCode !== 200) return NextResponse.json({ error: "download" }, { status: 502 });
-    buf = await readAll(r.stream, size);
+    // the size sent is the zip's key for the lock and the repeat check: it must be the stored file's real size
+    if (r.blob.size !== size) return NextResponse.json({ error: "invalid" }, { status: 400 });
+    buf = await readAll(r.stream, r.blob.size);
   } catch { return NextResponse.json({ error: "download" }, { status: 502 }); }
 
   let plan;
