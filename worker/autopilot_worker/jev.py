@@ -34,6 +34,14 @@ RULES = (
     "whose text says [LH & RH] / [Both LH/RH] / [RH/LH], covers BOTH sides."
 )
 
+def clean(t) -> str:
+    return " ".join(str(t).split())[:100]
+
+
+def clean_q(q) -> str:
+    return str(q).strip()[:4]
+
+
 Post = Callable[[dict, float], dict]
 Record = Callable[[dict], None]
 
@@ -59,7 +67,8 @@ def _post_json(key: str) -> Post:
                     break
             except (urllib.error.URLError, TimeoutError, OSError) as e:
                 last = type(e).__name__
-            time.sleep(2 ** attempt)
+            if attempt == 0:
+                time.sleep(1)  # one retry only; no pointless wait after the last attempt
         raise JevError(last or "request failed")
 
     return post
@@ -97,8 +106,7 @@ class Jev:
             return {}
         if len(pairs) > MAX_PAIRS:
             raise JevError(f"too many pairs ({len(pairs)} > {MAX_PAIRS})")
-        clean = lambda t: " ".join(str(t).split())[:100]  # a name or row is data, never long or multi-line
-        pairs = [(clean(n), clean(r), str(q)[:4]) for n, r, q in pairs]
+        pairs = [(clean(n), clean(r), clean_q(q)) for n, r, q in pairs]  # a name or row is data, never long or multi-line
 
         def one(ch):
             st = {"rules": RULES, "pairs": {f"q{i}": {"photo_item": n, "estimate_row": r, "row_qty": q} for i, (n, r, q) in enumerate(ch)}}
@@ -136,4 +144,4 @@ def from_env(env, record: Record | None = None) -> Jev | None:
     return Jev(_post_json(key), record=record)
 
 
-__all__ = ["Jev", "JevError", "from_env", "THRESHOLD", "RULES"]
+__all__ = ["Jev", "JevError", "from_env", "THRESHOLD", "RULES", "clean", "clean_q"]

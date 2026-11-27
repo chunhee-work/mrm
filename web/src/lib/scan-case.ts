@@ -82,8 +82,8 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
     await photos; // the result is shown first; the case page and the desk pick the photos up when they are in
     await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
-    // Jev second vote on the insurers and the Liberty branch (playbook 02). It runs last, after the result is saved and shown, so it never slows
-    // the read. It only adds a line to the case's activity (the same line is never added twice on a re-read); the case never changes status
+    // Jev second vote on the insurers and the Liberty branch (playbook 02). It runs last, after the result is saved and shown, so the result never
+    // waits for it (a "Read again" button reply can wait at most a few seconds). It only adds a line to the case's activity (the same line is never added twice on a re-read); the case never changes status
     // because of it, and a failing or slow Jev adds nothing.
     if (done.length) {
       try {

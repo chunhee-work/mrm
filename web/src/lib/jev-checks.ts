@@ -65,7 +65,7 @@ const closed = (names: readonly string[], none: string) => Object.fromEntries([.
  * Event lines (stored in English, shown translated: see eventTr in case-text.ts) when Jev confidently disagrees with the code about the at-fault insurer, our client's insurer or the Liberty branch.
  * An empty list means "nothing to say". Never throws, never takes more than `ms`.
  */
-export async function jevInsurerWarnings(data: CaseDataT, ctx: Omit<JevCtx, "purpose">, ask: Ask = defaultAsk, ms = 12_000): Promise<string[]> {
+export async function jevInsurerWarnings(data: CaseDataT, ctx: Omit<JevCtx, "purpose">, ask: Ask = defaultAsk, ms = 6_000): Promise<string[]> {
   if (process.env.JEV === "0") return []; // kill switch, same name as the worker's
   const str = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, 160) : "");
   const targets: { key: "ins" | "cli"; label: string; text: string }[] = [];
@@ -92,13 +92,14 @@ export async function jevInsurerWarnings(data: CaseDataT, ctx: Omit<JevCtx, "pur
       if (!j || j.c < CONF) continue;
       const mine = localInsurer(t.text);
       if (mine === null) continue; // our rules do not know this insurer (Maybank, Lonpac...): not a disagreement, nothing to say
+      if (j.v !== "__none__" && !(MERIMEN_INSURERS as readonly string[]).includes(j.v)) continue; // an answer off the closed list is noise
       const jev = j.v === "__none__" ? null : j.v;
       if (jev !== mine) out.push(`Jev check: ${t.label} insurer "${t.text}": Jev says ${jev ?? "-"}, our rules say ${mine}`);
     }
     if (questions.br) {
       const j = pick(r, "br");
       const mine = localRegion(place);
-      if (j && j.c >= CONF && j.v !== "__none__" && mine !== null && j.v !== mine) out.push(`Jev check: Liberty branch for "${place}": Jev says ${j.v}, our rules say ${mine}`);
+      if (j && j.c >= CONF && j.v !== "__none__" && j.v in REGIONS && mine !== null && j.v !== mine) out.push(`Jev check: Liberty branch for "${place}": Jev says ${j.v}, our rules say ${mine}`);
     }
     return out;
   } catch {

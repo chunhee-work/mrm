@@ -179,3 +179,9 @@ def test_one_fast_one_slow_chunk_is_all_or_nothing_within_the_budget():
         J.BUDGET_S = old
     assert time.time() - t < 1.5
     assert Jev(post).timeout <= J.BUDGET_S or Jev(post).timeout <= 30  # one request never outlives the whole-check budget
+
+
+def test_a_row_with_odd_whitespace_or_long_text_can_still_be_cleared():
+    post, _ = fake(lambda b: {k: 0.95 for k in b["questions"]})
+    r = two_way(["Front  Bumper Lip"], [("Bumper   Front\nLower Cover", "1.00")], jev=Jev(post))
+    assert r["add"] == [] and r["jev_cleared"]

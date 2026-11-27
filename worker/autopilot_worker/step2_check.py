@@ -142,11 +142,13 @@ def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[st
     rq = [(r, str(q).strip()) for r, q in rows]
     # Jev (owner 2026-11-10): may only CLEAR a false ADD?/REMOVE?, never add one. Off or any error: the code rules alone ("jev off").
     cleared: set = set()
+    clean = clean_q = lambda t: t  # replaced below when Jev is on: keys are the cleaned text Jev was asked about
     shown: list = []
     note = "jev off"
     if jev is not None:
         try:
-            from .jev import THRESHOLD
+            from .jev import THRESHOLD, clean as _c, clean_q as _cq
+            clean, clean_q = _c, _cq
             pairs = undecided_pairs(set(names_set) | set(changed_from), rq)
             probs = jev.same_parts(pairs, case_id=case_id)
             hits = {k: p for k, p in probs.items() if p >= THRESHOLD}
@@ -166,7 +168,7 @@ def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[st
         if matches(n, r):
             return True
         q = next((q for rr, q in rq if rr == r), "1")
-        return gate_rule(n, r, q) is True or (use_jev and (n, r, q) in cleared)
+        return gate_rule(n, r, q) is True or (use_jev and (clean(n), clean(r), clean_q(q)) in cleared)
 
     add = [f"{n!r} has a photo but no estimate row" for n in sorted(names_set) if not VIEWS.search(n) and not any(same(n, r) for r in old_rows)]
     remove = []
