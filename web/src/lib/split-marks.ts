@@ -32,8 +32,11 @@ export async function lockSplit(orgId: string, userId: string, name: string, siz
   const key = splitKey(name, size);
   const [mine] = await db.insert(audit).values({ orgId, userId, action: "case.split.lock", detail: key }).returning({ id: audit.id });
   const release = async () => { await db.delete(audit).where(eq(audit.id, mine.id)).catch(() => {}); };
-  const [first] = await db.select({ id: audit.id }).from(audit).where(and(eq(audit.orgId, orgId), eq(audit.action, "case.split.lock"),
-    eq(audit.detail, key), gt(audit.at, new Date(Date.now() - LOCK_MS)))).orderBy(asc(audit.id)).limit(1);
+  let first: { id: number } | undefined;
+  try {
+    [first] = await db.select({ id: audit.id }).from(audit).where(and(eq(audit.orgId, orgId), eq(audit.action, "case.split.lock"),
+      eq(audit.detail, key), gt(audit.at, new Date(Date.now() - LOCK_MS)))).orderBy(asc(audit.id)).limit(1);
+  } catch (e) { await release(); throw e; } // the row is never left behind by a failed check
   if (first && first.id !== mine.id) { await release(); return null; }
   return release;
 }

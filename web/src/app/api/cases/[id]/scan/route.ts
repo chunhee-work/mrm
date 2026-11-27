@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { scanCase } from "@/lib/scan-case";
 import { debitRetry, refundCase } from "@/lib/payments/case-credit";
+import { splitRunning } from "@/lib/split-marks";
 
 export const maxDuration = 300;
 
@@ -14,6 +15,8 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const { id } = await ctx.params;
   const [c] = await db.select({ id: schema.cases.id, status: schema.cases.status, error: schema.cases.error }).from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId))).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
+  // a case still `uploaded` while a zip split of the organisation runs may be rolled back (deleted): it is read once the split ends
+  if (c.status === "uploaded" && (await splitRunning(me.orgId))) return NextResponse.json({ error: "busy" }, { status: 409 });
   const paid = await debitRetry(me.orgId, id);
   if (!paid) return NextResponse.json({ error: "no_credits" }, { status: 402 });
   const r = await scanCase(id, "retry").catch(async (e) => {
