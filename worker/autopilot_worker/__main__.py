@@ -144,9 +144,14 @@ def main() -> None:
     from . import jev as jev_mod
     from . import jev_pages
 
+    import threading
+
+    _rec_lock = threading.Lock()  # page calls run in a small pool; one ledger write at a time on the shared connection
+
     def _record_jev(row: dict) -> None:
         try:
-            repo.record_llm_call(row)
+            with _rec_lock:
+                repo.record_llm_call(row)
         except Exception as e:  # noqa: BLE001  (before migration 0016 the insert is refused: skip it, never stop a case)
             print("jev ledger skipped:", type(e).__name__, flush=True)
 

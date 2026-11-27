@@ -357,7 +357,7 @@ def _rc_lines(jev, data, docs, best, now, t0, cid) -> list[str]:
     out = []
     for k in ("model", "cc", "date"):
         p = _prob(ans.get(k))
-        if k in qs and p is not None and p <= 1 - SURE:
+        if k in qs and p is not None and p <= 1 - SURE + 1e-9:
             name, val = shown[k]
             out.append(f'Jev check: RC {name} "{val[:80]}" not seen on the RC card by Jev')
     return out
