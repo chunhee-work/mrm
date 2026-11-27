@@ -66,7 +66,8 @@ export function isPlate(name: string): boolean {
  * dropped later, by planVehicles, which sees the sizes.
  */
 export function vehiclePrefixes(names: string[]): string[] {
-  const usable = names.filter((n) => !n.endsWith("/") && !n.startsWith("__MACOSX/") && !(n.split("/").pop() ?? "").startsWith("."));
+  // only what a case takes counts, also for "one wrapping folder": a readme.txt or a hidden folder (".x/") next to it changes nothing
+  const usable = names.filter((n) => !n.endsWith("/") && !n.startsWith("__MACOSX/") && !n.split("/").some((p) => p.startsWith(".")) && /\.(pdf|jpe?g|png|webp|heic)$/i.test(n));
   const split = (depth: number) => {
     const g = new Map<string, boolean>();
     for (const n of usable) { const parts = n.split("/"); if (parts.length <= depth + 1) continue; const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); }

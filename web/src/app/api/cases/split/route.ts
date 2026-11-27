@@ -1,11 +1,11 @@
-import { NextResponse, after } from "next/server";
-import { and, eq, gt, inArray, like } from "drizzle-orm";
+import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { del, get, put } from "@vercel/blob";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { planVehicles, unzipVehicle, ZipRejected } from "@/lib/unzip-bundle";
-import { scanCase } from "@/lib/scan-case";
+import { earlierCars, lockSplit, splitKey } from "@/lib/split-marks";
 import { CASE_COST, debitCase, enforcing, exempt, refundCase } from "@/lib/payments/case-credit";
 import { creditBalance } from "@/lib/payments/credit";
 import { runPool } from "@/lib/pool";
@@ -14,12 +14,9 @@ import { ZIP_WHY } from "@/lib/case-text";
 
 export const maxDuration = 300; // the zip is opened and stored in this call; the reading of most cases starts later (see below)
 
-const Body = z.object({ url: z.string().url().max(1000), name: z.string().trim().min(1).max(300), size: z.number().int().positive().max(MAX_FILE_BYTES) });
-const READ_NOW = 3; // cases read right after the response; the rest are started by the dashboard / case page self-heal
-const REPEAT_MS = 24 * 3600_000; // a second upload of the same zip (name and size) within a day only makes the cars still missing
+const Body = z.object({ url: z.string().url().max(1000), name: z.string().trim().min(1).max(300), size: z.number().int().positive().max(MAX_FILE_BYTES), fallback: z.boolean().optional() });
 
 const normPlate = (folder: string) => folder.toUpperCase().replace(/[\s-]+/g, "").slice(0, 20);
-const esc = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 /**
  * Writes the rows of one car together: on Neon one HTTP batch (one transaction), so a case never exists without its files,
@@ -39,17 +36,19 @@ async function writeCar(qs: Parameters<typeof db.batch>[0]) {
  * inflated and stored, then its case, file rows, intake job, event and audit rows are written in one batch, then its credit is taken.
  * A `case.split` audit row records which zip (name and size) and which folder each case came from: when the same zip is sent
  * again (after a time-out, say), the cars already made are kept and not charged again; only the missing ones are made.
+ * A lock row lets only one call split the same zip at a time (409 "busy" for the other); while it is held the self-heal reads none
+ * of the organisation's new cases, since a rollback may still delete them.
  * On a thrown error every case made in this call is refunded and deleted and every stored blob removed. A function killed by the
  * time limit leaves the cars finished before it (each complete and charged once, or complete and not yet charged) and blobs of the
- * car in progress. The uploaded zip is deleted when the call ends, except when it is not a multi-car zip ("empty"): then the
- * browser makes it one ordinary case.
+ * car in progress. The uploaded zip is deleted when the call ends, except when it is not a multi-car zip ("empty") and the browser
+ * asked to fall back (`fallback`): then the browser makes it one ordinary case.
  */
 export async function POST(req: Request) {
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
-  const { url, name, size } = parsed.data;
+  const { url, name, size, fallback } = parsed.data;
   let u: URL;
   let path: string;
   try { u = new URL(url); path = decodeURIComponent(u.pathname); } catch { return NextResponse.json({ error: "prefix" }, { status: 400 }); }
@@ -68,25 +67,29 @@ export async function POST(req: Request) {
   try { plan = planVehicles(buf); }
   catch (e) {
     const code = e instanceof ZipRejected ? e.code : "corrupt";
-    if (code !== "empty") await dropZip();
+    if (!(code === "empty" && fallback)) await dropZip(); // "empty" with fallback: the browser makes it one ordinary case
     return NextResponse.json({ error: code, why: e instanceof ZipRejected ? e.message : ZIP_WHY.corrupt }, { status: 422 });
   }
 
-  // cars of this zip already made by an earlier call (same zip name and size, case still there)
-  const key = `${name}|${size}|`;
-  const marks = await db.select({ detail: schema.auditLog.detail }).from(schema.auditLog).where(and(eq(schema.auditLog.orgId, me.orgId),
-    eq(schema.auditLog.action, "case.split"), like(schema.auditLog.detail, `%|${esc(key)}%`), gt(schema.auditLog.at, new Date(Date.now() - REPEAT_MS))));
-  const earlier = new Map<string, string>(); // folder prefix -> case id
-  for (const m of marks) { const d = m.detail ?? ""; const i = d.indexOf("|"); if (d.slice(i + 1).startsWith(key)) earlier.set(d.slice(i + 1 + key.length), d.slice(0, i)); }
-  if (earlier.size) {
-    const alive = new Set((await db.select({ id: schema.cases.id }).from(schema.cases).where(and(eq(schema.cases.orgId, me.orgId), inArray(schema.cases.id, [...earlier.values()])))).map((c) => c.id));
-    for (const [p, id] of earlier) if (!alive.has(id)) earlier.delete(p);
+  // Only one call at a time splits a given zip (two tabs, or a retry while the first call still runs), and cars an earlier call
+  // already made are kept as they are, not made or charged again.
+  let release: (() => Promise<void>) | null;
+  let earlier: Map<string, string>;
+  let todo: typeof plan;
+  try {
+    release = await lockSplit(me.orgId, me.user.id, name, size);
+    if (!release) return NextResponse.json({ error: "busy" }, { status: 409 }); // the zip stays: the running call deletes it
+    earlier = await earlierCars(me.orgId, name, size);
+    todo = plan.filter((v) => !earlier.has(v.prefix));
+    if (todo.length && enforcing() && !exempt(me.orgId) && (await creditBalance(me.orgId)) < CASE_COST * todo.length) {
+      await release(); await dropZip();
+      return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
+    }
+  } catch (e) {
+    console.error("split failed before making cases", e);
+    return NextResponse.json({ error: "failed" }, { status: 500 });
   }
-  const todo = plan.filter((v) => !earlier.has(v.prefix));
-  if (todo.length && enforcing() && !exempt(me.orgId) && (await creditBalance(me.orgId)) < CASE_COST * todo.length) {
-    await dropZip();
-    return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
-  }
+  const key = splitKey(name, size);
 
   const made: string[] = [];
   const madeFor = new Map<string, string>(); // folder prefix -> case id made in this call
@@ -123,14 +126,16 @@ export async function POST(req: Request) {
     }
     if (stored.length) await del(stored).catch((x) => console.error("split rollback: blob delete failed", x));
     await dropZip();
+    await release();
     if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
     console.error("split failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
   await dropZip();
-  const ids = plan.map((v) => earlier.get(v.prefix) ?? madeFor.get(v.prefix)).filter((x): x is string => !!x);
-  // The first new cases are read now. Each read can take minutes and this call has one time limit, so the rest are not queued here:
-  // the dashboard starts cases still `uploaded` after a minute (a few per visit) and each case page does the same for itself.
-  after(async () => { await runPool(Math.min(made.length, READ_NOW), READ_NOW, async (i) => { await scanCase(made[i], "auto").catch(() => {}); }); });
-  return NextResponse.json({ ids, plates: plan.map((v) => normPlate(v.plate)), made: made.length });
+  await release();
+  // No read starts here: a read takes up to 5 minutes and this call's 300 s are mostly spent. The dashboard and each case page
+  // start cases still `uploaded` a minute after they were made, once no split of the organisation is running.
+  const done = plan.filter((v) => earlier.has(v.prefix) || madeFor.has(v.prefix));
+  const ids = done.map((v) => (earlier.get(v.prefix) ?? madeFor.get(v.prefix)) as string);
+  return NextResponse.json({ ids, plates: done.map((v) => normPlate(v.plate)), made: made.length });
 }

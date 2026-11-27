@@ -125,7 +125,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     let bad = -1; // the file whose upload failed (three go up at once, so it is caught per file, not "the last one started")
     try {
       // check the balance before a single byte goes up
-      const pre = await fetch(`/api/cases/credit${multi ? `?n=${zipCars.current.get(keyOf(multi))!.length}` : ""}`);
+      const pre = await fetch(`/api/cases/credit${multi ? `?n=${zipCars.current.get(keyOf(multi))!.length}&zip=${encodeURIComponent(multi.name)}&size=${multi.size}` : ""}`);
       if (pre.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       const batchId = crypto.randomUUID();
       const done: { kind: Kind; url: string; name: string; size: number }[] = new Array(files.length);
@@ -141,10 +141,14 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       });
       uploading = false; setStep(files.length);
       if (multi || unknown) { // one zip, several vehicles: the server makes one case per vehicle
-        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(done[0]) });
+        // a lost connection does not stop the server: cars may be made, so the message is the split one, not "nothing happened"
+        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...done[0], fallback: unknown }) })
+          .catch(() => null);
+        if (!sp) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
         const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
         if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+          if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
           if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : t("new.splitFail")); setStep(-1); setBusy(false); return; }
           leaving.current = true;
           window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves

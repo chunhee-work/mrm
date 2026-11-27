@@ -11,6 +11,7 @@ import Home, { type HomeCounts } from "@/components/app/home";
 import { bucketOf, VIEWS, type View } from "@/components/app/status";
 import { after } from "next/server";
 import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
+import { splitRunning } from "@/lib/split-marks";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a few waiting cases are read after the page is sent
@@ -40,7 +41,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const live = newest.filter((c) => c.status === "reading" && !stale(c)).length;
   const heal = [
     ...newest.filter(stale).map((c) => () => scanCase(c.id, "recover", c.error)),
-    ...newest.filter((c) => c.status === "uploaded" && now - c.createdAt.getTime() > 60_000).map((c) => () => scanCase(c.id, "auto")),
+    // cases of a split still running are not read yet: a rollback may delete them
+    ...(newest.some((c) => c.status === "uploaded") && (await splitRunning(orgId)) ? [] : newest.filter((c) => c.status === "uploaded" && now - c.createdAt.getTime() > 60_000).map((c) => () => scanCase(c.id, "auto"))),
   ].slice(0, Math.max(0, HEAL_PER_VISIT - live));
   if (heal.length) after(async () => { await Promise.all(heal.map((run) => run().catch(() => {}))); });
   const have = new Set(newest.map((c) => c.id));
