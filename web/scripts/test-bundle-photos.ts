@@ -154,6 +154,32 @@ async function main() {
       const again = await importCasePhotos(id, ORG);
       assert.equal(again.added, 0); assert.deepEqual(again.leftOut, { heic: 0, big: 0, limit: 1, unreadable: 0 });
     }],
+    ["a full desk: extra photos are left out for the limit without a small copy being made (a file that is no picture is not even tried), the same on every read", async () => {
+      const id = await newCase();
+      await db.insert(schema.casePhotos).values(Array.from({ length: 300 }, (_, i) => ({ caseId: id, origN: 1 + i, position: i, srcName: `desk${i}.jpg`, blobPath: `x/${i}-f`, thumbPath: `x/${i}-s`, contentHash: `full-${id}-${i}`, nameState: "named" })));
+      await addFile(id, "photo", "n1.jpg", await jpeg([1, 2, 3]));
+      await addFile(id, "photo", "n2.jpg", Buffer.from("this is no picture")); // opening it would say "cannot be opened"
+      for (let k = 0; k < 2; k++) {
+        const before = putLog.length;
+        const r = await importCasePhotos(id, ORG);
+        assert.equal(r.added, 0); assert.deepEqual(r.skipped.sort(), ["n1.jpg", "n2.jpg"]);
+        assert.deepEqual(r.leftOut, { heic: 0, big: 0, limit: 2, unreadable: 0 });
+        assert.equal(putLog.length, before); // nothing stored
+      }
+      assert.equal((await desk(id)).length, 300);
+    }],
+    ["one place left: the first new photo by name gets it, a later file is left out for the limit even when it is no picture", async () => {
+      const id = await newCase();
+      await db.insert(schema.casePhotos).values(Array.from({ length: 299 }, (_, i) => ({ caseId: id, origN: 1 + i, position: i, srcName: `desk${i}.jpg`, blobPath: `x/${i}-f`, thumbPath: `x/${i}-s`, contentHash: `near-${id}-${i}`, nameState: "named" })));
+      await addFile(id, "photo", "m0.jpg", Buffer.from("no picture either")); // before the last place is given: it takes none
+      await addFile(id, "photo", "m1.jpg", await jpeg([9, 8, 7]));
+      await addFile(id, "photo", "m2.jpg", Buffer.from("this is no picture"));
+      await addFile(id, "photo", "m3.jpg", await jpeg([7, 8, 9]));
+      const r = await importCasePhotos(id, ORG);
+      assert.equal(r.added, 1);
+      assert.deepEqual(r.leftOut, { heic: 0, big: 0, limit: 2, unreadable: 1 });
+      assert.deepEqual((await desk(id)).filter((p) => /^m\d/.test(p.srcName)).map((p) => p.srcName), ["m1.jpg"]);
+    }],
     ["U3: a photo named with two dots in a row is imported; its stored path has no '..'", async () => {
       const id = await newCase();
       await addFile(id, "photo", "IMG..1.jpg", await jpeg([77, 66, 55]));

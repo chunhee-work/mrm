@@ -52,10 +52,16 @@ export async function importCasePhotos(caseId: string, orgId: string): Promise<P
       const bytes = Buffer.from(await new Response(r.stream).arrayBuffer());
       const hash = createHash("sha256").update(bytes).digest("hex");
       if (hashes.has(hash)) return; // already on the desk: nothing to store again
-      const thumb = await sharp(bytes).rotate().resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
+      // Every place is taken already (places only ever fill up, in name order): no small copy is made for a photo that cannot
+      // get one. Without this a case past the limit made a small copy of every extra photo again on each read.
+      const full = fresh >= room;
+      // a file that is no picture is only known as such here; it is reported below, after the limit, so the same file gets the
+      // same reason on every read whether or not its small copy was tried
+      const thumb = full ? null : await sharp(bytes).rotate().resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer().catch(() => null);
       await decided[i - 1]; // the files before this one (by name) are placed first
       if (taken.has(hash)) return; // the same picture twice is one photo
       if (fresh >= room) return skip(f, "limit");
+      if (!thumb) return skip(f, "unreadable");
       taken.add(hash); fresh++;
       done(); // the next file need not wait for the two stores below
       const type = r.blob.contentType?.startsWith("image/") ? r.blob.contentType : "image/jpeg";
