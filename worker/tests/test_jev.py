@@ -154,3 +154,28 @@ def test_a_malformed_answer_means_no_clear_and_no_crash():
             return bad
         r = two_way(NAMES, ROWS, jev=Jev(post))
         assert r["add"] and r["jev"].startswith("jev off")
+
+
+def test_one_fast_one_slow_chunk_is_all_or_nothing_within_the_budget():
+    import time
+    import autopilot_worker.jev as J
+    old = J.BUDGET_S
+    J.BUDGET_S = 0.3
+    n = {"i": 0}
+
+    def post(body, timeout):
+        n["i"] += 1
+        if n["i"] == 2:
+            time.sleep(2)
+        return {"answers": {k: {"noul": 0.9} for k in body["questions"]}}
+
+    t = time.time()
+    try:
+        Jev(post).same_parts([("a%d" % i, "b", "1") for i in range(J.CHUNK + 5)])
+        raise AssertionError("must raise")
+    except JevError:
+        pass
+    finally:
+        J.BUDGET_S = old
+    assert time.time() - t < 1.5
+    assert Jev(post).timeout <= J.BUDGET_S or Jev(post).timeout <= 30  # one request never outlives the whole-check budget

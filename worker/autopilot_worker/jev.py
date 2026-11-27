@@ -66,7 +66,7 @@ def _post_json(key: str) -> Post:
 
 
 class Jev:
-    def __init__(self, post: Post, *, record: Record | None = None, model: str = MODEL, timeout: float = 45.0):
+    def __init__(self, post: Post, *, record: Record | None = None, model: str = MODEL, timeout: float = 25.0):
         self.post, self.record, self.model, self.timeout = post, record, model, timeout
         self.record_off = False  # set after the first refused ledger write (before migration 0016): stop trying, print once
 
