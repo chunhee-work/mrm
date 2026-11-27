@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
-import { Chevron, Plus, Search } from "./marks";
+import { Chevron, Plus, Search, UploadArt } from "./marks";
+import { holdDropped } from "@/lib/dropped-files";
 import { OPEN_BUCKETS, type Bucket } from "./status";
 
 export type HomeCounts = Record<Bucket, number>;
@@ -28,6 +29,27 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
     const id = window.setInterval(() => { if (!document.hidden) router.refresh(); }, REFRESH_MS);
     return () => window.clearInterval(id);
   }, [live, router]);
+
+  // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
+  const [over, setOver] = useState(false);
+  useEffect(() => {
+    let depth = 0;
+    const has = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+    const enter = (e: DragEvent) => { if (!has(e)) return; e.preventDefault(); depth++; setOver(true); };
+    const move = (e: DragEvent) => { if (!has(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"; };
+    const leave = (e: DragEvent) => { if (!has(e)) return; depth = Math.max(0, depth - 1); if (!depth) setOver(false); };
+    const drop = (e: DragEvent) => {
+      if (!has(e)) return;
+      e.preventDefault(); depth = 0; setOver(false);
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      if (!files.length) return;
+      holdDropped(files);
+      router.push("/cases/new");
+    };
+    window.addEventListener("dragenter", enter); window.addEventListener("dragover", move);
+    window.addEventListener("dragleave", leave); window.addEventListener("drop", drop);
+    return () => { window.removeEventListener("dragenter", enter); window.removeEventListener("dragover", move); window.removeEventListener("dragleave", leave); window.removeEventListener("drop", drop); };
+  }, [router]);
 
   // "On hold" is a row only when a case is on hold; the other three are always there, so the box keeps its shape
   const rows = OPEN_BUCKETS.filter((b) => b !== "hold" || counts.hold > 0).map((b) => ({ b, n: counts[b], hot: b !== "active" && counts[b] > 0 }));
@@ -92,6 +114,14 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
         </div>
         <div className="mt-9">{table}</div>
       </div>
+      {over && (
+        <div aria-hidden="true" data-testid="home-overlay" className="pointer-events-none fixed inset-0 z-50 bg-panel/90 p-4 backdrop-blur-[2px]">
+          <div className="app-dash flex h-full flex-col items-center justify-center gap-4 bg-icetint text-center" data-over="true">
+            <span className="text-ice"><UploadArt size={72} lift /></span>
+            <p className="display-3 px-6 text-[22px] text-fg">{t("tray.drop")}</p>
+          </div>
+        </div>
+      )}
       {below && <div className="mx-auto mt-10 max-w-[920px]">{below}</div>}
     </div>
   );
