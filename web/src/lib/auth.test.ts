@@ -7,7 +7,7 @@ import path from "node:path";
 import Module from "node:module";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { MAX_NAME } from "./account-name";
 
@@ -15,21 +15,29 @@ const pg = new PGlite();
 const real = drizzle(pg, { schema });
 // the database with a switch: the next insert into one table fails once (a blip at the worst moment)
 let failInsertInto: unknown = null;
+// and a second switch: while it is on, every counter of rate-limit.ts fails to be written (its rows are the ones named rl:…)
+let countersDown = 0;
 const db = new Proxy(real, {
   get(target, p) {
     if (p !== "insert") return (target as unknown as Record<PropertyKey, unknown>)[p];
     return (table: Parameters<typeof real.insert>[0]) => {
       if (table === failInsertInto) { failInsertInto = null; throw new Error("database blip"); }
-      return target.insert(table);
+      const ins = target.insert(table);
+      if (!countersDown || table !== schema.verification) return ins;
+      return { values: (val: { id: string }) => { if (val.id.startsWith("rl:")) { countersDown++; throw new Error("database blip"); } return ins.values(val as never); } };
     };
   },
 });
 const mails: { to: string; kind: string }[] = [];
+const htmls: string[] = []; // the same emails, what they say
+// what the server leaves to do after the answer is sent (emails, clearing a counter): awaited by http() so a test sees it done
+const afterAnswer: Promise<unknown>[] = [];
 let reqHeaders = new Headers();
 class Redirected extends Error { constructor(public to: string) { super(`redirect ${to}`); } }
 const stubs: Record<string, unknown> = {
   "@/db": { db, schema },
-  "./email": { sendEmail: async (to: string, _subject: string, _html: string, kind: string) => { mails.push({ to, kind }); } },
+  "./email": { sendEmail: async (to: string, _subject: string, html: string, kind: string) => { mails.push({ to, kind }); htmls.push(html); } },
+  "next/server": { after: (p: Promise<unknown>) => { afterAnswer.push(Promise.resolve(p).catch(() => {})); } },
   "next/headers": { headers: async () => reqHeaders, cookies: async () => ({ has: (n: string) => (reqHeaders.get("cookie") ?? "").includes(`${n}=`) }) },
   "next/navigation": { redirect: (to: string) => { throw new Redirected(to); } },
 };
@@ -47,14 +55,15 @@ const orgs = () => real.select().from(schema.organizations);
 const members = (userId: string) => real.select().from(schema.memberships).where(eq(schema.memberships.userId, userId));
 const userOf = async (email: string) => (await real.select().from(schema.user).where(eq(schema.user.email, email)))[0];
 /** A call the way the browser makes it: over the HTTP handler, so the answer has the real status, body and cookies. */
-async function http(p: string, body?: unknown, cookie?: string) {
+async function http(p: string, body?: unknown, cookie?: string, more: Record<string, string> = {}) {
   const { auth } = await kit();
   const r = await auth.handler(new Request(`http://localhost:3000/api/auth${p}`, {
     method: body === undefined ? "GET" : "POST",
-    headers: { origin: "http://localhost:3000", ...(body === undefined ? {} : { "content-type": "application/json" }), ...(cookie ? { cookie } : {}) },
+    headers: { origin: "http://localhost:3000", ...(body === undefined ? {} : { "content-type": "application/json" }), ...(cookie ? { cookie } : {}), ...more },
     body: body === undefined ? undefined : JSON.stringify(body),
   }));
   const text = await r.text();
+  while (afterAnswer.length) await afterAnswer.shift();
   let json: ({ code?: string } & Record<string, unknown>) | null = null;
   try { json = JSON.parse(text); } catch { /* no body */ }
   return { status: r.status, code: json?.code, json, setCookie: r.headers.get("set-cookie") ?? "" };
@@ -226,6 +235,34 @@ test("sign-up answers the same for an address with an account and one without, w
     // and with the address typed in capitals
     assert.deepEqual(shape(await http("/sign-up/email", { ...body, email: email.toUpperCase() })), fresh);
   }
+  // the same with a picture sent along: nothing of it is stored or answered, so one that the database would refuse (a zero
+  // byte) or a very long one cannot make the two answers differ
+  for (const image of ["\u0000", "a\u0000b", "x".repeat(200_000), "https://example.test/me.png", ""]) {
+    const email = `pic${++n}@test.invalid`;
+    const body = { name: "Ahmad", email, password: PASSWORD, image };
+    const fresh = shape(await http("/sign-up/email", body));
+    assert.equal(fresh.status, 200, `image ${JSON.stringify(image).slice(0, 24)}`);
+    assert.equal(fresh.fields.image, null);
+    assert.equal((await userOf(email)).image, null, "nothing is stored");
+    assert.deepEqual(shape(await http("/sign-up/email", body)), fresh, `image ${JSON.stringify(image).slice(0, 24)}`);
+  }
+  // an address with a zero byte in it is refused as malformed either way, before any account is looked up
+  const bad = await http("/sign-up/email", { name: "Ahmad", email: "ah\u0000mad@test.invalid", password: PASSWORD });
+  assert.deepEqual([bad.status, bad.code], [400, "VALIDATION_ERROR"]);
+});
+
+test("a profile picture cannot be stored: a change that sends one is refused", async () => {
+  const me = await signedUp("Ahmad");
+  for (const image of ["https://example.test/me.png", "x".repeat(200_000), "\u0000", ""]) {
+    const r = await http("/update-user", { image }, me.cookie);
+    assert.deepEqual([r.status, r.code], [400, "INVALID_IMAGE"], `image ${JSON.stringify(image).slice(0, 24)}`);
+    assert.deepEqual([(await http("/update-user", { name: "Other", image }, me.cookie)).status, (await userOf(me.email)).name], [400, "Ahmad"], "the name sent with it is not saved either");
+  }
+  assert.equal((await userOf(me.email)).image, null);
+  // "no picture" is what is stored already, and a name alone still saves
+  assert.equal((await http("/update-user", { image: null }, me.cookie)).status, 200);
+  assert.equal((await http("/update-user", { name: "Ahmad Motor" }, me.cookie)).status, 200);
+  assert.deepEqual([(await userOf(me.email)).name, (await userOf(me.email)).image], ["Ahmad Motor", null]);
 });
 
 test("the reasons the pages read are the ones the server sends", async () => {
@@ -285,4 +322,244 @@ test("a page only reads the session; the browser's own request renews it and get
   assert.ok((await daysLeft()) > 6.99, "the row has 7 new days");
   // asked again the same day: nothing to renew, no cookie
   assert.equal((await http("/get-session", undefined, me.cookie)).setCookie, "");
+});
+
+// ---- caps: client address, one account, one mailbox (rate-limit.ts) ----
+const V = schema.verification;
+const MIN = 60_000;
+const rl = () => import("./rate-limit");
+/** Better Auth's limiter is off outside production; a test turns it on for itself. */
+async function withLimiter<T>(f: () => Promise<T>) {
+  const ctx = await (await kit()).auth.$context;
+  ctx.rateLimit.enabled = true;
+  try { return await f(); } finally { ctx.rateLimit.enabled = false; }
+}
+const from = (ip: string) => ({ "x-forwarded-for": ip });
+const counter = async (id: string) => (await real.select().from(V).where(eq(V.id, id)))[0];
+/** The window of these counters ended a moment ago. */
+const endWindow = (idLike: string) => real.update(V).set({ expiresAt: new Date(Date.now() - 1000) }).where(like(V.id, idLike));
+const wrong = (email: string, more?: Record<string, string>) => http("/sign-in/email", { email, password: "not-the-password" }, undefined, more);
+const quiet = async <T>(f: () => Promise<T>) => { const e = console.error; console.error = () => {}; try { return await f(); } finally { console.error = e; } };
+
+test("log-in tries are counted per client address in the database: the 4th in a row is a 429, another address is not held up, and it is over when the window is", async () => {
+  const { IP_RULES, counterId } = await rl();
+  const max = IP_RULES["/sign-in/email"].max;
+  await withLimiter(async () => {
+    const a = "203.0.113.10";
+    for (let i = 0; i < max; i++) assert.equal((await wrong(`ip-a${i}@test.invalid`, from(a))).status, 401);
+    const held = await wrong("ip-a9@test.invalid", from(a));
+    assert.equal(held.status, 429, "the shape the log-in page reads as 'too many tries'");
+    assert.equal((await http("/sign-in/email", { email: "ip-a9@test.invalid", password: PASSWORD }, undefined, from("203.0.113.11"))).status, 401, "another address");
+    // the count is one row, shared by every server instance
+    const row = await counter(counterId("ip", `${a}|/sign-in/email`));
+    assert.equal(row.value, String(max + 1));
+    assert.ok(row.expiresAt.getTime() - Date.now() <= IP_RULES["/sign-in/email"].window * 1000);
+    await endWindow("rl:ip:%");
+    assert.equal((await wrong("ip-a9@test.invalid", from(a))).status, 401, "after the window");
+
+    // many at the same moment from one address: exactly `max` reach the password check (margin 0)
+    const burst = await Promise.all(Array.from({ length: 12 }, (_, i) => wrong(`ip-b${i}@test.invalid`, from("203.0.113.20"))));
+    assert.deepEqual([burst.filter((r) => r.status === 401).length, burst.filter((r) => r.status === 429).length], [max, 12 - max]);
+
+    // The address is the one the platform writes. A header with two addresses in it is not believed (the first is whatever
+    // the client typed): the platform's second header is read instead.
+    await wrong("ip-c@test.invalid", { "x-forwarded-for": "198.51.100.1, 10.0.0.1", "x-vercel-forwarded-for": "203.0.113.30" });
+    assert.ok(await counter(counterId("ip", "203.0.113.30|/sign-in/email")));
+    assert.equal(await counter(counterId("ip", "198.51.100.1|/sign-in/email")), undefined);
+  });
+});
+
+test("sign-ups from one client address are capped over ten minutes; every other auth path shares one generous cap", async () => {
+  const { IP_RULES, IP_RULE_REST } = await rl();
+  await withLimiter(async () => {
+    const a = "203.0.113.40", rule = IP_RULES["/sign-up/email"];
+    const made = mails.length;
+    const tries: number[] = [];
+    for (let i = 0; i < rule.max + 2; i++) tries.push((await http("/sign-up/email", { name: "F", email: `flood${++n}@test.invalid`, password: PASSWORD }, undefined, from(a))).status);
+    assert.deepEqual(tries, [...Array(rule.max).fill(200), 429, 429]);
+    assert.equal(mails.length - made, rule.max, "and no more emails than that");
+    const rest = await Promise.all(Array.from({ length: IP_RULE_REST.max + 5 }, () => http("/get-session", undefined, undefined, from(a))));
+    assert.equal(rest.filter((r) => r.status === 429).length, 5);
+  });
+});
+
+test("the limiter's database is down: requests are answered as if there were no limiter", async () => {
+  const me = await signedUp();
+  const { IP_RULES, MAILS_PER_ADDRESS_MAX } = await rl();
+  const counters = async () => (await real.select().from(V).where(like(V.id, "rl:%"))).length;
+  const had = await counters();
+  countersDown = 1;
+  try {
+    await quiet(() => withLimiter(async () => {
+      // per client address and per account: far more tries than either cap, every one is answered by the password check
+      for (let i = 0; i < IP_RULES["/sign-in/email"].max + 3; i++) assert.equal((await wrong("down@test.invalid", from("203.0.113.50"))).status, 401);
+      assert.equal(countersDown - 1, 2 * (IP_RULES["/sign-in/email"].max + 3), "both counts really failed, every time");
+      assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD }, undefined, from("203.0.113.50"))).status, 200);
+      // per mailbox: the emails still go out
+      const sent = mails.length;
+      for (let i = 0; i < MAILS_PER_ADDRESS_MAX + 1; i++) assert.equal((await http("/request-password-reset", { email: me.email, redirectTo: "/reset-password" }, undefined, from(`203.0.113.${60 + i}`))).status, 200);
+      assert.equal(mails.length - sent, MAILS_PER_ADDRESS_MAX + 1);
+    }));
+  } finally { countersDown = 0; }
+  assert.equal(await counters(), had, "nothing was counted while it was down");
+});
+
+test("wrong passwords for one address are capped whoever sends them: then a 429, the same for an address nobody has, until the window ends", async () => {
+  const { SIGN_IN_FAILS_MAX: max, SIGN_IN_FAILS_WINDOW_MS, counterId } = await rl();
+  const me = await signedUp();
+  const nobody = `nobody${++n}@test.invalid`;
+  // every try from another client address (a botnet): the count is per account
+  const run = async (email: string) => {
+    const out: (number | string | undefined)[][] = [];
+    for (let i = 0; i <= max; i++) { const r = await wrong(email, from(`198.51.100.${i + 1}`)); out.push([r.status, r.code, r.json?.message as string]); }
+    // locked: the right password is refused too, with the answer the log-in page reads as "too many tries"
+    const r = await http("/sign-in/email", { email, password: PASSWORD });
+    out.push([r.status, r.code, r.json?.message as string, r.setCookie]);
+    return out;
+  };
+  const real1 = await run(me.email);
+  assert.deepEqual(real1.slice(0, max), Array(max).fill([401, "INVALID_EMAIL_OR_PASSWORD", "Invalid email or password"]));
+  assert.deepEqual(real1.slice(max), [[429, "TOO_MANY_REQUESTS", "Too many requests. Please try again later."], [429, "TOO_MANY_REQUESTS", "Too many requests. Please try again later.", ""]]);
+  assert.deepEqual(await run(nobody), real1, "an address without an account answers the same, try for try");
+  // typed in capitals it is the same account and the same count
+  assert.equal((await wrong(me.email.toUpperCase())).status, 429);
+  // the row: a hash, not the address; it ends ten minutes after the first wrong password and refused tries do not move that
+  const id = counterId("signin", me.email);
+  const row = await counter(id);
+  assert.equal(JSON.stringify(row).includes(me.email), false);
+  assert.ok(Math.abs(row.expiresAt.getTime() - Date.now() - SIGN_IN_FAILS_WINDOW_MS) < 30_000);
+  // the window ends: the right password logs in, and the count is gone
+  await endWindow(id);
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD })).status, 200);
+  assert.equal(await counter(id), undefined);
+});
+
+test("a right password starts the count again; tries at the same moment cannot get past the cap; an unconfirmed account's right password is not a wrong one", async () => {
+  const { SIGN_IN_FAILS_MAX: max, counterId } = await rl();
+  const me = await signedUp();
+  for (let round = 0; round < 2; round++) {
+    for (let i = 0; i < max - 1; i++) assert.equal((await wrong(me.email)).status, 401, `round ${round} try ${i}`);
+    assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD })).status, 200);
+    assert.equal(await counter(counterId("signin", me.email)), undefined);
+  }
+  // 30 guesses sent together at one account: exactly 10 are checked (margin 0)
+  const burst = await Promise.all(Array.from({ length: 30 }, () => wrong(me.email)));
+  assert.deepEqual([burst.filter((r) => r.status === 401).length, burst.filter((r) => r.status === 429).length], [max, 30 - max]);
+  // the same request sent the other way the server accepts it (a plain form) is held by the same count
+  const form = await (await kit()).auth.handler(new Request("http://localhost:3000/api/auth/sign-in/email", {
+    method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ email: me.email, password: PASSWORD }).toString(),
+  }));
+  assert.equal(form.status, 429);
+
+  // not confirmed yet, right password: "confirm your email" every time, never "too many tries"
+  const email = `unconfirmed${++n}@test.invalid`;
+  await http("/sign-up/email", { name: "U", email, password: PASSWORD });
+  for (let i = 0; i < max + 3; i++) assert.equal((await http("/sign-in/email", { email, password: PASSWORD })).code, "EMAIL_NOT_VERIFIED");
+  assert.equal(Number((await counter(counterId("signin", email)))?.value ?? 0), 0);
+  // a request that is not a guess at all (no password) is not counted either
+  for (let i = 0; i < max + 3; i++) assert.equal((await http("/sign-in/email", { email })).status, 400);
+  assert.equal(Number((await counter(counterId("signin", email)))?.value ?? 0), 0);
+});
+
+/** The token in the newest reset email. */
+const lastResetToken = () => /\/reset-password\/([A-Za-z0-9_-]+)\?/.exec(htmls[htmls.length - 1])![1];
+
+test("a password reset unlocks the account, is stored as a hash, works once, and ends the other reset links of that account", async () => {
+  const { SIGN_IN_FAILS_MAX: max } = await rl();
+  const { storedResetIdentifiers, resetIdentifier } = await import("./reset-token");
+  const me = await signedUp();
+  for (let i = 0; i < max; i++) await wrong(me.email);
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD })).status, 429, "someone locked the owner out");
+
+  // two links are asked for
+  await http("/request-password-reset", { email: me.email, redirectTo: "/reset-password" });
+  const first = lastResetToken();
+  await http("/request-password-reset", { email: me.email, redirectTo: "/reset-password" });
+  const second = lastResetToken();
+  assert.notEqual(first, second);
+  // in the table: only the hash of each, which is where the page's "is this link live" check looks
+  const rows = await real.select().from(V).where(eq(V.value, me.id));
+  assert.deepEqual(rows.map((r) => r.identifier).sort(), [storedResetIdentifiers(first)[0], storedResetIdentifiers(second)[0]].sort());
+  assert.equal(JSON.stringify(rows).includes(first) || JSON.stringify(rows).includes(second), false, "the link itself is not in the table");
+  assert.deepEqual(storedResetIdentifiers(first), [storedResetIdentifiers(first)[0], resetIdentifier(first)]);
+  assert.ok(rows.every((r) => Math.abs(r.expiresAt.getTime() - Date.now() - 60 * MIN) < 30_000), "one hour, as the email says");
+
+  // the second link is used
+  const NEW = "a-new-long-password";
+  assert.equal((await http("/reset-password", { newPassword: NEW, token: second })).status, 200);
+  // used once: not again; and the first link died with it
+  assert.deepEqual([(await http("/reset-password", { newPassword: "third-long-password", token: second })).code, (await http("/reset-password", { newPassword: "third-long-password", token: first })).code], ["INVALID_TOKEN", "INVALID_TOKEN"]);
+  assert.equal((await real.select().from(V).where(eq(V.value, me.id))).length, 0);
+  // the owner is in at once with the new password; the old session and the old password are gone
+  assert.equal((await http("/sign-in/email", { email: me.email, password: NEW })).status, 200);
+  assert.equal((await http("/get-session", undefined, me.cookie)).json, null);
+  assert.equal((await wrong(me.email)).status, 401);
+  assert.equal((await http("/sign-in/email", { email: me.email, password: PASSWORD })).status, 401);
+});
+
+test("a link sent before links were stored hashed still works until it expires", async () => {
+  const me = await signedUp();
+  await real.insert(V).values({ id: `old-${++n}`, identifier: "reset-password:anOldPlainToken0123456789", value: me.id, expiresAt: new Date(Date.now() + 10 * MIN) });
+  assert.equal((await http("/reset-password", { newPassword: "a-new-long-password", token: "anOldPlainToken0123456789" })).status, 200);
+});
+
+test("at most 3 reset emails and 3 confirm emails an hour go to one address, and the answer does not say whether one was sent", async () => {
+  const { MAILS_PER_ADDRESS_MAX: max, counterId } = await rl();
+  const me = await signedUp();
+  const sent = mails.length;
+  const answers: unknown[] = [];
+  for (let i = 0; i < max + 3; i++) { const r = await http("/request-password-reset", { email: me.email.toUpperCase(), redirectTo: "/reset-password" }); answers.push([r.status, r.json]); }
+  assert.deepEqual(mails.slice(sent), Array(max).fill({ to: me.email, kind: "reset" }));
+  assert.deepEqual(answers, Array(max + 3).fill(answers[0]), "sent or not, the same answer");
+  const nobody = await http("/request-password-reset", { email: "nobody@test.invalid", redirectTo: "/reset-password" });
+  assert.deepEqual([nobody.status, nobody.json], answers[0], "and the same as for an address nobody has");
+  assert.equal(JSON.stringify(await counter(counterId("mail-reset", me.email))).includes(me.email), false);
+  // an hour later the next one goes out
+  await endWindow(counterId("mail-reset", me.email));
+  await http("/request-password-reset", { email: me.email, redirectTo: "/reset-password" });
+  assert.equal(mails.length - sent, max + 1);
+
+  // confirm emails: the one sign-up sends counts
+  const email = `slow${++n}@test.invalid`;
+  const before = mails.length;
+  await http("/sign-up/email", { name: "S", email, password: PASSWORD });
+  const again: unknown[] = [];
+  for (let i = 0; i < max + 1; i++) { const r = await http("/send-verification-email", { email, callbackURL: "/login?verified=1" }); again.push([r.status, r.json]); }
+  assert.deepEqual(mails.slice(before), Array(max).fill({ to: email, kind: "verify" }));
+  assert.deepEqual(again, Array(max + 1).fill([200, { status: true }]));
+  // the two kinds are counted apart: this address can still get a reset link
+  await http("/request-password-reset", { email, redirectTo: "/reset-password" });
+  assert.deepEqual(mails[mails.length - 1], { to: email, kind: "reset" });
+});
+
+test("sign-up with a used address, many times at the same moment: one email, not one each", async () => {
+  const me = await signedUp();
+  const sent = mails.length;
+  const rs = await Promise.all(Array.from({ length: 8 }, () => http("/sign-up/email", { name: "X", email: me.email, password: PASSWORD })));
+  assert.ok(rs.every((r) => r.status === 200));
+  assert.deepEqual(mails.slice(sent), [{ to: me.email, kind: "other" }]);
+});
+
+test("a changed password signs every other device out even when the request asks not to; wrong current passwords on one session are capped", async () => {
+  const { PASSWORD_CHECK_FAILS_MAX: max } = await rl();
+  const me = await signedUp();
+  const other = (await http("/sign-in/email", { email: me.email, password: PASSWORD })).setCookie.split(";")[0];
+  assert.ok((await http("/get-session", undefined, other)).json, "a second device is signed in");
+  const NEW = "another-long-password";
+  const ok = await http("/change-password", { currentPassword: PASSWORD, newPassword: NEW, revokeOtherSessions: false }, me.cookie);
+  assert.equal(ok.status, 200);
+  assert.equal((await http("/get-session", undefined, other)).json, null, "the other device is out");
+  const mine = ok.setCookie.split(";")[0];
+  assert.ok((await http("/get-session", undefined, mine)).json, "this one stays in, on a new session");
+
+  // someone at a signed-in browser guessing the current password
+  const tries: number[] = [];
+  for (let i = 0; i < max + 2; i++) tries.push((await http("/change-password", { currentPassword: `guess-number-${i}`, newPassword: "x".repeat(12) }, mine)).status);
+  assert.deepEqual(tries, [...Array(max).fill(400), 429, 429]);
+  assert.equal((await http("/change-password", { currentPassword: NEW, newPassword: "x".repeat(12) }, mine)).status, 429, "locked for this session, the right one too");
+  assert.equal((await http("/sign-in/email", { email: me.email, password: NEW })).status, 200, "the password was not changed, and log-in is not held up by it");
+  // a password that is too short is not a guess and is not counted
+  const fresh = await signedUp();
+  for (let i = 0; i < max + 2; i++) assert.equal((await http("/change-password", { currentPassword: PASSWORD, newPassword: "short" }, fresh.cookie)).code, "PASSWORD_TOO_SHORT");
+  assert.equal((await http("/change-password", { currentPassword: PASSWORD, newPassword: NEW }, fresh.cookie)).status, 200);
 });
