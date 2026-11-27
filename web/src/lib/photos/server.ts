@@ -8,6 +8,7 @@ import {
 import { deletePhoto, photoExists } from "./store";
 import { applyCaseRules, arrangeOpening, sameOrder } from "./order-rules";
 import { snapshotOf } from "./snapshot";
+import { notDeleted } from "@/lib/case-delete";
 
 // Database side of the photo naming desk (plan #9). Every function takes a case that the caller already
 // checked against the signed-in member's organisation (see caseInOrg), so nothing here trusts an id from the client.
@@ -23,7 +24,7 @@ const rowsOf = <T>(r: unknown) => ((r as { rows?: T[] }).rows ?? []) as T[];
 
 export async function caseInOrg(orgId: string, caseId: string): Promise<CaseRow | null> {
   if (!caseId || caseId.length > 64) return null;
-  const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, caseId), eq(schema.cases.orgId, orgId))).limit(1);
+  const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, caseId), eq(schema.cases.orgId, orgId), notDeleted)).limit(1);
   return c ?? null;
 }
 

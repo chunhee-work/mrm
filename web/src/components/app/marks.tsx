@@ -105,3 +105,12 @@ export function NoMatchArt() {
     </svg>
   );
 }
+
+/** Delete a case: the bin on the list row. */
+export function Bin({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 16 16" {...line}>
+      <path d="M2.5 4h11M6 4V2.5h4V4M4 4l.6 9.5h6.8L12 4M6.75 6.5v4.5M9.25 6.5v4.5" />
+    </svg>
+  );
+}
