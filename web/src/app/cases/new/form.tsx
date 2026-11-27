@@ -10,6 +10,7 @@ import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib
 import { runPool } from "@/lib/pool";
 import { headOf, looksLikePhoto, zipHasPdf } from "@/lib/peek-files";
 import Link from "next/link";
+import { takeDropped } from "@/lib/dropped-files";
 
 const keyOf = (f: File) => `${f.name}:${f.size}`;
 function sizeOf(n: number) {
@@ -43,6 +44,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
 
   // keep the file being uploaded in view inside the ledger
 
+
+  // files dropped on the first page arrive here and are checked like any chosen file
+  useEffect(() => { const f = takeDropped(); if (f.length) void addFiles(f); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // B11: leaving or reloading while files go up throws the upload away, so ask first (links inside the app too)
   useEffect(() => {
