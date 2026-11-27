@@ -418,15 +418,17 @@ try {
     for (const t of lines) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
     // the table has no "New case" of its own, so the bar keeps it there
     assert.equal(await page.getByTestId("new-case").count(), 1, "New case in the bar of the table");
-    // the first page (owner 2026-11-22): welcome, search, two buttons and the count; a row of the count opens its table
+    // the first page (owner 2026-11-22, reworked 2026-11-27): welcome, search, two buttons, and every open case with its own step bar
     await page.goto(`${BASE}/dashboard`);
     assert.match(await page.getByTestId("home-welcome").innerText(), /E2E Tester/);
-    for (const id of ["home-search", "home-new", "home-closed", "home-open", "home-total"]) assert.equal(await page.getByTestId(id).count(), 1, id);
+    for (const id of ["home-search", "home-new", "home-closed", "home-open", "home-list"]) assert.equal(await page.getByTestId(id).count(), 1, id);
     // nothing twice (owner 2026-11-22): one "New case" (the page's, not the bar's) and one "Billing" (the bar's, not the page's)
     assert.equal(await page.getByTestId("new-case").count(), 0, "no second New case in the bar of the first page");
     assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
     assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
-    assert.equal(await page.getByTestId("case-table").count(), 0, "no case list on the first page");
+    assert.equal(await page.getByTestId("case-table").count(), 0, "no separate case table on the first page");
+    assert.ok(await page.getByTestId("step-dots").count() >= 1, "each open case shows its step bar");
+    assert.equal(await page.getByTestId("step-dots").count(), await page.getByTestId("home-list").locator(":scope > li").count(), "one step bar per case");
     // files dragged onto the first page: a full-page overlay while they hover, a text drag shows nothing,
     // the overlay clears on its own if the browser misses the dragleave, and a drop opens New case with the files
     const drag = (type, kind = "file") => page.evaluate(([type, kind]) => {
@@ -504,13 +506,25 @@ try {
     assert.equal(sent, 0, "a zip that makes several cases is not sent unseen");
     await page.unroute("**/api/cases/credit*");
     await page.goto(`${BASE}/dashboard`);
-    const docs = page.locator('[data-bucket="docs"] a');
-    assert.match(await docs.innerText(), /^\s*[1-9]/, "the count of cases waiting for documents");
-    await docs.click();
-    await page.waitForURL(/view=docs/);
-    assert.ok(await page.getByTestId("case-table").locator("li").count() >= 1);
-    await page.getByTestId("list-back").click();
-    await page.waitForURL((u) => u.pathname === "/dashboard" && !u.search);
+    // a case waiting for the user has one button that goes straight to the job; the whole line opens the case
+    const desk = page.getByTestId("home-act").filter({ hasText: /Name photos|Press Done|命名照片|按「完成」|Namakan foto|Tekan Selesai/ }).first();
+    if (await desk.count()) { assert.match(await desk.getAttribute("href"), /^\/cases\/[^/]+\/photos$/, "the photo button opens the desk"); }
+    // a press on a line opens its details right there (owner 2026-11-27: "by clicking the whole box can open it down"); a second press closes them
+    const row = page.getByTestId("home-row").first();
+    await row.click();
+    await page.getByTestId("home-more").waitFor();
+    assert.equal(await row.getAttribute("aria-expanded"), "true");
+    assert.match(await page.getByTestId("home-open-case").getAttribute("href"), /^\/cases\/[^/]+$/, "the details lead into the case page");
+    assert.equal(new URL(page.url()).pathname, "/dashboard", "opening the details stays on the first page");
+    await row.click();
+    await page.getByTestId("home-more").waitFor({ state: "detached" });
+    const rows0 = await page.getByTestId("home-list").locator(":scope > li").count();
+    // typing narrows the list on this page at once, no trip to another page
+    await page.getByTestId("home-search").locator("input").fill("zz-no-such-plate");
+    await page.getByTestId("home-empty").waitFor();
+    assert.equal(new URL(page.url()).search, "", "typing stays on the first page");
+    await page.getByTestId("home-search").locator("input").fill("");
+    assert.equal(await page.getByTestId("home-list").locator(":scope > li").count(), rows0);
     await page.getByTestId("home-search").locator("input").fill("e2ed");
     await page.getByTestId("home-search").locator("button").click();
     await page.waitForURL(/q=e2ed/);
