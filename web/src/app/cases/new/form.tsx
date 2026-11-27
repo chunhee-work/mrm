@@ -8,7 +8,7 @@ import ScanEdge from "@/components/scan-edge";
 import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
 import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { runPool } from "@/lib/pool";
-import { headOf, looksLikePhoto, zipHasPdf } from "@/lib/peek-files";
+import { headOf, looksLikePhoto, vehicleFolders, zipNames } from "@/lib/peek-files";
 import Link from "next/link";
 import { takeDropped } from "@/lib/dropped-files";
 
@@ -40,6 +40,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const [ups, setUps] = useState<Record<number, number>>({}); // per-file progress while several upload at once
   const ledger = useRef<HTMLUListElement>(null);
   const zipPdf = useRef<Map<string, boolean | null>>(new Map()); // R2-B10: does each chosen zip hold a PDF (null: cannot tell)
+  const zipCars = useRef<Map<string, string[]>>(new Map()); // vehicle folders of each chosen zip: more than one is refused at once
   const leaving = useRef(false); // R2-B01: set once the case exists, so our own redirect never trips the leave guard
 
   // keep the file being uploaded in view inside the ledger
@@ -73,7 +74,11 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     await Promise.all(typed.map(async (f) => {
       const k = kindOf(f);
       if (k === "photo" && f.size > 0 && !looksLikePhoto(await headOf(f))) fake.add(f);
-      if (k === "bundle_zip" && f.size > 0) zipPdf.current.set(keyOf(f), await zipHasPdf(f));
+      if (k === "bundle_zip" && f.size > 0) {
+        const names = await zipNames(f);
+        zipPdf.current.set(keyOf(f), names ? names.some((n) => /\.pdf$/i.test(n) && !/(^|\/)(__MACOSX\/|\._)/.test(n) && !n.endsWith("/")) : null);
+        zipCars.current.set(keyOf(f), names ? vehicleFolders(names) : []);
+      }
     }));
     const ok = typed.filter((f) => {
       if (fake.has(f)) { why.push(t("new.notPhoto", { name: f.name })); return false; }
@@ -104,6 +109,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       const photoZip = files.find((f) => kindOf(f) === "bundle_zip");
       setMsg(photoZip ? t("new.zipNoPdf", { name: photoZip.name }) : t("new.noDocs")); return;
     }
+    const multi = files.find((f) => kindOf(f) === "bundle_zip" && (zipCars.current.get(keyOf(f))?.length ?? 0) > 1);
+    if (multi && files.length > 1) { setMsg(t("new.zipMultiAlone", { name: multi.name })); return; }
     // the server refuses more files or more bytes than this; say so now instead of after everything went up
     if (files.length > MAX_FILES) { setMsg(t("new.tooMany", { max: String(MAX_FILES), n: String(files.length) })); return; }
     const bytes = files.reduce((s, f) => s + f.size, 0);
@@ -128,6 +135,14 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         setUps((u) => ({ ...u, [i]: 100 })); finished++; setStep(finished);
       });
       uploading = false; setStep(files.length);
+      if (multi) { // one zip, several vehicles: the server makes one case per vehicle
+        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(done[0]) });
+        if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+        if (!sp.ok) throw new Error(t("new.fail"));
+        leaving.current = true;
+        window.location.href = "/cases";
+        return;
+      }
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
@@ -200,6 +215,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
                 <p className="num" aria-live="polite">{[nZip ? `${nZip} zip` : "", nPdf ? `${nPdf} PDF` : "", nPhoto ? t(nPhoto === 1 ? "new.photosOne" : "new.photosN", { n: String(nPhoto) }) : "", sizeOf(total)].filter(Boolean).join(" · ")}</p>
                 {!busy && <button type="button" className="btn-quiet" onClick={() => { setFiles([]); setNotes([]); setMsg(""); setFailed(null); }}>{t("new.removeAll")}</button>}
               </div>
+            )}
+
+            {n === 1 && (zipCars.current.get(keyOf(files[0]))?.length ?? 0) > 1 && (
+              <p role="status" className="text-[14px] text-fg">{t("new.zipSplit", { name: files[0].name, n: String(zipCars.current.get(keyOf(files[0]))!.length) })}</p>
             )}
 
             {n > 0 && busy && (

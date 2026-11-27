@@ -51,6 +51,7 @@ export function failTr(error: string | null): Tr {
   if (/^bad_file:\|too_long/.test(e)) return { key: "case.err.tooManyPages" }; // the PDFs open, but have too many pages for one read
   if (/^bad_file:\|/.test(e)) return { key: "case.err.corruptSome" }; // a PDF we cannot name (refused together, or a name two files share)
   if ((m = e.match(/^bad_file:([^|]+)\|(empty|corrupt|too_big)/))) return { key: `case.err.${m[2]}`, vars: { name: badFileNames(e).join("; ") || m[1] } };
+  if (/: the zip holds more than one vehicle$/.test(e)) return { key: "case.err.zipMulti" };
   if (ZIP_REJECTED.test(e)) return { key: "case.err.zip" };
   if (/no PDF/i.test(e)) return { key: "case.err.noPdf" };
   if (/timed out/i.test(e)) return { key: "case.err.timeout" };
@@ -64,6 +65,7 @@ export function failTr(error: string | null): Tr {
  */
 export const ZIP_WHY = {
   corrupt: "the zip cannot be opened",
+  multi: "the zip holds more than one vehicle",
   too_many: "too many files in the zip",
   entry_big: "a file in the zip is too large",
   too_big: "the zip is too large once opened",
