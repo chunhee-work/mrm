@@ -106,7 +106,7 @@ export default function Home({ name, counts, busy = false, cred: cred0 }: { name
         <div className="mt-9 grid gap-3 sm:grid-cols-2">
           {blocked
             ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
-            : <NewCasePick className="btn-primary !gap-2" testId="home-new" onOpening={setPicking}><Plus />{t("dash.new")}</NewCasePick>}
+            : <NewCasePick className="btn-primary !gap-2" testId="home-new" onOpening={setPicking} held={going}><Plus />{t("dash.new")}</NewCasePick>}
           <Link href="/dashboard?view=closed" className="btn-line" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>

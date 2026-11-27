@@ -14,7 +14,7 @@ import { Plus } from "./marks";
  * Cancelling the picker does nothing. It stays a link to the empty form: before the page is live, or with Ctrl/Cmd or a
  * middle click, it opens the form as it always did. After a pick it says "Opening…" until the form replaces the page.
  */
-export default function NewCasePick({ className, testId, children, labelClass = "", onOpening }: { className: string; testId: string; children: React.ReactNode; labelClass?: string; onOpening?: (on: boolean) => void }) {
+export default function NewCasePick({ className, testId, children, labelClass = "", onOpening, held = false }: { className: string; testId: string; children: React.ReactNode; labelClass?: string; onOpening?: (on: boolean) => void; held?: boolean }) {
   const { t } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -30,7 +30,7 @@ export default function NewCasePick({ className, testId, children, labelClass = 
         onClick={(e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
           e.preventDefault();
-          if (!opening) input.current?.click();
+          if (!opening && !held) input.current?.click(); // held: a drop is already on its way, a pick must not replace it
         }}
       >
         {opening ? <><Plus /><span className={labelClass}>{t("new.opening")}</span></> : children}

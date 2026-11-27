@@ -526,6 +526,21 @@ try {
     for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
     await page.waitForTimeout(500); // a second send would show by now
     assert.equal(sent, 1, "picked files are sent without a press of Upload");
+    // the other way round: while a drop is on its way, New case does not open the picker (a pick would replace the drop)
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
+    await page.route("**/cases/new*", slow);
+    await page.evaluate(() => {
+      const dt = new DataTransfer();
+      dt.items.add(new File(["%PDF-1.4"], "first-drop.pdf", { type: "application/pdf" }));
+      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    const late = page.waitForEvent("filechooser", { timeout: 800 }).then(() => true, () => false);
+    await page.getByTestId("home-new").click({ force: true });
+    assert.equal(await late, false, "no picker while a drop is on its way");
+    await page.waitForURL(/\/cases\/new$/);
+    await page.unroute("**/cases/new*", slow);
+    await page.getByText("first-drop.pdf").waitFor();
     // the New case of the top bar (on the case table) opens the picker too
     await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
     const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
