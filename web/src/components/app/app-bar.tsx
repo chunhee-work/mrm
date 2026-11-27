@@ -18,18 +18,19 @@ const isTableView = (sp: { get(k: string): string | null }) => (VIEWS as readonl
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 
 /**
- * Signs out and leaves for the front page. Answers false (and stays on the page) when the sign-out did not get through:
- * the user is still signed in then, so the caller gives the button back for another press. Never throws.
+ * Signs out and leaves for the front page: the answer is then null. When the sign-out did not get through the user is still
+ * signed in, so the page stays and the answer is the text to show next to the button ("login.offline" with no connection,
+ * else "w.err"); the caller gives the button back for another press. Never throws.
  */
-export async function logOut(): Promise<boolean> {
+export async function logOut(): Promise<null | "login.offline" | "w.err"> {
   try {
     const { error } = await authClient.signOut();
-    if (error) return false;
+    if (error) return "w.err";
   } catch {
-    return false;
+    return "login.offline";
   }
   window.location.href = "/";
-  return true;
+  return null;
 }
 
 /** Closes on Escape (focus back to the trigger) and on a press outside `ref`. */
@@ -96,6 +97,8 @@ function MobileMenu({ email, path, needsYou }: { email: string; path: string; ne
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [outErr, setOutErr] = useState<string | null>(null); // log out did not work: said under the button until the menu is closed
+  useEffect(() => { if (!open) setOutErr(null); }, [open]);
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const close = useRef((refocus: boolean) => { setOpen(false); if (refocus) trigger.current?.focus(); }).current;
@@ -158,13 +161,14 @@ function MobileMenu({ email, path, needsYou }: { email: string; path: string; ne
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => { setBusy(true); void logOut().then((out) => { if (!out) setBusy(false); }); }}
+                onClick={() => { setBusy(true); setOutErr(null); void logOut().then((why) => { if (why) { setBusy(false); setOutErr(why); } }); }}
                 className="-mr-1 flex h-11 shrink-0 items-center gap-2.5 px-1 text-[15px] font-semibold text-ice disabled:opacity-55"
               >
                 {t("nav.logout")}
                 <Exit />
               </button>
             </div>
+            {outErr && <p role="alert" className="field-error pb-2 pl-[14px]" data-testid="logout-error">{t(outErr)}</p>}
           </div>
         </div>
       )}
@@ -226,10 +230,11 @@ export default function AppBar({ email, newBlocked = false, needsYou = false }: 
   const path = usePathname();
   const onNew = path === "/cases/new";
   // Signed in: the browser asks the auth server for its session at most once a day, which renews the cookie (keep-signed-in.ts).
-  // Looked at when a page opens, every hour a page stays open, and when the tab is looked at again. Nothing is shown.
+  // Looked at when a page opens, every hour a page stays open in view, and when the tab is looked at again. Nothing is shown.
   useEffect(() => {
     if (!email) return;
-    const check = () => { void keepSignedIn(async () => !!(await authClient.getSession()).data); };
+    // not from a tab nobody is looking at: a forgotten background tab must not keep the session alive for ever
+    const check = () => { if (!document.hidden) void keepSignedIn(async () => !!(await authClient.getSession()).data); };
     check();
     const id = setInterval(check, 60 * 60 * 1000);
     const onShow = () => { if (document.visibilityState === "visible") check(); };

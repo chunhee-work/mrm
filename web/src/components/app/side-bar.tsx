@@ -35,10 +35,11 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
   const { t, lang } = useT();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [outErr, setOutErr] = useState<string | null>(null); // log out did not work: said under the button until the menu is closed
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setOutErr(null); return; }
     // keys as the old account menu: the first item takes the focus, Escape gives it back to the button, Tab leaves
     ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); trigger.current?.focus(); } };
@@ -75,7 +76,8 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
           <Link href="/how-it-works" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`} data-testid="side-how"><Icon d={HOW} />{t("side.how")}</Link>
           <a href={whatsappHref()} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`}><Icon d={HELP} /><span className="flex-1">{t("side.help")}</span><Icon d={OUT} /></a>
           <div className="my-1 border-t border-hair" />
-          <button type="button" role="menuitem" disabled={busy} onClick={() => { setBusy(true); void logOut().then((out) => { if (!out) setBusy(false); }); }} className={`${menuItem} text-[#dc2626] disabled:opacity-55`} data-testid="side-logout"><Exit className="shrink-0" />{t("nav.logout")}</button>
+          <button type="button" role="menuitem" disabled={busy} onClick={() => { setBusy(true); setOutErr(null); void logOut().then((why) => { if (why) { setBusy(false); setOutErr(why); } }); }} className={`${menuItem} text-[#dc2626] disabled:opacity-55`} data-testid="side-logout"><Exit className="shrink-0" />{t("nav.logout")}</button>
+          {outErr && <p role="alert" className="field-error px-3 py-2" data-testid="side-logout-error">{t(outErr)}</p>}
         </div>
       )}
       <button ref={trigger} type="button" aria-haspopup="menu" aria-expanded={open} aria-controls="account-menu" onClick={() => setOpen((v) => !v)} onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); } }} aria-label={thin ? `${who}${credits != null ? ` · ${credits}` : ""}` : undefined}
