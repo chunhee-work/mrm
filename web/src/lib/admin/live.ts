@@ -32,3 +32,11 @@ export async function liveCost(scope: Scope, db: Db = defaultDb): Promise<LiveCo
     recent: recent.map((r) => ({ at: iso(r.at), purpose: String(r.purpose), model: String(r.model), usd: r.cost_usd === null ? null : n(r.cost_usd), ok: !!r.ok, caseId: r.case_id ? String(r.case_id) : null })),
   };
 }
+
+/** Whole-app AI spend recorded after `since` (the point where Anthropic's own numbers stop being complete). Not scoped: the plan credit is shared by every user. */
+export async function ownSpendSince(since: Date, db: Db = defaultDb): Promise<number> {
+  const r = await db.execute(sql`SELECT coalesce(sum(cost_usd), 0) usd FROM llm_calls WHERE at > ${since.toISOString()}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = ((r as any).rows ?? r) as any[];
+  return n(rows[0]?.usd);
+}
