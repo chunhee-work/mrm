@@ -20,7 +20,8 @@ export const POST = photoRoute("photos.token", async ({ req, c, me }) => {
         // belongs to a stored photo is refused above ("taken").
         return { allowedContentTypes: [...IMAGE_TYPES], maximumSizeInBytes: MAX_BYTES, addRandomSuffix: false, allowOverwrite: true, validUntil: Date.now() + 10 * 60_000 };
       },
-      onUploadCompleted: async () => {},
+      // No onUploadCompleted: with one, every token tells the store to call this address after the upload. That call has no
+      // session, so it got 401 each time and filled the log. Nothing here needs it: the page registers the photo itself.
     });
     return NextResponse.json(res);
   } catch (e) {
