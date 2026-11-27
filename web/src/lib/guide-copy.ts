@@ -27,7 +27,7 @@ const en: GuideCopy = {
     tag: "Once",
     name: "Your details & workshop",
     lines: [
-      "Fill this in once.", "Find it later in the side bar.",
+      "Fill this in once.", "Find it later in the menu.",
       "We remember it for your account.",
       "No case can start until it is complete.",
       "You can edit it any time.",
@@ -61,7 +61,7 @@ const zh: GuideCopy = {
   setup: {
     tag: "只填一次",
     name: "你的资料和车厂",
-    lines: ["只填一次。", "之后在侧边栏里可以找到。", "我们会记住，以后不用再填。", "填完整之前，不能开始案件。", "随时可以修改。"],
+    lines: ["只填一次。", "之后在菜单里可以找到。", "我们会记住，以后不用再填。", "填完整之前，不能开始案件。", "随时可以修改。"],
     fields: ["Merimen 登录", "经理", "理算员", "车厂 1–3"],
     locked: "在每个案件里选一个车厂。第 3 步（Merimen）开始后就不能改了。",
   },
@@ -91,7 +91,7 @@ const ms: GuideCopy = {
   setup: {
     tag: "Sekali sahaja",
     name: "Butiran & bengkel anda",
-    lines: ["Isi sekali sahaja.", "Anda boleh cari di bar sisi kemudian.", "Kami simpan untuk akaun anda.", "Kes tidak boleh dimulakan selagi belum lengkap.", "Anda boleh ubah bila-bila masa."],
+    lines: ["Isi sekali sahaja.", "Anda boleh cari di menu kemudian.", "Kami simpan untuk akaun anda.", "Kes tidak boleh dimulakan selagi belum lengkap.", "Anda boleh ubah bila-bila masa."],
     fields: ["Log masuk Merimen", "Pengurus", "Penyelaras", "Bengkel 1–3"],
     locked: "Pilih satu bengkel pada setiap kes. Ia tidak boleh ditukar selepas Langkah 3 (Merimen) bermula.",
   },
