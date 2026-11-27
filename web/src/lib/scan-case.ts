@@ -80,11 +80,17 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
       cacheTokens: usage.cache_read_input_tokens ?? 0, costUsd: costUsd.toFixed(4),
     });
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
-    // Jev second vote on the insurers and the Liberty branch (playbook 02). It only adds a line to the case's activity; the case never
-    // changes status because of it, and a failing or slow Jev adds nothing.
-    if (done.length) { try { for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message }); } catch { /* a Jev problem never fails the read */ } }
     await photos; // the result is shown first; the case page and the desk pick the photos up when they are in
     await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
+    // Jev second vote on the insurers and the Liberty branch (playbook 02). It runs last, after the result is saved and shown, so it never slows
+    // the read. It only adds a line to the case's activity (the same line is never added twice on a re-read); the case never changes status
+    // because of it, and a failing or slow Jev adds nothing.
+    if (done.length) {
+      try {
+        const seen = new Set((await db.select({ m: schema.caseEvents.message }).from(schema.caseEvents).where(and(eq(schema.caseEvents.caseId, id), eq(schema.caseEvents.step, "jev_check")))).map((r) => r.m));
+        for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) if (!seen.has(message)) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message });
+      } catch { /* a Jev problem never fails the read */ }
+    }
     return { ok: done.length > 0, missing: data.missing, claimed: true };
   } catch (e) {
     await photos; // never leave the import running behind a failed read

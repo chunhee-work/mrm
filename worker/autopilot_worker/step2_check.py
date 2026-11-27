@@ -142,13 +142,20 @@ def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[st
     rq = [(r, str(q).strip()) for r, q in rows]
     # Jev (owner 2026-11-10): may only CLEAR a false ADD?/REMOVE?, never add one. Off or any error: the code rules alone ("jev off").
     cleared: set = set()
+    shown: list = []
     note = "jev off"
     if jev is not None:
         try:
             from .jev import THRESHOLD
             pairs = undecided_pairs(set(names_set) | set(changed_from), rq)
             probs = jev.same_parts(pairs, case_id=case_id)
-            cleared = {k for k, p in probs.items() if p >= THRESHOLD}
+            hits = {k: p for k, p in probs.items() if p >= THRESHOLD}
+            per_name: dict[str, int] = {}
+            for (n, _r, _q) in hits:
+                per_name[n] = per_name.get(n, 0) + 1
+            # a name is cleared only when exactly ONE row scored high: with several, a false clear is likelier than the owner's test measured
+            cleared = {k for k in hits if per_name[k[0]] == 1}
+            shown = [f"{n} = {r} ({hits[(n, r, q)]:.2f})" for (n, r, q) in sorted(cleared)][:30]
             note = f"jev checked {len(pairs)} pairs, cleared {len(cleared)}"
         except Exception as e:  # noqa: BLE001
             note = f"jev off ({type(e).__name__})"
@@ -170,4 +177,4 @@ def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[st
         hit = [r for r in old_rows if same(old, r, False) and not any(same(n, r) for n in names_set) and not KEEP.search(r)]
         if hit:
             remove.append(f"{old!r} no photo any more, still selected: {hit}")
-    return {"add": add, "remove": remove, "ok": not add and not remove, "jev": note}
+    return {"add": add, "remove": remove, "ok": not add and not remove, "jev": note, "jev_cleared": shown}

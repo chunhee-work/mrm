@@ -47,14 +47,13 @@ export function localRegion(place: string): string | null {
   return hit.length === 1 ? hit[0] : null;
 }
 
-const CONF = 0.8; // a disagreement is shown only when Jev is this sure (owner's test: 43/43 right at 0.9)
+const CONF = 0.9; // a disagreement is shown only when Jev is this sure (owner's test: 43/43 right at confidence >= 0.9; nothing measured below)
 type Choice = { choice?: unknown; confidence?: unknown };
 type Reply = { answers?: Record<string, Choice | undefined> };
 export type JevCtx = { purpose: string; userId?: string; caseId?: string };
 export type Ask = (input: { state: unknown; questions: Record<string, unknown> }, ctx: JevCtx) => Promise<unknown>;
 
-// One place to swap in the cost-logging wrapper (trackedJev) once it is on main.
-const defaultAsk: Ask = (input) => askJev(input as never);
+const defaultAsk: Ask = (input, ctx) => askJev(input as never, ctx); // askJev with a ctx logs one llm_calls row (jev-ledger.ts)
 
 const pick = (r: Reply, id: string): { v: string; c: number } | null => {
   const a = r.answers?.[id];
@@ -67,7 +66,8 @@ const closed = (names: readonly string[], none: string) => Object.fromEntries([.
  * An empty list means "nothing to say". Never throws, never takes more than `ms`.
  */
 export async function jevInsurerWarnings(data: CaseDataT, ctx: Omit<JevCtx, "purpose">, ask: Ask = defaultAsk, ms = 12_000): Promise<string[]> {
-  const str = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "");
+  if (process.env.JEV === "0") return []; // kill switch, same name as the worker's
+  const str = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, 160) : "");
   const targets: { key: "ins" | "cli"; label: string; text: string }[] = [];
   const atFault = str(data.at_fault?.policy?.insurer);
   const client = str(data.client_policy?.insurer);

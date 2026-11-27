@@ -66,3 +66,16 @@ test("a number or object where the reader should have put text does not throw", 
   const bad = { at_fault: { policy: { insurer: 5 } }, client_policy: { insurer: {} }, police: { place: null } } as unknown as CaseDataT;
   assert.deepEqual(await jevInsurerWarnings(bad, {}, reply({})), []);
 });
+
+test("JEV=0 turns the web check off", async () => {
+  process.env.JEV = "0";
+  try {
+    let called = false;
+    assert.deepEqual(await jevInsurerWarnings(data(), {}, async () => { called = true; return {}; }), []);
+    assert.equal(called, false);
+  } finally { delete process.env.JEV; }
+});
+
+test("below 0.9 confidence nothing is shown", async () => {
+  assert.deepEqual(await jevInsurerWarnings(data(), {}, reply({ ins: ["Zurich General Insurance", 0.85], cli: ["Tokio Marine", 0.99] })), []);
+});

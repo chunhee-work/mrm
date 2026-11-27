@@ -99,3 +99,43 @@ def test_a_refused_ledger_write_switches_recording_off_for_the_run():
     j.same_parts([("A", "B", "1")])
     j.same_parts([("A", "B", "1")])
     assert len(calls) == 1
+
+
+def test_a_name_with_several_high_rows_is_not_cleared_and_clears_are_listed():
+    post, _ = fake(lambda b: {k: 0.95 for k in b["questions"]})
+    one = two_way(["Front Bumper Lip"], [("Bumper Front Lower Cover", "1")], jev=Jev(post))
+    assert one["jev_cleared"] == ["Front Bumper Lip = Bumper Front Lower Cover (0.95)"]
+    many = two_way(["Front Bumper Lip"], [("Bumper Front Lower Cover", "1"), ("Bumper Front Lower Grille Cover", "1")], jev=Jev(post))
+    assert many["add"] and many["jev_cleared"] == []
+
+
+def test_too_many_pairs_skips_jev():
+    import autopilot_worker.jev as J
+    post, sent = fake(lambda b: {})
+    try:
+        Jev(post).same_parts([("a%d" % i, "b", "1") for i in range(J.MAX_PAIRS + 1)])
+        raise AssertionError("must raise")
+    except JevError:
+        pass
+    assert not sent
+
+
+def test_the_whole_check_has_a_time_budget():
+    import time
+    import autopilot_worker.jev as J
+    old = J.BUDGET_S
+    J.BUDGET_S = 0.3
+
+    def slow(body, timeout):
+        time.sleep(2)
+        return {"answers": {}}
+
+    t = time.time()
+    try:
+        Jev(slow).same_parts([("A", "B", "1")])
+        raise AssertionError("must raise")
+    except JevError:
+        pass
+    finally:
+        J.BUDGET_S = old
+    assert time.time() - t < 1.5

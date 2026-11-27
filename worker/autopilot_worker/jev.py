@@ -11,12 +11,16 @@ import urllib.error
 import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from typing import Callable
 
 ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 MODEL = "jev-latest"
 CHUNK = 150  # pairs per request: more than ~750 answers fail with HTTP 400 max_tokens_exceeded
 THRESHOLD = 0.7  # 0.6 hid real misses (Cowl Panel 0.66, Quarter Panel RH 0.64)
+MAX_PAIRS = 600  # per check: more than this and Jev is skipped (the code rules stand); keeps one Step 2 check short and cheap
+PARALLEL = 2
+BUDGET_S = 30.0  # wall-clock budget for the whole check; when it runs out the code rules stand
 
 RULES = (
     "Decide if an estimate row and a photo item are the SAME physical part (same part number), not a neighbouring, "
@@ -91,6 +95,10 @@ class Jev:
         """{(photo item, estimate row, qty): probability they are the same part} for the undecided pairs. Raises JevError on any failure."""
         if not pairs:
             return {}
+        if len(pairs) > MAX_PAIRS:
+            raise JevError(f"too many pairs ({len(pairs)} > {MAX_PAIRS})")
+        clean = lambda t: " ".join(str(t).split())[:100]  # a name or row is data, never long or multi-line
+        pairs = [(clean(n), clean(r), str(q)[:4]) for n, r, q in pairs]
 
         def one(ch):
             st = {"rules": RULES, "pairs": {f"q{i}": {"photo_item": n, "estimate_row": r, "row_qty": q} for i, (n, r, q) in enumerate(ch)}}
@@ -107,9 +115,17 @@ class Jev:
 
         chunks = [pairs[i:i + CHUNK] for i in range(0, len(pairs), CHUNK)]
         res: dict = {}
-        with ThreadPoolExecutor(min(len(chunks), 4)) as ex:
-            for d in ex.map(one, chunks):
-                res.update(d)
+        ex = ThreadPoolExecutor(min(len(chunks), PARALLEL))
+        try:
+            futs = [ex.submit(one, ch) for ch in chunks]
+            deadline = time.time() + BUDGET_S
+            for f in futs:
+                try:
+                    res.update(f.result(timeout=max(0.1, deadline - time.time())))
+                except FutureTimeout as e:
+                    raise JevError("budget used up") from e
+        finally:
+            ex.shutdown(wait=False, cancel_futures=True)  # the code rules go on at once; a request already sent finishes on its own
         return res
 
 
