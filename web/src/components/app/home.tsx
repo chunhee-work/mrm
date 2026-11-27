@@ -135,16 +135,22 @@ function RetryHere({ r }: { r: CaseRow }) {
 }
 
 /** What opens under a line when it is pressed: the job itself when it can be done here, then the facts, then the way into the full case page. */
-function More({ r, orgId }: { r: CaseRow; orgId: string }) {
+function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: boolean) => void }) {
   const { t, lang } = useT();
   const router = useRouter();
   const step = currentStepOf(r);
   const a = useAct()(r);
   const [sent, setSent] = useState(false);
   const [ask, setAsk] = useState(false);
+  // "Received" is said once: when the case asks for a document again (or moves on), the card is back to its upload button
+  useEffect(() => setSent(false), [r.status, r.pendingDoc]);
   // a document is uploaded right here, with the same picker, limits and progress as the case page (one component, NeedCard)
-  // the photo desk, in this line: the job of step 2, and on the way while documents are still missing
-  const [deskOpen, setDeskOpen] = useState(false);
+  // the photo desk, in this line: the job of step 2, and on the way while documents are still missing.
+  // Once shown it stays while the line is open: after 完成 the case moves to step 3, and the desk keeps its message and its undo.
+  const [deskOpen, setDeskOpen] = useState(bucketOf(r) === "photos");
+  useEffect(() => { if (bucketOf(r) === "photos") setDeskOpen(true); }, [r]);
+  // while a desk is open a dropped photo belongs to it, not to a new case (the page-wide drop is off)
+  useEffect(() => { onDesk(deskOpen); return () => onDesk(false); }, [deskOpen, onDesk]);
   const desk = (
     <div className="overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
       <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={() => router.refresh()}
@@ -159,7 +165,7 @@ function More({ r, orgId }: { r: CaseRow; orgId: string }) {
       </>
     )
     : r.status === "failed" ? <RetryHere r={r} />
-    : bucketOf(r) === "photos" ? desk
+    : deskOpen ? desk
     : null;
   const facts: [string, string][] = [[t("list.col.when"), r.createdAt ? whenOf(r.createdAt, lang) : "–"]];
   if (r.deskTotal) facts.push([t("steps.photos"), t("tray.more.photos", { n: String(r.deskTotal - (r.deskConfirm ?? 0)), total: String(r.deskTotal) })]);
@@ -187,9 +193,17 @@ function More({ r, orgId }: { r: CaseRow; orgId: string }) {
 }
 
 /** One line per case, the step names once over the step column. A press on the line opens its details right under it. */
-function StepTable({ rows, needle, orgId, total }: { rows: CaseRow[]; needle: string; orgId: string; total: number }) {
+function StepTable({ rows, needle, orgId, total, onDesk }: { rows: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void }) {
   const { t } = useT();
   const [open, setOpen] = useState<string | null>(null);
+  // the list loses its own scroll box while a line is open: bring the opened line to the top of the screen
+  useEffect(() => {
+    if (!open) return;
+    const el = document.querySelector(`[data-line="${CSS.escape(open)}"]`);
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight * 0.6) el.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [open]);
   // wide screens: vehicle | steps | action | arrow. The step and action tracks give way before the vehicle no. does.
   const COLS = "xl:grid xl:grid-cols-[minmax(150px,1fr)_minmax(220px,280px)_minmax(170px,auto)_20px] xl:items-center xl:gap-x-6";
   return (
@@ -203,7 +217,7 @@ function StepTable({ rows, needle, orgId, total }: { rows: CaseRow[]; needle: st
           {rows.map((r) => {
             const on = open === r.id;
             return (
-              <li key={r.id} className="border-b border-hairsoft last:border-b-0" data-bucket={bucketOf(r)} data-open={on || undefined}>
+              <li key={r.id} className="scroll-mt-20 border-b border-hairsoft last:border-b-0" data-line={r.id} data-bucket={bucketOf(r)} data-open={on || undefined}>
                 <div className={`relative px-4 py-3 transition-colors duration-150 hover:bg-panel2 xl:px-5 ${on ? "bg-panel2" : ""} ${COLS}`}>
                   {/* the whole line is one button that opens the details; the action button sits on top of it */}
                   <button
@@ -219,7 +233,7 @@ function StepTable({ rows, needle, orgId, total }: { rows: CaseRow[]; needle: st
                   {/* while the line is open the job is right below it: the button would only say it twice */}
                   <div className="pointer-events-none relative flex xl:justify-end">{!on && <ActButton r={r} onHere={() => setOpen(r.id)} />}</div>
                 </div>
-                {on && <More r={r} orgId={orgId} />}
+                {on && <More r={r} orgId={orgId} onDesk={onDesk} />}
               </li>
             );
           })}
@@ -262,21 +276,25 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   useEffect(() => { takeDropped(); }, []);
   // if the trip never ends (navigation stalled), the overlay goes when the hold runs out and drops work again
   useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), HOLD_MS); return () => window.clearTimeout(id); }, [going]);
-  const over = useFileDrag(!going && !blocked, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
+  // a complete profile is one slim line over the list (owner 2026-11-27: the side column took the room the cases need)
+  const strip = cred.complete ? <ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact look="strip" /> : null;
+  const [deskOpen, setDeskOpen] = useState(false);
+  const over = useFileDrag(!going && !blocked && !deskOpen, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
   const needle = squash(q);
   const shown = sortCases(cases).filter((r) => !needle || squash(r.plate ?? "").includes(needle)); // plates only, as Go and the table search
-  const table = <StepTable rows={shown} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} />;
+  const table = <StepTable rows={shown} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setDeskOpen} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
   return (
     <div className="wrap pb-14 pt-7 lg:pb-20 lg:pt-12">
-      <div className={`mx-auto grid items-start gap-8 ${cred.complete ? "max-w-[1240px] lg:grid-cols-[minmax(0,1fr)_300px]" : "max-w-[760px]"}`}>
+      <div className={`mx-auto grid items-start gap-8 ${cred.complete ? "max-w-[1240px]" : "max-w-[760px]"}`}>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
           <h1 className="display-3 text-[22px] text-fg [text-wrap:balance] lg:text-[26px]" data-testid="home-welcome">{t("tray.welcome", { name })}</h1>
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-3 sm:w-auto sm:flex-nowrap">
           <form
             role="search" className="flex w-full min-w-0 gap-2 sm:w-[320px]" data-testid="home-search"
             onSubmit={(e) => { e.preventDefault(); const v = q.trim(); router.push(v ? `/dashboard?q=${encodeURIComponent(v)}` : "/dashboard?view=all"); }}
@@ -291,6 +309,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
             </div>
             <button type="submit" className="btn-line shrink-0 !px-5">{t("tray.go")}</button>
           </form>
+          </div>
         </div>
         {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact={false} /></div>}
         <div className="mt-9 grid gap-3 sm:grid-cols-2">
@@ -303,9 +322,9 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           </Link>
         </div>
         {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
-        <div className="mt-9">{table}</div>
+        {strip && <div className="mt-6">{strip}</div>}
+        <div className={strip ? "mt-3" : "mt-9"}>{table}</div>
       </div>
-      {cred.complete && <aside className="min-w-0 lg:pt-[3.75rem]"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact /></aside>}
       </div>
       {(over || going) && (
         <div aria-hidden="true" data-testid="home-overlay" className="pointer-events-none fixed inset-0 z-50 bg-panel/90 p-4 backdrop-blur-[2px]">

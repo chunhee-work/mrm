@@ -508,7 +508,7 @@ try {
     await page.goto(`${BASE}/dashboard`);
     // every job is done on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
     // the photo button opens the line with the photo desk inside it
-    assert.equal(await page.locator('[data-testid="home-act"][href]').count(), 0, "no action button leaves the first page");
+    for (const tag of await page.getByTestId("home-act").evaluateAll((els) => els.map((e) => e.tagName))) assert.equal(tag, "BUTTON", "no action button leaves the first page");
     const photoLine = page.getByTestId("home-list").locator(":scope > li[data-bucket=photos]").first();
     if (await photoLine.count()) {
       await photoLine.getByTestId("home-act").click();

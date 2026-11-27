@@ -34,9 +34,14 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  * Not complete: the whole form on the front page. Complete: a small summary with Edit. An edit asks "replace?" in a pop-up
  * before anything is sent. The password is never shown again; leaving it empty on an edit keeps the saved login.
  */
-export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean }) {
+/**
+ * `look` (complete profile only): "side" = the card in a side column; "strip" = one slim line across the page; "chip" = a small
+ * button that opens the card. A login that needs the user (wrong password, a code from the phone) always shows the full card.
+ */
+export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "strip" | "chip" }) {
   const configured = cred.keyOk;
   const { t, lang } = useT();
+  const [peek, setPeek] = useState(false); // the "chip" look: its details are open
   const [workshop, setWorkshop] = useState("");
   const [manager, setManager] = useState("");
   const [adjuster, setAdjuster] = useState("");
@@ -149,10 +154,71 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
     );
   }
 
+  const modals = (
+    <>
+      <Modal open={editing && !confirming} onClose={() => { if (!confirming) closeAll(); }} title={t("pf.editTitle")}>
+        {note}
+        <form onSubmit={submit} autoComplete="off" className="grid gap-4">
+          {Fields(true)}
+          <div className="flex flex-wrap gap-3">
+            <button type="submit" disabled={!canSend} className="btn-primary !h-11" data-testid="pf-save">{t("pf.save")}</button>
+            <button type="button" onClick={closeAll} className="btn-line !h-11">{t("ml.cancel")}</button>
+            <button type="button" onClick={remove} disabled={busy} className="btn-quiet !h-11 !text-mute" data-testid="pf-delete">{sure ? t("ml.removeSure") : t("ml.remove")}</button>
+          </div>
+        </form>
+      </Modal>
+      <Modal open={confirming} onClose={() => setConfirming(false)} title={t("pf.confirmTitle")}>
+        <p className="mb-5 text-[15px] leading-snug text-fg [text-wrap:pretty]" data-testid="pf-confirm-text">{t("pf.confirmBody")}</p>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={send} disabled={busy} className="btn-primary !h-11" data-testid="pf-confirm">{busy ? t("set.saving") : t("pf.confirm")}</button>
+          <button type="button" onClick={() => setConfirming(false)} className="btn-line !h-11" data-testid="pf-back">{t("pf.back")}</button>
+        </div>
+      </Modal>
+    </>
+  );
+
   // complete: a small summary on the side
   const bad = cred.verifyState === "bad_credentials" || cred.verifyState === "unknown" || cred.verifyState === "locked";
   const good = cred.verifyState === "ok" && !cred.blocked;
   const checking = CHECKING.includes(cred.verifyState);
+  const facts = [cred.workshop, cred.manager, cred.adjuster].filter(Boolean).join(" · ");
+  const state = checking ? t("w.checking") : t("w.ok");
+  if ((good || checking) && look === "strip") {
+    // one line: the details, whether Merimen took the login, and Edit
+    return (
+      <section aria-labelledby="pf-title" className="flex min-h-[44px] flex-wrap items-center gap-x-4 gap-y-1 rounded-[4px] border border-hair bg-panel px-4 py-2" data-testid="pf-summary">
+        <h2 id="pf-title" className="sr-only">{t("pf.title")}</h2>
+        <span className={`h-2 w-2 shrink-0 rounded-full ${good ? "bg-go" : "bg-amber"}`} aria-hidden="true" />
+        <p className="min-w-0 flex-1 truncate text-[14px] text-fg" title={facts}>{facts}<span className="text-mute"> · {t("pf.login")} {cred.usernameHint}</span></p>
+        <span className="hidden text-[13px] text-mute md:inline" role="status">{state}</span>
+        <button type="button" onClick={openEdit} className="link shrink-0 text-[14px] font-semibold" data-testid="pf-edit">{t("pf.edit")}</button>
+        {modals}
+      </section>
+    );
+  }
+  if ((good || checking) && look === "chip") {
+    // a small button by the search; the details drop down under it
+    return (
+      <section aria-labelledby="pf-title" className="relative" data-testid="pf-summary">
+        <button type="button" onClick={() => setPeek((v) => !v)} aria-expanded={peek} className="btn-line !h-11 !gap-2 !px-3.5 text-[14px]" data-testid="pf-chip">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${good ? "bg-go" : "bg-amber"}`} aria-hidden="true" />
+          <span id="pf-title" className="max-w-[180px] truncate">{cred.workshop || t("pf.title")}</span>
+        </button>
+        {peek && (
+          <div className="absolute left-0 top-full z-30 mt-2 w-[min(320px,calc(100vw-32px))] sm:left-auto sm:right-0 rounded-[4px] border border-hair bg-panel shadow-xl">
+            <dl>
+              {([["pf.workshop", cred.workshop], ["pf.manager", cred.manager], ["pf.adjuster", cred.adjuster], ["pf.login", cred.usernameHint]] as [string, string | null][]).map(([k, v]) => (
+                <div key={k} className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-hair px-4 py-2.5"><dt className="note text-mute">{t(k)}</dt><dd className="min-w-0 text-[14.5px] text-fg [overflow-wrap:anywhere]">{v}</dd></div>
+              ))}
+            </dl>
+            <div className="flex items-center justify-between gap-3 px-4 py-2.5"><span className="text-[13.5px] text-mute" role="status">{state}</span>
+              <button type="button" onClick={() => { setPeek(false); openEdit(); }} className="btn-line !h-9 !px-4 !text-[14px]" data-testid="pf-edit">{t("pf.edit")}</button></div>
+          </div>
+        )}
+        {modals}
+      </section>
+    );
+  }
   const rowCls = "flex flex-wrap items-baseline justify-between gap-x-3 border-b border-hair px-4 py-2.5 last:border-b-0";
   return (
     <section aria-labelledby="pf-title" className="rounded-[4px] border border-hair bg-panel" data-testid="pf-summary">
@@ -180,24 +246,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
         )}
         {!checking && !good && !bad && cred.verifyState !== "otp" && cred.updatedAt && <p>{t("ml.when", { when: whenOf(cred.updatedAt, lang) })}</p>}
       </div>
-      <Modal open={editing && !confirming} onClose={() => { if (!confirming) closeAll(); }} title={t("pf.editTitle")}>
-        {note}
-        <form onSubmit={submit} autoComplete="off" className="grid gap-4">
-          {Fields(true)}
-          <div className="flex flex-wrap gap-3">
-            <button type="submit" disabled={!canSend} className="btn-primary !h-11" data-testid="pf-save">{t("pf.save")}</button>
-            <button type="button" onClick={closeAll} className="btn-line !h-11">{t("ml.cancel")}</button>
-            <button type="button" onClick={remove} disabled={busy} className="btn-quiet !h-11 !text-mute" data-testid="pf-delete">{sure ? t("ml.removeSure") : t("ml.remove")}</button>
-          </div>
-        </form>
-      </Modal>
-      <Modal open={confirming} onClose={() => setConfirming(false)} title={t("pf.confirmTitle")}>
-        <p className="mb-5 text-[15px] leading-snug text-fg [text-wrap:pretty]" data-testid="pf-confirm-text">{t("pf.confirmBody")}</p>
-        <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={send} disabled={busy} className="btn-primary !h-11" data-testid="pf-confirm">{busy ? t("set.saving") : t("pf.confirm")}</button>
-          <button type="button" onClick={() => setConfirming(false)} className="btn-line !h-11" data-testid="pf-back">{t("pf.back")}</button>
-        </div>
-      </Modal>
+      {modals}
     </section>
   );
 }

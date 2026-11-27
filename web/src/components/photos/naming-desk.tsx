@@ -417,7 +417,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     if (c.done) {
       setDoneLocal(cid, false);
       const r = await api("PUT", `/api/cases/${cid}/photos/done`, { done: false });
-      if (r.ok) say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(); } }); else void load(cid, true);
+      if (r.ok) { say(tt("undone"), { label: tt("undoAction"), run: () => { setToast(null); void pressDoneRef.current(); } }); onDone?.(); } else void load(cid, true);
       return false;
     }
     const n = counts(c.photos);
@@ -714,7 +714,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const doneCount = tabs.filter((x) => x.done).length;
   const doneBtn = (
     <button
-      type="button" data-testid="done-btn" onClick={() => void pressDone()} aria-pressed={!!st?.done}
+      type="button" data-testid="done-btn" disabled={!st} onClick={() => void pressDone()} aria-pressed={!!st?.done}
       title={st?.done ? t("doneUndo") : blocked ?? t("doneHint")}
       className={`flex h-12 shrink-0 items-center justify-center gap-2 rounded-[4px] px-5 text-[16px] font-bold leading-none outline-offset-2 transition-[background-color,transform] duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-scan active:translate-y-px max-sm:h-14 max-sm:w-full max-sm:text-[17px] ${
         st?.done ? "bg-go text-bay" : "bg-ice text-bay hover:bg-icehi"
