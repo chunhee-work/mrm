@@ -19,6 +19,7 @@ import NewCasePick from "./new-case-pick";
 import NewCaseForm from "@/app/cases/new/form";
 import WorkshopPicker, { type WorkshopOpt } from "./workshop-picker";
 import CaseLog from "./case-log";
+import LoginAlert from "./login-alert";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
 const NamingDesk = dynamic(() => import("@/components/photos/naming-desk"), { ssr: false, loading: () => <p className="px-1 py-6 text-[14px] text-mute">…</p> });
@@ -457,6 +458,8 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           </div>
         </div>
         {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact={false} /></div>}
+        {/* the Merimen login needs the user: one red line here, fixed in place (owner 2026-11-27) */}
+        <div className="mt-7 empty:hidden"><LoginAlert cred={cred} setCred={setCred} onSaved={() => router.refresh()} /></div>
         {/* a wide screen has Closed cases in the side bar (side-bar.tsx); New case stays here at every width */}
         <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:mt-7 lg:flex">
           {blocked
