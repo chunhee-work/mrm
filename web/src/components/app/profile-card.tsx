@@ -138,7 +138,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
         <label className="field"><span className="label">{t("w.pass")}</span>
           <span className="relative block">
             <input value={pass} onChange={(e) => setPass(e.target.value)} type={showPass ? "text" : "password"} autoComplete="new-password" autoCapitalize="none" spellCheck={false} maxLength={200} className="input !pr-12" data-testid="pf-pass" disabled={!configured} placeholder={(editMode || cred.saved) ? "••••••••" : ""} />
-            <button type="button" onClick={() => setShowPass(!showPass)} aria-label={t(showPass ? "pf.hidePass" : "pf.showPass")} aria-pressed={showPass} title={t(showPass ? "pf.hidePass" : "pf.showPass")} disabled={!configured}
+            <button type="button" onClick={() => setShowPass(!showPass)} aria-label={t(showPass ? "pf.hidePass" : "pf.showPass")} title={t(showPass ? "pf.hidePass" : "pf.showPass")} disabled={!configured}
               className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[4px] text-mute transition-colors duration-150 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ice disabled:opacity-50" data-testid="pf-pass-eye">
               {showPass
                 ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 3l18 18" /><path d="M10.6 5.1A9.9 9.9 0 0 1 12 5c5 0 9 4.5 10 7a12.6 12.6 0 0 1-3.2 4.2" /><path d="M6.6 6.6C4.3 8 2.7 10.3 2 12c1 2.5 5 7 10 7a9.7 9.7 0 0 0 4.2-.9" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></svg>

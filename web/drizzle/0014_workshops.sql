@@ -14,6 +14,17 @@ CREATE TABLE IF NOT EXISTS "merimen_case_workshop" (
   "updated_at" timestamp NOT NULL DEFAULT now()
 );
 --> statement-breakpoint
+-- set by the worker the moment it uses the workshop to make the case in Merimen: from then on the user cannot switch it
+ALTER TABLE "merimen_case_workshop" ADD COLUMN IF NOT EXISTS "locked_at" timestamp;
+--> statement-breakpoint
+-- the worker reads the workshops and claims (locks) the one a case uses
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'autopilot_worker') THEN
+    GRANT SELECT ON "merimen_workshops" TO autopilot_worker;
+    GRANT SELECT, INSERT, UPDATE ON "merimen_case_workshop" TO autopilot_worker;
+  END IF;
+END $$;
+--> statement-breakpoint
 -- the one workshop typed so far becomes workshop 1
 INSERT INTO "merimen_workshops" ("org_id", "slot", "name")
   SELECT "org_id", 1, btrim("workshop_name") FROM "merimen_credentials" WHERE btrim(coalesce("workshop_name", '')) <> ''

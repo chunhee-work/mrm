@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
@@ -25,9 +25,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const target = ws.find((w) => w.slot === slot);
   if (!target) return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
   try {
-    if (slot === 1) await db.delete(schema.merimenCaseWorkshop).where(eq(schema.merimenCaseWorkshop.caseId, id)); // no row = workshop 1
-    else await db.insert(schema.merimenCaseWorkshop).values({ caseId: id, slot })
-      .onConflictDoUpdate({ target: schema.merimenCaseWorkshop.caseId, set: { slot, updatedAt: new Date() } });
+    // one conditional statement: it writes only while the worker has not locked the workshop (it locks it the moment it makes the case)
+    const done = await db.insert(schema.merimenCaseWorkshop).values({ caseId: id, slot })
+      .onConflictDoUpdate({ target: schema.merimenCaseWorkshop.caseId, set: { slot, updatedAt: new Date() }, setWhere: isNull(schema.merimenCaseWorkshop.lockedAt) })
+      .returning({ caseId: schema.merimenCaseWorkshop.caseId });
+    if (!done.length) return NextResponse.json({ error: "too_late" }, { status: 409 });
     await db.insert(schema.caseEvents).values({ caseId: id, step: "workshop", message: `Workshop ${slot}: ${target.name}` });
     await db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.workshop", detail: `${id}|${slot}` });
   } catch (e) { if (missingRelation(e)) return NextResponse.json({ error: "not_configured" }, { status: 503 }); throw e; }

@@ -23,7 +23,9 @@ export function cleanWorkshops(b: { workshops?: unknown; workshop?: unknown } | 
   if (raw.length > MAX_WORKSHOPS) return null;
   const out: Workshop[] = [];
   for (const w of raw) {
-    const slot = Number((w as { slot?: unknown })?.slot);
+    const rawSlot = (w as { slot?: unknown })?.slot, rawName = (w as { name?: unknown })?.name;
+    if (typeof rawSlot !== "number" || (rawName !== null && rawName !== undefined && typeof rawName !== "string")) return null;
+    const slot = rawSlot;
     if (!Number.isInteger(slot) || slot < 1 || slot > MAX_WORKSHOPS || out.some((x) => x.slot === slot)) return null;
     const name = cleanText((w as { name?: unknown })?.name);
     if (!name) { if (slot === 1) return null; if (typeof (w as { name?: unknown })?.name === "string" && ((w as { name: string }).name.trim() !== "")) return null; continue; }

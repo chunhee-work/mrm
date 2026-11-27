@@ -48,19 +48,30 @@ export async function POST(req: Request) {
     // first time: the login is needed. Later: the three names alone may be changed, the stored login stays as it is.
     if (!row && !wantsLogin) return NextResponse.json({ error: "invalid" }, { status: 400 });
     const names = { workshopName: profile.workshop, managerName: profile.manager, adjusterName: profile.adjuster };
-    // workshops: the saved list replaces the old one. A workshop that cases still use cannot be taken away (409): move those cases first.
+    // workshops: the saved list replaces the old one. A workshop that open cases still use cannot be removed or renamed (409): move those
+    // cases first. Cases the worker already made in Merimen (locked) do not count: their workshop is settled and they cannot be moved.
     const keep = profile.workshops.map((w) => w.slot);
+    const have = await db.select({ slot: schema.merimenWorkshops.slot, name: schema.merimenWorkshops.name }).from(schema.merimenWorkshops).where(eq(schema.merimenWorkshops.orgId, me.orgId));
     const gone = [1, 2, 3].filter((n) => !keep.includes(n));
-    if (gone.length) {
-      const r = await db.execute(sql`SELECT cw.slot::int AS slot FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
-        WHERE c.org_id = ${me.orgId} AND cw.slot IN (${sql.join(gone.map((n) => sql`${n}`), sql`, `)}) GROUP BY cw.slot`);
-      if (((r as unknown as { rows?: unknown[] }).rows ?? []).length) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
-    }
+    const changed = [...gone, ...profile.workshops.filter((w) => have.some((h) => h.slot === w.slot && h.name !== w.name)).map((w) => w.slot)];
+    const inUse = async (slots: number[]) => {
+      const r = await db.execute(sql`SELECT 1 FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
+        WHERE c.org_id = ${me.orgId} AND cw.locked_at IS NULL AND c.merimen_caseid IS NULL AND cw.slot IN (${sql.join(slots.map((n) => sql`${n}`), sql`, `)}) LIMIT 1`);
+      return ((r as unknown as { rows?: unknown[] }).rows ?? []).length > 0;
+    };
+    if (changed.length && (await inUse(changed))) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
     for (const w of profile.workshops) {
       await db.insert(schema.merimenWorkshops).values({ orgId: me.orgId, slot: w.slot, name: w.name })
         .onConflictDoUpdate({ target: [schema.merimenWorkshops.orgId, schema.merimenWorkshops.slot], set: { name: w.name, updatedAt: new Date() } });
     }
-    if (gone.length) await db.delete(schema.merimenWorkshops).where(and(eq(schema.merimenWorkshops.orgId, me.orgId), inArray(schema.merimenWorkshops.slot, gone)));
+    if (gone.length) {
+      // the delete itself refuses a workshop an open case picked a moment ago
+      await db.execute(sql`DELETE FROM merimen_workshops w WHERE w.org_id = ${me.orgId} AND w.slot IN (${sql.join(gone.map((n) => sql`${n}`), sql`, `)})
+        AND NOT EXISTS (SELECT 1 FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
+          WHERE c.org_id = w.org_id AND cw.slot = w.slot AND cw.locked_at IS NULL AND c.merimen_caseid IS NULL)`);
+      const left = await db.select({ slot: schema.merimenWorkshops.slot }).from(schema.merimenWorkshops).where(and(eq(schema.merimenWorkshops.orgId, me.orgId), inArray(schema.merimenWorkshops.slot, gone)));
+      if (left.length) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
+    }
     if (!row || (wantsLogin && username && password)) {
       const sealed = seal(key, me.orgId, username!, password!);
       const login = {

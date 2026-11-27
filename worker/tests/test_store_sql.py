@@ -162,12 +162,25 @@ def test_workshops_for_lists_the_slots():
     assert PgRepo("", db=Rec()).workshops_for("o1") == []
 
 
-def test_workshop_for_case_reads_slot_and_name():
+def test_claim_workshop_locks_in_one_statement_and_reads_slot_and_name():
     rec = Rec({"execute": [(2, "Bengkel Cheras")]})
-    assert PgRepo("", db=rec).workshop_for_case("c1") == {"slot": 2, "name": "Bengkel Cheras"}
-    assert "merimen_case_workshop" in rec.calls[0][0] and rec.calls[0][1] == ("c1",)
-    assert PgRepo("", db=Rec()).workshop_for_case("nope") is None
-    assert PgRepo("", db=Rec({"execute": [(1, None)]})).workshop_for_case("c1") is None
+    assert PgRepo("", db=rec).claim_workshop_for_case("c1") == {"slot": 2, "name": "Bengkel Cheras"}
+    sql, params = rec.calls[0]
+    assert len(rec.calls) == 1 and "locked_at" in sql and "ON CONFLICT (case_id)" in sql and params == ("c1", "c1")
+    assert PgRepo("", db=Rec()).claim_workshop_for_case("nope") is None  # unknown case: nothing to use
+    assert PgRepo("", db=Rec({"execute": [(2, None)]})).claim_workshop_for_case("c1") is None  # removed workshop: the caller must stop
+
+
+def test_a_permission_error_is_never_taken_for_a_missing_table():
+    class Denied:
+        def execute(self, sql, params=()):
+            raise RuntimeError("permission denied for table merimen_workshops (42501)")
+    for call in (lambda r: r.claim_workshop_for_case("c1"), lambda r: r.workshops_for("o1")):
+        try:
+            call(PgRepo("", db=Denied()))
+            assert False, "must raise, not fall back to workshop 1"
+        except RuntimeError:
+            pass
 
 
 def test_workshop_before_migration_0014_is_the_one_workshop():
@@ -178,9 +191,9 @@ def test_workshop_before_migration_0014_is_the_one_workshop():
         def execute(self, sql, params=()):
             self.n += 1
             if "merimen_case_workshop" in sql:
-                raise RuntimeError('relation "merimen_case_workshop" does not exist')
+                raise RuntimeError('relation "merimen_case_workshop" does not exist (42P01)')
             return [(1, "Bengkel Ali")]
-    assert PgRepo("", db=Old()).workshop_for_case("c1") == {"slot": 1, "name": "Bengkel Ali"}
+    assert PgRepo("", db=Old()).claim_workshop_for_case("c1") == {"slot": 1, "name": "Bengkel Ali"}
 
     class NoTable:
         def execute(self, sql, params=()):
