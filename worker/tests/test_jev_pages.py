@@ -2,8 +2,9 @@
 import base64
 import urllib.error
 
-import fitz
 import pytest
+
+fitz = pytest.importorskip("fitz")
 
 from autopilot_worker import jev as jev_mod
 from autopilot_worker import jev_pages as jp
@@ -238,3 +239,70 @@ def test_extra_events_are_written_once_as_jev_check():
     PgRepo("", db=rec).apply({"id": 1, "case_id": "c1", "step": "phase_a", "org_id": "o1"}, Outcome("done", extra_events=["Jev check: no RC page found in the files"]))
     sql, args = [s for s in rec.batches[0] if "'jev_check'" in s[0]][0]
     assert "NOT EXISTS (SELECT 1 FROM case_events" in sql and args[1] == "Jev check: no RC page found in the files"
+
+
+def test_a_failed_pass_keeps_the_good_pages_and_a_rerun_asks_only_for_the_rest():
+    jev, case, fake, rows, fetch = setup(FULL)
+    real = fake.post
+    n = {"c": 0}
+
+    def flaky(body, timeout):
+        n["c"] += 1
+        if n["c"] == 3:
+            raise JevError("HTTP 500")
+        return real(body, timeout)
+
+    jev.post = flaky
+    assert jp.run(jev, case, fetch) == []
+    cached = len(jp._cache)
+    assert 0 < cached < 5
+    jev.post = real
+    import time
+    time.sleep(0.5)  # let the calls of the first pass that were already in flight finish
+    cached = len(jp._cache)
+    fake.sent.clear()
+    jp.run(jev, case, fetch)
+    assert len(fake.sent) == (5 - cached) + 1  # the missing pages and the RC check; none of the cached ones
+    assert jp._day["pages"] <= 5 + 1  # a failed call is not counted against the day
+
+
+def test_an_unreadable_answer_is_never_remembered():
+    jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "kep"] + [("odd", "rc", 9.0, 0.5)])
+    assert jp.run(jev, case, fetch) == []
+    assert len(jp._cache) == 4  # the odd page is not cached: the next run asks again
+
+
+def test_the_same_pdf_twice_in_one_case_is_asked_once():
+    jev, case, fake, rows, fetch = setup(FULL)
+    case["files"].append({"id": 2, "kind": "pdf", "url": "u2", "name": "b.pdf"})
+    assert jp.run(jev, case, fetch) == [] and len(fake.sent) == 6
+
+
+def test_a_file_we_could_not_open_means_no_absence_warning():
+    jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "kep"])
+    case["files"].append({"id": 3, "kind": "image", "url": "x.png", "name": "x.png"})  # an image that is not a photo: it may hold the Keputusan
+    assert jp.run(jev, case, fetch) == []
+    case["files"][-1] = {"id": 3, "kind": "pdf", "url": "", "name": "y.pdf"}
+    assert jp.run(jev, case, fetch) == []
+
+
+def test_a_police_report_continuation_page_still_counts_as_ours():
+    jev, case, fake, rows, fetch = setup([p if p[1] != "rep" else ("report", "rep", 0.95, 0.3) for p in FULL])
+    jp._cache.clear()
+    # by_our_driver says 0.3 and belongs is also 0.3 here: genuinely not ours -> warned; with belongs high it is present
+    assert jp.run(jev, case, fetch) == ["Jev check: no our police report page found in the files"]
+    assert jp.parse_page({"answers": {"doc_type": {"choice": "police_report", "confidence": 0.9}, "belongs": {"noul": 0.9}, "by_our_driver": {"noul": 0.1}}})["ours"] == 0.9
+
+
+def test_an_odd_rc_answer_keeps_the_missing_document_line():
+    jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "kep"])
+    real = fake.post
+
+    def odd(body, timeout):
+        out = real(body, timeout)
+        if "cc" in body["questions"]:
+            out["answers"] = []
+        return out
+
+    jev.post = odd
+    assert jp.run(jev, case, fetch) == ["Jev check: no Keputusan page found in the files"]

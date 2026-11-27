@@ -22,9 +22,9 @@ PAGE_MODEL = "jev-preview"  # image questions need the preview model (handoff)
 MAX_PAGES = 60  # per case; more and nothing is sent
 MAX_PDF_BYTES = 25 * 1024 * 1024
 PARALLEL = 4
-PAGE_TIMEOUT_S = 25.0
 BUDGET_S = 60.0  # the whole pass; over it, nothing is reported (all or nothing)
 DPI = 100
+RC_DPI = 150  # the RC card has small print (cc, date): one sharper render for the one RC page
 MAX_SIDE_PX = 2000
 SURE = 0.9  # a warning needs this much
 PRESENT = 0.7  # a page counts as "this document is here" from this confidence (owner tests: 100% right at >= 0.7)
@@ -114,7 +114,7 @@ def parse_page(resp: dict) -> dict | None:
     belongs, by_driver = _prob(ans.get("belongs")), _prob(ans.get("by_our_driver"))
     if belongs is None or by_driver is None:
         return None
-    return {"label": label, "conf": float(conf), "ours": by_driver if label == "police_report" else belongs}  # v2: a police report is ours when OUR driver made it
+    return {"label": label, "conf": float(conf), "ours": max(belongs, by_driver) if label == "police_report" else belongs}  # a police report page counts as ours if either signal says so (a continuation page has no "Pengadu Menyatakan")
 
 
 def norm_model(v) -> str:
@@ -136,7 +136,7 @@ def rc_questions(data: dict) -> tuple[dict, dict]:
     model, cc, date = norm_model(cv.get("model")), norm_cc(cv.get("cc")), norm_date(cv.get("registration_date"))
     if model:
         state["model"] = model
-        qs["model"] = {"type": "noul", "instructions": "Does `page` (a JPJ ownership certificate) show Buatan/Nama Model `model`? Spacing and letter case do not matter."}
+        qs["model"] = {"type": "noul", "instructions": "Does `page` (a JPJ ownership certificate) show the vehicle model `model` as Buatan/Nama Model? Spacing, letter case and a shortened maker or model name do not matter."}
     if cc:
         state["cc"] = cc
         qs["cc"] = {"type": "noul", "instructions": "Does `page` show Keupayaan Enjin (engine capacity) `cc` cc? Thousands separators do not matter."}
@@ -149,7 +149,7 @@ def rc_questions(data: dict) -> tuple[dict, dict]:
 
 # ---- day cap and per-PDF cache (in this process only; nothing is stored)
 _day = {"d": "", "pages": 0}
-_cache: dict[str, list[dict | None]] = {}
+_cache: dict[tuple, dict] = {}  # (pdf sha, plate, page index) -> a parsed page; only good answers are kept
 
 
 def _daily_cap(env) -> int:
@@ -171,10 +171,10 @@ def pymupdf_ok() -> bool:
         return False
 
 
-def _jpg(doc, i: int) -> bytes:
+def _jpg(doc, i: int, dpi: int = DPI) -> bytes:
     page = doc[i]
     r = page.rect
-    zoom = min(DPI / 72.0, MAX_SIDE_PX / max(r.width, r.height, 1.0))
+    zoom = min(dpi / 72.0, MAX_SIDE_PX / max(r.width, r.height, 1.0))
     import fitz
 
     return page.get_pixmap(matrix=fitz.Matrix(zoom, zoom)).tobytes("jpg")
@@ -200,75 +200,83 @@ def _run(jev, case, fetch, env, now, day, cid) -> list[str]:
         import fitz
     except Exception:  # noqa: BLE001
         return []
-    files = [f for f in case.get("files", []) if f.get("kind") == "pdf" and f.get("url")]  # a damage photo is never a case_files pdf
+    all_files = case.get("files", [])
+    files = [f for f in all_files if f.get("kind") == "pdf" and f.get("url")]  # a damage photo is never a case_files pdf
     if not files:
         return []
+    # a file we did not open (a pdf row without a link, or an image that is not a photo) means we cannot prove a document is absent
+    complete = all(f.get("kind") in ("pdf", "photo", "bundle_zip") and (f.get("kind") != "pdf" or f.get("url")) for f in all_files)
     t0 = now()
-    docs: list[tuple[str, object]] = []  # (sha, open document)
+    docs: list[tuple[str, object]] = []  # (sha, open document), one per distinct PDF
     try:
+        seen = set()
         for f in files:
+            if now() - t0 > BUDGET_S:
+                jev.log("page_sort", case_id=cid, ok=False, error_class="skip_budget", model=PAGE_MODEL)
+                return []
             raw = fetch(f["url"])
             if not raw or len(raw) > MAX_PDF_BYTES:
                 jev.log("page_sort", case_id=cid, ok=False, error_class="skip_file", model=PAGE_MODEL)
                 return []
+            sha = hashlib.sha256(raw).hexdigest()
+            if sha in seen:
+                continue
+            seen.add(sha)
             try:
                 d = fitz.open(stream=raw, filetype="pdf")
             except Exception:  # noqa: BLE001
                 jev.log("page_sort", case_id=cid, ok=False, error_class="skip_corrupt", model=PAGE_MODEL)
                 return []
+            docs.append((sha, d))
             if d.needs_pass or d.is_encrypted:
                 jev.log("page_sort", case_id=cid, ok=False, error_class="skip_encrypted", model=PAGE_MODEL)
                 return []
-            docs.append((hashlib.sha256(raw).hexdigest(), d))
         total = sum(len(d) for _, d in docs)
         if total == 0 or total > MAX_PAGES:
             jev.log("page_sort", case_id=cid, ok=False, error_class="skip_pages", model=PAGE_MODEL)
             return []
         if _day["d"] != day:
             _day["d"], _day["pages"] = day, 0
-        new_pages = sum(len(d) for sha, d in docs if sha + "|" + str(case.get("plate")) not in _cache)
-        if _day["pages"] + new_pages > _daily_cap(env):
+        plate = str(case.get("plate") or "")
+        pages = [(sha, i, d) for sha, d in docs for i in range(len(d))]  # global page order = results order
+        todo = [k for k, (sha, i, _d) in enumerate(pages) if (sha, plate, i) not in _cache]
+        if _day["pages"] + len(todo) + 1 > _daily_cap(env):
             jev.log("page_sort", case_id=cid, ok=False, error_class="skip_daily_cap", model=PAGE_MODEL)
             return []
-        results: list[dict | None] = []
-        jobs: list[tuple[str, object, int, int]] = []  # (key, doc, page index, slot in results)
-        slots: dict[str, list[int]] = {}
-        for sha, d in docs:
-            key = sha + "|" + str(case.get("plate"))
-            if key in _cache:
-                slots[key] = []
-                results.extend(_cache[key])
-                continue
-            slots[key] = []
-            for i in range(len(d)):
-                slots[key].append(len(results))
-                jobs.append((key, d, i, len(results)))
-                results.append(None)
-        if jobs:
-            _day["pages"] += len(jobs)
-            plate = str(case.get("plate") or "")
-            qs = questions()
+        # render here, one page at a time (a MuPDF document is not thread-safe); the pool only does the network call, with bytes
+        rendered = {k: _jpg(pages[k][2], pages[k][1]) for k in todo}
+        qs = questions()
 
-            def one(job):
-                key, d, i, slot = job
-                ref, assets = _asset(_jpg(d, i))
-                return slot, parse_page(jev.ask({"page": ref, "our_plate": plate}, qs, purpose="page_sort", case_id=cid, assets=assets, model=PAGE_MODEL))
+        def one(k):
+            ref, assets = _asset(rendered[k])
+            return k, parse_page(jev.ask({"page": ref, "our_plate": plate}, qs, purpose="page_sort", case_id=cid, assets=assets, model=PAGE_MODEL))
 
+        if todo:
             ex = ThreadPoolExecutor(PARALLEL)
+            ok = 0
             try:
-                futs = [ex.submit(one, j) for j in jobs]
+                futs = [ex.submit(one, k) for k in todo]
                 deadline = t0 + BUDGET_S
                 for f in futs:
-                    slot, parsed = f.result(timeout=max(0.1, deadline - now()))
-                    results[slot] = parsed
+                    k, parsed = f.result(timeout=max(0.1, deadline - now()))
+                    ok += 1
+                    sha, i, _d = pages[k]
+                    if parsed is not None:  # an unreadable answer is never remembered: the next run asks again
+                        _cache[(sha, plate, i)] = parsed
             except (FutureTimeout, JevError):
-                return []  # all or nothing
+                for f in futs:  # keep every page that did answer, so a re-run asks only for the rest
+                    if f.done() and not f.cancelled() and f.exception() is None:
+                        k, parsed = f.result()
+                        if parsed is not None and (pages[k][0], plate, pages[k][1]) not in _cache:
+                            _cache[(pages[k][0], plate, pages[k][1])] = parsed
+                            ok += 1
+                _day["pages"] += ok  # only calls that answered count against the day
+                return []  # all or nothing; the pages that did answer stay cached for the next run
             finally:
                 ex.shutdown(wait=False, cancel_futures=True)
-            for key, idx in slots.items():
-                if idx:
-                    _cache[key] = [results[s] for s in idx]
-        return _lines(jev, case, results, docs, now=now, t0=t0, cid=cid)
+            _day["pages"] += ok
+        results = [_cache.get((sha, plate, i)) for sha, i, _d in pages]
+        return _lines(jev, case, results, docs, complete=complete, now=now, t0=t0, cid=cid)
     finally:
         for _, d in docs:
             try:
@@ -284,11 +292,11 @@ def _present(results: list[dict | None], doc: str) -> bool:
     return False
 
 
-def _lines(jev, case, results, docs, *, now, t0, cid) -> list[str]:
+def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
     data = case.get("case_data") if isinstance(case.get("case_data"), dict) else {}
     out: list[str] = []
     # rule A: a needed document with no page, and the reader did not already say it is missing. Skipped when any page could not be read (no proof of absence).
-    if all(results):
+    if complete and all(results):
         listed = {reader_missing(str(m)) for m in (data.get("missing") or [])}
         for doc in NEEDED:
             if doc in listed or _present(results, doc):
@@ -306,23 +314,10 @@ def _lines(jev, case, results, docs, *, now, t0, cid) -> list[str]:
         if r and r["label"] == "vehicle_ownership_certificate" and r["conf"] >= SURE and r["ours"] >= SURE and (best is None or r["conf"] > results[best]["conf"]):
             best = idx
     if best is not None:
-        state, qs = rc_questions(data)
-        if qs and now() - t0 < BUDGET_S - 5:
-            rc = _rc_page(docs, best)
-            if rc is not None:
-                ref, assets = _asset(rc)
-                state["page"] = ref
-                try:
-                    ans = (jev.ask(state, qs, purpose="rc_check", case_id=cid, assets=assets, model=PAGE_MODEL).get("answers") or {})
-                except JevError:
-                    ans = {}
-                cv = data.get("client_vehicle") or {}
-                shown = {"model": ("model", norm_model(cv.get("model"))), "cc": ("cc", norm_cc(cv.get("cc"))), "date": ("registration date", norm_date(cv.get("registration_date")))}
-                for k in ("model", "cc", "date"):
-                    p = _prob(ans.get(k))
-                    if k in qs and p is not None and p <= 1 - SURE:
-                        name, val = shown[k]
-                        out.append(f'Jev check: RC {name} "{val[:80]}" not seen on the RC card by Jev')
+        try:
+            out.extend(_rc_lines(jev, data, docs, best, now, t0, cid))
+        except Exception:  # noqa: BLE001  (the missing-document lines above stay)
+            pass
     seen, lines = set(), []
     for ln in out:
         if ln not in seen:
@@ -331,12 +326,38 @@ def _lines(jev, case, results, docs, *, now, t0, cid) -> list[str]:
     return lines[:MAX_LINES]  # missing documents first, then RC model, cc, date (the order they were added)
 
 
+def _rc_lines(jev, data, docs, best, now, t0, cid) -> list[str]:
+    state, qs = rc_questions(data)
+    if not qs or now() - t0 > BUDGET_S - 5:
+        return []
+    rc = _rc_page(docs, best)
+    if rc is None:
+        return []
+    ref, assets = _asset(rc)
+    state["page"] = ref
+    try:
+        ans = jev.ask(state, qs, purpose="rc_check", case_id=cid, assets=assets, model=PAGE_MODEL).get("answers")
+    except JevError:
+        return []
+    ans = ans if isinstance(ans, dict) else {}
+    _day["pages"] += 1
+    cv = data.get("client_vehicle") or {}
+    shown = {"model": ("model", norm_model(cv.get("model"))), "cc": ("cc", norm_cc(cv.get("cc"))), "date": ("registration date", norm_date(cv.get("registration_date")))}
+    out = []
+    for k in ("model", "cc", "date"):
+        p = _prob(ans.get(k))
+        if k in qs and p is not None and p <= 1 - SURE:
+            name, val = shown[k]
+            out.append(f'Jev check: RC {name} "{val[:80]}" not seen on the RC card by Jev')
+    return out
+
+
 def _rc_page(docs, global_index: int) -> bytes | None:
     n = global_index
     for _, d in docs:
         if n < len(d):
             try:
-                return _jpg(d, n)
+                return _jpg(d, n, RC_DPI)
             except Exception:  # noqa: BLE001
                 return None
         n -= len(d)
