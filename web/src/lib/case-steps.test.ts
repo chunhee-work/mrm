@@ -25,3 +25,15 @@ test("home groups and the step bar agree for every status", () => {
     }
   }
 });
+
+test("open and locked only coexist for the photo desk while a document is missing", () => {
+  for (const status of ["uploaded", "reading", "pending_doc", "phase_a", "naming", "waiting_user", "phase_b", "checking", "done", "failed"]) {
+    for (const photosDone of [false, true]) {
+      for (const photos of [0, 5]) {
+        for (const s of stepsOf({ status, photos, photosDone })) {
+          if (s.state === "locked" && s.open) assert.equal(s.id, "photos");
+        }
+      }
+    }
+  }
+});
