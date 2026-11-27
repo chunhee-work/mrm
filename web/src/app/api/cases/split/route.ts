@@ -124,7 +124,9 @@ export async function POST(req: Request) {
   } catch (e) {
     const kept = new Set<string>(); // a case whose row could not be deleted keeps its files, so it is never a case without files
     for (const id of made) {
-      await refundCase(me.orgId, id).catch((x) => console.error("split rollback: refund failed", id, x));
+      // a case whose credit could not be given back is kept too: it stays paid for, counts as made, and is not charged again
+      const back = await refundCase(me.orgId, id).then(() => true, (x) => { console.error("split rollback: refund failed", id, x); return false; });
+      if (!back) { kept.add(id); continue; }
       await db.delete(schema.cases).where(eq(schema.cases.id, id)).catch((x) => { kept.add(id); console.error("split rollback: delete failed", id, x); });
     }
     const gone = [...stored].filter(([id]) => !kept.has(id)).flatMap(([, urls]) => urls);
@@ -134,7 +136,7 @@ export async function POST(req: Request) {
     if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
     if (e instanceof ZipRejected) return NextResponse.json({ error: e.code, why: e.message }, { status: 422 }); // a car folder that does not inflate
     console.error("split failed", e);
-    return NextResponse.json({ error: "failed" }, { status: 500 });
+    return NextResponse.json({ error: "failed", kept: kept.size }, { status: 500 });
   }
   await dropZip();
   await release();

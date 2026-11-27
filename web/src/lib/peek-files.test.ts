@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, PLATE_LIKE, isPlate } from "./peek-files";
+import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, vehicleLayout, PLATE_LIKE, isPlate } from "./peek-files";
 
 const zip = (files: Record<string, string>) => new Blob([Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))))]);
 
@@ -46,7 +46,9 @@ test("vehicleFolders: a readme or a hidden folder beside the wrapping folder doe
   assert.deepEqual(vehicleFolders(names), ["AAA1111", "BBB2222"]);
 });
 
-test("vehicleFolders: a PDF folder that is not a plate beside plate folders makes it not a multi-car zip (nothing is dropped)", () => {
-  assert.deepEqual(vehicleFolders(["AAA1111/a.pdf", "BBB2222/b.pdf", "SINAR-1/c.pdf"]), []);
-  assert.deepEqual(vehicleFolders(["AAA1111/a.pdf", "BBB2222/b.pdf", "Photos/1.jpg"]), ["AAA1111", "BBB2222"]);
+test("vehicleLayout: every other folder or loose file a case would take is an extra (a split then refuses, nothing is dropped)", () => {
+  assert.deepEqual(vehicleLayout(["AAA1111/a.pdf", "BBB2222/b.pdf", "SINAR-1/c.pdf"]), { cars: ["AAA1111/", "BBB2222/"], extras: ["SINAR-1/"] });
+  assert.deepEqual(vehicleLayout(["S/AAA1111/a.pdf", "S/BBB2222/b.pdf", "S/Gambar/1.jpg", "S/cover.pdf"]).extras.sort(), ["S/Gambar/", "S/cover.pdf"]);
+  assert.deepEqual(vehicleLayout(["AAA1111/a.pdf", "BBB2222/b.pdf", "CCC3333/1.jpg", "notes.txt"]).extras, ["CCC3333/"]);
+  assert.deepEqual(vehicleLayout(["AAA1111/a.pdf", "BBB2222/b.pdf"]).extras, []);
 });
