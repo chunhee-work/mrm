@@ -147,6 +147,7 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
   // "New case" is a button in the bar itself (always in view), so the menu holds only the places to go
   const links = [
     { href: "/dashboard", label: t("nav.cases") },
+    { href: "/details", label: t("pf.title") },
     { href: "/billing", label: t("nav.billing") },
     { href: "/settings", label: t("nav.settings") },
   ];
@@ -245,6 +246,26 @@ function NewCaseUnlessHome({ path, blocked }: { path: string; blocked: boolean }
   const table = (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
   if (path === "/dashboard" && !table) return null;
   return <NewCase onNew={path === "/cases/new"} blocked={blocked} />;
+}
+
+/**
+ * Wide screens have no top bar and the side bar holds no New case (owner 2026-11-27): pages other than the first page
+ * (which has its own button) show it top right, above the page. Not on the photo desk, which uses the whole height.
+ */
+export function WideNewCase({ blocked }: { blocked: boolean }) {
+  const path = usePathname();
+  if (/^\/cases\/[^/]+\/photos$/.test(path)) return null;
+  return (
+    <Suspense fallback={null}>
+      <WideRow path={path} blocked={blocked} />
+    </Suspense>
+  );
+}
+function WideRow({ path, blocked }: { path: string; blocked: boolean }) {
+  const sp = useSearchParams();
+  const table = (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
+  if ((path === "/dashboard" && !table) || path === "/cases/new") return null;
+  return <div className="hidden justify-end px-6 pt-5 lg:flex"><NewCase onNew={false} blocked={blocked} /></div>;
 }
 
 /** Top bar of the signed-in app: the working frame. */

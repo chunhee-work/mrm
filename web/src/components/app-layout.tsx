@@ -1,12 +1,13 @@
 import { getUserOrNull } from "@/lib/session";
 import { profileBlocks } from "@/lib/ext/worker-store";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { credView } from "@/lib/ext/worker-store";
 import { notDeleted } from "@/lib/case-delete";
 import { creditBalance } from "@/lib/payments/credit";
-import AppBar from "./app/app-bar";
+import AppBar, { WideNewCase } from "./app/app-bar";
 import SideBar from "./app/side-bar";
 import NavProgress from "./app/nav-progress";
 import { PageSlot } from "./lang-provider"; // R5-B03: see PageSlot
@@ -23,12 +24,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ])
     : [null, 0, null];
   const email = me?.user.email ?? "";
+  const newBlocked = me ? await profileBlocks(me.orgId).catch(() => false) : false;
   return (
     <div className="theme-light flex min-h-screen min-h-dvh bg-bay text-fg">
-      {me && <Suspense fallback={null}><SideBar email={email} name={me.user.name ?? ""} credits={credits} cred={cred} closed={closed} /></Suspense>}
+      {me && <Suspense fallback={null}><SideBar email={email} name={me.user.name ?? ""} credits={credits} cred={cred} closed={closed} thin={(await cookies()).get("side")?.value === "thin"} /></Suspense>}
       <div className="flex min-w-0 flex-1 flex-col">
         <NavProgress />
-        <AppBar email={email} newBlocked={me ? await profileBlocks(me.orgId).catch(() => false) : false} />
+        <AppBar email={email} newBlocked={newBlocked} />
+        {me && <WideNewCase blocked={newBlocked} />}
         <main id="main" className="flex min-h-0 flex-1 flex-col"><PageSlot>{children}</PageSlot></main>
       </div>
     </div>

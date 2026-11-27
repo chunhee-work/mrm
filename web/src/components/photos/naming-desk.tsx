@@ -833,7 +833,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       ref={root}
       // embedded: photos dropped on the desk are added to this case (the page's own drop, which starts a new case, is off meanwhile)
       onDragOver={embedded ? (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } } : undefined}
-      onDrop={embedded ? (e) => { const f = Array.from(e.dataTransfer.files); if (f.length) { e.preventDefault(); void onFiles(f.filter((x) => x.type.startsWith("image/"))); } } : undefined}
+      onDrop={embedded ? (e) => { const f = Array.from(e.dataTransfer.files); if (f.length) { e.preventDefault(); void onFiles(f); } } : undefined}
       className={embedded ? "flex h-[min(760px,85vh)] flex-col [&_.wrap]:!max-w-none [&_.wrap]:!px-3 sm:[&_.wrap]:!px-4" : "app-fill flex flex-col"} data-embedded={embedded || undefined}>
       {head}
       <div className="shrink-0">

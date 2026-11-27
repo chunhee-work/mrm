@@ -151,8 +151,8 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
   // Once shown it stays while the line is open: after 完成 the case moves to step 3, and the desk keeps its message and its undo.
   const [deskOpen, setDeskOpen] = useState(bucketOf(r) === "photos");
   useEffect(() => { if (bucketOf(r) === "photos") setDeskOpen(true); }, [r]);
-  // while a desk is open a dropped photo belongs to it, not to a new case (the page-wide drop is off)
-  useEffect(() => { onDesk(deskOpen); return () => onDesk(false); }, [deskOpen, onDesk]);
+  // while a line is open a dropped file does not start a new case (the page-wide drop is off); its photo desk takes photos itself
+  useEffect(() => { onDesk(true); return () => onDesk(false); }, [onDesk]);
   const desk = (
     <div className="overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
       <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={() => router.refresh()}
@@ -203,6 +203,8 @@ function StepTable({ rows, needle, orgId, total, onDesk }: { rows: CaseRow[]; ne
   const toggle = (id: string | null) => { setOpen(id); setOrder(id ? rows.map((x) => x.id) : null); };
   const at = (id: string) => { const i = order ? order.indexOf(id) : -1; return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
   const lines = order ? [...rows].sort((a, b) => at(a.id) - at(b.id)) : rows;
+  // the open case left the list (deleted, or closed elsewhere): back to the normal list
+  useEffect(() => { if (open && !rows.some((x) => x.id === open)) { setOpen(null); setOrder(null); } }, [open, rows]);
   // the list loses its own scroll box while a line is open: bring the opened line to the top of the screen
   useEffect(() => {
     if (!open) return;
@@ -283,16 +285,14 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   useEffect(() => { takeDropped(); }, []);
   // if the trip never ends (navigation stalled), the overlay goes when the hold runs out and drops work again
   useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), HOLD_MS); return () => window.clearTimeout(id); }, [going]);
-  // a complete profile: one slim line over the list on a phone; a wide screen has it in the side bar (owner 2026-11-27)
-  const strip = cred.complete ? <ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact look="strip" /> : null;
-  const [deskOpen, setDeskOpen] = useState(false);
-  const over = useFileDrag(!going && !blocked && !deskOpen, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
+  const [lineOpen, setLineOpen] = useState(false); // a line of the list is open
+  const over = useFileDrag(!going && !blocked && !lineOpen, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
   const needle = squash(q);
   const shown = sortCases(cases).filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
-  const table = <StepTable rows={shown} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setDeskOpen} />;
+  const table = <StepTable rows={shown} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setLineOpen} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
   return (
@@ -330,8 +330,8 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           </Link>
         </div>
         {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
-        {strip && <div className="mt-6 lg:hidden">{strip}</div>}
-        <div className={`mt-3 lg:mt-6 ${strip ? "" : "max-lg:mt-9"}`}>{table}</div>
+        {/* a complete profile has its own page (/details), linked from the side bar and the phone menu */}
+        <div className="mt-9 lg:mt-6">{table}</div>
       </div>
       </div>
       {(over || going) && (

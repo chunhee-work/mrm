@@ -36,9 +36,10 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  */
 /**
  * `look` (complete profile only): "side" = the card in a side column; "strip" = one slim line across the page (the first page,
- * owner 2026-11-27); "rail" = stacked in the left side bar of a wide screen. A login that needs the user (wrong password, a code from the phone) always shows the full card.
+ * owner 2026-11-27); "rail" = stacked in the left side bar of a wide screen; "page" = the form itself on its own page, filled in
+ * with what is saved (owner 2026-11-27: one link in the side bar leads there, the details are typed and changed right on it). A login that needs the user (wrong password, a code from the phone) always shows the full card.
  */
-export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "strip" | "rail" }) {
+export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "strip" | "rail" | "page" }) {
   const configured = cred.keyOk;
   const { t, lang } = useT();
   const [workshop, setWorkshop] = useState("");
@@ -67,6 +68,8 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
 
   function fill() { setWorkshop(cred.workshop ?? ""); setManager(cred.manager ?? ""); setAdjuster(cred.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
   function openEdit() { fill(); setEditing(true); }
+  // its own page: the saved details are in the boxes from the start
+  useEffect(() => { if (look === "page") fill(); }, [look, cred.workshop, cred.manager, cred.adjuster]); // eslint-disable-line react-hooks/exhaustive-deps
   function closeAll() { setEditing(false); setConfirming(false); setPass(""); setSure(false); }
 
   const first = !cred.saved;
@@ -78,7 +81,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSend) return;
-    if (first || !compact) void send(); else setConfirming(true);
+    if (first || (!compact && look !== "page")) void send(); else setConfirming(true);
   }
   async function send() {
     setBusy(true); setErr(null);
@@ -136,23 +139,6 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
 
   const note = !configured || !cred.storageOk ? <p role="status" className="field-error mb-4" data-testid="ml-notready">{t("ml.notReady")}</p> : null;
 
-  // not complete: the whole form, on the page
-  if (!compact) {
-    return (
-      <section aria-labelledby="pf-title" className="rounded-[4px] border border-hair bg-panel p-5" data-testid="pf-form">
-        <h2 id="pf-title" className="text-[18px] font-semibold leading-snug text-fg">{t("pf.title")}</h2>
-        <p className="mb-4 mt-1 text-[14.5px] leading-snug text-mute [text-wrap:pretty]">{t("pf.lead")}</p>
-        {note}
-        <form onSubmit={submit} autoComplete="off" className="grid gap-4">
-          {Fields(false)}
-          <div className="flex flex-wrap items-center gap-2"><button type="submit" disabled={!canSend} className="btn-primary !h-12 w-full sm:w-auto sm:px-8" data-testid="pf-save">{busy ? t("set.saving") : t("pf.save")}</button>
-            {cred.saved && <button type="button" onClick={remove} disabled={busy} className="btn-quiet !h-12 !text-mute sm:ml-3" data-testid="pf-delete">{sure ? t("ml.removeSure") : t("ml.remove")}</button>}
-          </div>
-        </form>
-      </section>
-    );
-  }
-
   const modals = (
     <>
       <Modal open={editing && !confirming} onClose={() => { if (!confirming) closeAll(); }} title={t("pf.editTitle")}>
@@ -182,6 +168,43 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   const checking = CHECKING.includes(cred.verifyState);
   const facts = [cred.workshop, cred.manager, cred.adjuster].filter(Boolean).join(" · ");
   const state = checking ? t("w.checking") : t("w.ok");
+  // what Merimen said about the login (and the code box when it asks for one)
+  const stateBlock = (
+      <div className="border-t border-hair px-4 py-2.5 text-[13.5px] text-mute">
+        {checking && <p role="status">{t("w.checking")}</p>}
+        {good && <p role="status">{t("w.ok")}{cred.updatedAt ? ` · ${t("ml.when", { when: whenOf(cred.updatedAt, lang) })}` : ""}</p>}
+        {bad && <p role="alert" className="field-error">{cred.verifyState === "locked" ? t("w.locked") : t("w.bad")}</p>}
+        {cred.verifyState === "otp" && (
+          <form onSubmit={sendCode} className="grid gap-2">
+            <p className="text-[14px] text-fg">{t("w.otp")}</p>
+            <div className="flex gap-2">
+              <input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="numeric" maxLength={12} className="input min-w-0 flex-1" aria-label={t("w.otp")} data-testid="pf-otp" />
+              <button type="submit" disabled={busy || !code} className="btn-primary !h-11">{t("w.otpGo")}</button>
+            </div>
+          </form>
+        )}
+        {!checking && !good && !bad && cred.verifyState !== "otp" && cred.updatedAt && <p>{t("ml.when", { when: whenOf(cred.updatedAt, lang) })}</p>}
+      </div>
+  );
+  // not complete (or its own page): the whole form
+  if (!compact || look === "page") {
+    return (
+      <section aria-labelledby="pf-title" className="rounded-[4px] border border-hair bg-panel p-5" data-testid="pf-form">
+        <h2 id="pf-title" className="text-[18px] font-semibold leading-snug text-fg">{t("pf.title")}</h2>
+        <p className="mb-4 mt-1 text-[14.5px] leading-snug text-mute [text-wrap:pretty]">{t("pf.lead")}</p>
+        {note}
+        <form onSubmit={submit} autoComplete="off" className="grid gap-4">
+          {Fields(false)}
+          <div className="flex flex-wrap items-center gap-2"><button type="submit" disabled={!canSend} className="btn-primary !h-12 w-full sm:w-auto sm:px-8" data-testid="pf-save">{busy ? t("set.saving") : t("pf.save")}</button>
+            {cred.saved && <button type="button" onClick={remove} disabled={busy} className="btn-quiet !h-12 !text-mute sm:ml-3" data-testid="pf-delete">{sure ? t("ml.removeSure") : t("ml.remove")}</button>}
+          </div>
+        </form>
+      {look === "page" && cred.saved && <div className="-mx-5 -mb-5 mt-5">{stateBlock}</div>}
+      {look === "page" && modals}
+      </section>
+    );
+  }
+
   if ((good || checking) && look === "strip") {
     // one line: the details, whether Merimen took the login, and Edit
     return (
@@ -225,21 +248,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
           <div key={k} className={rowCls}><dt className="note text-mute">{t(k)}</dt><dd className="min-w-0 text-[14.5px] text-fg [overflow-wrap:anywhere]">{v}</dd></div>
         ))}
       </dl>
-      <div className="border-t border-hair px-4 py-2.5 text-[13.5px] text-mute">
-        {checking && <p role="status">{t("w.checking")}</p>}
-        {good && <p role="status">{t("w.ok")}{cred.updatedAt ? ` · ${t("ml.when", { when: whenOf(cred.updatedAt, lang) })}` : ""}</p>}
-        {bad && <p role="alert" className="field-error">{cred.verifyState === "locked" ? t("w.locked") : t("w.bad")}</p>}
-        {cred.verifyState === "otp" && (
-          <form onSubmit={sendCode} className="grid gap-2">
-            <p className="text-[14px] text-fg">{t("w.otp")}</p>
-            <div className="flex gap-2">
-              <input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="numeric" maxLength={12} className="input min-w-0 flex-1" aria-label={t("w.otp")} data-testid="pf-otp" />
-              <button type="submit" disabled={busy || !code} className="btn-primary !h-11">{t("w.otpGo")}</button>
-            </div>
-          </form>
-        )}
-        {!checking && !good && !bad && cred.verifyState !== "otp" && cred.updatedAt && <p>{t("ml.when", { when: whenOf(cred.updatedAt, lang) })}</p>}
-      </div>
+      {stateBlock}
       {modals}
     </section>
   );
