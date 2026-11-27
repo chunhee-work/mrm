@@ -466,8 +466,11 @@ export async function claimSlice(caseId: string, limit = SLICE): Promise<Claimed
       SELECT id FROM case_photos
       WHERE case_id = ${caseId} AND (name_state = 'pending' OR (name_state = 'running' AND claimed_at < now() - interval '6 minutes'))
       ORDER BY position, id LIMIT ${limit} FOR UPDATE SKIP LOCKED)
-    RETURNING id, claimed_at::text AS claimed_at`);
-  return rowsOf<{ id: number; claimed_at: string }>(r).map((x) => ({ id: Number(x.id), claimedAt: x.claimed_at }));
+    RETURNING id, position, claimed_at::text AS claimed_at`);
+  // the database hands the changed rows back in no promised order: put them in display order here
+  return rowsOf<{ id: number; position: number; claimed_at: string }>(r)
+    .sort((a, b) => Number(a.position) - Number(b.position) || Number(a.id) - Number(b.id))
+    .map((x) => ({ id: Number(x.id), claimedAt: x.claimed_at }));
 }
 
 /** Writes one answer. A row that was taken again in the meantime (or already answered) is left alone. */
