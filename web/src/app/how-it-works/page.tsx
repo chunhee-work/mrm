@@ -6,12 +6,14 @@ import { envOn } from "@/lib/ext/gate";
 import { savedLoginOn } from "@/lib/ext/worker-gate";
 import { pageMeta } from "@/lib/meta";
 import { Closing, Keyed, Steps } from "@/components/landing/sections";
+import Guide from "./guide";
 
-export const generateMetadata = () => pageMeta("nav.how", { desc: "meta.d.how" });
+export const generateMetadata = async () => ((await getUserOrNull()) ? pageMeta("nav.how", { index: false }) : pageMeta("nav.how", { desc: "meta.d.how" }));
 
 export default async function HowItWorks() {
   const me = await getUserOrNull();
   const { lang, t } = await getT();
+  if (me) return <Guide lang={lang} />; // signed in: the app's own white page; signed out: the public one below
   const c = honestCopy(HOME[lang], lang, savedLoginOn(), !envOn());
   return (
     <>

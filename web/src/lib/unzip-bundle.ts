@@ -36,6 +36,7 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
         const leaf = f.name.split("/").pop() ?? "";
         if (f.name.endsWith("/") || f.name.startsWith("__MACOSX/") || f.name.split("/").some((p) => p.startsWith("."))) return false;
         if (!/\.pdf$/i.test(leaf) && !PHOTO.test(leaf)) return false;
+        if (f.originalSize === 0 && !(f.compression === 0 && f.size > 0)) return false; // an empty file is no case file and does not count
         if (++count > limits.maxEntries) throw new ZipRejected("too_many", ZIP_WHY.too_many);
         // a stored entry opens as its stored bytes, whatever size it declares: the larger of the two counts toward the limits
         const sz = f.compression === 0 ? Math.max(f.size, f.originalSize) : f.originalSize;

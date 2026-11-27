@@ -193,3 +193,9 @@ test("a stored entry that declares 0 bytes but holds some: outside the cars it i
   const one = patchCd(zipSync({ "a.pdf": [pdf, { level: 0 }] }), 24, 0, 4);
   assert.throws(() => unzipBundle(one, { ...ZIP_LIMITS, maxEntryBytes: 5 }), (e: ZipRejected) => e.code === "too_big");
 });
+
+test("unzipBundle: empty files do not count toward the file limit", () => {
+  const files: Record<string, Uint8Array> = { "a.pdf": strToU8("%PDF-1.4 a") };
+  for (let i = 0; i < 5; i++) files[`e${i}.pdf`] = new Uint8Array(0);
+  assert.equal(unzipBundle(zipSync(files), { ...ZIP_LIMITS, maxEntries: 2 }).length, 1);
+});
