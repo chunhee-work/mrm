@@ -22,6 +22,8 @@ const note = (where, what) => { problems.push(`${where}: ${what}`); console.log(
 
 async function inspect(page, where, vw, lang, errs) {
   await page.waitForTimeout(900);
+  // a page that moves on by itself (a redirect in the page) has no body for a moment: wait for the one it lands on
+  await page.waitForLoadState("domcontentloaded").catch(() => {}); await page.waitForFunction(() => !!document.body, null, { timeout: 15000 }).catch(() => {});
   const r = await page.evaluate(({ vw }) => {
     const out = { iw: window.innerWidth, sw: document.documentElement.scrollWidth, cut: [], text: document.body.innerText };
     const scrollsX = (el) => { for (let p = el.parentElement; p; p = p.parentElement) { const s = getComputedStyle(p); if (/(auto|scroll)/.test(s.overflowX) && p.scrollWidth > p.clientWidth + 1) return true; } return false; };

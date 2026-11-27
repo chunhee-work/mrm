@@ -45,8 +45,10 @@ await step("signed-out redirect", async () => { const c = await ctxOf(); const p
 // 5 language switch by UI on the dashboard
 await step("language switch", async () => { const c = await ctxOf({ width: 1440, height: 900 }, "en", true); const p = await c.newPage(); const e = watch(p);
   await p.goto(BASE + "/dashboard", { waitUntil: "networkidle" });
-  const btn = p.getByRole("button", { name: /EN|language|bahasa|语言/i }).first(); await btn.click(); await p.waitForTimeout(400);
-  const zh = p.getByText(/中文/).first(); await zh.click(); await p.waitForLoadState("networkidle"); await p.waitForTimeout(800);
+  // the language lives in the account menu at the foot of the side bar now
+  await p.locator('[aria-controls="account-menu"]:visible').first().click(); await p.waitForTimeout(300);
+  await p.getByTestId("side-lang").click(); await p.waitForTimeout(300);
+  await p.locator('button[lang="zh-CN"]:visible').first().click(); await p.waitForLoadState("networkidle"); await p.waitForTimeout(800);
   const lang = await p.evaluate(() => document.documentElement.lang); const body = await p.innerText("main");
   res("language switch to 中文", /^zh/.test(lang) && /[一-鿿]/.test(body) && !e.length, `html lang=${lang} ${e.join("; ")}`); await p.screenshot({ path: `${SH}/lang-switch-zh.png` });
   await p.reload({ waitUntil: "networkidle" }); res("language kept after reload", /^zh/.test(await p.evaluate(() => document.documentElement.lang)));
