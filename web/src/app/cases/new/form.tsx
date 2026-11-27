@@ -216,6 +216,7 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
           return;
         }
       }
+      if (!alive.current) return; // left while the split looked at a zip it then handed back (`empty`): no case, no credit
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done, ...wsBody }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
