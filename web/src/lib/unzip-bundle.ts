@@ -13,7 +13,7 @@ export const ZIP_LIMITS = {
 
 export type BundleEntry = { name: string; kind: "pdf" | "photo"; bytes: Uint8Array; type: string };
 export class ZipRejected extends Error {
-  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_cars" | "mixed" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
+  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_cars" | "mixed" | "car_no_pdf" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
 }
 
 const PHOTO = /\.(jpe?g|png|webp|heic)$/i;
@@ -74,15 +74,17 @@ const usableIn = (name: string) => {
  * The vehicles of a zip of several cars (plate-named folders, each with its own PDF), read from the file list only: nothing is
  * inflated. All limits are checked here from the sizes the zip declares, so the split can refuse before it stores anything.
  * Counts and sizes are over the usable, non-empty files inside car folders. Nothing is left out: any other folder or loose file a
- * case would take ("mixed"), including a plate folder whose PDFs are all empty, refuses the zip.
+ * case would take ("mixed"), refuses the zip; so does a car folder whose PDFs are all empty ("car_no_pdf").
  * Throws ZipRejected; "empty" when it is not a multi-vehicle zip.
  */
 export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number } = SPLIT_LIMITS): VehiclePlan[] {
   const all: { name: string; size: number }[] = [];
   try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize }); return false; } }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }
-  // empty files do not count: a plate folder whose PDFs are all empty is an extra, not a car
-  const { cars: prefixes, extras } = vehicleLayout(all.filter((f) => f.size > 0).map((f) => f.name));
+  // the same names-only layout the browser saw; an empty loose file is not an extra, a car whose PDFs are all empty is refused below
+  const { cars: prefixes, extras: named } = vehicleLayout(all.map((f) => f.name));
+  const nonEmpty = new Set(all.filter((f) => f.size > 0).map((f) => f.name));
+  const extras = named.filter((x) => !x.endsWith("/") ? nonEmpty.has(x) : all.some((f) => f.size > 0 && f.name.startsWith(x)));
   if (prefixes.length < 2) throw new ZipRejected("empty", ZIP_WHY.empty);
   if (prefixes.length > MAX_VEHICLES) throw new ZipRejected("too_many_cars", ZIP_WHY.too_many_cars);
   if (extras.length) throw new ZipRejected("mixed", ZIP_WHY.mixed); // a split would leave these files out of every case
@@ -100,6 +102,7 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
     if (total > limits.maxTotalBytes) throw new ZipRejected("too_big", ZIP_WHY.too_big);
     if (buf.length > 0 && total / buf.length > limits.maxRatio) throw new ZipRejected("bomb", ZIP_WHY.bomb);
   }
+  for (const p of prefixes) if (!all.some((f) => f.size > 0 && f.name.startsWith(p) && /\.pdf$/i.test(f.name) && usableIn(f.name))) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);
   return prefixes.map((prefix) => ({ prefix, plate: prefix.slice(0, -1).split("/").pop() as string, files: counts.get(prefix) ?? 0 }));
 }
 

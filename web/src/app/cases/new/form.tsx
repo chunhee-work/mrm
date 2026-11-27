@@ -150,6 +150,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         if (!sp) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
         const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
         if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
+          // cases the rollback could not undo are in the case list: say so, whatever else went wrong
+          if (!sp.ok && (j as { kept?: number } | null)?.kept) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
           // 400/502: no case was made, so not the "some cars may be made" text

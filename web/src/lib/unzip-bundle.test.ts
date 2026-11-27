@@ -72,7 +72,10 @@ test("planVehicles: limits per car, too many cars, and a one-car zip are refused
 test("planVehicles: any folder or file a split would leave out refuses the zip; a PDF too big to read is refused before anything is stored", () => {
   const pdf = strToU8("%PDF-1.4 x");
   const mixed = (e: ZipRejected) => e.code === "mixed" && e.message === "the zip holds car folders and other files beside them";
-  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "CCC3333/a.pdf": new Uint8Array(0), "CCC3333/1.jpg": strToU8("jpg") })), mixed);
+  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "CCC3333/a.pdf": new Uint8Array(0), "CCC3333/1.jpg": strToU8("jpg") })), (e: ZipRejected) => e.code === "car_no_pdf");
+  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/b.pdf": new Uint8Array(0) })), (e: ZipRejected) => e.code === "car_no_pdf");
+  assert.throws(() => planVehicles(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/b.pdf": pdf, "cover.pdf": pdf })), mixed);
+  assert.throws(() => unzipBundle(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/b.pdf": pdf, "cover.pdf": pdf })), (e: ZipRejected) => e.code === "multi");
   assert.throws(() => planVehicles(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/a.pdf": pdf, "S/Photos/1.jpg": strToU8("jpg") })), mixed);
   assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "cover.pdf": pdf })), mixed);
   assert.equal(planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "readme.txt": strToU8("x"), "empty.pdf": new Uint8Array(0) })).length, 2);

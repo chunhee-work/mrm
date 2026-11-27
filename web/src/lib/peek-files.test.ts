@@ -52,3 +52,9 @@ test("vehicleLayout: every other folder or loose file a case would take is an ex
   assert.deepEqual(vehicleLayout(["AAA1111/a.pdf", "BBB2222/b.pdf", "CCC3333/1.jpg", "notes.txt"]).extras, ["CCC3333/"]);
   assert.deepEqual(vehicleLayout(["AAA1111/a.pdf", "BBB2222/b.pdf"]).extras, []);
 });
+
+test("vehicleLayout: cars inside a wrapping folder are found even with a loose file or another folder beside it (both are extras)", () => {
+  assert.deepEqual(vehicleLayout(["SINAR/AAA1111/a.pdf", "SINAR/BBB2222/b.pdf", "cover.pdf"]), { cars: ["SINAR/AAA1111/", "SINAR/BBB2222/"], extras: ["cover.pdf"] });
+  assert.deepEqual(vehicleLayout(["SINAR/AAA1111/a.pdf", "SINAR/BBB2222/b.pdf", "Photos/1.jpg"]).extras, ["Photos/1.jpg"]);
+  assert.deepEqual(vehicleLayout(["Docs/a.pdf", "Photos/1.jpg", "cover.pdf"]), { cars: [], extras: ["Docs/", "Photos/", "cover.pdf"] });
+});
