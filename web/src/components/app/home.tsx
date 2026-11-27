@@ -319,10 +319,16 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // a pick while the box is open adds to it (a fresh box would throw away files still waiting there for a press of Upload)
   const pick = (files: File[]) => { if (!panel) return start(files); setPanel((p) => p && { ...p, more: { n: (p.more?.n ?? 0) + 1, files } }); };
   // New case pressed on another page: its files wait in memory for this page (?dropped=1); a plain visit lets any old hold go
+  const handOff = useRef(false); // read once (React may run this effect twice; the second run would find the files gone)
   useEffect(() => {
+    if (handOff.current) return;
+    handOff.current = true;
     const url = new URL(window.location.href);
     const handed = url.searchParams.has(DROPPED_PARAM);
-    if (handed) { url.searchParams.delete(DROPPED_PARAM); window.history.replaceState(null, "", url.pathname + url.search); } // null: Next takes the new address in
+    // the marker comes off with null state, so Next takes the clean address in (its own state would make it ignore the change
+    // and write the marker back later). Not router.replace: a new query is a new page to Next and would rebuild this one.
+    // A tick later, because on a fresh load Next hooks the history only after this page's effects have run.
+    if (handed) { url.searchParams.delete(DROPPED_PARAM); window.setTimeout(() => window.history.replaceState(null, "", url.pathname + url.search), 0); }
     const f = takeDropped();
     if (handed && !blocked) start(f.length ? f : "lost");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -335,8 +341,13 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
     boxRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   }, [panel?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [deskShown, setDeskShown] = useState(false); // an open line shows the photo desk (it takes the drops then)
-  // while the box is open its own drop zone takes the window's drops (added to its list; refused while it uploads)
-  const over = useFileDrag(panel ? "off" : !blocked && !deskShown, (files) => start(files));
+  const boxShown = !!panel && (!blocked || upBusy); // a box already sending finishes even if the details turn incomplete meanwhile
+  useEffect(() => { if (panel && blocked && !upBusy) setPanel(null); }, [panel, blocked, upBusy]);
+  // while the box is shown its own drop zone takes the window's drops (added to its list; refused while it uploads)
+  const over = useFileDrag(boxShown ? "off" : !blocked && !deskShown, (files) => start(files));
+  // a send that ended may have made cases on any path (a split cut short, a lost answer): read the list again
+  const wasBusy = useRef(false);
+  useEffect(() => { if (wasBusy.current && !upBusy) router.refresh(); wasBusy.current = upBusy; }, [upBusy, router]);
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
@@ -384,10 +395,10 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           </Link>
         </div>
         {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
-        {panel && (!blocked || upBusy) && (
-          <div ref={boxRef} className="mt-6 scroll-mt-4">
+        {panel && boxShown && (
+          <div ref={boxRef} className="mt-6 scroll-mt-20 lg:scroll-mt-4">
             <NewCaseForm key={panel.key} orgId={orgId} workshops={workshops}
-              embed={{ initial: panel.initial, more: panel.more, onBusy: setUpBusy, onClose: () => setPanel(null), onMade: (id) => { setPanel(null); setMade(id ? "one" : "many"); router.refresh(); } }} />
+              embed={{ initial: panel.initial, more: panel.more, dragOff: deskShown, onBusy: setUpBusy, onClose: () => setPanel(null), onMade: (id) => { setPanel(null); setMade(id ? "one" : "many"); } }} />
           </div>
         )}
         {made && <p role="status" className="mt-6 flex items-center gap-2 text-[15px] font-medium text-fg" data-testid="home-made"><Tick className="h-4 w-4 shrink-0 text-ice" />{t(made === "one" ? "new.made" : "new.madeN")}</p>}

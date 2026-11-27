@@ -486,7 +486,7 @@ try {
     // a ?dropped=1 visit with nothing held says so, in the box
     await page.goto(`${BASE}/dashboard?dropped=1`);
     await box.getByText(/did not arrive|没有带过来|tidak sampai/).waitFor();
-    assert.doesNotMatch(page.url(), /dropped=1/, "the marker is taken off once read");
+    await page.waitForURL((u) => !u.search.includes("dropped=1"), { timeout: 5000 }); // the marker is taken off once read
     // a drop with a file left out does not send: the note stays and Upload waits for a press
     await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" }); // the page listens for drops once it has loaded
     await page.getByTestId("home-new").waitFor();

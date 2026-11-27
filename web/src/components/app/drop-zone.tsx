@@ -67,11 +67,12 @@ export function useFileDrag(enabled: boolean | "off", onFiles: (files: File[]) =
  * or picked with the button. Shrinks to a strip once files are chosen.
  */
 export default function DropZone({
-  inputId, compact, disabled, onFiles, title, hint, browse, addMore,
+  inputId, compact, disabled, dragOff = false, onFiles, title, hint, browse, addMore,
 }: {
   inputId: string;
   compact: boolean;
   disabled: boolean;
+  dragOff?: boolean; // the page drop is refused (a photo desk open on the first page takes its own drops), the button still picks
   onFiles: (files: File[]) => void;
   title: string;
   hint: string;
@@ -79,7 +80,7 @@ export default function DropZone({
   addMore: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  const over = useFileDrag(!disabled, onFiles);
+  const over = useFileDrag(!disabled && !dragOff, onFiles);
 
   const pick = () => { if (!disabled) input.current?.click(); };
 
