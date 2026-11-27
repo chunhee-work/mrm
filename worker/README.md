@@ -62,6 +62,7 @@ Phase A / B 在写入 Merimen 之前先做演练。`MERIMEN_WRITES` 和 `WORKER_
 ## 迁移
 
 `web/drizzle/0007_worker.sql` 只新增表和 `jobs.not_before`。`web/drizzle/0008_case_screenshots.sql` 只新增表 `case_screenshots`（可重复执行），并在角色 `autopilot_worker` 存在时给它 `SELECT, INSERT, UPDATE`（没有 DELETE）。生产库要等主人点头之后再跑 `npm run db:migrate`。本文件不会替你执行。
+`web/drizzle/0017_worker_case_extras_grant.sql` 只给角色 `autopilot_worker` 加 `case_extras` 的 `SELECT`（worker 读照片台用 Space 加的零件，从不写）。2026-11-27 对照生产库查过 worker 用到的每张表，只缺这一张。
 
 如果 PR #31 也要用 0007 这个编号，后合并的那个改号即可（迁移按文件名排序执行，每个文件都可重复执行）。
 

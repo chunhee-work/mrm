@@ -106,3 +106,15 @@ def test_a_deleted_case_is_never_claimed():
     seed = SEED[:2] + ["INSERT INTO jobs (case_id, step, state) VALUES ('c1','intake','queued')", "UPDATE cases SET deleted_at = now() WHERE id = 'c1'"]
     r = run([claim("w1")], seed=seed)
     assert r[0] == []
+
+
+@needs_pg
+def test_migration_0017_gives_the_worker_select_on_case_extras_only():
+    mig = (HERE.parent.parent / "web" / "drizzle" / "0017_worker_case_extras_grant.sql").read_text()
+    assert not re.search(r"GRANT[^;]*(DELETE|INSERT|UPDATE|TRUNCATE|ALL)", mig, re.I)
+    assert "rolname = 'autopilot_worker'" in mig
+    seed = ["CREATE ROLE autopilot_worker", mig, mig]  # runs twice with the role present
+    r = run([
+        {"sql": "SELECT has_table_privilege('autopilot_worker', 'case_extras', 'SELECT'), has_table_privilege('autopilot_worker', 'case_extras', 'INSERT'), has_table_privilege('autopilot_worker', 'case_extras', 'DELETE')"},
+    ], seed=seed)
+    assert r[0] == [[True, False, False]]
