@@ -22,16 +22,21 @@ export async function noteSplitTry(orgId: string, userId: string, ids: string[])
 /**
  * Deletes the stored files of cars that were never made. Only notes older than LOCK_MS count: a split runs at most 300 s, so the
  * call that wrote such a note is over and a batch it sent has long been committed or not. A case that exists (also one the user
- * deleted) keeps its files. Returns how many files were removed.
+ * deleted) keeps its files. It runs inside a split's own 300 s, so it stops after `budgetMs`; a note it did not finish stays
+ * for the next split. Returns how many files were removed.
  */
-export async function sweepSplitLeftovers(orgId: string): Promise<number> {
+export async function sweepSplitLeftovers(orgId: string, budgetMs = 15_000): Promise<number> {
+  const until = Date.now() + budgetMs;
   const notes = await db.select({ id: audit.id, detail: audit.detail }).from(audit)
     .where(and(eq(audit.orgId, orgId), eq(audit.action, TRY), lt(audit.at, new Date(Date.now() - LOCK_MS)))).limit(20);
   let removed = 0;
   for (const n of notes) {
+    if (Date.now() > until) break;
     const ids = (n.detail ?? "").split(",").filter((x) => UUID.test(x));
     const made = ids.length ? new Set((await db.select({ id: schema.cases.id }).from(schema.cases).where(inArray(schema.cases.id, ids))).map((c) => c.id)) : new Set<string>();
+    let finished = true;
     for (const id of ids.filter((x) => !made.has(x))) {
+      if (Date.now() > until) { finished = false; break; }
       let cursor: string | undefined;
       do {
         const page = await list({ prefix: `${orgId}/${id}/`, cursor, limit: 1000 });
@@ -39,7 +44,7 @@ export async function sweepSplitLeftovers(orgId: string): Promise<number> {
         cursor = page.hasMore ? page.cursor : undefined;
       } while (cursor);
     }
-    await db.delete(audit).where(eq(audit.id, n.id)); // only after its files are gone: a failure above keeps the note for the next try
+    if (finished) await db.delete(audit).where(eq(audit.id, n.id)); // only after its files are gone: a failure above keeps the note for the next try
   }
   return removed;
 }
