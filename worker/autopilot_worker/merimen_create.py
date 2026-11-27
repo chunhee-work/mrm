@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass, field
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlencode, parse_qs, urlparse
 
 from .create_spec import Spec, fmt_ic
 from .pick_model import pick
@@ -34,7 +34,7 @@ def session_query(url: str) -> str | None:
     q = parse_qs(u.query)
     if not q.get("CFID") or not q.get("RID"):
         return None
-    return "&".join(f"{k}={q[k][0]}" for k in SESSION_KEYS if q.get(k))
+    return urlencode([(k, q[k][0]) for k in SESSION_KEYS if q.get(k)])  # re-encoded: a value with & + % = must survive
 
 
 def norm(text: str) -> str:
@@ -158,7 +158,6 @@ class MerimenCreate:
     def __init__(self, base_page, *, timeout_scale: float = 1.0, on_created=None, before_submit=None):
         self.base = base_page
         self.before_submit = before_submit  # called after every check passed and right before Next; returns None to go on, or a stop code
-        self.boxes: list[str] = []  # question boxes found AFTER Next (HTML, not a dismissed JS dialog): the submit may have gone through
         self.unexpected: list[str] = []  # confirm() / prompt() texts that were dismissed, not accepted
         self.on_created = on_created  # called with (case_id, ext_id) the moment the case exists, before the manager and adjuster are set
         self.scale = timeout_scale
@@ -190,7 +189,6 @@ class MerimenCreate:
                 break
             if str(r).startswith("STOP:"):
                 self.unexpected.append(redact(str(r)[5:]))  # a question box: left unanswered, the case stops
-                self.boxes.append("x")
                 break
             self.cur.wait_for_timeout(self._ms(gap))
 
@@ -442,13 +440,13 @@ class MerimenCreate:
                 rep.ok, rep.code = False, stop
                 return rep
         pre = set(cur.evaluate(_MSGS))  # texts already on the form before Next: static labels are not a rejection
-        clicked = False
+        nxt = cur.locator('input[value*="Next"],button:has-text("Next")')
+        absent = nxt.count() == 0
         try:
-            cur.locator('input[value*="Next"],button:has-text("Next")').first.click(force=True, timeout=4000)
-            clicked = True
-        except Exception:  # noqa: BLE001
+            nxt.first.click(force=True, timeout=4000)
+        except Exception:  # noqa: BLE001  (a slow click may already have gone out: never submit a second time)
             pass
-        if not clicked:
+        if absent:  # only when there is no Next button at all
             cur.evaluate("() => { try { SubmitEntry(); } catch (e) {} }")
         w(4500)
         self._ok_loop(6)
@@ -490,6 +488,11 @@ class MerimenCreate:
         cid = re.search(r"caseid=(\d+)", url, re.I)
         ext = re.search(r"extid=(\d+)", url, re.I)
         w(1200)
+        if not cid:  # a slow page: look again once before giving up
+            w(2500)
+            url = cur.url or ""
+            cid = re.search(r"caseid=(\d+)", url, re.I)
+            ext = ext or re.search(r"extid=(\d+)", url, re.I)
         opts_m = cur.evaluate(_OPTS, "ddlbMGRNAME") or []
         opts_a = cur.evaluate(_OPTS, "ddlbADJNAME") or []
         mv = pick_person([(v, t) for v, t, _c in opts_m], spec.manager)

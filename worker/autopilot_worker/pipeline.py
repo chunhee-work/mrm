@@ -164,7 +164,7 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
     if not dry.ok:
         if dry.fatal and dry.line:  # a case that cannot be entered as it is: say why on the case, wait for the user, never retry by itself
             return _o("failed", case_status="waiting_user", error=dry.error or "dry_run", event=f"Phase {phase} stopped. {dry.line}"[:400])
-        return _o("failed" if dry.fatal else "requeue", error=dry.error or "dry_run", event=f"Phase {phase} dry-run failed")
+        return _o("failed" if dry.fatal else "requeue", error=dry.error or "dry_run", event=f"Phase {phase} dry-run failed. {dry.line or ''}".strip()[:400])
     if not writes:
         if desk is not None and phase == "A":
             rep = photo_a(case)
