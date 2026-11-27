@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CaseBody, bodyProblem } from "./case-body";
 
+delete process.env.BLOB_READ_WRITE_TOKEN; // no store is pinned here, whatever this machine has set: the hosts below are made up
 const ok = (over = {}) => ({ files: [{ kind: "pdf", url: "https://x.blob.vercel-storage.com/org1/b1/a.pdf", name: "a.pdf", size: 10, ...over }] });
 
 test("B05/B06 body: a normal pdf passes; empty or negative size, huge size and bad kind fail the schema", () => {
@@ -29,7 +30,8 @@ test("B06 body: photos only (no PDF and no zip) is refused before a case is made
 
 test("B07 body: a PDF over the reader's limit is refused with its own reason", () => {
   assert.equal(bodyProblem(CaseBody.parse(ok({ size: 30 * 1024 * 1024 })), "org1"), "pdf_big");
-  assert.equal(bodyProblem(CaseBody.parse(ok({ size: 24 * 1024 * 1024 })), "org1"), null);
+  assert.equal(bodyProblem(CaseBody.parse(ok({ size: 24 * 1024 * 1024 })), "org1"), "pdf_big"); // it was taken here and then could never be read
+  assert.equal(bodyProblem(CaseBody.parse(ok({ size: 23 * 1024 * 1024 })), "org1"), null);
 });
 
 test("U3 body: a file whose name has two dots in a row is accepted; a path that steps out of the folder is not", () => {

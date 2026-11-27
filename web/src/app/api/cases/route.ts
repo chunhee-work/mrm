@@ -13,11 +13,14 @@ export const maxDuration = 300; // the automatic read runs after the response, i
 
 /**
  * Order (the same as one car of a zip split): the case and all its rows are written together, then its credit is taken.
- * A failure never costs a credit without a case, and never answers with an error while the case stays in the list:
+ * A failure never costs a credit without a case:
  * - the rows cannot be written: nothing is made, nothing is charged, 500;
  * - no credit left: the case is removed again, 402;
- * - taking the credit fails halfway: the credit goes back and the case is removed, 500. When even that cannot be done the case
- *   stays (paid for, or free) and is answered as made.
+ * - taking the credit fails halfway: the credit goes back and the case is removed, 500.
+ * And a case nobody paid for is never read: when such a case cannot be removed (the database fails twice more), it stays in the
+ * list unread. Its read is not started here, and the reads that start by themselves refuse it (scanCase: it shows as failed,
+ * and "Read again" takes the credit). Only when the credit could be neither taken for sure nor given back is the case read:
+ * scanCase reads it if the ledger shows it paid for.
  */
 export async function POST(req: Request) {
   const me = await getUserOrNull();
@@ -56,6 +59,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
   let paid: boolean;
+  let read = true; // false: the case stays although its credit went back, so its read is not started
   try {
     paid = await debitCase(me.orgId, id);
   } catch (e) {
@@ -63,13 +67,15 @@ export async function POST(req: Request) {
     console.error("case create: taking the credit failed", id, errLine(e));
     const back = await refundCase(me.orgId, id).then(() => true, () => false);
     if (back && (await remove())) return NextResponse.json({ error: "failed" }, { status: 500 });
-    paid = true; // could not be undone: the case stays and is read like any other
+    paid = true; // the case could not be removed: it stays and is answered as made, never an error with a case in the list
+    read = !back; // given back: not paid for, so not read. Not known: scanCase looks at the ledger and reads only a paid case
   }
   if (!paid) {
+    // if it cannot be removed it stays unread: nothing here starts its read, and scanCase refuses a case that is not paid for
     await remove();
     return NextResponse.json({ error: "no_credits" }, { status: 402 });
   }
   // Step 1 starts by itself: Claude reads the documents after the response is sent.
-  after(() => scanCase(id, "auto"));
+  if (read) after(() => scanCase(id, "auto"));
   return NextResponse.json({ id });
 }

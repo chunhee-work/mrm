@@ -41,11 +41,25 @@ test("the new case-page texts exist in all three languages with the same placeho
 });
 
 import { checkPdf, BadFile } from "./read-docs";
+import { MAX_PDF_BYTES } from "./upload-rules";
+import { bodyProblem } from "./case-body";
 test("B06/B07 checkPdf: empty, corrupt and oversize PDFs are refused with the file name; a real header passes", () => {
   const why = (f: () => void) => { try { f(); } catch (e) { return e instanceof BadFile ? e.message : "other"; } return "ok"; };
   assert.equal(why(() => checkPdf("a.pdf", new Uint8Array(0))), "bad_file:a.pdf|empty");
   assert.equal(why(() => checkPdf("b.pdf", Buffer.from("not a pdf"))), "bad_file:b.pdf|corrupt");
   assert.equal(why(() => checkPdf("c.pdf", new Uint8Array(26 * 1024 * 1024).fill(37))), "bad_file:c.pdf|too_big");
+  // one limit for a PDF, the same at upload and at reading: what the upload takes, the reader takes, and nothing more
+  const pdf = (bytes: number) => { const b = Buffer.alloc(bytes, 32); b.write("%PDF-1.7\n1 0 obj<<>>endobj\nstartxref\n"); return b; };
+  assert.equal(MAX_PDF_BYTES, 23 * 1024 * 1024);
+  assert.equal(why(() => checkPdf("f.pdf", pdf(MAX_PDF_BYTES))), "ok");
+  assert.equal(why(() => checkPdf("g.pdf", pdf(MAX_PDF_BYTES + 1))), "bad_file:g.pdf|too_big");
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_s_madeUpForThisTest"; // the made-up store of the URLs below
+  try {
+    assert.equal(bodyProblem({ files: [{ kind: "pdf", url: "https://s.private.blob.vercel-storage.com/org1/b/f.pdf", name: "f.pdf", size: MAX_PDF_BYTES }] }, "org1"), null);
+    assert.equal(bodyProblem({ files: [{ kind: "pdf", url: "https://s.private.blob.vercel-storage.com/org1/b/g.pdf", name: "g.pdf", size: MAX_PDF_BYTES + 1 }] }, "org1"), "pdf_big");
+  } finally { if (token === undefined) delete process.env.BLOB_READ_WRITE_TOKEN; else process.env.BLOB_READ_WRITE_TOKEN = token; }
+  assert.ok(Math.ceil(MAX_PDF_BYTES / 3) * 4 < 32 * 1024 * 1024 - 1024 * 1024); // encoded, the largest PDF leaves 1 MB of the request for the rest
   assert.equal(why(() => checkPdf("d.pdf", Buffer.from("%PDF-1.7\n1 0 obj<<>>endobj\ntrailer<<>>\nstartxref\n0\n%%EOF"))), "ok");
   // R2-B03: a valid header followed by garbage is the customer's file too
   assert.equal(why(() => checkPdf("e.pdf", Buffer.from("%PDF-1.7\n\u0000\u0001garbage garbage"))), "bad_file:e.pdf|corrupt");
@@ -118,7 +132,7 @@ test("U5: PDFs that cannot fit one request to the model are refused before anyth
   // several PDFs, each under its own limit, too much together: "too long for one case", no file named
   assert.equal(why(["a.pdf", "b.pdf", "c.pdf"], [14 * MB, 14 * MB]), "ok");
   assert.equal(why(["a.pdf", "b.pdf", "c.pdf"], [14 * MB, 14 * MB, 5 * MB]), "bad_file:|too_long");
-  // one PDF that is too much alone (a 25 MB file is 33 MB once encoded): that file, by name
+  // one PDF that is too much alone (33 MB once encoded; the per-PDF limit stops such a file before this): that file, by name
   assert.equal(why(["big.pdf", "b.pdf"], [33 * MB]), "bad_file:big.pdf|too_big");
   assert.equal(why(["a.pdf", "big.pdf"], [1 * MB, 33 * MB]), "bad_file:big.pdf|too_big");
   assert.equal(why(["same.pdf", "same.pdf"], [33 * MB]), "bad_file:|too_long"); // a name two files share is never named
