@@ -99,7 +99,8 @@ export default function SideBar({ email, name, credits: credits0, cred: cred0, c
   const sp = useSearchParams();
   // the numbers come with the page; a move inside the app (where the layout is not drawn again) reads them again
   const [facts, setFacts] = useState({ credits: credits0, cred: cred0, closed: closed0 });
-  useEffect(() => { setFacts({ credits: credits0, cred: cred0, closed: closed0 }); }, [credits0, cred0, closed0]);
+  const gen = useRef(0); // newer numbers from the layout make a read still on its way stale
+  useEffect(() => { gen.current++; setFacts({ credits: credits0, cred: cred0, closed: closed0 }); }, [credits0, cred0, closed0]);
   const where = `${path}?${sp.toString()}`;
   const mounted = useRef(false);
   // the details page and the first page's card say when the details or the login state changed, so the dot follows at once
@@ -108,7 +109,8 @@ export default function SideBar({ email, name, credits: credits0, cred: cred0, c
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return; } // the first page brought the numbers itself
     let live = true;
-    fetch("/api/side").then((r) => (r.ok ? r.json() : null)).then((f) => { if (live && f) setFacts(f); }).catch(() => {});
+    const at = gen.current;
+    fetch("/api/side").then((r) => (r.ok ? r.json() : null)).then((f) => { if (live && f && at === gen.current) setFacts(f); }).catch(() => {});
     return () => { live = false; };
   }, [where, tick]);
   const { credits, cred, closed } = facts;
