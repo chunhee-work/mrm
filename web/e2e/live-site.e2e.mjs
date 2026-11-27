@@ -87,21 +87,23 @@ async function visit(ctx, url, where, view, lang, act) {
 }
 const PUBLIC = [["landing", "/"], ["faq", "/faq"], ["how-it-works", "/how-it-works"], ["security", "/security"], ["privacy", "/privacy"], ["terms", "/terms"], ["contact", "/contact"],
   ["login", "/login"], ["signup", "/signup"], ["forgot-password", "/forgot-password"], ["reset-password", "/reset-password?token=bogus"], ["not-found", "/this-page-does-not-exist"]];
-const pdf = { name: "claim_bundle_QC_FAKE_a_rather_long_file_name_for_the_list.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% fake\n") };
 const jpg = (n) => ({ name: `IMG_QC_${String(n).padStart(2, "0")}_front_bumper_close_up_view.jpg`, mimeType: "image/jpeg", buffer: JPEG });
 const choose = (files) => async (page) => { await page.locator('input[type="file"]').first().setInputFiles(files); await page.waitForTimeout(600); };
 // discover the account's cases
 const probe = await context(VIEWS[0][1], "en", true); const pp = await probe.newPage();
 await pp.goto(BASE + "/dashboard", { waitUntil: "networkidle" });
-const caseIds = await pp.$$eval('a[href^="/cases/"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")).filter((h) => /^\/cases\/[0-9a-f-]{8,}$/.test(h)).map((h) => h.split("/")[2]))]);
+// the dashboard is one page now: a case is a line (li[data-line=<id>]) that opens in place. E2E_MAX_CASES caps how many are walked.
+const caseIds = (await pp.$$eval("li[data-line]", (ls) => [...new Set(ls.map((l) => l.getAttribute("data-line")))])).slice(0, Number(process.env.E2E_MAX_CASES ?? 8));
 await probe.close();
 console.log("cases", caseIds.length);
 const APP = [
   ["dashboard", "/dashboard"], ["dashboard-q", "/dashboard?q=zzz-no-match"], ["dashboard-open", "/dashboard?view=open"], ["dashboard-closed", "/dashboard?view=closed"],
   ["new-case", "/cases/new"],
-  ["new-case-files", "/cases/new", choose([pdf, ...[1, 2, 3, 4, 5, 6].map(jpg)])],
-  ["new-case-bad-files", "/cases/new", choose([pdf, { name: "empty_scan_from_the_workshop.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(0) }, { name: "photo_from_phone.heic", mimeType: "image/heic", buffer: Buffer.from("x") }, jpg(1)])],
+  // files are sent as soon as they are picked, so on the live site only picks the page refuses are tried (photos with no claim PDF)
+  ["new-case-files", "/cases/new", choose([1, 2, 3, 4, 5, 6].map(jpg))],
+  ["new-case-bad-files", "/cases/new", choose([{ name: "empty_scan_from_the_workshop.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(0) }, { name: "photo_from_phone.heic", mimeType: "image/heic", buffer: Buffer.from("x") }, jpg(1)])],
   ["case-bogus", "/cases/00000000-0000-0000-0000-000000000000"],
+  ...caseIds.map((id) => [`line-${id.slice(0, 8)}`, `/dashboard?open=${id}`, async (p) => { await p.waitForSelector('[data-testid="home-more"]', { timeout: 15000 }); await p.waitForTimeout(1500); }]),
   ...caseIds.map((id) => [`case-${id.slice(0, 8)}`, `/cases/${id}`]),
   ...caseIds.map((id) => [`desk-${id.slice(0, 8)}`, `/cases/${id}/photos`]),
   ["settings", "/settings"], ["billing", "/billing"], ["connection", "/connection"],
