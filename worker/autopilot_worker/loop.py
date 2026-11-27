@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 
 from .cdp_client import page_block
 from .chrome import chrome_argv, login_notice, next_status, profile_dir
 from .config import Config, account_for
+from .db import DbError
 from .pipeline import Driver, Outcome, followup_steps, handle_job
 from .screens import CODE_TO_STEP, Screenshotter, cleanup, milestones_after
 from .store import PgRepo
@@ -39,6 +41,38 @@ class LeaseKeeper:
 
 
 _last_cleanup = [0.0]
+
+
+# Which part of tick() was running, for the one log line when a tick fails (2026-11-27: the box only logged "tick DbError").
+STEP = {"name": "start"}
+
+
+def _at(name: str) -> None:
+    STEP["name"] = name
+
+
+_QUOTED_SINGLE = re.compile(r"'[^']*'")
+_QUOTED_DOUBLE = re.compile(r'"([^"]*)"')
+_SECRETISH = re.compile(r"(postgres(?:ql)?://\S+|https?://\S+|\b[A-Za-z0-9_\-]{24,}\b)")
+
+
+def _scrub(message: str) -> str:
+    """Postgres can quote a value it was given ('invalid input syntax for type uuid: "abc"'). Keep names of tables and
+    constraints, drop anything that could be a parameter, a link or a token."""
+    m = _QUOTED_SINGLE.sub("'…'", message)
+    m = _QUOTED_DOUBLE.sub(lambda q: q.group(0) if re.fullmatch(r"[a-z_][a-z0-9_.]*", q.group(1)) else '"…"', m)
+    m = _SECRETISH.sub("…", m)
+    return " ".join(m.split())[:200]
+
+
+def tick_error_line(e: BaseException, step: str | None = None) -> str:
+    """`tick DbError step=heartbeat code=08006 msg=...`. Only the error's own short message and SQLSTATE, never SQL
+    parameters, connection strings or tokens. Other errors keep the old one-word form plus the step."""
+    where = f" step={step or STEP['name']}"
+    if isinstance(e, DbError):
+        code = getattr(e, "code", None) or "-"
+        return f"tick DbError{where} code={code} msg={_scrub(str(e))}"
+    return f"tick {type(e).__name__}{where}"
 
 
 def maybe_cleanup(cfg: Config, repo: PgRepo, delete, *, every: float = 3600.0, now=time.monotonic) -> int:
@@ -83,25 +117,33 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
 
 
 def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None) -> str | None:
+    _at("heartbeat")
     repo.heartbeat(cfg.worker_id, cfg.hf_repo, chrome_ok=True)
     if cfg.merimen_login and fetch_page and master:
         from .login_flow import run_verify
+        _at("claim_verify")
         claimed = repo.claim_verify()
         if claimed:
             decision = run_verify(claimed, master, fetch_page)
             email = repo.owner_email(claimed["org_id"]) if decision.get("email") else None
             repo.finish_verify(claimed["org_id"], decision, email_to=email, poster=cfg.mailer)
+    _at("reclaim_stale")
     repo.reclaim_stale(cfg.lease_seconds)
+    _at("cleanup")
     maybe_cleanup(cfg, repo, delete_blob)
+    _at("session_sync")
     sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep)
+    _at("followup_cases")
     for case, jobs in repo.followup_cases():
         if repo.gate(case["org_id"], env_on=cfg.ext_connect) != "ready":
             continue
         for step in followup_steps(case, jobs, writes=cfg.live_writes):
             repo.enqueue(case["id"], step)
+    _at("claim")
     job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit)
     if not job:
         return None
+    _at("job")
     case = repo.load(job["case_id"])
     shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
@@ -142,5 +184,6 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
         if job["step"] in ("phase_a", "phase_b", "checks"):
             shoot("failed")
+    _at("apply")
     repo.apply(job, outcome)
     return job["step"]

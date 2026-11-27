@@ -11,7 +11,7 @@ import time
 
 from .config import Config, account_for
 from .pipeline import Driver
-from .loop import tick
+from .loop import tick, tick_error_line
 from .photos import ModelError, names_for_photos, parse_predict_stdout, predict_command
 from .store import PgRepo
 
@@ -247,7 +247,7 @@ def main() -> None:
             tick(cfg, repo, launch=_launch, inspect=_inspect, namer=namer, driver=driver, download=download, keep=_keep, fetch_page=fetch_page, master=master,
                  page_for=page_for if shots else None, put_blob=put_blob if shots else None, delete_blob=delete_blob if shots else None, side_check=side_check)
         except Exception as e:
-            print(f"tick {type(e).__name__}", file=sys.stderr)
+            print(tick_error_line(e), file=sys.stderr)
         time.sleep(cfg.poll_seconds)
 
 
