@@ -60,6 +60,7 @@
 - Implemented in `~/mrm-bot/pwset.mjs` (`paintStep`), used by estfill.mjs. [step2-paint-popup-method]
 
 ## Manual parts + pricing
+- ⭐⭐ **Never stop to ask about prices (user 2026-11-19, TM2555 1980 W123 at ~RM73k): "moving forward u put all the price i will preview it, dont stop and ask me".** Put every price in (best reference, even if few rows or the total looks high), finish the case, and list the doubtful prices / totals in the final report for the user to review.
 - Every photographed item / companion missing from the catalogue → manual row, with a price on every row. [estimate-select-parts-rules-2026-10-17] [estimate-companion-parts-rule]
 - ⭐ **Price reference lists from the user (2026-10-24): `tools/price-refs/<Brand>_<Model>_<Year>.tsv`** (group, desc, part_no, code, price; OCR of the user's PDFs, `ocr_pdf.swift` + `parse_ocr.py`). Available: Perodua Myvi 2017, Proton Saga 2016, Toyota Vios 2016. Use them FIRST for that brand/model (`grep -i "<part>" tools/price-refs/*.tsv`); a 0.00 price = no price, look further. New PDF from the user → OCR it into the same folder.
 - NDG4731 Jazz Wheel House Inner Rear at 64.70 was too cheap (user): Saga 2016 ref = 248.88, Myvi 2017 = 215.50. Never price a structural panel from a median of 2–3 cheap rows.
