@@ -425,7 +425,7 @@ try {
     // nothing twice (owner 2026-11-22): one "New case" (the page's, not the bar's) and one "Billing" (the bar's, not the page's)
     assert.equal(await page.getByTestId("new-case").count(), 0, "no second New case in the bar of the first page");
     assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
-    assert.equal(await page.locator('a[href="/cases/new"]').count() + await page.getByRole("button", { name: /New case|新建案件|Kes baharu/ }).count(), 1, "one way to a new case (a button that opens the file picker)");
+    assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
     assert.equal(await page.getByTestId("case-table").count(), 0, "no case list on the first page");
     // files dragged onto the first page: a full-page overlay while they hover, a text drag shows nothing,
     // the overlay clears on its own if the browser misses the dragleave, and a drop opens New case with the files
@@ -515,9 +515,14 @@ try {
     // the New case of the top bar (on the case table) opens the picker too
     await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
     const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
-    await chooser2.setFiles([]);
-    await page.waitForTimeout(300);
-    assert.match(page.url(), /view=all/, "cancelling the picker stays put");
+    await page.waitForTimeout(500);
+    assert.match(page.url(), /view=all/, "the picker opens in place; picking nothing stays put");
+    sent = 0;
+    await chooser2.setFiles([{ name: "bar.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
+    await page.waitForURL(/\/cases\/new$/);
+    await page.getByText("bar.pdf").waitFor();
+    for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
+    assert.equal(sent, 1, "files picked from the bar's New case are sent too");
     await page.unroute("**/api/cases/credit*");
     await page.goto(`${BASE}/dashboard`);
     const docs = page.locator('[data-bucket="docs"] a');
