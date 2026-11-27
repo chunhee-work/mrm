@@ -266,3 +266,12 @@ def test_a_live_create_refuses_to_start_when_more_than_one_job_may_run_per_org(m
     d = _CdpDriver("x", lambda org: None)
     r = d.save("A", ())
     assert not r.ok and r.fatal and r.error == "concurrency_unsafe"
+
+
+def test_a_failure_while_writing_the_mark_after_the_lock_is_not_retried():
+    class Boom(Marks):
+        def press(self):
+            raise RuntimeError("db gone")
+
+    r, _ = step(case(), live=True, rep=CreateReport(ok=True, case_id="9"), marks=Boom())
+    assert not r.ok and r.fatal and r.error == "mark_error" and "worklist" in r.line

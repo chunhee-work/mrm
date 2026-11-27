@@ -144,10 +144,11 @@ _OPTS = """(n) => { var s = document.querySelector('select[name=' + n + ']'); if
 # Clicks a visible OK only after reading the box around it: a box that asks something (confirm, duplicate, overwrite, delete) is NOT clicked and its text
 # comes back as "STOP:<text>" so the worker stops instead of answering a question the owner's script never answered.
 _OK = """() => { var t = [...document.querySelectorAll('input,button')].find(e => ((e.value || e.innerText || '').trim() === 'OK') && e.offsetParent !== null);
-  if (!t) return ''; var box = t.closest('[role=dialog],[class*=modal],[class*=dialog],[class*=popup],table'), b = t, tx = box ? (box.innerText || '').trim() : '';
+  if (!t) return ''; var box = t.closest('[role=dialog],[class*=modal],[class*=dialog],[class*=popup]') || t.closest('table'), b = t, tx = box ? (box.innerText || '').trim() : '';
   for (var i = 0; !tx && i < 6 && b.parentElement; i++) { b = b.parentElement; tx = (b.innerText || '').trim(); if (tx.length < 4) tx = ''; }
   // an ALLOW list: only the insurer-API notices and the points box from the owner's playbook are answered; anything else (or anything that asks) is a STOP
-  if (/confirm|already|duplicate|overwrite|delete|are you sure/i.test(tx) || !/not found|charge|\bpts?\b|points|\bapi\b|warning|policy|insurer|ncd|no claim|successful|saved/i.test(tx)) return 'STOP:' + tx.slice(0, 120);
+  // a container that is long (a layout table holding the whole form) is not "the box": unknown = STOP. Only the owner's notices are answered.
+  if (tx.length > 300 || /confirm|already|duplicate|overwrite|delete|proceed|continue|are you sure/i.test(tx) || !/not found|charged|\\bpts?\\b|points/i.test(tx)) return 'STOP:' + tx.slice(0, 120);
   t.click(); return 'OK'; }"""
 _MSGS = """() => { var o = []; document.querySelectorAll('*').forEach(e => { var t = (e.childNodes[0] && e.childNodes[0].nodeValue || '').trim();
   if (t && /should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t) && e.offsetParent !== null && t.length < 160) o.push(t); });

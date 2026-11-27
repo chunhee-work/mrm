@@ -43,18 +43,27 @@ def run_create_step(case: dict, *, profile, workshop, page_for, live: bool, prog
         return bool(w) and (int(w.get("slot") or 1), " ".join((w.get("name") or "").split())) == (spec.workshop_slot, spec.workshop_name)
 
     def before_submit():
-        peek = workshop(False)
+        try:
+            peek = workshop(False)
+        except Exception:  # noqa: BLE001
+            return "form_error"  # nothing locked, nothing written: a retry is safe
         if not peek:
             return "workshop_missing"  # no workshop for this case any more: stop, never fall back to workshop 1
         if not same(peek):
             return "workshop_changed"  # the user switched it while the form was filled: nothing is locked, nothing was pressed
-        locked = workshop(True)  # locks it: from here the user cannot switch this case's workshop (a switch right now is caught here)
+        try:
+            locked = workshop(True)  # locks it: from here the user cannot switch this case's workshop (a switch right now is caught here)
+        except Exception:  # noqa: BLE001
+            return "form_error"  # the lock statement itself failed: nothing is locked
         if not locked:
             return "workshop_missing"
         if not same(locked):
             return "workshop_changed"
-        if marks is not None and not marks.press():
-            return "create_unclear"
+        try:
+            if marks is not None and not marks.press():
+                return "create_unclear"
+        except Exception:  # noqa: BLE001  (the workshop IS locked and the mark may have been written: no retry, a person looks)
+            return "mark_error"
         return None
 
     started = time.monotonic()
@@ -80,5 +89,5 @@ def run_create_step(case: dict, *, profile, workshop, page_for, live: bool, prog
         if rep.white_model:
             line = (line + "; " if line else "") + "the model has no price data (white option)"
         return DriveResult(ok=True, case_id=rep.case_id, ext_id=rep.ext_id, minutes=minutes, partial=True, line=line or None)
-    hint = " Look for this plate in Merimen's worklist before anything is tried again." if rep.code in ("create_unclear", "duplicate_warning", "unexpected_dialog") else ""
+    hint = " Look for this plate in Merimen's worklist before anything is tried again." if rep.code in ("create_unclear", "duplicate_warning", "unexpected_dialog", "mark_error") else ""
     return DriveResult(ok=False, fatal=rep.code not in RETRY, error=rep.code or "create", line=((rep.line() or "The case was not created") + hint).strip())

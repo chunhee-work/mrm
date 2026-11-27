@@ -386,3 +386,16 @@ def test_a_duplicate_box_with_an_ok_button_is_never_clicked_and_leaves_the_mark(
         assert not rep.ok and rep.code in ("unexpected_dialog", "duplicate_warning") and not rep.cleared and rep.case_id is None
     finally:
         ctx.close()
+
+
+def test_an_ok_box_inside_the_form_table_that_asks_to_proceed_is_never_clicked(browser):
+    ctx, base, _ = site(browser, next_action="act_clmreg")
+    body = ("<html><body><select name='ddlbInsurer'></select><table><tr><td>Insurer Policy " + "x" * 50 + "</td></tr><tr><td>Proceed with this policy?"
+            "<input type='button' value='OK' onclick=\"document.title='clicked'\"></td></tr></table></body></html>")
+    ctx.route("https://www.merimen.com.my/claims/index.cfm?*fuseaction=act_clmreg*", lambda r: r.fulfill(content_type="text/html", body=body))
+    run = MerimenCreate(base, timeout_scale=0.02)
+    rep = run.create(spec())
+    try:
+        assert not rep.ok and rep.code == "unexpected_dialog" and not rep.cleared
+    finally:
+        ctx.close()

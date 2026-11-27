@@ -515,7 +515,7 @@ class PgRepo:
                 # one transaction: the advisory lock is taken FIRST, so the insert's "no mark yet" look happens after any other runner finished
                 # its own insert for this case (a second runner then gets an empty answer and never reaches Next)
                 res = db.batch([
-                    ("SELECT pg_advisory_xact_lock(hashtext(%s))", (case_id,)),
+                    ("SELECT pg_advisory_xact_lock(113, hashtext(%s))", (case_id,)),
                     (
                         """
                         INSERT INTO case_events (case_id, step, message)
