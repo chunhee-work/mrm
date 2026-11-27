@@ -1,8 +1,13 @@
 import "server-only";
+import { after } from "next/server";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { db, schema } from "@/db";
+import { notDeleted } from "@/lib/case-delete";
 import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 import { splitRunning } from "@/lib/split-marks";
 
 export const HEAL_PER_VISIT = 3; // a zip of many cars makes many cases at once: each visit starts a few more of those still waiting
+const HEAL_LOOK = 100; // how many waiting cases one visit looks at, oldest first (a zip makes 30 at most)
 
 export type HealRow = { id: string; status: string; error: string | null; createdAt: Date };
 
@@ -22,16 +27,33 @@ export function pickStuck<T extends HealRow>(rows: T[], now: number): { stale: T
 }
 
 /**
- * Self-heal, so no case waits forever. Give it every case the page shows (not only the newest ones: an older case that is
- * stuck is shown as "reading" too) and run what it returns after the answer is sent (`after`).
+ * The reads one visit starts: the dead ones first, then the ones never started, each in the order given, and no more than
+ * there is room for. `splitRuns`: a zip split of the organisation is running, so its new cases are not read yet (a rollback
+ * may delete them). One rule for the first page and the heal request, so two of them at the same moment pick the same cases
+ * (the claim in scanCase lets only one of them read each) and never 3 + 3 different ones.
  */
-export async function stuckReads(orgId: string, rows: HealRow[]): Promise<(() => Promise<unknown>)[]> {
-  const { stale, late, room } = pickStuck(rows, Date.now());
-  if (!room || (!stale.length && !late.length)) return [];
-  // cases of a split still running are not read yet: a rollback may delete them
-  const waiting = late.length && !(await splitRunning(orgId)) ? late : [];
+export function pickReads(rows: HealRow[], now: number, splitRuns: boolean): { id: string; mode: "recover" | "auto"; seen: string | null }[] {
+  const { stale, late, room } = pickStuck(rows, now);
   return [
-    ...stale.map((c) => () => scanCase(c.id, "recover", c.error)),
-    ...waiting.map((c) => () => scanCase(c.id, "auto")),
+    ...stale.map((c) => ({ id: c.id, mode: "recover" as const, seen: c.error })),
+    ...(splitRuns ? [] : late).map((c) => ({ id: c.id, mode: "auto" as const, seen: null })),
   ].slice(0, room);
+}
+
+/**
+ * Self-heal, so no case waits forever: starts the reads of this organisation that never started or died, after the answer
+ * is sent. Its own small query (every case still to be read or being read, oldest first), not the rows a page happens to
+ * show: the first page cuts its list at 500 open cases and the newest uploads sort last there. Used by the first page on
+ * every visit and by POST /api/cases/heal. Returns how many cases are still to be read or being read.
+ */
+export async function healWaiting(orgId: string): Promise<number> {
+  const rows = await db.select({ id: schema.cases.id, status: schema.cases.status, error: schema.cases.error, createdAt: schema.cases.createdAt }).from(schema.cases)
+    .where(and(eq(schema.cases.orgId, orgId), notDeleted, inArray(schema.cases.status, ["uploaded", "reading"]))).orderBy(asc(schema.cases.createdAt)).limit(HEAL_LOOK);
+  const now = Date.now();
+  const p = pickStuck(rows, now);
+  if (p.room && (p.stale.length || p.late.length)) {
+    const reads = pickReads(rows, now, p.late.length > 0 && (await splitRunning(orgId)));
+    if (reads.length) after(async () => { await Promise.all(reads.map((r) => scanCase(r.id, r.mode, r.seen).catch(() => {}))); });
+  }
+  return rows.length;
 }

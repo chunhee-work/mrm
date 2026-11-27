@@ -17,6 +17,7 @@ import BackLink from "@/components/app/back-link";
 import CaseSteps from "@/components/app/case-steps";
 import { whenOf } from "@/lib/fmt-when";
 import type { Cred } from "@/components/app/profile-card";
+import { readAgain } from "./read-again";
 
 export type CaseDetail = {
   id: string;
@@ -49,8 +50,7 @@ export type CaseDetail = {
 };
 
 const REFRESH_MS = 5_000;
-const SLOW_MS = 30_000; // the user's turn: only the worker's side notes can still come
-const START_MS = 20_000; // the server takes a press of "Read again" within a second or two: this long with nothing taken means it never got there
+const SLOW_MS = 30_000; // the user's turn: the system still adds things behind it (photos being brought in, the worker's lines), so those can show up to 30 s late
 
 export default function CaseView({ c }: { c: CaseDetail }) {
   const { t, lang } = useT();
@@ -68,7 +68,8 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   // poll while the case moves by itself (read, then the worker's steps); stop when it waits for a person or is done
   const moving = working || ["naming", "phase_a", "phase_b", "checking"].includes(c.status);
   // Fast only while something is in progress: the system is working, or "Read again" was pressed and its answer is still out.
-  // On the user's turn the page changes only when they do something (or the worker adds a note): a look now and then is enough.
+  // On the user's turn nothing here waits for the system, but it still works behind (photos are still being brought in, the
+  // worker makes the case in Merimen): a look now and then is enough, and the photo count can be up to SLOW_MS behind.
   const everyMs = busy ? REFRESH_MS : !moving ? 0 : yourTurn ? SLOW_MS : REFRESH_MS;
   useEffect(() => {
     if (!everyMs) return;
@@ -98,7 +99,8 @@ export default function CaseView({ c }: { c: CaseDetail }) {
 
   // "Read again": the answer only comes when the read is over, which can take minutes. Until then the page keeps looking at
   // the case itself (the fast poll above): once the server shows it as being read, the page follows the case, not the request.
-  // A press that never got to the server is given up after START_MS, and the button is back with the message.
+  // When the page saw nothing (a hidden tab pauses the poll), the server is asked what the case is doing before anything is
+  // called a failure (readAgain): only a press that never got there brings the button back with the message.
   const taken = useRef(false); // the server took this press: the case was seen being read
   useEffect(() => {
     if (working) setErr(""); // being read now: a message about an earlier press no longer applies
@@ -109,19 +111,13 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   async function retry() {
     if (busy) return;
     setBusy(true); setErr(""); taken.current = false;
-    const stop = new AbortController();
-    const giveUp = window.setTimeout(() => { if (!taken.current) stop.abort(); }, START_MS);
-    let why = "";
-    try {
-      const r = await fetch(`/api/cases/${c.id}/scan`, { method: "POST", signal: stop.signal });
-      if (r.status === 402) why = "new.noCredits"; // no credit left: say that, not "could not start"
-      else if (!r.ok && r.status !== 409) why = "case.retryFail"; // 409 = someone already started it
-    } catch { why = "case.retryFail"; }
-    window.clearTimeout(giveUp);
+    const fresh = () => { if (navigator.onLine) router.refresh(); }; // offline it could only fail, and a failed refresh loads the whole page again
+    const out = await readAgain(c.id, { onLate: fresh });
+    if (out === "no_credits") setErr("new.noCredits"); // no credit left: say that, not "could not start"
     // a read the server did start is shown by the case itself (its status and its reason), whatever became of this request
-    if (why && !taken.current) setErr(why);
+    else if (out === "fail" && !taken.current) setErr("case.retryFail");
     setBusy(false);
-    if (navigator.onLine) router.refresh(); // offline it could only fail, and a failed refresh loads the whole page again
+    fresh();
   }
 
   // only what the documents gave: an empty value is left out, not shown as a dash

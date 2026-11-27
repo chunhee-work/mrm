@@ -9,13 +9,15 @@ import { missingRelation } from "@/lib/ext/worker-gate";
 
 // GET /api/cases/:id/brief — what an open line on the Cases page shows under the job: the activity, the files and the
 // workshop. The first page never sends the user to the case page (owner 2026-11-27: "all stay in the first page").
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+// ?status=1: only what the case is doing now (asked after "Read again" got no answer: did the server take it?).
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
   const [c] = await db.select({ status: schema.cases.status, merimenCaseId: schema.cases.merimenCaseId }).from(schema.cases)
     .where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId), notDeleted)).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (new URL(req.url).searchParams.has("status")) return NextResponse.json({ status: c.status }, { headers: { "cache-control": "no-store" } });
   // the newest 30 events, shown oldest first like the case page
   const ev = await db.select({ at: schema.caseEvents.at, message: schema.caseEvents.message }).from(schema.caseEvents)
     .where(eq(schema.caseEvents.caseId, id)).orderBy(desc(schema.caseEvents.at), desc(schema.caseEvents.id)).limit(30);
