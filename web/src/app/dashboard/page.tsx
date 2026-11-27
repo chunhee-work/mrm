@@ -93,5 +93,5 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const state = worker ? await getWorkerState(orgId) : await getExtState(orgId);
   // while the Merimen connection is switched off there is nothing to do or read about it: the page ends with the count
   const below = state === "off" ? undefined : <Connection embedded mode={worker ? "worker" : "browser"} cred={worker ? await credView(orgId) : null} state={state} cases={list.map((c) => ({ id: c.id, plate: c.plate }))} />;
-  return <Home name={user.name} counts={counts} busy={groups.some((g) => (g.status === "uploaded" || g.status === "reading") && Number(g.n) > 0)} below={below} />;
+  return <Home name={user.name} counts={counts} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} below={below} />;
 }

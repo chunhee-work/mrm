@@ -41,7 +41,7 @@ export default function CaseSteps({ caseId, status, photos, photosDone, here, hi
           );
         })}
       </ol>
-      {hint && <p className="mt-1.5 text-[13.5px] text-mute" data-testid="steps-next">{t(current === "merimen" && status === "checking" ? "case.pp.next.checking" : `steps.next.${current}`)}</p>}
+      {hint && <p className="mt-1.5 text-[13.5px] text-mute" data-testid="steps-next">{t(status === "failed" ? "steps.next.failed" : current === "merimen" && status === "checking" ? "case.pp.next.checking" : `steps.next.${current}`)}</p>}
     </nav>
   );
 }

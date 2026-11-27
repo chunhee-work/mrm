@@ -24,7 +24,7 @@ export default function Home({ name, counts, busy = false, below }: { name: stri
   const open = OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0);
 
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
-  const live = busy; // a document is being read: the numbers move by themselves (a case waiting for the user does not)
+  const live = busy; // something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => { if (!document.hidden) router.refresh(); }, REFRESH_MS);

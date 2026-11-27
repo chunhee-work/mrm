@@ -11,6 +11,7 @@ export default async function Loading() {
     <div className="app-fill flex flex-col" aria-busy="true">
       <div className="shrink-0 pb-2.5 pt-2.5 max-sm:pb-2 max-sm:pt-2">
         <div className="wrap max-sm:px-3">
+          <div className="mb-2 h-9 max-sm:h-12 rounded-[4px] bg-panel2/60 motion-safe:animate-pulse" aria-hidden="true" />
           <div className="rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(10,14,19,0.06),0_10px_28px_-14px_rgba(10,14,19,0.22)] ring-1 ring-hair">
             <div className="flex h-[49px] items-center border-b border-hair px-4"><span className="h-8 w-40 rounded-[3px] bg-panel2 motion-safe:animate-pulse" /></div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-1.5 lg:px-5">
