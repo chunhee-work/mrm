@@ -426,6 +426,12 @@ try {
     assert.equal(await page.locator('[data-testid="new-case"], [data-testid="new-case-wide"]').count(), 0, "no second New case in the bar of the first page");
     assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
     assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
+    // a one-step table still opens by its address, and its back link returns to the first page
+    await page.goto(`${BASE}/dashboard?view=docs`);
+    await page.getByTestId("case-table").waitFor();
+    await page.getByTestId("list-back").click();
+    await page.waitForURL(/\/dashboard$/);
+    await page.getByTestId("home-list").waitFor();
     assert.equal(await page.getByTestId("case-table").count(), 0, "no separate case table on the first page");
     assert.ok(await page.getByTestId("step-dots").count() >= 1, "each open case shows its step bar");
     assert.equal(await page.getByTestId("step-dots").count(), await page.getByTestId("home-list").locator(":scope > li").count(), "one step bar per case");

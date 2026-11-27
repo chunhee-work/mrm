@@ -925,7 +925,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       )}
       {help && <HelpSheet onClose={() => setHelp(false)} t={t} />}
 
-      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-[60] sm:bottom-[calc(16px+env(safe-area-inset-bottom))] flex justify-center px-4">
+      <div aria-live="polite" className={`pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4 sm:bottom-[calc(16px+env(safe-area-inset-bottom))] ${embedded ? "bottom-[calc(16px+env(safe-area-inset-bottom))]" : "bottom-[calc(96px+env(safe-area-inset-bottom))]"}`}>
         {toast && (
           <div key={toast.key} className="flex max-w-[560px] items-center rounded-[3px] border border-hair bg-fg px-4 py-2.5 text-[14px] font-medium leading-snug text-bay shadow-[0_12px_24px_-12px_rgba(0,0,0,0.8)] motion-safe:animate-[deskrise_0.18s_ease-out]">
             <span>{toast.msg}</span>

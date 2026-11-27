@@ -46,7 +46,7 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
     return () => { window.removeEventListener("keydown", key); window.removeEventListener("pointerdown", down); };
   }, [open]);
   const who = name.trim() || email;
-  const initials = (who.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("") || "?").toUpperCase();
+  const initials = (who.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((w) => Array.from(w)[0]).join("") || "?").toUpperCase();
   const menuItem = "flex h-10 w-full items-center gap-3 rounded-[3px] px-3 text-left text-[14.5px] font-medium transition-colors duration-150 hover:bg-panel2";
   const [langOpen, setLangOpen] = useState(false);
   const router = useRouter();
@@ -100,9 +100,9 @@ export default function SideBar({ email, name, credits: credits0, cred: cred0, c
   const [facts, setFacts] = useState({ credits: credits0, cred: cred0, closed: closed0 });
   useEffect(() => { setFacts({ credits: credits0, cred: cred0, closed: closed0 }); }, [credits0, cred0, closed0]);
   const where = `${path}?${sp.toString()}`;
-  const firstWhere = useRef(where);
+  const mounted = useRef(false);
   useEffect(() => {
-    if (where === firstWhere.current) return;
+    if (!mounted.current) { mounted.current = true; return; } // the first page brought the numbers itself
     let live = true;
     fetch("/api/side").then((r) => (r.ok ? r.json() : null)).then((f) => { if (live && f) setFacts(f); }).catch(() => {});
     return () => { live = false; };
