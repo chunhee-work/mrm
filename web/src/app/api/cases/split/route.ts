@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   let u: URL;
   let path: string;
   try { u = new URL(url); path = decodeURIComponent(u.pathname); } catch { return NextResponse.json({ error: "prefix" }, { status: 400 }); }
-  if (u.protocol !== "https:" || !u.hostname.endsWith(".blob.vercel-storage.com") || !path.startsWith(`/${me.orgId}/`) || path.includes("..") || !/\.zip$/i.test(name))
+  if (u.protocol !== "https:" || !u.hostname.endsWith(".blob.vercel-storage.com") || !path.startsWith(`/${me.orgId}/`) || path.split("/").includes("..") || !/\.zip$/i.test(name))
     return NextResponse.json({ error: "prefix" }, { status: 400 });
   const dropZip = () => del(url).catch(() => {}); // the cars are stored on their own (or the zip was refused): the big zip is not kept
 
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
 
   const made: string[] = [];
   const madeFor = new Map<string, string>(); // folder prefix -> case id made in this call
-  const stored: string[] = [];
+  const stored = new Map<string, string[]>(); // case id -> its stored blobs (also for the car in progress, which has no case yet)
   try {
     for (const v of todo) {
       const id = crypto.randomUUID();
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
       await runPool(entries.length, 4, async (i) => {
         const e = entries[i];
         const b = await put(`${me.orgId}/${id}/${names[i]}`, Buffer.from(e.bytes.buffer, e.bytes.byteOffset, e.bytes.byteLength), { access: "private", contentType: e.type, addRandomSuffix: false, allowOverwrite: true });
-        stored.push(b.url);
+        (stored.get(id) ?? stored.set(id, []).get(id)!).push(b.url);
         rows[i] = { caseId: id, kind: e.kind, blobUrl: b.url, originalName: names[i], size: e.bytes.length };
       });
       await writeCar([
@@ -122,11 +122,13 @@ export async function POST(req: Request) {
       if (!(await debitCase(me.orgId, id))) throw new Error("no_credits");
     }
   } catch (e) {
+    const kept = new Set<string>(); // a case whose row could not be deleted keeps its files, so it is never a case without files
     for (const id of made) {
       await refundCase(me.orgId, id).catch((x) => console.error("split rollback: refund failed", id, x));
-      await db.delete(schema.cases).where(eq(schema.cases.id, id)).catch((x) => console.error("split rollback: delete failed", id, x));
+      await db.delete(schema.cases).where(eq(schema.cases.id, id)).catch((x) => { kept.add(id); console.error("split rollback: delete failed", id, x); });
     }
-    if (stored.length) await del(stored).catch((x) => console.error("split rollback: blob delete failed", x));
+    const gone = [...stored].filter(([id]) => !kept.has(id)).flatMap(([, urls]) => urls);
+    if (gone.length) await del(gone).catch((x) => console.error("split rollback: blob delete failed", x));
     await dropZip();
     await release();
     if ((e as Error).message === "no_credits") return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
