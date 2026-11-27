@@ -5,7 +5,7 @@ import {
   canonName, doneBlock, isPermutation, normalizePick, pathInCase, photoModel, photoPath, sliceCostUsd, sliceMatches,
   statusAfterDone, statusAfterRegister, costCapUsd, NONE, PART_NAMES,
 } from "../src/lib/photos/rules";
-import { altsOf, classifyPaste, counts, donePress, fileIdentity, fileProblem, moved, uploadRefusal, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
+import { altsOf, classifyPaste, counts, donePress, escapeRestores, fileIdentity, fileProblem, moved, uploadRefusal, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
 import { logLine, safeError } from "../src/lib/photos/log";
 import { assertTextOnly, buildJevRequest, TypeSafeImageError } from "../src/lib/typesafe";
 import { pickContext, SYSTEM } from "../src/lib/photos/name-photos";
@@ -263,6 +263,20 @@ test("desk: Done after the saves it waited for: a failed save stops it, another 
   assert.deepEqual(donePress({ ...base, here: false }), { do: "send" });
   assert.deepEqual(donePress({ ...base, here: false, photos: unnamed }), { do: "send" });
   assert.deepEqual(donePress({ ...base, here: false, done: true }), { do: "undo" });
+});
+test("desk: Escape puts the old name back only over a name this edit stored itself", () => {
+  const base = { orig: "Bonnet" as string | null, shown: "Bon" as string | null, stored: "Bon" as string | null | undefined, session: "s", flying: [] as (string | undefined)[], saved: { session: "s", name: "Bon" as string | null } };
+  assert.equal(escapeRestores(base), true, "the typed name was saved by this edit: back to the old one");
+  assert.equal(escapeRestores({ ...base, stored: "Bonnet", saved: null, flying: ["s"] }), true, "its save is still on its way: the old name goes out right after it");
+  assert.equal(escapeRestores({ ...base, stored: "Bonnet", saved: null, flying: [undefined, "s"] }), true, "queued behind another save");
+  assert.equal(escapeRestores({ ...base, shown: "Bonnet", stored: "Bonnet", saved: null }), false, "nothing was saved: nothing to put back");
+  // another tab renamed the photo (the autosave got 'changed somewhere else', or a refresh brought the name): never written over
+  assert.equal(escapeRestores({ ...base, shown: "Grille", stored: "Grille", saved: null }), false);
+  assert.equal(escapeRestores({ ...base, shown: "Grille", stored: "Grille" }), false, "this edit saved 'Bon' earlier, but what is stored now is someone else's");
+  assert.equal(escapeRestores({ ...base, saved: { session: "other", name: "Bon" } }), false, "saved by an earlier edit, not this one");
+  assert.equal(escapeRestores({ ...base, flying: ["other"], saved: null }), false);
+  assert.equal(escapeRestores({ ...base, orig: null, shown: null, stored: null, saved: { session: "s", name: null } }), false, "already the old name");
+  assert.equal(escapeRestores({ ...base, orig: null }), true, "the old name was the suggestion: back to it");
 });
 test("desk: move within the list", () => {
   assert.deepEqual(moved([1, 2, 3, 4, 5], 4, 1), [1, 5, 2, 3, 4]);

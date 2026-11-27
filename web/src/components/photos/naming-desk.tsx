@@ -4,7 +4,7 @@ import { useT } from "@/components/lang-provider";
 import CaseSteps from "@/components/app/case-steps";
 import { Chevron, Plus, Tick, UploadArt } from "@/components/app/marks";
 import {
-  classifyPaste, counts, donePress, isEnterPair, moved, nextUnnamed, shownName, visible, UndoStack,
+  classifyPaste, counts, donePress, escapeRestores, isEnterPair, moved, nextUnnamed, shownName, visible, UndoStack,
   type CaseState, type Extra, type Filter, type Photo,
 } from "@/lib/photos/desk-rules";
 import { canonName, inList, MAX_EXTRAS, PART_NAMES } from "@/lib/photos/rules";
@@ -116,7 +116,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const triesRef = useRef(tries); triesRef.current = tries;
 
   const server = useRef(new Map<number, Photo>()); // last row the server confirmed, per photo
-  const writes = useRef(new Map<number, { busy: boolean; next?: { target: string | null; session?: string } }>());
+  // `by` = the edit (typing session) whose save is on its way, when it is one
+  const writes = useRef(new Map<number, { busy: boolean; by?: string; next?: { target: string | null; session?: string } }>());
+  const savedBy = useRef<{ session: string; name: string | null } | null>(null); // the last save of a name box that went through, and the name it stored
   const order = useRef(new Map<string, { busy: boolean; next: boolean }>()); // one saving queue per case
   const undo = useRef(new UndoStack());
   // Saves of a case that are on their way (names, order, parts, undo). 完成 waits for them; `n` counts every one that was started,
@@ -197,6 +199,17 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   }, [setDoneLocal, say]);
   const disarm = useCallback(() => { lastEnter.current = 0; }, []);
 
+  /**
+   * A name another tab stored for the photo whose name box is open: from now on that is "the name before the edit". Escape goes back
+   * to it (never to the older one over it), and what this edit saved earlier no longer counts as stored.
+   */
+  const foreignName = useCallback((row: Photo) => {
+    const e = editingRef.current;
+    if (!e || e.id !== row.id) return;
+    if (savedBy.current?.session === e.session) savedBy.current = null;
+    if (e.orig !== row.finalName) setEditing({ ...e, orig: row.finalName });
+  }, [setEditing]);
+
   // ───────────── load / refresh ─────────────
   const load = useCallback(async (cid: string, quiet: boolean, ms?: number) => {
     let fresh: CaseState;
@@ -212,6 +225,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     const old = statesRef.current[cid];
     let photos = fresh.photos.map((p) => {
       if (writes.current.get(p.id)?.busy && old) return old.photos.find((x) => x.id === p.id) ?? p; // a save is on its way: keep what the user sees
+      const known = server.current.get(p.id);
+      if (known && known.version !== p.version) foreignName(p); // not a save of this page: someone else changed it
       server.current.set(p.id, p);
       return p;
     });
@@ -226,7 +241,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     setTabs((ts) => ts.map((x) => (x.id === cid ? { ...x, done: fresh.done, photos: fresh.photos.length } : x)));
     if (caseRef.current === cid) setLoadFailed(false);
     return fresh;
-  }, [mutate]);
+  }, [mutate, foreignName]);
 
   const seeded = useRef(!!initial);
   useEffect(() => {
@@ -309,9 +324,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     let saved = true;
     for (;;) {
       const base = server.current.get(id) ?? p;
+      w.by = job.session;
       const r = await api("PATCH", `/api/cases/${cid}/photos/${id}`, { finalName: job.target, version: base.version });
       if (r.ok) {
         const row = r.body.photo as Photo;
+        if (job.session) savedBy.current = { session: job.session, name: row.finalName };
         if (row.finalName !== base.finalName) undo.current.push({ caseId: cid, photoId: id, prev: base.finalName, after: row.version, session: job.session }, row.finalName);
         server.current.set(id, row);
         touch(cid);
@@ -327,6 +344,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
         server.current.set(id, row);
         touch(cid);
         patchPhoto(cid, id, () => row);
+        foreignName(row);
         undo.current.dropPhoto(cid, id);
         say(tRef.current("changedElsewhere"));
         void load(cid, true); // nothing was saved, so a 完成 the page took back at the first key is still on: show what is stored
@@ -339,8 +357,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       break;
     }
     w.busy = false;
+    w.by = undefined;
     return saved;
-  }, [patchPhoto, cancelDone, setDoneLocal, touch, say, load]);
+  }, [patchPhoto, cancelDone, setDoneLocal, touch, say, load, foreignName]);
   const rename = useCallback((cid: string, id: number, target: string | null, session?: string) => track(cid, renameNow(cid, id, target, session)), [track, renameNow]);
 
   const undoLast = useCallback(async () => {
@@ -636,9 +655,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       const e = editingRef.current;
       if (idle.current) clearTimeout(idle.current);
       setEditing(null);
-      // Escape = the name as it was when the box opened. What was typed may already be saved (a second after the last key): the old name is saved back.
+      // Escape = the name from before the edit. What was typed may already be saved (a second after the last key): the old name is
+      // saved back, but only over a name this edit stored itself, never over one another tab stored meanwhile (escapeRestores).
       const p = e ? photoOf(e.id) : undefined;
-      if (e && p && p.finalName !== e.orig) void rename(caseRef.current, e.id, e.orig, e.session);
+      if (!e || !p) return;
+      const w = writes.current.get(e.id);
+      const mine = escapeRestores({
+        orig: e.orig, shown: p.finalName, stored: server.current.get(e.id)?.finalName, session: e.session,
+        flying: w?.busy ? [w.by, w.next?.session] : [], saved: savedBy.current,
+      });
+      if (mine) void rename(caseRef.current, e.id, e.orig, e.session);
     },
     copy: (id) => {
       const name = photoOf(id) ? shownName(photoOf(id)!) : null;

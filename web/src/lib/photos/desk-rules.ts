@@ -187,3 +187,18 @@ export function donePress(x: { done: boolean; saveFailed: boolean; here: boolean
   }
   return { do: "send" };
 }
+
+/**
+ * Escape in the name box: may the name from before the edit be saved back? Only over a name this edit stored itself: its save is
+ * still on its way (`flying` = the edits of the saves of this photo that are out or queued), or its last save went through and is
+ * still what the server holds (`stored`). A name another tab stored meanwhile is never written over.
+ * `orig` = the photo's own name before this edit, `shown` = its own name on the page now.
+ */
+export function escapeRestores(x: {
+  orig: string | null; shown: string | null; stored: string | null | undefined; session: string;
+  flying: (string | undefined)[]; saved: { session: string; name: string | null } | null;
+}): boolean {
+  if (x.shown === x.orig) return false;
+  if (x.flying.includes(x.session)) return true;
+  return x.saved?.session === x.session && x.stored === x.saved.name;
+}
