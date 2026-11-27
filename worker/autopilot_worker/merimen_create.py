@@ -189,9 +189,16 @@ class MerimenCreate:
     def _svv(self, n, v):
         return self.cur.evaluate(_SVV, {"n": n, "v": v})
 
+    def _ev(self, js, arg=None, default=None):
+        """evaluate that survives a page which is moving (Merimen redirects after Next): an error is "no answer yet", never a crash."""
+        try:
+            return self.cur.evaluate(js, arg) if arg is not None else self.cur.evaluate(js)
+        except Exception:  # noqa: BLE001
+            return default
+
     def _ok_loop(self, rounds: int, gap: int = 1500):
         for _ in range(rounds):
-            r = self.cur.evaluate(_OK)
+            r = self._ev(_OK, None, "")
             if not r:
                 break
             if str(r).startswith("STOP:"):
@@ -427,8 +434,13 @@ class MerimenCreate:
                 # Next may already have been pressed: this is never "try again" (a retry could make a second case)
                 if not rep.case_id:  # a page that was moving made an evaluate fail: the address may already hold the case number
                     try:
-                        u = self.cur.url or ""
-                        m = re.search(r"caseid=(\d+)", u, re.I) if "adjclmref" in u else None
+                        m = None
+                        for _ in range(6):  # a redirect that is still on its way: look at the address for a few seconds
+                            u = self.cur.url or ""
+                            m = re.search(r"caseid=(\d+)", u, re.I) if "adjclmref" in u else None
+                            if m:
+                                break
+                            self.cur.wait_for_timeout(self._ms(1000))
                         if m:
                             rep.case_id = m.group(1)
                             e = re.search(r"extid=(\d+)", u, re.I)
@@ -456,6 +468,10 @@ class MerimenCreate:
     def _save(self, spec: Spec, rep: CreateReport) -> CreateReport:
         cur = self.cur
         w = lambda ms: cur.wait_for_timeout(self._ms(ms))  # noqa: E731
+        # everything that can fail is read BEFORE the mark is written: between the mark and the click there is nothing left to go wrong
+        pre = set(cur.evaluate(_MSGS))  # texts already on the form before Next: static labels are not a rejection
+        nxt = cur.locator('input[value*="Next"],button:has-text("Next")')
+        absent = nxt.count() == 0
         if self.before_submit:
             try:
                 stop = self.before_submit()  # locks the workshop and writes the "Next pressed" mark; nothing has been pressed yet
@@ -464,23 +480,20 @@ class MerimenCreate:
             if stop:
                 rep.ok, rep.code = False, stop
                 return rep
-        pre = set(cur.evaluate(_MSGS))  # texts already on the form before Next: static labels are not a rejection
-        nxt = cur.locator('input[value*="Next"],button:has-text("Next")')
-        absent = nxt.count() == 0
         try:
             nxt.first.click(force=True, timeout=4000)
         except Exception:  # noqa: BLE001  (a slow click may already have gone out: never submit a second time)
             pass
         if absent:  # only when there is no Next button at all
-            cur.evaluate("() => { try { SubmitEntry(); } catch (e) {} }")
+            self._ev("() => { try { SubmitEntry(); } catch (e) {} }")
         w(4500)
         self._ok_loop(6)
         w(2500)
         url = cur.url or ""
         # a slow Merimen still shows the form while it saves: wait (up to ~20 s more) for the page to move or to say why it will not
         for _ in range(10):
-            if not re.search(r"act_clmreg|dsp_clmreg", url) or self.unexpected or _new_msgs(cur.evaluate(_MSGS), pre) or cur.evaluate(
-                    "(rx) => new RegExp(rx, 'i').test(document.body.innerText || '')", DUP.pattern):
+            if not re.search(r"act_clmreg|dsp_clmreg", url) or self.unexpected or _new_msgs(self._ev(_MSGS, None, []), pre) or self._ev(
+                    "(rx) => new RegExp(rx, 'i').test(document.body.innerText || '')", DUP.pattern, False):
                 break
             w(2000)
             url = cur.url or ""
@@ -490,11 +503,11 @@ class MerimenCreate:
             rep.messages = list(self.unexpected)[:3]
             return rep
         if re.search(r"act_clmreg|dsp_clmreg", url):
-            if cur.evaluate("(rx) => new RegExp(rx, 'i').test(document.body.innerText || '')", DUP.pattern):
+            if self._ev("(rx) => new RegExp(rx, 'i').test(document.body.innerText || '')", DUP.pattern, False):
                 # the owner's script confirms this warning; a retry after a crash would also land here, so the worker stops and a person decides
                 rep.ok, rep.code = False, "duplicate_warning"
                 return rep
-            rep.messages = [m[:160] for m in _new_msgs(cur.evaluate(_MSGS), pre)]
+            rep.messages = [m[:160] for m in _new_msgs(self._ev(_MSGS, None, []), pre)]
             if not rep.messages:  # still the form but nothing NEW says why: the save may still be running, so the mark stays
                 rep.ok, rep.code = False, "create_unclear"
                 rep.messages = ["still on the create form, no new reason shown"]

@@ -80,5 +80,5 @@ def run_create_step(case: dict, *, profile, workshop, page_for, live: bool, prog
         if rep.white_model:
             line = (line + "; " if line else "") + "the model has no price data (white option)"
         return DriveResult(ok=True, case_id=rep.case_id, ext_id=rep.ext_id, minutes=minutes, partial=True, line=line or None)
-    hint = " Look for this plate in Merimen's worklist before anything is tried again." if rep.code in ("create_unclear", "duplicate_warning") else ""
+    hint = " Look for this plate in Merimen's worklist before anything is tried again." if rep.code in ("create_unclear", "duplicate_warning", "unexpected_dialog") else ""
     return DriveResult(ok=False, fatal=rep.code not in RETRY, error=rep.code or "create", line=((rep.line() or "The case was not created") + hint).strip())
