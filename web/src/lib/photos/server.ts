@@ -210,6 +210,10 @@ export async function setDone(c: CaseRow, done: unknown): Promise<Result> {
     ] as Parameters<typeof db.batch>[0]);
     const after = rowsOf<{ status: string }>(r)[0];
     if (!after) continue; // a name, the order, a part or a photo changed between the read and the write: look again
+    // Looked at once more after the write: a change that landed while the write itself was running saw a case that was not
+    // done yet, so it took nothing back, and the write could not see the change. Such a 完成 is taken back here and tried again.
+    const now = rowsOf<{ fp: string }>(await db.execute(sql`SELECT ${stateFp(c.id)} AS fp`))[0]?.fp ?? "";
+    if (now !== seen) { await clearDone(c.id); continue; }
     // The learning rows are extra: the worker writes the same rows when Phase B runs, so a failure here must not undo a 完成 that went through.
     await recordLearning(c.id, c.orgId).catch((e) => console.error(logLine("photos.learning", { caseId: c.id }, e)));
     return ok({ done: true, status: after.status });
@@ -387,6 +391,12 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
       FROM jsonb_array_elements(${JSON.stringify(toFile.map((it) => ({ url: it.blobPath, name: it.name, size: it.size })))}::jsonb) WITH ORDINALITY AS e(v, ord)
       WHERE NOT EXISTS (SELECT 1 FROM case_files f WHERE f.case_id = ${c.id} AND f.kind = 'photo' AND f.blob_url = e.v->>'url')
       ORDER BY e.ord`);
+    // Two tries that wrote at the very same moment could not see each other's row. Each one tidies up after its own write and
+    // keeps the oldest row, so whichever finishes last leaves exactly one.
+    await db.execute(sql`
+      DELETE FROM case_files f USING case_files g
+      WHERE f.case_id = ${c.id} AND g.case_id = ${c.id} AND f.kind = 'photo' AND g.kind = 'photo'
+        AND f.blob_url = g.blob_url AND f.id > g.id AND f.blob_url IN (${sql.join(toFile.map((it) => sql`${it.blobPath}`), sql`, `)})`);
   }
   const consumed = [...[...items, ...again.values()].flatMap((i) => [i.blobPath, i.thumbPath]), ...strays];
   if (consumed.length) await db.delete(schema.photoUploads).where(and(eq(schema.photoUploads.caseId, c.id), inArray(schema.photoUploads.path, consumed)));
