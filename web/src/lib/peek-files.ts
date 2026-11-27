@@ -6,7 +6,7 @@ const u16 = (v: DataView, o: number) => v.getUint16(o, true);
 const u32 = (v: DataView, o: number) => v.getUint32(o, true);
 
 /**
- * The entry names of a zip, read from its central directory at the end of the file (a few KB, never the whole zip).
+ * The names of a zip's non-empty entries, read from its central directory at the end of the file (a few KB, never the whole zip).
  * null when it cannot be told (not a zip, zip64, damaged): the server still checks it after the upload.
  */
 export async function zipNames(file: Sliceable): Promise<string[] | null> {
@@ -22,15 +22,18 @@ export async function zipNames(file: Sliceable): Promise<string[] | null> {
     const buf = await file.slice(cdOff, cdOff + cdSize).arrayBuffer();
     const v = new DataView(buf);
     const names: string[] = [];
+    let seen = 0; // every entry, empty ones too, to compare with the end record's count
     // a list that does not start with an entry is damaged (or the zip is self-extracting): it cannot be told, never "no PDF"
     if (buf.byteLength < 46 || u32(v, 0) !== 0x02014b50) return null;
-    for (let p = 0; p + 46 <= buf.byteLength && u32(v, p) === 0x02014b50 && names.length < 20000;) {
+    for (let p = 0; p + 46 <= buf.byteLength && u32(v, p) === 0x02014b50 && seen < 20000;) {
       const n = u16(v, p + 28), x = u16(v, p + 30), c = u16(v, p + 32);
-      names.push(new TextDecoder().decode(new Uint8Array(buf, p + 46, Math.min(n, buf.byteLength - p - 46))));
+      // an empty entry (a folder, or a 0-byte file) never becomes a case file, so it is left out here as on the server
+      if (u32(v, p + 24) > 0) names.push(new TextDecoder().decode(new Uint8Array(buf, p + 46, Math.min(n, buf.byteLength - p - 46))));
+      seen++;
       p += 46 + n + x + c;
     }
     // fewer entries than the end record says: the list is damaged part-way, so it cannot be told
-    if (names.length < 20000 && names.length < u16(tail, e + 10)) return null;
+    if (seen < 20000 && seen < u16(tail, e + 10)) return null;
     return names;
   } catch { return null; }
 }

@@ -27,7 +27,7 @@ export function unzipBundle(buf: Uint8Array, limits = ZIP_LIMITS): BundleEntry[]
   try {
     // first look at the names only (nothing is inflated): a zip of several vehicles is one case per vehicle, not one case
     const names: string[] = [];
-    unzipSync(buf, { filter: (f) => { names.push(f.name); return false; } });
+    unzipSync(buf, { filter: (f) => { if (f.originalSize > 0) names.push(f.name); return false; } }); // empty entries are skipped below anyway
     if (vehicleFolders(names).length > 1) throw new ZipRejected("multi", ZIP_WHY.multi);
     if (platesAnywhere(names) > 1) throw new ZipRejected("layout", ZIP_WHY.layout); // cars at different levels: never one case
     files = unzipSync(buf, {
@@ -88,12 +88,15 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
   // the entries in central-directory order), not by name: fflate decodes a name as latin1 unless its UTF-8 flag is set
   const flags = encryptedFlags(buf);
   if (flags.length === all.length) all.forEach((f, i) => { f.locked = flags[i]; });
-  // the same names-only layout the browser saw; an empty loose file is not an extra, a car whose PDFs are all empty is refused below
-  const { cars: prefixes, extras: named } = vehicleLayout(all.map((f) => f.name));
+  // the same layout the browser saw: names of non-empty entries only (an empty file is never a case file, so it makes no car,
+  // no extra and no plate folder); a car whose PDFs cannot be used is refused below
+  // (a stored entry that holds bytes counts whatever size it declares: the size check below refuses it)
+  const filled = all.filter((f) => f.size > 0 || (f.method === 0 && f.stored > 0)).map((f) => f.name);
+  const { cars: prefixes, extras: named } = vehicleLayout(filled);
   const nonEmpty = new Set(all.filter((f) => f.size > 0).map((f) => f.name));
   const extras = named.filter((x) => !x.endsWith("/") ? nonEmpty.has(x) : all.some((f) => f.size > 0 && f.name.startsWith(x) && usableIn(f.name)));
   if (prefixes.length < 2) {
-    if (platesAnywhere(all.map((f) => f.name)) > 1) throw new ZipRejected("layout", ZIP_WHY.layout);
+    if (platesAnywhere(filled) > 1) throw new ZipRejected("layout", ZIP_WHY.layout);
     throw new ZipRejected("empty", ZIP_WHY.empty);
   }
   if (prefixes.length > MAX_VEHICLES) throw new ZipRejected("too_many_cars", ZIP_WHY.too_many_cars);

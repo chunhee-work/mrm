@@ -72,8 +72,11 @@ test("planVehicles: limits per car, too many cars, and a one-car zip are refused
 test("planVehicles: any folder or file a split would leave out refuses the zip; a PDF too big to read is refused before anything is stored", () => {
   const pdf = strToU8("%PDF-1.4 x");
   const mixed = (e: ZipRejected) => e.code === "mixed" && e.message === "the zip holds car folders and other files beside them";
-  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "CCC3333/a.pdf": new Uint8Array(0), "CCC3333/1.jpg": strToU8("jpg") })), (e: ZipRejected) => e.code === "car_no_pdf");
-  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/b.pdf": new Uint8Array(0) })), (e: ZipRejected) => e.code === "car_no_pdf");
+  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/a.pdf": pdf, "CCC3333/a.pdf": new Uint8Array(0), "CCC3333/1.jpg": strToU8("jpg") })), mixed); // an empty PDF makes no car: CCC3333 is a photos-only folder beside the cars
+  assert.throws(() => planVehicles(zipSync({ "AAA1111/a.pdf": pdf, "BBB2222/b.pdf": new Uint8Array(0) })), (e: ZipRejected) => e.code === "empty"); // one real car: one case
+  // an empty PDF in a plate folder elsewhere ("Police/NCH5773/") is no plate folder, so a one-car zip is not refused as "layout"
+  assert.throws(() => planVehicles(zipSync({ "WA1234B/a.pdf": pdf, "Police/NCH5773/b.pdf": new Uint8Array(0) })), (e: ZipRejected) => e.code === "empty");
+  assert.equal(unzipBundle(zipSync({ "WA1234B/a.pdf": pdf, "Police/NCH5773/b.pdf": new Uint8Array(0) })).length, 1);
   assert.throws(() => planVehicles(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/b.pdf": pdf, "cover.pdf": pdf })), mixed);
   assert.throws(() => unzipBundle(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/b.pdf": pdf, "cover.pdf": pdf })), (e: ZipRejected) => e.code === "multi");
   assert.throws(() => planVehicles(zipSync({ "S/AAA1111/a.pdf": pdf, "S/BBB2222/a.pdf": pdf, "S/Photos/1.jpg": strToU8("jpg") })), mixed);
