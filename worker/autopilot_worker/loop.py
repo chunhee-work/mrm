@@ -9,7 +9,7 @@ import threading
 import time
 
 from .cdp_client import page_block
-from .chrome import chrome_argv, login_notice, next_status, profile_dir
+from .chrome import chrome_argv, chrome_running, login_notice, next_status, profile_dir
 from .config import Config, account_for
 from .db import DbError
 from .pipeline import Driver, Outcome, followup_steps, handle_job
@@ -87,7 +87,13 @@ def maybe_cleanup(cfg: Config, repo: PgRepo, delete, *, every: float = 3600.0, n
         return 0
 
 
-def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None) -> None:
+# port -> when this process last started Chrome on it. Chrome needs a few seconds before its debugging port answers; starting it a
+# second time on the same profile only opens one more tab in the Chrome that is already there.
+_launched: dict[int, float] = {}
+LAUNCH_WAIT = 30.0
+
+
+def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running) -> None:
     if cfg.ext_connect:
         repo.ensure_sessions()  # a ready org (login ok + consent) gets its row; with EXT_CONNECT off nothing is asked for
     for row in repo.wanted():
@@ -105,8 +111,13 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             continue
         port = cfg.accounts[account]
         profile = profile_dir(cfg.state_dir, account)
-        launch(chrome_argv(cfg.chrome_bin, port, profile))
-        info = inspect(port)
+        argv = chrome_argv(cfg.chrome_bin, port, profile)
+        info = inspect(port)  # ask the debugging port first: a Chrome that answers is never started again
+        if info is None and not running(profile):  # nor one that holds the profile but is slow to answer
+            t = now()
+            if port not in _launched or t - _launched[port] >= LAUNCH_WAIT:
+                _launched[port] = t
+                launch(argv)
         if not info:
             repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="not_logged_in")
             login_notice(cfg.state_dir)
