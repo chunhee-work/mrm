@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Chevron, Plus, Search, UploadArt } from "./marks";
 import { holdDropped } from "@/lib/dropped-files";
+import { useFileDrag } from "./drop-zone";
 import { OPEN_BUCKETS, type Bucket } from "./status";
 
 export type HomeCounts = Record<Bucket, number>;
@@ -31,25 +32,7 @@ export default function Home({ name, counts, below }: { name: string; counts: Ho
   }, [live, router]);
 
   // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
-  const [over, setOver] = useState(false);
-  useEffect(() => {
-    let depth = 0;
-    const has = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
-    const enter = (e: DragEvent) => { if (!has(e)) return; e.preventDefault(); depth++; setOver(true); };
-    const move = (e: DragEvent) => { if (!has(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"; };
-    const leave = (e: DragEvent) => { if (!has(e)) return; depth = Math.max(0, depth - 1); if (!depth) setOver(false); };
-    const drop = (e: DragEvent) => {
-      if (!has(e)) return;
-      e.preventDefault(); depth = 0; setOver(false);
-      const files = Array.from(e.dataTransfer?.files ?? []);
-      if (!files.length) return;
-      holdDropped(files);
-      router.push("/cases/new");
-    };
-    window.addEventListener("dragenter", enter); window.addEventListener("dragover", move);
-    window.addEventListener("dragleave", leave); window.addEventListener("drop", drop);
-    return () => { window.removeEventListener("dragenter", enter); window.removeEventListener("dragover", move); window.removeEventListener("dragleave", leave); window.removeEventListener("drop", drop); };
-  }, [router]);
+  const over = useFileDrag(true, (files) => { holdDropped(files); router.push("/cases/new"); });
 
   // "On hold" is a row only when a case is on hold; the other three are always there, so the box keeps its shape
   const rows = OPEN_BUCKETS.filter((b) => b !== "hold" || counts.hold > 0).map((b) => ({ b, n: counts[b], hot: b !== "active" && counts[b] > 0 }));

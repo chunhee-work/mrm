@@ -426,6 +426,26 @@ try {
     assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
     assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
     assert.equal(await page.getByTestId("case-table").count(), 0, "no case list on the first page");
+    // files dragged onto the first page: a full-page overlay while they hover, a text drag shows nothing,
+    // the overlay clears on its own if the browser misses the dragleave, and a drop opens New case with the files
+    const drag = (type, kind = "file") => page.evaluate(([type, kind]) => {
+      const dt = new DataTransfer();
+      if (kind === "file") dt.items.add(new File(["%PDF-1.4"], "dropped.pdf", { type: "application/pdf" })); else dt.setData("text/plain", "hello");
+      window.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
+    }, [type, kind]);
+    await drag("dragenter", "text");
+    assert.equal(await page.getByTestId("home-overlay").count(), 0, "a text drag is not a file drop");
+    await drag("dragenter");
+    await page.getByTestId("home-overlay").waitFor();
+    await page.getByTestId("home-overlay").waitFor({ state: "detached", timeout: 3000 }); // no dragover, no dragleave: it clears by itself
+    await drag("dragenter");
+    await drag("dragleave");
+    assert.equal(await page.getByTestId("home-overlay").count(), 0, "leaving clears the overlay");
+    await drag("dragenter");
+    await drag("drop");
+    await page.waitForURL(/\/cases\/new$/);
+    await page.getByText("dropped.pdf").waitFor();
+    await page.goto(`${BASE}/dashboard`);
     const docs = page.locator('[data-bucket="docs"] a');
     assert.match(await docs.innerText(), /^\s*[1-9]/, "the count of cases waiting for documents");
     await docs.click();
