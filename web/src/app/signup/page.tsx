@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { badAddress } from "@/lib/auth-problem";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
@@ -40,7 +41,9 @@ export default function Signup() {
     setBusy(true);
     try {
       const { error } = await authClient.signUp.email({ name, email, password, callbackURL: "/login?verified=1" });
-      if (error) setErrors({ form: error.status === 429 ? "tooMany" : error.status ? "fail" : "offline" });
+      // an address the browser lets through and the server calls malformed ("ahmad@gmail"): said on the email box, like an empty one
+      if (error && badAddress(error)) { setErrors({ email: true }); el("email").focus(); }
+      else if (error) setErrors({ form: error.status === 429 ? "tooMany" : error.status ? "fail" : "offline" });
       else setDoneFor(email);
     } catch {
       setErrors({ form: "offline" });
