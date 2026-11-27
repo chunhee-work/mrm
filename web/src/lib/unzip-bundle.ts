@@ -13,7 +13,7 @@ export const ZIP_LIMITS = {
 
 export type BundleEntry = { name: string; kind: "pdf" | "photo"; bytes: Uint8Array; type: string };
 export class ZipRejected extends Error {
-  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "car_big" | "dup_plate" | "layout" | "mixed" | "car_no_pdf" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
+  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "car_big" | "dup_plate" | "layout" | "mixed" | "car_no_pdf" | "name_long" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
 }
 
 const PHOTO = /\.(jpe?g|png|webp|heic)$/i;
@@ -165,3 +165,11 @@ export function unzipVehicle(buf: Uint8Array, prefix: string): BundleEntry[] {
   }
   return out;
 }
+
+/** The names a car's files are stored under: a name seen before in the same car gets -2, -3 ... before its extension. */
+export function storeNames(entries: Pick<BundleEntry, "name">[]): string[] {
+  const seen = new Set<string>();
+  return entries.map((e) => { let n = e.name; for (let k = 2; seen.has(n); k++) n = e.name.replace(/(\.[^.]+)?$/, `-${k}$1`); seen.add(n); return n; });
+}
+/** The blob store refuses a path longer than this; a split stores each file at `<org>/<case uuid>/<name>`. */
+export const MAX_BLOB_PATH = 950;

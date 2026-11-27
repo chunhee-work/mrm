@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { profileBlocks } from "@/lib/ext/worker-store";
-import { planVehicles, unzipVehicle, ZipRejected } from "@/lib/unzip-bundle";
+import { MAX_BLOB_PATH, planVehicles, storeNames, unzipVehicle, ZipRejected } from "@/lib/unzip-bundle";
 import { normPlate } from "@/lib/peek-files";
 import { earlierCars, lockSplit, splitKey } from "@/lib/split-marks";
 import { CASE_COST, debitCase, enforcing, exempt, refundCase } from "@/lib/payments/case-credit";
@@ -116,7 +116,12 @@ export async function POST(req: Request) {
     // nothing fails the same way on every try, so it is refused now, before any car is made or charged. Otherwise it could
     // stop each retry at the same car, and the user's only way out (a fixed zip, of another size) would make the cars finished
     // before it again. One car is held at a time.
-    for (const v of plan) if (!unzipVehicle(buf, v.prefix).some((e) => e.kind === "pdf")) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);
+    // A name too long for the blob store fails the same way on every try too, so it is refused here (path: org / case uuid / name).
+    for (const v of plan) {
+      const entries = unzipVehicle(buf, v.prefix);
+      if (!entries.some((e) => e.kind === "pdf")) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);
+      if (storeNames(entries).some((n) => `${me.orgId}/${crypto.randomUUID()}/${n}`.length > MAX_BLOB_PATH)) throw new ZipRejected("name_long", ZIP_WHY.name_long);
+    }
   }
   catch (e) {
     const code = e instanceof ZipRejected ? e.code : "corrupt";
@@ -162,8 +167,7 @@ export async function POST(req: Request) {
       const entries = unzipVehicle(buf, v.prefix);
       // planVehicles only keeps cars with a non-empty PDF: a car that still inflates to nothing is refused, never silently left out
       if (!entries.some((e) => e.kind === "pdf")) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf); // also when its PDFs inflate to nothing
-      const seen = new Set<string>();
-      const names = entries.map((e) => { let n = e.name; for (let k = 2; seen.has(n); k++) n = e.name.replace(/(\.[^.]+)?$/, `-${k}$1`); seen.add(n); return n; });
+      const names = storeNames(entries);
       const rows: (typeof schema.caseFiles.$inferInsert)[] = new Array(entries.length);
       await runPool(entries.length, 4, async (i) => {
         const e = entries[i];
