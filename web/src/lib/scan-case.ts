@@ -9,6 +9,7 @@ import { userFixable, zipRefunded, zipRejectedName, eventTr } from "@/lib/case-t
 import { enforcing, exempt, refundCase } from "@/lib/payments/case-credit";
 import { notDeleted } from "@/lib/case-delete";
 import { jevInsurerWarnings } from "@/lib/jev-checks";
+import { UNDER_READ_CAPS } from "@/lib/read-cap";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
@@ -81,6 +82,8 @@ export function leaseTime(error: string | null): number | null {
  *   recover (case page self-heal)                                        from reading, only if `error` still equals the
  *                                                                        lease the caller saw (`seen`) and fewer than
  *                                                                        MAX_ATTEMPTS reads so far
+ * Every mode is also held to the hourly limits of read-cap.ts (per case and per organisation): over them nothing is claimed
+ * and the case stays as it is, so a read that starts by itself is simply tried again later.
  * A new attempt clears the old error and missing list; the old case_data stays until the new read succeeds.
  * Each attempt appends a "Reading documents" event; each successful read appends one usage row.
  */
@@ -94,7 +97,7 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     mode === "auto" ? and(eq(cid, id), eq(schema.cases.status, "uploaded")) :
     mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["uploaded", "failed", "pending_doc"])) :
     and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, tries);
-  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted)).returning({
+  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted, UNDER_READ_CAPS)).returning({
     id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate, readBefore: sql<boolean>`${schema.cases.caseData} is not null`,
     // the case's credit, counted as the ledger's own refund rule counts it (case-credit.ts): paid for while debits > refunds
     debits: sql<number>`(select count(*)::int from credits_ledger l where l.case_id = ${id} and l.delta < 0 and (l.reason = ${"case:" + id} or l.reason like 'case-retry:%'))`,

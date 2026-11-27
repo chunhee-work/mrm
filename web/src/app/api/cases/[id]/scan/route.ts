@@ -6,6 +6,7 @@ import { scanCase } from "@/lib/scan-case";
 import { debitRetry, refundCase } from "@/lib/payments/case-credit";
 import { splitRunning } from "@/lib/split-marks";
 import { notDeleted } from "@/lib/case-delete";
+import { readCapHit } from "@/lib/read-cap";
 
 export const maxDuration = 300;
 
@@ -18,6 +19,9 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
   // a case still `uploaded` while a zip split of the organisation runs may be rolled back (deleted): it is read once the split ends
   if (c.status === "uploaded" && (await splitRunning(me.orgId))) return NextResponse.json({ error: "busy" }, { status: 409 });
+  // S-U1: a read costs us a model call whether or not it costs the user a credit, so one case and one organisation can only
+  // start so many in an hour (read-cap.ts). Asked before a credit is taken; the claim in scanCase holds the same limits.
+  if (await readCapHit(id, me.orgId)) return NextResponse.json({ error: "too_many" }, { status: 429 });
   const paid = await debitRetry(me.orgId, id);
   if (!paid) return NextResponse.json({ error: "no_credits" }, { status: 402 });
   const r = await scanCase(id, "retry").catch(async (e) => {

@@ -365,6 +365,58 @@ async function main() {
         assert.deepEqual(await events(fine), ["Reading documents", "Documents read"]);
       } finally { photoImport = async () => ({ added: 0, skipped: [], leftOut: noneLeftOut }); }
     }],
+    ["S-U1: one case is read at most 6 times an hour, one organisation 90 times, whoever starts the read; an hour later it reads again", async () => {
+      const { CASE_READS_PER_HOUR, ORG_READS_PER_HOUR, readCapHit } = await import("../src/lib/read-cap");
+      const hourAgo = (caseId: string) => db.execute(sql`update case_events set at = now() - interval '61 minutes' where case_id = ${caseId}`);
+      // one case: the reads of the last hour count, the first one too
+      claude = ok(["police report"]);
+      const id = await newCase("pending_doc", null, { orgId: "cap-a" });
+      for (let k = 1; k < CASE_READS_PER_HOUR; k++) await readEvent(id);
+      assert.equal(await readCapHit(id, "cap-a"), null);
+      assert.equal((await scanCase(id, "retry")).claimed, true); // the last one allowed
+      assert.equal(await readCapHit(id, "cap-a"), "case");
+      const reads = await usageRows(id);
+      assert.deepEqual(await scanCase(id, "retry"), { ok: false, missing: [], claimed: false });
+      assert.equal((await get(id)).status, "pending_doc"); // left as it was
+      assert.equal(await usageRows(id), reads); // the model was not called
+      // new files put the case back to `uploaded`: the read that starts by itself waits too, and the case keeps waiting
+      await db.update(schema.cases).set({ status: "uploaded" }).where(eq(schema.cases.id, id));
+      assert.equal((await scanCase(id, "auto")).claimed, false);
+      assert.equal((await get(id)).status, "uploaded");
+      // another case of the same organisation is not held back by this one
+      const other = await newCase("uploaded", null, { orgId: "cap-a" });
+      assert.equal((await scanCase(other, "auto")).claimed, true);
+      // an hour later the case reads again
+      await db.update(schema.cases).set({ status: "uploaded", error: null }).where(eq(schema.cases.id, id));
+      await hourAgo(id);
+      assert.equal(await readCapHit(id, "cap-a"), null);
+      assert.equal((await scanCase(id, "auto")).claimed, true);
+
+      // one organisation: reads of all its cases count, also those of a case the user deleted since
+      claude = ok();
+      const busy = await newCase("phase_a", null, { orgId: "cap-b" });
+      await db.insert(schema.caseEvents).values(Array.from({ length: ORG_READS_PER_HOUR }, () => ({ caseId: busy, step: "read_docs", message: "Reading documents" })));
+      await db.update(schema.cases).set({ deletedAt: new Date() }).where(eq(schema.cases.id, busy));
+      const fresh = await newCase("uploaded", null, { orgId: "cap-b" });
+      assert.equal(await readCapHit(fresh, "cap-b"), "org");
+      assert.equal((await scanCase(fresh, "auto")).claimed, false);
+      assert.equal((await scanCase(fresh, "retry")).claimed, false);
+      assert.deepEqual([(await get(fresh)).status, await events(fresh)], ["uploaded", []]);
+      // a dead read of that organisation is not started again over the limit, and is not given up on either: it waits
+      const dead = "lease:2026-01-01T00:00:00.000Z|x";
+      const stuck = await newCase("reading", dead, { orgId: "cap-b" });
+      assert.equal((await scanCase(stuck, "recover", dead)).claimed, false);
+      assert.deepEqual([(await get(stuck)).status, (await get(stuck)).error], ["reading", dead]);
+      // another organisation is not held back
+      const theirs = await newCase("uploaded", null, { orgId: "cap-c" });
+      assert.equal(await readCapHit(theirs, "cap-c"), null);
+      assert.equal((await scanCase(theirs, "auto")).ok, true);
+      // one read drops out of the hour: there is room for exactly one more
+      await db.execute(sql`update case_events set at = now() - interval '61 minutes' where id = (select min(id) from case_events where case_id = ${busy})`);
+      assert.equal((await scanCase(fresh, "auto")).ok, true);
+      const next = await newCase("uploaded", null, { orgId: "cap-b" });
+      assert.equal((await scanCase(next, "auto")).claimed, false);
+    }],
     ["leaseTime reads the lease time, ignores other text", async () => {
       assert.equal(leaseTime("lease:2026-01-01T00:00:00.000Z|abc"), Date.parse("2026-01-01T00:00:00.000Z"));
       assert.equal(leaseTime("api down"), null); assert.equal(leaseTime(null), null);
