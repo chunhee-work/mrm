@@ -142,6 +142,8 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             rep = photo_b()
         except photo_sync.NotPorted:
             return Outcome("done", event=f"Phase {phase} checked. Merimen was not changed.")
+        except Exception as e:  # noqa: BLE001
+            return Outcome("failed", case_status="waiting_user", error="photos", event=_photo_error(phase, e))
         stop = _photo_stop(phase, rep)
         if stop:
             return stop
@@ -180,23 +182,40 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
         if saved.fatal and saved.line:
             return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"Phase {phase} not saved. {saved.line}"[:400])
         return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
-    if phase == "A" and saved.partial and case.get("merimen_caseid"):
-        # an earlier run already made it: say so, change nothing else (the status stays where it is, no new milestone)
-        return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}".strip()[:400], partial=True)
     if phase == "A" and saved.partial:
-        # the case exists in Merimen now: its number is stored so no second case is made, but nothing after the create is automated yet
+        # the case exists in Merimen (made now, or by an earlier run: nothing is made twice). Its number is stored so no second case is made.
+        # After the create come the documents (done by the driver, in `saved.line`) and the photos here; the Adjuster Report is not automated yet.
+        existed = bool(case.get("merimen_caseid"))
+        done_case = {**case, "merimen_caseid": saved.case_id or case.get("merimen_caseid"), "merimen_extid": saved.ext_id or case.get("merimen_extid")}
+        if desk is not None:
+            try:
+                rep = photo_a(done_case)
+            except photo_sync.NotPorted:
+                rep = None
+            except Exception as e:  # noqa: BLE001
+                return _o("failed", case_status="waiting_user", error="photos", event=_photo_error(phase, e), merimen_caseid=saved.case_id, merimen_extid=saved.ext_id)
+            stop = _photo_stop(phase, rep) if rep else None
+            if stop:
+                stop.merimen_caseid, stop.merimen_extid = saved.case_id, saved.ext_id
+                return stop
+        photo_note = f" {rep.line()}" if rep and (rep.photos or not rep.ok) else ""
+        tail = " The Adjuster Report is not automated yet."
+        if existed:
+            return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}{photo_note}{tail}".strip()[:400], partial=True, photo_log=_log(rep))
         return _o(
             "done", case_status=("phase_b" if case.get("photos_done_at") else "waiting_user"), partial=True,
             enqueue=(["phase_b"] if case.get("photos_done_at") else []),  # 完成 was already pressed: Phase B still gets its turn
-            event=("Case created in Merimen. " + (f"{saved.line}. " if saved.line else "") + "The Adjuster Report, documents and photos are not automated yet.")[:400],
-            merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes,
+            event=("Case created in Merimen. " + (f"{saved.line}. " if saved.line else "") + photo_note.strip() + tail)[:400],
+            merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes, photo_log=_log(rep),
         )
     if phase == "A":
         if desk is not None:
             try:
-                rep = photo_a({**case, "merimen_caseid": saved.case_id or case.get("merimen_caseid")})
+                rep = photo_a({**case, "merimen_caseid": saved.case_id or case.get("merimen_caseid"), "merimen_extid": saved.ext_id or case.get("merimen_extid")})
             except photo_sync.NotPorted:
                 rep = None
+            except Exception as e:  # noqa: BLE001
+                return _o("failed", case_status="waiting_user", error="photos", event=_photo_error(phase, e), merimen_caseid=saved.case_id, merimen_extid=saved.ext_id)
             stop = _photo_stop(phase, rep) if rep else None
             if stop:
                 return stop
@@ -219,6 +238,12 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
         require_snapshot=case.get("photos_snapshot") if desk is not None else None,
         stale_event="Phase B saved, but the names changed meanwhile. A new Phase B runs once 完成 is pressed on the new names" + suffix,
     )
+
+
+def _photo_error(phase: str, e: Exception) -> str:
+    """A photo write that broke half way is never retried by itself (a retry could store a photo twice): a person looks at Merimen's list."""
+    code = getattr(e, "code", None) or type(e).__name__
+    return f"Phase {phase} stopped. The photo step failed ({code}). Check the photo list in Merimen by hand before anything is run again."[:400]
 
 
 def _log(rep):
