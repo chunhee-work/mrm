@@ -13,7 +13,7 @@ export const ZIP_LIMITS = {
 
 export type BundleEntry = { name: string; kind: "pdf" | "photo"; bytes: Uint8Array; type: string };
 export class ZipRejected extends Error {
-  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "mixed" | "car_no_pdf" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
+  constructor(public code: "corrupt" | "multi" | "too_many" | "too_many_files" | "too_many_cars" | "car_big" | "mixed" | "car_no_pdf" | "too_big" | "pdf_big" | "bomb" | "empty", message: string) { super(message); this.name = "ZipRejected"; }
 }
 
 const PHOTO = /\.(jpe?g|png|webp|heic)$/i;
@@ -105,7 +105,8 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
     if (pdf && limits.maxPdfBytes && f.size > limits.maxPdfBytes) throw new ZipRejected("pdf_big", ZIP_WHY.pdf_big);
     total += f.size;
     const car = (carBytes.get(pre) ?? 0) + f.size; carBytes.set(pre, car);
-    if (total > limits.maxTotalBytes || (limits.maxCarBytes && car > limits.maxCarBytes)) throw new ZipRejected("too_big", ZIP_WHY.too_big);
+    if (total > limits.maxTotalBytes) throw new ZipRejected("too_big", ZIP_WHY.too_big);
+    if (limits.maxCarBytes && car > limits.maxCarBytes) throw new ZipRejected("car_big", ZIP_WHY.car_big);
     if (buf.length > 0 && total / buf.length > limits.maxRatio) throw new ZipRejected("bomb", ZIP_WHY.bomb);
   }
   for (const p of prefixes) if (!all.some((f) => f.size > 0 && f.name.startsWith(p) && /\.pdf$/i.test(f.name) && usableIn(f.name))) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);
