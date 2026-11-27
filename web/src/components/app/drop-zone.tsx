@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, UploadArt } from "./marks";
 import { UPLOAD_EXT } from "@/lib/upload-rules";
 
+/** What the file pickers offer; keep in step with accepted(). */
+export const ACCEPT = ".zip,.pdf,image/*";
 export function accepted(f: File) {
   return UPLOAD_EXT.test(f.name); // the same list the server enforces (a .gif would be refused there anyway)
 }
@@ -89,7 +91,7 @@ export default function DropZone({
         id={inputId}
         type="file"
         multiple
-        accept=".zip,.pdf,image/*"
+        accept={ACCEPT}
         tabIndex={-1}
         disabled={disabled}
         className="sr-only"
