@@ -41,11 +41,25 @@ test("the new case-page texts exist in all three languages with the same placeho
 });
 
 import { checkPdf, BadFile } from "./read-docs";
+import { MAX_PDF_BYTES } from "./upload-rules";
+import { bodyProblem } from "./case-body";
 test("B06/B07 checkPdf: empty, corrupt and oversize PDFs are refused with the file name; a real header passes", () => {
   const why = (f: () => void) => { try { f(); } catch (e) { return e instanceof BadFile ? e.message : "other"; } return "ok"; };
   assert.equal(why(() => checkPdf("a.pdf", new Uint8Array(0))), "bad_file:a.pdf|empty");
   assert.equal(why(() => checkPdf("b.pdf", Buffer.from("not a pdf"))), "bad_file:b.pdf|corrupt");
   assert.equal(why(() => checkPdf("c.pdf", new Uint8Array(26 * 1024 * 1024).fill(37))), "bad_file:c.pdf|too_big");
+  // one limit for a PDF, the same at upload and at reading: what the upload takes, the reader takes, and nothing more
+  const pdf = (bytes: number) => { const b = Buffer.alloc(bytes, 32); b.write("%PDF-1.7\n1 0 obj<<>>endobj\nstartxref\n"); return b; };
+  assert.equal(MAX_PDF_BYTES, 23 * 1024 * 1024);
+  assert.equal(why(() => checkPdf("f.pdf", pdf(MAX_PDF_BYTES))), "ok");
+  assert.equal(why(() => checkPdf("g.pdf", pdf(MAX_PDF_BYTES + 1))), "bad_file:g.pdf|too_big");
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_s_madeUpForThisTest"; // the made-up store of the URLs below
+  try {
+    assert.equal(bodyProblem({ files: [{ kind: "pdf", url: "https://s.private.blob.vercel-storage.com/org1/b/f.pdf", name: "f.pdf", size: MAX_PDF_BYTES }] }, "org1"), null);
+    assert.equal(bodyProblem({ files: [{ kind: "pdf", url: "https://s.private.blob.vercel-storage.com/org1/b/g.pdf", name: "g.pdf", size: MAX_PDF_BYTES + 1 }] }, "org1"), "pdf_big");
+  } finally { if (token === undefined) delete process.env.BLOB_READ_WRITE_TOKEN; else process.env.BLOB_READ_WRITE_TOKEN = token; }
+  assert.ok(Math.ceil(MAX_PDF_BYTES / 3) * 4 < 32 * 1024 * 1024 - 1024 * 1024); // encoded, the largest PDF leaves 1 MB of the request for the rest
   assert.equal(why(() => checkPdf("d.pdf", Buffer.from("%PDF-1.7\n1 0 obj<<>>endobj\ntrailer<<>>\nstartxref\n0\n%%EOF"))), "ok");
   // R2-B03: a valid header followed by garbage is the customer's file too
   assert.equal(why(() => checkPdf("e.pdf", Buffer.from("%PDF-1.7\n\u0000\u0001garbage garbage"))), "bad_file:e.pdf|corrupt");
@@ -107,4 +121,52 @@ test("a refused read: page limits are not a broken file; the counter names one P
   assert.equal(refusalOf(parsed, ["a.pdf"])!.message, "bad_file:a.pdf|corrupt");
   // the counter could not answer for one: we cannot tell
   assert.equal(refusalOf(pdf400, ["a.pdf", "b.pdf"], ["accepted", "unknown"])!.message, "bad_file:|corrupt");
+});
+
+import { checkFits, readCaseDocs, TIMED_OUT } from "./read-docs";
+test("U5: PDFs that cannot fit one request to the model are refused before anything is sent, with the customer's-file reasons", () => {
+  const MB = 1024 * 1024;
+  const why = (names: string[], sizes: number[]) => { try { checkFits(names, sizes); } catch (e) { return e instanceof BadFile ? e.message : "other"; } return "ok"; };
+  assert.equal(why(["a.pdf"], [20 * MB]), "ok");
+  assert.equal(why(["a.pdf", "b.pdf", "c.pdf"], [10 * MB, 10 * MB, 12 * MB]), "ok"); // exactly the limit still goes
+  // several PDFs, each under its own limit, too much together: "too long for one case", no file named
+  assert.equal(why(["a.pdf", "b.pdf", "c.pdf"], [14 * MB, 14 * MB]), "ok");
+  assert.equal(why(["a.pdf", "b.pdf", "c.pdf"], [14 * MB, 14 * MB, 5 * MB]), "bad_file:|too_long");
+  // one PDF that is too much alone (33 MB once encoded; the per-PDF limit stops such a file before this): that file, by name
+  assert.equal(why(["big.pdf", "b.pdf"], [33 * MB]), "bad_file:big.pdf|too_big");
+  assert.equal(why(["a.pdf", "big.pdf"], [1 * MB, 33 * MB]), "bad_file:big.pdf|too_big");
+  assert.equal(why(["same.pdf", "same.pdf"], [33 * MB]), "bad_file:|too_long"); // a name two files share is never named
+});
+
+test("U5: the reader stops loading at the PDF that breaks the limit and never calls the model", async () => {
+  const MB = 1024 * 1024;
+  const loaded: string[] = [];
+  let called = 0;
+  const files = ["a.pdf", "b.pdf", "c.pdf", "d.pdf"].map((n) => ({ kind: "pdf", blobUrl: n, originalName: n }));
+  const load = async (url: string) => { loaded.push(url); return "x".repeat(12 * MB); };
+  await assert.rejects(readCaseDocs(files, { userId: null, orgId: null, caseId: null }, { load, parse: (async () => { called++; throw new Error("unreachable"); }) as never }), /^BadFile: bad_file:\|too_long$/);
+  assert.deepEqual(loaded, ["a.pdf", "b.pdf", "c.pdf"]); // 36 MB after the third: the fourth is not downloaded
+  assert.equal(called, 0);
+});
+
+test("U10: the model call is ended at the read's deadline and the read fails as 'Reading timed out'; a deadline already passed starts no call", async () => {
+  const files = [{ kind: "pdf", blobUrl: "a", originalName: "a.pdf" }];
+  const load = async () => "JVBERi0=";
+  let seen: { signal?: AbortSignal; timeout?: number } | undefined;
+  // a call that hangs until its signal fires, as the SDK does
+  const hang = ((_ctx: unknown, _params: unknown, deps: { request?: { signal?: AbortSignal; timeout?: number } }) => new Promise((_, reject) => {
+    seen = deps.request;
+    const open = setTimeout(() => {}, 10_000); // an open connection keeps the process alive; the signal's own timer does not
+    deps.request?.signal?.addEventListener("abort", () => { clearTimeout(open); reject(Object.assign(new Error("Request was aborted."), { name: "APIUserAbortError" })); });
+  })) as never;
+  const t0 = Date.now();
+  await assert.rejects(readCaseDocs(files, { userId: null, orgId: null, caseId: null }, { load, parse: hang, deadline: Date.now() + 1300 }), (e: Error) => e.message === TIMED_OUT);
+  assert.ok(Date.now() - t0 < 5000, "ended at the deadline, not at the platform's limit");
+  assert.ok(seen?.signal && typeof seen.timeout === "number" && seen.timeout <= 1300 && seen.timeout > 0);
+  let called = 0;
+  await assert.rejects(readCaseDocs(files, { userId: null, orgId: null, caseId: null }, { load, parse: (async () => { called++; }) as never, deadline: Date.now() - 1 }), (e: Error) => e.message === TIMED_OUT);
+  assert.equal(called, 0);
+  // an error that is not the deadline stays what it was
+  const boom = (async () => { throw Object.assign(new Error("overloaded"), { status: 529 }); }) as never;
+  await assert.rejects(readCaseDocs(files, { userId: null, orgId: null, caseId: null }, { load, parse: boom, deadline: Date.now() + 60_000 }), /overloaded/);
 });

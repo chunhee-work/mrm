@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { keepSignedIn } from "@/lib/keep-signed-in";
 import { useT } from "@/components/lang-provider";
 import { Brand } from "@/components/brand-mark";
 import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
@@ -16,9 +17,20 @@ const isTableView = (sp: { get(k: string): string | null }) => (VIEWS as readonl
 // three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 
-export async function logOut() {
-  await authClient.signOut();
+/**
+ * Signs out and leaves for the front page: the answer is then null. When the sign-out did not get through the user is still
+ * signed in, so the page stays and the answer is the text to show next to the button ("login.offline" with no connection,
+ * else "w.err"); the caller gives the button back for another press. Never throws.
+ */
+export async function logOut(): Promise<null | "login.offline" | "w.err"> {
+  try {
+    const { error } = await authClient.signOut();
+    if (error) return "w.err";
+  } catch {
+    return "login.offline";
+  }
   window.location.href = "/";
+  return null;
 }
 
 /** Closes on Escape (focus back to the trigger) and on a press outside `ref`. */
@@ -85,6 +97,8 @@ function MobileMenu({ email, path, needsYou }: { email: string; path: string; ne
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [outErr, setOutErr] = useState<string | null>(null); // log out did not work: said under the button until the menu is closed
+  useEffect(() => { setOutErr(null); }, [open]); // on closing and on opening: a failure that came back after the menu was closed is not shown later
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const close = useRef((refocus: boolean) => { setOpen(false); if (refocus) trigger.current?.focus(); }).current;
@@ -147,13 +161,14 @@ function MobileMenu({ email, path, needsYou }: { email: string; path: string; ne
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => { setBusy(true); void logOut(); }}
+                onClick={() => { setBusy(true); setOutErr(null); void logOut().then((why) => { if (why) { setBusy(false); setOutErr(why); } }); }}
                 className="-mr-1 flex h-11 shrink-0 items-center gap-2.5 px-1 text-[15px] font-semibold text-ice disabled:opacity-55"
               >
                 {t("nav.logout")}
                 <Exit />
               </button>
             </div>
+            {outErr && <p role="alert" className="field-error pb-2 pl-[14px]" data-testid="logout-error">{t(outErr)}</p>}
           </div>
         </div>
       )}
@@ -214,6 +229,18 @@ function WideRow({ path, blocked }: { path: string; blocked: boolean }) {
 export default function AppBar({ email, newBlocked = false, needsYou = false }: { email: string; newBlocked?: boolean; needsYou?: boolean }) {
   const path = usePathname();
   const onNew = path === "/cases/new";
+  // Signed in: the browser asks the auth server for its session at most once a day, which renews the cookie (keep-signed-in.ts).
+  // Looked at when a page opens, every hour a page stays open in view, and when the tab is looked at again. Nothing is shown.
+  useEffect(() => {
+    if (!email) return;
+    // not from a tab nobody is looking at: a forgotten background tab must not keep the session alive for ever
+    const check = () => { if (!document.hidden) void keepSignedIn(async () => !!(await authClient.getSession()).data); };
+    check();
+    const id = setInterval(check, 60 * 60 * 1000);
+    const onShow = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onShow);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onShow); };
+  }, [email]);
   return (
     // a wide screen has the side bar instead (side-bar.tsx): this bar is for phones and tablets
     <header className="sticky top-0 z-40 border-b border-hair bg-panel lg:hidden">

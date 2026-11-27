@@ -90,14 +90,25 @@ export type UndoEntry = { caseId: string; photoId: number; prev: string | null; 
 export class UndoStack {
   private list: UndoEntry[] = [];
   get size() { return this.list.length; }
-  /** Recorded only after the server confirmed the write. Saves of one typing session collapse into one step. */
-  push(e: UndoEntry) {
+  /**
+   * Recorded only after the server confirmed the write. Saves of one typing session collapse into one step. `now` is the name after
+   * this save: a session that ends on the name it started from (Escape after an autosave) leaves no step at all.
+   */
+  push(e: UndoEntry, now?: string | null) {
     const top = this.list[this.list.length - 1];
-    if (e.session && top && top.session === e.session && top.photoId === e.photoId && top.caseId === e.caseId) { top.after = e.after; return; }
+    if (e.session && top && top.session === e.session && top.photoId === e.photoId && top.caseId === e.caseId) {
+      if (now !== undefined && now === top.prev) this.done(top, e.after);
+      else top.after = e.after;
+      return;
+    }
     this.list.push(e);
     if (this.list.length > 200) this.list.shift();
   }
-  peek(): UndoEntry | undefined { return this.list[this.list.length - 1]; }
+  /** The newest step, of `caseId` only when one is given: Ctrl+Z on one case never takes back a change made on another. */
+  peek(caseId?: string): UndoEntry | undefined {
+    for (let i = this.list.length - 1; i >= 0; i--) if (caseId === undefined || this.list[i].caseId === caseId) return this.list[i];
+    return undefined;
+  }
   /** The undo went through as version `newVersion`: the entry leaves, and the step before it on that photo now follows the new version. */
   done(e: UndoEntry, newVersion: number) {
     this.list = this.list.filter((x) => x !== e);
@@ -139,4 +150,56 @@ export function fileProblem(f: { name: string; type: string; size: number }, max
   if (!/^image\/(jpeg|png|webp)$/.test(f.type)) return "type";
   if (f.size > maxBytes) return "size";
   return null;
+}
+
+/**
+ * What an answer of the upload token route means for one file: null = no refusal (allowed, or a fault on the server, so the upload is
+ * worth another try); otherwise the reason, and the file is not tried again. "duplicate" = this very photo is already in the case.
+ */
+export function uploadRefusal(status: number, error: unknown): "duplicate" | "limit" | "status" | "upload" | null {
+  if (status < 400 || status >= 500) return null;
+  if (error === "duplicate" || error === "taken") return "duplicate";
+  return error === "limit" || error === "status" ? error : "upload";
+}
+
+// ---- 完成 once the saves it waited for are over (naming-desk pressDone) ----
+export type DonePress =
+  | { do: "nothing" }
+  | { do: "undo" }
+  | { do: "block"; reason: "empty" | "naming" | "unnamed"; n: number }
+  | { do: "send" };
+/**
+ * What a press on 完成 does after it waited for the saves of its case.
+ * `saveFailed`: one of those saves did not go through. Its message is on screen and stays there; nothing is sent, or the case would go
+ * on with the old name under a "Finished" line.
+ * `here`: the case is still the one on screen. If the user has opened another case meanwhile the press still counts: 完成 is sent for
+ * the case it was pressed on and the server checks the names. Only what happens on the screen (saying what blocks, the walk to an
+ * unnamed photo) is left out.
+ */
+export function donePress(x: { done: boolean; saveFailed: boolean; here: boolean; photos: Photo[] }): DonePress {
+  // Taking "Finished" back is always safe, also after a failed save: the case just stays open.
+  if (x.done) return { do: "undo" };
+  if (x.saveFailed) return { do: "nothing" };
+  const n = counts(x.photos);
+  const block: DonePress | null = !n.total ? { do: "block", reason: "empty", n: 0 }
+    : n.naming ? { do: "block", reason: "naming", n: n.naming }
+    : n.unnamed ? { do: "block", reason: "unnamed", n: n.unnamed } : null;
+  // Another case is in front: what blocks this one is not said on that case's page, and a Done the server would refuse is not sent.
+  if (block) return x.here ? block : { do: "nothing" };
+  return { do: "send" };
+}
+
+/**
+ * Escape in the name box: may the name from before the edit be saved back? Only over a name this edit stored itself: its save is
+ * still on its way (`flying` = the edits of the saves of this photo that are out or queued), or its last save went through and is
+ * still what the server holds (`stored`). A name another tab stored meanwhile is never written over.
+ * `orig` = the photo's own name before this edit, `shown` = its own name on the page now.
+ */
+export function escapeRestores(x: {
+  orig: string | null; shown: string | null; stored: string | null | undefined; session: string;
+  flying: (string | undefined)[]; saved: { session: string; name: string | null } | null;
+}): boolean {
+  if (x.shown === x.orig) return false;
+  if (x.flying.includes(x.session)) return true;
+  return x.saved?.session === x.session && x.stored === x.saved.name;
 }

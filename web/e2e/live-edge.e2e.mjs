@@ -16,6 +16,8 @@ async function ctxOf(view = { width: 390, height: 844 }, lang = "en", signed = f
 }
 function watch(p) { const e = []; p.on("pageerror", (x) => e.push("pageerror " + x.message.slice(0, 120))); p.on("console", (m) => { if (m.type() === "error" && !/status of 40[0134]/.test(m.text())) e.push(m.text().slice(0, 120)); }); return e; }
 const wide = (p) => p.evaluate(() => innerWidth);
+// the dashboard is one page now: a case is a line (li[data-line=<id>]) that opens in place, not a link to /cases/<id>
+const firstCase = async (p) => { await p.goto(BASE + "/dashboard", { waitUntil: "networkidle" }); return "/cases/" + await p.$eval("li[data-line]", (li) => li.getAttribute("data-line")); };
 async function step(name, fn) { try { await fn(); } catch (e) { res(name, false, "threw: " + e.message.split("\n")[0].slice(0, 140)); } }
 
 // 1 login errors (non-existent email so the smoke account is never locked)
@@ -43,20 +45,23 @@ await step("signed-out redirect", async () => { const c = await ctxOf(); const p
 // 5 language switch by UI on the dashboard
 await step("language switch", async () => { const c = await ctxOf({ width: 1440, height: 900 }, "en", true); const p = await c.newPage(); const e = watch(p);
   await p.goto(BASE + "/dashboard", { waitUntil: "networkidle" });
-  const btn = p.getByRole("button", { name: /EN|language|bahasa|语言/i }).first(); await btn.click(); await p.waitForTimeout(400);
-  const zh = p.getByText(/中文/).first(); await zh.click(); await p.waitForLoadState("networkidle"); await p.waitForTimeout(800);
+  // the language lives in the account menu at the foot of the side bar now
+  await p.locator('[aria-controls="account-menu"]:visible').first().click(); await p.waitForTimeout(300);
+  await p.getByTestId("side-lang").click(); await p.waitForTimeout(300);
+  await p.locator('button[lang="zh-CN"]:visible').first().click(); await p.waitForLoadState("networkidle"); await p.waitForTimeout(800);
   const lang = await p.evaluate(() => document.documentElement.lang); const body = await p.innerText("main");
   res("language switch to 中文", /^zh/.test(lang) && /[一-鿿]/.test(body) && !e.length, `html lang=${lang} ${e.join("; ")}`); await p.screenshot({ path: `${SH}/lang-switch-zh.png` });
   await p.reload({ waitUntil: "networkidle" }); res("language kept after reload", /^zh/.test(await p.evaluate(() => document.documentElement.lang)));
   await c.close(); });
-// 6 back / forward through dashboard → case → desk
+// 6 back / forward through dashboard → the line opened in place → desk
 await step("back-forward", async () => { const c = await ctxOf({ width: 390, height: 844 }, "en", true); const p = await c.newPage(); const e = watch(p);
-  await p.goto(BASE + "/dashboard", { waitUntil: "networkidle" });
-  const href = await p.$eval('a[href^="/cases/"]:not([href="/cases/new"])', (a) => a.getAttribute("href"));
-  await p.click(`a[href="${href}"]`); await p.waitForURL("**" + href); await p.goto(BASE + href + "/photos", { waitUntil: "networkidle" });
-  await p.goBack(); await p.waitForTimeout(1500); await p.goBack(); await p.waitForTimeout(1500);
+  const href = await firstCase(p);
+  await p.locator('li[data-line] [data-testid="home-row"]').first().click({ position: { x: 20, y: 10 } }); await p.waitForTimeout(1200);
+  const opened = await p.locator('[data-testid="home-more"]').count();
+  await p.goto(BASE + href + "/photos", { waitUntil: "networkidle" });
+  await p.goBack(); await p.waitForTimeout(1500);
   const at = new URL(p.url()).pathname; await p.goForward(); await p.waitForTimeout(1500);
-  res("back/forward dashboard→case→desk", at === "/dashboard" && !e.length && (await wide(p)) === 390, `back at ${at} ${e.join("; ")}`); await c.close(); });
+  res("back/forward dashboard→open line→desk", opened === 1 && at === "/dashboard" && !e.length && (await wide(p)) === 390, `opened ${opened}, back at ${at} ${e.join("; ")}`); await c.close(); });
 // 7 new case: choose 30 files, Remove all, choose again — nothing uploaded
 await step("new case many files", async () => { const c = await ctxOf({ width: 390, height: 844 }, "zh", true); const p = await c.newPage(); const e = watch(p);
   await p.goto(BASE + "/cases/new", { waitUntil: "networkidle" });
@@ -70,12 +75,12 @@ await step("new case many files", async () => { const c = await ctxOf({ width: 3
 // 8 small phone 320 and tablet 768 on key pages
 for (const vw of [320, 768]) await step(`width ${vw}`, async () => { const c = await ctxOf({ width: vw, height: 800 }, "zh", true); const p = await c.newPage(); const e = watch(p);
   const bad = []; for (const u of ["/dashboard", "/cases/new", "/settings", "/billing"]) { await p.goto(BASE + u, { waitUntil: "networkidle" }); const w = await wide(p); const sw = await p.evaluate(() => document.documentElement.scrollWidth); if (w !== vw || sw > vw + 1) bad.push(`${u} ${w}/${sw}`); await p.screenshot({ path: `${SH}/w${vw}${u.replace(/\//g, "_")}.png` }); }
-  const href = await (await p.goto(BASE + "/dashboard", { waitUntil: "networkidle" }), p.$eval('a[href^="/cases/"]:not([href="/cases/new"])', (a) => a.getAttribute("href")));
+  const href = await firstCase(p);
   await p.goto(BASE + href + "/photos", { waitUntil: "networkidle" }); const w = await wide(p); if (w !== vw) bad.push(`desk ${w}`); await p.screenshot({ path: `${SH}/w${vw}_desk.png` });
   res(`no sideways scroll at ${vw}px (中文)`, !bad.length && !e.length, bad.join(", ") + " " + e.join("; ")); await c.close(); });
 // 9 desk keyboard + help, desktop
 await step("desk keyboard", async () => { const c = await ctxOf({ width: 1440, height: 900 }, "en", true); const p = await c.newPage(); const e = watch(p);
-  await p.goto(BASE + "/dashboard", { waitUntil: "networkidle" }); const href = await p.$eval('a[href^="/cases/"]:not([href="/cases/new"])', (a) => a.getAttribute("href"));
+  const href = await firstCase(p);
   await p.goto(BASE + href + "/photos", { waitUntil: "networkidle" });
   for (const k of ["ArrowRight", "ArrowRight", "ArrowLeft", "ArrowDown", "Escape", "?"]) { await p.keyboard.press(k); await p.waitForTimeout(150); }
   await p.screenshot({ path: `${SH}/desk-keys.png` }); await p.keyboard.press("Escape");

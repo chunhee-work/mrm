@@ -13,8 +13,10 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { and, eq, sql } from "drizzle-orm";
 import { zipSync, strToU8 } from "fflate";
+import * as nextServer from "next/server";
 import * as schema from "../src/db/schema";
 
+delete process.env.BLOB_READ_WRITE_TOKEN; // no store is pinned here, whatever this machine has set: the hosts below are made up
 const root = path.resolve(__dirname, "..");
 const pg = new PGlite();
 const db = drizzle(pg, { schema });
@@ -24,6 +26,7 @@ let slot: number | null = null; // the workshop row the split writes (2 or 3), o
 const blobs = new Map<string, Buffer>();
 let failPutAt = 0; // when set, the put with this number (counted from when it was set) throws
 let puts = 0;
+let putDelay = 0, inflight = 0, maxInflight = 0; // a slow blob store: puts that overlap are counted
 const blobStub = {
   get: async (url: string) => {
     const b = blobs.get(url);
@@ -32,16 +35,23 @@ const blobStub = {
   put: async (p: string, body: Buffer) => {
     puts++;
     if (failPutAt && puts === failPutAt) throw new Error("blob store down");
+    inflight++; maxInflight = Math.max(maxInflight, inflight);
+    if (putDelay) await new Promise((r) => setTimeout(r, putDelay));
+    inflight--;
     const url = `https://store.public.blob.vercel-storage.com/${p}`;
     blobs.set(url, Buffer.from(body));
     return { url, pathname: p };
   },
   del: async (u: string | string[]) => { for (const x of [u].flat()) blobs.delete(x); },
+  list: async ({ prefix }: { prefix: string }) => ({ blobs: [...blobs.keys()].filter((k) => new URL(k).pathname.startsWith(`/${prefix}`)).map((url) => ({ url, pathname: new URL(url).pathname.slice(1) })), hasMore: false }),
 };
+const afters: (() => unknown)[] = []; // what a route asked to run after its response (the automatic read)
 const stubs: Record<string, unknown> = {
   "server-only": {},
   "@/db": { db, schema },
   "@vercel/blob": blobStub,
+  "next/server": { ...nextServer, after: (fn: () => unknown) => { afters.push(fn); } },
+  "@/lib/scan-case": { scanCase: async () => ({ ok: true, missing: [], claimed: true }) },
   "@/lib/session": { getUserOrNull: async () => ({ user: { id: "u1" }, orgId: ORG }) },
   "@/lib/ext/worker-store": { profileBlocks: async () => false },
   "@/lib/ext/workshops": { slotToStore: async () => slot },
@@ -76,9 +86,29 @@ async function main() {
   process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
   const { POST } = await import("../src/app/api/cases/split/route");
   const call = async (body: unknown) => { const r = await POST(new Request("http://x/api/cases/split", { method: "POST", body: JSON.stringify(body) })); return { status: r.status, j: (await r.json()) as any }; };
-  const reset = async () => { await pg.exec("DELETE FROM cases; DELETE FROM credits_ledger; DELETE FROM audit_log;"); blobs.clear(); failPutAt = 0; puts = 0; slot = null; };
+  const reset = async () => { await pg.exec("DELETE FROM cases; DELETE FROM credits_ledger; DELETE FROM audit_log;"); blobs.clear(); failPutAt = 0; puts = 0; slot = null; afters.length = 0; };
   const children = async () => Number(((await db.execute(sql`SELECT (SELECT count(*) FROM case_files) + (SELECT count(*) FROM jobs) + (SELECT count(*) FROM case_events) + (SELECT count(*) FROM merimen_case_workshop) AS n`)) as any).rows[0].n);
   const fund = (n: number) => db.insert(schema.creditsLedger).values({ orgId: ORG, delta: 1000 * n, reason: `purchase:${crypto.randomUUID()}` });
+  // the credit calls of the routes imported from here on go through a wrapper that can fail on demand
+  const realCredit = await import("../src/lib/payments/case-credit");
+  const credit = { real: realCredit, debitThrows: false, refundThrows: false, spendFirst: false };
+  stubs["@/lib/payments/case-credit"] = {
+    ...realCredit,
+    debitCase: async (o: string, c: string) => {
+      if (credit.spendFirst) await db.insert(schema.creditsLedger).values({ orgId: ORG, delta: -1000, reason: `spent:${crypto.randomUUID()}` }); // another case took the last credit
+      const r = await realCredit.debitCase(o, c);
+      if (credit.debitThrows) throw new Error("connection lost");
+      return r;
+    },
+    refundCase: async (o: string, c: string, why?: string) => { if (credit.refundThrows) throw new Error("connection lost"); return realCredit.refundCase(o, c, why); },
+  };
+  const { POST: createCase } = await import("../src/app/api/cases/route");
+  const { POST: addFilesRoute } = await import("../src/app/api/cases/[id]/files/route");
+  const create = async (body: unknown) => { const r = await createCase(new Request("http://x/api/cases", { method: "POST", body: JSON.stringify(body) })); return { status: r.status, j: (await r.json()) as any }; };
+  const store = (p: string) => `https://store.public.blob.vercel-storage.com/${ORG}/${p}`;
+  const newBody = (pdfName = "report..final.pdf") => ({ files: [{ kind: "pdf", url: store(`b1/${encodeURIComponent(pdfName)}`), name: pdfName, size: 10 }, { kind: "photo", url: store("b1/IMG..1.jpg"), name: "IMG..1.jpg", size: 5 }] });
+  const addFile = (id: string, name: string) => ({ kind: "pdf", url: store(`${id}-add-1/${encodeURIComponent(name)}`), name, size: 10 });
+  const addFiles = (id: string, files: unknown[]) => addFilesRoute(new Request("http://x", { method: "POST", body: JSON.stringify({ files }) }), { params: Promise.resolve({ id }) });
 
   const tests: [string, () => Promise<void>][] = [
     ["two car folders become two cases, 1 credit each, with their files; the zip is deleted and the lock released", async () => {
@@ -196,6 +226,161 @@ async function main() {
       await mk("r2", "bad_file:a.pdf|corrupt"); // the user's own bad file: still paid for
       assert.equal(await bal(), 1000);
       assert.equal((await send("r2")).status, 200); assert.equal(await bal(), 1000);
+    }],
+    ["U7 a car's files are stored up to 16 at a time (4 at a time ran out the 300 s call on a big zip)", async () => {
+      await reset(); await fund(2);
+      const files: Record<string, Uint8Array> = { "DCD4004/a.pdf": pdf("a"), "NCH5773/b.pdf": pdf("b") };
+      for (let i = 0; i < 40; i++) files[`DCD4004/p${String(i).padStart(2, "0")}.jpg`] = new Uint8Array([0xff, 0xd8, i]);
+      putDelay = 30; maxInflight = 0;
+      let r; try { r = await call(upload(files)); } finally { putDelay = 0; }
+      assert.equal(r.status, 200);
+      assert.ok(maxInflight > 4 && maxInflight <= 16, `puts overlap, more than 4 and at most 16 (got ${maxInflight})`);
+      const names = (await db.select().from(schema.caseFiles)).filter((f) => f.kind === "photo").map((f) => f.originalName);
+      assert.deepEqual(names, Object.keys(files).filter((k) => k.endsWith(".jpg")).map((k) => k.split("/").pop())); // the zip's order is kept
+    }],
+    ["U7 files a killed split left in the store are removed by a later split; a made case keeps its files; a clean split leaves no note", async () => {
+      await reset(); await fund(5);
+      const notes = () => db.select().from(schema.auditLog).where(and(eq(schema.auditLog.orgId, ORG), eq(schema.auditLog.action, "case.split.try")));
+      const orphan = crypto.randomUUID(), madeId = crypto.randomUUID(), running = crypto.randomUUID();
+      const at = (id: string, f: string) => `https://store.public.blob.vercel-storage.com/${ORG}/${id}/${f}`;
+      for (const id of [orphan, madeId, running]) { blobs.set(at(id, "a.pdf"), Buffer.from("x")); blobs.set(at(id, "1.jpg"), Buffer.from("y")); }
+      await db.insert(schema.cases).values({ id: madeId, orgId: ORG, plate: "OLD1", status: "uploaded" });
+      // the killed call noted its two cars ten minutes ago; another call noted one just now and may still be running
+      await db.insert(schema.auditLog).values({ orgId: ORG, userId: "u1", action: "case.split.try", detail: `${orphan},${madeId}`, at: new Date(Date.now() - 10 * 60_000) });
+      await db.insert(schema.auditLog).values({ orgId: ORG, userId: "u1", action: "case.split.try", detail: running });
+      const { status } = await call(upload(TWO));
+      assert.equal(status, 200);
+      assert.equal(blobs.has(at(orphan, "a.pdf")), false); assert.equal(blobs.has(at(orphan, "1.jpg")), false); // never made: removed
+      assert.equal(blobs.has(at(madeId, "a.pdf")), true); // its case exists
+      assert.equal(blobs.has(at(running, "a.pdf")), true); // too young to judge
+      assert.deepEqual((await notes()).map((n) => n.detail), [running]); // the old note is gone, this call's own note too
+      // a split that fails and rolls everything back leaves no note either
+      failPutAt = puts + 1;
+      assert.equal((await call(upload({ "AAA1/a.pdf": pdf("a"), "BBB2/b.pdf": pdf("b") }))).status, 500);
+      assert.deepEqual((await notes()).map((n) => n.detail), [running]);
+    }],
+    ["U6 new case: the case, its files, job and activity line are written, one credit is taken, the read is started", async () => {
+      await reset(); await fund(2); slot = 2;
+      const { status, j } = await create(newBody());
+      assert.equal(status, 200);
+      const [c] = await cases();
+      assert.equal(c.id, j.id); assert.equal(c.status, "uploaded");
+      assert.deepEqual((await db.select().from(schema.caseFiles)).map((f) => [f.kind, f.originalName]), [["pdf", "report..final.pdf"], ["photo", "IMG..1.jpg"]]); // U3: dots in a name
+      assert.equal((await db.select().from(schema.jobs)).length, 1);
+      assert.deepEqual((await db.select().from(schema.caseEvents)).map((e) => e.message), ["Received 2 file(s)"]);
+      assert.deepEqual((await db.select().from(schema.merimenCaseWorkshop)).map((w) => [w.caseId, w.slot]), [[j.id, 2]]);
+      assert.equal(await bal(), 1000); assert.equal(afters.length, 1);
+    }],
+    ["U6 new case whose rows cannot be written: 500, no case is left, no credit is taken, nothing is read", async () => {
+      await reset(); await fund(2);
+      const { status, j } = await create(newBody("bad\u0000name.pdf")); // the database refuses this name: the file rows fail
+      assert.equal(status, 500); assert.equal(j.error, "failed");
+      assert.equal((await cases()).length, 0); assert.equal(await children(), 0);
+      assert.equal(await bal(), 2000); assert.equal(afters.length, 0);
+    }],
+    ["U6 new case when taking the credit fails halfway: the credit goes back and the case is removed (500)", async () => {
+      await reset(); await fund(2);
+      credit.debitThrows = true; // the credit is taken, then the call fails
+      try {
+        const { status } = await create(newBody());
+        assert.equal(status, 500);
+        assert.equal((await cases()).length, 0); assert.equal(await children(), 0);
+        assert.equal(await bal(), 2000); assert.equal(afters.length, 0);
+      } finally { credit.debitThrows = false; }
+    }],
+    ["U6 new case when the credit can be neither taken for sure nor given back: the case stays and is answered as made, never an error with a case in the list", async () => {
+      await reset(); await fund(2);
+      credit.debitThrows = true; credit.refundThrows = true;
+      try {
+        const { status, j } = await create(newBody());
+        assert.equal(status, 200);
+        assert.deepEqual((await cases()).map((c) => c.id), [j.id]);
+        assert.equal(await bal(), 1000); assert.equal(afters.length, 1); // paid for once, and read
+      } finally { credit.debitThrows = false; credit.refundThrows = false; }
+    }],
+    ["U6 new case without a credit: 402 and no case", async () => {
+      await reset();
+      const { status, j } = await create(newBody());
+      assert.equal(status, 402); assert.equal(j.error, "no_credits");
+      assert.equal((await cases()).length, 0); assert.equal(afters.length, 0);
+      // the last credit goes between the first look and the debit: the case just made is removed again
+      await fund(1); credit.spendFirst = true;
+      try {
+        const late = await create(newBody());
+        assert.equal(late.status, 402); assert.equal((await cases()).length, 0); assert.equal(await children(), 0); assert.equal(await bal(), 0);
+      } finally { credit.spendFirst = false; }
+    }],
+    ["a new case that is not paid for and cannot be removed stays unread: no read is started for it (402 without a credit; answered as made when its credit went back)", async () => {
+      // the database refuses to delete a case, as when it is out of reach at that moment
+      const stuck = (on: boolean) => pg.exec(on
+        ? "CREATE FUNCTION no_delete() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'cannot delete now'; END $$ LANGUAGE plpgsql; CREATE TRIGGER no_delete BEFORE DELETE ON cases FOR EACH ROW EXECUTE FUNCTION no_delete();"
+        : "DROP TRIGGER IF EXISTS no_delete ON cases; DROP FUNCTION IF EXISTS no_delete();");
+      await reset(); await fund(1);
+      const quiet = console.error; console.error = () => {};
+      await stuck(true); credit.spendFirst = true; // the last credit goes to another case between the first look and the debit
+      try {
+        const { status, j } = await create(newBody());
+        assert.equal(status, 402); assert.equal(j.error, "no_credits");
+        assert.deepEqual((await cases()).map((c) => c.status), ["uploaded"]); // it could not be removed
+        assert.equal(afters.length, 0); // and nothing reads it for free
+        assert.equal(await bal(), 0); // the other case's credit only: this one took none
+      } finally { credit.spendFirst = false; await stuck(false); }
+      await reset(); await fund(2);
+      await stuck(true); credit.debitThrows = true; // the credit is taken, the call fails, the credit goes back, the case cannot be removed
+      try {
+        const { status, j } = await create(newBody());
+        assert.equal(status, 200);
+        assert.deepEqual((await cases()).map((c) => [c.id, c.status]), [[j.id, "uploaded"]]);
+        assert.equal(await bal(), 2000); // given back
+        assert.equal(afters.length, 0); // so its read is not started
+      } finally { credit.debitThrows = false; await stuck(false); console.error = quiet; }
+    }],
+    ["U8 new case and added files: a file URL that is not on the file store is refused (400), nothing is made", async () => {
+      await reset(); await fund(2);
+      for (const url of ["http://169.254.169.254/org1/b/a.pdf", `https://x.example/${ORG}/b/a.pdf`, `https://store.public.blob.vercel-storage.com/other-org/b/a.pdf`]) {
+        const { status, j } = await create({ files: [{ kind: "pdf", url, name: "a.pdf", size: 10 }] });
+        assert.equal(status, 400, url); assert.equal(j.error, "prefix");
+      }
+      assert.equal((await cases()).length, 0); assert.equal(await bal(), 2000);
+      await db.insert(schema.cases).values({ id: "w0", orgId: ORG, plate: "", status: "pending_doc", pendingDoc: "police report" });
+      const r = await addFiles("w0", [{ kind: "pdf", url: `https://x.example/${ORG}/w0-add-1/a.pdf`, name: "a.pdf", size: 10 }]);
+      assert.equal(r.status, 400);
+      assert.equal((await cases())[0].status, "pending_doc"); assert.equal(await children(), 0);
+    }],
+    ["U12 Replace files: in one step the case is queued, the file that could not be opened leaves and the new one (same name) arrives", async () => {
+      await reset();
+      await db.insert(schema.cases).values({ id: "f1", orgId: ORG, plate: "", status: "failed", error: "bad_file:a.pdf|corrupt" });
+      await db.insert(schema.caseFiles).values([{ caseId: "f1", kind: "pdf", blobUrl: "old-bad", originalName: "a.pdf" }, { caseId: "f1", kind: "pdf", blobUrl: "old-good", originalName: "b.pdf" }]);
+      const r = await addFiles("f1", [addFile("f1", "a.pdf")]);
+      assert.equal(r.status, 200);
+      const [c] = await cases();
+      assert.equal(c.status, "uploaded"); assert.equal(c.error, null);
+      const fs = await db.select().from(schema.caseFiles);
+      assert.deepEqual(fs.map((f) => [f.originalName, f.blobUrl.startsWith("https://")]).sort(), [["a.pdf", true], ["b.pdf", false]]);
+      assert.deepEqual((await db.select().from(schema.caseEvents)).map((e) => e.message), ["Received 1 more file(s)"]);
+      assert.equal((await db.select().from(schema.jobs)).length, 1);
+    }],
+    ["U12 added files that cannot be written: the case stays exactly as it was (never 'uploaded' without its files) and a credit taken for it goes back", async () => {
+      await reset(); await fund(1);
+      const { ZIP_WHY } = await import("../src/lib/case-text");
+      const error = `cars.zip: ${ZIP_WHY.multi}`;
+      await db.insert(schema.cases).values({ id: "f2", orgId: ORG, plate: "", status: "failed", error });
+      await db.insert(schema.caseFiles).values({ caseId: "f2", kind: "bundle_zip", blobUrl: "zip", originalName: "cars.zip" });
+      await credit.real.debitCase(ORG, "f2"); await credit.real.refundCase(ORG, "f2"); // the one-case read gave it back
+      assert.equal(await bal(), 1000);
+      await assert.rejects(addFiles("f2", [addFile("f2", "bad\u0000name.pdf")]));
+      const [c] = await cases();
+      assert.equal(c.status, "failed"); assert.equal(c.error, error);
+      assert.deepEqual((await db.select().from(schema.caseFiles)).map((f) => f.originalName), ["cars.zip"]); // the refused zip was not taken out either
+      assert.equal((await db.select().from(schema.jobs)).length, 0); assert.equal((await db.select().from(schema.caseEvents)).length, 0);
+      assert.equal(await bal(), 1000);
+    }],
+    ["U12 two sends for the same waiting case at once: one is taken, the other is told 'not waiting', the files are added once", async () => {
+      await reset();
+      await db.insert(schema.cases).values({ id: "f3", orgId: ORG, plate: "", status: "pending_doc", pendingDoc: "police report" });
+      const rs = await Promise.all([addFiles("f3", [addFile("f3", "a.pdf")]), addFiles("f3", [addFile("f3", "a.pdf")])]);
+      assert.deepEqual(rs.map((r) => r.status).sort(), [200, 409]);
+      assert.equal((await db.select().from(schema.caseFiles)).length, 1); assert.equal((await db.select().from(schema.jobs)).length, 1);
     }],
   ];
   let failed = 0;

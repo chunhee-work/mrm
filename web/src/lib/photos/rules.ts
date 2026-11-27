@@ -1,12 +1,14 @@
 // Pure rules of the photo naming desk (plan #9). No I/O here, so everything is unit-tested (test/photos.test.ts).
 import NAMES_JSON from "../part-names.json";
 import { PHOTO_RULES } from "../playbook/photo-rules";
+import { climbs } from "../blob-url";
 
 /** The closed list: Merimen part names in the owner's combined spelling. */
 export const PART_NAMES: readonly string[] = NAMES_JSON as string[];
 const BY_LOWER = new Map(PART_NAMES.map((n) => [n.toLowerCase(), n]));
 export const NONE = "__none__";
 export const MAX_NAME = 120;
+export const MAX_EXTRAS = 100; // parts with no photo per case: far above any real claim, it only stops a runaway list
 export const LOW_CONFIDENCE = 0.9; // below this a model name is "to confirm"
 export const SLICE = 8; // photos named per Claude call
 export const NEIGHBOURS = 2; // context photos on each side
@@ -106,7 +108,12 @@ export function statusAfterDone(status: string, done: boolean): string {
   if (done) return status === "waiting_user" || status === "naming" ? "phase_b" : status;
   return status === "phase_b" ? "waiting_user" : status;
 }
-export const statusAfterRegister = (status: string) => (status === "uploaded" || status === "phase_a" ? "naming" : status);
+/**
+ * Case status after photos were added on the desk: never moved. It used to become `naming` from `uploaded` and `phase_a`, a status no
+ * other part picks up: the document read only takes `uploaded`, the worker only `phase_a`, `waiting_user`, `phase_b` and `checking`,
+ * so the case waited for ever with its jobs still queued.
+ */
+export const statusAfterRegister = (status: string) => status;
 
 /** Blob path of one upload: `<org>/<case>/photos/<id>-<f|s>-<safe name>`. */
 export function photoPath(orgId: string, caseId: string, id: string, size: "f" | "s", fileName: string): string {
@@ -114,7 +121,7 @@ export function photoPath(orgId: string, caseId: string, id: string, size: "f" |
   return `${orgId}/${caseId}/photos/${id}-${size}-${safe}`;
 }
 export function pathInCase(path: unknown, orgId: string, caseId: string): path is string {
-  return typeof path === "string" && path.length < 400 && path.startsWith(`${orgId}/${caseId}/photos/`) && !path.includes("..") && !path.includes("//") && !/[\u0000-\u001f\\]/.test(path);
+  return typeof path === "string" && path.length < 400 && path.startsWith(`${orgId}/${caseId}/photos/`) && !climbs(path) && !path.includes("//") && !/[\u0000-\u001f\\]/.test(path);
 }
 
 // USD per 1M tokens. Only for the per-case usage ledger and the cost cap.

@@ -3,8 +3,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { authProblem, type AuthProblem } from "@/lib/auth-problem";
 import { useT } from "@/components/lang-provider";
 import { LANGS, LANG_LABEL, MAX_PASSWORD, type Lang } from "@/lib/i18n";
+
+// What to say when the password was not changed, by the server's own reason: only a wrong current password says so.
+const PW_FAIL: Record<AuthProblem, string> = {
+  wrongPassword: "set.pwWrong", passwordLong: "signup.passwordLong", passwordShort: "set.pwShort",
+  tooMany: "auth.tooMany", offline: "login.offline", unverified: "w.err", badLogin: "w.err", other: "w.err",
+};
 
 export default function Settings({ email, company }: { email: string; company: string }) {
   const { t, lang } = useT();
@@ -27,9 +34,9 @@ export default function Settings({ email, company }: { email: string; company: s
     setBusy(true); setMsg(null);
     try {
       const { error } = await authClient.changePassword({ currentPassword: cur, newPassword: next, revokeOtherSessions: true });
-      if (error) setMsg({ ok: false, key: error.status === 429 ? "auth.tooMany" : error.code === "PASSWORD_TOO_LONG" ? "signup.passwordLong" : error.status && error.status < 500 ? "set.pwWrong" : "login.offline" });
+      if (error) setMsg({ ok: false, key: PW_FAIL[authProblem(error)] });
       else { setMsg({ ok: true, key: "set.pwDone" }); setCur(""); setNext(""); setAgain(""); }
-    } catch { setMsg({ ok: false, key: "set.pwWrong" }); }
+    } catch { setMsg({ ok: false, key: "login.offline" }); } // no answer came back: nothing is known about the password
     setBusy(false);
   }
   function pickLang(l: Lang) {

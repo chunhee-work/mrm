@@ -39,7 +39,12 @@ export type Embed = { initial: File[] | "lost"; more?: { n: number; files: File[
 export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: string; workshops?: WorkshopOpt[]; embed?: Embed }) {
   const router = useRouter();
   const [ws, setWs] = useState(1); // which workshop the case belongs to (only asked when the account has two or more)
-  const wsBody = workshops.length >= 2 && ws !== 1 ? { workshop: ws } : {};
+  // Dropped or picked files go up at once, so the choice can still be made while they upload: it is read when the case is
+  // made (after the last file is up), not when the send started. From that moment a change could no longer count, so the
+  // picker is closed (`wsLock`: at once, before the next render).
+  const wsNow = useRef(ws); wsNow.current = ws;
+  const wsLock = useRef(false);
+  const wsBody = () => { wsLock.current = true; return workshops.length >= 2 && wsNow.current !== 1 ? { workshop: wsNow.current } : {}; };
   const { t } = useT();
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -92,7 +97,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
       // a zip whose list could not be read may still hold several cars, so it waits too
       const unsure = ok.some((x) => carsOf(x) > 1 || (kindOf(x) === "bundle_zip" && zipCars.current.get(keyOf(x)) === null));
       if (ok.length && !leftOut && !unsure) void send(ok);
-    });
+    }, () => { setBusy(false); setMsg(t("new.dropLost")); }); // the files could not be looked at: the box is free again, never left busy
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -114,6 +119,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
     if (!busy && reached.current) { reached.current = false; onEnded?.(); } // a send that reached the server ended: the list may have changed
   }, [busy, onBusy, onEnded]);
   useEffect(() => () => onBusy?.(false), [onBusy]);
+  useEffect(() => { if (!busy) wsLock.current = false; }, [busy]); // the send ended without a case: the workshop can be chosen again
 
   // B11: leaving or reloading while files go up throws the upload away, so ask first (links inside the app too)
   useEffect(() => {
@@ -225,7 +231,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
       if (multi || unknown) { // one zip, several vehicles: the server makes one case per vehicle
         // a lost connection does not stop the server: cars may be made, so the message is the split one, not "nothing happened"
         reached.current = true; // from here a case may exist even if the answer is lost
-        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...done[0], fallback: unknown, ...wsBody }) })
+        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...done[0], fallback: unknown, ...wsBody() }) })
           .catch(() => null);
         if (!sp) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
         const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
@@ -257,7 +263,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
       }
       if (!alive.current) return; // left while the split looked at a zip it then handed back (`empty`): no case, no credit
       reached.current = true;
-      const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done, ...wsBody }) });
+      const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done, ...wsBody() }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
       const { id } = (await r.json()) as { id: string };
@@ -296,7 +302,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-7 px-5 py-6 sm:px-8 sm:py-8">
           {workshops.length >= 2 && (
-            <div className="field min-w-0"><span className="label">{t("pf.caseWs")}</span><WorkshopPicker workshops={workshops} value={ws} onChange={setWs} disabled={busy} testid="new-ws" /></div>
+            <div className="field min-w-0"><span className="label">{t("pf.caseWs")}</span><WorkshopPicker workshops={workshops} value={ws} onChange={(slot) => { if (!wsLock.current) setWs(slot); }} disabled={busy && n > 0 && step >= n} testid="new-ws" /></div>
           )}
           <div className="field min-w-0 grid-cols-[minmax(0,1fr)]">
             {/* the page has one job, so the place to put the files comes first; its name is the page title */}

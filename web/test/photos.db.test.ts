@@ -230,6 +230,58 @@ test("extras: the same name twice is one chip; deleting twice is fine; names are
   assert.equal((await db.select().from(schema.caseExtras).where(eq(schema.caseExtras.caseId, other.id))).length, 1);
 });
 
+test("extras: a part that changes nothing leaves 完成 alone; a real change takes it back; a case holds at most MAX_EXTRAS", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  const { MAX_EXTRAS } = await import("../src/lib/photos/rules");
+  const { orgId, id, c } = await newCase("waiting_user", 1);
+  await nameAll(id, ["Bonnet"]);
+  const first = await s.addExtra(c, "Bumper Clips");
+  assert.equal(first.body.changed, true);
+  const extraId = (first.body.extra as { id: number }).id;
+  assert.equal((await s.setDone(c, true)).status, 200);
+  const same = await s.addExtra(await caseNow(orgId, id), "bumper clips"); // already there
+  assert.deepEqual([same.status, same.body.changed, (same.body.extra as { id: number }).id], [200, false, extraId]);
+  assert.equal((await s.removeExtra(await caseNow(orgId, id), 999_999_999)).body.changed, false); // not there
+  let now = await caseNow(orgId, id);
+  assert.ok(now.photosDoneAt && now.photosSnapshot, "nothing changed: still done, with its fingerprint");
+  assert.equal((await s.removeExtra(now, extraId)).body.changed, true);
+  now = await caseNow(orgId, id);
+  assert.deepEqual([now.photosDoneAt, now.photosSnapshot], [null, null], "a part removed: 完成 is taken back");
+  assert.equal((await s.addExtra(now, "x".repeat(121))).status, 400);
+
+  await db.insert(schema.caseExtras).values(Array.from({ length: MAX_EXTRAS }, (_, i) => ({ caseId: id, name: `Part ${i}` })));
+  const over = await s.addExtra(now, "One Too Many");
+  assert.deepEqual([over.status, over.body.error], [400, "limit"]);
+  assert.equal((await s.addExtra(now, "part 3")).status, 200, "a part that is already there is still fine when the case is full");
+  assert.equal((await db.select().from(schema.caseExtras).where(eq(schema.caseExtras.caseId, id))).length, MAX_EXTRAS);
+});
+
+test("done: 完成 and its fingerprint are written together, and the fingerprint is of the names as they are at that moment", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  const { snapshotOf } = await import("../src/lib/photos/snapshot");
+  const { orgId, id, c } = await newCase("waiting_user", 2);
+  await nameAll(id, ["Bonnet", "Grille"]);
+  await s.addExtra(c, "Bumper Clips");
+  const d = await s.setDone(c, true);
+  assert.deepEqual([d.status, d.body.status], [200, "phase_b"]);
+  const now = await caseNow(orgId, id);
+  const rs = await rows(id);
+  assert.equal(now.photosSnapshot, snapshotOf(rs.map((r) => ({ id: r.id, name: r.finalName ?? r.modelName })), ["Bumper Clips"]));
+  assert.ok(rs.every((r) => r.confirmed));
+  // renames racing with 完成: whatever the order, a case that is done always carries the fingerprint of its current names
+  for (let i = 0; i < 8; i++) {
+    const x = await newCase("waiting_user", 3);
+    await nameAll(x.id, ["Bonnet", "Grille", "Fender LH"]);
+    const before = await rows(x.id);
+    await Promise.all([s.setDone(x.c, true), s.renamePhoto(x.c, before[0].id, `Cowl Panel`, before[0].version), s.addExtra(x.c, `Clip ${i}`)]);
+    const after = await caseNow(x.orgId, x.id);
+    if (!after.photosDoneAt) { assert.equal(after.photosSnapshot, null); continue; }
+    const ph = await rows(x.id);
+    const ex = (await db.select().from(schema.caseExtras).where(eq(schema.caseExtras.caseId, x.id))).map((e) => e.name);
+    assert.equal(after.photosSnapshot, snapshotOf(ph.map((r) => ({ id: r.id, name: r.finalName ?? r.modelName })), ex), "done with a fingerprint of other names");
+  }
+});
+
 test("access: a case of another organisation does not exist for you, and neither do its photos", opts, async () => {
   const { s, db, schema, eq } = await kit();
   const mine = await newCase("naming", 1);
@@ -266,7 +318,7 @@ test("upload: only noted, existing files are registered; identical files are ski
   assert.equal(r.status, 200);
   assert.deepEqual((r.body.added as { srcName: string; origN: number }[]).map((p) => [p.srcName, p.origN]), [["aaa.jpg", 1], ["bbb.jpg", 2]]);
   assert.deepEqual((r.body.rejected as string[]).sort(), ["ccc.jpg", "ddd.jpg", "evil.jpg"]);
-  assert.equal((await caseNow(orgId, id)).status, "naming");
+  assert.equal((await caseNow(orgId, id)).status, "uploaded", "adding photos never moves the case");
   assert.equal((await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).length, 2);
 
   // the same bytes again under another file name: refused before upload, and skipped at registration
@@ -348,8 +400,8 @@ test("PHOTO_WORKER: only photos the on-site model failed on are sent to Claude a
   assert.deepEqual(r.map((x) => [x.id, x.nameState]), [[a.id, "pending"], [b.id, "failed"]]);
 });
 
-test("register: a retry after a lost answer reports the stored photos as duplicates, not as rejected", opts, async () => {
-  const { s } = await kit();
+test("register: a retry of the same photo is a success: it comes back as added, once, and nothing is stored twice", opts, async () => {
+  const { s, db, schema, eq } = await kit();
   const { orgId, id, c } = await newCase("naming", 0);
   const blobPath = `${orgId}/${id}/photos/rt1-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/rt1-s-IMG.jpg`;
   for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, null); writeFileSync(fileOf(p), "jpeg"); }
@@ -358,9 +410,68 @@ test("register: a retry after a lost answer reports the stored photos as duplica
   assert.equal((first.body.added as unknown[]).length, 1);
   const again = await s.registerPhotos(await caseNow(orgId, id), orgId, [item]);
   assert.equal(again.status, 200);
-  assert.deepEqual([(again.body.added as unknown[]).length, again.body.duplicates, again.body.rejected], [0, ["rt1.jpg"], []]);
+  assert.deepEqual([again.body.duplicates, again.body.rejected], [[], []]);
+  assert.deepEqual((again.body.added as { id: number }[]).map((p) => p.id), (first.body.added as { id: number }[]).map((p) => p.id), "the same photo, not a second one");
   assert.ok(existsSync(fileOf(blobPath)) && existsSync(fileOf(thumbPath)), "the stored photo's files are kept");
   assert.equal((await rows(id)).length, 1);
+  const files = () => db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
+  assert.equal((await files()).length, 1, "one file row, not one per try");
+
+  // the first try stopped right after the photo row was written (no file row yet, 完成 not taken back): the retry finishes the job
+  await db.delete(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
+  await db.update(schema.cases).set({ photosDoneAt: new Date(), photosSnapshot: "x".repeat(64), status: "phase_b" }).where(eq(schema.cases.id, id));
+  const third = await s.registerPhotos(await caseNow(orgId, id), orgId, [item]);
+  assert.equal((third.body.added as unknown[]).length, 1);
+  assert.equal((await files()).length, 1, "the missing file row is written");
+  const now = await caseNow(orgId, id);
+  assert.deepEqual([now.photosDoneAt, now.photosSnapshot, now.status], [null, null, "waiting_user"], "new photos take 完成 back, also when the first try could not");
+  // a retry of a registration that went through all the way leaves a 完成 pressed since then alone
+  await db.update(schema.cases).set({ photosDoneAt: new Date() }).where(eq(schema.cases.id, id));
+  await s.registerPhotos(await caseNow(orgId, id), orgId, [item]);
+  assert.ok((await caseNow(orgId, id)).photosDoneAt, "nothing new: 完成 stays");
+});
+
+test("register: a retry that overlaps the first try (or a second tab with the same file) is still one photo, added, listed once", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  for (const hash of [null, "e".repeat(64)]) {
+    const { orgId, id, c } = await newCase("waiting_user", 0);
+    const blobPath = `${orgId}/${id}/photos/ov1-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/ov1-s-IMG.jpg`;
+    for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, hash); writeFileSync(fileOf(p), "jpeg"); }
+    const item = { blobPath, thumbPath, name: "ov1.jpg", size: 4, hash };
+    // both look before either has written: the slower one finds the path stored when it comes to write
+    const [a, b] = await Promise.all([s.registerPhotos(c, orgId, [item]), s.registerPhotos(c, orgId, [item])]);
+    for (const r of [a, b]) {
+      assert.equal(r.status, 200);
+      assert.deepEqual([(r.body.added as unknown[]).length, r.body.duplicates, r.body.rejected], [1, [], []], "added, not 'already in the case'");
+    }
+    assert.equal((a.body.added as { id: number }[])[0].id, (b.body.added as { id: number }[])[0].id, "the same photo");
+    assert.equal((await rows(id)).length, 1);
+    assert.equal((await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).length, 1, "one file row, the photo is not listed twice");
+    assert.ok(existsSync(fileOf(blobPath)) && existsSync(fileOf(thumbPath)), "the stored photo's files are kept");
+  }
+  // the file row is written by a statement that skips a photo that has one: a try that still thinks the row is missing adds none
+  const { orgId, id, c } = await newCase("waiting_user", 0);
+  const blobPath = `${orgId}/${id}/photos/ov2-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/ov2-s-IMG.jpg`;
+  for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, null); writeFileSync(fileOf(p), "jpeg"); }
+  const item = { blobPath, thumbPath, name: "ov2.jpg", size: 4, hash: null };
+  await s.registerPhotos(c, orgId, [item]);
+  await Promise.all([1, 2, 3].map(async () => {
+    await db.delete(schema.caseFiles).where(eq(schema.caseFiles.caseId, id)); // as if the first try had not written it yet
+    return s.registerPhotos(c, orgId, [item]);
+  }));
+  assert.equal((await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id))).length, 1);
+});
+
+test("register: adding photos on the desk leaves the case status alone (a case moved to 'naming' was never picked up again)", opts, async () => {
+  const { s } = await kit();
+  for (const status of ["phase_a", "uploaded", "pending_doc", "waiting_user"]) {
+    const { orgId, id, c } = await newCase(status, 0);
+    const blobPath = `${orgId}/${id}/photos/st1-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/st1-s-IMG.jpg`;
+    for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, null); writeFileSync(fileOf(p), "jpeg"); }
+    const r = await s.registerPhotos(c, orgId, [{ blobPath, thumbPath, name: "st1.jpg", size: 4, hash: null }]);
+    assert.equal((r.body.added as unknown[]).length, 1);
+    assert.equal((await caseNow(orgId, id)).status, status);
+  }
 });
 
 test("import: photos that come in with the case after 完成 take the tick away and the opening order is looked at again", opts, async () => {

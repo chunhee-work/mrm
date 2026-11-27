@@ -1,5 +1,5 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { uploadGuarded, UploadStalled } from "@/lib/upload-guard";
@@ -19,13 +19,17 @@ export type Sent = "files";
  * A missing document is uploaded right here: choosing the files sends them, there is no second button.
  * `sent` comes from the page, which keeps the banner for a moment after the files went through, so the user sees they were received.
  */
-/** `onPhotos`: the photo desk opens on the same page (the first page's line) instead of on its own page. */
-export default function NeedCard({ row, orgId, sent, onSent, onPhotos }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void; onPhotos?: () => void }) {
+/** `onPhotos`: the photo desk opens on the same page (the first page's line) instead of on its own page.
+ * `onBusy`: told while files are going up, so the page around it does not read itself again in the middle of the upload. */
+export default function NeedCard({ row, orgId, sent, onSent, onPhotos, onBusy }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void; onPhotos?: () => void; onBusy?: (busy: boolean) => void }) {
   const { t } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState<{ n: number; total: number; pct: number } | null>(null);
   const [err, setErr] = useState("");
+  const up = !!sending;
+  useEffect(() => { onBusy?.(up); }, [up, onBusy]);
+  useEffect(() => () => onBusy?.(false), [onBusy]); // the card is gone (the line was closed): nothing here to protect any more
   const uid = useId();
   const titleId = `${uid}-plate`;
   const actId = `${uid}-act`;

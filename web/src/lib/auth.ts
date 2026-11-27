@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
@@ -6,6 +7,8 @@ import { and, eq, gt } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { sendEmail } from "./email";
 import { MAX_PASSWORD, MIN_PASSWORD, normLang, translate } from "./i18n";
+import { cleanName, nameAtSignUp } from "./account-name";
+import { ensureOwnOrg } from "./own-org";
 
 function langOf(req?: Request) {
   const m = /(?:^|;\s*)lang=([^;]+)/.exec(req?.headers.get("cookie") ?? "");
@@ -46,6 +49,9 @@ export const auth = betterAuth({
       await sendEmail(user.email, translate(l, "mail.existsSubject"),
         `<p>${translate(l, "mail.existsBody")}</p><p><a href="${origin}/login">${origin}/login</a></p><p>${translate(l, "mail.existsForgot")} <a href="${origin}/forgot-password">${origin}/forgot-password</a></p><p>${translate(l, "mail.ignore")}</p>`, "other");
     },
+    // The made-up user in that answer gets its name the same way a real new account does (create.before below),
+    // so the two answers cannot be told apart by sending a long or a padded name.
+    customSyntheticUser: ({ coreFields, additionalFields, id }) => ({ ...coreFields, name: nameAtSignUp(coreFields.name, coreFields.email), ...additionalFields, id }),
     // A reset link was opened from this mailbox, so the address is confirmed too.
     onPasswordReset: async ({ user }) => {
       if (!user.emailVerified) await db.update(schema.user).set({ emailVerified: true, updatedAt: new Date() }).where(eq(schema.user.id, user.id));
@@ -67,11 +73,25 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        // The account name has a longest length on the server too (account-name.ts): a longer one is cut here.
+        // Cut, not refused, so sign-up keeps answering the same for an address that has an account and one that has not
+        // (the answer for one that has: customSyntheticUser above, the same cut).
+        before: async (u) => ({ data: { name: nameAtSignUp(u.name, u.email) } }),
         // Org is created at sign-up (plan §5 Stage 1).
+        // If the database fails at this moment the account is already made, so the error is not passed on: sign-up still
+        // sends the confirmation email, and the first signed-in page makes the organization (session.ts). Passing it on
+        // left an account that could confirm its email and then never get in.
         after: async (u) => {
-          const orgId = crypto.randomUUID();
-          await db.insert(schema.organizations).values({ id: orgId, name: `${u.name || u.email}` });
-          await db.insert(schema.memberships).values({ orgId, userId: u.id, role: "owner" });
+          try { await ensureOwnOrg(u); } catch (e) { console.error("organization at sign-up failed:", (e as Error)?.name); }
+        },
+      },
+      update: {
+        // A changed name is checked like a typed one: trimmed, not empty, not longer than the limit. Other changes pass.
+        before: async (u) => {
+          if (u.name === undefined) return;
+          const name = cleanName(u.name);
+          if (name === null) throw APIError.from("BAD_REQUEST", { code: "INVALID_NAME", message: "Invalid name" });
+          return { data: { name } };
         },
       },
     },

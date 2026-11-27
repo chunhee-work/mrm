@@ -20,10 +20,14 @@ export async function POST(req: Request) {
           addRandomSuffix: true,
         };
       },
-      onUploadCompleted: async () => {},
+      // No onUploadCompleted on purpose: with it, the file store calls this route back after every upload. That call carries no
+      // sign-in, so it was answered 401 and filled the logs with errors. Nothing here needs to know that an upload finished
+      // (the browser sends the stored URLs with the case), and without it the token asks for no call back.
     });
     return NextResponse.json(res);
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    // the reason stays in the server log; the browser only shows "upload failed" for any refusal here
+    console.error("upload token refused:", (e as Error)?.name, String((e as Error)?.message ?? "").slice(0, 200));
+    return NextResponse.json({ error: "refused" }, { status: 400 });
   }
 }

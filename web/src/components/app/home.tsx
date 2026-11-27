@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,8 @@ import ConfirmDelete from "./confirm-delete";
 import NeedCard from "./case-detail";
 import { failTr, userFixable } from "@/lib/case-text";
 import { DROPPED_PARAM, takeDropped } from "@/lib/dropped-files";
+import { keepOrder } from "@/app/dashboard/line-order";
+import { LOOK_MS, readAgain } from "@/app/cases/[id]/read-again";
 import { useFileDrag } from "./drop-zone";
 import { bucketOf, OPEN_BUCKETS, type Bucket } from "./status";
 import { StepDots, StepHeads } from "./case-steps";
@@ -103,22 +105,32 @@ function Empty({ needle, blocked = false }: { needle: string; blocked?: boolean 
   return <p className="px-5 py-10 text-center text-[15px] text-mute" data-testid="home-empty">{t(needle ? "tray.noMatch" : blocked ? "tray.emptyBlocked" : "tray.empty")}</p>;
 }
 
-/** "Try again" right on this page, after one more press that says it can use a credit. */
-function RetryHere({ r }: { r: CaseRow }) {
+/**
+ * "Try again" right on this page, after one more press that says it can use a credit.
+ * The server answers only when the read is over, which can take minutes. So the button does not wait for the answer to show
+ * what is going on: while the answer is out the list is read every few seconds (`look`), and as soon as the server has
+ * started the read the line shows it as being read (this card is gone then). When the list could not be read meanwhile
+ * (a hidden tab, the upload box open), the server itself is asked what the case is doing before anything is called a
+ * failure (readAgain): only a press that never got there brings the line back as it was, with the message.
+ */
+function RetryHere({ r, look, relist }: { r: CaseRow; look: () => void; relist: () => void }) {
   const { t } = useT();
-  const router = useRouter();
   const [ask, setAsk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  useEffect(() => {
+    if (!busy) return;
+    const id = window.setInterval(look, LOOK_MS);
+    return () => window.clearInterval(id);
+  }, [busy, look]);
   async function again() {
     if (busy) return;
     setBusy(true); setErr("");
-    try {
-      const res = await fetch(`/api/cases/${r.id}/scan`, { method: "POST" });
-      if (res.status === 402) { setErr(t("new.noCredits")); return; }
-      if (!res.ok && res.status !== 409) throw new Error("retry");
-      router.refresh();
-    } catch { setErr(t("case.retryFail")); } finally { setBusy(false); setAsk(false); }
+    const out = await readAgain(r.id, { onLate: relist });
+    if (out === "no_credits") setErr(t("new.noCredits"));
+    else if (out === "fail") setErr(t("case.retryFail")); // the server still has the case as failed: the read never started
+    setBusy(false); setAsk(false);
+    relist(); // whatever became of the request, the line shows what the server has (a read it did start, the new result)
   }
   return (
     <div className="rounded-[4px] border border-[#dc2626]/30 bg-[#fef2f2] px-4 py-3">
@@ -141,7 +153,7 @@ function RetryHere({ r }: { r: CaseRow }) {
 }
 
 /** What opens under a line when it is pressed: the job itself when it can be done here, then the facts, then the way into the full case page. */
-function More({ r, orgId, onDesk, workshops }: { r: CaseRow; orgId: string; onDesk: (on: boolean) => void; workshops: WorkshopOpt[] }) {
+function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string; onDesk: (on: boolean) => void; workshops: WorkshopOpt[]; ctl: ListCtl }) {
   const { t } = useT();
   const router = useRouter();
   const [sent, setSent] = useState(false);
@@ -162,18 +174,18 @@ function More({ r, orgId, onDesk, workshops }: { r: CaseRow; orgId: string; onDe
   useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
   const desk = (
     <div className="overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
-      <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={() => router.refresh()}
+      <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={ctl.relist}
         tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
     </div>
   );
   const job = sent || r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null))
     ? (
       <>
-        <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} onPhotos={() => { if (!DESK_WAITS.includes(r.status)) setDeskOpen((v) => !v); }} /></ul>
+        <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} onBusy={ctl.onUpload} onPhotos={() => { if (!DESK_WAITS.includes(r.status)) setDeskOpen((v) => !v); }} /></ul>
         {deskOpen && desk}
       </>
     )
-    : r.status === "failed" ? <RetryHere r={r} />
+    : r.status === "failed" ? <RetryHere r={r} look={ctl.look} relist={ctl.relist} />
     : deskOpen ? desk
     : null;
   const reading = r.status === "uploaded" || r.status === "reading";
@@ -200,6 +212,13 @@ function More({ r, orgId, onDesk, workshops }: { r: CaseRow; orgId: string; onDe
   );
 }
 
+/**
+ * How an open line reads the list again (all three come from the page, which knows what must not be disturbed):
+ * `look` a quiet look, skipped when it could disturb something; `relist` after something changed, it waits for a running
+ * upload and asks the server first; `onUpload` tells the page that files are going up in the line.
+ */
+type ListCtl = { look: () => void; relist: () => void; onUpload: (busy: boolean) => void };
+
 type BriefData = { events: { at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: { slot: number; locked: boolean } | null };
 
 /** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
@@ -219,7 +238,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
   const reading = r.status === "uploaded" || r.status === "reading";
   useEffect(() => {
     if (!reading) return;
-    const id = window.setInterval(() => { if (!document.hidden) setTick((n) => n + 1); }, 10_000);
+    const id = window.setInterval(() => { if (!document.hidden && navigator.onLine) setTick((n) => n + 1); }, 10_000);
     return () => window.clearInterval(id);
   }, [reading]);
   async function moveTo(slot: number) {
@@ -278,7 +297,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
 }
 
 /** One line per case, the step names once over the step column. A press on the line opens its details right under it. */
-function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, workshops, openId }: { rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void; blocked: boolean; workshops: WorkshopOpt[]; openId?: string }) {
+function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, workshops, openId, ctl }: { rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void; blocked: boolean; workshops: WorkshopOpt[]; openId?: string; ctl: ListCtl }) {
   const { t } = useT();
   // ?open=<id> (from the case table): that line starts open, so a case is never shown on another page
   const [open, setOpen] = useState<string | null>(openId && all.some((x) => x.id === openId) ? openId : null);
@@ -294,8 +313,8 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
     const seen = lines.map((x) => x.id);
     setOrder(order ? [...seen, ...order.filter((o) => !seen.includes(o))] : seen);
   };
-  const at = (id: string) => { const i = order ? order.indexOf(id) : -1; return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
-  const lines = order ? [...rows].sort((a, b) => at(a.id) - at(b.id)) : rows;
+  // a case made meanwhile (the upload box above) shows where a fresh page would put it, not under everything else
+  const lines = order ? keepOrder(found, order, kept ? [kept] : []) : rows;
   // the open case left the list (deleted, or closed elsewhere): back to the normal list
   useEffect(() => { if (open && !all.some((x) => x.id === open)) { setOpen(null); setOrder(null); } }, [open, all]);
   // the list loses its own scroll box while a line is open: bring the opened line to the top of the screen
@@ -335,7 +354,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
                   {/* while the line is open the job is right below it: the button would only say it twice */}
                   <div className="pointer-events-none relative flex xl:justify-end">{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
                 </div>
-                {on && <More r={r} orgId={orgId} onDesk={onDesk} workshops={workshops} />}
+                {on && <More r={r} orgId={orgId} onDesk={onDesk} workshops={workshops} ctl={ctl} />}
               </li>
             );
           })}
@@ -354,7 +373,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
  * where it can be done here, the job itself. Nothing is said twice: "Billing" is in the side bar (the phone menu on a phone) only, and the bar drops its own
  * "New case" on this page.
  */
-export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId, workshops = [], openId }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string; workshops?: WorkshopOpt[]; openId?: string }) {
+export default function Home({ name, counts, cases, busy = false, waiting = false, cred: cred0, orgId, workshops = [], openId }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; waiting?: boolean; cred: Cred; orgId: string; workshops?: WorkshopOpt[]; openId?: string }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -365,7 +384,10 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // while something is being worked on the numbers move by themselves: read them again every 20 s (not in a hidden tab)
   const [panel, setPanel] = useState<{ key: number; initial: File[] | "lost"; more?: { n: number; files: File[] } } | null>(null);
   const [upBusy, setUpBusy] = useState(false); // the box is uploading: New case and the page drop wait
-  const live = busy && !panel; // not while the upload box is open: a refresh that fails reloads the page and would empty the box
+  const [lineUp, setLineUp] = useState(false); // an open line is uploading files (a missing document, replaced files)
+  // not while the upload box is open: a refresh that fails reloads the page and would empty the box.
+  // And not while files go up in an open line: the list is left alone until that upload has ended.
+  const live = busy && !panel && !lineUp;
   // live: something is being read or worked on by the worker: the numbers move by themselves (a case waiting for the user does not)
   useEffect(() => {
     if (!live) return;
@@ -374,6 +396,33 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
     const id = window.setInterval(() => { if (!document.hidden && navigator.onLine) router.refresh(); }, REFRESH_MS);
     return () => window.clearInterval(id);
   }, [live, router]);
+  // a quiet look at the list for an open line (its "Read again" is waiting for the server): under the same rules as the refresh above
+  const quiet = useRef(false);
+  quiet.current = !!panel || lineUp;
+  const look = useCallback(() => { if (!document.hidden && navigator.onLine && !quiet.current) router.refresh(); }, [router]);
+
+  // Cases waiting to be read (a zip of many cars makes many at once) are started a few at a time, each time the server is
+  // asked for this page. That must not wait for the user to look at the tab, or for the upload box to close: whenever the page
+  // is not reading itself again, a small request asks the server to carry on with the next ones. It changes nothing on screen.
+  // `waiting` comes from the server's own count of cases still to be read, not from the lines on this page (the list is cut at 500).
+  // It stops for good when the server says nothing is waiting any more (this page can be old in a hidden tab), and when the
+  // server refuses it (signed out in another tab: 401, or any answer that is not ours); a new reading of the page starts it again.
+  const stopped = useRef(false);
+  useEffect(() => { stopped.current = false; }, [cases]);
+  useEffect(() => {
+    if (!waiting) return;
+    const id = window.setInterval(() => {
+      if (!navigator.onLine || stopped.current || (live && !document.hidden)) return; // the refresh above does it while it runs
+      void fetch("/api/cases/heal", { method: "POST", redirect: "manual" }).then(async (x) => {
+        // a redirect (never followed) or a 4xx is a "no": nothing more to ask for. A 5xx or a lost connection is tried again next time.
+        if (x.type === "opaqueredirect" || x.redirected || (x.status >= 300 && x.status < 500)) { stopped.current = true; return; }
+        if (!x.ok) return;
+        const j = (await x.json()) as { waiting?: number };
+        if (j.waiting === 0) stopped.current = true;
+      }).catch(() => {});
+    }, REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [waiting, live]);
 
   // a new case is uploaded right on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
   // files picked with New case or dropped anywhere on the page open the upload box above the list, which checks and sends them.
@@ -406,6 +455,8 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
     boxRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   }, [panel?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [deskShown, setDeskShown] = useState(false); // an open line shows the photo desk (it takes the drops then)
+  const gone = useRef(false); // this page is being left: nothing is read again for it
+  useEffect(() => { gone.current = false; return () => { gone.current = true; }; }, []);
   const boxShown = !!panel && (!blocked || upBusy); // a box already sending finishes even if the details turn incomplete meanwhile
   useEffect(() => { if (panel && blocked && !upBusy) setPanel(null); }, [panel, blocked, upBusy]);
   // while the box is shown its own drop zone takes the window's drops (added to its list; refused while it uploads)
@@ -414,25 +465,39 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // Only when online: a refresh that cannot reach the server makes Next reload the whole page, losing the box and its message.
   // navigator.onLine is not enough (Wi-Fi with no internet, a server error): first ask the server something small, and refresh
   // only once it answers; otherwise try again a little later, a few times. A newer call replaces a waiting one.
+  // And never while files go up in an open line (`hold`): the list is read once that upload has ended (`owed`).
   const relistTry = useRef(0);
   useEffect(() => () => { relistTry.current = -1; }, []); // gone: stop trying
+  const hold = useRef(false);
+  const owed = useRef(false);
   const relist = useCallback(() => {
+    if (gone.current) return;
     const me = ++relistTry.current;
     const attempt = async (left: number) => {
       if (relistTry.current !== me) return;
+      if (hold.current) { owed.current = true; return; }
       const ok = navigator.onLine && await fetch("/api/cases/credit", { cache: "no-store" }).then((r) => r.status < 500, () => false);
       if (relistTry.current !== me) return;
+      if (hold.current) { owed.current = true; return; }
       if (ok) return router.refresh();
       if (left > 0) window.setTimeout(() => void attempt(left - 1), 10_000);
     };
     void attempt(5);
   }, [router]);
+  useEffect(() => {
+    hold.current = lineUp;
+    if (!lineUp && owed.current) { owed.current = false; relist(); }
+  }, [lineUp, relist]);
+  // the photo desk of a line was closed (the line too, or only the desk): names were given in it, so the line's own count
+  // ("Name 5 photos") is read again and does not stay at what it was when the page was loaded
+  const onDesk = useCallback((on: boolean) => { setDeskShown(on); if (!on) relist(); }, [relist]);
+  const ctl = useMemo(() => ({ look, relist, onUpload: setLineUp }), [look, relist]);
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
-  // Typing in the search narrows this list at once; Go searches every case, closed ones too.
+  // Typing in the search narrows this list at once; closed cases have their own list (Closed cases).
   const needle = squash(q);
   const shown = sortCases(cases).filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
-  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setDeskShown} blocked={blocked} workshops={workshops} openId={openId} />;
+  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={onDesk} blocked={blocked} workshops={workshops} openId={openId} ctl={ctl} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
   return (

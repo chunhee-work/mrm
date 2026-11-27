@@ -107,3 +107,24 @@ test("zipRefunded: several cars or cars at different levels, only on a case neve
   assert.equal(zipRefunded(`x.zip: ${ZIP_WHY.corrupt}`, false), false);
   assert.equal(zipRefunded(null, false), false);
 });
+
+test("D14 the workshop line is translated like the other activity lines; a text nobody knows is shown as it is", () => {
+  const tr = eventTr("Workshop 2: Kedai Ah Seng: Cheras");
+  assert.equal(tr.key, "ev.workshop");
+  assert.deepEqual(tr.vars, { n: "2", name: "Kedai Ah Seng: Cheras" });
+  for (const l of ["en", "zh", "ms"] as const) {
+    const text = (DICTS[l] as Record<string, string>)["ev.workshop"];
+    assert.ok(text?.includes("{n}") && text.includes("{name}"), `${l} ev.workshop`);
+  }
+  assert.equal(eventKind("Workshop 2: Kedai Ah Seng"), "note"); // a note, as before: not a step that is done or failed
+  // an event this file has no rule for (for example photos left out of a case) is never dropped: the log shows `raw`
+  assert.deepEqual(eventTr("3 photos left out: too large"), { key: "", raw: "3 photos left out: too large" });
+});
+
+test("photos left out of a case are said in the page language, one line per reason", () => {
+  assert.deepEqual(eventTr("Photos left out: 3 (HEIC)"), { key: "ev.photosHeic", vars: { n: "3" } });
+  assert.deepEqual(eventTr("Photos left out: 2 (over 25 MB)"), { key: "ev.photosBig", vars: { n: "2", mb: "25" } });
+  assert.deepEqual(eventTr("Photos left out: 1 (more than 300 photos)"), { key: "ev.photosLimit", vars: { n: "1", max: "300" } });
+  assert.deepEqual(eventTr("Photos left out: 4 (cannot be opened)"), { key: "ev.photosBad", vars: { n: "4" } });
+  assert.equal(eventKind("Photos left out: 3 (HEIC)"), "note"); // a note: the case itself went on
+});

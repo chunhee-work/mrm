@@ -72,6 +72,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   const [confirming, setConfirming] = useState(false);
   const [sure, setSure] = useState(false);
   const [code, setCode] = useState("");
+  const [codeErr, setCodeErr] = useState<string | null>(null); // the code was not taken (shown under its box)
   const [showPass, setShowPass] = useState(false); // the eye on the password box
 
   // poll while the worker checks the login
@@ -122,20 +123,22 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
     if (busy || !code) return;
-    setBusy(true);
+    setBusy(true); setCodeErr(null);
     try {
       const r = await fetch("/api/ext/worker/otp", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code }) });
       if (r.ok) { setCode(""); setCred({ ...cred, verifyState: "otp_submitted" }); }
-    } finally { setBusy(false); }
+      else setCodeErr(t("w.err")); // the code was not taken: say so, the box keeps what was typed
+    } catch { setCodeErr(t("w.err")); } finally { setBusy(false); }
   }
   async function remove() {
     if (busy) return;
     if (!sure) { setSure(true); return; }
-    setBusy(true);
+    setBusy(true); setErr(null);
     try {
       const r = await fetch("/api/ext/worker/credentials", { method: "DELETE" });
       if (r.ok) { const next: Cred = { ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, manager: null, adjuster: null, complete: false, blocks: cred.keyOk && cred.storageOk }; setCred(next); closeAll(); fill(next); onSaved?.(); }
-    } finally { setBusy(false); setSure(false); }
+      else setErr(t("w.err")); // nothing was deleted: say so under the form
+    } catch { setErr(t("w.err")); } finally { setBusy(false); setSure(false); }
   }
 
   const Fields = (editMode: boolean) => (
@@ -224,9 +227,10 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
           <form onSubmit={sendCode} className="grid gap-2">
             <p className="text-[14px] text-fg">{t("w.otp")}</p>
             <div className="flex gap-2">
-              <input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="numeric" maxLength={12} className="input min-w-0 flex-1" aria-label={t("w.otp")} data-testid="pf-otp" />
+              <input value={code} onChange={(e) => { setCode(e.target.value); setCodeErr(null); }} autoComplete="one-time-code" inputMode="numeric" maxLength={12} className="input min-w-0 flex-1" aria-label={t("w.otp")} data-testid="pf-otp" />
               <button type="submit" disabled={busy || !code} className="btn-primary !h-11">{t("w.otpGo")}</button>
             </div>
+            {codeErr && <p role="alert" className="field-error" data-testid="pf-otp-error">{codeErr}</p>}
           </form>
         )}
         {!checking && !good && !bad && !cred.blocked && cred.verifyState !== "otp" && cred.updatedAt && <p>{t("ml.when", { when: whenOf(cred.updatedAt, lang) })}</p>}

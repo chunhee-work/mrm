@@ -3,15 +3,63 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { readCaseDocs, BadFile } from "@/lib/read-docs";
 import { expandBundles } from "@/lib/expand-bundles";
-import { importCasePhotos } from "@/lib/photos/import-files";
-import { userFixable, zipRefunded, eventTr } from "@/lib/case-text";
-import { refundCase } from "@/lib/payments/case-credit";
+import { importCasePhotos, type PhotoImport } from "@/lib/photos/import-files";
+import { MAX_BYTES, MAX_PHOTOS } from "@/lib/photos/rules";
+import { userFixable, zipRefunded, zipRejectedName, eventTr } from "@/lib/case-text";
+import { enforcing, exempt, refundCase } from "@/lib/payments/case-credit";
 import { notDeleted } from "@/lib/case-delete";
 import { jevInsurerWarnings } from "@/lib/jev-checks";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
 const LEASE = "lease:";
+// U10: the model call must be over this long after the read began. Every caller runs inside a 300 s function, and the outcome
+// still has to be written after it; without a limit a hung call left the case on "Reading documents" until the platform killed it.
+const READ_BUDGET_MS = 250_000;
+const OUTCOME_BY_MS = 270_000; // a failed read's state is written by then, even if the photo import is still going
+/** Waits for `p` (settled either way), but at most `ms`. */
+const waitUpTo = (p: Promise<unknown>, ms: number) => new Promise<void>((done) => {
+  const t = setTimeout(done, Math.max(0, ms));
+  const end = () => { clearTimeout(t); done(); };
+  p.then(end, end);
+});
+const TIMED_OUT = "Reading timed out"; // shown as "Reading took too long. Press Read again."
+const READ_FAILED = "Reading failed"; // shown as "We could not read this case. Press Read again. …"
+// A case nobody paid for, found by a read that starts by itself. Shown like READ_FAILED; "Read again" takes the credit and reads.
+export const NOT_PAID = "Reading failed (no credit taken)";
+
+/**
+ * U11: what a failed read stores in `cases.error`. That text travels to the browser with the case, so it is only ever one of
+ * the fixed texts the case page knows: a `bad_file:` code, a refused zip (`<zip name>: <fixed reason>`), "no PDF", "timed out",
+ * or the plain READ_FAILED. The exception's own words (database, storage, model errors) go to the server log, never into the case.
+ */
+export function safeError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : "";
+  if (e instanceof BadFile) return msg.slice(0, 4000); // a bad file's full name is how "Replace files" finds it
+  if (zipRejectedName(msg) !== null) return msg.slice(0, 500);
+  if (msg === "no PDF in this case" || msg === TIMED_OUT) return msg;
+  return READ_FAILED;
+}
+
+/**
+ * U2: the activity lines for photos of the upload that did not reach the naming desk, one per reason, so the user who sent
+ * 40 photos and sees 31 learns why. case-text.ts turns each line into the user's language.
+ */
+export function leftOutLines(r: Pick<PhotoImport, "leftOut"> | null | void): string[] {
+  const n = r?.leftOut;
+  if (!n) return [];
+  const why: [number, string][] = [[n.heic, "HEIC"], [n.big, `over ${MAX_BYTES / 1048576} MB`], [n.limit, `more than ${MAX_PHOTOS} photos`], [n.unreadable, "cannot be opened"]];
+  return why.filter(([count]) => count > 0).map(([count, reason]) => `Photos left out: ${count} (${reason})`);
+}
+/** Adds those lines to the case. A read that runs again says the same thing once (the same line is never added twice). */
+async function notePhotosLeftOut(caseId: string, r: PhotoImport | void) {
+  try {
+    const lines = leftOutLines(r);
+    if (!lines.length) return;
+    const said = new Set((await db.select({ m: schema.caseEvents.message }).from(schema.caseEvents).where(and(eq(schema.caseEvents.caseId, caseId), eq(schema.caseEvents.step, "photos")))).map((x) => x.m));
+    for (const message of lines) if (!said.has(message)) await db.insert(schema.caseEvents).values({ caseId, step: "photos", message });
+  } catch (e) { console.error("scan: photo note failed", caseId, (e as Error)?.name); } // a note that cannot be written never fails the read
+}
 
 export type ScanMode = "auto" | "retry" | "recover";
 
@@ -28,7 +76,7 @@ export function leaseTime(error: string | null): number | null {
  *
  * One claim rule for every caller: a single conditional UPDATE that also writes a new lease into `error`, so two
  * triggers can never both read, and a dead attempt can never overwrite the result of the attempt that replaced it.
- *   auto    (after upload; page self-heal for a case still `uploaded`)   from uploaded
+ *   auto    (after upload; page self-heal for a case still `uploaded`)   from uploaded, and only a case that is paid for
  *   retry   (the "Read again" button)                                    from uploaded | failed | pending_doc
  *   recover (case page self-heal)                                        from reading, only if `error` still equals the
  *                                                                        lease the caller saw (`seen`) and fewer than
@@ -38,6 +86,7 @@ export function leaseTime(error: string | null): number | null {
  */
 export async function scanCase(id: string, mode: ScanMode = "retry", seen: string | null = null): Promise<{ ok: boolean; missing: string[]; claimed: boolean }> {
   const cid = schema.cases.id;
+  const started = Date.now();
   const lease = `${LEASE}${new Date().toISOString()}|${crypto.randomUUID()}`;
   const tries = sql`(select count(*) from ${schema.caseEvents} e where e.case_id = ${cid} and e.step = 'read_docs' and e.message = 'Reading documents') < ${sql.raw(String(MAX_ATTEMPTS))}`;
   const sameLease = sql`${schema.cases.error} is not distinct from ${seen}`;
@@ -45,10 +94,16 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     mode === "auto" ? and(eq(cid, id), eq(schema.cases.status, "uploaded")) :
     mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["uploaded", "failed", "pending_doc"])) :
     and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, tries);
-  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted)).returning({ id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate, readBefore: sql<boolean>`${schema.cases.caseData} is not null` });
+  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted)).returning({
+    id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate, readBefore: sql<boolean>`${schema.cases.caseData} is not null`,
+    // the case's credit, counted as the ledger's own refund rule counts it (case-credit.ts): paid for while debits > refunds
+    debits: sql<number>`(select count(*)::int from credits_ledger l where l.case_id = ${id} and l.delta < 0 and (l.reason = ${"case:" + id} or l.reason like 'case-retry:%'))`,
+    refunds: sql<number>`(select count(*)::int from credits_ledger l where l.case_id = ${id} and l.reason like 'case-refund:%')`,
+    triedBefore: sql<boolean>`exists (select 1 from case_events e where e.case_id = ${id} and e.step = 'read_docs' and e.message = 'Reading documents')`, // the id as a value: a column here is written without its table
+  });
   if (!claimed.length) {
     if (mode === "recover") { // out of attempts: stop waiting, show Failed + the retry button
-      const gaveUp = await db.update(schema.cases).set({ status: "failed", error: "Reading timed out" })
+      const gaveUp = await db.update(schema.cases).set({ status: "failed", error: TIMED_OUT })
         .where(and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, sql`not ${tries}`)).returning({ orgId: schema.cases.orgId });
       if (gaveUp.length) await refundCase(gaveUp[0].orgId, id).catch(() => {}); // a timeout is our failure: the credit goes back
     }
@@ -56,14 +111,28 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   }
   // Only the attempt that still holds the lease may write the outcome.
   const mine = and(eq(cid, id), eq(schema.cases.status, "reading"), eq(schema.cases.error, lease));
+  // A read that starts by itself (after upload, or the pages' self-heal) is only for a case that is paid for. A new case whose
+  // credit could not be taken, or went back, and which then could not be removed stays `uploaded`: without this check the
+  // self-heal read it with a paid model call and no credit. It is not read; it shows as failed, and "Read again" takes the
+  // credit and reads it. Never failed this way: a case with no ledger row at all that was read before (it was made while
+  // charging was off, and reads free as it always did when it comes back with new files).
+  const c = claimed[0];
+  const paid = Number(c.debits) > Number(c.refunds) || (Number(c.debits) === 0 && c.triedBefore);
+  // "recover" too: a read that died right after it was claimed (before this check could mark it) comes back that way.
+  if (mode !== "retry" && enforcing() && !exempt(c.orgId) && !paid) {
+    const failed = await db.update(schema.cases).set({ status: "failed", error: NOT_PAID }).where(mine).returning({ id: cid });
+    if (failed.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
+    await closeIntakeJobs(id); // the worker must not read it either
+    return { ok: false, missing: [], claimed: false };
+  }
   await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Reading documents" });
-  let photos: Promise<unknown> = Promise.resolve();
+  let photos: Promise<PhotoImport | void> = Promise.resolve();
   try {
     await expandBundles(id, claimed[0].orgId); // zip bundles: their PDFs and photos become case files first
     // photos go to the naming desk in the background while the documents are read (R2-B14); a problem here must not stop the read
-    photos = importCasePhotos(id, claimed[0].orgId).catch(() => {});
+    photos = importCasePhotos(id, claimed[0].orgId).catch((e) => { console.error("scan: photo import failed", id, (e as Error)?.name); });
     const files = await db.select().from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id));
-    const { data, usage, costUsd } = await readCaseDocs(files, { userId: claimed[0].createdBy, orgId: claimed[0].orgId, caseId: id });
+    const { data, usage, costUsd } = await readCaseDocs(files, { userId: claimed[0].createdBy, orgId: claimed[0].orgId, caseId: id }, { deadline: started + READ_BUDGET_MS });
     const done = await db.update(schema.cases).set({
       status: data.missing.length ? "pending_doc" : "phase_a",
       error: null,
@@ -80,7 +149,7 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
       cacheTokens: usage.cache_read_input_tokens ?? 0, costUsd: costUsd.toFixed(4),
     });
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
-    await photos; // the result is shown first; the case page and the desk pick the photos up when they are in
+    await notePhotosLeftOut(id, await photos); // the result is shown first; the case page and the desk pick the photos up when they are in
     await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
     // Jev second vote on the insurers and the Liberty branch (playbook 02). It runs last, after the result is saved and shown, so the result never
     // waits for it (a "Read again" button reply can wait at most a few seconds). It only adds a line to the case's activity (the same line is never added twice on a re-read); the case never changes status
@@ -95,16 +164,21 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     }
     return { ok: done.length > 0, missing: data.missing, claimed: true };
   } catch (e) {
-    await photos; // never leave the import running behind a failed read
-    const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, e instanceof BadFile ? 4000 : 500) } /* a bad file's full name is how "Replace files" finds it */).where(mine).returning({ id: cid });
+    const error = safeError(e);
+    console.error("scan failed", id, (e as Error)?.name, String((e as Error)?.message ?? e).split("\n")[0].slice(0, 300)); // the detail stays in the server log
+    // never leave the import running behind a failed read; but after a read that ran out of time the failed state must still be
+    // written before the function's own limit, so the wait ends at OUTCOME_BY_MS
+    await waitUpTo(photos, started + OUTCOME_BY_MS - Date.now());
+    const failed = await db.update(schema.cases).set({ status: "failed", error }).where(mine).returning({ id: cid });
     if (failed.length) {
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
       // a zip of several cars that reached the one-case path (the browser could not look inside it) is not the customer's fault:
       // the credit goes back (unless the case was read before), and the message tells them to upload it again so it is split
-      const multi = zipRefunded((e as Error).message, !!claimed[0].readBefore);
-      if (!(e instanceof BadFile) && (multi || !userFixable((e as Error).message))) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
+      const multi = zipRefunded(error, !!claimed[0].readBefore);
+      if (!(e instanceof BadFile) && (multi || !userFixable(error))) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
     }
     await closeIntakeJobs(id);
+    await notePhotosLeftOut(id, await photos);
     return { ok: false, missing: [], claimed: true };
   }
 }

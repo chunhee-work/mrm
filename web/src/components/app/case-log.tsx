@@ -1,10 +1,9 @@
 "use client";
 import { useT } from "@/components/lang-provider";
 import { docKey, eventKind, eventTr, type EventKind } from "@/lib/case-text";
+import { logWhen } from "@/lib/fmt-when";
 
 type Ev = { at: string; message: string };
-
-const clock = (at: string) => new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kuala_Lumpur" });
 
 const svg = { width: 20, height: 20, viewBox: "0 0 20 20", fill: "none", "aria-hidden": true } as const;
 const pen = { strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
@@ -54,7 +53,7 @@ function Mark({ kind }: { kind: EventKind }) {
 
 /** The activity of one case as a timeline, newest first: one line down the side, a round status mark per step. `live`: the case is still being read. */
 export default function CaseLog({ events, live }: { events: Ev[]; live: boolean }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const rows = events.map((e, i) => {
     const tr = eventTr(e.message);
     const text = tr.key ? t(tr.key, tr.key === "ev.pending" ? { docs: (tr.vars?.docs ?? "").split("; ").map((d) => t(`doc.${docKey(d)}`)).join("; ") } : tr.vars) : tr.raw ?? e.message;
@@ -71,7 +70,7 @@ export default function CaseLog({ events, live }: { events: Ev[]; live: boolean 
             <span className="sr-only">{r.word}: </span>
             <span className={`[overflow-wrap:anywhere] ${r.kind === "fail" || r.kind === "wait" || r.kind === "work" ? "font-semibold" : ""}`}>{r.text}</span>
           </span>
-          <time dateTime={r.at} className="num note shrink-0 leading-[20px] text-mute" suppressHydrationWarning>{clock(r.at)}</time>
+          <time dateTime={r.at} className="num note shrink-0 leading-[20px] text-mute" suppressHydrationWarning>{logWhen(r.at, lang)}</time>
         </li>
       ))}
     </ol>

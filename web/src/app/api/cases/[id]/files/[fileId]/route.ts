@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { photoRoute } from "@/lib/photos/route";
 import { openPhoto } from "@/lib/photos/store";
+import { climbs, ownBlobPath } from "@/lib/blob-url";
 
 // Opens one file the user uploaded to a case (PDF, photo, zip), straight from the PRIVATE store. No public URL exists.
 // `photoRoute` has already checked the session, the organisation and that the case belongs to it; here the file must
@@ -14,15 +15,10 @@ export const maxDuration = 60;
 // trusted. Only these open in the browser; anything else (a zip, an unknown type) is offered as a download.
 const INLINE: Record<string, string> = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 
-/** A store path or blob URL of this organisation; anything else is never fetched. */
+/** A store path or blob URL of this organisation; anything else is never fetched. Dots inside a file name are fine, a ".." folder step is not. */
 function ownPath(p: string, orgId: string) {
-  if (!/^https?:/i.test(p)) return !p.includes("..") && p.startsWith(`${orgId}/`);
-  try {
-    const u = new URL(p);
-    return u.protocol === "https:" && u.hostname.endsWith(".blob.vercel-storage.com") && u.pathname.startsWith(`/${orgId}/`);
-  } catch {
-    return false;
-  }
+  if (!/^https?:/i.test(p)) return !climbs(p) && p.startsWith(`${orgId}/`);
+  return ownBlobPath(p, orgId) !== null;
 }
 
 export const GET = photoRoute("cases.file", async ({ c, me, params }) => {

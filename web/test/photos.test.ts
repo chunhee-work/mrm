@@ -5,7 +5,7 @@ import {
   canonName, doneBlock, isPermutation, normalizePick, pathInCase, photoModel, photoPath, sliceCostUsd, sliceMatches,
   statusAfterDone, statusAfterRegister, costCapUsd, NONE, PART_NAMES,
 } from "../src/lib/photos/rules";
-import { altsOf, classifyPaste, counts, fileIdentity, fileProblem, moved, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
+import { altsOf, classifyPaste, counts, donePress, escapeRestores, fileIdentity, fileProblem, moved, uploadRefusal, visible, UndoStack, type Photo } from "../src/lib/photos/desk-rules";
 import { logLine, safeError } from "../src/lib/photos/log";
 import { assertTextOnly, buildJevRequest, TypeSafeImageError } from "../src/lib/typesafe";
 import { pickContext, SYSTEM } from "../src/lib/photos/name-photos";
@@ -103,9 +103,9 @@ test("status rule: only the naming statuses ever move", () => {
   for (const s of ["uploaded", "phase_a", "pending_doc", "reading", "failed", "done", "checking"]) assert.equal(statusAfterDone(s, true), s);
   assert.equal(statusAfterDone("phase_b", false), "waiting_user");
   for (const s of ["done", "checking", "naming", "uploaded"]) assert.equal(statusAfterDone(s, false), s);
-  assert.equal(statusAfterRegister("uploaded"), "naming");
-  assert.equal(statusAfterRegister("phase_a"), "naming");
-  assert.equal(statusAfterRegister("reading"), "reading");
+});
+test("status rule: adding photos on the desk never moves the case (the worker has no step for 'naming', so the case would wait for ever)", () => {
+  for (const s of ["uploaded", "reading", "pending_doc", "phase_a", "naming", "waiting_user", "phase_b", "failed"]) assert.equal(statusAfterRegister(s), s);
 });
 test("photo paths stay inside the organisation and case", () => {
   const p = photoPath("org1", "case1", "abc123", "s", "../../IMG 0001 (1).JPG");
@@ -114,6 +114,10 @@ test("photo paths stay inside the organisation and case", () => {
   assert.ok(!pathInCase(p, "org1", "case2"));
   assert.ok(!pathInCase(p, "org2", "case1"));
   assert.ok(!pathInCase("org1/case1/photos/../../x", "org1", "case1"));
+  // two dots inside a file name are a name, not a step up a folder; a real step up is refused however it is written
+  assert.ok(pathInCase(photoPath("org1", "case1", "ab12", "f", "front..bumper.jpg"), "org1", "case1"));
+  assert.ok(!pathInCase("org1/case1/photos/%2e%2e/x.jpg", "org1", "case1"));
+  assert.ok(!pathInCase("org1/case1/photos/a/../x.jpg", "org1", "case1"));
   assert.ok(!pathInCase("org1/case1/photos//x", "org1", "case1"));
   assert.ok(!pathInCase(123, "org1", "case1"));
 });
@@ -209,6 +213,71 @@ test("desk: undo is newest first, one step per typing session, and steps of a ph
   assert.equal(u.size, 1);
   u.dropPhoto("c", 1); // a 409 on undo
   assert.equal(u.size, 0);
+});
+test("desk: undo belongs to the open case, never to another one", () => {
+  const u = new UndoStack();
+  u.push({ caseId: "a", photoId: 1, prev: null, after: 1 });
+  u.push({ caseId: "b", photoId: 7, prev: "Bonnet", after: 4 });
+  assert.equal(u.peek("a")!.photoId, 1, "case a: its own last change, not the newer one of case b");
+  assert.equal(u.peek("b")!.photoId, 7);
+  assert.equal(u.peek("c"), undefined, "a case with no changes has nothing to undo");
+  u.done(u.peek("a")!, 2);
+  assert.equal(u.peek("a"), undefined);
+  assert.equal(u.size, 1, "the step of case b is still there");
+});
+test("desk: a typing session that ends on the name it started from leaves no undo step", () => {
+  const u = new UndoStack();
+  u.push({ caseId: "c", photoId: 1, prev: null, after: 1 }, "Bonnet");
+  u.push({ caseId: "c", photoId: 1, prev: "Bonnet", after: 2, session: "s" }, "Bon"); // saved while typing
+  u.push({ caseId: "c", photoId: 1, prev: "Bon", after: 3, session: "s" }, "Bonnet"); // Escape: back to the name before the edit
+  assert.equal(u.size, 1);
+  assert.deepEqual(u.peek("c"), { caseId: "c", photoId: 1, prev: null, after: 3 }, "the older step follows the photo's new version");
+  u.push({ caseId: "c", photoId: 2, prev: "Grille", after: 2, session: "t" }, "Grille Lower");
+  assert.equal(u.size, 2, "a session that really changed the name is one step");
+});
+test("desk: a clear 'no' to an upload is not tried again and keeps its reason; a server fault is", () => {
+  assert.equal(uploadRefusal(409, "duplicate"), "duplicate");
+  assert.equal(uploadRefusal(400, "taken"), "duplicate", "the path of a stored photo: the photo is already there");
+  assert.equal(uploadRefusal(400, "limit"), "limit");
+  assert.equal(uploadRefusal(400, "status"), "status");
+  for (const [st, err] of [[400, "path"], [401, "unauthorized"], [404, "not_found"], [400, undefined]] as const) assert.equal(uploadRefusal(st, err), "upload");
+  for (const st of [200, 500, 502, 503]) assert.equal(uploadRefusal(st, "limit"), null, `${st}: try again`);
+});
+test("desk: Done after the saves it waited for: a failed save stops it, another case on screen does not", () => {
+  const ph = (over: Partial<Photo>): Photo => ({ id: 1, origN: 1, position: 0, srcName: "a.jpg", state: "named", how: "model", modelName: "Bonnet", confidence: 0.97, alts: [], finalName: null, error: null, version: 0, ...over });
+  const named = [ph({}), ph({ id: 2, finalName: "Grille" })];
+  const unnamed = [ph({}), ph({ id: 2, modelName: null }), ph({ id: 3, state: "failed", modelName: null })];
+  const base = { done: false, saveFailed: false, here: true, photos: named };
+  assert.deepEqual(donePress(base), { do: "send" });
+  assert.deepEqual(donePress({ ...base, done: true }), { do: "undo" });
+  // a save that Done waited for did not go through: Done is not sent, so its message stays and the old name is not confirmed;
+  // taking "Finished" back still goes through (the case only stays open)
+  assert.deepEqual(donePress({ ...base, saveFailed: true }), { do: "nothing" });
+  assert.deepEqual(donePress({ ...base, saveFailed: true, done: true }), { do: "undo" });
+  assert.deepEqual(donePress({ ...base, saveFailed: true, here: false }), { do: "nothing" });
+  // on screen, what blocks Done is said (and the page walks to the photo)
+  assert.deepEqual(donePress({ ...base, photos: [] }), { do: "block", reason: "empty", n: 0 });
+  assert.deepEqual(donePress({ ...base, photos: [ph({}), ph({ id: 2, state: "pending", modelName: null })] }), { do: "block", reason: "naming", n: 1 });
+  assert.deepEqual(donePress({ ...base, photos: unnamed }), { do: "block", reason: "unnamed", n: 2 });
+  // the user opened another case while Done waited: the press still counts. Done is sent for the case it was pressed on
+  // only the steps on the screen are left out; a case that cannot be finished yet is left alone, without a message on the other case
+  assert.deepEqual(donePress({ ...base, here: false }), { do: "send" });
+  assert.deepEqual(donePress({ ...base, here: false, photos: unnamed }), { do: "nothing" });
+  assert.deepEqual(donePress({ ...base, here: false, done: true }), { do: "undo" });
+});
+test("desk: Escape puts the old name back only over a name this edit stored itself", () => {
+  const base = { orig: "Bonnet" as string | null, shown: "Bon" as string | null, stored: "Bon" as string | null | undefined, session: "s", flying: [] as (string | undefined)[], saved: { session: "s", name: "Bon" as string | null } };
+  assert.equal(escapeRestores(base), true, "the typed name was saved by this edit: back to the old one");
+  assert.equal(escapeRestores({ ...base, stored: "Bonnet", saved: null, flying: ["s"] }), true, "its save is still on its way: the old name goes out right after it");
+  assert.equal(escapeRestores({ ...base, stored: "Bonnet", saved: null, flying: [undefined, "s"] }), true, "queued behind another save");
+  assert.equal(escapeRestores({ ...base, shown: "Bonnet", stored: "Bonnet", saved: null }), false, "nothing was saved: nothing to put back");
+  // another tab renamed the photo (the autosave got 'changed somewhere else', or a refresh brought the name): never written over
+  assert.equal(escapeRestores({ ...base, shown: "Grille", stored: "Grille", saved: null }), false);
+  assert.equal(escapeRestores({ ...base, shown: "Grille", stored: "Grille" }), false, "this edit saved 'Bon' earlier, but what is stored now is someone else's");
+  assert.equal(escapeRestores({ ...base, saved: { session: "other", name: "Bon" } }), false, "saved by an earlier edit, not this one");
+  assert.equal(escapeRestores({ ...base, flying: ["other"], saved: null }), false);
+  assert.equal(escapeRestores({ ...base, orig: null, shown: null, stored: null, saved: { session: "s", name: null } }), false, "already the old name");
+  assert.equal(escapeRestores({ ...base, orig: null }), true, "the old name was the suggestion: back to it");
 });
 test("desk: move within the list", () => {
   assert.deepEqual(moved([1, 2, 3, 4, 5], 4, 1), [1, 5, 2, 3, 4]);

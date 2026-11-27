@@ -35,6 +35,13 @@ test("success writes exactly one row with tokens and priced cost", async () => {
   assert.deepEqual([r.inputTokens, r.outputTokens, r.cacheReadTokens, r.cacheWrite5mTokens, r.cacheWrite1hTokens], [1000, 100, 500, 10, 20]);
   assert.equal(Number(r.costUsd), (1000 * 4 + 100 * 20 + 500 * 0.2 + 10 * 5 + 20 * 8) / 1e6);
 });
+test("U10: per-call limits (timeout, tries, the signal that ends the call) reach the SDK call", async () => {
+  let got: unknown;
+  const client = { messages: { create: async (_p: unknown, opts: unknown) => { got = opts; return { _request_id: "req_t", model: "claude-opus-5-5", content: [], usage: { input_tokens: 1, output_tokens: 1 } }; } } };
+  const signal = AbortSignal.timeout(60_000);
+  await trackedParse(ctx, P, { client: client as never, record: async () => {}, request: { signal, timeout: 1234, maxRetries: 1 } });
+  assert.deepEqual(got, { signal, timeout: 1234, maxRetries: 1 });
+});
 test("unknown model is stored unpriced (null cost)", async () => {
   const rows: LedgerRow[] = [];
   const client = { messages: { create: async () => ({ _request_id: "req_2", model: "mystery-1", content: [], usage: { input_tokens: 5, output_tokens: 5 } }) } };
