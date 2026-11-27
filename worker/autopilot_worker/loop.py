@@ -204,13 +204,12 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
 
     try:
         try:
-            # downloads go to <state>/files/<case id>/<item id>-<name>; the names come from the database and are made safe by the downloader
-            if job["step"] == "intake":
-                for f in case["files"]:
-                    download(f["url"], f["name"], job["case_id"], f"file-{f['id']}")
+            # Only the photo model reads files from this machine. (Intake used to download every case PDF here and nothing read them:
+            # the Jev page check reads its PDFs in memory, straight from the Blob.)
+            # downloads go to <state>/files/<case id>/<job id>/<photo id>-<name>; the name comes from the database and is made safe by the downloader
             if job["step"] == "photo_model":
                 for p in case["photos"]:
-                    local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg", job["case_id"], p["id"])
+                    local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg", job["case_id"], job["id"], p["id"])
                     if local:
                         p["local"] = local
             gate = repo.gate(job["org_id"], env_on=cfg.ext_connect)
@@ -242,9 +241,9 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
-        if forget_files:  # the job is over, done or failed: its downloaded files leave this machine
+        if forget_files:  # the job is over, done or failed: its own downloaded files leave this machine
             try:
-                forget_files(job["case_id"])
+                forget_files(job["case_id"], job["id"])
             except Exception:  # noqa: BLE001  (the hourly sweep takes what is left)
                 pass
     _at("apply")

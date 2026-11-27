@@ -188,24 +188,24 @@ def main() -> None:
 
     files_root = os.path.join(cfg.state_dir, "files")  # downloads live here only while their job runs
 
-    def download(url: str, name: str, case_id, item_id):
-        """One case file or photo to <state>/files/<case id>/<item id>-<name> (private). `name` is the uploaded file name: untrusted."""
+    def download(url: str, name: str, case_id, job_id, item_id):
+        """One photo to <state>/files/<case id>/<job id>/<photo id>-<name> (private). `name` is the uploaded file name: untrusted."""
         if not cfg.blob_token or not url:
             return None
         from .blobstore import blob_request, local_file, write_private
         import urllib.request
 
-        target = local_file(files_root, case_id, item_id, name)
+        target = local_file(files_root, case_id, job_id, item_id, name)
         req_url, headers = blob_request(url, cfg.blob_token)
         req = urllib.request.Request(req_url, headers=headers)
         with urllib.request.urlopen(req, timeout=60) as r:
             write_private(target, r.read())
         return target
 
-    def forget_files(case_id) -> None:
-        from .blobstore import remove_case_files
+    def forget_files(case_id, job_id) -> None:
+        from .blobstore import remove_job_files
 
-        remove_case_files(files_root, case_id)
+        remove_job_files(files_root, case_id, job_id)
 
     last_sweep = [None]
 

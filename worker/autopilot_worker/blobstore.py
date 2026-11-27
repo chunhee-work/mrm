@@ -31,7 +31,7 @@ def blob_request(url_or_path: str, token: str) -> tuple[str, dict[str, str]]:
     return private_url(url_or_path, token), {"Authorization": f"Bearer {token}"}
 
 
-# ---- downloaded case files on this machine: <state>/files/<case id>/<item id>-<name>, removed when the job ends ----
+# ---- downloaded case files on this machine: <state>/files/<case id>/<job id>/<item id>-<name>, removed when that job ends ----
 
 _ID_BAD = re.compile(r"[^A-Za-z0-9_-]")
 NAME_MAX_BYTES = 150
@@ -59,25 +59,34 @@ def _safe_name(name) -> str:
     return base
 
 
-def local_file(store_dir: str, case_id, item_id, name) -> str:
-    """Where one downloaded file goes. The item id in front keeps two photos with the same name apart."""
-    return os.path.join(store_dir, _safe_id(case_id), f"{_safe_id(item_id)}-{_safe_name(name)}")
+def local_file(store_dir: str, case_id, job_id, item_id, name) -> str:
+    """Where one downloaded file goes. Each job has its own folder under the case, so two jobs of one case never share (or remove)
+    each other's files; the item id in front keeps two photos with the same name apart."""
+    return os.path.join(store_dir, _safe_id(case_id), _safe_id(job_id), f"{_safe_id(item_id)}-{_safe_name(name)}")
 
 
 def write_private(path: str, data: bytes) -> None:
-    """Folder 0700, file 0600: case PDFs carry ID numbers."""
-    os.makedirs(os.path.dirname(os.path.dirname(path)), mode=0o700, exist_ok=True)
-    os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+    """Folders 0700, file 0600: case photos and PDFs are customers' data."""
+    job_dir = os.path.dirname(path)
+    case_dir = os.path.dirname(job_dir)
+    for d in (os.path.dirname(case_dir), case_dir, job_dir):
+        os.makedirs(d, mode=0o700, exist_ok=True)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "wb") as f:
         f.write(data)
 
 
-def remove_case_files(store_dir: str, case_id) -> None:
-    """The job is over (done or failed): its downloads go. Missing folder = nothing to do. Never raises."""
+def remove_job_files(store_dir: str, case_id, job_id) -> None:
+    """The job is over (done or failed): ITS downloads go, nothing of another job of the same case. The case folder goes too once
+    it is empty. Missing folder = nothing to do. Never raises."""
     try:
-        shutil.rmtree(os.path.join(store_dir, _safe_id(case_id)), ignore_errors=True)
+        case_dir = os.path.join(store_dir, _safe_id(case_id))
+        shutil.rmtree(os.path.join(case_dir, _safe_id(job_id)), ignore_errors=True)
     except ValueError:
+        return
+    try:
+        os.rmdir(case_dir)  # only succeeds when nothing else is in it
+    except OSError:
         pass
 
 
