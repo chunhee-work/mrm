@@ -20,24 +20,25 @@ export default function CaseSteps({ caseId, status, photos, photosDone, here, hi
         {steps.map((s, i) => {
           const on = s.id === (here ?? current);
           const failedHere = status === "failed" && s.state === "current";
-          const circle = s.state === "complete" ? "bg-go text-bay" : failedHere ? "bg-[#dc2626] text-white" : s.state === "current" ? "bg-amber text-bay" : s.open ? "border border-dashed border-mute bg-transparent text-fg" : "bg-panel2 text-mute";
+          const circle = s.state === "complete" ? "bg-go text-bay" : failedHere ? "bg-[#dc2626] text-white" : s.state === "current" ? "bg-amber text-bay" : s.open ? "border border-dashed border-mute bg-panel text-fg" : "bg-panel2 text-mute";
           const label = on || s.state === "current" ? "font-semibold text-fg" : s.state === "complete" ? "font-medium text-fg" : "text-mute";
           const body = (
             <>
               <span className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${circle} ${on ? "ring-2 ring-fg/15 ring-offset-2 ring-offset-panel" : ""}`}>
-                {s.state === "complete" ? <Tick className="h-3.5 w-3.5" aria-hidden="true" /> : failedHere ? "!" : i + 1}
+                {s.state === "complete" ? <Tick className="h-3.5 w-3.5" aria-hidden="true" /> : failedHere ? <span aria-hidden="true">!</span> : i + 1}
               </span>
               <span className={`mt-1.5 max-w-full truncate px-1 text-[13px] leading-tight max-sm:text-[12px] ${label}`}>{t(`steps.${s.id}`)}</span>
               {s.state === "complete" && <span className="sr-only"> ✓</span>}
+              {failedHere && <span className="sr-only"> ({t("steps.failed")})</span>}
               {s.state === "locked" && !on && !s.open && <span className="sr-only"> ({t("steps.locked")})</span>}
             </>
           );
-          const cls = "flex min-w-0 flex-col items-center rounded-[4px] py-1 outline-offset-2 transition-opacity duration-150 hover:opacity-80";
+          const cls = "flex min-w-0 flex-col items-center rounded-[4px] py-1 outline-offset-2 ";
           return (
             <li key={s.id} className="relative flex min-w-0 flex-1 justify-center">
               {/* the line to the previous and the next step: green once the step it leaves is done */}
-              {i > 0 && <span aria-hidden="true" className={`absolute left-0 top-[17px] h-[3px] w-1/2 -translate-y-1/2 ${steps[i - 1].state === "complete" ? "bg-go" : "bg-hair2"}`} />}
-              {i < steps.length - 1 && <span aria-hidden="true" className={`absolute right-0 top-[17px] h-[3px] w-1/2 -translate-y-1/2 ${s.state === "complete" ? "bg-go" : "bg-hair2"}`} />}
+              {i > 0 && <span aria-hidden="true" className={`absolute left-0 top-[18px] h-[3px] w-1/2 -translate-y-1/2 ${steps[i - 1].state === "complete" ? "bg-go" : "bg-hair2"}`} />}
+              {i < steps.length - 1 && <span aria-hidden="true" className={`absolute right-0 top-[18px] h-[3px] w-1/2 -translate-y-1/2 ${s.state === "complete" ? "bg-go" : "bg-hair2"}`} />}
               {s.open && s.id !== "done" ? (
                 <Link href={HREF(caseId, s.id)} aria-current={on ? "step" : undefined} className={cls} data-testid={`step-${s.id}`}>{body}</Link>
               ) : (
