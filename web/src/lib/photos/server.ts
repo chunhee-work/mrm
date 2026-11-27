@@ -326,9 +326,9 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
     : []);
   // A retry (the answer was lost, or the first try stopped half-way): the photo is already stored under this very path. That is a
   // success, not a duplicate and not a failure: the photo comes back as added, and what the first try left undone is done below.
-  const stored = new Map((items.length
-    ? await db.select().from(P).where(and(eq(P.caseId, c.id), inArray(P.blobPath, items.map((i) => i.blobPath))))
-    : []).map((r) => [r.blobPath, r]));
+  const stored = new Set(items.length
+    ? (await db.select({ b: P.blobPath }).from(P).where(and(eq(P.caseId, c.id), inArray(P.blobPath, items.map((i) => i.blobPath))))).map((r) => r.b)
+    : []);
   const present = await Promise.all(items.map(async (i) => stored.has(i.blobPath) ||
     (noted.has(i.blobPath) && noted.has(i.thumbPath) && (await photoExists(i.blobPath)) && (await photoExists(i.thumbPath)))));
   items = items.filter((i, k) => { if (!present[k]) rejected.push(i.name); return present[k]; });
@@ -340,9 +340,12 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
   for (let attempt = 0; attempt < 3 && items.length; attempt++) {
     const have = await db.select({ hash: P.contentHash, blobPath: P.blobPath, origN: P.origN, position: P.position }).from(P).where(eq(P.caseId, c.id));
     const hashes = new Set(have.map((h) => h.hash).filter(Boolean) as string[]);
-    const taken = new Set(have.map((h) => h.blobPath));
+    const inCase = new Set(have.map((h) => h.blobPath));
+    const taken = new Set<string>();
     const fresh: RegisterItem[] = [];
     for (const it of items) {
+      // stored since the look above: the first try of this same upload (a retry that overlaps it) wrote it meanwhile. Same path = same upload.
+      if (inCase.has(it.blobPath)) { again.set(it.blobPath, it); continue; }
       if (taken.has(it.blobPath)) { duplicates.push(it.name); continue; }
       taken.add(it.blobPath); // the same entry twice in one request is one photo
       if (it.hash && hashes.has(it.hash)) { duplicates.push(it.name); strays.push(it.blobPath, it.thumbPath); continue; }
@@ -376,12 +379,23 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
     if (next !== c.status) await db.update(schema.cases).set({ status: next }).where(and(eq(schema.cases.id, c.id), eq(schema.cases.status, c.status)));
     await clearDone(c.id);
     await db.execute(sql`UPDATE cases SET photos_arranged_at = NULL WHERE id = ${c.id}`); // new photos: the opening order is looked at again once they are named
-    await db.insert(schema.caseFiles).values(toFile.map((it) => ({ caseId: c.id, kind: "photo", blobUrl: it.blobPath, originalName: it.name, size: it.size })));
+    // One statement that skips a photo which already has its file row: a retry or a second tab that looked just before the
+    // first try wrote the row cannot list the same photo twice.
+    await db.execute(sql`
+      INSERT INTO case_files (case_id, kind, blob_url, original_name, size)
+      SELECT ${c.id}, 'photo', e.v->>'url', e.v->>'name', (e.v->>'size')::bigint
+      FROM jsonb_array_elements(${JSON.stringify(toFile.map((it) => ({ url: it.blobPath, name: it.name, size: it.size })))}::jsonb) WITH ORDINALITY AS e(v, ord)
+      WHERE NOT EXISTS (SELECT 1 FROM case_files f WHERE f.case_id = ${c.id} AND f.kind = 'photo' AND f.blob_url = e.v->>'url')
+      ORDER BY e.ord`);
   }
   const consumed = [...[...items, ...again.values()].flatMap((i) => [i.blobPath, i.thumbPath]), ...strays];
   if (consumed.length) await db.delete(schema.photoUploads).where(and(eq(schema.photoUploads.caseId, c.id), inArray(schema.photoUploads.path, consumed)));
+  // the photos that were already stored come back as they are now (some were only found stored inside the loop above)
+  const before = again.size
+    ? await db.select().from(P).where(and(eq(P.caseId, c.id), inArray(P.blobPath, [...again.keys()]))).orderBy(asc(P.origN))
+    : [];
+  const all = [...before, ...added];
   // a file that a photo kept in this request points at is never cleaned up
-  const all = [...[...again.keys()].map((b) => stored.get(b)!), ...added];
   const kept = new Set(all.flatMap((p) => [p.blobPath, p.thumbPath]));
   await Promise.all([...new Set(strays)].filter((p) => !kept.has(p)).map((p) => deletePhoto(p).catch(() => {})));
   return ok({ added: all.map(photoDto), duplicates, rejected });
