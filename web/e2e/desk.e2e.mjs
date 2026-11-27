@@ -473,7 +473,7 @@ try {
     await page.goto(`${BASE}/cases/new?dropped=1`);
     await page.getByText(/did not arrive|没有带过来|tidak sampai/).waitFor();
     // a drop with a file left out does not send: the note stays and Upload waits for a press
-    await page.goto(`${BASE}/dashboard`);
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" }); // the page listens for drops once it has loaded
     await page.getByTestId("home-new").waitFor();
     let sent = 0;
     await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
@@ -545,7 +545,7 @@ try {
     await page.getByText("first-drop.pdf").waitFor();
     // the New case of the top bar (on the case table) opens the picker too
     await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
-    const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
+    const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').first().click()]); // wide screens: the row above the page
     await page.waitForTimeout(500);
     assert.match(page.url(), /view=all/, "the picker opens in place");
     assert.equal(await page.getByTestId("nav-progress").count(), 0, "no progress bar while the picker is open");
@@ -554,7 +554,7 @@ try {
     await page.waitForTimeout(500);
     assert.match(page.url(), /view=all/, "picking nothing stays put");
     assert.equal(sent, 0, "picking nothing sends nothing");
-    const [chooser3] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
+    const [chooser3] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').first().click()]); // wide screens: the row above the page
     await chooser3.setFiles([{ name: "bar.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
     await page.waitForURL(/\/cases\/new$/);
     await page.getByText("bar.pdf").waitFor();
