@@ -44,18 +44,19 @@ export const PLATE_LIKE = /^[A-Z]{1,3}[\s-]?\d{1,4}[\s-]?[A-Z]{0,2}$/i;
 /** Most cars one zip may be split into (the browser refuses more before uploading; the server checks again). */
 export const MAX_VEHICLES = 30;
 
-// Short words people number folders with ("Doc1", "Car 2", "Set 3", "Day 1"): with 1-2 digits and no letters after, not a plate.
+// Words people number or date folders with ("Doc1", "Car 2", "IMG 001", "Nov 3", "Mac 2026"): followed by digits only, not a plate.
+// A real plate starting with one of these words (rare) is then not a car folder, and the zip stays one case.
 const NUMBERED_WORD = new Set(["DOC", "PDF", "CAR", "SET", "IMG", "PIC", "PIX", "NO", "VOL", "DAY", "PG", "PT", "PHO", "VID", "REF", "INV", "FIG", "TAB", "RPT", "SCN", "ID"]);
-const MONTH = new Set(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]);
+const MONTH = new Set(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", // English
+  "MAC", "MEI", "OGO", "OKT", "DIS"]); // Malay (the others are the same as in English)
 
-/** A folder name that is a car plate: PLATE_LIKE, but not a numbered word ("Doc1", "Car 2") or a month and year ("Nov 2026"). */
+/** A folder name that is a car plate: PLATE_LIKE, but not a numbering or date word followed by digits only ("Doc1", "Nov 2026"). */
 export function isPlate(name: string): boolean {
   const m = name.match(/^([A-Z]{1,3})[\s-]?(\d{1,4})[\s-]?([A-Z]{0,2})$/i);
   if (!m) return false;
-  const [, letters, digits, tail] = m;
+  const [, letters, , tail] = m;
   const w = letters.toUpperCase();
-  if (NUMBERED_WORD.has(w) && digits.length <= 2 && !tail) return false;
-  if (MONTH.has(w) && /^(19|20)\d\d$/.test(digits) && !tail) return false;
+  if (!tail && (NUMBERED_WORD.has(w) || MONTH.has(w))) return false;
   return true;
 }
 
@@ -75,7 +76,10 @@ export function vehiclePrefixes(names: string[]): string[] {
   };
   let g = split(0);
   if (g.size === 1) g = split(1); // everything sits in one wrapping folder
-  return [...g].filter(([k, hasPdf]) => hasPdf && isPlate(k.slice(0, -1).split("/").pop() ?? "")).map(([k]) => k);
+  // Every folder that holds a PDF must be a plate: one that is not ("SINAR-1/", "Policy/") would be dropped by a split, so then the
+  // zip is not treated as several cars at all (it stays one case, or is refused with a reason).
+  const withPdf = [...g].filter(([, hasPdf]) => hasPdf).map(([k]) => k);
+  return withPdf.every((k) => isPlate(k.slice(0, -1).split("/").pop() ?? "")) ? withPdf : [];
 }
 
 /** Just the folder names (the plates) of vehiclePrefixes. */

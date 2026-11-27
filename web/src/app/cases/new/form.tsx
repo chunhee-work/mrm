@@ -149,7 +149,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
-          if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : t("new.splitFail")); setStep(-1); setBusy(false); return; }
+          // 400/502: no case was made, so not the "some cars may be made" text
+          if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : sp.status === 400 || sp.status === 502 ? t("new.fail") : t("new.splitFail")); setStep(-1); setBusy(false); return; }
           leaving.current = true;
           window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
           return;
