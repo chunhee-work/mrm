@@ -24,7 +24,7 @@ const en: Dict = {
   "finish.doneLater": "Names are saved. The worker takes the case when it reaches it.",
   "finish.doneOnly": "Names are saved.",
   "finish.done": "Names are saved and the case is queued for the worker. Next it uploads and orders the photos in Merimen, then plans the parts and labour.",
-  "finish.unnamed": "{n} photos still need a name. Press Done to jump to the first one.",
+  "finish.unnamed": "{n} photo(s) still need a name. Press Done to jump to the first one.",
   "finish.todo": "{n} names still to confirm. Done confirms them all.",
   "finish.ready": "All names are in. Press Done to confirm them.",
   doneCount: "{d}/{n} {n?case|cases} done",

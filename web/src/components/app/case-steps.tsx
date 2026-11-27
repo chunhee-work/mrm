@@ -22,9 +22,11 @@ export default function CaseSteps({ caseId, status, photos, photosDone, here, hi
           const body = (
             <>
               <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11.5px] font-bold ${s.state === "complete" ? "bg-go text-bay" : on ? "bg-bay/20 text-bay" : "bg-panel2 text-mute"}`}>
-                {s.state === "complete" ? <Tick className="h-3 w-3" /> : i + 1}
+                {s.state === "complete" ? <Tick className="h-3 w-3" aria-hidden="true" /> : i + 1}
               </span>
               <span className="min-w-0 truncate max-sm:text-[12.5px]">{t(`steps.${s.id}`)}</span>
+              {s.state === "complete" && <span className="sr-only"> ✓</span>}
+              {s.state === "locked" && !on && !s.open && <span className="sr-only"> ({t("steps.locked")})</span>}
             </>
           );
           const cls = `flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[4px] px-2 text-[13.5px] font-semibold transition-colors duration-150 max-sm:flex-col max-sm:gap-0.5 max-sm:h-12 max-sm:px-1 ${
@@ -35,7 +37,7 @@ export default function CaseSteps({ caseId, status, photos, photosDone, here, hi
               {s.open && s.id !== "done" ? (
                 <Link href={HREF(caseId, s.id)} aria-current={on ? "step" : undefined} className={cls} data-testid={`step-${s.id}`}>{body}</Link>
               ) : (
-                <span aria-current={on ? "step" : undefined} aria-disabled={!s.open || undefined} title={s.open ? undefined : t("steps.locked")} className={cls} data-testid={`step-${s.id}`}>{body}</span>
+                <span aria-current={on ? "step" : undefined} aria-disabled={(!s.open && !on) || undefined} title={s.open || on ? undefined : t("steps.locked")} className={cls} data-testid={`step-${s.id}`}>{body}</span>
               )}
             </li>
           );
