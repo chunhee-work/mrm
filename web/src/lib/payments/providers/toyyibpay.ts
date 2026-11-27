@@ -4,6 +4,7 @@ import { PaymentError } from "../types";
 import { creditOrder, auditPayment } from "../credit";
 import { getOrder } from "../orders";
 import { decimalToMinor } from "../money";
+import { paymentsMode } from "../packs";
 
 // toyyibPay: Malaysian online banking (FPX). Charges in MYR. Plan: chunhee-work/mrm#12.
 //
@@ -17,8 +18,23 @@ import { decimalToMinor } from "../money";
 const TIMEOUT_MS = 10_000;
 export const SUCCESS_STATUS = "1";
 
-const base = () => (process.env.TOYYIBPAY_BASE_URL || "https://toyyibpay.com").replace(/\/$/, "");
-export const isSandbox = () => /dev\.toyyibpay\.com/.test(base());
+const LIVE_HOST = "https://toyyibpay.com";
+const SANDBOX_HOST = "https://dev.toyyibpay.com";
+/**
+ * Test mode (PAYMENTS_MODE not "live") ALWAYS talks to the sandbox, whatever TOYYIBPAY_BASE_URL says, so a
+ * test checkout can never reach live FPX. A live-account key does not work on the sandbox: the health check
+ * then fails and toyyibPay is not offered, which is the safe outcome.
+ */
+function hostOf(u: string): string {
+  try { return new URL(u).hostname; } catch { return ""; }
+}
+export function baseUrl(mode: "test" | "live" = paymentsMode(), override = process.env.TOYYIBPAY_BASE_URL): string {
+  const o = (override || "").replace(/\/$/, "");
+  if (mode !== "live") return hostOf(o) === "dev.toyyibpay.com" ? o : SANDBOX_HOST;
+  return o || LIVE_HOST;
+}
+const base = () => baseUrl();
+export const isSandbox = () => hostOf(base()) === "dev.toyyibpay.com";
 
 async function form(path: string, params: Record<string, string>): Promise<unknown> {
   const key = process.env.TOYYIBPAY_SECRET_KEY;
