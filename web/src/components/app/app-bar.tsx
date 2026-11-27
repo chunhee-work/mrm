@@ -92,6 +92,7 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
     { href: "/details", label: t("pf.title") },
     { href: "/billing", label: t("nav.billing") },
     { href: "/settings", label: t("nav.settings") },
+    { href: "/how-it-works", label: t("side.how") },
   ];
   function pickLang(l: Lang) {
     document.cookie = `lang=${l}; path=/; max-age=31536000; samesite=lax`;

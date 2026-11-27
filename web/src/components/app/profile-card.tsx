@@ -89,7 +89,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSend) return;
-    if (first || (!compact && look !== "page")) void send(); else setConfirming(true);
+    if (first || !cred.complete) void send(); else setConfirming(true); // only a real edit of complete details asks "replace?"
   }
   async function send() {
     setBusy(true); setErr(null);

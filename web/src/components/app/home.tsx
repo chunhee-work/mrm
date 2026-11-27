@@ -152,8 +152,10 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
   // Once shown it stays while the line is open: after 完成 the case moves to step 3, and the desk keeps its message and its undo.
   const [deskOpen, setDeskOpen] = useState(bucketOf(r) === "photos");
   useEffect(() => { if (bucketOf(r) === "photos") setDeskOpen(true); }, [r]);
-  // while a line is open a dropped file does not start a new case (the page-wide drop is off); its photo desk takes photos itself
-  useEffect(() => { onDesk(true); return () => onDesk(false); }, [onDesk]);
+  // while a line shows the photo desk or an upload of its own, a dropped file does not start a new case (the page-wide drop is
+  // off: it would be unclear where the file goes); a line with nothing to drop into leaves the page-wide drop on
+  const takesFiles = deskOpen || r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null));
+  useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
   const desk = (
     <div className="overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
       <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={() => router.refresh()}
@@ -284,7 +286,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   useEffect(() => {
     const before = wasNeeded.current;
     wasNeeded.current = loginNeeds;
-    if (!before || loginNeeds || cred.verifyState !== "ok") return;
+    if (!before || loginNeeds || cred.verifyState !== "ok") { setOkHold(false); return; }
     setOkHold(true);
     const id = window.setTimeout(() => setOkHold(false), 5000);
     return () => window.clearTimeout(id);
@@ -344,7 +346,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
         </div>
         {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact={false} /></div>}
         {/* the login needs the user: say it here, not only on the details page */}
-        {(loginNeeds || okHold) && (
+        {(loginNeeds || (okHold && cred.complete)) && (
           <div className="mt-8 max-w-[520px]"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact /></div>
         )}
         {/* a wide screen has Closed cases in the side bar (side-bar.tsx); New case stays here at every width */}

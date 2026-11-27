@@ -16,6 +16,7 @@ function Icon({ d }: { d: string }) {
 const CASES = "M4 5h16M4 12h16M4 19h10";
 const GLOBE = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z";
 const HELP = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01";
+const HOW = "M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a1.5 1.5 0 0 0-1.5-1.5h-5A1.5 1.5 0 0 1 4 17V5.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 0 20 17V5.5z";
 const OUT = "M14 4h6v6M20 4l-8 8M18 14v6H4V6h6";
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 const CLOSED = "M5 12.5l4.5 4.5L19 7.5";
@@ -70,6 +71,7 @@ function Account({ name, email, credits, thin }: { name: string; email: string; 
               {LANGS.map((l) => <button key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-pressed={l === lang} onClick={() => pickLang(l)} className={`flex h-8 w-full items-center justify-between rounded-[3px] px-3 text-left text-[13.5px] hover:bg-panel2 ${l === lang ? "font-semibold text-fg" : "text-mute"}`}>{MENU_LANG[l]}{l === lang && <Tick className="h-3.5 w-3.5" />}</button>)}
             </div>
           )}
+          <Link href="/how-it-works" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`} data-testid="side-how"><Icon d={HOW} />{t("side.how")}</Link>
           <a href={whatsappHref()} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={`${menuItem} text-fg`}><Icon d={HELP} /><span className="flex-1">{t("side.help")}</span><Icon d={OUT} /></a>
           <div className="my-1 border-t border-hair" />
           <button type="button" role="menuitem" disabled={busy} onClick={() => { setBusy(true); void logOut(); }} className={`${menuItem} text-[#dc2626] disabled:opacity-55`} data-testid="side-logout"><Exit className="shrink-0" />{t("nav.logout")}</button>
@@ -105,7 +107,7 @@ export default function SideBar({ email, name, credits, cred, closed, thin: thin
   const item = (here: boolean) =>
     `relative flex h-10 items-center gap-3 rounded-[4px] text-[15px] transition-colors duration-150 ${thin ? "justify-center px-0" : "px-3"} ${here ? "bg-panel2 font-semibold text-fg" : "font-medium text-fg/80 hover:bg-panel2 hover:text-fg"}`;
   const label = (text: string) => (thin ? <span className="sr-only">{text}</span> : <span className="min-w-0 flex-1 truncate">{text}</span>);
-  const dot = cred ? (!cred.complete || cred.blocks || cred.blocked || cred.verifyState !== "ok" ? "bg-amber" : "") : "";
+  const dot = cred ? (!cred.complete || cred.blocked || ["otp", "bad_credentials", "unknown", "locked"].includes(cred.verifyState) ? "bg-amber" : "") : "";
   const links = [
     { href: "/dashboard", d: CASES, text: t("nav.cases"), here: (path === "/dashboard" && view !== "closed") || path.startsWith("/cases/"), id: "side-cases" },
     { href: "/dashboard?view=closed", d: CLOSED, text: t("tray.closed"), here: view === "closed", id: "side-closed", count: closed },
