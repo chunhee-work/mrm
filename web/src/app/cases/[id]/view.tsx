@@ -14,6 +14,7 @@ import CaseLog from "@/components/app/case-log";
 import BackLink from "@/components/app/back-link";
 import CaseSteps from "@/components/app/case-steps";
 import { whenOf } from "@/lib/fmt-when";
+import type { Cred } from "@/components/app/profile-card";
 
 export type CaseDetail = {
   id: string;
@@ -33,7 +34,8 @@ export type CaseDetail = {
   facts: { owner: string; policyNo: string | null; policeReport: string | null; accidentAt: string | null; atFaultPlate: string | null; atFaultInsurer: string | null } | null;
   events: { at: string; message: string }[];
   stale: boolean; // reading, but no news for 6 minutes: the server is already restarting it
-  cred?: { blocked: boolean; verifyState: string } | null;
+  cred?: Cred | null;
+  credConfigured?: boolean;
   shots?: Shot[] | null; // null: flag off, table not there yet, or not the submitter
   sameCount?: number; // other cases of this org with the same plate (R2-U02)
   createdAt?: string;
@@ -89,6 +91,9 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     ] as [string, string | null][]) : []),
   ] as [string, string | null][]).filter((r): r is [string, string] => !!r[1]);
 
+  // past the documents and no accepted Merimen login yet: step 3 cannot run, so ask for it here
+  const merimenAsk = !!c.cred && !!c.credConfigured && c.cred.storageOk && !["uploaded", "reading", "failed", "pending_doc", "done"].includes(c.status)
+    && (!c.cred.complete || c.cred.blocked || ["bad_credentials", "locked", "otp", "unknown"].includes(c.cred.verifyState));
   const failed = c.status === "failed";
   const pending = c.status === "pending_doc";
   const finished = !working && !failed;
@@ -262,10 +267,13 @@ export default function CaseView({ c }: { c: CaseDetail }) {
       {(c.sameCount ?? 0) > 0 && (
         <p className="border-b border-hair px-5 py-2.5 text-[14px] text-mute sm:px-8" data-testid="same-plate">{t("case.samePlate", { n: String(c.sameCount) })}</p>
       )}
-      {c.cred && (c.cred.blocked || c.cred.verifyState === "bad_credentials" || c.cred.verifyState === "locked" || c.cred.verifyState === "otp" || c.cred.verifyState === "unknown") && (
-        <div role="alert" className="border-b border-hair bg-ambertint px-5 py-3 text-[15px] text-fg sm:px-8">
-          <p>{t("w.banner")}</p>
-          <Link href="/connection" className="mt-1 inline-block font-semibold text-fg underline">{t("conn.title")}</Link>
+      {merimenAsk && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-hair bg-ambertint px-5 py-4 sm:px-8" data-testid="ml-banner">
+          <div className="min-w-0">
+            <p className="text-[16px] font-semibold leading-snug text-fg">{t(c.cred && c.cred.complete ? "w.banner" : "pf.needTitle")}</p>
+            <p className="mt-1 text-[14.5px] leading-snug text-fg/80 [text-wrap:pretty]">{t("pf.needSub")}</p>
+          </div>
+          <Link href="/dashboard" className="btn-primary !h-11">{t("pf.edit")}</Link>
         </div>
       )}
       {needsFiles ? (

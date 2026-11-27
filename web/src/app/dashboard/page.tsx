@@ -1,9 +1,6 @@
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
-import { getExtState } from "@/lib/ext/gate";
-import { workerUiOn } from "@/lib/ext/worker-gate";
-import { credView, getWorkerState } from "@/lib/ext/worker-store";
-import Connection from "@/components/app/connection";
+import { credView } from "@/lib/ext/worker-store";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { CONFIRM_COUNT } from "@/lib/photos/confirm-sql";
 import CaseTable, { type CaseRow } from "@/components/app/case-table";
@@ -89,9 +86,5 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   }).from(schema.cases).where(eq(schema.cases.orgId, orgId)).groupBy(schema.cases.status, sql`(${schema.cases.photosDoneAt} is not null)`);
   const counts: HomeCounts = { docs: 0, photos: 0, hold: 0, active: 0, closed: 0 };
   for (const g of groups) counts[bucketOf({ status: g.status, photosDone: g.photosDone })] += Number(g.n);
-  const worker = workerUiOn();
-  const state = worker ? await getWorkerState(orgId) : await getExtState(orgId);
-  // while the Merimen connection is switched off there is nothing to do or read about it: the page ends with the count
-  const below = state === "off" ? undefined : <Connection embedded mode={worker ? "worker" : "browser"} cred={worker ? await credView(orgId) : null} state={state} cases={list.map((c) => ({ id: c.id, plate: c.plate }))} />;
-  return <Home name={user.name} counts={counts} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} below={below} />;
+  return <Home name={user.name} counts={counts} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} cred={await credView(orgId)} />;
 }

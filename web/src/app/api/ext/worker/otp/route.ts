@@ -2,16 +2,12 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
-import { workerUiOn } from "@/lib/ext/worker-gate";
-import { getWorkerState } from "@/lib/ext/worker-store";
 import { cleanSecret, masterKey, sealOtp } from "@/lib/crypto/merimen-cred";
 
 // The code the user types when Merimen asks. Stored with the org data key. One code, five minutes.
 export async function POST(req: Request) {
   const me = await getUserOrNull();
   if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!workerUiOn()) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  if ((await getWorkerState(me.orgId)) !== "ready") return NextResponse.json({ error: "disabled" }, { status: 403 });
   const key = masterKey(process.env.MERIMEN_CRED_KEY);
   if (!key) return NextResponse.json({ error: "not_configured" }, { status: 503 });
   const body = await req.json().catch(() => null);

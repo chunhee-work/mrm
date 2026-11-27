@@ -141,3 +141,16 @@ def test_a_phase_b_run_again_compares_merimen_with_what_the_last_phase_b_left_th
     # a later Phase B that was refused or stopped (no snapshot), or a Phase A that found photos there already, changed nothing in Merimen
     later = b_done + [log("B", "refused", "NULL", "Hood", 10), log("B", "none", "'s2'", "Hood", 5), log("A", "none", "NULL", "Hood", 3)]
     assert run(q, seed=SEED[:2] + later)[-1][0][0][0]["name"] == "Bonnet LH"
+
+
+def test_profile_for_reads_the_front_page_details():
+    rec = Rec({"execute": [("Bengkel Ali", "Ali", "Siti", 3)]})
+    assert PgRepo("", db=rec).profile_for("o1") == {"workshop": "Bengkel Ali", "manager": "Ali", "adjuster": "Siti", "version": 3}
+    assert PgRepo("", db=Rec()).profile_for("o1") is None
+
+
+def test_profile_for_is_none_before_migration_0013():
+    class Boom:
+        def execute(self, sql, params=()):
+            raise RuntimeError('column "workshop_name" does not exist')
+    assert PgRepo("", db=Boom()).profile_for("o1") is None

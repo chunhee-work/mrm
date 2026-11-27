@@ -1,9 +1,12 @@
 import "server-only";
+import { cache } from "react";
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { envOn } from "./gate";
 import { decideWorkerGate, missingRelation } from "./worker-gate";
 import type { ExtState } from "./gate";
+import { profileComplete } from "./profile";
+import { credKeyReady } from "@/lib/crypto/merimen-cred";
 
 export async function getWorkerState(orgId: string): Promise<ExtState> {
   if (!envOn()) return "off";
@@ -17,21 +20,52 @@ export async function getWorkerState(orgId: string): Promise<ExtState> {
   }
 }
 
-export type CredView = { saved: boolean; usernameHint: string | null; verifyState: string; blocked: boolean };
+export type CredView = {
+  saved: boolean; usernameHint: string | null; verifyState: string; blocked: boolean; updatedAt: string | null;
+  workshop: string | null; manager: string | null; adjuster: string | null;
+  complete: boolean; // login saved and the three names filled: a case may be started
+  storageOk: boolean; // false while the table or the 0013 columns are not in the database
+  keyOk: boolean; // the master key is set on this server
+  blocks: boolean; // a case may NOT be started: details incomplete AND saving really works. ONE definition, used by server and page
+};
+const NONE: Omit<CredView, "keyOk" | "blocks"> = { saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false, storageOk: true };
 
-export async function credView(orgId: string): Promise<CredView> {
+// one read per page render (the layout, the page and the banner all ask)
+export const credView = cache(credViewUncached);
+async function credViewUncached(orgId: string): Promise<CredView> {
+  const v = await readCred(orgId);
+  const keyOk = credKeyReady();
+  return { ...v, keyOk, blocks: keyOk && v.storageOk && !v.complete };
+}
+async function readCred(orgId: string): Promise<Omit<CredView, "keyOk" | "blocks">> {
   try {
+    // the version sequence of migration 0013 must exist and be usable too, or saving would fail while cases were blocked
+    const seq = await db.execute(sql`SELECT (to_regclass('merimen_profile_seq') IS NOT NULL) AND has_sequence_privilege(current_user, to_regclass('merimen_profile_seq'), 'USAGE') AS ok`);
+    if (((seq as unknown as { rows?: { ok: boolean }[] }).rows ?? [])[0]?.ok !== true) return { ...NONE, storageOk: false };
     const [r] = await db.select({
       usernameHint: schema.merimenCredentials.usernameHint,
       verifyState: schema.merimenCredentials.verifyState,
       blocked: schema.merimenCredentials.blocked,
+      updatedAt: schema.merimenCredentials.updatedAt,
+      workshop: schema.merimenCredentials.workshopName,
+      manager: schema.merimenCredentials.managerName,
+      adjuster: schema.merimenCredentials.adjusterName,
     }).from(schema.merimenCredentials).where(eq(schema.merimenCredentials.orgId, orgId)).limit(1);
-    if (!r) return { saved: false, usernameHint: null, verifyState: "none", blocked: false };
-    return { saved: true, usernameHint: r.usernameHint, verifyState: r.verifyState, blocked: r.blocked };
+    if (!r) return NONE;
+    const v = { saved: true, usernameHint: r.usernameHint, verifyState: r.verifyState, blocked: r.blocked, updatedAt: r.updatedAt.toISOString(), workshop: r.workshop, manager: r.manager, adjuster: r.adjuster };
+    return { ...v, complete: profileComplete(v), storageOk: true };
   } catch (e) {
-    if (missingRelation(e)) return { saved: false, usernameHint: null, verifyState: "none", blocked: false };
-    throw e;
+    // Any other read failure (permissions, timeout) must not take the whole site down or lock customers out:
+    // treat it as "not ready" and log only the error code, never the message (it may carry query parameters).
+    if (!missingRelation(e)) console.error("credView read failed", (e as { code?: string })?.code ?? "unknown");
+    return { ...NONE, storageOk: false };
   }
+}
+
+/** True when this account may NOT start a case yet. Only enforced while saving really works (key set, 0013 applied),
+ * so a missing key or migration can never lock every user out. */
+export async function profileBlocks(orgId: string): Promise<boolean> {
+  return (await credView(orgId)).blocks;
 }
 
 export async function workerOnline(): Promise<boolean> {

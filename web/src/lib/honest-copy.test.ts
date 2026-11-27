@@ -39,7 +39,7 @@ test("B04 flag on: the FAQ answer to 'Do you need my Merimen password?' is no lo
     assert.ok(!/^(No|不需要|Tidak)\b/.test(faq));
   }
   const en = JSON.stringify(honestCopy(HOME.en.faq, "en", true));
-  assert.match(en, /saved login/);
+  assert.match(en, /stored encrypted/);
 });
 
 test("R2-B13 both switches off: the FAQ no longer promises a secure browser window that does not exist; other copy is untouched", () => {

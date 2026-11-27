@@ -213,8 +213,16 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
 }
 
 /** "New case", the one main action of the bar. */
-function NewCase({ onNew }: { onNew: boolean }) {
+function NewCase({ onNew, blocked = false }: { onNew: boolean; blocked?: boolean }) {
   const { t } = useT();
+  // details not filled in yet: the button is there but grey, and it leads to the front page where they are asked for
+  if (blocked) return (
+    <Link href="/dashboard" title={t("pf.needFirst")} aria-disabled="true" data-testid="new-case"
+      className="btn-primary !h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] opacity-55 lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px]">
+      <Plus />
+      <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
+    </Link>
+  );
   return (
     <Link
       href="/cases/new"
@@ -232,15 +240,15 @@ function NewCase({ onNew }: { onNew: boolean }) {
  * Not on the first page: its own "New case" button is right there, and the owner wants nothing said twice (2026-11-22).
  * A view or a search of /dashboard is the case table, which has no such button, so the bar keeps it there.
  */
-function NewCaseUnlessHome({ path }: { path: string }) {
+function NewCaseUnlessHome({ path, blocked }: { path: string; blocked: boolean }) {
   const sp = useSearchParams();
   const table = (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
   if (path === "/dashboard" && !table) return null;
-  return <NewCase onNew={path === "/cases/new"} />;
+  return <NewCase onNew={path === "/cases/new"} blocked={blocked} />;
 }
 
 /** Top bar of the signed-in app: the working frame. */
-export default function AppBar({ email }: { email: string }) {
+export default function AppBar({ email, newBlocked = false }: { email: string; newBlocked?: boolean }) {
   const { t } = useT();
   const path = usePathname();
   const onCases = path === "/dashboard";
@@ -275,7 +283,7 @@ export default function AppBar({ email }: { email: string }) {
         <div className="ml-auto flex items-center gap-1.5 lg:gap-4">
           {email ? <AccountMenu email={email} /> : null}
           {/* the one main action is in the bar at every width: on a phone it used to sit inside the menu, two presses away */}
-          <Suspense fallback={<NewCase onNew={onNew} />}><NewCaseUnlessHome path={path} /></Suspense>
+          <Suspense fallback={<NewCase onNew={onNew} blocked={newBlocked} />}><NewCaseUnlessHome path={path} blocked={newBlocked} /></Suspense>
           <MobileMenu email={email} path={path} />
         </div>
       </div>

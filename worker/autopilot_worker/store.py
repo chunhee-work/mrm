@@ -357,6 +357,24 @@ class PgRepo:
         )
         return rows[0][0] if rows else None
 
+    def profile_for(self, org_id: str) -> dict | None:
+        """What the user typed on the front page besides the login: workshop, manager, adjuster (migration 0013).
+        `version` goes up by one on every save, so the worker can tell it must replace what it remembered for this user.
+        None when nothing is saved or the columns are not there yet."""
+        try:
+            rows = self.db.execute(
+                "SELECT workshop_name, manager_name, adjuster_name, profile_version FROM merimen_credentials WHERE org_id = %s",
+                (org_id,),
+            )
+        except Exception as e:  # the columns come with migration 0013
+            if "workshop_name" in str(e) or "42703" in str(e):
+                return None
+            raise
+        if not rows:
+            return None
+        w, m, a, v = rows[0]
+        return {"workshop": w, "manager": m, "adjuster": a, "version": int(v or 0)}
+
     def claim_verify(self):
         """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement."""
         sql = """

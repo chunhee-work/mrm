@@ -355,6 +355,10 @@ export const merimenCredentials = pgTable("merimen_credentials", {
   verifyState: text("verify_state").notNull().default("queued"), // queued | checking | ok | bad_credentials | locked | otp | unknown
   loginAttempts: integer("login_attempts").notNull().default(0),
   blocked: boolean("blocked").notNull().default(false),
+  workshopName: text("workshop_name"), // migration 0013: what the user types once on the front page
+  managerName: text("manager_name"),
+  adjusterName: text("adjuster_name"),
+  profileVersion: integer("profile_version").notNull().default(0), // next value of merimen_profile_seq on every save: the worker replaces what it remembered
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by"),
 });
