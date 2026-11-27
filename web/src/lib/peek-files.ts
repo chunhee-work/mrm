@@ -29,6 +29,8 @@ export async function zipNames(file: Sliceable): Promise<string[] | null> {
       names.push(new TextDecoder().decode(new Uint8Array(buf, p + 46, Math.min(n, buf.byteLength - p - 46))));
       p += 46 + n + x + c;
     }
+    // fewer entries than the end record says: the list is damaged part-way, so it cannot be told
+    if (names.length < 20000 && names.length < u16(tail, e + 10)) return null;
     return names;
   } catch { return null; }
 }
@@ -37,7 +39,7 @@ export async function zipNames(file: Sliceable): Promise<string[] | null> {
 export async function zipHasPdf(file: Sliceable): Promise<boolean | null> {
   const names = await zipNames(file);
   if (!names) return null;
-  return names.some((n) => /\.pdf$/i.test(n) && !/(^|\/)(__MACOSX\/|\._)/.test(n) && !n.endsWith("/"));
+  return names.some((n) => /\.pdf$/i.test(n) && !n.startsWith("__MACOSX/") && !n.split("/").some((p) => p.startsWith(".")) && !n.endsWith("/"));
 }
 
 /** A Malaysian car plate as people name folders: "DCD4004", "QAT110", "TBD 8129", "WA1234B". Words like "Policy" or dates are not. */
@@ -121,7 +123,8 @@ export function platesAnywhere(names: string[]): number {
     const parts = n.split("/").slice(0, -1);
     // only the outermost plate-named folder of a path is a car: "WA1234B/KP1/" is one car with a sub-folder, not two plates
     const p = parts.find(isPlate);
-    if (p) plates.add(normPlate(p));
+    // a short folder number ("KP1", "A1", "V 1") is more often a sub-folder name than a car: it never makes a zip "layout"
+    if (p && /\d{3}/.test(p)) plates.add(normPlate(p));
   }
   return plates.size;
 }

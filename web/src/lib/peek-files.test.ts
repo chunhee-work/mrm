@@ -80,3 +80,16 @@ test("zipNames: a central directory that does not start with an entry cannot be 
   dv.setUint32(eocd + 16, 0, true); // point the list at the first local header
   assert.equal(await zipNames(new Blob([bad])), null);
 });
+
+test("platesAnywhere: short folder numbers (KP1, A1) never make a one-car zip 'layout'; a hidden folder hides its PDF", async () => {
+  assert.equal(platesAnywhere(["Claim/a.pdf", "KP1/b.pdf", "Policy/KP2/c.pdf"]), 0);
+  assert.equal(await zipHasPdf(zip({ ".backup/claim.pdf": "x", "a.jpg": "y" })), false);
+});
+
+test("zipNames: fewer entries than the end record says (list damaged part-way) cannot be told (null)", async () => {
+  const good = new Uint8Array(await zip({ "a.pdf": "x", "b.pdf": "y" }).arrayBuffer());
+  const dv = new DataView(good.buffer);
+  const e = good.length - 22;
+  dv.setUint16(e + 10, 3, true);
+  assert.equal(await zipNames(new Blob([good])), null);
+});

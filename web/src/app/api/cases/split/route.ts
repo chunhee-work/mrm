@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     console.error("split failed before reading the zip", e);
     return NextResponse.json({ error: "failed", kept: 0 }, { status: 500 });
   }
-  const dropZip = () => del(url).catch(() => {}); // the cars are stored on their own (or the zip was refused): the big zip is not kept
+  const dropZip = () => del(url).catch((x) => console.error("split: zip delete failed", x)); // the cars are stored on their own (or the zip was refused): the big zip is not kept
 
   let buf: Uint8Array;
   try {
@@ -139,7 +139,8 @@ export async function POST(req: Request) {
     for (const v of todo) {
       const id = crypto.randomUUID();
       const entries = unzipVehicle(buf, v.prefix);
-      if (!entries.length) continue; // planVehicles only keeps cars with a non-empty PDF; nothing to make otherwise
+      // planVehicles only keeps cars with a non-empty PDF: a car that still inflates to nothing is refused, never silently left out
+      if (!entries.length) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);
       const seen = new Set<string>();
       const names = entries.map((e) => { let n = e.name; for (let k = 2; seen.has(n); k++) n = e.name.replace(/(\.[^.]+)?$/, `-${k}$1`); seen.add(n); return n; });
       const rows: (typeof schema.caseFiles.$inferInsert)[] = new Array(entries.length);
@@ -163,10 +164,12 @@ export async function POST(req: Request) {
         // treat it as made (refund, then delete it with its blobs), never delete its blobs and leave a case without files
         // A lost answer can also mean the transaction has not committed YET: look again twice, 1.5 s apart, and when the case is
         // still not there keep its blobs anyway (a late commit then finds its files; otherwise a few files are left unused).
-        const check = () => db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).then((r) => r.length > 0, () => true);
-        let exists = await check();
-        for (let k = 0; !exists && k < 2; k++) { await new Promise((r) => setTimeout(r, 1500)); exists = await check(); }
-        if (exists) { made.push(id); madeFor.set(v.prefix, id); } else unsure.add(id);
+        // A check that fails tells nothing: the car is treated as made (refund, delete) AND its blobs are kept, as when unsure.
+        const check = () => db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).then((r) => (r.length > 0 ? "yes" : "no"), () => "error");
+        let seen = await check();
+        for (let k = 0; seen === "no" && k < 2; k++) { await new Promise((r) => setTimeout(r, 1500)); seen = await check(); }
+        if (seen !== "no") { made.push(id); madeFor.set(v.prefix, id); }
+        if (seen !== "yes") unsure.add(id);
         throw e;
       }
       made.push(id); madeFor.set(v.prefix, id);

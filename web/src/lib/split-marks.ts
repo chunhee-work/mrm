@@ -38,7 +38,7 @@ export async function earlierCars(orgId: string, size: number): Promise<Map<stri
 export async function lockSplit(orgId: string, userId: string, size: number): Promise<(() => Promise<void>) | null> {
   const key = `zip${sizeKey(size)}`;
   const [mine] = await db.insert(audit).values({ orgId, userId, action: "case.split.lock", detail: key }).returning({ id: audit.id });
-  const release = async () => { await db.delete(audit).where(eq(audit.id, mine.id)).catch(() => {}); };
+  const release = async () => { await db.delete(audit).where(eq(audit.id, mine.id)).catch((x) => console.error("split: lock release failed", x)); };
   let first: { id: number } | undefined;
   try {
     [first] = await db.select({ id: audit.id }).from(audit).where(and(eq(audit.orgId, orgId), eq(audit.action, "case.split.lock"),
