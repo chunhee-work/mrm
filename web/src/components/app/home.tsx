@@ -214,6 +214,13 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
     fetch(`/api/cases/${r.id}/brief`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).then((j: BriefData | null) => { if (live && j) setD(j); }, () => {});
     return () => { live = false; };
   }, [r.id, r.status, r.photosDone, tick]);
+  // while the documents are read new activity keeps coming with the same status: read it again every 10 s (visible tab only)
+  const reading = r.status === "uploaded" || r.status === "reading";
+  useEffect(() => {
+    if (!reading) return;
+    const id = window.setInterval(() => { if (!document.hidden) setTick((n) => n + 1); }, 10_000);
+    return () => window.clearInterval(id);
+  }, [reading]);
   async function moveTo(slot: number) {
     setWsBusy(true); setWsErr(false);
     try {
@@ -227,7 +234,8 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
   const slot = d.workshop?.slot ?? 1;
   // as on the case page: a choice from two workshops on, or the one it has when that one is gone
   const showWs = d.workshop && (workshops.length >= 2 || (workshops.length > 0 && !workshops.some((w) => w.slot === slot)));
-  const live = r.status === "uploaded" || r.status === "reading";
+  const live = reading;
+  const shown = [...d.events].reverse().slice(0, 6);
   if (!showWs && !d.events.length && !d.files.length) return null; // nothing to show: no empty box
   return (
     <div className="space-y-4" data-testid="home-brief">
@@ -243,8 +251,8 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
         <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
           {d.events.length > 0 && (
             <section className="min-w-0" data-testid="home-log">
-              <h3 className="label mb-3">{t("case.log")}<span className="note text-mute"> · {d.events.length}</span></h3>
-              <CaseLog events={[...d.events].reverse().slice(0, 6)} live={live} />
+              <h3 className="label mb-3">{t("case.log")}</h3>
+              <CaseLog events={shown} live={live} />
             </section>
           )}
           {d.files.length > 0 && (
