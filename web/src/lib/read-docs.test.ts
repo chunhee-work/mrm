@@ -149,6 +149,25 @@ test("U5: the reader stops loading at the PDF that breaks the limit and never ca
   assert.equal(called, 0);
 });
 
+import { loadPdf } from "./read-docs";
+test("S-U4: a stored PDF over the limit is refused as too big before it is held in memory, whatever size the case wrote down", async () => {
+  const MB = 1024 * 1024;
+  const endless = () => { const seen = { pulled: 0, cancelled: false }; return { seen, stream: new ReadableStream<Uint8Array>({ pull(c) { seen.pulled++; c.enqueue(new Uint8Array(MB).fill(32)); }, cancel() { seen.cancelled = true; } }, { highWaterMark: 0 }) }; };
+  const store = (stream: ReadableStream<Uint8Array>, size?: number) => (async () => ({ statusCode: 200, stream, blob: { size } })) as never;
+  // the store says how large it is: nothing is read
+  const sized = endless();
+  await assert.rejects(loadPdf("u", "big.pdf", store(sized.stream, 400 * MB)), /^BadFile: bad_file:big\.pdf\|too_big$/);
+  assert.deepEqual([sized.seen.pulled, sized.seen.cancelled], [0, true]);
+  // the store does not say: the download stops just past the limit
+  const silent = endless();
+  await assert.rejects(loadPdf("u", "big.pdf", store(silent.stream)), /^BadFile: bad_file:big\.pdf\|too_big$/);
+  assert.ok(silent.seen.cancelled && silent.seen.pulled <= MAX_PDF_BYTES / MB + 2, `stopped after ${silent.seen.pulled} MB`);
+  // a real PDF within the limit comes back whole; a missing file is our failure, not a bad file
+  const pdf = Buffer.from("%PDF-1.7\n1 0 obj<<>>endobj\ntrailer<<>>\nstartxref\n0\n%%EOF");
+  assert.deepEqual(await loadPdf("u", "ok.pdf", store(new Response(pdf).body!, pdf.length)), pdf);
+  await assert.rejects(loadPdf("u", "gone.pdf", (async () => null) as never), /^Error: blob not found$/);
+});
+
 test("U10: the model call is ended at the read's deadline and the read fails as 'Reading timed out'; a deadline already passed starts no call", async () => {
   const files = [{ kind: "pdf", blobUrl: "a", originalName: "a.pdf" }];
   const load = async () => "JVBERi0=";

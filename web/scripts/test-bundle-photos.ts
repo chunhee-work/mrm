@@ -24,8 +24,9 @@ const blobs = new Map<string, Buffer>();
 const putLog: string[] = [];
 let putDelay = 0, inflight = 0, maxInflight = 0; // a slow blob store: puts that overlap are counted
 let failPutAt = 0; // when set, the put with this number (putLog.length + 1) throws once
+const special = new Map<string, () => unknown>(); // a URL the store answers in its own way (S-U4)
 const blobStub = {
-  get: async (url: string) => (blobs.has(url) ? { statusCode: 200, stream: new Response(blobs.get(url) as unknown as BodyInit).body, blob: { contentType: url.endsWith(".pdf") ? "application/pdf" : url.endsWith(".zip") ? "application/zip" : "image/jpeg" } } : null),
+  get: async (url: string) => special.has(url) ? special.get(url)!() : (blobs.has(url) ? { statusCode: 200, stream: new Response(blobs.get(url) as unknown as BodyInit).body, blob: { contentType: url.endsWith(".pdf") ? "application/pdf" : url.endsWith(".zip") ? "application/zip" : "image/jpeg" } } : null),
   put: async (p: string, body: Buffer) => { if (failPutAt && putLog.length + 1 === failPutAt) { failPutAt = 0; throw new Error("blob store down"); } inflight++; maxInflight = Math.max(maxInflight, inflight); if (putDelay) await new Promise((r) => setTimeout(r, putDelay)); inflight--; putLog.push(p); const url = `https://blob.test/${p}`; blobs.set(url, Buffer.from(body)); return { url, pathname: p }; },
   del: async () => {}, head: async () => ({}), BlobNotFoundError: class extends Error {},
 };
@@ -135,6 +136,28 @@ async function main() {
       const r = await importCasePhotos(id, ORG);
       assert.equal(r.added, 1); assert.deepEqual(r.skipped, ["huge.jpg"]);
       assert.deepEqual(r.leftOut, { heic: 0, big: 1, limit: 0, unreadable: 0 });
+    }],
+    ["S-U4: a photo whose row says 1 KB but which holds far more is left out as too large: by the store's own size, or by a download that stops at the limit", async () => {
+      const id = await newCase();
+      await addFile(id, "photo", "ok.jpg", await jpeg([7, 8, 9]));
+      const MB = 1024 * 1024;
+      // a stream of 1 MB pieces that never ends by itself; `pulled` counts how many pieces were asked for
+      const endless = () => { const seen = { pulled: 0, cancelled: false }; return { seen, stream: new ReadableStream<Uint8Array>({ pull(c) { seen.pulled++; c.enqueue(new Uint8Array(MB)); }, cancel() { seen.cancelled = true; } }, { highWaterMark: 0 }) }; };
+      const sized = endless(), unsized = endless();
+      const lie = async (name: string, answer: () => unknown) => {
+        const url = `https://blob.test/${ORG}/batch/${id}/${name}`;
+        special.set(url, answer);
+        await db.insert(schema.caseFiles).values({ caseId: id, kind: "photo", blobUrl: url, originalName: name, size: 1000 });
+      };
+      await lie("says-so.jpg", () => ({ statusCode: 200, stream: sized.stream, blob: { contentType: "image/jpeg", size: 400 * MB } }));
+      await lie("silent.jpg", () => ({ statusCode: 200, stream: unsized.stream, blob: { contentType: "image/jpeg" } }));
+      try {
+        const r = await importCasePhotos(id, ORG);
+        assert.equal(r.added, 1); assert.deepEqual(r.skipped.sort(), ["says-so.jpg", "silent.jpg"]);
+        assert.deepEqual(r.leftOut, { heic: 0, big: 2, limit: 0, unreadable: 0 });
+        assert.deepEqual([sized.seen.pulled, sized.seen.cancelled], [0, true]); // the store said 400 MB: not one byte was read
+        assert.ok(unsized.seen.cancelled && unsized.seen.pulled <= 27, `stopped after ${unsized.seen.pulled} MB`); // 25 MB limit
+      } finally { special.clear(); }
     }],
     ["P14: the 300-photo limit counts new photos only: with 298 on the desk, 3 old + 3 new files add the first 2 new ones (by name) and leave 1 out", async () => {
       const id = await newCase();

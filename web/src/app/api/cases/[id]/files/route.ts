@@ -3,7 +3,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { badFileRows } from "@/lib/drop-bad-files";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
-import { CaseBody, bodyProblem } from "@/lib/case-body";
+import { CaseBody, bodyProblem, MAX_FILE_BYTES } from "@/lib/case-body";
+import { withStoredSizes } from "@/lib/stored-size";
 import { userFixable, zipRefunded } from "@/lib/case-text";
 import { debitRetry, refundCase } from "@/lib/payments/case-credit";
 import { notDeleted } from "@/lib/case-delete";
@@ -25,15 +26,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
-  const { files } = parsed.data;
   // the case already holds its documents, so a set of photos alone is fine here ("no_docs" is for a new case)
-  const problem = bodyProblem({ files }, me.orgId);
+  const problem = bodyProblem(parsed.data, me.orgId);
   if (problem && problem !== "no_docs") return NextResponse.json({ error: problem }, { status: 400 });
   // Only a case that waits for the user's files takes more: a missing document, or a failure the user fixes with other files.
   // A failure on our side was refunded and is read again from the case page, not re-queued here for free.
   // The status (and the error) is checked again in the write itself, so two requests at once cannot queue the case twice.
   const waiting = c.status === "pending_doc" || (c.status === "failed" && userFixable(c.error));
   if (!waiting) return NextResponse.json({ error: "not waiting" }, { status: 409 });
+  // S-U4: as for a new case, the sizes the browser sent are replaced by the ones the file store really holds, and the limits
+  // are checked again on those, before a credit is taken or anything is written.
+  const files = await withStoredSizes(parsed.data.files).catch((e) => { console.error("add files: asking the file store failed", id, errLine(e)); return "down" as const; });
+  if (files === "down") return NextResponse.json({ error: "failed" }, { status: 502 });
+  if (!files || files.some((f) => f.size > MAX_FILE_BYTES)) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  const real = bodyProblem({ files }, me.orgId);
+  if (real && real !== "no_docs") return NextResponse.json({ error: real }, { status: 400 });
   // A zip of several cars (or of cars at different levels) that reached the one-case path got its credit back (scan-case),
   // so a read with new files takes one again.
   const refunded = c.status === "failed" && zipRefunded(c.error, c.caseData != null);

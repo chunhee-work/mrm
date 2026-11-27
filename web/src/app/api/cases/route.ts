@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { profileBlocks } from "@/lib/ext/worker-store";
-import { CaseBody, bodyProblem } from "@/lib/case-body";
+import { CaseBody, bodyProblem, MAX_FILE_BYTES } from "@/lib/case-body";
+import { withStoredSizes } from "@/lib/stored-size";
 import { slotToStore } from "@/lib/ext/workshops";
 import { scanCase } from "@/lib/scan-case";
 import { debitCase, hasCredit, refundCase } from "@/lib/payments/case-credit";
@@ -32,8 +33,16 @@ export async function POST(req: Request) {
   if (problem) return NextResponse.json({ error: problem }, { status: 400 });
   const slot = await slotToStore(me.orgId, parsed.data.workshop);
   if (slot === "unknown") return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
-  const { plate = "", files } = parsed.data; // "" until the documents are read (the column is NOT NULL)
+  const { plate = "" } = parsed.data; // "" until the documents are read (the column is NOT NULL)
   if (!(await hasCredit(me.orgId))) return NextResponse.json({ error: "no_credits" }, { status: 402 });
+  // S-U4: the sizes in the request are only what the browser says. The file store is asked for the real ones (the URLs are
+  // known to be our own by now), the limits are checked again on those, and those are what the case keeps. A file that is
+  // not there is refused like any bad body; one that is larger than it claimed gets the answer a file too large gets.
+  const files = await withStoredSizes(parsed.data.files).catch((e) => { console.error("case create: asking the file store failed", errLine(e)); return "down" as const; });
+  if (files === "down") return NextResponse.json({ error: "failed" }, { status: 502 });
+  if (!files || files.some((f) => f.size > MAX_FILE_BYTES)) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  const real = bodyProblem({ files }, me.orgId);
+  if (real) return NextResponse.json({ error: real }, { status: 400 });
   const id = crypto.randomUUID();
   // Removing the case takes its files, job, event and workshop row with it. True when the case is gone.
   const remove = async () => {

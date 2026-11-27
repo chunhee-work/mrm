@@ -8,6 +8,7 @@ import { costOf, tokensOf } from "./pricing";
 import { badFileName } from "./case-text";
 import { runPool } from "./pool";
 import { MAX_PDF_BYTES } from "./upload-rules";
+import { readUpTo } from "./stored-size";
 
 // Step 1 of the workflow (playbook 01): read the case bundle and return the case data.
 // Anthropic compiles the output schema and refuses more than 16 nullable/union fields. So plain text fields are
@@ -171,13 +172,21 @@ export function refusalOf(e: unknown, names: string[], verdicts?: Verdict[]): Er
   return bad;
 }
 
-async function blobBase64(url: string, name = "file.pdf"): Promise<string> {
-  const r = await get(url, { access: "private" });
+/**
+ * One stored PDF as bytes. S-U4: the size kept with the case is not what decides here. The store says how large the file is
+ * before anything is read, and the download itself stops at the limit, so a file far over it (the upload takes 500 MB) is
+ * refused as too big without ever being held in memory.
+ */
+export async function loadPdf(url: string, name = "file.pdf", open: typeof get = get): Promise<Buffer> {
+  const r = await open(url, { access: "private" });
   if (!r || r.statusCode !== 200) throw new Error("blob not found");
-  const buf = Buffer.from(await new Response(r.stream).arrayBuffer());
+  if (r.blob.size > MAX_PDF_BYTES) { await r.stream.cancel().catch(() => {}); throw new BadFile(name, "too_big"); }
+  const buf = await readUpTo(r.stream, MAX_PDF_BYTES);
+  if (!buf) throw new BadFile(name, "too_big");
   checkPdf(name, buf);
-  return buf.toString("base64");
+  return buf;
 }
+const blobBase64 = async (url: string, name = "file.pdf"): Promise<string> => (await loadPdf(url, name)).toString("base64");
 
 /**
  * `deadline` (a time in ms): the model call, with its retries, is ended at that time and the read fails as TIMED_OUT. Without
