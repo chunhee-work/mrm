@@ -14,13 +14,15 @@ import { Plus } from "./marks";
  * Cancelling the picker does nothing. It stays a link to the empty form: before the page is live, or with Ctrl/Cmd or a
  * middle click, it opens the form as it always did. After a pick it says "Opening…" until the form replaces the page.
  */
-export default function NewCasePick({ className, testId, children, labelClass = "" }: { className: string; testId: string; children: React.ReactNode; labelClass?: string }) {
+export default function NewCasePick({ className, testId, children, labelClass = "", onOpening }: { className: string; testId: string; children: React.ReactNode; labelClass?: string; onOpening?: (on: boolean) => void }) {
   const { t } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [opening, setOpening] = useState(false);
   // a trip that never ends lets the button work again once the hold has run out
   useEffect(() => { if (!opening) return; const id = window.setTimeout(() => setOpening(false), HOLD_MS); return () => window.clearTimeout(id); }, [opening]);
+  // the page around it (the Cases page) refuses drops while a picked trip is on its way, so a drop cannot replace the pick
+  useEffect(() => { onOpening?.(opening); }, [opening, onOpening]);
   return (
     <>
       <Link

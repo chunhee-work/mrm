@@ -508,9 +508,21 @@ try {
     await page.waitForTimeout(500);
     assert.match(page.url(), /\/dashboard$/, "the picker opens on the first page, no jump");
     sent = 0;
+    // the trip to the new-case page is slowed so a drop lands while the button says "Opening…": it must not replace the pick
+    const slow = async (route) => { await new Promise((r) => setTimeout(r, 1500)); await route.continue(); };
+    await page.route("**/cases/new*", slow);
     await chooser.setFiles([{ name: "picked.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
+    await page.getByTestId("home-new").getByText(/Opening|正在打开|Membuka/).waitFor();
+    await page.evaluate(() => {
+      const dt = new DataTransfer();
+      dt.items.add(new File(["%PDF-1.4"], "late-drop.pdf", { type: "application/pdf" }));
+      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
     await page.waitForURL(/\/cases\/new$/);
+    await page.unroute("**/cases/new*", slow);
     await page.getByText("picked.pdf").waitFor();
+    assert.equal(await page.getByText("late-drop.pdf").count(), 0, "a drop during Opening… does not replace the picked files");
     for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
     await page.waitForTimeout(500); // a second send would show by now
     assert.equal(sent, 1, "picked files are sent without a press of Upload");
