@@ -1,4 +1,5 @@
 "use client";
+import WorkshopPicker, { type WorkshopOpt } from "@/components/app/workshop-picker";
 import { useEffect, useRef, useState } from "react";
 import { uploadGuarded, UploadStalled } from "@/lib/upload-guard";
 import { useT } from "@/components/lang-provider";
@@ -6,10 +7,13 @@ import DropZone, { accepted } from "@/components/app/drop-zone";
 import { Cross, Tick } from "@/components/app/marks";
 import ScanEdge from "@/components/scan-edge";
 import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
-import { MAX_FILE_BYTES, MAX_PDF_BYTES } from "@/lib/upload-rules";
+import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { runPool } from "@/lib/pool";
-import { headOf, looksLikePhoto, zipHasPdf } from "@/lib/peek-files";
+import { headOf, looksLikePhoto, hasPdfName, MAX_VEHICLES, platesAnywhere, vehicleLayout, zipNames } from "@/lib/peek-files";
 import Link from "next/link";
+import { zipWhyKey } from "@/lib/case-text";
+import { DROPPED_PARAM, takeDropped } from "@/lib/dropped-files";
+import { useRouter } from "next/navigation";
 
 const keyOf = (f: File) => `${f.name}:${f.size}`;
 function sizeOf(n: number) {
@@ -25,7 +29,17 @@ const TAG: Record<Kind, string> = {
 };
 const TAIL = 9; // characters of a long file name that always stay visible (the end + extension)
 
-export default function NewCaseForm({ orgId }: { orgId: string }) {
+/**
+ * Embedded on the first page (owner 2026-11-27: "all done in the first page, never jump to others pages"): the same form, with
+ * the files the user picked or dropped there (`initial`, or "lost" when a hand-off from another page found nothing). When the
+ * case is made it says so through `onMade` and the first page lists it; nothing navigates away.
+ */
+export type Embed = { initial: File[] | "lost"; more?: { n: number; files: File[] }; dragOff?: boolean; onEnded?: () => void; onMade: (id: string | null) => void; onClose: () => void; onBusy?: (busy: boolean) => void };
+
+export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: string; workshops?: WorkshopOpt[]; embed?: Embed }) {
+  const router = useRouter();
+  const [ws, setWs] = useState(1); // which workshop the case belongs to (only asked when the account has two or more)
+  const wsBody = workshops.length >= 2 && ws !== 1 ? { workshop: ws } : {};
   const { t } = useT();
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -39,10 +53,67 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const [ups, setUps] = useState<Record<number, number>>({}); // per-file progress while several upload at once
   const ledger = useRef<HTMLUListElement>(null);
   const zipPdf = useRef<Map<string, boolean | null>>(new Map()); // R2-B10: does each chosen zip hold a PDF (null: cannot tell)
+  const zipMixed = useRef<Map<string, boolean>>(new Map()); // several cars and other files beside them: refused before upload
+  const zipLayout = useRef<Map<string, boolean>>(new Map()); // car folders at different levels: refused before upload
+  const zipCars = useRef<Map<string, string[] | null>>(new Map()); // vehicle folders of each chosen zip (null: its file list could not be read)
   const leaving = useRef(false); // R2-B01: set once the case exists, so our own redirect never trips the leave guard
+  const carsOf = (f: File) => (kindOf(f) === "bundle_zip" ? zipCars.current.get(keyOf(f))?.length ?? 0 : 0); // vehicles in a zip, 0 if none or unknown
+  // false once the page is gone (Back during a send): the files already up stay, but no case is made and no credit spent
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   // keep the file being uploaded in view inside the ledger
 
+
+  // files dropped on the first page arrive here, are checked like any chosen file, and go up at once (owner 2026-11-27:
+  // the drop was the decision, no second press of Upload). Only the visit the first page sent here (?dropped=1) takes them.
+  const started = useRef(false); // the files the first page handed over are taken once (React may run this effect twice)
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    let f: File[];
+    if (embed) {
+      if (embed.initial === "lost") { setMsg(t("new.dropLost")); return; }
+      f = embed.initial;
+    } else {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has(DROPPED_PARAM)) return;
+      url.searchParams.delete(DROPPED_PARAM);
+      window.history.replaceState(window.history.state, "", url.pathname + url.search);
+      f = takeDropped();
+    }
+    if (!f.length) { setMsg(t("new.dropLost")); return; }
+    // the send waits for a press of Upload when the user has something to read first: a file was left out (wrong type,
+    // empty, too big), or a zip holds several cars and will make several cases. Until then the drop zone is closed (busy),
+    // so nothing dropped meanwhile is listed but left out of the send.
+    setBusy(true);
+    void addFiles(f).then(({ ok, leftOut }) => {
+      setBusy(false);
+      // a zip whose list could not be read may still hold several cars, so it waits too
+      const unsure = ok.some((x) => carsOf(x) > 1 || (kindOf(x) === "bundle_zip" && zipCars.current.get(keyOf(x)) === null));
+      if (ok.length && !leftOut && !unsure) void send(ok);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // files picked with New case while this box is open join its list, like files dropped on it: nothing in the box is thrown away
+  // files that come while the box is busy wait for it to be free, then join once
+  const more = embed?.more;
+  const moreDone = useRef(0);
+  useEffect(() => {
+    if (!more?.files.length || busy || moreDone.current === more.n) return;
+    moreDone.current = more.n;
+    void addFiles(more.files);
+  }, [more?.n, busy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // the first page turns its own drop and New case off while this form uploads
+  const onBusy = embed?.onBusy, onEnded = embed?.onEnded;
+  const reached = useRef(false); // a create or split request went out in this send
+  useEffect(() => {
+    onBusy?.(busy);
+    if (!busy && reached.current) { reached.current = false; onEnded?.(); } // a send that reached the server ended: the list may have changed
+  }, [busy, onBusy, onEnded]);
+  useEffect(() => () => onBusy?.(false), [onBusy]);
 
   // B11: leaving or reloading while files go up throws the upload away, so ask first (links inside the app too)
   useEffect(() => {
@@ -51,7 +122,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     const click = (e: MouseEvent) => {
       if (leaving.current) return;
       const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (a && a.target !== "_blank" && !a.href.startsWith("javascript:") && a.origin === location.origin && a.pathname !== location.pathname && !window.confirm(t("new.leave"))) {
+      if (a && a.target !== "_blank" && a.getAttribute("aria-disabled") !== "true" && !a.href.startsWith("javascript:") && a.origin === location.origin && a.pathname + a.search !== location.pathname + location.search && !window.confirm(t("new.leave"))) {
         e.preventDefault(); e.stopPropagation();
       }
     };
@@ -60,7 +131,8 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     return () => { window.removeEventListener("beforeunload", stop); document.removeEventListener("click", click, true); };
   }, [busy, t]);
 
-  async function addFiles(list: File[]) {
+  // returns the files that passed (so a drop can send exactly those) and whether a "left out" note is now shown
+  async function addFiles(list: File[]): Promise<{ ok: File[]; leftOut: boolean }> {
     const typed = list.filter(accepted);
     const why: string[] = [];
     // R2-B10: what is inside counts, not the name: a text file called .jpg is left out, and a zip is looked into
@@ -68,7 +140,12 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     await Promise.all(typed.map(async (f) => {
       const k = kindOf(f);
       if (k === "photo" && f.size > 0 && !looksLikePhoto(await headOf(f))) fake.add(f);
-      if (k === "bundle_zip" && f.size > 0) zipPdf.current.set(keyOf(f), await zipHasPdf(f));
+      if (k === "bundle_zip" && f.size > 0) {
+        const names = await zipNames(f);
+        zipPdf.current.set(keyOf(f), names ? hasPdfName(names) : null);
+        if (names) { const l = vehicleLayout(names); zipCars.current.set(keyOf(f), l.cars.map((p) => p.slice(0, -1).split("/").pop() as string)); zipMixed.current.set(keyOf(f), l.cars.length > 1 && l.extras.length > 0); zipLayout.current.set(keyOf(f), l.cars.length < 2 && platesAnywhere(names) > 1); }
+        else zipCars.current.set(keyOf(f), null);
+      }
     }));
     const ok = typed.filter((f) => {
       if (fake.has(f)) { why.push(t("new.notPhoto", { name: f.name })); return false; }
@@ -77,8 +154,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       return true;
     });
     setNotes(why.slice(0, 5));
-    setSkipped(list.filter((f) => !accepted(f)).map((f) => f.name));
-    if (!ok.length) return;
+    const skip = list.filter((f) => !accepted(f)).map((f) => f.name);
+    setSkipped(skip);
+    const leftOut = why.length > 0 || skip.length > 0;
+    if (!ok.length) return { ok: [], leftOut };
     setMsg(""); setFailed(null); setNoCredit(false);
     setFiles((cur) => {
       const seen = new Set(cur.map(keyOf));
@@ -86,46 +165,109 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       for (const f of ok) if (!seen.has(keyOf(f))) { seen.add(keyOf(f)); next.push(f); }
       return next;
     });
+    return { ok: ok.filter((f, i) => ok.findIndex((g) => keyOf(g) === keyOf(f)) === i), leftOut };
   }
   function remove(f: File) {
     setFiles((cur) => cur.filter((x) => keyOf(x) !== keyOf(f)));
     if (failed === keyOf(f)) { setFailed(null); setMsg(""); }
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    void send(files);
+  }
+
+  // the list is passed in (not read from state) so a drop can send right after addFiles, before React re-renders
+  async function send(files: File[]) {
     if (busy) return; // a second click while uploading does nothing
     if (!files.some((f) => kindOf(f) === "pdf" || (kindOf(f) === "bundle_zip" && zipPdf.current.get(keyOf(f)) !== false))) {
       const photoZip = files.find((f) => kindOf(f) === "bundle_zip");
       setMsg(photoZip ? t("new.zipNoPdf", { name: photoZip.name }) : t("new.noDocs")); return;
     }
+    const multi = files.find((f) => carsOf(f) > 1);
+    if (multi && files.length > 1) { setMsg(t("new.zipMultiAlone", { name: multi.name })); return; }
+    if (multi && zipCars.current.get(keyOf(multi))!.length > MAX_VEHICLES) { setMsg(t("case.err.zip_too_many_cars")); return; }
+    if (multi && zipMixed.current.get(keyOf(multi))) { setMsg(t("case.err.zip_mixed")); return; } // a split would leave those files out
+    { const lay = files.find((f) => zipLayout.current.get(keyOf(f))); if (lay) { setMsg(t("case.err.zip_layout")); return; } } // never one case of several cars
+    // a zip alone whose file list the browser could not read (zip64, a damaged list) may still hold several cars: the server
+    // looks first, and when it is not a multi-car zip it becomes one ordinary case below
+    const unknown = !multi && files.length === 1 && kindOf(files[0]) === "bundle_zip" && zipCars.current.get(keyOf(files[0])) === null;
+    // the server refuses more files or more bytes than this; say so now instead of after everything went up
+    if (files.length > MAX_FILES) { setMsg(t("new.tooMany", { max: String(MAX_FILES), n: String(files.length) })); return; }
+    const bytes = files.reduce((s, f) => s + f.size, 0);
+    if (bytes > MAX_TOTAL_BYTES) { setMsg(t("new.tooMuch", { gb: String(MAX_TOTAL_BYTES / 1024 ** 3), size: sizeOf(bytes) })); return; }
     setBusy(true); setMsg(""); setFailed(null); setSkipped([]); setNotes([]); setNoCredit(false); setUps({});
-    let at = 0;
+    let uploading = true;
+    let bad = -1; // the file whose upload failed (three go up at once, so it is caught per file, not "the last one started")
     try {
       // check the balance before a single byte goes up
-      const pre = await fetch("/api/cases/credit");
+      const pre = await fetch(`/api/cases/credit${multi ? `?n=${zipCars.current.get(keyOf(multi))!.length}&zip=${encodeURIComponent(multi.name)}&size=${multi.size}` : ""}`);
+      if (pre.status === 403) { if (embed) { setBusy(false); setStep(-1); router.refresh(); embed.onClose(); return; } leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: the front page asks for them
       if (pre.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+      // a split needs the count of cars still to make: when the check itself failed, do not send a large zip up for nothing
+      if (multi && !pre.ok) { setMsg(t("new.fail")); setStep(-1); setBusy(false); return; }
+      if (!alive.current) return;
       const batchId = crypto.randomUUID();
       const done: { kind: Kind; url: string; name: string; size: number }[] = new Array(files.length);
       let finished = 0;
       setStep(0);
       await runPool(files.length, 3, async (i) => {
-        const f = files[i]; at = i;
-        const b = await uploadGuarded(`${orgId}/${batchId}/${f.name}`, f, (p) => setUps((u) => ({ ...u, [i]: p })));
-        done[i] = { kind: kindOf(f), url: b.url, name: f.name, size: f.size };
+        const f = files[i];
+        if (!alive.current) throw new Error("left"); // the page is gone: start no more uploads
+        try {
+          const b = await uploadGuarded(`${orgId}/${batchId}/${f.name}`, f, (p) => setUps((u) => ({ ...u, [i]: p })));
+          done[i] = { kind: kindOf(f), url: b.url, name: f.name, size: f.size };
+        } catch (e) { if (bad < 0) bad = i; throw e; }
         setUps((u) => ({ ...u, [i]: 100 })); finished++; setStep(finished);
       });
-      at = files.length; setStep(files.length);
-      const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
+      uploading = false; setStep(files.length);
+      if (!alive.current) return; // the user left while the files went up
+      if (multi || unknown) { // one zip, several vehicles: the server makes one case per vehicle
+        // a lost connection does not stop the server: cars may be made, so the message is the split one, not "nothing happened"
+        reached.current = true; // from here a case may exist even if the answer is lost
+        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...done[0], fallback: unknown, ...wsBody }) })
+          .catch(() => null);
+        if (!sp) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
+        const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
+        // several cars in a zip the browser could not read: nothing made or charged; the cars are now known, so the page shows
+        // them with their price and the next press of Upload sends it as a multi-car zip
+        const found = (j as { cars?: unknown } | null)?.cars;
+        if (unknown && sp.status === 409 && j?.error === "cars" && Array.isArray(found) && found.length > 1) {
+          zipCars.current.set(keyOf(files[0]), found.map(String)); zipPdf.current.set(keyOf(files[0]), true);
+          setMsg(t("new.zipCarsFound")); setStep(-1); setBusy(false); return;
+        }
+        if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
+          // cases the rollback could not undo are in the case list: say so, whatever else went wrong
+          if (!sp.ok && (j as { kept?: number } | null)?.kept) {
+            const why = j?.why ? t(zipWhyKey(j.why)) : sp.status === 402 ? t("new.noCredits") : ""; // the reason first, then what was kept
+            setMsg(why ? `${why} ${t("new.splitFail")}` : t("new.splitFail")); setStep(-1); setBusy(false); return;
+          }
+          if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+          if (sp.status === 403) { if (embed) { reached.current = false; setBusy(false); setStep(-1); router.refresh(); embed.onClose(); return; } leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: nothing was made
+          if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
+          // 400/401/502: no case was made; 500 with nothing kept: all were rolled back; else (time-out, kept cases) some cars may be made
+          const undone = sp.status === 400 || sp.status === 401 || sp.status === 502 || (sp.status === 500 && j?.error === "failed" && !(j as { kept?: number }).kept);
+          if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : undone ? t(sp.status === 500 ? "new.splitUndone" : "new.fail") : t("new.splitFail")); setStep(-1); setBusy(false); return; }
+          if (!alive.current) return; // left meanwhile: the cases exist, but the user is not pulled back
+          leaving.current = true;
+          if (embed) { setBusy(false); embed.onMade(null); return; } // already on the first page: it lists the new cases
+          window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
+          return;
+        }
+      }
+      if (!alive.current) return; // left while the split looked at a zip it then handed back (`empty`): no case, no credit
+      reached.current = true;
+      const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done, ...wsBody }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
       const { id } = (await r.json()) as { id: string };
+      if (!alive.current) return; // left meanwhile: the case exists, but the user is not pulled back
       leaving.current = true;
+      if (embed) { setBusy(false); embed.onMade(id); return; } // the first page lists it; nothing navigates away
       window.location.href = `/cases/${id}`; // Claude starts reading the files by itself
     } catch (e) {
-      const inUpload = at < files.length;
-      setMsg(e instanceof UploadStalled ? t("new.stalled") : inUpload ? t("new.failUpload") : t("new.fail"));
-      setFailed(inUpload ? keyOf(files[at]) : null);
+      setMsg(e instanceof UploadStalled ? t("new.stalled") : uploading ? t("new.failUpload") : t("new.fail"));
+      setFailed(bad >= 0 ? keyOf(files[bad]) : null);
       setStep(-1); setBusy(false);
     }
   }
@@ -139,14 +281,23 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const sent = files.reduce((sum, f, i) => sum + (f.size * Math.min(100, ups[i] ?? 0)) / 100, 0);
 
   return (
-    <form onSubmit={onSubmit} aria-busy={busy} className="relative mx-auto w-full max-w-[720px]">
-      <ScanEdge />
+    <form onSubmit={onSubmit} aria-busy={busy} className={`relative w-full max-w-[720px] ${embed ? "" : "mx-auto"}`} data-testid={embed ? "home-upload" : undefined}>
+      {!embed && <ScanEdge />}
       <div className="sheet rounded-[3px] border border-hair bg-panel">
         <div className="flex h-[60px] items-center border-b border-hair px-5 sm:h-[68px] sm:px-8">
-          <h1 className="display-2 text-[24px] text-fg sm:text-[28px]">{t("new.title")}</h1>
+          {embed
+            ? <h2 className="display-3 text-[20px] text-fg sm:text-[22px]">{t("new.title")}</h2>
+            : <h1 className="display-2 text-[24px] text-fg sm:text-[28px]">{t("new.title")}</h1>}
+          {embed && !busy && (
+            <button type="button" onClick={embed.onClose} aria-label={t("new.close")} title={t("new.close")} data-testid="home-upload-close"
+              className="ml-auto flex h-11 w-11 items-center justify-center text-mute transition-colors duration-150 hover:text-fg"><Cross /></button>
+          )}
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-7 px-5 py-6 sm:px-8 sm:py-8">
+          {workshops.length >= 2 && (
+            <div className="field min-w-0"><span className="label">{t("pf.caseWs")}</span><WorkshopPicker workshops={workshops} value={ws} onChange={setWs} disabled={busy} testid="new-ws" /></div>
+          )}
           <div className="field min-w-0 grid-cols-[minmax(0,1fr)]">
             {/* the page has one job, so the place to put the files comes first; its name is the page title */}
             <label className="sr-only" htmlFor="case-files">{t("new.files")}</label>
@@ -155,19 +306,24 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
               inputId="case-files"
               compact={n > 0}
               disabled={busy}
-              onFiles={addFiles}
+              dragOff={embed?.dragOff}
+              onFiles={(l) => void addFiles(l)}
               title={t("new.drop")}
               hint={t("new.dropHint")}
               browse={t("new.browse")}
               addMore={t("new.addMore")}
             />
             <p className="hint">{t("new.limit", { mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })}</p>
-            {/* what to put in, as one short paragraph under the drop zone (it was a seven-line box above it, pushing the button down) */}
+            {/* what to put in (owner 2026-11-22): the box with its title and a dotted list, as it was. On a phone one item per
+                line; on a wider screen the items run on after each other (each still with its dot), so the box is 2 or 3 lines
+                tall, not 5. It sits under the drop zone, which comes first. */}
             {n === 0 && (
-              <p className="mt-1 text-[14px] leading-[1.55] text-mute [text-wrap:pretty]" data-testid="new-check">
-                <span className="font-semibold text-fg">{t("new.checkTitle")}</span>{" "}
-                {[1, 2, 3, 4, 5, 6, 7].map((i) => t(`new.check${i}`)).join(" · ")}
-              </p>
+              <div className="mt-1 rounded-[3px] border border-hair bg-panel2 px-4 py-3" data-testid="new-check">
+                <p className="label">{t("new.checkTitle")}</p>
+                <ul className="mt-2 grid gap-x-6 gap-y-1 text-[14px] text-mute sm:flex sm:flex-wrap">
+                  {[1, 2, 3, 4, 5, 6, 7].map((i) => <li key={i} className="flex min-w-0 gap-2"><span aria-hidden="true">•</span><span className="min-w-0 [overflow-wrap:anywhere]">{t(`new.check${i}`)}</span></li>)}
+                </ul>
+              </div>
             )}
             {(notes.length > 0 || skipped.length > 0) && (
               <div role="status" className="rounded-[3px] border border-hair bg-ambertint px-4 py-3 text-[14px] text-fg">
@@ -185,6 +341,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
                 <p className="num" aria-live="polite">{[nZip ? `${nZip} zip` : "", nPdf ? `${nPdf} PDF` : "", nPhoto ? t(nPhoto === 1 ? "new.photosOne" : "new.photosN", { n: String(nPhoto) }) : "", sizeOf(total)].filter(Boolean).join(" · ")}</p>
                 {!busy && <button type="button" className="btn-quiet" onClick={() => { setFiles([]); setNotes([]); setMsg(""); setFailed(null); }}>{t("new.removeAll")}</button>}
               </div>
+            )}
+
+            {n === 1 && (zipCars.current.get(keyOf(files[0]))?.length ?? 0) > 1 && (
+              <p role="status" className="text-[14px] text-fg">{t("new.zipSplit", { name: files[0].name, n: String(zipCars.current.get(keyOf(files[0]))!.length), list: zipCars.current.get(keyOf(files[0]))!.slice(0, 4).join(", ") + (zipCars.current.get(keyOf(files[0]))!.length > 4 ? "…" : "") })}</p>
             )}
 
             {n > 0 && busy && (

@@ -26,6 +26,17 @@ export function idOk(scope: Scope, col: string, emails = internalEmails()): SQL 
   return scope.includeInternal ? sql`true` : sql`(${c} IS NULL OR ${c} NOT IN (SELECT id FROM "user" WHERE lower(email) IN (${emailList(emails)})))`;
 }
 
+/** TypeSafe ("Jev") calls share the llm_calls table but are not on the Anthropic bill, so every Anthropic figure leaves them out. */
+export const ANTHROPIC_ONLY = sql`c.model NOT LIKE 'jev%'`;
+
+/** Last 30 days of TypeSafe (Jev) calls, shown on their own line on the Cost page. */
+export async function jevSpend(scope: Scope, db: Db = defaultDb) {
+  const r = await rows(db, sql`SELECT coalesce(sum(cost_usd), 0) usd, count(*) calls, count(*) FILTER (WHERE NOT ok) failed, count(*) FILTER (WHERE ok AND cost_usd IS NULL) unpriced,
+    count(*) FILTER (WHERE at >= date_trunc('day', now())) today, max(at) last_at FROM llm_calls c WHERE c.model LIKE 'jev%' AND at > now() - interval '30 days' AND ${idOk(scope, "c.user_id")}`);
+  const a = r[0] ?? {};
+  return { usd: num(a.usd), calls: num(a.calls), failed: num(a.failed), unpriced: num(a.unpriced), today: num(a.today), lastAt: a.last_at ? new Date(a.last_at as string).toISOString() : null };
+}
+
 export async function overview(scope: Scope, db: Db = defaultDb) {
   const [u, sign, cs, cost, em, conf] = await Promise.all([
     rows(db, sql`SELECT count(*) total, count(*) FILTER (WHERE email_verified) verified,
@@ -36,13 +47,13 @@ export async function overview(scope: Scope, db: Db = defaultDb) {
       WHERE created_at > now() - interval '30 days' AND ${userOk(scope)} GROUP BY 1`),
     rows(db, sql`SELECT c.status, count(*) n, count(*) FILTER (WHERE c.status = 'failed' AND c.created_at > now() - interval '7 days') failed7,
       count(*) FILTER (WHERE c.status NOT IN ('done', 'failed', 'pending_doc') AND c.created_at < now() - interval '1 hour') stuck
-      FROM cases c WHERE ${idOk(scope, "c.created_by")} GROUP BY c.status`),
+      FROM cases c WHERE c.deleted_at IS NULL AND ${idOk(scope, "c.created_by")} GROUP BY c.status`),
     rows(db, sql`SELECT coalesce(sum(cost_usd) FILTER (WHERE at >= date_trunc('day', now())), 0) today,
       coalesce(sum(cost_usd) FILTER (WHERE at > now() - interval '7 days'), 0) d7,
       coalesce(sum(cost_usd) FILTER (WHERE at > now() - interval '30 days'), 0) d30,
       count(*) calls, count(*) FILTER (WHERE ok AND cost_usd IS NULL) unpriced, count(*) FILTER (WHERE NOT ok) failed,
       count(*) FILTER (WHERE NOT ok AND at > now() - interval '7 days') failed7
-      FROM llm_calls c WHERE ${idOk(scope, "c.user_id")}`),
+      FROM llm_calls c WHERE ${idOk(scope, "c.user_id")} AND ${ANTHROPIC_ONLY}`),
     rows(db, sql`SELECT count(*) FILTER (WHERE at > now() - interval '7 days' AND status = 'sent') sent7,
       count(*) FILTER (WHERE at > now() - interval '7 days' AND status = 'failed') failed7, min(at) since FROM email_log`),
     rows(db, sql`SELECT count(*) n FROM audit_log WHERE action = 'llm_calls_conflict'`),
@@ -100,7 +111,7 @@ export async function userDetail(id: string, db: Db = defaultDb) {
 
 // Window = from UTC midnight 30 days ago, the same start the Anthropic cost report uses, so the two totals compare like with like.
 export async function costPage(scope: Scope, db: Db = defaultDb) {
-  const ok = idOk(scope, "c.user_id");
+  const ok = sql`${idOk(scope, "c.user_id")} AND ${ANTHROPIC_ONLY}`;
   const [day, model, purpose, user, topCases] = await Promise.all([
     rows(db, sql`SELECT to_char(date_trunc('day', at AT TIME ZONE 'utc'), 'YYYY-MM-DD') d, coalesce(sum(cost_usd), 0) usd, count(*) calls FROM llm_calls c
       WHERE at > (date_trunc('day', now() AT TIME ZONE 'utc') AT TIME ZONE 'utc' - interval '30 days') AND ${ok} GROUP BY 1 ORDER BY 1`),
@@ -125,10 +136,10 @@ export async function costPage(scope: Scope, db: Db = defaultDb) {
 export async function casesPage(scope: Scope, db: Db = defaultDb) {
   const ok = idOk(scope, "c.created_by");
   const [status, stuck, failed] = await Promise.all([
-    rows(db, sql`SELECT c.status, count(*) n FROM cases c WHERE ${ok} GROUP BY c.status`),
+    rows(db, sql`SELECT c.status, count(*) n FROM cases c WHERE c.deleted_at IS NULL AND ${ok} GROUP BY c.status`),
     rows(db, sql`SELECT c.id, c.status, c.car_model, c.insurer, c.created_at FROM cases c
-      WHERE c.status NOT IN ('done', 'failed', 'pending_doc') AND c.created_at < now() - interval '1 hour' AND ${ok} ORDER BY c.created_at LIMIT 50`),
-    rows(db, sql`SELECT c.id, c.car_model, c.insurer, c.error, c.created_at FROM cases c WHERE c.status = 'failed' AND ${ok} ORDER BY c.created_at DESC LIMIT 50`),
+      WHERE c.deleted_at IS NULL AND c.status NOT IN ('done', 'failed', 'pending_doc') AND c.created_at < now() - interval '1 hour' AND ${ok} ORDER BY c.created_at LIMIT 50`),
+    rows(db, sql`SELECT c.id, c.car_model, c.insurer, c.error, c.created_at FROM cases c WHERE c.deleted_at IS NULL AND c.status = 'failed' AND ${ok} ORDER BY c.created_at DESC LIMIT 50`),
   ]);
   return {
     byStatus: status.map((r) => ({ status: String(r.status), n: num(r.n) })),

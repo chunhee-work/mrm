@@ -5,7 +5,7 @@
  */
 
 /** Paths that belong to the system: asked for on the marketing host, they are sent to the app host. */
-const ACCOUNT = /^\/(login|signup|forgot-password|reset-password|dashboard|cases|billing|admin)(\/|$)/;
+const ACCOUNT = /^\/(login|signup|forgot-password|reset-password|dashboard|cases|billing|admin|details|settings|connection)(\/|$)/;
 
 /** The app's origin when `host` is the marketing host of the same domain; "" on the app host itself, on previews and on localhost. */
 export function appOriginFor(host: string | null | undefined, authUrl: string | undefined = process.env.BETTER_AUTH_URL): string {

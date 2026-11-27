@@ -4,8 +4,10 @@ import { db, schema } from "@/db";
 import { readCaseDocs, BadFile } from "@/lib/read-docs";
 import { expandBundles } from "@/lib/expand-bundles";
 import { importCasePhotos } from "@/lib/photos/import-files";
-import { userFixable } from "@/lib/case-text";
+import { userFixable, zipRefunded, eventTr } from "@/lib/case-text";
 import { refundCase } from "@/lib/payments/case-credit";
+import { notDeleted } from "@/lib/case-delete";
+import { jevInsurerWarnings } from "@/lib/jev-checks";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
@@ -43,11 +45,12 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     mode === "auto" ? and(eq(cid, id), eq(schema.cases.status, "uploaded")) :
     mode === "retry" ? and(eq(cid, id), inArray(schema.cases.status, ["uploaded", "failed", "pending_doc"])) :
     and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, tries);
-  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(where).returning({ id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate });
+  const claimed = await db.update(schema.cases).set({ status: "reading", error: lease, pendingDoc: null }).where(and(where, notDeleted)).returning({ id: cid, orgId: schema.cases.orgId, createdBy: schema.cases.createdBy, plate: schema.cases.plate, readBefore: sql<boolean>`${schema.cases.caseData} is not null` });
   if (!claimed.length) {
     if (mode === "recover") { // out of attempts: stop waiting, show Failed + the retry button
-      await db.update(schema.cases).set({ status: "failed", error: "Reading timed out" })
-        .where(and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, sql`not ${tries}`));
+      const gaveUp = await db.update(schema.cases).set({ status: "failed", error: "Reading timed out" })
+        .where(and(eq(cid, id), eq(schema.cases.status, "reading"), sameLease, sql`not ${tries}`)).returning({ orgId: schema.cases.orgId });
+      if (gaveUp.length) await refundCase(gaveUp[0].orgId, id).catch(() => {}); // a timeout is our failure: the credit goes back
     }
     return { ok: false, missing: [], claimed: false };
   }
@@ -79,13 +82,27 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
     await photos; // the result is shown first; the case page and the desk pick the photos up when they are in
     await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
+    // Jev second vote on the insurers and the Liberty branch (playbook 02). It runs last, after the result is saved and shown, so the result never
+    // waits for it (a "Read again" button reply can wait at most a few seconds). It only adds a line to the case's activity (the same line is never added twice on a re-read); the case never changes status
+    // because of it, and a failing or slow Jev adds nothing.
+    if (done.length) {
+      try {
+        // the same finding is one (kind, source text) pair, however the line is worded
+        const keyOf = (m: string) => { const t = eventTr(m); return `${t.key}|${t.vars?.text ?? t.vars?.place ?? m}`; };
+        const seen = new Set((await db.select({ m: schema.caseEvents.message }).from(schema.caseEvents).where(and(eq(schema.caseEvents.caseId, id), eq(schema.caseEvents.step, "jev_check")))).map((r) => keyOf(r.m)));
+        for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) if (!seen.has(keyOf(message))) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message });
+      } catch { /* a Jev problem never fails the read */ }
+    }
     return { ok: done.length > 0, missing: data.missing, claimed: true };
   } catch (e) {
     await photos; // never leave the import running behind a failed read
-    const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, 500) }).where(mine).returning({ id: cid });
+    const failed = await db.update(schema.cases).set({ status: "failed", error: (e as Error).message.slice(0, e instanceof BadFile ? 4000 : 500) } /* a bad file's full name is how "Replace files" finds it */).where(mine).returning({ id: cid });
     if (failed.length) {
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
-      if (!(e instanceof BadFile) && !userFixable((e as Error).message)) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
+      // a zip of several cars that reached the one-case path (the browser could not look inside it) is not the customer's fault:
+      // the credit goes back (unless the case was read before), and the message tells them to upload it again so it is split
+      const multi = zipRefunded((e as Error).message, !!claimed[0].readBefore);
+      if (!(e instanceof BadFile) && (multi || !userFixable((e as Error).message))) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
     }
     await closeIntakeJobs(id);
     return { ok: false, missing: [], claimed: true };

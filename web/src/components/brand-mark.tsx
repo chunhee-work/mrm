@@ -56,7 +56,12 @@ export function BrandMark({ size = 26, kind = FIRST_O }: { size?: number; kind?:
   );
 }
 
-export function Brand() {
+/**
+ * `small`: the top bar of the white pages (the signed-in app and the account pages). The owner asked for the logo there at
+ * half its size (2026-11-22): 15px tall, about 104px wide, so the whole word fits even the narrowest phone.
+ */
+export function Brand({ small = false }: { small?: boolean }) {
+  if (small) return <span className="inline-flex items-center text-fg"><Wordmark className="h-[15px] w-auto" /></span>;
   return (
     <span className="inline-flex items-center text-fg">
       <span className="min-[350px]:hidden"><BrandMark size={30} /><span className="sr-only">{SITE.brand}</span></span>

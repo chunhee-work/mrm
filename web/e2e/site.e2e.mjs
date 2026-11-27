@@ -42,6 +42,8 @@ await db.query(`UPDATE "user" SET email_verified = true WHERE email = $1`, [emai
 const { rows: [m] } = await db.query(`SELECT m.org_id FROM memberships m JOIN "user" u ON u.id = m.user_id WHERE u.email = $1`, [email]);
 const orgId = m.org_id;
 await db.query(`INSERT INTO credits_ledger (org_id, delta, reason) VALUES ($1, 5, $2)`, [orgId, `qc-grant-${stamp}`]);
+// the front page asks for the login + workshop details before a case can start: this account has them already (fake, unusable ciphertext)
+await db.query(`INSERT INTO merimen_credentials (org_id, username_hint, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, password_nonce, verify_state, blocked, workshop_name, manager_name, adjuster_name, profile_version) VALUES ($1,'qc','x','x','x','x','x','x','ok',false,'QC Workshop','QC Manager','QC Adjuster',1)`, [orgId]);
 
 const ids = [];
 async function seed(key, plate, status, o = {}) {
@@ -173,12 +175,13 @@ const jpg = (n) => ({ name: `IMG_QC_${String(n).padStart(2, "0")}_front_bumper_c
 const choose = (files) => async (page) => { await page.locator('input[type="file"]').first().setInputFiles(files); await page.waitForTimeout(600); };
 const APP = [
   ["dashboard", "/dashboard"],
+  ["dashboard-docs", "/dashboard?view=docs"], ["dashboard-open", "/dashboard?view=open"], ["dashboard-closed", "/dashboard?view=closed"], ["dashboard-all", "/dashboard?view=all"],
+  ["dashboard-search", "/dashboard?q=QC"], ["dashboard-no-match", "/dashboard?q=zzz-no-match"],
   ["new-case", "/cases/new"],
   ["new-case-files", "/cases/new", choose([pdf, ...[1, 2, 3, 4, 5, 6].map(jpg)])],
   ["new-case-bad-files", "/cases/new", choose([pdf, { name: "empty_scan_from_the_workshop.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(0) }, { name: "photo_from_phone.heic", mimeType: "image/heic", buffer: Buffer.from("x") }, jpg(1)])],
   ...Object.entries(C).map(([k, id]) => [`case-${k}`, `/cases/${id}`]),
   ["desk", `/cases/${C.naming}/photos`],
-  ["desk-legend", `/cases/${C.naming}/photos`, async (p) => { const b = p.getByTestId(p.viewportSize().width < 640 ? "legend-toggle-m" : "legend-toggle"); await b.click(); await p.getByTestId("legend").waitFor(); }],
   ["desk-done-blocked", `/cases/${C.naming}/photos`, async (p) => { await p.getByTestId("done-btn").first().click(); await p.waitForTimeout(700); }],
   ["desk-finished", `/cases/${C.finished}/photos`],
   ["settings", "/settings"],

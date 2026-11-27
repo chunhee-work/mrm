@@ -7,20 +7,21 @@ import { useT } from "@/components/lang-provider";
 import { kindOf } from "@/lib/file-kind";
 import { docKey, failTr, userFixable } from "@/lib/case-text";
 import { accepted } from "./drop-zone";
-import { whenOf } from "@/lib/fmt-when";
+import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { Photo, Tick, Upload } from "./marks";
-import type { CaseRow } from "./case-list";
+import type { CaseRow } from "./case-table";
 
 /** What a card has just sent: the missing files. */
 export type Sent = "files";
 
 /**
- * A case that needs the user, as a card: the vehicle no., in plain words the one thing that is needed, and the one button that does it.
+ * What a case needs from the user, as the banner under the case's title: in plain words the one thing that is needed, and the one button that does it.
  * A missing document is uploaded right here: choosing the files sends them, there is no second button.
- * `sent` comes from the list, which keeps the card in place for a moment after it went through, so the user sees it was received.
+ * `sent` comes from the page, which keeps the banner for a moment after the files went through, so the user sees they were received.
  */
-export default function NeedCard({ row, orgId, sent, onSent, compact = false }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void; compact?: boolean }) {
-  const { t, lang } = useT();
+/** `onPhotos`: the photo desk opens on the same page (the first page's line) instead of on its own page. */
+export default function NeedCard({ row, orgId, sent, onSent, onPhotos }: { row: CaseRow; orgId: string; sent?: Sent; onSent: (id: string, what: Sent) => void; onPhotos?: () => void }) {
+  const { t } = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState<{ n: number; total: number; pct: number } | null>(null);
@@ -47,6 +48,7 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
       }
       saving = true;
       const r = await fetch(`/api/cases/${row.id}/files`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
+      if (r.status === 402) { setErr(t("new.noCredits")); return; } // a zip of several cars (or cars at different levels) was refunded: reading it again takes a credit
       if (!r.ok) throw new Error("not saved");
       onSent(row.id, "files");
       router.refresh();
@@ -68,8 +70,15 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
   }
   function onChosen(list: File[]) {
     const ok = list.filter(accepted);
-    if (ok.length) void send(ok);
-    else if (list.length) setErr(t("dash.d.badType"));
+    if (!ok.length) { if (list.length) setErr(t("dash.d.badType")); return; }
+    // the same limits the server checks, before anything is uploaded: one empty or too-big file would fail the whole send.
+    // Nothing is sent then, so the note stays on this card (a partial send would close the card and hide it).
+    const out = ok.filter((f) => f.size === 0 || f.size > MAX_FILE_BYTES || (kindOf(f) === "pdf" && f.size > MAX_PDF_BYTES));
+    if (out.length) { setErr(t("dash.d.fixFirst", { name: out.map((f) => f.name).join(", "), mb: String(MAX_FILE_BYTES / 1048576), pdf: String(MAX_PDF_BYTES / 1048576) })); return; }
+    if (ok.length > MAX_FILES) { setErr(t("new.tooMany", { max: String(MAX_FILES), n: String(ok.length) })); return; }
+    const bytes = ok.reduce((n, f) => n + f.size, 0);
+    if (bytes > MAX_TOTAL_BYTES) { setErr(t("new.tooMuch", { gb: String(MAX_TOTAL_BYTES / 1024 ** 3), size: `${(bytes / 1024 ** 3).toFixed(1)} GB` })); return; }
+    void send(ok);
   }
 
   const docs = (row.pendingDoc ?? "").split("; ").map((d) => d.trim()).filter(Boolean);
@@ -91,25 +100,22 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
     const names = docs.map((d) => (docKey(d) === "other" ? d : t(`doc.${docKey(d)}`)));
     need = row.status === "failed" ? (
       <>
-        {compact && <p className={say}>{t("case.h.failed")}</p>}
-        <p className={compact ? "mt-1 text-[14.5px] leading-snug text-fg/80" : say}>{t(failTr(row.error ?? null).key, failTr(row.error ?? null).vars)}</p>
+        <p className={say}>{t("case.h.failed")}</p>
+        <p className="mt-1 text-[14.5px] leading-snug text-fg/80">{t(failTr(row.error ?? null).key, failTr(row.error ?? null).vars)}</p>
       </>
     ) : docs.length ? (
       <>
-        {/* one line says how many; the names follow. On a card they run on as one short paragraph, so a card is 3 lines, not 6 */}
+        {/* one line says how many, the names follow in two columns. The numbers run down the left column first, then the
+            right one (owner 2026-11-22: 1, 2 on the left and 3, 4 on the right), not across */}
         <p className={say} data-testid="missing-count">{t("dash.d.missingN", { n: String(docs.length) })}</p>
-        {compact ? (
-          <ol className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-cols-2">
-            {names.map((d, i) => (
-              <li key={`${i}${d}`} className="flex items-baseline gap-2 text-[15px] leading-snug text-fg [overflow-wrap:anywhere]">
-                <span className="num w-5 shrink-0 font-semibold">{i + 1}.</span>
-                <span className="min-w-0">{d}</span>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="mt-1.5 text-[14px] leading-[1.45] text-fg/80 [overflow-wrap:anywhere] [text-wrap:pretty]">{names.join(" · ")}</p>
-        )}
+        <ol className="mt-2.5 grid gap-x-8 gap-y-1.5 sm:grid-flow-col sm:grid-cols-2 sm:[grid-template-rows:repeat(var(--rows),auto)]" style={{ "--rows": Math.ceil(names.length / 2) } as React.CSSProperties} data-testid="missing-list">
+          {names.map((d, i) => (
+            <li key={`${i}${d}`} className="flex items-baseline gap-2 text-[15px] leading-snug text-fg [overflow-wrap:anywhere]">
+              <span className="num w-5 shrink-0 font-semibold">{i + 1}.</span>
+              <span className="min-w-0">{d}</span>
+            </li>
+          ))}
+        </ol>
       </>
     ) : (
       <p className={say}>{t("dash.d.missingAny")}</p>
@@ -149,10 +155,17 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
         </button>
         {/* R3-B01 / B06: always one line about the photo names: how many to check, "press 完成", or confirmed */}
         {(row.deskTotal ?? 0) > 0 && (
-          <Link href={`/cases/${row.id}/photos`} className="btn-quiet !w-full sm:!w-auto" data-testid="photos-link">
-            {row.photosDone && !row.deskConfirm ? <Tick className="h-4 w-4 text-go" /> : <Photo />}
-            <span>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : row.photosDone ? t("dash.d.photosDone") : t("dash.d.photosPress")}</span>
-          </Link>
+          (() => {
+            const inner = (
+              <>
+                {row.photosDone && !row.deskConfirm ? <Tick className="h-4 w-4 text-go" /> : <Photo />}
+                <span>{row.deskConfirm ? t("dash.d.photosN", { n: String(row.deskConfirm) }) : row.photosDone ? t("dash.d.photosDone") : t("dash.d.photosPress")}</span>
+              </>
+            );
+            return onPhotos
+              ? <button type="button" onClick={onPhotos} className="btn-quiet !w-full sm:!w-auto" data-testid="photos-link">{inner}</button>
+              : <Link href={`/cases/${row.id}/photos`} className="btn-quiet !w-full sm:!w-auto" data-testid="photos-link">{inner}</Link>;
+          })()
         )}
       </div>
     );
@@ -175,38 +188,14 @@ export default function NeedCard({ row, orgId, sent, onSent, compact = false }: 
     );
   }
 
-  // the case page: the same block, as the banner under the case's title (no second box, no second heading)
-  if (compact) {
-    return (
-      <li className={`list-none border-b border-hair px-5 py-5 sm:px-8 ${sent ? "bg-gotint" : "bg-ambertint"}`} role={row.status === "failed" ? "alert" : "status"}>
-        <h3 id={titleId} className="sr-only">{row.plate || t("dash.noPlate")}</h3>
-        <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-4">
-          <div className="min-w-0 flex-1 basis-[280px]">{need}</div>
-          {!sent && act && <div className="w-full sm:w-auto sm:min-w-[200px]">{act}</div>}
-        </div>
-        {err && !sent && <p role="alert" className="field-error mt-3">{err}</p>}
-      </li>
-    );
-  }
-
-  // no plate yet: the first file's name tells the cards apart (three cards all called "Not read yet" could not be told apart)
-  const title = row.plate || row.firstFile;
-  const meta = [row.carModel, row.createdAt ? whenOf(row.createdAt, lang) : ""].filter(Boolean).join(" · ");
+  // no second box and no second heading: the banner sits right under the case's title
   return (
-    <li className="sheet flex min-w-0 max-w-full flex-col rounded-[3px] border border-hair bg-panel p-5 lg:p-6">
-      <h3 id={titleId} className={`truncate leading-[1.15] text-fg ${row.plate ? "num font-mono text-[24px] font-medium tracking-[0.01em]" : "text-[19px] font-semibold"}`}>
-        <Link href={`/cases/${row.id}`} className="underline-offset-4 hover:underline">
-          {title || <span className="font-sans text-[20px] font-normal text-mute">{t("dash.noPlate")}</span>}
-        </Link>
-      </h3>
-      {meta && <p className="mt-1 truncate text-[14px] leading-snug text-mute" suppressHydrationWarning>{meta}</p>}
-      {/* what is needed, on amber with the amber edge (green once it has been sent): the one place on the card the eye should go.
-          It is as tall as its words; the button stands on the card's bottom edge, so neighbouring buttons stay on one line. */}
-      {need && <div className={`relative mt-4 flex flex-col justify-center overflow-hidden rounded-[3px] py-3 pl-[19px] pr-4 ${sent ? "bg-gotint" : "bg-ambertint"}`}>
-        <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-[3px] ${sent ? "bg-go" : "bg-amber"}`} />
-        {need}
-      </div>}
-      {!sent && act && <div className="mt-auto pt-4">{act}</div>}
+    <li className={`list-none border-b border-hair px-5 py-5 sm:px-8 ${sent ? "bg-gotint" : "bg-ambertint"}`} role={row.status === "failed" ? "alert" : "status"}>
+      <h3 id={titleId} className="sr-only">{row.plate || t("dash.noPlate")}</h3>
+      <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-4">
+        <div className="min-w-0 flex-1 basis-[280px]">{need}</div>
+        {!sent && act && <div className="w-full sm:w-auto sm:min-w-[200px]">{act}</div>}
+      </div>
       {err && !sent && <p role="alert" className="field-error mt-3">{err}</p>}
     </li>
   );

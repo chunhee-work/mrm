@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
+const { zipSync, strToU8 } = createRequire(import.meta.url)("fflate");
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -44,14 +45,16 @@ async function seed(plate, specs, ageSec, status = "naming", data = null, doneAl
   const id = `e2e_${plate}_${stamp}`;
   await db.query(`INSERT INTO cases (id, org_id, plate, status, created_at, case_data, photos_done_at) VALUES ($1,$2,$3,$4, now() - ($5 || ' seconds')::interval, $6, ${doneAlready ? "now()" : "NULL"})`, [id, orgId, plate, status, String(ageSec), data ? JSON.stringify(data) : null]);
   let i = 0;
-  for (const [name, conf] of specs) {
+  // a spec is [name, confidence, state]. No name and no state = the model found no name that fits (named, empty):
+  // the photo simply asks for a name. "failed" = the naming call itself failed, which the desk tries again by itself.
+  for (const [name, conf, state] of specs) {
     i++;
     const blob = `${orgId}/${id}/photos/h${i}-f-IMG_${i}.jpg`, thumb = `${orgId}/${id}/photos/h${i}-s-IMG_${i}.jpg`;
     writeFileSync(file(blob), JPEG); writeFileSync(file(thumb), JPEG);
     await db.query(
       `INSERT INTO case_photos (case_id, position, orig_n, src_name, blob_path, thumb_path, name_state, model_name, confidence, content_hash, how)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'model')`,
-      [id, i - 1, i, `IMG_${i}.jpg`, blob, thumb, name ? "named" : "failed", name, name ? conf : null, `${id}-${i}`]);
+      [id, i - 1, i, `IMG_${i}.jpg`, blob, thumb, state ?? "named", name, name ? conf : null, `${id}-${i}`]);
   }
   return id;
 }
@@ -61,6 +64,7 @@ const B = await seed("E2EB2222", [["Front Bumper", 0.97], ["Bonnet", 0.97], ["Gr
 // C is finished already (Enter,Enter must skip it); D waits for a missing document and has one photo under 90 %
 const C = await seed("E2EC3333", [["Front Bumper", 0.97]], 30, "pending_doc", null, true);
 const D = await seed("E2ED4444", [["Bumper", 0.5], ["Bonnet", 0.97]], 90, "pending_doc");
+let F = null; // made by its own step: a case where the naming call failed on two photos
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 1 });
@@ -96,7 +100,7 @@ try {
     await shot("desk-done-button");
   });
 
-  await step("R4-U02: Done sits in the same row as the filters (not alone), the header is short, and three photos fit in a row at 1280 px", async () => {
+  await step("R4-U02: Done sits in the same row as the filters (not alone), the header is short, and the photos sit two in a line (owner 2026-11-22: always two, on every screen)", async () => {
     await shot("desk-r4-done-in-row");
     const d = await page.getByTestId("done-btn").first().boundingBox();
     const f = await page.getByRole("group", { name: /^(Show|显示|Papar)$/ }).first().boundingBox();
@@ -105,7 +109,13 @@ try {
     assert.ok(first.y < 380, `the first photos start at ${first.y}px`);
     const ys = [];
     for (let i = 0; i < 3; i++) ys.push(Math.round((await card(i + 1).boundingBox()).y));
-    assert.ok(ys[0] === ys[1] && ys[1] === ys[2], `three photos in one row: ${ys}`);
+    assert.ok(ys[0] === ys[1] && ys[2] > ys[1], `two photos in a line, the third starts the next: ${ys}`);
+    // the same on a very wide screen
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const wide = [];
+    for (let i = 0; i < 3; i++) wide.push(Math.round((await card(i + 1).boundingBox()).y));
+    assert.ok(wide[0] === wide[1] && wide[2] > wide[1], `two photos in a line at 1920 px: ${wide}`);
+    await page.setViewportSize({ width: 1280, height: 860 });
     await shot("desk-r4-done-in-row");
   });
 
@@ -184,12 +194,17 @@ try {
     assert.match(was, /Grille/);
     const badge = await page.getByTestId("tab-edited").first().innerText();
     assert.match(badge, /[1-9]/);
-    const kpi = await page.getByTestId("kpi").innerText();
-    assert.match(kpi, /\b5\b/, "KPI shows the number of photos");
-    await page.getByTestId("legend-toggle").click();
-    await page.getByTestId("legend").waitFor();
-    assert.match(await page.getByTestId("legend").innerText(), /TypeSafe/);
-    await page.getByTestId("legend-toggle").click();
+    // owner 2026-11-22: the plate on a tab is big and bold so it stands out, and "n changed" is a soft label, not a black block
+    const look = await page.locator('nav button[aria-current="true"]').evaluate((el) => {
+      const s = getComputedStyle(el), b = el.querySelector('[data-testid="tab-edited"]');
+      return { size: parseFloat(s.fontSize), weight: Number(s.fontWeight), badge: b ? getComputedStyle(b).backgroundColor : null };
+    });
+    assert.ok(look.size >= 15 && look.weight >= 700, `the plate of the open tab: ${look.size}px, weight ${look.weight}`);
+    assert.ok(look.badge && look.badge !== "rgb(10, 14, 19)", `the changed label is a black block: ${look.badge}`);
+    // owner 2026-11-22: the head is one compact row. The three numbers sit on the filter itself; there are no number
+    // tiles, no legend panel and no "Legend and how to use" switch.
+    assert.match(await page.getByTestId("desk-filter").innerText(), /\b5\b/, "the filter shows the number of photos");
+    for (const id of ["kpi", "legend", "legend-toggle", "legend-toggle-m", "help-open", "photo-plan"]) assert.equal(await page.getByTestId(id).count(), 0, `${id} is gone`);
   });
 
   await step("a queued Phase B is cancelled when Done is undone", async () => {
@@ -237,10 +252,10 @@ try {
     await page.keyboard.press("Escape");
   });
 
-  await step("R3-U04/B03/workshop: vehicle line shows the workshop; the opening-photos banner is one line", async () => {
+  await step("R3-U04/B03/workshop: vehicle line shows the workshop; no line about missing opening photos (owner 2026-11-22)", async () => {
     assert.match(await page.getByTestId("vehicle-line").innerText(), /Bengkel Maju/);
-    const banner = page.getByTestId("opening-banner");
-    if (await banner.count()) assert.ok((await banner.boundingBox()).height < 40, "one line");
+    assert.equal(await page.getByTestId("opening-banner").count(), 0);
+    assert.doesNotMatch(await page.locator("body").innerText(), /opening photos? missing|Opening photos missing/i);
   });
 
   await step("reorder: move photo 3 to the front with the move sheet", async () => {
@@ -284,10 +299,12 @@ try {
   });
 
   // ───────── D: a case that waits for a missing document ─────────
-  await step("R3-B01/B06/B02: D (1 photo under 90 %) shows '1 to check' on the dashboard; after Done: 0 to check, 'confirmed', and an honest toast", async () => {
-    await page.goto(`${BASE}/dashboard`);
-    const dLink = () => page.locator("li", { has: page.getByText("E2ED4444") }).getByTestId("photos-link");
-    const link = dLink();
+  await step("R3-B01/B06/B02: D (1 photo under 90 %) shows '1 to check' on its case page; after Done: 0 to check, 'confirmed', and an honest toast", async () => {
+    // the first page is now the count (owner 2026-11-22): D is one of the cases behind "Waiting for documents", and its case page carries the photo line
+    await page.goto(`${BASE}/dashboard?view=docs`);
+    await page.getByTestId("case-table").getByRole("link", { name: "E2ED4444" }).waitFor();
+    await page.goto(`${BASE}/cases/${D}`);
+    const link = page.getByTestId("desk-link");
     await link.waitFor();
     assert.match(await link.innerText(), /1 to check|1 张待核对|1 perlu disemak/);
     await page.goto(`${BASE}/cases/${D}/photos`);
@@ -297,15 +314,16 @@ try {
     await page.getByText(/missing documents are in|缺的文件补齐|dokumen yang hilang/).first().waitFor({ timeout: 5000 });
     assert.doesNotMatch(await page.locator("[aria-live=polite]").first().innerText(), /AI/);
     assert.match(await page.getByRole("button", { name: /^(To confirm|要确认|Perlu semak)/ }).innerText(), /0/);
-    await page.goto(`${BASE}/dashboard`);
-    const after = dLink();
+    await page.goto(`${BASE}/cases/${D}`);
+    const after = page.getByTestId("photo-plan-line");
     await after.waitFor();
     assert.match(await after.innerText(), /confirmed|已确认|disahkan/, "no more '1 to check'");
+    assert.doesNotMatch(await page.getByTestId("desk-link").innerText(), /to check|待核对|perlu disemak/);
     await page.goto(`${BASE}/cases/${D}`);
     const line = await page.getByTestId("photo-plan-line").innerText();
     assert.ok(line.trim().length > 20, "the Merimen photo plan box is never empty");
     assert.match(line, /missing documents|缺的文件|dokumen yang hilang/);
-    assert.equal(await page.getByRole("link", { name: /Name photos|给照片命名|Namakan gambar|Open photo names|打开照片名称/ }).count(), 1, "one link to the desk, not two");
+    assert.equal(await page.getByRole("link", { name: /Name photos|给照片命名|Namakan gambar|Open photo names|打开照片名称/ }).filter({ hasNot: page.locator("[data-testid^=step-]") }).and(page.locator(":not([data-testid^=step-])")).count(), 1, "one button to the desk, not two (the step bar is its own way back)");
     await shot("case-page-photo-status");
   });
 
@@ -322,9 +340,9 @@ try {
     await inputs.nth(2).fill("abcdefgh2");
     await page.locator("form[novalidate] button").click();
     await page.getByText(/not the same/).waitFor();
-    // the language is changed in one place only, the globe in the top bar (Settings no longer repeats it)
-    await page.getByRole("button", { name: /^Language/ }).click();
-    await page.getByRole("button", { name: /中文/ }).click();
+    // owner 2026-11-22: the language is changed in Settings; the top bar has no globe any more
+    assert.equal(await page.locator("header").getByRole("button", { name: /^Language/ }).count(), 0, "no language button in the top bar");
+    await page.getByTestId("set-lang").getByRole("button", { name: /中文/ }).click();
     await page.getByText(/不一样/).waitFor({ timeout: 5000 });
     await ctx.addCookies([{ name: "lang", value: "en", url: BASE }]);
   });
@@ -346,11 +364,238 @@ try {
     assert.match(await page.title(), /^E2EA1111 · .+ · Autopilotclaim$/);
   });
 
-  await step("R4-B01/U04: the dashboard has no '1 photos' and no double tick", async () => {
+  await step("uploaded files open with a click (owner 2026-11-22), only for the case they belong to and only when signed in", async () => {
+    const add = async (caseId, name, p, bytes) => {
+      writeFileSync(file(p), bytes);
+      return (await db.query(`INSERT INTO case_files (case_id, kind, blob_url, original_name, size) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [caseId, /\.pdf$/.test(name) ? "pdf" : /\.zip$/.test(name) ? "bundle_zip" : "photo", p, name, bytes.length])).rows[0].id;
+    };
+    const PDF = Buffer.from("%PDF-1.4\n%%EOF\n");
+    const pdf = await add(A, "报告 report.pdf", `${orgId}/${A}/docs/report.pdf`, PDF);
+    const jpg = await add(A, "IMG_1.JPG", `${orgId}/${A}/docs/img1.jpg`, JPEG);
+    const zip = await add(A, "bundle.zip", `${orgId}/${A}/docs/bundle.zip`, Buffer.from("PK"));
+    const html = await add(A, "page.html", `${orgId}/${A}/docs/page.html`, Buffer.from("<script>1</script>"));
+    const outside = await add(A, "other.pdf", `someone-else/${A}/docs/other.pdf`, PDF); // a path outside this organisation's folder is never read
+    const url = (c, f) => `${BASE}/api/cases/${c}/files/${f}`;
+
+    await page.goto(`${BASE}/cases/${A}`);
+    await page.getByTestId("case-files").locator("summary").click();
+    const link = page.getByTestId("file-open").filter({ hasText: "报告 report.pdf" });
+    assert.equal(await link.getAttribute("href"), `/api/cases/${A}/files/${pdf}`);
+    assert.equal(await link.getAttribute("target"), "_blank");
+    assert.equal(await page.getByTestId("file-open").count(), 5);
+    assert.ok((await link.boundingBox()).height >= 44, "a file row is tall enough for a finger");
+
+    let r = await ctx.request.get(url(A, pdf));
+    assert.equal(r.status(), 200);
+    assert.equal(r.headers()["content-type"], "application/pdf");
+    assert.match(r.headers()["content-disposition"], /^inline; filename="__ report\.pdf"; filename\*=UTF-8''%E6%8A%A5%E5%91%8A%20report\.pdf$/);
+    assert.equal(r.headers()["cache-control"], "private, no-store");
+    assert.equal(r.headers()["x-content-type-options"], "nosniff");
+    assert.ok((await r.body()).equals(PDF));
+    r = await ctx.request.get(url(A, jpg));
+    assert.equal(r.headers()["content-type"], "image/jpeg");
+    // a zip, and anything the browser could run, is a download and never a page of ours
+    for (const id of [zip, html]) {
+      r = await ctx.request.get(url(A, id));
+      assert.equal(r.status(), 200);
+      assert.equal(r.headers()["content-type"], "application/octet-stream");
+      assert.match(r.headers()["content-disposition"], /^attachment; /);
+    }
+    assert.equal((await ctx.request.get(url(D, pdf))).status(), 404, "a file of another case");
+    assert.equal((await ctx.request.get(url(A, outside))).status(), 404, "a path outside the organisation's folder");
+    assert.equal((await ctx.request.get(url(A, 999999999))).status(), 404);
+    assert.equal((await ctx.request.get(url(A, "abc"))).status(), 404);
+    assert.equal((await ctx.request.get(url("no-such-case", pdf))).status(), 404);
+    assert.equal((await fetch(url(A, pdf))).status, 401, "signed out");
+    await db.query(`DELETE FROM case_files WHERE case_id = $1`, [A]);
+  });
+
+  await step("R4-B01/U04: the case table has no '1 photos' and no tick typed into the words; the first page counts the cases", async () => {
+    await page.goto(`${BASE}/dashboard?view=all`);
+    await page.getByTestId("case-table").waitFor();
+    const lines = await page.getByTestId("case-table").locator("li").allInnerTexts();
+    assert.ok(lines.length >= 4, `the four cases are listed: ${lines.length}`);
+    for (const t of lines) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
+    // the table has no "New case" of its own, so the bar keeps it there
+    assert.equal(await page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').count(), 1, "one New case shows above the table");
+    // the first page (owner 2026-11-22, reworked 2026-11-27): welcome, search, two buttons, and every open case with its own step bar
     await page.goto(`${BASE}/dashboard`);
-    await page.getByTestId("photos-link").first().waitFor();
-    const links = await page.getByTestId("photos-link").allInnerTexts();
-    for (const t of links) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
+    assert.match(await page.getByTestId("home-welcome").innerText(), /E2E Tester/);
+    for (const id of ["home-search", "home-new", "home-closed", "home-open", "home-list"]) assert.equal(await page.getByTestId(id).count(), 1, id);
+    // nothing twice (owner 2026-11-22): one "New case" (the page's, not the bar's) and one "Billing" (the bar's, not the page's)
+    assert.equal(await page.locator('[data-testid="new-case"], [data-testid="new-case-wide"]').count(), 0, "no second New case in the bar of the first page");
+    assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
+    assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
+    // a one-step table still opens by its address, and its back link returns to the first page
+    await page.goto(`${BASE}/dashboard?view=docs`);
+    await page.getByTestId("case-table").waitFor();
+    await page.getByTestId("list-back").click();
+    await page.waitForURL(/\/dashboard$/);
+    await page.getByTestId("home-list").waitFor();
+    assert.equal(await page.getByTestId("case-table").count(), 0, "no separate case table on the first page");
+    assert.ok(await page.getByTestId("step-dots").count() >= 1, "each open case shows its step bar");
+    assert.equal(await page.getByTestId("step-dots").count(), await page.getByTestId("home-list").locator(":scope > li").count(), "one step bar per case");
+    // files dragged onto the first page: a full-page overlay while they hover, a text drag shows nothing,
+    // the overlay clears on its own if the browser misses the dragleave, and a drop opens New case with the files
+    const drag = (type, kind = "file") => page.evaluate(([type, kind]) => {
+      const dt = new DataTransfer();
+      if (kind === "file") dt.items.add(new File(["%PDF-1.4"], "dropped.pdf", { type: "application/pdf" })); else dt.setData("text/plain", "hello");
+      window.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
+    }, [type, kind]);
+    await drag("dragenter", "text");
+    await page.waitForTimeout(150);
+    assert.equal(await page.getByTestId("home-overlay").count(), 0, "a text drag is not a file drop");
+    await drag("dragenter");
+    await page.getByTestId("home-overlay").waitFor();
+    for (let i = 0; i < 8; i++) { await page.waitForTimeout(250); await drag("dragover"); } // a file held still for 2 s
+    assert.equal(await page.getByTestId("home-overlay").count(), 1, "the overlay stays while dragover keeps coming");
+    await page.getByTestId("home-overlay").waitFor({ state: "detached", timeout: 2000 }); // then no dragover, no dragleave: it clears by itself
+    await drag("dragenter"); await drag("dragenter"); await drag("dragleave");
+    await page.waitForTimeout(150);
+    assert.equal(await page.getByTestId("home-overlay").count(), 1, "leaving a child element keeps it");
+    await drag("dragleave");
+    await page.getByTestId("home-overlay").waitFor({ state: "detached", timeout: 500 });
+    // a drop uploads right here on the first page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
+    // the upload box opens under New case and sends at once, with no press of Upload. The first thing it does is ask for
+    // the balance; answer "no credit" so nothing goes up and the box shows the file and the refusal.
+    let sent = 0;
+    await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
+    await drag("dragenter");
+    await drag("drop");
+    const box = page.getByTestId("home-upload");
+    await box.waitFor();
+    assert.equal(new URL(page.url()).pathname, "/dashboard", "a drop stays on the first page");
+    await box.getByText("dropped.pdf").waitFor();
+    assert.equal(await box.getByText("dropped.pdf").count(), 1, "listed once");
+    await box.locator('[role="alert"]').filter({ hasText: /no credits|点数不够|tiada kredit/i }).first().waitFor();
+    assert.equal(sent, 1, "the upload started by itself, once");
+    assert.equal(await page.getByTestId("home-list").count(), 1, "the case list stays under the box");
+    // while the box is open it takes the drops itself: it lights up, and a drop adds the file to its list
+    await drag("dragenter");
+    await box.locator('[data-over="true"]').first().waitFor();
+    assert.equal(await page.getByTestId("home-overlay").count(), 0, "no second overlay while the box is open");
+    await page.evaluate(() => {
+      const dt = new DataTransfer(); dt.items.add(new File(["%PDF-1.4"], "second.pdf", { type: "application/pdf" }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    await box.getByText("second.pdf").waitFor();
+    // the box closes with its ×, and the page is as before
+    await page.getByTestId("home-upload-close").click();
+    await box.waitFor({ state: "detached" });
+    assert.equal(new URL(page.url()).pathname, "/dashboard");
+    // a ?dropped=1 visit with nothing held says so, in the box
+    await page.goto(`${BASE}/dashboard?dropped=1`);
+    await box.getByText(/did not arrive|没有带过来|tidak sampai/).waitFor();
+    await page.waitForURL((u) => !u.search.includes("dropped=1"), { timeout: 5000 }); // the marker is taken off once read
+    // a drop with a file left out does not send: the note stays and Upload waits for a press
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" }); // the page listens for drops once it has loaded
+    await page.getByTestId("home-new").waitFor();
+    sent = 0;
+    await page.evaluate(() => {
+      const dt = new DataTransfer();
+      dt.items.add(new File(["%PDF-1.4"], "mixed.pdf", { type: "application/pdf" }));
+      dt.items.add(new File(["hello"], "notes.txt", { type: "text/plain" }));
+      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    await box.getByText("mixed.pdf").waitFor();
+    await box.getByText(/notes\.txt/).first().waitFor();
+    await page.waitForTimeout(800);
+    assert.equal(sent, 0, "nothing sent while a file was left out");
+    assert.equal(new URL(page.url()).pathname, "/dashboard");
+    // a drop of one zip holding two cars does not send either: the "makes 2 cases" line waits for a press
+    const twoCars = Buffer.from(zipSync({ "DCD4004/claim.pdf": strToU8("%PDF-1.4"), "TBD8129/claim.pdf": strToU8("%PDF-1.4") })).toString("base64");
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
+    await page.getByTestId("home-new").waitFor();
+    await page.evaluate((b64) => {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const dt = new DataTransfer();
+      dt.items.add(new File([bytes], "two-cars.zip", { type: "application/zip" }));
+      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: dt, bubbles: true, cancelable: true }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    }, twoCars);
+    await box.getByText(/holds 2 cars|2 辆|2 kereta/).first().waitFor();
+    await page.waitForTimeout(800);
+    assert.equal(sent, 0, "a zip that makes several cases is not sent unseen");
+    // New case opens the file picker at once (owner 2026-11-27); the picked files go up in the box on this page
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
+    await page.unroute("**/api/cases/credit*");
+    sent = 0;
+    // the balance answer is slowed so the box is still sending when New case is pressed again: no picker then
+    await page.route("**/api/cases/credit*", async (r) => { sent++; await new Promise((res) => setTimeout(res, 1500)); return r.fulfill({ status: 402, body: "{}" }); });
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("home-new").click()]);
+    await chooser.setFiles([{ name: "picked.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
+    await box.getByText("picked.pdf").waitFor();
+    assert.equal(new URL(page.url()).pathname, "/dashboard", "a pick stays on the first page");
+    for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
+    assert.equal(sent, 1, "picked files are sent without a press of Upload");
+    const late = page.waitForEvent("filechooser", { timeout: 800 }).then(() => true, () => false);
+    await page.getByTestId("home-new").click({ force: true });
+    assert.equal(await late, false, "no picker while the box is sending (a pick would replace the files on their way)");
+    await box.locator('[role="alert"]').filter({ hasText: /no credits|点数不够|tiada kredit/i }).first().waitFor();
+    await page.waitForTimeout(300);
+    assert.equal(sent, 1, "sent once");
+    // once the send has stopped, a new pick joins the open box (like a drop): the files waiting there are not thrown away
+    const [chooserB] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("home-new").click()]);
+    await chooserB.setFiles([{ name: "again.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
+    await box.getByText("again.pdf").waitFor();
+    assert.equal(await box.getByText("picked.pdf").count(), 1, "the files already in the box stay");
+    await page.waitForTimeout(500);
+    assert.equal(sent, 1, "an added file waits for a press of Upload");
+    await page.unroute("**/api/cases/credit*");
+    await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
+    // the New case of the top bar (on the case table) opens the picker too, and the files go up on the first page
+    await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
+    const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').first().click()]); // wide screens: the row above the page
+    await page.waitForTimeout(500);
+    assert.match(page.url(), /view=all/, "the picker opens in place");
+    assert.equal(await page.getByTestId("nav-progress").count(), 0, "no progress bar while the picker is open");
+    sent = 0;
+    await chooser2.setFiles([]); // an empty pick (a real cancel fires no change at all)
+    await page.waitForTimeout(500);
+    assert.match(page.url(), /view=all/, "picking nothing stays put");
+    assert.equal(sent, 0, "picking nothing sends nothing");
+    const [chooser3] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').first().click()]); // wide screens: the row above the page
+    await chooser3.setFiles([{ name: "bar.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
+    await page.waitForURL(/\/dashboard$/);
+    await box.getByText("bar.pdf").waitFor();
+    for (let i = 0; i < 40 && !sent; i++) await page.waitForTimeout(100);
+    await page.waitForTimeout(500); // a second send would show by now
+    assert.equal(sent, 1, "files picked from the bar's New case are sent too");
+    await page.unroute("**/api/cases/credit*");
+    await page.goto(`${BASE}/dashboard`);
+    // every job is done on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
+    // the photo button opens the line with the photo desk inside it
+    for (const tag of await page.getByTestId("home-act").evaluateAll((els) => els.map((e) => e.tagName))) assert.equal(tag, "BUTTON", "no action button leaves the first page");
+    const photoLine = page.getByTestId("home-list").locator(":scope > li[data-bucket=photos]").first();
+    assert.ok(await photoLine.count(), "a case with photos to name is on the first page"); // not skipped when missing: the check must really run
+    {
+      await photoLine.getByTestId("home-act").click();
+      await photoLine.getByTestId("home-desk").getByTestId("done-btn").waitFor();
+      assert.equal(new URL(page.url()).pathname, "/dashboard", "the photo desk opens inside the line");
+      await photoLine.getByTestId("home-row").click();
+      await photoLine.getByTestId("home-desk").waitFor({ state: "detached" });
+    }
+    // a press on a line opens its details right there (owner 2026-11-27: "by clicking the whole box can open it down"); a second press closes them
+    const row = page.getByTestId("home-row").first();
+    await row.click();
+    await page.getByTestId("home-more").waitFor();
+    assert.equal(await row.getAttribute("aria-expanded"), "true");
+    assert.match(await page.getByTestId("home-open-case").getAttribute("href"), /^\/cases\/[^/]+$/, "the details lead into the case page");
+    assert.equal(new URL(page.url()).pathname, "/dashboard", "opening the details stays on the first page");
+    await row.click();
+    await page.getByTestId("home-more").waitFor({ state: "detached" });
+    const rows0 = await page.getByTestId("home-list").locator(":scope > li").count();
+    // typing narrows the list on this page at once, no trip to another page
+    await page.getByTestId("home-search").locator("input").fill("zz-no-such-plate");
+    await page.getByTestId("home-empty").waitFor();
+    assert.equal(new URL(page.url()).search, "", "typing stays on the first page");
+    await page.getByTestId("home-search").locator("input").fill("");
+    assert.equal(await page.getByTestId("home-list").locator(":scope > li").count(), rows0);
+    await page.getByTestId("home-search").locator("input").fill("e2ed");
+    await page.getByTestId("home-search").locator("button").click();
+    await page.waitForURL(/q=e2ed/);
+    assert.equal(await page.getByTestId("case-table").locator("li").count(), 1, "the search finds the one case");
   });
 
   // ───────── phone width ─────────
@@ -373,7 +618,7 @@ try {
     await mobile.close();
   });
 
-  await step("R4-U01/U03: on a phone the numbers are shown once (on the filter buttons) and \"?\" opens the legend; the open tab's badge is fully in view", async () => {
+  await step("R4-U01/U03: on a phone the numbers are shown once (on the filter buttons) and there is no legend; the open tab's badge is fully in view", async () => {
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
     await mobile.addCookies(await ctx.cookies());
     const p = await mobile.newPage();
@@ -383,9 +628,8 @@ try {
     assert.equal(await numbers.count(), 1, "one row of numbers, not two");
     assert.match(await numbers.innerText(), /\d/);
     assert.equal(await p.getByTestId("kpi-line").count(), 0);
-    await p.getByTestId("legend-toggle-m").click();
-    await p.getByTestId("legend").waitFor();
-    assert.match(await p.getByTestId("legend").innerText(), /TypeSafe/);
+    assert.equal(await p.getByTestId("legend-toggle-m").count(), 0);
+    assert.equal(await p.getByTestId("legend").count(), 0);
     const tab = p.locator('button[aria-current="true"]').first();
     const nav = await tab.locator("xpath=ancestor::nav[1]").boundingBox();
     const tb = await tab.boundingBox();
@@ -441,6 +685,81 @@ try {
     assert.equal(await p.getByTestId("nav-progress").count(), 0, "the top bar kept running after No");
     await p.close();
   });
+  await step("a naming call that failed is tried again by the desk itself: no failure line, no Try again button; what is left simply asks for a name (owner 2026-11-22)", async () => {
+    F = await seed("E2EF6666", [["Front Bumper", 0.97], [null, null, "failed"], [null, null, "failed"]], 120);
+    await page.goto(`${BASE}/cases/${F}/photos`);
+    await page.locator("article[data-pid]").first().waitFor();
+    // on arrival the two photos are being named again (nothing says "failed"), and nothing has to be pressed
+    await page.getByTestId("naming-line").waitFor({ timeout: 5000 });
+    assert.equal(await page.locator("article[data-unnamed]").count(), 0, "still being named, not asking for a name yet");
+    const never = /could not be named|没命名成功|tidak dapat dinamakan|Try again|再试一次|Cuba lagi/;
+    assert.doesNotMatch(await page.locator("body").innerText(), never);
+    // a test machine has no model to call, so every try fails (with a model, it finds no name for this grey square):
+    // either way, after the last quiet try the two photos simply ask for a name
+    await page.waitForFunction(() => document.querySelectorAll("article[data-unnamed]").length === 2 && !document.querySelector("[data-testid=naming-line]"), null, { timeout: 90000 });
+    assert.doesNotMatch(await page.locator("body").innerText(), never);
+    const { rows } = await db.query(`SELECT name_state FROM case_photos WHERE case_id = $1 ORDER BY position`, [F]);
+    assert.ok(rows.every((r) => r.name_state === "named" || r.name_state === "failed"), `nothing is left waiting: ${rows.map((r) => r.name_state).join()}`);
+    // naming one by hand works as for any photo without a name
+    await rename(2, "Door Mirror RH");
+    await page.waitForTimeout(1500);
+    assert.equal(await page.locator("article[data-unnamed]").count(), 1);
+  });
+  await step("case page after reading (owner 2026-11-27): says what happens now and next; on the user's turn the button is in that row, said once", async () => {
+    const W = await seed("E2EW5555", [], 30, "phase_a");
+    try {
+      await page.goto(`${BASE}/cases/${W}`);
+      const row = page.getByTestId("case-next");
+      await row.waitFor();
+      assert.match(await row.innerText(), /Merimen/);
+      assert.match(await row.innerText(), /Nothing for you to do|不需要你做什么|Tiada apa/);
+      assert.equal(await page.getByText(/^(Creating case|创建案件中|Mencipta kes)$/).count(), 0, "no second status at the top right");
+    } finally { await db.query(`DELETE FROM cases WHERE id = $1`, [W]); }
+    // a case still naming with a photo to check: the row is the user's turn and holds the one desk button
+    const Y = await seed("E2EY6666", [["Front Bumper", 0.4], ["Bonnet", 0.97]], 30, "naming");
+    try {
+      await page.goto(`${BASE}/cases/${Y}`);
+      const row = page.getByTestId("case-next");
+      await row.waitFor();
+      assert.match(await row.innerText(), /Your turn|轮到你|Giliran anda/);
+      assert.equal(await row.getByTestId("desk-link").count(), 1, "the button sits in the row");
+      assert.equal(await page.getByTestId("desk-link").count(), 1, "and nowhere else");
+      assert.ok(await page.getByTestId("case-log").isVisible(), "the activity list is open without a click");
+    } finally { await db.query(`DELETE FROM cases WHERE id = $1`, [Y]); }
+  });
+  await step("side bar (owner 2026-11-27): folds to icons and stays folded on the next page; the account menu works by keyboard", async () => {
+    await page.goto(`${BASE}/dashboard`);
+    const bar = page.getByTestId("side-bar");
+    await bar.waitFor();
+    // the account menu: ArrowDown opens it on its first item, Escape gives the focus back to the account row
+    const acct = page.getByTestId("side-account").locator('button[aria-haspopup="menu"]');
+    await acct.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.locator("#account-menu").waitFor();
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("role")), "menuitem", "focus on the first item");
+    await page.keyboard.press("Escape");
+    await page.locator("#account-menu").waitFor({ state: "detached" });
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-haspopup")), "menu", "focus back on the account row");
+    // fold: a thin strip, remembered in a cookie for the next page; the logo opens it again
+    const wide = (await bar.boundingBox()).width;
+    await page.getByTestId("side-fold").click();
+    await page.waitForFunction(() => document.cookie.includes("side=thin"));
+    await page.goto(`${BASE}/billing`);
+    await bar.waitFor();
+    assert.ok((await bar.boundingBox()).width < wide / 2, "still folded on the next page");
+    await page.getByTestId("side-fold").click();
+    await page.waitForFunction(() => document.cookie.includes("side=wide"));
+  });
+
+  await step("Cases page: only one line open at a time", async () => {
+    await page.goto(`${BASE}/dashboard`);
+    const rows = page.getByTestId("home-row");
+    assert.ok((await rows.count()) >= 2, "two open cases to try");
+    await rows.nth(0).click();
+    await rows.nth(1).click();
+    assert.equal(await page.locator('[data-testid="home-row"][aria-expanded="true"]').count(), 1, "one line open");
+  });
+
   await step("signed out while naming (session ended in another tab): the desk says so once and offers to log in again, back to this case", async () => {
     await page.goto(`${BASE}/cases/${B}/photos`);
     await page.locator("article[data-pid]").first().waitFor();
@@ -453,7 +772,7 @@ try {
   });
 } finally {
   await browser.close();
-  await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [[A, B, C, D]]);
+  await db.query(`DELETE FROM cases WHERE id = ANY($1)`, [[A, B, C, D, F].filter(Boolean)]);
   await db.end();
   console.log(`${ok} steps passed${process.exitCode ? ", some FAILED" : ""}`);
 }

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, uuid, index, uniqueIndex, check } from "drizzle-orm/pg-core";
+import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, uuid, index, uniqueIndex, check, smallint, primaryKey } from "drizzle-orm/pg-core";
 
 // ---- Better Auth tables (names/fields required by Better Auth) ----
 export const user = pgTable("user", {
@@ -93,6 +93,7 @@ export const cases = pgTable("cases", {
   photosRev: integer("photos_rev").notNull().default(0), // bumped on every reorder
   photosSnapshot: text("photos_snapshot"), // fingerprint of names + order + extras when 完成 was pressed (null = not done)
   photosArrangedAt: timestamp("photos_arranged_at", { withTimezone: true }), // opening order applied once after naming
+  deletedAt: timestamp("deleted_at", { withTimezone: true }), // soft delete by the user (0015): hidden everywhere, files and the audit row stay
 }, (t) => [index("cases_org_idx").on(t.orgId, t.createdAt)]);
 
 export const caseFiles = pgTable("case_files", {
@@ -355,8 +356,26 @@ export const merimenCredentials = pgTable("merimen_credentials", {
   verifyState: text("verify_state").notNull().default("queued"), // queued | checking | ok | bad_credentials | locked | otp | unknown
   loginAttempts: integer("login_attempts").notNull().default(0),
   blocked: boolean("blocked").notNull().default(false),
+  workshopName: text("workshop_name"), // migration 0013: what the user types once on the front page
+  managerName: text("manager_name"),
+  adjusterName: text("adjuster_name"),
+  profileVersion: integer("profile_version").notNull().default(0), // next value of merimen_profile_seq on every save: the worker replaces what it remembered
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by"),
+});
+// migration 0014: up to three workshops per account, and the workshop (1..3) a case belongs to (no row = workshop 1)
+export const merimenWorkshops = pgTable("merimen_workshops", {
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  slot: smallint("slot").notNull(),
+  name: text("name").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.orgId, t.slot] })]);
+export const merimenCaseWorkshop = pgTable("merimen_case_workshop", {
+  caseId: text("case_id").primaryKey().references(() => cases.id, { onDelete: "cascade" }),
+  slot: smallint("slot").notNull(),
+  lockedName: text("locked_name"),
+  lockedAt: timestamp("locked_at"), // set by the worker when it makes the case in Merimen: the workshop is then fixed
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 export const merimenCredAudit = pgTable("merimen_cred_audit", {
   id: serial("id").primaryKey(),

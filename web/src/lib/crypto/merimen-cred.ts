@@ -74,3 +74,12 @@ export function cleanSecret(v: unknown, max: number): string | null {
   if (!s || s.length > max) return null;
   return s;
 }
+
+/** True when the master key env var (MERIMEN_CRED_KEY, 32 bytes, base64) is set on this server. Saving needs it. */
+export const credKeyReady = (env: Record<string, string | undefined> = process.env) => masterKey(env.MERIMEN_CRED_KEY) !== null;
+
+/** A password is stored exactly as typed: no trimming, no rewriting. Control characters are refused, not removed. */
+export function cleanPassword(v: unknown, max: number): string | null {
+  if (typeof v !== "string" || !v || v.length > max || /[\u0000-\u001f\u007f]/.test(v)) return null;
+  return v;
+}

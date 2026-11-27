@@ -21,7 +21,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
       <header className="relative border-b border-hair bg-panel">
         <div className="wrap flex h-[60px] items-center justify-between gap-4 lg:h-16">
           <Link href="/" className="flex h-11 items-center" aria-label={t("nav.home")}>
-            <Brand />
+            <Brand small />
           </Link>
           <LangSwitch />
         </div>

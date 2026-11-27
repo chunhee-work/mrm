@@ -162,7 +162,7 @@ Guard = Callable[[], bool]
 
 def run(
     case: dict, desk: list[dict], extras: list[str], *, writes: bool, merimen: MerimenStep2, reviewer: Step2Reviewer | None = None,
-    guard: Guard = lambda: True,
+    guard: Guard = lambda: True, jev=None,
 ) -> Step2Report:
     rep = Step2Report("live" if writes else "dry")
     names = [r["name"] for r in plan_rows(desk)] + list(extras)
@@ -181,10 +181,12 @@ def run(
     rep.plan = summary(plan)
     rep.action = "plan"
     changed = [r["model_name"] for r in desk if r.get("final_name") and r.get("model_name") and r["final_name"] != r["model_name"]]
+    # a Phase B run again: the names Merimen got last (an earlier Phase B may have ticked parts for them) must not stay ticked either
+    changed += [p["name"] for p in case.get("phase_a_photos") or [] if p.get("name")]
     if not writes:
         # a dry run cannot read the rows: check the plan against the names (every photo name has a planned row, nothing changed is kept)
         rows = [(plan["pick"][v], "1") for v in plan["CP"]] + [(m, "1") for m in plan["missing"]]
-        rep.check = two_way(names, rows, changed)
+        rep.check = two_way(names, rows, changed, jev, case.get("id"))
         rep.note = "the plan only: nothing was ticked in Merimen"
         return rep
     if not guard():
@@ -195,7 +197,7 @@ def run(
     if got is None:
         rep.action, rep.code, rep.note = "unreadable", "unreadable", "the rows could not be read back after ticking"
         return rep
-    rep.check = two_way(names, got, changed)
+    rep.check = two_way(names, got, changed, jev, case.get("id"))
     rep.action = "applied" if rep.check["ok"] else "refused"
     if not rep.check["ok"]:
         rep.code = "check"

@@ -17,7 +17,8 @@ export default function NavProgress() {
     let seen: MouseEvent | null = null;
     const look = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-      seen = a && isInternalNav(e, { href: a.href, target: a.target, hasDownload: a.hasAttribute("download") }, location.href) ? e : null;
+      // a link that opens something else in place (New case opens the file picker) brings no page
+      seen = a && !a.hasAttribute("data-no-progress") && isInternalNav(e, { href: a.href, target: a.target, hasDownload: a.hasAttribute("download") }, location.href) ? e : null;
     };
     const start = (e: MouseEvent) => {
       if (e !== seen) return;

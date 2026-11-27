@@ -141,7 +141,7 @@ test("TypeSafe client: text only. Any image, asset or image-looking value throws
   ];
   for (const b of bad) assert.throws(() => buildJevRequest(b as never, "k"), TypeSafeImageError);
   assert.throws(() => assertTextOnly("x".repeat(20_001)), TypeSafeImageError);
-  const ok = buildJevRequest({ state: "Bonnet dented at the leading edge", questions: [{ id: "cond", type: "choice", options: ["repair", "replace"] }] }, "k");
+  const ok = buildJevRequest({ state: "Bonnet dented at the leading edge", questions: { cond: { type: "choice", options: ["repair", "replace"] } } }, "k");
   const headers = ok.init.headers as Record<string, string>;
   assert.ok(!Object.keys(headers).some((h) => /danger|image/i.test(h)));
   assert.ok(!/assets/.test(String(ok.init.body)));
@@ -266,7 +266,7 @@ test("R3-U07: the finished state is not the same word as the button; U02 says wh
   for (const l of ["en", "zh", "ms"] as const) {
     const d = PHOTO_DICTS[l];
     assert.notEqual(d.doneOn, d.done, l);
-    assert.ok(d.doneCancelled && d.doneUndo && d.was && d.tabEdited && d.legendOpen, l);
+    assert.ok(d.doneCancelled && d.doneUndo && d.was && d.tabEdited, l); // the legend switch is gone (owner 2026-11-22)
   }
   assert.equal(PHOTO_DICTS.en.doneOn, "Finished");
 });

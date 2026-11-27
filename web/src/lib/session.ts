@@ -16,8 +16,11 @@ const signedIn = cache(async () => {
 
 export async function requireUser() {
   const me = await signedIn();
-  if (!me) redirect("/login");
-  if (!me.orgId) redirect("/login");
+  if (!me?.orgId) {
+    // set by middleware.ts on gated pages: the log-in address that comes back here (only ever a same-site "/login?next=…")
+    const back = (await headers()).get("x-page");
+    redirect(back && back.startsWith("/login") ? back : "/login");
+  }
   return { user: me.user, orgId: me.orgId };
 }
 

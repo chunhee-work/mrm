@@ -1,6 +1,5 @@
 // Hard test (2026-11-22): every form, the wrong way first and then the right way, on a phone (390x844) with a throw-away
-// account in a LOCAL database. Sign-up (one password box whose eye shows what was typed, too short, address already used,
-// then a good one),
+// account in a LOCAL database. Sign-up (passwords that do not match, too short, address already used, then a good one),
 // log in (wrong password, then right), Settings › password (wrong current one, too short, not the same twice, then a
 // good change and log in with it), forgot password (an address nobody has must look the same as a real one).
 //   DATABASE_URL=postgresql://…@localhost:5432/… E2E_URL=http://localhost:3100 node e2e/forms.e2e.mjs
@@ -37,9 +36,9 @@ async function step(name, fn) {
   await ctx.close();
 }
 const text = (p) => p.locator("main").innerText();
-async function signUp(p, pass, mail = email) {
+async function signUp(p, a, b, mail = email) {
   await p.goto(`${BASE}/signup`);
-  await p.fill("#email", mail); await p.fill("#password", pass);
+  await p.fill("#email", mail); await p.fill("#password", a); await p.fill("#confirm", b);
   const name = p.locator("#name"); if (await name.count()) await name.fill("Forms Tester");
   const agree = p.locator("#agree"); if (await agree.count()) await agree.check();
   await p.click("button[type=submit]");
@@ -53,30 +52,26 @@ async function logIn(p, mail, pass) {
 const users = async () => Number((await db.query(`SELECT count(*) FROM "user" WHERE email = $1`, [email])).rows[0].count);
 
 try {
-  // UI round 2026-11-22: sign-up asks for the password once; the eye is how a typing slip is caught before sending
-  await step("sign-up: one password box, and the eye shows what was typed so a slip is seen before sending", async (p) => {
-    await p.goto(`${BASE}/signup`);
-    assert.equal(await p.locator("input[type=password]").count(), 1, "sign-up should ask for the password once");
-    await p.fill("#password", pw1 + "x");
-    await p.getByRole("button", { name: /^show/i }).click();
-    assert.equal(await p.locator("#password").getAttribute("type"), "text");
-    assert.equal(await p.locator("#password").inputValue(), pw1 + "x");
+  await step("sign-up: two different passwords are stopped, with a message, and no account is made", async (p) => {
+    await signUp(p, pw1, pw1 + "x");
+    assert.match(new URL(p.url()).pathname, /\/signup/);
+    assert.match(await text(p), /match|same/i);
     assert.equal(await users(), 0);
   });
   await step("sign-up: a 7-letter password is stopped and no account is made", async (p) => {
-    await signUp(p, "short-7");
+    await signUp(p, "short-7", "short-7");
     assert.match(new URL(p.url()).pathname, /\/signup/);
     assert.equal(await users(), 0);
   });
   await step("sign-up: the good one makes the account", async (p) => {
-    await signUp(p, pw1);
+    await signUp(p, pw1, pw1);
     await p.waitForTimeout(1500);
     assert.equal(await users(), 1);
     assert.doesNotMatch(await text(p), /something went wrong|error/i);
   });
   await db.query(`UPDATE "user" SET email_verified = true WHERE email = $1`, [email]);
   await step("sign-up: the same address again is stopped with a clear message", async (p) => {
-    await signUp(p, pw1);
+    await signUp(p, pw1, pw1);
     assert.match(new URL(p.url()).pathname, /\/signup/);
     assert.match(await text(p), /already|exists|log in/i);
     assert.equal(await users(), 1);

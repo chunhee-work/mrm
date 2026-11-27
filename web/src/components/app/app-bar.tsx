@@ -1,18 +1,22 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
 import { Brand } from "@/components/brand-mark";
-import LangSwitch from "@/components/lang-switch";
 import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
 import { Burger, Chevron, Exit, Plus } from "./marks";
+import { VIEWS } from "./status";
+import NewCasePick from "./new-case-pick";
+
+// The case table views of /dashboard (?view=… or ?q=…), as opposed to the Cases page itself.
+const isTableView = (sp: { get(k: string): string | null }) => (VIEWS as readonly string[]).includes(sp.get("view") ?? "") || !!sp.get("q");
 
 // three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 
-async function logOut() {
+export async function logOut() {
   await authClient.signOut();
   window.location.href = "/";
 }
@@ -29,7 +33,7 @@ function useDismiss(open: boolean, close: (refocus: boolean) => void, ref: React
   }, [open, close, ref]);
 }
 
-function Gear({ className = "" }: { className?: string }) {
+export function Gear({ className = "" }: { className?: string }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
       <circle cx="12" cy="12" r="3.2" />
@@ -38,59 +42,38 @@ function Gear({ className = "" }: { className?: string }) {
   );
 }
 
-function AccountMenu({ email }: { email: string }) {
-  const { t } = useT();
+/** Phone menu: a "Language" row that says the current one; pressing it shows the three choices under it. */
+function MenuLang({ lang, label, pick }: { lang: Lang; label: string; pick: (l: Lang) => void }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const settingsItem = useRef<HTMLAnchorElement>(null);
-  const close = useRef((refocus: boolean) => { setOpen(false); if (refocus) trigger.current?.focus(); }).current;
-  useDismiss(open, close, ref);
-  useEffect(() => { if (open) settingsItem.current?.focus(); }, [open]);
   return (
-    <div ref={ref} className="relative hidden lg:block">
+    <div className="border-b border-hair">
       <button
-        ref={trigger}
         type="button"
-        aria-haspopup="menu"
         aria-expanded={open}
-        aria-controls="account-menu"
+        aria-controls="menu-lang"
         onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); } }}
-        className={`flex h-10 max-w-[260px] items-center gap-2 rounded-[3px] border px-3 text-[14px] font-medium text-fg transition-colors duration-150 hover:border-mute ${open ? "border-ice bg-panel" : "border-transparent"}`}
+        className="flex h-[52px] w-full items-center justify-between gap-4 text-[17px] font-medium text-fg"
+        data-testid="menu-lang-open"
       >
-        <span className="truncate">{email}</span>
-        <Chevron className={`shrink-0 text-mute transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+        <span className="flex items-center gap-3">
+          <span className="h-[18px] w-[2px] bg-transparent" aria-hidden="true" />
+          {label}
+        </span>
+        <span className="flex min-w-0 items-center gap-2 text-[15px] font-normal text-mute">
+          <span className="truncate" lang={lang === "zh" ? "zh-CN" : lang}>{MENU_LANG[lang]}</span>
+          <Chevron className={`shrink-0 transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+        </span>
       </button>
       {open && (
-        <div
-          id="account-menu"
-          role="menu"
-          aria-label={email}
-          onKeyDown={(e) => { if (e.key === "Tab") setOpen(false); }}
-          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[220px] rounded-[3px] menu border border-hair bg-panel p-1"
-        >
-          <Link
-            ref={settingsItem}
-            href="/settings"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="flex h-11 w-full items-center gap-3 rounded-[2px] px-3 text-left text-[15px] font-medium text-fg transition-colors duration-150 hover:bg-icetint hover:text-ice focus-visible:bg-icetint focus-visible:outline-offset-0"
-          >
-            <Gear className="shrink-0 text-ice" />
-            {t("nav.settings")}
-          </Link>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={busy}
-            onClick={() => { setBusy(true); void logOut(); }}
-            className="flex h-11 w-full items-center gap-3 rounded-[2px] px-3 text-left text-[15px] font-medium text-fg transition-colors duration-150 hover:bg-icetint hover:text-ice focus-visible:bg-icetint focus-visible:outline-offset-0 disabled:opacity-55"
-          >
-            <Exit className="shrink-0 text-ice" />
-            {t("nav.logout")}
-          </button>
+        <div id="menu-lang" role="group" aria-label={label} className="flex items-center gap-2 pb-3 pl-[14px]" data-testid="menu-lang">
+          {LANGS.map((l) => (
+            <button
+              key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-label={LANG_LABEL[l]} aria-pressed={l === lang} onClick={() => pick(l)}
+              className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-[3px] border px-2 text-[14px] ${l === lang ? "border-ice bg-ice font-semibold text-bay" : "border-hair font-medium text-fg"}`}
+            >
+              <span className="truncate">{MENU_LANG[l]}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -109,8 +92,10 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
   // "New case" is a button in the bar itself (always in view), so the menu holds only the places to go
   const links = [
     { href: "/dashboard", label: t("nav.cases") },
+    { href: "/details", label: t("pf.title") },
     { href: "/billing", label: t("nav.billing") },
     { href: "/settings", label: t("nav.settings") },
+    { href: "/how-it-works", label: t("side.how") },
   ];
   function pickLang(l: Lang) {
     document.cookie = `lang=${l}; path=/; max-age=31536000; samesite=lax`;
@@ -153,17 +138,8 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
                 );
               })}
             </ul>
-            {/* the language, on a phone: here in the menu, so the bar has room for the New case button */}
-            <div role="group" aria-label={t("lang.label")} className="flex items-center gap-2 border-b border-hair py-2.5 pl-[14px]" data-testid="menu-lang">
-              {LANGS.map((l) => (
-                <button
-                  key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-label={LANG_LABEL[l]} aria-pressed={l === lang} onClick={() => pickLang(l)}
-                  className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-[3px] border px-2 text-[14px] ${l === lang ? "border-ice bg-ice font-semibold text-bay" : "border-hair font-medium text-fg"}`}
-                >
-                  <span className="truncate">{MENU_LANG[l]}</span>
-                </button>
-              ))}
-            </div>
+            {/* the language, on a phone: one row like the others; the three choices show only once it is opened (owner 2026-11-22) */}
+            <MenuLang lang={lang} label={t("lang.label")} pick={pickLang} />
             <div className="flex h-[52px] items-center justify-between gap-4 pl-[14px]">
               <span className="min-w-0 truncate text-[14px] text-mute">{email}</span>
               <button
@@ -183,52 +159,69 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
   );
 }
 
-/** Top bar of the signed-in app: the working frame. */
-export default function AppBar({ email }: { email: string }) {
+/** "New case", the one main action of the bar. */
+function NewCase({ onNew, blocked = false, testId = "new-case" }: { onNew: boolean; blocked?: boolean; testId?: string }) {
   const { t } = useT();
+  // details not filled in yet: the button is there but grey, and it leads to the front page where they are asked for
+  if (blocked) return (
+    <Link href="/dashboard" title={t("pf.needFirst")} aria-disabled="true" data-testid={testId}
+      className="btn-primary !h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] opacity-55 lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px]">
+      <Plus />
+      <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
+    </Link>
+  );
+  const cls = `!h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px] ${onNew ? "btn-line bg-panel max-lg:hidden" : "btn-primary"}`;
+  const inner = <><Plus /><span className="max-[359px]:sr-only">{t("nav.newCase")}</span></>;
+  // on the new-case page itself the button stays a plain link back to an empty form; everywhere else it opens the picker
+  if (onNew) return <Link href="/cases/new" aria-current="page" data-testid={testId} className={cls}>{inner}</Link>;
+  return <NewCasePick className={cls} testId={testId} labelClass="max-[359px]:sr-only">{inner}</NewCasePick>;
+}
+
+/**
+ * Not on the first page: its own "New case" button is right there, and the owner wants nothing said twice (2026-11-22).
+ * A view or a search of /dashboard is the case table, which has no such button, so the bar keeps it there.
+ */
+function NewCaseUnlessHome({ path, blocked }: { path: string; blocked: boolean }) {
+  const sp = useSearchParams();
+  const table = isTableView(sp);
+  if (path === "/dashboard" && !table) return null;
+  return <NewCase onNew={path === "/cases/new"} blocked={blocked} />;
+}
+
+/**
+ * Wide screens have no top bar and the side bar holds no New case (owner 2026-11-27): pages other than the first page
+ * (which has its own button) show it top right, above the page. Not on the photo desk, which uses the whole height.
+ */
+export function WideNewCase({ blocked }: { blocked: boolean }) {
   const path = usePathname();
-  const onCases = path === "/dashboard";
-  const onNew = path === "/cases/new";
-  const onBilling = path.startsWith("/billing");
+  if (/^\/cases\/[^/]+\/photos$/.test(path)) return null;
   return (
-    <header className="sticky top-0 z-40 border-b border-hair bg-panel">
+    <Suspense fallback={null}>
+      <WideRow path={path} blocked={blocked} />
+    </Suspense>
+  );
+}
+function WideRow({ path, blocked }: { path: string; blocked: boolean }) {
+  const sp = useSearchParams();
+  const table = isTableView(sp);
+  if ((path === "/dashboard" && !table) || path === "/cases/new") return null;
+  return <div className="hidden justify-end px-6 pt-5 lg:flex"><NewCase onNew={false} blocked={blocked} testId="new-case-wide" /></div>;
+}
+
+/** Top bar of the signed-in app: the working frame. */
+export default function AppBar({ email, newBlocked = false }: { email: string; newBlocked?: boolean }) {
+  const path = usePathname();
+  const onNew = path === "/cases/new";
+  return (
+    // a wide screen has the side bar instead (side-bar.tsx): this bar is for phones and tablets
+    <header className="sticky top-0 z-40 border-b border-hair bg-panel lg:hidden">
       <div className="wrap relative flex h-[60px] items-center gap-4 lg:h-16 lg:gap-10">
         <Link href="/dashboard" className="-my-2 flex items-center py-2">
-          <Brand />
+          <Brand small />
         </Link>
-        <nav aria-label={t("nav.menu")} className="hidden self-stretch lg:flex">
-          <Link
-            href="/dashboard"
-            aria-current={onCases ? "page" : undefined}
-            className={`relative flex items-center px-1 text-[15px] transition-colors duration-150 after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:transition-colors after:duration-150 ${
-              onCases ? "font-semibold text-ice after:bg-ice" : "font-medium text-fg after:bg-transparent hover:text-ice"
-            }`}
-          >
-            {t("nav.cases")}
-          </Link>
-          <Link
-            href="/billing"
-            aria-current={onBilling ? "page" : undefined}
-            className={`relative ml-8 flex items-center px-1 text-[15px] transition-colors duration-150 after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:transition-colors after:duration-150 ${
-              onBilling ? "font-semibold text-ice after:bg-ice" : "font-medium text-fg after:bg-transparent hover:text-ice"
-            }`}
-          >
-            {t("nav.billing")}
-          </Link>
-        </nav>
         <div className="ml-auto flex items-center gap-1.5 lg:gap-4">
-          <div className="hidden lg:block"><LangSwitch /></div>
-          {email ? <AccountMenu email={email} /> : null}
           {/* the one main action is in the bar at every width: on a phone it used to sit inside the menu, two presses away */}
-          <Link
-            href="/cases/new"
-            aria-current={onNew ? "page" : undefined}
-            data-testid="new-case"
-            className={`!h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px] ${onNew ? "btn-line bg-panel max-lg:hidden" : "btn-primary"}`}
-          >
-            <Plus />
-            <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
-          </Link>
+          <Suspense fallback={<NewCase onNew={onNew} blocked={newBlocked} />}><NewCaseUnlessHome path={path} blocked={newBlocked} /></Suspense>
           <MobileMenu email={email} path={path} />
         </div>
       </div>

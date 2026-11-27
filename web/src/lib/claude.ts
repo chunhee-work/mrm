@@ -8,7 +8,7 @@ import { costOf, tokensOf } from "./pricing";
 import { recordCall, type LedgerRow } from "./ledger";
 
 // OWNERSHIP RULE: this is the only module that may import the Anthropic SDK at runtime or construct a client.
-// Every Claude call goes through trackedParse() so it lands in the llm_calls ledger (shown in /admin).
+// Every billed Claude call goes through trackedParse() so it lands in the llm_calls ledger (shown in /admin). The free token count in documentRefusal() is not logged.
 // A new helper for another call type belongs in this file. web/src/lib/claude.test.ts enforces it.
 // The key lives ONLY in the server environment (Vercel env var ANTHROPIC_API_KEY_APP).
 
@@ -23,6 +23,20 @@ function client(): Anthropic {
     _client = new Anthropic({ apiKey, maxRetries: 3 });
   }
   return _client;
+}
+
+/**
+ * Free check (no answer is written, nothing is billed): does the API take this document? null = yes, else the API's 400 error.
+ * Short timeout and no retries: it only narrows down which PDF a refusal was about, inside the read's time limit.
+ */
+export async function documentRefusal(content: Anthropic.Messages.ContentBlockParam[]): Promise<unknown | null> {
+  try {
+    await client().messages.countTokens({ model: MODEL, messages: [{ role: "user", content }] }, { timeout: 30_000, maxRetries: 0 });
+    return null;
+  } catch (e) {
+    if ((e as { status?: number }).status === 400) return e;
+    throw e;
+  }
 }
 
 /** Who and what a call is for. userId/orgId/caseId are null for system calls (cron, admin, webhooks). */

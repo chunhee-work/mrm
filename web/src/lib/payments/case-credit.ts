@@ -37,16 +37,19 @@ export async function refundCase(orgId: string, caseId: string, why = "failed"):
   return rowsOf(res).length > 0;
 }
 
-/** A retry of a case whose credit was given back takes a credit again. False (and nothing taken) when the balance cannot cover it. */
-export async function debitRetry(orgId: string, caseId: string): Promise<boolean> {
-  if (!enforcing() || exempt(orgId)) return true;
+/**
+ * A retry of a case whose credit was given back takes a credit again. "charged" / "free" (still paid for), or false (and nothing
+ * taken) when the balance cannot cover it. A caller whose retry then does not run must give a "charged" credit back.
+ */
+export async function debitRetry(orgId: string, caseId: string): Promise<"charged" | "free" | false> {
+  if (!enforcing() || exempt(orgId)) return "free";
   const res = await db.execute(sql`INSERT INTO credits_ledger (org_id, delta, reason, case_id)
     SELECT ${orgId}, ${-CASE_COST}, ${"case-retry:" + caseId + ":" + crypto.randomUUID()}, ${caseId}
     WHERE (SELECT count(*) FROM credits_ledger WHERE case_id = ${caseId} AND reason LIKE 'case-refund:%')
         >= (SELECT count(*) FROM credits_ledger WHERE case_id = ${caseId} AND delta < 0 AND (reason = ${"case:" + caseId} OR reason LIKE 'case-retry:%'))
     RETURNING id`);
-  if (!rowsOf(res).length) return true; // the case is still paid for: a free retry
-  if ((await creditBalance(orgId)) >= 0) return true;
+  if (!rowsOf(res).length) return "free"; // the case is still paid for: a free retry
+  if ((await creditBalance(orgId)) >= 0) return "charged";
   await refundCase(orgId, caseId, "nsf");
   return false;
 }

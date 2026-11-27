@@ -126,20 +126,59 @@ test("done: sets the tick and moves waiting_user/naming to phase_b; any edit tak
   assert.ok((await rows(id)).every((r) => !r.confirmed));
 });
 
-test("done: a case already at 'checking' or 'done' keeps its status when a photo is edited", opts, async () => {
+test("done: a case past Phase B ('checking', 'done', or paused for a Merimen login after it) refuses every edit, so its 完成 is never taken away for good", opts, async () => {
   const { s, db, schema, eq } = await kit();
-  for (const status of ["checking", "done"]) {
+  for (const status of ["checking", "done", "waiting_user"]) {
     const { orgId, id } = await newCase("naming", 1);
     for (const x of await s.claimSlice(id)) await s.writeName(x, named);
     await s.setDone(await caseNow(orgId, id), true);
     await db.update(schema.cases).set({ status }).where(eq(schema.cases.id, id));
+    // the worker queues `checks` as Phase B ends; a login problem then moves the case back to waiting_user
+    if (status === "waiting_user") await db.insert(schema.jobs).values({ caseId: id, step: "checks", state: "paused" });
+    const extra = await s.addExtra(await caseNow(orgId, id), "Bumper Clips");
+    assert.deepEqual([extra.status, extra.body.error], [409, "status"]);
     const p = (await rows(id))[0];
-    await s.renamePhoto(await caseNow(orgId, id), p.id, "Front Bumper", p.version);
+    const c = await caseNow(orgId, id);
+    const blobPath = `${orgId}/${id}/photos/late-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/late-s-IMG.jpg`;
+    for (const r of [
+      await s.renamePhoto(c, p.id, "Front Bumper", p.version),
+      await s.reorderPhotos(c, [p.id], c.photosRev),
+      await s.removeExtra(c, 1),
+      await s.registerPhotos(c, orgId, [{ blobPath, thumbPath, name: "late.jpg", size: 4, hash: null }]),
+      await s.setDone(c, false),
+      await s.setDone(c, true),
+    ]) assert.deepEqual([r.status, r.body.error], [409, "status"]);
+    assert.deepEqual(await s.noteUpload(c, orgId, blobPath, null), { ok: false, reason: "status" });
     const now = await caseNow(orgId, id);
     assert.equal(now.status, status);
-    assert.equal(now.photosDoneAt, null);
-    assert.ok((await rows(id)).every((r) => !r.confirmed));
-    assert.equal((await s.setDone(now, true)).body.error, "status", "done is refused from this status");
+    assert.notEqual(now.photosDoneAt, null, "the tick stays");
+    assert.equal((await rows(id))[0].finalName, null);
+    assert.ok((await rows(id)).every((r) => r.confirmed));
+  }
+});
+
+test("done: a checks job that failed for good leaves the desk open again, so 完成 can be pressed again", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  const { orgId, id } = await newCase("naming", 1);
+  for (const x of await s.claimSlice(id)) await s.writeName(x, named);
+  await db.update(schema.cases).set({ status: "waiting_user" }).where(eq(schema.cases.id, id));
+  await db.insert(schema.jobs).values({ caseId: id, step: "checks", state: "failed" });
+  assert.equal((await s.setDone(await caseNow(orgId, id), true)).status, 200);
+  const p = (await rows(id))[0];
+  assert.equal((await s.renamePhoto(await caseNow(orgId, id), p.id, "Fender LH", p.version)).status, 200);
+});
+
+test("done: 完成 cannot be pressed while a document is read or after a failed read; those cases stay editable", opts, async () => {
+  const { s, db, schema, eq } = await kit();
+  for (const status of ["reading", "failed"]) {
+    const { orgId, id } = await newCase("naming", 1);
+    for (const x of await s.claimSlice(id)) await s.writeName(x, named);
+    await db.update(schema.cases).set({ status }).where(eq(schema.cases.id, id));
+    const c = await caseNow(orgId, id);
+    const r = await s.setDone(c, true);
+    assert.deepEqual([r.status, r.body.error], [409, "status"], status);
+    const p = (await rows(id))[0];
+    assert.equal((await s.renamePhoto(c, p.id, "Front Bumper", p.version)).status, 200, status);
   }
 });
 
@@ -277,7 +316,7 @@ test("cost cap: when the case has used its budget no photo is sent, the rest are
   const { db, schema } = await kit();
   const { runSlice } = await import("../src/lib/photos/name-photos");
   const { orgId, id, c } = await newCase("naming", 3);
-  await db.insert(schema.usage).values({ caseId: id, costUsd: "3.0000" });
+  await db.insert(schema.llmCalls).values({ requestId: `req_${id}`, caseId: id, purpose: "name_photos", model: "claude-opus-5-5", costUsd: "3.00000000" });
   const out = await runSlice(c);
   assert.deepEqual(out, { claimed: 0, named: 0, failed: 3, remaining: 0, capped: true });
   const r = await rows(id);
@@ -285,6 +324,71 @@ test("cost cap: when the case has used its budget no photo is sent, the rest are
   const { s } = await kit();
   for (const x of r) await s.renamePhoto(c, x.id, "Bonnet", x.version);
   assert.equal((await s.setDone(await caseNow(orgId, id), true)).status, 200);
+});
+
+test("cost cap: only naming calls count, not the document read of the case", opts, async () => {
+  const { s, db, schema } = await kit();
+  const { id } = await newCase("naming", 1);
+  await db.insert(schema.usage).values({ caseId: id, costUsd: "5.0000" }); // the document read, in the old ledger
+  await db.insert(schema.llmCalls).values([
+    { requestId: `rd_${id}`, caseId: id, purpose: "read_docs", model: "claude-opus-5-5", costUsd: "5.00000000" },
+    { requestId: `np_${id}`, caseId: id, purpose: "name_photos", model: "claude-opus-5-5", costUsd: "0.25000000" },
+  ]);
+  assert.equal(await s.spentUsd(id), 0.25);
+});
+
+test("PHOTO_WORKER: only photos the on-site model failed on are sent to Claude again, not Claude's own failures", opts, async () => {
+  const { s } = await kit();
+  const { id } = await newCase("naming", 2);
+  const [a, b] = await s.claimSlice(id);
+  await s.writeFailed([a], "worker: timeout");
+  await s.writeFailed([b], "name-photos: 529");
+  await s.retryWorkerFailed(id);
+  const r = await rows(id);
+  assert.deepEqual(r.map((x) => [x.id, x.nameState]), [[a.id, "pending"], [b.id, "failed"]]);
+});
+
+test("register: a retry after a lost answer reports the stored photos as duplicates, not as rejected", opts, async () => {
+  const { s } = await kit();
+  const { orgId, id, c } = await newCase("naming", 0);
+  const blobPath = `${orgId}/${id}/photos/rt1-f-IMG.jpg`, thumbPath = `${orgId}/${id}/photos/rt1-s-IMG.jpg`;
+  for (const p of [blobPath, thumbPath]) { await s.noteUpload(c, orgId, p, null); writeFileSync(fileOf(p), "jpeg"); }
+  const item = { blobPath, thumbPath, name: "rt1.jpg", size: 4, hash: null };
+  const first = await s.registerPhotos(c, orgId, [item]);
+  assert.equal((first.body.added as unknown[]).length, 1);
+  const again = await s.registerPhotos(await caseNow(orgId, id), orgId, [item]);
+  assert.equal(again.status, 200);
+  assert.deepEqual([(again.body.added as unknown[]).length, again.body.duplicates, again.body.rejected], [0, ["rt1.jpg"], []]);
+  assert.ok(existsSync(fileOf(blobPath)) && existsSync(fileOf(thumbPath)), "the stored photo's files are kept");
+  assert.equal((await rows(id)).length, 1);
+});
+
+test("import: photos that come in with the case after 完成 take the tick away and the opening order is looked at again", opts, async () => {
+  const { s, db, schema } = await kit();
+  const { orgId, id } = await newCase("naming", 1);
+  await nameAll(id, ["Bonnet"]);
+  await s.photoState(await caseNow(orgId, id)); // the opening order is applied once
+  assert.equal((await s.setDone(await caseNow(orgId, id), true)).status, 200);
+  assert.notEqual((await caseNow(orgId, id)).photosArrangedAt, null);
+  // the blob store is a map for this test: import-files reads the uploaded case files with @vercel/blob get()
+  const sharp = (await import("sharp")).default;
+  const jpeg = await sharp({ create: { width: 40, height: 30, channels: 3, background: { r: 200, g: 20, b: 20 } } }).jpeg().toBuffer();
+  const url = `https://blob.test/${orgId}/batch/${id}/late.jpg`;
+  await db.insert(schema.caseFiles).values({ caseId: id, kind: "photo", blobUrl: url, originalName: "late.jpg", size: jpeg.length });
+  const Module = (await import("node:module")).default as unknown as { _load: (r: string, ...a: unknown[]) => unknown };
+  const real = Module._load;
+  const blob = require("@vercel/blob") as Record<string, unknown>;
+  const stub = { ...blob, get: async (u: string) => (u === url ? { statusCode: 200, stream: new Response(jpeg).body, blob: { contentType: "image/jpeg" } } : null) };
+  Module._load = function (r: string, ...a: unknown[]) { return r === "@vercel/blob" ? stub : real.call(this, r, ...a); };
+  try {
+    const { importCasePhotos } = await import("../src/lib/photos/import-files");
+    assert.equal((await importCasePhotos(id, orgId)).added, 1);
+  } finally { Module._load = real; }
+  const now = await caseNow(orgId, id);
+  assert.equal(now.photosDoneAt, null, "a case with a photo still to name is not done");
+  assert.equal(now.photosArrangedAt, null);
+  assert.equal((await rows(id)).filter((r) => r.nameState === "pending").length, 1);
+  assert.ok((await rows(id)).every((r) => !r.confirmed));
 });
 
 test("state: photos in display order, extras in the order added, no blob paths", opts, async () => {

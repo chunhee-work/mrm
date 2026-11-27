@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import {
   canonName, doneBlock, isPermutation, pathInCase, statusAfterRegister,
@@ -8,6 +8,7 @@ import {
 import { deletePhoto, photoExists } from "./store";
 import { applyCaseRules, arrangeOpening, sameOrder } from "./order-rules";
 import { snapshotOf } from "./snapshot";
+import { notDeleted } from "@/lib/case-delete";
 
 // Database side of the photo naming desk (plan #9). Every function takes a case that the caller already
 // checked against the signed-in member's organisation (see caseInOrg), so nothing here trusts an id from the client.
@@ -23,7 +24,7 @@ const rowsOf = <T>(r: unknown) => ((r as { rows?: T[] }).rows ?? []) as T[];
 
 export async function caseInOrg(orgId: string, caseId: string): Promise<CaseRow | null> {
   if (!caseId || caseId.length > 64) return null;
-  const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, caseId), eq(schema.cases.orgId, orgId))).limit(1);
+  const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, caseId), eq(schema.cases.orgId, orgId), notDeleted)).limit(1);
   return c ?? null;
 }
 
@@ -82,11 +83,26 @@ export async function finalizeNaming(c: CaseRow): Promise<CaseRow | null> {
   return (await caseInOrg(c.orgId, c.id)) ?? c;
 }
 
+// Past Phase B 完成 cannot be pressed again, so an edit there (which takes the tick away) is refused.
+// Phase B is past once the worker has queued the case's `checks` job (it does that as Phase B ends). The status alone is not
+// enough: a Merimen login problem moves a checking case back to waiting_user until the login is fixed, and checks then finishes it.
+const PAST_B = new Set(["checking", "done"]);
+// A checks job that failed for good while the case waits for a Merimen login (waiting_user) leaves the desk open again, so the
+// adjuster can press 完成 again. A case still at `checking` stays locked by its status (it needs a hand to move it on).
+const CHECKS_QUEUED = sql`EXISTS (SELECT 1 FROM jobs WHERE jobs.case_id = cases.id AND jobs.step = 'checks' AND jobs.state IN ('queued', 'running', 'paused', 'done'))`;
+async function locked(c: CaseRow): Promise<boolean> {
+  if (PAST_B.has(c.status)) return true;
+  const r = await db.execute(sql`SELECT ${CHECKS_QUEUED} AS l FROM cases WHERE id = ${c.id}`);
+  return Boolean(rowsOf<{ l: boolean }>(r)[0]?.l);
+}
+// Statuses from which 完成 can be pressed (reading a new document or a failed read only pause it).
+const DONE_FROM = new Set(["uploaded", "phase_a", "pending_doc", "waiting_user", "naming", "phase_b"]);
+
 /** Any edit after "done" takes the tick away again (plan, section D). Status only moves back from phase_b. */
 export async function clearDone(caseId: string): Promise<boolean> {
   const r = await db.execute(sql`
     UPDATE cases SET photos_done_at = NULL, photos_snapshot = NULL, status = CASE WHEN status = 'phase_b' THEN 'waiting_user' ELSE status END
-    WHERE id = ${caseId} AND photos_done_at IS NOT NULL RETURNING id`);
+    WHERE id = ${caseId} AND photos_done_at IS NOT NULL AND status NOT IN ('checking', 'done') AND NOT ${CHECKS_QUEUED} RETURNING id`); /* the worker may have moved it on since the request read it */
   if (!rowsOf(r).length) return false;
   await db.update(P).set({ confirmed: false }).where(eq(P.caseId, caseId));
   // A Phase B that is still waiting in the queue must not run on names that are no longer final. One that is already running
@@ -98,6 +114,7 @@ export async function clearDone(caseId: string): Promise<boolean> {
 // ---- rename ----
 export async function renamePhoto(c: CaseRow, photoId: number, rawName: unknown, version: unknown): Promise<Result> {
   if (!Number.isInteger(photoId) || !Number.isInteger(version)) return fail(400, "invalid");
+  if (await locked(c)) return fail(409, "status");
   let finalName: string | null = null;
   if (rawName != null && rawName !== "") {
     finalName = canonName(rawName);
@@ -119,6 +136,7 @@ export async function renamePhoto(c: CaseRow, photoId: number, rawName: unknown,
 // ---- reorder ----
 export async function reorderPhotos(c: CaseRow, ids: unknown, rev: unknown): Promise<Result> {
   if (!Number.isInteger(rev)) return fail(400, "invalid");
+  if (await locked(c)) return fail(409, "status");
   const current = (await db.select({ id: P.id }).from(P).where(eq(P.caseId, c.id))).map((r) => r.id);
   if (!isPermutation(current, ids)) return fail(409, "stale_order");
   // One statement: the revision moves and the positions are written together, so another tab can never
@@ -140,15 +158,15 @@ export async function reorderPhotos(c: CaseRow, ids: unknown, rev: unknown): Pro
 }
 
 // ---- done ----
-const DONE_FROM = new Set(["uploaded", "phase_a", "pending_doc", "waiting_user", "naming", "phase_b"]);
 export async function setDone(c: CaseRow, done: unknown): Promise<Result> {
   if (typeof done !== "boolean") return fail(400, "invalid");
+  if (await locked(c)) return fail(409, "status");
+  if (done && !DONE_FROM.has(c.status)) return fail(409, "status");
   if (!done) {
     await clearDone(c.id);
     const [now] = await db.select({ status: schema.cases.status }).from(schema.cases).where(eq(schema.cases.id, c.id));
     return ok({ done: false, status: now?.status ?? c.status });
   }
-  if (!DONE_FROM.has(c.status)) return fail(409, "status");
   const photos = await db.select({ nameState: P.nameState, modelName: P.modelName, finalName: P.finalName }).from(P).where(eq(P.caseId, c.id));
   const block = doneBlock(photos);
   if (block) return fail(409, "blocked", block);
@@ -166,7 +184,9 @@ export async function setDone(c: CaseRow, done: unknown): Promise<Result> {
     const now = await db.select({ nameState: P.nameState, modelName: P.modelName, finalName: P.finalName }).from(P).where(eq(P.caseId, c.id));
     return fail(409, "blocked", doneBlock(now) ?? { reason: "naming", count: 0 });
   }
-  await db.update(P).set({ confirmed: true }).where(eq(P.caseId, c.id));
+  // only while still done: an edit that came in after the UPDATE above has already cleared the tick and the confirmations
+  await db.execute(sql`UPDATE case_photos SET confirmed = true WHERE case_id = ${c.id}
+    AND EXISTS (SELECT 1 FROM cases WHERE id = ${c.id} AND photos_done_at IS NOT NULL)`);
   await takeSnapshot(c.id);
   await recordLearning(c.id, c.orgId);
   return ok({ done: true, status: after.status });
@@ -204,6 +224,7 @@ export async function recordLearning(caseId: string, orgId: string): Promise<voi
 export async function addExtra(c: CaseRow, rawName: unknown): Promise<Result> {
   const name = canonName(rawName);
   if (!name) return fail(400, "name");
+  if (await locked(c)) return fail(409, "status");
   await db.execute(sql`INSERT INTO case_extras (case_id, name) VALUES (${c.id}, ${name}) ON CONFLICT (case_id, lower(name)) DO NOTHING`);
   const [row] = await db.select().from(schema.caseExtras)
     .where(and(eq(schema.caseExtras.caseId, c.id), sql`lower(${schema.caseExtras.name}) = lower(${name})`)).limit(1);
@@ -213,16 +234,18 @@ export async function addExtra(c: CaseRow, rawName: unknown): Promise<Result> {
 }
 export async function removeExtra(c: CaseRow, extraId: number): Promise<Result> {
   if (!Number.isInteger(extraId)) return fail(400, "invalid");
+  if (await locked(c)) return fail(409, "status");
   await db.delete(schema.caseExtras).where(and(eq(schema.caseExtras.id, extraId), eq(schema.caseExtras.caseId, c.id)));
   await clearDone(c.id);
   return ok({}); // already gone = success
 }
 
 // ---- uploads ----
-export type TokenCheck = { ok: true } | { ok: false; reason: "path" | "duplicate" | "limit" | "taken" };
+export type TokenCheck = { ok: true } | { ok: false; reason: "path" | "duplicate" | "limit" | "taken" | "status" };
 /** Run before an upload token is issued: the path is noted so a stray blob can be swept later (plan, AC). */
 export async function noteUpload(c: CaseRow, orgId: string, pathname: string, hash: string | null): Promise<TokenCheck> {
   if (!pathInCase(pathname, orgId, c.id)) return { ok: false, reason: "path" };
+  if (await locked(c)) return { ok: false, reason: "status" }; // registering would be refused: the file is not uploaded at all
   if (hash && !/^[0-9a-f]{64}$/.test(hash)) return { ok: false, reason: "path" };
   if (hash) {
     const [dup] = await db.select({ id: P.id }).from(P).where(and(eq(P.caseId, c.id), eq(P.contentHash, hash))).limit(1);
@@ -257,6 +280,7 @@ const isUnique = (e: unknown) => {
 
 export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): Promise<Result> {
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > MAX_REGISTER) return fail(400, "invalid");
+  if (await locked(c)) return fail(409, "status");
   const rejected: string[] = [];
   const duplicates: string[] = [];
   let items: RegisterItem[] = [];
@@ -271,8 +295,12 @@ export async function registerPhotos(c: CaseRow, orgId: string, raw: unknown): P
     ? (await db.select({ path: schema.photoUploads.path }).from(schema.photoUploads)
         .where(and(eq(schema.photoUploads.caseId, c.id), inArray(schema.photoUploads.path, paths)))).map((r) => r.path)
     : []);
-  const present = await Promise.all(items.map(async (i) =>
-    noted.has(i.blobPath) && noted.has(i.thumbPath) && (await photoExists(i.blobPath)) && (await photoExists(i.thumbPath))));
+  // A retry after a lost answer: the first try stored the photo and dropped its notes. It is a duplicate below, not a rejection.
+  const stored = new Set(items.length
+    ? (await db.select({ b: P.blobPath }).from(P).where(and(eq(P.caseId, c.id), inArray(P.blobPath, items.map((i) => i.blobPath))))).map((r) => r.b)
+    : []);
+  const present = await Promise.all(items.map(async (i) => stored.has(i.blobPath) ||
+    (noted.has(i.blobPath) && noted.has(i.thumbPath) && (await photoExists(i.blobPath)) && (await photoExists(i.thumbPath)))));
   items = items.filter((i, k) => { if (!present[k]) rejected.push(i.name); return present[k]; });
 
   let added: PhotoRow[] = [];
@@ -394,8 +422,14 @@ export async function writeFailed(claimed: Claimed[], message: string): Promise<
       WHERE id = ${c.id} AND name_state = 'running' AND claimed_at = ${c.claimedAt}::timestamptz`);
   }
 }
+/** PHOTO_WORKER=on: photos the on-site model gave up on go to Claude. A photo Claude itself failed on waits for the page's own retry. */
+export async function retryWorkerFailed(caseId: string): Promise<void> {
+  await db.update(P).set({ nameState: "pending", nameError: null, claimedAt: null })
+    .where(and(eq(P.caseId, caseId), eq(P.nameState, "failed"), isNull(P.finalName), sql`${P.nameError} LIKE 'worker:%'`));
+}
 export async function retryFailed(caseId: string): Promise<void> {
-  await db.update(P).set({ nameState: "pending", nameError: null, claimedAt: null }).where(and(eq(P.caseId, caseId), eq(P.nameState, "failed")));
+  // a photo the adjuster has named by hand in the meantime is not sent to the model again
+  await db.update(P).set({ nameState: "pending", nameError: null, claimedAt: null }).where(and(eq(P.caseId, caseId), eq(P.nameState, "failed"), isNull(P.finalName)));
 }
 export async function failPending(caseId: string, message: string): Promise<number> {
   const r = await db.update(P).set({ nameState: "failed", nameError: message }).where(and(eq(P.caseId, caseId), eq(P.nameState, "pending"))).returning({ id: P.id });
@@ -405,8 +439,9 @@ export async function pendingCount(caseId: string): Promise<number> {
   const r = await db.execute(sql`SELECT count(*)::int AS n FROM case_photos WHERE case_id = ${caseId} AND name_state IN ('pending', 'running')`);
   return Number(rowsOf<{ n: number }>(r)[0]?.n ?? 0);
 }
+/** What naming the photos of this case has cost so far. Naming calls only: the document read is not part of the photo cap. */
 export async function spentUsd(caseId: string): Promise<number> {
-  const r = await db.execute(sql`SELECT COALESCE(sum(cost_usd), 0)::float8 AS usd FROM usage WHERE case_id = ${caseId}`);
+  const r = await db.execute(sql`SELECT COALESCE(sum(cost_usd), 0)::float8 AS usd FROM llm_calls WHERE case_id = ${caseId} AND purpose = 'name_photos'`);
   return Number(rowsOf<{ usd: number }>(r)[0]?.usd ?? 0);
 }
 

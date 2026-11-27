@@ -27,9 +27,36 @@ def _missing_0010(e: Exception) -> bool:
     return code in ("42P01", "42703") or ("does not exist" in text and ("photo_upload_log" in text or "photos_snapshot" in text))
 
 
+# What Merimen holds now: the list the last live Phase A uploaded (not a Phase A that found photos there already or stopped), or the list a later live Phase B uploaded or relabelled to and
+# verified (only such a row keeps its snapshot). A Phase B run again (names changed during Step 2, or a failed checks job and 完成
+# again) then compares Merimen with the names the first Phase B left there, not with the model's Phase A names.
+LAST_PHOTO_LIST_SQL = (
+    "SELECT photos FROM photo_upload_log WHERE case_id = %s AND mode = 'live' AND ((phase = 'A' AND action = 'upload') OR "
+    "(phase = 'B' AND snapshot IS NOT NULL AND action IN ('upload', 'relabel_reorder'))) ORDER BY created_at DESC, id DESC LIMIT 1"
+)
+
+
+def _missing_workshops(e: Exception) -> bool:
+    """The workshop tables come with migration 0014: a missing table is "not there yet", not an error."""
+    t = str(e)
+    # only a missing table or column. A permission error (42501) must NOT land here: it would quietly use the wrong workshop.
+    return "42P01" in t or "42703" in t or "does not exist" in t
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
+
+    def record_llm_call(self, row: dict) -> None:
+        """One llm_calls row for a Jev (TypeSafe) call: the same ledger the web app writes, so /admin/cost can show it. cost_usd stays NULL
+        (no price known). Needs migration 0016 (INSERT for the worker role); until it is applied the insert is refused and the caller skips it."""
+        self.db.execute(
+            "INSERT INTO llm_calls (request_id, user_id, org_id, case_id, purpose, model, input_tokens, output_tokens, latency_ms, ok, error_class) "
+            "SELECT %s, c.created_by, c.org_id, %s, %s, %s, %s::bigint, %s::bigint, %s::int, %s::boolean, %s FROM (SELECT 1) one LEFT JOIN cases c ON c.id = %s::text "
+            "ON CONFLICT (request_id) DO NOTHING",
+            (row["request_id"], row.get("case_id"), row["purpose"], row["model"], row["input_tokens"], row["output_tokens"],
+             row.get("latency_ms"), bool(row["ok"]), row.get("error_class"), row.get("case_id")),
+        )
 
     def heartbeat(self, worker_id: str, model: str, chrome_ok: bool) -> None:
         self.db.execute(
@@ -120,7 +147,7 @@ class PgRepo:
         try:
             snap = self.db.execute("SELECT photos_snapshot FROM cases WHERE id = %s", (case_id,))
             logged = self.db.execute(
-                "SELECT photos FROM photo_upload_log WHERE case_id = %s AND phase = 'A' AND mode = 'live' ORDER BY created_at DESC, id DESC LIMIT 1",
+                LAST_PHOTO_LIST_SQL,
                 (case_id,),
             )
         except Exception as e:  # only "the 0010 table/column is not there yet" is tolerated; a transient DB error fails the job instead of skipping the check
@@ -185,6 +212,15 @@ class PgRepo:
                 """,
                 (job["id"], job["org_id"]),
             ))
+        # still final: 完成 pressed with the fingerprint Phase B wrote (else the web app cleared it meanwhile and the case waits)
+        final_sql, final_args = ("", ())
+        if outcome.require_snapshot is not None:
+            final_sql, final_args = (" AND photos_done_at IS NOT NULL AND photos_snapshot = %s", (outcome.require_snapshot,))
+        if final_sql:
+            # one row lock before the checks below, so a web write cannot land between them (each statement re-reads the row)
+            st.append(("SELECT 1 FROM cases WHERE id = %s FOR UPDATE", (job["case_id"],)))
+            if outcome.total_rm:  # the estimate is saved in Merimen either way
+                st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
         if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or outcome.error:
             st.append((
                 """
@@ -196,20 +232,33 @@ class PgRepo:
                   pending_doc = COALESCE(%s, pending_doc),
                   error = %s,
                   done_at = CASE WHEN %s THEN now() ELSE done_at END
-                WHERE id = %s
-                """,
+                WHERE id = %s AND deleted_at IS NULL""" + final_sql,
                 (
                     outcome.case_status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
                     outcome.pending_doc, (outcome.error or None), bool(outcome.done), job["case_id"],
-                ),
+                ) + final_args,
             ))
         if outcome.event:
             st.append((
-                "INSERT INTO case_events (case_id, step, message) VALUES (%s, %s, %s)",
-                (job["case_id"], job["step"], outcome.event[:400]),
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], job["step"], outcome.event[:400], job["case_id"]) + final_args,
+            ))
+        for line in (outcome.extra_events or [])[:4]:
+            st.append((
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, 'jev_check', %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s AND deleted_at IS NULL) "
+                "AND NOT EXISTS (SELECT 1 FROM case_events WHERE case_id = %s AND step = 'jev_check' AND message = %s)",
+                (job["case_id"], line[:400], job["case_id"], job["case_id"], line[:400]),
+            ))
+        if outcome.stale_event and final_sql:
+            st.append((
+                "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE NOT EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], job["step"], outcome.stale_event[:400], job["case_id"]) + final_args,
             ))
         for step in outcome.enqueue:
-            st.append(("INSERT INTO jobs (case_id, step, state) VALUES (%s, %s, 'queued')", (job["case_id"], step)))
+            st.append((
+                "INSERT INTO jobs (case_id, step, state) SELECT %s, %s, 'queued' WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s" + final_sql + ")",
+                (job["case_id"], step, job["case_id"]) + final_args,
+            ))
         for row in outcome.photo_rows or []:
             if row.get("failed"):
                 st.append((
@@ -332,6 +381,79 @@ class PgRepo:
         )
         return rows[0][0] if rows else None
 
+    def profile_for(self, org_id: str) -> dict | None:
+        """What the user typed on the front page besides the login: workshop, manager, adjuster (migration 0013).
+        `version` goes up by one on every save, so the worker can tell it must replace what it remembered for this user.
+        None when nothing is saved or the columns are not there yet."""
+        try:
+            rows = self.db.execute(
+                "SELECT workshop_name, manager_name, adjuster_name, profile_version FROM merimen_credentials WHERE org_id = %s",
+                (org_id,),
+            )
+        except Exception as e:  # the columns come with migration 0013
+            if "workshop_name" in str(e) or "42703" in str(e):
+                return None
+            raise
+        if not rows:
+            return None
+        w, m, a, v = rows[0]
+        return {"workshop": w, "manager": m, "adjuster": a, "version": int(v or 0)}
+
+    def workshops_for(self, org_id: str) -> list[dict]:
+        """The user's workshops (migration 0014): [{"slot": 1, "name": ...}, ...] by slot, up to three. Empty before the migration."""
+        try:
+            rows = self.db.execute("SELECT slot, name FROM merimen_workshops WHERE org_id = %s ORDER BY slot", (org_id,))
+        except Exception as e:
+            if _missing_workshops(e):
+                return []
+            raise
+        return [{"slot": int(r[0]), "name": r[1]} for r in rows]
+
+    def claim_workshop_for_case(self, case_id: str) -> dict | None:
+        """Call this at the moment the case is made in Merimen, before typing the workshop. In one statement it fixes (locks) the
+        workshop for this case, so the user can no longer switch it, and returns what to use: {"slot": n, "name": ...}.
+        A case nobody moved is workshop 1. Asking again returns the same workshop and the same name, even if the workshop was renamed since.
+        The lock is only written when the workshop has a name, so an unnamed workshop never freezes a case.
+        Returns None when the case is unknown or its workshop has no name (for example the user removed that workshop).
+        NEVER fall back to workshop 1 on None: stop the case and report it, or it is made in the wrong workshop.
+        Before migration 0014 there is one workshop per account (the 0013 column) and nothing to lock."""
+        try:
+            rows = self.db.execute(
+                """
+                WITH cur AS (
+                  SELECT c.id, COALESCE(cw.slot, 1) AS slot, cw.locked_at, cw.locked_name,
+                         CASE WHEN COALESCE(cw.slot, 1) = 1 THEN COALESCE(w.name, mc.workshop_name) ELSE w.name END AS name
+                  FROM cases c
+                  LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id
+                  LEFT JOIN merimen_workshops w ON w.org_id = c.org_id AND w.slot = COALESCE(cw.slot, 1)
+                  LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id
+                  WHERE c.id = %s
+                ), claim AS (
+                  INSERT INTO merimen_case_workshop (case_id, slot, locked_at, locked_name)
+                  SELECT id, slot, now(), name FROM cur WHERE name IS NOT NULL
+                  ON CONFLICT (case_id) DO UPDATE SET locked_at = COALESCE(merimen_case_workshop.locked_at, now()),
+                                                      locked_name = COALESCE(merimen_case_workshop.locked_name, EXCLUDED.locked_name)
+                  -- the user moved the case between our read and now: write nothing (no lock); the case then comes back as None
+                  WHERE merimen_case_workshop.slot = EXCLUDED.slot
+                  RETURNING slot, locked_name
+                )
+                SELECT COALESCE(claim.slot, cur.slot)::int,
+                       CASE WHEN claim.slot IS NOT NULL THEN claim.locked_name WHEN cur.locked_at IS NOT NULL THEN cur.locked_name END
+                FROM cur LEFT JOIN claim ON true
+                """,
+                (case_id,),
+            )
+        except Exception as e:
+            if not _missing_workshops(e):
+                raise
+            rows = self.db.execute(
+                "SELECT 1, mc.workshop_name FROM cases c LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id WHERE c.id = %s",
+                (case_id,),
+            )
+        if not rows or not rows[0][1]:
+            return None
+        return {"slot": int(rows[0][0]), "name": rows[0][1]}
+
     def claim_verify(self):
         """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement."""
         sql = """
@@ -390,7 +512,7 @@ class PgRepo:
                 """
                 WITH moved AS (
                   UPDATE cases SET status = 'waiting_user'
-                  WHERE org_id = %s AND status IN ('phase_a', 'phase_b', 'checking')
+                  WHERE org_id = %s AND deleted_at IS NULL AND status IN ('phase_a', 'phase_b', 'checking')
                   RETURNING id
                 )
                 INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM moved
@@ -407,7 +529,7 @@ class PgRepo:
                 (org_id,),
             ))
             st.append((
-                "INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM cases WHERE org_id = %s AND status = 'waiting_user'",
+                "INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM cases WHERE org_id = %s AND deleted_at IS NULL AND status = 'waiting_user'",
                 (event, org_id),
             ))
         self.db.batch(st)

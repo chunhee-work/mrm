@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
-import { MIN_PASSWORD } from "@/lib/i18n";
+import { MAX_PASSWORD, MIN_PASSWORD } from "@/lib/i18n";
+import { nameFromEmail } from "@/lib/account-name";
 import PasswordField from "@/components/auth/password-field";
 import { Field, FieldError, IconEnvelope, SheetBody, SheetFoot, SubmitButton, TextLink, Title } from "@/components/auth/parts";
 
-type Errors = { email?: boolean; password?: boolean; agree?: boolean; form?: "fail" | "offline" | "tooMany" };
+type Errors = { email?: boolean; password?: boolean | "long"; confirm?: boolean; agree?: boolean; form?: "fail" | "offline" | "tooMany" };
 
 export default function Signup() {
   const { t } = useT();
@@ -25,17 +26,20 @@ export default function Signup() {
     const el = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
     const email = String(f.get("email") ?? "").trim();
     const password = String(f.get("password") ?? "");
-    const name = email.split("@")[0].split("+")[0].trim().slice(0, 60) || email.slice(0, 60); // Better Auth stores a name; the company is no longer asked for
+    const confirm = String(f.get("confirm") ?? "");
+    const name = nameFromEmail(email); // Better Auth stores a name; the company is no longer asked for
     const bad: Errors = {};
     if (!email || !el("email").validity.valid) bad.email = true;
     if (password.length < MIN_PASSWORD) bad.password = true;
+    else if (password.length > MAX_PASSWORD) bad.password = "long";
+    if (confirm !== password) bad.confirm = true; // U14: every problem is shown at once (too short AND not matching)
     if (!f.get("agree")) bad.agree = true;
     setErrors(bad);
-    const first = (["email", "password", "agree"] as const).find((k) => bad[k]);
+    const first = (["email", "password", "confirm", "agree"] as const).find((k) => bad[k]);
     if (first) { el(first).focus(); return; }
     setBusy(true);
     try {
-      const { error } = await authClient.signUp.email({ name, email, password, callbackURL: "/dashboard" });
+      const { error } = await authClient.signUp.email({ name, email, password, callbackURL: "/login?verified=1" });
       if (error) setErrors({ form: error.status === 429 ? "tooMany" : error.status ? "fail" : "offline" });
       else setDoneFor(email);
     } catch {
@@ -47,7 +51,9 @@ export default function Signup() {
   // an error goes away as soon as its own field is corrected
   function onInput(e: React.FormEvent<HTMLFormElement>) {
     const n = (e.target as HTMLInputElement).name as keyof Errors;
-    if (errors[n] || errors.form) setErrors((o) => ({ ...o, [n]: undefined, form: undefined }));
+    // editing either password box also clears a stale "do not match" note
+    const fix = n === "password" ? { password: undefined, confirm: undefined } : { [n]: undefined };
+    if (errors[n] || errors.form || (n === "password" && errors.confirm)) setErrors((o) => ({ ...o, ...fix, form: undefined }));
   }
 
   if (doneFor)
@@ -79,9 +85,12 @@ export default function Signup() {
           <PasswordField
             id="password" label={t("signup.password")} autoComplete="new-password" minLength={MIN_PASSWORD}
             hint={t("signup.passwordHint")}
-            error={errors.password ? t("signup.passwordHint") : undefined}
+            error={errors.password === "long" ? t("signup.passwordLong") : errors.password ? t("signup.passwordHint") : undefined}
           />
-          {/* one password box with the eye to read it back: no second box to type the same thing into */}
+          <PasswordField
+            id="confirm" name="confirm" label={t("signup.confirm")} autoComplete="new-password" minLength={MIN_PASSWORD}
+            error={errors.confirm ? t("signup.mismatch") : undefined}
+          />
 
           <div className="grid gap-2.5">
             <div className="flex items-start gap-3">

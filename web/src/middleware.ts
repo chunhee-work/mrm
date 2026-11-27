@@ -23,9 +23,13 @@ export async function middleware(req: NextRequest) {
   if (GATED.test(req.nextUrl.pathname)) {
     const has = req.cookies.get("better-auth.session_token") || req.cookies.get("__Secure-better-auth.session_token");
     if (!has) return NextResponse.redirect(new URL(loginUrl(req.nextUrl.pathname, req.nextUrl.search), req.url)); // back to this page after logging in
+    // a cookie can be there but dead (signed out elsewhere, password reset): requireUser() then sends to log in with this page as the way back
+    const h = new Headers(req.headers);
+    h.set("x-page", loginUrl(req.nextUrl.pathname, req.nextUrl.search));
+    return NextResponse.next({ request: { headers: h } });
   }
   return NextResponse.next();
 }
 export const config = {
-  matcher: ["/dashboard/:path*", "/cases/:path*", "/billing/:path*", "/settings/:path*", "/connection/:path*", "/admin/:path*", "/login", "/signup", "/forgot-password", "/reset-password"],
+  matcher: ["/dashboard/:path*", "/cases/:path*", "/billing/:path*", "/settings/:path*", "/details/:path*", "/connection/:path*", "/admin/:path*", "/login", "/signup", "/forgot-password", "/reset-password"],
 };

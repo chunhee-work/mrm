@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { ProviderId } from "./types";
+import { paymentsMode } from "./packs";
 
 // The only two places that move credits for money. Both are ONE SQL statement each, because the
 // production driver (neon-http) has no transactions. Replays and races change zero rows.
@@ -10,7 +11,7 @@ function rowsOf(res: unknown): any[] {
   return Array.isArray(r) ? r : (r.rows ?? []);
 }
 
-export type CreditResult = "credited" | "ignored" | "duplicate_ref";
+export type CreditResult = "credited" | "ignored" | "duplicate_ref" | "test_in_live";
 
 /**
  * Marks a pending order paid and adds its credits, atomically.
@@ -25,6 +26,16 @@ export async function creditOrder(a: {
   currency: string;
   testMode: boolean;
 }): Promise<CreditResult> {
+  // a payment made in the provider's test mode must never give real credits on the live site
+  if (a.testMode && paymentsMode() === "live") {
+    // written down once per order and payment: a toyyibPay order is asked again on every billing-page visit
+    const detail = `${a.orderId} ${a.provider} ${a.providerRef}`;
+    await db.execute(sql`
+      INSERT INTO audit_log (action, detail) SELECT 'payment_test_in_live', ${detail}
+      WHERE NOT EXISTS (SELECT 1 FROM audit_log WHERE action = 'payment_test_in_live' AND detail = ${detail})
+        AND EXISTS (SELECT 1 FROM payment_orders WHERE id = ${a.orderId} AND status = 'pending')`); // a replay for a credited order is not "paid, not credited"
+    return "test_in_live";
+  }
   try {
     const res = await db.execute(sql`
       WITH upd AS (

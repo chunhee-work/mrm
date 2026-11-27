@@ -53,6 +53,7 @@ class _NoMerimenStep2:
 
 
 class Driver:
+    jev = None  # Jev (jev.py): may only clear a false alarm in the Step 2 two-way check; None = code rules alone
     step2_reviewer = None  # the AI that reviews the Step 2 plan with the playbook's "step2" files; None = the rule plan stands
     progress = None  # set per job: a driver that ports a Merimen step calls progress("create_case") after it
     guard = staticmethod(lambda: True)  # set per job: False once Done was undone or the names changed, asked before every photo write
@@ -90,6 +91,11 @@ class Outcome:
     photo_log: dict | None = None  # one photo_upload_log row: what the photo step did, or in a dry run would do
     step2_log: dict | None = None  # one step2_log row: the parts + labour plan from the final names, the two-way check, the AI review
     learning: list[dict] | None = None  # the adjuster's final names for the photo model (photo_learning rows)
+    # set: the case update and the queued jobs are written only if 完成 is still pressed with this fingerprint (checked in the
+    # same transaction as the write, so a name changed after the last check cannot be carried on to checks)
+    require_snapshot: str | None = None
+    extra_events: list[str] | None = None  # Jev page-check lines (step jev_check); each written once per case, never makes a job fail
+    stale_event: str | None = None  # with require_snapshot: written instead of `event` when 完成 or the names changed meanwhile
 
 
 def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcome:
@@ -136,8 +142,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             return stop
         if rep.snapshot:  # the names went through at Done: they are the photo model's learning data (our own database, no Merimen)
             side["learning"] = learning.rows_for(case, desk)
+            if rep.mode == "live":  # Merimen now holds these names: log it on every outcome, so a Phase B run again compares with them
+                side["photo_log"] = _log(rep)
         try:
-            s2 = step2_run.run(case, desk, case.get("extras") or [], writes=writes, merimen=driver.merimen_step2(case), reviewer=driver.step2_reviewer, guard=driver.guard)
+            s2 = step2_run.run(case, desk, case.get("extras") or [], writes=writes, merimen=driver.merimen_step2(case), reviewer=driver.step2_reviewer, guard=driver.guard, jev=driver.jev)
         except photo_sync.NotPorted:
             s2 = None
         if s2 is not None and (s2.plan or not s2.ok):
@@ -158,7 +166,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
     saved = driver.save(phase, steps)
     if not saved.ok:
         if saved.error == "step_not_ported":
-            return _o("done", event=f"Phase {phase} checked. Merimen was not changed.", photo_log=_log(rep) if not (rep and rep.mode == "live") else None)
+            # a live photo step already wrote to Merimen: its list stays logged (side), only a dry one is logged here
+            live = bool(rep and rep.mode == "live")
+            return _o("done", event=f"Phase {phase} checked. Merimen was not saved" + (" (photos were relabelled)." if live and side.get("photo_log") else "."),
+                      **({} if live else {"photo_log": _log(rep)}))
         return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
     if phase == "A":
         if desk is not None:
@@ -177,9 +188,16 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             merimen_caseid=saved.case_id, merimen_extid=saved.ext_id, browser_minutes=saved.minutes, photo_log=_log(rep),
         )
     suffix = (f". {rep.line()}" if rep and (rep.photos or not rep.ok) else "") + (f". {s2.line()}" if s2 and s2.plan else "")
+    # The web app's naming desk locks a case once its `checks` job is queued, running, paused or done (web/src/lib/photos/server.ts,
+    # CHECKS_QUEUED), and while the case is checking or done: queue `checks` only here, after the final names are saved.
     return _o(
         "done", case_status="checking", event="Checking" + suffix, enqueue=["checks"],
         total_rm=saved.total_rm, browser_minutes=saved.minutes, photo_log=_log(rep),
+        # the adjuster may change a name (or undo 完成) while Step 2 and the save run: the move to checks is written only if 完成 is
+        # still pressed on the same names, checked by the database in the same write; otherwise Merimen holds the old names and
+        # the case waits for 完成, which queues a new Phase B with the new names (at once if it was already pressed again)
+        require_snapshot=case.get("photos_snapshot") if desk is not None else None,
+        stale_event="Phase B saved, but the names changed meanwhile. A new Phase B runs once 完成 is pressed on the new names" + suffix,
     )
 
 

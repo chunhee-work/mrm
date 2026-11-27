@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
-import { MIN_PASSWORD } from "@/lib/i18n";
+import { MAX_PASSWORD, MIN_PASSWORD } from "@/lib/i18n";
 import PasswordField from "@/components/auth/password-field";
 import { FieldError, SheetBody, SheetFoot, SubmitButton, TextLink, Title } from "@/components/auth/parts";
 
@@ -12,7 +12,7 @@ function Form() {
   const { t } = useT();
   const token = useSearchParams().get("token") ?? "";
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<null | "short" | "expired" | "offline">(token ? null : "expired");
+  const [problem, setProblem] = useState<null | "short" | "long" | "expired" | "offline" | "tooMany">(token ? null : "expired");
   const [checked, setChecked] = useState(!token); // B14: the link is checked when the page opens, not after a password is typed
   useEffect(() => {
     if (!token) return;
@@ -29,11 +29,13 @@ function Form() {
     if (busy) return;
     const el = e.currentTarget.elements.namedItem("password") as HTMLInputElement;
     if (el.value.length < MIN_PASSWORD) { setProblem("short"); el.focus(); return; }
+    if (el.value.length > MAX_PASSWORD) { setProblem("long"); el.focus(); return; }
     setBusy(true); setProblem(null);
     try {
       const { error } = await authClient.resetPassword({ newPassword: el.value, token });
       if (!error) { window.location.href = "/login"; return; } // stay busy while the log-in page loads
-      setProblem(error.status ? "expired" : "offline");
+      // only a bad or used token means "this link is no good"; anything else keeps the form
+      setProblem(error.status === 429 ? "tooMany" : error.code === "INVALID_TOKEN" || error.status === 401 || error.status === 404 ? "expired" : error.code === "PASSWORD_TOO_LONG" ? "long" : "offline");
     } catch {
       setProblem("offline");
     }
@@ -61,10 +63,10 @@ function Form() {
         <PasswordField
           id="password" label={t("reset.password")} autoComplete="new-password" minLength={MIN_PASSWORD}
           hint={t("signup.passwordHint")}
-          error={problem === "short" ? t("signup.passwordHint") : undefined}
+          error={problem === "short" ? t("signup.passwordHint") : problem === "long" ? t("signup.passwordLong") : undefined}
         />
         <div className="mt-6">
-          {problem === "offline" && <div className="mb-4"><FieldError>{t("login.offline")}</FieldError></div>}
+          {(problem === "offline" || problem === "tooMany") && <div className="mb-4"><FieldError>{t(problem === "tooMany" ? "auth.tooMany" : "login.offline")}</FieldError></div>}
           <SubmitButton busy={busy}>{t("reset.submit")}</SubmitButton>
         </div>
       </form>

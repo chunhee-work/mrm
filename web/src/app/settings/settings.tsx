@@ -1,11 +1,14 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useT } from "@/components/lang-provider";
+import { LANGS, LANG_LABEL, MAX_PASSWORD, type Lang } from "@/lib/i18n";
 
-export default function Settings({ email, company, connection = false }: { email: string; company: string; connection?: boolean }) {
-  const { t } = useT();
+export default function Settings({ email, company }: { email: string; company: string }) {
+  const { t, lang } = useT();
+  const router = useRouter();
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
   const [again, setAgain] = useState("");
@@ -19,14 +22,19 @@ export default function Settings({ email, company, connection = false }: { email
     if (busy) return;
     if (!cur) { setMsg({ ok: false, key: "set.pwNoCurrent" }); return; }
     if (next.length < 8) { setMsg({ ok: false, key: "set.pwShort" }); return; }
+    if (next.length > MAX_PASSWORD) { setMsg({ ok: false, key: "signup.passwordLong" }); return; }
     if (next !== again) { setMsg({ ok: false, key: "set.pwMismatch" }); return; }
     setBusy(true); setMsg(null);
     try {
       const { error } = await authClient.changePassword({ currentPassword: cur, newPassword: next, revokeOtherSessions: true });
-      if (error) setMsg({ ok: false, key: error.status === 429 ? "auth.tooMany" : "set.pwWrong" });
+      if (error) setMsg({ ok: false, key: error.status === 429 ? "auth.tooMany" : error.code === "PASSWORD_TOO_LONG" ? "signup.passwordLong" : error.status && error.status < 500 ? "set.pwWrong" : "login.offline" });
       else { setMsg({ ok: true, key: "set.pwDone" }); setCur(""); setNext(""); setAgain(""); }
     } catch { setMsg({ ok: false, key: "set.pwWrong" }); }
     setBusy(false);
+  }
+  function pickLang(l: Lang) {
+    document.cookie = `lang=${l}; path=/; max-age=31536000; samesite=lax`;
+    router.refresh();
   }
   const row = "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-hair px-4 py-3 last:border-b-0";
   return (
@@ -37,21 +45,20 @@ export default function Settings({ email, company, connection = false }: { email
           <h2 id="set-acct" className="label mb-3">{t("set.account")}</h2>
           <dl className="rounded-[4px] border border-hair bg-panel">
             <div className={row}><dt className="note text-mute">{t("set.email")}</dt><dd className="min-w-0 text-[15px] text-fg [overflow-wrap:anywhere]">{email}</dd></div>
-            <div className={row}><dt className="note text-mute">{t("set.company")}</dt><dd className="min-w-0 text-[15px] text-fg [overflow-wrap:anywhere]">{company || "—"}</dd></div>
+            {company && <div className={row}><dt className="note text-mute">{t("set.company")}</dt><dd className="min-w-0 text-[15px] text-fg [overflow-wrap:anywhere]">{company}</dd></div>}
           </dl>
         </section>
 
-        {/* the language is the globe in the top bar on every page (a phone: in the menu), so it is not repeated here;
-            the Merimen connection shows only once there is something to set up */}
-        {connection && (
-          <section aria-labelledby="set-merimen">
-            <h2 id="set-merimen" className="label mb-3">{t("set.merimen")}</h2>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[4px] border border-hair bg-panel px-4 py-3">
-              <p className="min-w-0 text-[14.5px] text-mute">{t("set.merimenSub")}</p>
-              <Link href="/connection" className="btn-line !h-11">{t("conn.title")}</Link>
-            </div>
-          </section>
-        )}
+        {/* the language lives here and nowhere else on a wide screen (owner 2026-11-22: "language hide in setting");
+            a phone also has it as a row of its menu */}
+        <section aria-labelledby="set-lang">
+          <h2 id="set-lang" className="label mb-3">{t("lang.label")}</h2>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="set-lang" data-testid="set-lang">
+            {LANGS.map((l) => (
+              <button key={l} type="button" lang={l === "zh" ? "zh-CN" : l} aria-pressed={l === lang} onClick={() => pickLang(l)} className={l === lang ? "btn-primary !h-11" : "btn-line !h-11"}>{LANG_LABEL[l]}</button>
+            ))}
+          </div>
+        </section>
 
         <section aria-labelledby="set-pw">
           <h2 id="set-pw" className="label mb-3">{t("set.password")}</h2>
