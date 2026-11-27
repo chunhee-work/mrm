@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { del, get, put } from "@vercel/blob";
 import { z } from "zod";
 import { db, schema } from "@/db";
@@ -57,8 +57,14 @@ export async function POST(req: Request) {
   // Only the caller's own upload may be read and deleted here: `<org>/<batch>/<file>`, and the batch folder is not a case's folder
   // (case files live under `<org>/<case id>/`), so a stored case file can never be passed in and deleted.
   const seg = path.split("/");
-  if (seg.length !== 4) return NextResponse.json({ error: "prefix" }, { status: 400 });
-  if (/^[0-9a-f-]{36}$/i.test(seg[2]) && (await db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, seg[2])).limit(1)).length)
+  // Ordinary case files also live under `<org>/<batch>/<file>` (new cases) or `<org>/<case id>-add-<uuid>/<file>` (added files),
+  // so three checks: the stored file itself is a zip, its folder is not (and does not start with) a case id, and no case file row
+  // points at this URL. A stored case file can then never be read or deleted here.
+  if (seg.length !== 4 || !/\.zip$/i.test(seg[3])) return NextResponse.json({ error: "prefix" }, { status: 400 });
+  const caseLike = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i.exec(seg[2])?.[1];
+  if (caseLike && (await db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, caseLike.toLowerCase())).limit(1)).length)
+    return NextResponse.json({ error: "prefix" }, { status: 400 });
+  if ((await db.select({ id: schema.caseFiles.id }).from(schema.caseFiles).where(inArray(schema.caseFiles.blobUrl, [...new Set([url, `${u.origin}${u.pathname}`])])).limit(1)).length)
     return NextResponse.json({ error: "prefix" }, { status: 400 });
   const dropZip = () => del(url).catch(() => {}); // the cars are stored on their own (or the zip was refused): the big zip is not kept
 
@@ -116,14 +122,22 @@ export async function POST(req: Request) {
         (stored.get(id) ?? stored.set(id, []).get(id)!).push(b.url);
         rows[i] = { caseId: id, kind: e.kind, blobUrl: b.url, originalName: names[i], size: e.bytes.length };
       });
-      await writeCar([
-        db.insert(schema.cases).values({ id, orgId: me.orgId, createdBy: me.user.id, plate: normPlate(v.plate), status: "uploaded" }),
-        db.insert(schema.caseFiles).values(rows),
-        db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" }),
-        db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${rows.length} file(s)` }),
-        db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.create", detail: id }),
-        db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.split", detail: `${id}|${key}${v.prefix}` }),
-      ]);
+      try {
+        await writeCar([
+          db.insert(schema.cases).values({ id, orgId: me.orgId, createdBy: me.user.id, plate: normPlate(v.plate), status: "uploaded" }),
+          db.insert(schema.caseFiles).values(rows),
+          db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" }),
+          db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${rows.length} file(s)` }),
+          db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.create", detail: id }),
+          db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.split", detail: `${id}|${key}${v.prefix}` }),
+        ]);
+      } catch (e) {
+        // the batch may have committed although its answer was lost: then the case exists with its files, and the rollback must
+        // treat it as made (refund, then delete it with its blobs), never delete its blobs and leave a case without files
+        const exists = await db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).then((r) => r.length > 0, () => true);
+        if (exists) { made.push(id); madeFor.set(v.prefix, id); }
+        throw e;
+      }
       made.push(id); madeFor.set(v.prefix, id);
       if (!(await debitCase(me.orgId, id))) throw new Error("no_credits");
     }
