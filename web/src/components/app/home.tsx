@@ -13,13 +13,12 @@ import { useFileDrag } from "./drop-zone";
 import { bucketOf, OPEN_BUCKETS, type Bucket } from "./status";
 import { StepDots, StepHeads } from "./case-steps";
 import type { CaseRow } from "./case-table";
-import { currentStepOf, DESK_WAITS, systemBusy } from "@/lib/case-steps";
-import { whenOf } from "@/lib/fmt-when";
+import { DESK_WAITS, systemBusy } from "@/lib/case-steps";
 import ProfileCard, { useServerCred, type Cred } from "./profile-card";
-import { checking as loginChecking, needsUser } from "@/lib/ext/login-state";
 import NewCasePick from "./new-case-pick";
 import NewCaseForm from "@/app/cases/new/form";
-import type { WorkshopOpt } from "./workshop-picker";
+import WorkshopPicker, { type WorkshopOpt } from "./workshop-picker";
+import CaseLog from "./case-log";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
 const NamingDesk = dynamic(() => import("@/components/photos/naming-desk"), { ssr: false, loading: () => <p className="px-1 py-6 text-[14px] text-mute">…</p> });
@@ -141,11 +140,9 @@ function RetryHere({ r }: { r: CaseRow }) {
 }
 
 /** What opens under a line when it is pressed: the job itself when it can be done here, then the facts, then the way into the full case page. */
-function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: boolean) => void }) {
-  const { t, lang } = useT();
+function More({ r, orgId, onDesk, workshops }: { r: CaseRow; orgId: string; onDesk: (on: boolean) => void; workshops: WorkshopOpt[] }) {
+  const { t } = useT();
   const router = useRouter();
-  const step = currentStepOf(r);
-  const a = useAct()(r);
   const [sent, setSent] = useState(false);
   const [ask, setAsk] = useState(false);
   // "Received" stays a moment after the upload (the case has moved on by then), then the card is back to what the case needs
@@ -178,35 +175,112 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
     : r.status === "failed" ? <RetryHere r={r} />
     : deskOpen ? desk
     : null;
-  const facts: [string, string][] = [[t("list.col.when"), r.createdAt ? whenOf(r.createdAt, lang) : "–"]];
-  if (r.deskTotal) facts.push([t("steps.photos"), t("tray.more.photos", { n: String(r.deskTotal - (r.deskConfirm ?? 0)), total: String(r.deskTotal) })]);
+  const reading = r.status === "uploaded" || r.status === "reading";
   return (
-    <div id={`more-${r.id}`} className="space-y-3 border-t border-hairsoft bg-panel2/60 px-4 pb-4 pt-3 lg:px-5" data-testid="home-more">
-      {job}
-      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-        <dl className="flex flex-wrap gap-x-10 gap-y-2 text-[14px]">
-          {facts.map(([k, v]) => <div key={k} className="min-w-0"><dt className="text-[12.5px] text-mute">{k}</dt><dd className="text-fg" suppressHydrationWarning>{v}</dd></div>)}
-        </dl>
-        <div className="flex shrink-0 items-center gap-1">
-          {/* a case the worker has not taken yet can still be deleted (same pop-up and rules as the case list) */}
-          {r.canDelete && (
-            <button type="button" onClick={() => setAsk(true)} data-testid="del-open" aria-label={t("del.aria", { plate: r.plate || r.firstFile || t("dash.noPlate") })}
-              className="btn-quiet !min-h-[40px] !gap-1.5 !px-3 text-[14px] text-mute hover:text-fg"><Bin />{t("del.btn")}</button>
-          )}
-          <Link href={`/cases/${r.id}`} className="btn-quiet !min-h-[40px] !px-3 text-[14px]" data-testid="home-open-case">{t("tray.more.open")} →</Link>
+    <div id={`more-${r.id}`} className="space-y-4 border-t border-hairsoft bg-panel2/60 px-4 pb-4 pt-3 lg:px-5" data-testid="home-more">
+      {/* documents being read: say so here, nothing to press (owner 2026-11-27: everything stays on the first page) */}
+      {reading && (
+        <div role="status" className="flex items-start gap-3 rounded-[4px] border border-hair bg-panel px-4 py-3" data-testid="home-reading">
+          <Working className="mt-[3px] shrink-0 text-scan" />
+          <div className="min-w-0"><p className="text-[15px] font-medium text-fg">{t("case.h.reading")}</p><p className="mt-0.5 text-[14px] text-mute">{t("case.reading")}</p></div>
         </div>
-      </div>
+      )}
+      {job}
+      <Brief r={r} workshops={workshops} />
+      {r.canDelete && (
+        <div className="flex justify-end">
+          {/* a case the worker has not taken yet can still be deleted (same pop-up and rules as the case list) */}
+          <button type="button" onClick={() => setAsk(true)} data-testid="del-open" aria-label={t("del.aria", { plate: r.plate || r.firstFile || t("dash.noPlate") })}
+            className="btn-quiet !min-h-[40px] !gap-1.5 !px-3 text-[14px] text-mute hover:text-fg"><Bin />{t("del.btn")}</button>
+        </div>
+      )}
       <ConfirmDelete row={ask ? { id: r.id, plate: r.plate || r.firstFile || "" } : null} onClose={() => setAsk(false)} onGone={() => router.refresh()} onStale={() => router.refresh()} />
-      {/* the sentence about what comes next, only when no job is waiting here (the job says it already) */}
-      {!job && a.kind === null && <p className="text-[13.5px] text-mute">{t(step === "merimen" && r.status === "checking" ? "case.pp.next.checking" : `steps.next.${step}`)}</p>}
+    </div>
+  );
+}
+
+type BriefData = { events: { at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: { slot: number; locked: boolean } | null };
+
+/** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
+ * line opens and again when its status changes, so it follows the case without the user leaving the first page. */
+function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
+  const { t } = useT();
+  const [d, setD] = useState<BriefData | null>(null);
+  const [wsBusy, setWsBusy] = useState(false);
+  const [wsErr, setWsErr] = useState(false);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/cases/${r.id}/brief`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).then((j: BriefData | null) => { if (live && j) setD(j); }, () => {});
+    return () => { live = false; };
+  }, [r.id, r.status, r.photosDone, tick]);
+  // while the documents are read new activity keeps coming with the same status: read it again every 10 s (visible tab only)
+  const reading = r.status === "uploaded" || r.status === "reading";
+  useEffect(() => {
+    if (!reading) return;
+    const id = window.setInterval(() => { if (!document.hidden) setTick((n) => n + 1); }, 10_000);
+    return () => window.clearInterval(id);
+  }, [reading]);
+  async function moveTo(slot: number) {
+    setWsBusy(true); setWsErr(false);
+    try {
+      const x = await fetch(`/api/cases/${r.id}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop: slot }) });
+      if (!x.ok && x.status !== 409) setWsErr(true); // 409 = too late: the read below shows it locked
+    } catch { setWsErr(true); }
+    setWsBusy(false);
+    setTick((n) => n + 1);
+  }
+  if (!d) return null;
+  const slot = d.workshop?.slot ?? 1;
+  // as on the case page: a choice from two workshops on, or the one it has when that one is gone
+  const showWs = d.workshop && (workshops.length >= 2 || (workshops.length > 0 && !workshops.some((w) => w.slot === slot)));
+  const live = reading;
+  const shown = [...d.events].reverse().slice(0, 6);
+  if (!showWs && !d.events.length && !d.files.length) return null; // nothing to show: no empty box
+  return (
+    <div className="space-y-4" data-testid="home-brief">
+      {showWs && (
+        <div className="grid gap-2" data-testid="home-ws">
+          <span className="label">{t("pf.caseWs")}</span>
+          <WorkshopPicker workshops={workshops} value={slot} onChange={(n) => void moveTo(n)} disabled={wsBusy || d.workshop!.locked} testid="home-ws-picker" always />
+          {d.workshop!.locked && <p className="text-[13.5px] text-mute">{t("pf.caseWsLocked")}</p>}
+          {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
+        </div>
+      )}
+      {(d.events.length > 0 || d.files.length > 0) && (
+        <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
+          {d.events.length > 0 && (
+            <section className="min-w-0" data-testid="home-log">
+              <h3 className="label mb-3">{t("case.log")}</h3>
+              <CaseLog events={shown} live={live} />
+            </section>
+          )}
+          {d.files.length > 0 && (
+            <details className="group min-w-0" data-testid="home-files">
+              <summary className="label mb-3 flex min-h-11 cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.files")}<span className="note text-mute">· {d.files.length}</span></summary>
+              <ul className="rounded-[4px] border border-hair bg-panel">
+                {d.files.map((f) => (
+                  <li key={f.id} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 text-[14px] text-fg last:border-b-0">
+                    {/* opens the file itself in a new tab; the first page stays where it is */}
+                    <a href={`/api/cases/${r.id}/files/${f.id}`} target="_blank" rel="noopener" data-testid="home-file"
+                      className="min-w-0 py-3 font-medium underline decoration-hair2 underline-offset-4 transition-colors duration-150 [overflow-wrap:anywhere] hover:decoration-fg">{f.name}</a>
+                    <span className="num note shrink-0 text-mute">{f.size < 1e6 ? `${Math.max(1, Math.round(f.size / 1e3))} KB` : `${(f.size / 1e6).toFixed(1)} MB`}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 /** One line per case, the step names once over the step column. A press on the line opens its details right under it. */
-function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked }: { rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void; blocked: boolean }) {
+function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, workshops, openId }: { rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void; blocked: boolean; workshops: WorkshopOpt[]; openId?: string }) {
   const { t } = useT();
-  const [open, setOpen] = useState<string | null>(null);
+  // ?open=<id> (from the case table): that line starts open, so a case is never shown on another page
+  const [open, setOpen] = useState<string | null>(openId && all.some((x) => x.id === openId) ? openId : null);
   // while a line is open the list keeps its order: a case that moves on (完成 pressed in it) stays where the user is looking
   const [order, setOrder] = useState<string[] | null>(null);
   // a search typed while a line is open keeps that line (and the photo desk in it) on screen
@@ -260,7 +334,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked }: 
                   {/* while the line is open the job is right below it: the button would only say it twice */}
                   <div className="pointer-events-none relative flex xl:justify-end">{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
                 </div>
-                {on && <More r={r} orgId={orgId} onDesk={onDesk} />}
+                {on && <More r={r} orgId={orgId} onDesk={onDesk} workshops={workshops} />}
               </li>
             );
           })}
@@ -279,22 +353,11 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked }: 
  * where it can be done here, the job itself. Nothing is said twice: "Billing" is in the side bar (the phone menu on a phone) only, and the bar drops its own
  * "New case" on this page.
  */
-export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId, workshops = [] }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string; workshops?: WorkshopOpt[] }) {
+export default function Home({ name, counts, cases, busy = false, cred: cred0, orgId, workshops = [], openId }: { name: string; counts: HomeCounts; cases: CaseRow[]; busy?: boolean; cred: Cred; orgId: string; workshops?: WorkshopOpt[]; openId?: string }) {
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
   const [cred, setCred] = useServerCred(cred0);
-  // complete, but the login needs the user (a code from the phone, a wrong password), is still being checked, or is blocked
-  const loginNeeds = cred.complete && (needsUser(cred) || loginChecking(cred));
-  // once the check comes back fine the card stays a few seconds, so "login works" is seen before it goes.
-  // Worked out while rendering (not in an effect), so the card is never gone for a frame in between.
-  const [okHold, setOkHold] = useState(false);
-  const [wasNeeded, setWasNeeded] = useState(loginNeeds);
-  if (wasNeeded !== loginNeeds) {
-    setWasNeeded(loginNeeds);
-    setOkHold(wasNeeded && !loginNeeds && cred.verifyState === "ok");
-  }
-  useEffect(() => { if (!okHold) return; const id = window.setTimeout(() => setOkHold(false), 5000); return () => window.clearTimeout(id); }, [okHold]);
   // a case can be started only with the details filled in; enforced only while saving really works (key set, migration applied)
   const blocked = cred.blocks;
 
@@ -368,7 +431,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
   const needle = squash(q);
   const shown = sortCases(cases).filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
-  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setDeskShown} blocked={blocked} />;
+  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setDeskShown} blocked={blocked} workshops={workshops} openId={openId} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
   return (
@@ -380,7 +443,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           <div className="flex w-full min-w-0 flex-wrap items-center gap-3 sm:w-auto sm:flex-nowrap">
           <form
             role="search" className="flex w-full min-w-0 gap-2 sm:w-[320px]" data-testid="home-search"
-            onSubmit={(e) => { e.preventDefault(); if (upBusy && !window.confirm(t("new.leave"))) return; const v = q.trim(); router.push(v ? `/dashboard?q=${encodeURIComponent(v)}` : "/dashboard?view=all"); }}
+            onSubmit={(e) => e.preventDefault()} // the list filters as the user types; Enter stays on this page (owner 2026-11-27: no Go button, no other page)
           >
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mute" />
@@ -390,15 +453,10 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
                 className="input !pl-[42px] placeholder:!text-mute"
               />
             </div>
-            <button type="submit" className="btn-line shrink-0 !px-5">{t("tray.go")}</button>
           </form>
           </div>
         </div>
         {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact={false} /></div>}
-        {/* the login needs the user: say it here, not only on the details page */}
-        {(loginNeeds || (okHold && cred.complete)) && (
-          <div className="mt-8 max-w-[520px]"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact /></div>
-        )}
         {/* a wide screen has Closed cases in the side bar (side-bar.tsx); New case stays here at every width */}
         <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:mt-7 lg:flex">
           {blocked

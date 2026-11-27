@@ -80,7 +80,7 @@ function MenuLang({ lang, label, pick }: { lang: Lang; label: string; pick: (l: 
   );
 }
 
-function MobileMenu({ email, path }: { email: string; path: string }) {
+function MobileMenu({ email, path, needsYou }: { email: string; path: string; needsYou: boolean }) {
   const { t, lang } = useT();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -111,9 +111,10 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
         aria-expanded={open}
         aria-controls="app-menu"
         onClick={() => setOpen((v) => !v)}
-        className="-mr-2.5 flex h-11 w-11 items-center justify-center text-ice"
+        className="relative -mr-2.5 flex h-11 w-11 items-center justify-center text-ice"
       >
         <Burger open={open} />
+        {needsYou && !open && <span aria-hidden="true" className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber" data-testid="menu-dot" />}
       </button>
       {open && (
         <div id="app-menu" className="absolute inset-x-0 top-full menu border-b border-hair bg-panel">
@@ -133,6 +134,7 @@ function MobileMenu({ email, path }: { email: string; path: string }) {
                         <span className={`h-[18px] w-[2px] ${here ? "bg-ice" : "bg-transparent"}`} aria-hidden="true" />
                         {l.label}
                       </span>
+                      {needsYou && l.href === "/details" && <><span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-amber" /><span className="sr-only">{t("side.needsYou")}</span></>}
                     </Link>
                   </li>
                 );
@@ -209,7 +211,7 @@ function WideRow({ path, blocked }: { path: string; blocked: boolean }) {
 }
 
 /** Top bar of the signed-in app: the working frame. */
-export default function AppBar({ email, newBlocked = false }: { email: string; newBlocked?: boolean }) {
+export default function AppBar({ email, newBlocked = false, needsYou = false }: { email: string; newBlocked?: boolean; needsYou?: boolean }) {
   const path = usePathname();
   const onNew = path === "/cases/new";
   return (
@@ -222,7 +224,7 @@ export default function AppBar({ email, newBlocked = false }: { email: string; n
         <div className="ml-auto flex items-center gap-1.5 lg:gap-4">
           {/* the one main action is in the bar at every width: on a phone it used to sit inside the menu, two presses away */}
           <Suspense fallback={<NewCase onNew={onNew} blocked={newBlocked} />}><NewCaseUnlessHome path={path} blocked={newBlocked} /></Suspense>
-          <MobileMenu email={email} path={path} />
+          <MobileMenu email={email} path={path} needsYou={needsYou} />
         </div>
       </div>
     </header>
