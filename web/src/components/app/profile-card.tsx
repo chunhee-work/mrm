@@ -35,13 +35,12 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  * before anything is sent. The password is never shown again; leaving it empty on an edit keeps the saved login.
  */
 /**
- * `look` (complete profile only): "side" = the card in a side column; "strip" = one slim line across the page; "chip" = a small
- * button that opens the card. A login that needs the user (wrong password, a code from the phone) always shows the full card.
+ * `look` (complete profile only): "side" = the card in a side column; "strip" = one slim line across the page (the first page,
+ * owner 2026-11-27). A login that needs the user (wrong password, a code from the phone) always shows the full card.
  */
-export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "strip" | "chip" }) {
+export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "strip" }) {
   const configured = cred.keyOk;
   const { t, lang } = useT();
-  const [peek, setPeek] = useState(false); // the "chip" look: its details are open
   const [workshop, setWorkshop] = useState("");
   const [manager, setManager] = useState("");
   const [adjuster, setAdjuster] = useState("");
@@ -192,29 +191,6 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
         <p className="min-w-0 flex-1 truncate text-[14px] text-fg" title={facts}>{facts}<span className="text-mute"> · {t("pf.login")} {cred.usernameHint}</span></p>
         <span className="hidden text-[13px] text-mute md:inline" role="status">{state}</span>
         <button type="button" onClick={openEdit} className="link shrink-0 text-[14px] font-semibold" data-testid="pf-edit">{t("pf.edit")}</button>
-        {modals}
-      </section>
-    );
-  }
-  if ((good || checking) && look === "chip") {
-    // a small button by the search; the details drop down under it
-    return (
-      <section aria-labelledby="pf-title" className="relative" data-testid="pf-summary">
-        <button type="button" onClick={() => setPeek((v) => !v)} aria-expanded={peek} className="btn-line !h-11 !gap-2 !px-3.5 text-[14px]" data-testid="pf-chip">
-          <span className={`h-2 w-2 shrink-0 rounded-full ${good ? "bg-go" : "bg-amber"}`} aria-hidden="true" />
-          <span id="pf-title" className="max-w-[180px] truncate">{cred.workshop || t("pf.title")}</span>
-        </button>
-        {peek && (
-          <div className="absolute left-0 top-full z-30 mt-2 w-[min(320px,calc(100vw-32px))] sm:left-auto sm:right-0 rounded-[4px] border border-hair bg-panel shadow-xl">
-            <dl>
-              {([["pf.workshop", cred.workshop], ["pf.manager", cred.manager], ["pf.adjuster", cred.adjuster], ["pf.login", cred.usernameHint]] as [string, string | null][]).map(([k, v]) => (
-                <div key={k} className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-hair px-4 py-2.5"><dt className="note text-mute">{t(k)}</dt><dd className="min-w-0 text-[14.5px] text-fg [overflow-wrap:anywhere]">{v}</dd></div>
-              ))}
-            </dl>
-            <div className="flex items-center justify-between gap-3 px-4 py-2.5"><span className="text-[13.5px] text-mute" role="status">{state}</span>
-              <button type="button" onClick={() => { setPeek(false); openEdit(); }} className="btn-line !h-9 !px-4 !text-[14px]" data-testid="pf-edit">{t("pf.edit")}</button></div>
-          </div>
-        )}
         {modals}
       </section>
     );

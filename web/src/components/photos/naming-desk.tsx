@@ -121,6 +121,14 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frame = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
+  // embedded: the last press on the page was inside this desk (its keys follow it, its drops add photos)
+  const active = useRef(false);
+  useEffect(() => {
+    if (!embedded) return;
+    const down = (e: PointerEvent) => { active.current = !!root.current?.contains(e.target as Node); };
+    window.addEventListener("pointerdown", down, true);
+    return () => window.removeEventListener("pointerdown", down, true);
+  }, [embedded]);
   const tabStrip = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -631,8 +639,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
-      // inside the first page the desk is one part of the page: its keys work only while the focus is in it
-      if (embedded && !(el && root.current?.contains(el))) return;
+      // inside the first page the desk is one part of the page: its keys work while the focus is in it, or after a click in it
+      // (a click on a photo selects it but leaves the focus on the page itself)
+      if (embedded && !(el && root.current?.contains(el)) && !(el === document.body && active.current)) return;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (palette || moveId != null || help) return;
       const key = e.key;
@@ -667,8 +676,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
           const now = Date.now();
           if (!isEnterPair(lastEnter.current, now)) { lastEnter.current = now; break; } // the first Enter only starts the pair
           lastEnter.current = 0;
-          if (statesRef.current[caseRef.current]?.done) { if (!goNextOpen()) say(tRef.current("allDoneToast")); }
-          else void pressDone().then((ok) => { if (ok) goNextOpen(); });
+          if (statesRef.current[caseRef.current]?.done) { if (!embedded && !goNextOpen()) say(tRef.current("allDoneToast")); }
+          else void pressDone().then((ok) => { if (ok && !embedded) goNextOpen(); });
           break;
         }
         case " ": case "Spacebar":
@@ -820,7 +829,12 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   );
 
   return (
-    <div ref={root} className={embedded ? "flex h-[min(760px,85vh)] flex-col [&_.wrap]:!max-w-none [&_.wrap]:!px-3 sm:[&_.wrap]:!px-4" : "app-fill flex flex-col"} data-embedded={embedded || undefined}>
+    <div
+      ref={root}
+      // embedded: photos dropped on the desk are added to this case (the page's own drop, which starts a new case, is off meanwhile)
+      onDragOver={embedded ? (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } } : undefined}
+      onDrop={embedded ? (e) => { const f = Array.from(e.dataTransfer.files); if (f.length) { e.preventDefault(); void onFiles(f.filter((x) => x.type.startsWith("image/"))); } } : undefined}
+      className={embedded ? "flex h-[min(760px,85vh)] flex-col [&_.wrap]:!max-w-none [&_.wrap]:!px-3 sm:[&_.wrap]:!px-4" : "app-fill flex flex-col"} data-embedded={embedded || undefined}>
       {head}
       <div className="shrink-0">
         {signedOut && (

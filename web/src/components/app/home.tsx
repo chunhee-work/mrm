@@ -42,7 +42,9 @@ function useAct() {
   const { t } = useT();
   return (r: CaseRow): Act => {
     const b = bucketOf(r);
-    if (b === "hold") return { kind: "here", say: t("case.retry"), tone: "red", icon: "retry" };
+    if (b === "hold") return userFixable(r.error ?? null)
+      ? { kind: "here", say: t("case.replace"), tone: "red", icon: "upload" } // the files were wrong: new files, not a second read
+      : { kind: "here", say: t("case.retry"), tone: "red", icon: "retry" };
     if (b === "docs") {
       if (r.status !== "pending_doc") return { kind: null, say: t("list.s.reading"), busy: true };
       const n = (r.pendingDoc ?? "").split("; ").filter((d) => d.trim()).length;
@@ -142,8 +144,8 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
   const a = useAct()(r);
   const [sent, setSent] = useState(false);
   const [ask, setAsk] = useState(false);
-  // "Received" is said once: when the case asks for a document again (or moves on), the card is back to its upload button
-  useEffect(() => setSent(false), [r.status, r.pendingDoc]);
+  // "Received" stays a moment after the upload (the case has moved on by then), then the card is back to what the case needs
+  useEffect(() => { if (!sent) return; const id = window.setTimeout(() => setSent(false), 4000); return () => window.clearTimeout(id); }, [sent]);
   // a document is uploaded right here, with the same picker, limits and progress as the case page (one component, NeedCard)
   // the photo desk, in this line: the job of step 2, and on the way while documents are still missing.
   // Once shown it stays while the line is open: after 完成 the case moves to step 3, and the desk keeps its message and its undo.
@@ -157,7 +159,7 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
         tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
     </div>
   );
-  const job = r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null))
+  const job = sent || r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null))
     ? (
       <>
         <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} onPhotos={() => setDeskOpen((v) => !v)} /></ul>
@@ -196,6 +198,11 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
 function StepTable({ rows, needle, orgId, total, onDesk }: { rows: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void }) {
   const { t } = useT();
   const [open, setOpen] = useState<string | null>(null);
+  // while a line is open the list keeps its order: a case that moves on (完成 pressed in it) stays where the user is looking
+  const [order, setOrder] = useState<string[] | null>(null);
+  const toggle = (id: string | null) => { setOpen(id); setOrder(id ? rows.map((x) => x.id) : null); };
+  const at = (id: string) => { const i = order ? order.indexOf(id) : -1; return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
+  const lines = order ? [...rows].sort((a, b) => at(a.id) - at(b.id)) : rows;
   // the list loses its own scroll box while a line is open: bring the opened line to the top of the screen
   useEffect(() => {
     if (!open) return;
@@ -214,14 +221,14 @@ function StepTable({ rows, needle, orgId, total, onDesk }: { rows: CaseRow[]; ne
       </div>
       {rows.length === 0 ? <Empty needle={needle} /> : (
         <ul className={open ? "" : "max-h-[min(680px,72vh)] overflow-y-auto overscroll-contain"} data-testid="home-list">
-          {rows.map((r) => {
+          {lines.map((r) => {
             const on = open === r.id;
             return (
               <li key={r.id} className="scroll-mt-20 border-b border-hairsoft last:border-b-0" data-line={r.id} data-bucket={bucketOf(r)} data-open={on || undefined}>
                 <div className={`relative px-4 py-3 transition-colors duration-150 hover:bg-panel2 xl:px-5 ${on ? "bg-panel2" : ""} ${COLS}`}>
                   {/* the whole line is one button that opens the details; the action button sits on top of it */}
                   <button
-                    type="button" aria-expanded={on} aria-controls={`more-${r.id}`} onClick={() => setOpen(on ? null : r.id)}
+                    type="button" aria-expanded={on} aria-controls={`more-${r.id}`} onClick={() => toggle(on ? null : r.id)}
                     aria-label={`${r.plate || r.firstFile || t("dash.noPlate")}: ${t(on ? "tray.more.hide" : "tray.more.show")}`}
                     className="absolute inset-0 z-0 w-full rounded-none outline-offset-[-2px]" data-testid="home-row"
                   />
@@ -231,7 +238,7 @@ function StepTable({ rows, needle, orgId, total, onDesk }: { rows: CaseRow[]; ne
                   </div>
                   <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r)} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
                   {/* while the line is open the job is right below it: the button would only say it twice */}
-                  <div className="pointer-events-none relative flex xl:justify-end">{!on && <ActButton r={r} onHere={() => setOpen(r.id)} />}</div>
+                  <div className="pointer-events-none relative flex xl:justify-end">{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
                 </div>
                 {on && <More r={r} orgId={orgId} onDesk={onDesk} />}
               </li>
@@ -284,7 +291,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
   const needle = squash(q);
-  const shown = sortCases(cases).filter((r) => !needle || squash(r.plate ?? "").includes(needle)); // plates only, as Go and the table search
+  const shown = sortCases(cases).filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
   const table = <StepTable rows={shown} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={setDeskOpen} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
