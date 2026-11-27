@@ -81,10 +81,13 @@ const usableIn = (name: string) => {
  * Throws ZipRejected; "empty" when it is not a multi-vehicle zip.
  */
 export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxPdfBytes?: number; maxCarBytes?: number; maxFiles?: number } = SPLIT_LIMITS): VehiclePlan[] {
-  const all: { name: string; size: number; stored: number; method: number }[] = [];
+  const all: { name: string; size: number; stored: number; method: number; locked?: boolean }[] = [];
   try { unzipSync(buf, { filter: (f) => { all.push({ name: f.name, size: f.originalSize, stored: f.size, method: f.compression }); return false; } }); }
   catch { throw new ZipRejected("corrupt", ZIP_WHY.corrupt); }
-  const locked = encryptedNames(buf); // a password-protected car file never opens here: refused below, before anything is made
+  // a password-protected car file never opens here: refused below, before anything is made. Matched by position (the filter sees
+  // the entries in central-directory order), not by name: fflate decodes a name as latin1 unless its UTF-8 flag is set
+  const flags = encryptedFlags(buf);
+  if (flags.length === all.length) all.forEach((f, i) => { f.locked = flags[i]; });
   // the same names-only layout the browser saw; an empty loose file is not an extra, a car whose PDFs are all empty is refused below
   const { cars: prefixes, extras: named } = vehicleLayout(all.map((f) => f.name));
   const nonEmpty = new Set(all.filter((f) => f.size > 0).map((f) => f.name));
@@ -105,7 +108,7 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
     if (!pre || !usableIn(f.name)) continue;
     // a stored entry opens as its stored bytes, whatever size it declares: the sizes must agree, or every limit below means nothing
     if (f.method === 0 && f.stored !== f.size) throw new ZipRejected("corrupt", ZIP_WHY.corrupt);
-    if (locked.has(f.name)) throw new ZipRejected("corrupt", ZIP_WHY.corrupt);
+    if (f.locked) throw new ZipRejected("corrupt", ZIP_WHY.corrupt);
     if (f.size === 0) continue;
     // only stored (0) and deflate (8) entries open here: refuse others now, before a car is made, not halfway through the split
     if (f.method !== 0 && f.method !== 8) throw new ZipRejected("corrupt", ZIP_WHY.corrupt);
@@ -125,9 +128,9 @@ export function planVehicles(buf: Uint8Array, limits: typeof ZIP_LIMITS & { maxP
   return prefixes.map((prefix) => ({ prefix, plate: prefix.slice(0, -1).split("/").pop() as string, files: counts.get(prefix) ?? 0 }));
 }
 
-/** Names of the entries whose central-directory record carries the "encrypted" flag (bit 0). fflate does not check it. */
-function encryptedNames(buf: Uint8Array): Set<string> {
-  const out = new Set<string>();
+/** Per central-directory entry, in order: does it carry the "encrypted" flag (bit 0)? fflate does not check it. */
+function encryptedFlags(buf: Uint8Array): boolean[] {
+  const out: boolean[] = [];
   const v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   let e = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (v.getUint32(i, true) === 0x06054b50) { e = i; break; }
@@ -135,9 +138,8 @@ function encryptedNames(buf: Uint8Array): Set<string> {
   const off = v.getUint32(e + 16, true);
   if (off === 0xffffffff) return out;
   for (let p = off; p + 46 <= buf.length && v.getUint32(p, true) === 0x02014b50;) {
-    const n = v.getUint16(p + 28, true);
-    if (v.getUint16(p + 8, true) & 1) out.add(new TextDecoder().decode(buf.subarray(p + 46, Math.min(buf.length, p + 46 + n))));
-    p += 46 + n + v.getUint16(p + 30, true) + v.getUint16(p + 32, true);
+    out.push((v.getUint16(p + 8, true) & 1) === 1);
+    p += 46 + v.getUint16(p + 28, true) + v.getUint16(p + 30, true) + v.getUint16(p + 32, true);
   }
   return out;
 }

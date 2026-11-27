@@ -122,7 +122,8 @@ export async function POST(req: Request) {
   try {
     release = await lockSplit(me.orgId, me.user.id, size);
     if (!release) { await dropZip(); return NextResponse.json({ error: "busy" }, { status: 409 }); } // this upload is its own copy: the running call deletes only its own
-    earlier = await earlierCars(me.orgId, size);
+    // only folders of THIS zip count: a different zip of the same size may have left marks for other folders
+    earlier = new Map([...(await earlierCars(me.orgId, size))].filter(([p]) => plan.some((v) => v.prefix === p)));
     todo = plan.filter((v) => !earlier.has(v.prefix));
     if (todo.length && enforcing() && !exempt(me.orgId) && (await creditBalance(me.orgId)) < CASE_COST * todo.length) {
       await release(); await dropZip();
