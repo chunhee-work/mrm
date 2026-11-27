@@ -30,7 +30,8 @@ test("B06 body: photos only (no PDF and no zip) is refused before a case is made
 
 test("B07 body: a PDF over the reader's limit is refused with its own reason", () => {
   assert.equal(bodyProblem(CaseBody.parse(ok({ size: 30 * 1024 * 1024 })), "org1"), "pdf_big");
-  assert.equal(bodyProblem(CaseBody.parse(ok({ size: 24 * 1024 * 1024 })), "org1"), null);
+  assert.equal(bodyProblem(CaseBody.parse(ok({ size: 24 * 1024 * 1024 })), "org1"), "pdf_big"); // it was taken here and then could never be read
+  assert.equal(bodyProblem(CaseBody.parse(ok({ size: 23 * 1024 * 1024 })), "org1"), null);
 });
 
 test("U3 body: a file whose name has two dots in a row is accepted; a path that steps out of the folder is not", () => {

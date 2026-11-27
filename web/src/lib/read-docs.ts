@@ -7,6 +7,7 @@ import { playbookBlock, playbookTag } from "@/lib/playbook/prompt";
 import { costOf, tokensOf } from "./pricing";
 import { badFileName } from "./case-text";
 import { runPool } from "./pool";
+import { MAX_PDF_BYTES } from "./upload-rules";
 
 // Step 1 of the workflow (playbook 01): read the case bundle and return the case data.
 // Anthropic compiles the output schema and refuses more than 16 nullable/union fields. So plain text fields are
@@ -92,11 +93,10 @@ export class BadFile extends Error {
 const unique = (names: string[], name: string) => names.filter((x) => x === name).length === 1;
 // The model's limits on one request: PDF pages ("A maximum of 100 PDF pages may be provided") and length ("prompt is too long")
 const TOO_MANY_PAGES = /maximum of \d+ (pdf )?pages|pages? (limit|exceed)|too many (pdf )?pages|exceeds? .*\bpages?\b|prompt is too long|tokens? > \d+ maximum/i; // pages, or more text than the model reads at once
-const MAX_PDF = 25 * 1024 * 1024;
 /** Checks the bytes of one PDF before it is sent to the model (B06/B07). */
 export function checkPdf(name: string, buf: Uint8Array) {
   if (!buf.length) throw new BadFile(name, "empty");
-  if (buf.length > MAX_PDF) throw new BadFile(name, "too_big");
+  if (buf.length > MAX_PDF_BYTES) throw new BadFile(name, "too_big"); // the same limit the upload checks (upload-rules.ts)
   const head = Buffer.from(buf.subarray(0, 1024)).toString("latin1");
   if (!head.includes("%PDF-")) throw new BadFile(name, "corrupt");
   // R2-B03: a real header followed by garbage. A PDF always has objects and a cross-reference table or trailer.
@@ -136,7 +136,7 @@ const MAX_REQUEST = 32 * 1024 * 1024;
 /**
  * Called as each PDF is loaded, with the base64 lengths so far (in `names` order): throws the customer's-file refusal as soon as
  * the PDFs no longer fit one request, before the rest is downloaded or anything is sent. One PDF that is too much alone is named
- * ("send a smaller PDF"); several that are too much together are "too long for one case" (the same answer the model's own
+ * ("send a smaller PDF"; checkPdf's own limit already stops such a file, this is the second guard); several that are too much together are "too long for one case" (the same answer the model's own
  * "request too large" gets). A set this check lets through and the model still refuses is handled by refusalOf.
  */
 export function checkFits(names: string[], sizes: number[]): void {
