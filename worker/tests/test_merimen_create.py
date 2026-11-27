@@ -191,7 +191,7 @@ def test_a_duplicate_warning_is_not_confirmed(browser):
 
 def test_a_rejected_form_reports_merimens_words(browser):
     ctx, base, _ = site(browser, next_action="act_clmreg")
-    ctx.route("https://www.merimen.com.my/claims/index.cfm?*fuseaction=act_clmreg*", lambda r: r.fulfill(content_type="text/html", body="<html><body><p>Handling Insurer must be indicated</p></body></html>"))
+    ctx.route("https://www.merimen.com.my/claims/index.cfm?*fuseaction=act_clmreg*", lambda r: r.fulfill(content_type="text/html", body="<html><body><select name=\"ddlbInsurer\"></select><p>Handling Insurer must be indicated</p></body></html>"))
     run = MerimenCreate(base, timeout_scale=0.02)
     rep = run.create(spec())
     try:
@@ -336,7 +336,7 @@ def test_the_session_marks_never_reach_a_line_a_message_or_a_readback(browser):
     assert redact("go to /claims/index.cfm?CFID=SECRET1&CFTOKEN=SECRET2&USID=SECRET3&RID=SECRET4 now") == "go to /claims/index.cfm?CFID=***&CFTOKEN=***&USID=***&RID=*** now"
     ctx, base, _ = site(browser, next_action="act_clmreg")
     ctx.route("https://www.merimen.com.my/claims/index.cfm?*fuseaction=act_clmreg*", lambda r: r.fulfill(
-        content_type="text/html", body="<html><body><p>Session CFID=SECRET1&CFTOKEN=SECRET2 is invalid, please login</p></body></html>"))
+        content_type="text/html", body="<html><body><select name=\"ddlbInsurer\"></select><p>Session CFID=SECRET1&CFTOKEN=SECRET2 is invalid, please login</p></body></html>"))
     rep = MerimenCreate(base, timeout_scale=0.02).create(spec())
     assert rep.code == "form_rejected" and "SECRET" not in rep.line() and "SECRET" not in repr(rep.readback)
     ctx.close()
@@ -363,3 +363,26 @@ def test_a_workshop_name_is_matched_by_whole_words_and_the_exact_row_wins():
     from autopilot_worker.merimen_create import pick_workshop_row
     assert pick_workshop_row(["CAB MOTOR WORKS"], "AB Motor") == (None, "workshop_not_found")
     assert pick_workshop_row(["Bengkel Ali Jaya", "Bengkel Ali"], "Bengkel Ali") == (1, "")
+
+
+def test_a_page_with_no_create_form_after_next_leaves_the_mark_and_is_unclear_even_if_it_has_words(browser):
+    ctx, base, _ = site(browser, next_action="act_clmreg")
+    ctx.route("https://www.merimen.com.my/claims/index.cfm?*fuseaction=act_clmreg*", lambda r: r.fulfill(content_type="text/html", body="<html><body><p>This claim must exist already</p></body></html>"))
+    rep = MerimenCreate(base, timeout_scale=0.02).create(spec())
+    try:
+        assert not rep.ok and rep.code == "create_unclear" and not rep.cleared and rep.case_id is None
+    finally:
+        ctx.close()
+
+
+def test_a_duplicate_box_with_an_ok_button_is_never_clicked_and_leaves_the_mark(browser):
+    ctx, base, _ = site(browser, next_action="act_clmreg")
+    body = ("<html><body><div role='dialog'>There is already an active claim within 1 day. CONFIRM that this is NOT a duplicate"
+            "<input type='button' value='OK' onclick=\"window.__clicked=1;document.title='clicked'\"></div></body></html>")
+    ctx.route("https://www.merimen.com.my/claims/index.cfm?*fuseaction=act_clmreg*", lambda r: r.fulfill(content_type="text/html", body=body))
+    run = MerimenCreate(base, timeout_scale=0.02)
+    rep = run.create(spec())
+    try:
+        assert not rep.ok and rep.code in ("unexpected_dialog", "duplicate_warning") and not rep.cleared and rep.case_id is None
+    finally:
+        ctx.close()

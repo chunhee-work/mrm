@@ -76,6 +76,15 @@ Worker 用本机 Chrome 里已登录的 Merimen 标签页（Playwright 连本机
 
 只自动化了建案这一步。建好之后案子进入 `waiting_user`，时间线写明 Adjuster Report、文件和照片还没有自动化，截图里程碑只记“案件已打开”。已有 Merimen 编号的案子不会再建第二个。manager 或 adjuster 在 Merimen 里匹配不上：案子照样记下编号，时间线请人手动补。
 
+**已知限制（建案子）**：
+- 选择器没在真实网站上验证过，APC bot 的演练就是验证；演练通过标准写在 `/mnt/project-files/merimen-login/APC-BOT-ADDENDUM-3-create-case.md`，没过标准不开写入开关。
+- 一次只建一个：真保存时 `ORG_CONCURRENCY` 必须是 1（大于 1 直接拒绝，错误码 `concurrency_unsafe`）。「按过 Next」标记用事务里的 advisory lock 加条件写入，第二个 worker 拿不到标记就到不了 Next。
+- Next 之前不会去 worklist 搜重复；Merimen 只在 1 天内有进行中的案子时才弹重复警告。出现 `create_unclear` / `duplicate_warning` / `unexpected_dialog` 都要先在 worklist 搜车牌。
+- 「预计费用」固定选 `10,000 - 12,500`（和主人的脚本一样）；创建时还不知道撞击方向，损失描述先用中性文字。
+- 点 OK 只点保险公司 API 提示和积分框（有白名单）；任何别的框、任何在问问题的框都不点，案子停下。
+- 锁定了工坊但没按成 Next（本机失败）：标记已写，案子停下等人；人确认 Merimen 没有这个案子后，插一行 `create_cleared`（工坊锁不能自动放开，要在后台处理）。
+- Jev 的保险公司/Liberty 地区检查还在 Phase A 之后跑，只警告不拦；建案前不跑。
+
 ## 迁移
 
 `web/drizzle/0007_worker.sql` 只新增表和 `jobs.not_before`。`web/drizzle/0008_case_screenshots.sql` 只新增表 `case_screenshots`（可重复执行），并在角色 `autopilot_worker` 存在时给它 `SELECT, INSERT, UPDATE`（没有 DELETE）。生产库要等主人点头之后再跑 `npm run db:migrate`。本文件不会替你执行。

@@ -512,18 +512,23 @@ class PgRepo:
 
             @staticmethod
             def press() -> bool:
-                rows = db.execute(
-                    """
-                    INSERT INTO case_events (case_id, step, message)
-                    SELECT %s, 'create_submitted', 'Create pressed in Merimen'
-                    WHERE NOT EXISTS (
-                      SELECT 1 FROM case_events s WHERE s.case_id = %s AND s.step = 'create_submitted'
-                        AND NOT EXISTS (SELECT 1 FROM case_events c WHERE c.case_id = s.case_id AND c.step = 'create_cleared' AND c.id > s.id))
-                    RETURNING id
-                    """,
-                    (case_id, case_id),
-                )
-                return bool(rows)
+                # one transaction: the advisory lock is taken FIRST, so the insert's "no mark yet" look happens after any other runner finished
+                # its own insert for this case (a second runner then gets an empty answer and never reaches Next)
+                res = db.batch([
+                    ("SELECT pg_advisory_xact_lock(hashtext(%s))", (case_id,)),
+                    (
+                        """
+                        INSERT INTO case_events (case_id, step, message)
+                        SELECT %s, 'create_submitted', 'Create pressed in Merimen'
+                        WHERE NOT EXISTS (
+                          SELECT 1 FROM case_events s WHERE s.case_id = %s AND s.step = 'create_submitted'
+                            AND NOT EXISTS (SELECT 1 FROM case_events c WHERE c.case_id = s.case_id AND c.step = 'create_cleared' AND c.id > s.id))
+                        RETURNING id
+                        """,
+                        (case_id, case_id),
+                    ),
+                ])
+                return bool(len(res) > 1 and res[1])
 
             @staticmethod
             def clear() -> None:

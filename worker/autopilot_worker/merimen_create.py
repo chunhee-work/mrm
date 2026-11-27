@@ -144,9 +144,10 @@ _OPTS = """(n) => { var s = document.querySelector('select[name=' + n + ']'); if
 # Clicks a visible OK only after reading the box around it: a box that asks something (confirm, duplicate, overwrite, delete) is NOT clicked and its text
 # comes back as "STOP:<text>" so the worker stops instead of answering a question the owner's script never answered.
 _OK = """() => { var t = [...document.querySelectorAll('input,button')].find(e => ((e.value || e.innerText || '').trim() === 'OK') && e.offsetParent !== null);
-  if (!t) return ''; var b = t, tx = '';
-  for (var i = 0; i < 6 && b.parentElement; i++) { b = b.parentElement; tx = (b.innerText || '').trim(); if (tx.length > 12) break; }
-  if (/confirm|already|duplicate|overwrite|delete|are you sure/i.test(tx)) return 'STOP:' + tx.slice(0, 120);
+  if (!t) return ''; var box = t.closest('[role=dialog],[class*=modal],[class*=dialog],[class*=popup],table'), b = t, tx = box ? (box.innerText || '').trim() : '';
+  for (var i = 0; !tx && i < 6 && b.parentElement; i++) { b = b.parentElement; tx = (b.innerText || '').trim(); if (tx.length < 4) tx = ''; }
+  // an ALLOW list: only the insurer-API notices and the points box from the owner's playbook are answered; anything else (or anything that asks) is a STOP
+  if (/confirm|already|duplicate|overwrite|delete|are you sure/i.test(tx) || !/not found|charge|\bpts?\b|points|\bapi\b|warning|policy|insurer|ncd|no claim|successful|saved/i.test(tx)) return 'STOP:' + tx.slice(0, 120);
   t.click(); return 'OK'; }"""
 _MSGS = """() => { var o = []; document.querySelectorAll('*').forEach(e => { var t = (e.childNodes[0] && e.childNodes[0].nodeValue || '').trim();
   if (t && /should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t) && e.offsetParent !== null && t.length < 160) o.push(t); });
@@ -510,14 +511,17 @@ class MerimenCreate:
                 # the owner's script confirms this warning; a retry after a crash would also land here, so the worker stops and a person decides
                 rep.ok, rep.code = False, "duplicate_warning"
                 return rep
+            form_here = bool(cur.locator("select[name=ddlbInsurer]").count())
             rep.messages = [m[:160] for m in _new_msgs(self._ev(_MSGS, None, []), pre)]
+            if not form_here:  # no form on the page: Merimen may have made the case, whatever the text says
+                rep.ok, rep.code = False, "create_unclear"
+                rep.messages = (rep.messages or ["page after Next shows no create form"])[:2]
+                return rep
             if not rep.messages:  # still the form but nothing NEW says why: the save may still be running, so the mark stays
                 rep.ok, rep.code = False, "create_unclear"
                 rep.messages = ["still on the create form, no new reason shown"]
                 return rep
-            # cleared only when the create form itself is still there AND said why; an act_clmreg page with no form leaves the mark
-            form_here = bool(cur.locator("select[name=ddlbInsurer]").count())
-            rep.ok, rep.code, rep.cleared = False, "form_rejected", form_here
+            rep.ok, rep.code, rep.cleared = False, "form_rejected", True  # the form is still there AND said why
             return rep
         if "adjclmref" not in url:
             # Next was pressed and the page is neither the form nor the manager page: the case may exist. Keep what is safe to keep (the page

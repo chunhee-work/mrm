@@ -47,6 +47,8 @@ class _CdpDriver(Driver):
         if os.environ.get("MERIMEN_WRITES") != "on" or os.environ.get("WORKER_SUBMIT") != "on" or os.environ.get("MERIMEN_DRYRUN") == "on":
             return DriveResult(ok=False, error="step_not_ported")
         if phase == "A":
+            if int(os.environ.get("ORG_CONCURRENCY") or "1") > 1:  # the supported setup is ONE create at a time: refuse before anything opens
+                return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1; set it and restart the worker")
             return self._create(True)  # the first step of Phase A; the rest of the phase is not ported yet (the result says so)
         return DriveResult(ok=False, error="step_not_ported")
 

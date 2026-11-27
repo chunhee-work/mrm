@@ -257,3 +257,12 @@ def test_a_case_that_already_exists_is_not_filled_or_made_again_even_in_a_dry_ru
 def test_a_progress_note_after_next_is_not_a_rejection():
     from autopilot_worker.merimen_create import _new_msgs
     assert _new_msgs(["Please wait, saving...", "Handling Insurer must be indicated", "static required label"], {"static required label"}) == ["Handling Insurer must be indicated"]
+
+
+def test_a_live_create_refuses_to_start_when_more_than_one_job_may_run_per_org(monkeypatch):
+    from autopilot_worker.__main__ import _CdpDriver
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on"), ("MERIMEN_DRYRUN", ""), ("ORG_CONCURRENCY", "2")):
+        monkeypatch.setenv(k, v)
+    d = _CdpDriver("x", lambda org: None)
+    r = d.save("A", ())
+    assert not r.ok and r.fatal and r.error == "concurrency_unsafe"
