@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import { Chevron, Plus, Search, UploadArt } from "./marks";
-import { holdDropped } from "@/lib/dropped-files";
+import { DROPPED_PARAM, HOLD_MS, holdDropped, takeDropped } from "@/lib/dropped-files";
 import { useFileDrag } from "./drop-zone";
 import { OPEN_BUCKETS, type Bucket } from "./status";
 import ProfileCard, { type Cred } from "./profile-card";
@@ -37,7 +37,13 @@ export default function Home({ name, counts, busy = false, cred: cred0 }: { name
   }, [live, router]);
 
   // files dragged anywhere onto the page start a new case: they wait in memory and the new-case page picks them up
-  const over = useFileDrag(!blocked, (files) => { holdDropped(files); router.push("/cases/new"); });
+  // after the drop the overlay stays until the new-case page replaces this one, so the wait is not a blank moment
+  const [going, setGoing] = useState(false);
+  // files held by a drop whose trip to the new-case page was cut short are let go when this page shows again
+  useEffect(() => { takeDropped(); }, []);
+  // if the trip never ends (navigation stalled), the overlay goes when the hold runs out and drops work again
+  useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), HOLD_MS); return () => window.clearTimeout(id); }, [going]);
+  const over = useFileDrag(!going && !blocked, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
 
   // the rows are the steps of the step bar; "On hold" is a row only when a case is on hold, so the box keeps its shape
   const rows = OPEN_BUCKETS.filter((b) => b !== "hold" || counts.hold > 0).map((b) => ({ b, n: counts[b], hot: (b === "photos" || b === "hold" || b === "docs") && counts[b] > 0 }));
@@ -109,7 +115,7 @@ export default function Home({ name, counts, busy = false, cred: cred0 }: { name
       </div>
       {cred.complete && <aside className="min-w-0 lg:pt-[3.75rem]"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact /></aside>}
       </div>
-      {over && (
+      {(over || going) && (
         <div aria-hidden="true" data-testid="home-overlay" className="pointer-events-none fixed inset-0 z-50 bg-panel/90 p-4 backdrop-blur-[2px]">
           <div className="app-dash flex h-full flex-col items-center justify-center gap-4 bg-icetint text-center" data-over="true">
             <span className="text-ice"><UploadArt size={72} lift /></span>

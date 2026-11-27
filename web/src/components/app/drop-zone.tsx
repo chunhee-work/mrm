@@ -11,18 +11,25 @@ const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).inclu
 /**
  * Files dragged anywhere over the window: `over` is true while they hover, `onFiles` gets them on drop.
  * Shared by the new-case drop zone and the first page. Some browsers miss a dragleave (Esc, leaving fast,
- * a node replaced mid-drag), so `over` also resets when dragover stops arriving.
+ * a node replaced mid-drag), so `over` also resets when no dragover has come for 1 s (browsers repeat it every 350 ± 200 ms).
  */
 export function useFileDrag(enabled: boolean, onFiles: (files: File[]) => void) {
   const [over, setOver] = useState(false);
   const cb = useRef(onFiles);
   cb.current = onFiles;
   useEffect(() => {
-    if (!enabled) { setOver(false); return; }
+    if (!enabled) {
+      // still catch a file dropped while busy (uploading), or the browser would open it and leave the page
+      setOver(false);
+      const block = (e: DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "none"; };
+      window.addEventListener("dragover", block);
+      window.addEventListener("drop", block);
+      return () => { window.removeEventListener("dragover", block); window.removeEventListener("drop", block); };
+    }
     let depth = 0;
     let idle: number | undefined;
     const reset = () => { depth = 0; setOver(false); window.clearTimeout(idle); };
-    const ping = () => { window.clearTimeout(idle); idle = window.setTimeout(reset, 400); };
+    const ping = () => { window.clearTimeout(idle); idle = window.setTimeout(reset, 1000); };
     const enter = (e: DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; setOver(true); ping(); };
     const move = (e: DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"; setOver(true); ping(); };
     const leave = (e: DragEvent) => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (depth === 0) reset(); };
