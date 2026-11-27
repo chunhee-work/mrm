@@ -6,6 +6,7 @@ import { CONFIRM_COUNT } from "@/lib/photos/confirm-sql";
 import CaseTable, { type CaseRow } from "@/components/app/case-table";
 import Home, { type HomeCounts } from "@/components/app/home";
 import { bucketOf, VIEWS, type View } from "@/components/app/status";
+import { systemBusy } from "@/lib/case-steps";
 import { after } from "next/server";
 import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 import { splitRunning } from "@/lib/split-marks";
@@ -66,9 +67,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const openRows = await caseRows(openCount > openHere.length
     ? await db.select().from(schema.cases).where(and(eq(schema.cases.orgId, orgId), notDeleted, ne(schema.cases.status, "done")))
       // cases waiting on the user first, so the cap never cuts them: failed / missing documents, then photos not confirmed
-      .orderBy(sql`case when ${schema.cases.status} in ('failed', 'pending_doc') then 0 when ${schema.cases.photosDoneAt} is null then 1 else 2 end`, desc(schema.cases.createdAt)).limit(500)
+      .orderBy(sql`case when ${schema.cases.status} in ('failed', 'pending_doc') then 0 when ${schema.cases.status} not in ('uploaded', 'reading', 'checking') and ${schema.cases.photosDoneAt} is null then 1 else 2 end`, desc(schema.cases.createdAt)).limit(500)
     : openHere);
-  return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => ["uploaded", "reading", "phase_a", "phase_b", "checking"].includes(g.status) && Number(g.n) > 0)} cred={await credView(orgId)} />;
+  const cred = await credView(orgId); // never throws: a failed read comes back as storageOk false
+  return <Home name={user.name} orgId={orgId} counts={counts} cases={openRows} busy={groups.some((g) => Number(g.n) > 0 && systemBusy(g))} cred={cred} />;
 }
 
 /** What the first page and the table need of each case: which case, its step, and what (if anything) it waits for. */

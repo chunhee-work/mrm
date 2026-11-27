@@ -573,7 +573,8 @@ try {
     // the photo button opens the line with the photo desk inside it
     for (const tag of await page.getByTestId("home-act").evaluateAll((els) => els.map((e) => e.tagName))) assert.equal(tag, "BUTTON", "no action button leaves the first page");
     const photoLine = page.getByTestId("home-list").locator(":scope > li[data-bucket=photos]").first();
-    if (await photoLine.count()) {
+    assert.ok(await photoLine.count(), "a case with photos to name is on the first page"); // not skipped when missing: the check must really run
+    {
       await photoLine.getByTestId("home-act").click();
       await photoLine.getByTestId("home-desk").getByTestId("done-btn").waitFor();
       assert.equal(new URL(page.url()).pathname, "/dashboard", "the photo desk opens inside the line");
@@ -731,6 +732,37 @@ try {
       assert.ok(await page.getByTestId("case-log").isVisible(), "the activity list is open without a click");
     } finally { await db.query(`DELETE FROM cases WHERE id = $1`, [Y]); }
   });
+  await step("side bar (owner 2026-11-27): folds to icons and stays folded on the next page; the account menu works by keyboard; one line open at a time", async () => {
+    await page.goto(`${BASE}/dashboard`);
+    const bar = page.getByTestId("side-bar");
+    await bar.waitFor();
+    // the account menu: ArrowDown opens it on its first item, Escape gives the focus back to the account row
+    const acct = page.getByTestId("side-account").locator('button[aria-haspopup="menu"]');
+    await acct.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.locator("#account-menu").waitFor();
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("role")), "menuitem", "focus on the first item");
+    await page.keyboard.press("Escape");
+    await page.locator("#account-menu").waitFor({ state: "detached" });
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-haspopup")), "menu", "focus back on the account row");
+    // fold: a thin strip, remembered in a cookie for the next page; the logo opens it again
+    const wide = (await bar.boundingBox()).width;
+    await page.getByTestId("side-fold").click();
+    await page.waitForFunction(() => document.cookie.includes("side=thin"));
+    await page.goto(`${BASE}/billing`);
+    await bar.waitFor();
+    assert.ok((await bar.boundingBox()).width < wide / 2, "still folded on the next page");
+    await page.getByTestId("side-fold").click();
+    await page.waitForFunction(() => document.cookie.includes("side=wide"));
+    // only one line open at a time
+    await page.goto(`${BASE}/dashboard`);
+    const rows = page.getByTestId("home-row");
+    assert.ok((await rows.count()) >= 2, "two open cases to try");
+    await rows.nth(0).click();
+    await rows.nth(1).click();
+    assert.equal(await page.locator('[data-testid="home-row"][aria-expanded="true"]').count(), 1, "one line open");
+  });
+
   await step("signed out while naming (session ended in another tab): the desk says so once and offers to log in again, back to this case", async () => {
     await page.goto(`${BASE}/cases/${B}/photos`);
     await page.locator("article[data-pid]").first().waitFor();

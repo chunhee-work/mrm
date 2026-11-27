@@ -2,6 +2,7 @@
 import WorkshopPicker, { type WorkshopOpt } from "@/components/app/workshop-picker";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { needsUser } from "@/lib/ext/login-state";
 import { useRouter } from "next/navigation";
 import { useT } from "@/components/lang-provider";
 import ScanEdge from "@/components/scan-edge";
@@ -109,7 +110,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
 
   // past the documents and no accepted Merimen login yet: step 3 cannot run, so ask for it here
   const merimenAsk = !!c.cred && !!c.credConfigured && c.cred.storageOk && !["uploaded", "reading", "failed", "pending_doc", "done"].includes(c.status)
-    && (!c.cred.complete || c.cred.blocked || ["bad_credentials", "locked", "otp", "unknown"].includes(c.cred.verifyState));
+    && (!c.cred.complete || needsUser(c.cred));
   const failed = c.status === "failed";
   const pending = c.status === "pending_doc";
   const finished = !working && !failed;

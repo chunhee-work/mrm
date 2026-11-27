@@ -9,7 +9,7 @@ import { LANGS, type Lang } from "@/lib/i18n";
 import { whatsappHref } from "@/lib/site";
 import { Gear, logOut } from "./app-bar";
 import type { Cred } from "./profile-card";
-import { needsUser } from "@/lib/ext/login-state";
+import { needsUser, SIDE_REFRESH } from "@/lib/ext/login-state";
 
 function Icon({ d }: { d: string }) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0"><path d={d} /></svg>;
@@ -102,12 +102,15 @@ export default function SideBar({ email, name, credits: credits0, cred: cred0, c
   useEffect(() => { setFacts({ credits: credits0, cred: cred0, closed: closed0 }); }, [credits0, cred0, closed0]);
   const where = `${path}?${sp.toString()}`;
   const mounted = useRef(false);
+  // the details page and the first page's card say when the details or the login state changed, so the dot follows at once
+  const [tick, setTick] = useState(0);
+  useEffect(() => { const on = () => setTick((n) => n + 1); window.addEventListener(SIDE_REFRESH, on); return () => window.removeEventListener(SIDE_REFRESH, on); }, []);
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return; } // the first page brought the numbers itself
     let live = true;
     fetch("/api/side").then((r) => (r.ok ? r.json() : null)).then((f) => { if (live && f) setFacts(f); }).catch(() => {});
     return () => { live = false; };
-  }, [where]);
+  }, [where, tick]);
   const { credits, cred, closed } = facts;
   // the panel button folds the bar to a thin strip of icons and back; remembered in a cookie so the next page opens the same way
   const [thin, setThin] = useState(thin0);
@@ -146,7 +149,7 @@ export default function SideBar({ email, name, credits: credits0, cred: cred0, c
             <Link key={l.id} href={l.href} aria-current={l.here ? "page" : undefined} className={item(l.here)} data-testid={l.id} title={thin ? l.text : undefined}>
               <Icon d={l.d} />{label(l.text)}
               {!thin && l.count != null && <span className="num font-mono text-[12.5px] text-mute">{l.count}</span>}
-              {l.dot && <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${l.dot} ${thin ? "absolute right-2.5 top-2" : ""}`} />}
+              {l.dot && <><span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${l.dot} ${thin ? "absolute right-2.5 top-2" : ""}`} /><span className="sr-only">{t("side.needsYou")}</span></>}
             </Link>
           ))}
         </nav>

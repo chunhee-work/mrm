@@ -7,7 +7,7 @@ import { creditBalance } from "@/lib/payments/credit";
 /** What the side bar shows: the details (for the amber dot), the closed-case count and the credits left. One place for the layout and /api/side. */
 export async function sideFacts(orgId: string) {
   const [cred, closed, credits] = await Promise.all([
-    credView(orgId).catch(() => null),
+    credView(orgId).then((c) => (c.storageOk && c.keyOk ? c : null)).catch(() => null), // unreadable is unknown: no dot the user cannot clear
     db.select({ n: sql<number>`count(*)::int` }).from(schema.cases).where(and(eq(schema.cases.orgId, orgId), eq(schema.cases.status, "done"), notDeleted)).then((r): number | null => Number(r[0]?.n ?? 0)).catch(() => null), // unknown, not a confident 0
     creditBalance(orgId).catch(() => null),
   ]);

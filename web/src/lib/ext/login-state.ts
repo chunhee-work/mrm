@@ -9,3 +9,6 @@ type Login = { verifyState: string; blocked: boolean };
 export const needsUser = (c: Login) => c.blocked || c.verifyState === "otp" || BAD.includes(c.verifyState);
 /** The worker is still trying the login (the user waits; nothing to do yet). */
 export const checking = (c: Login) => CHECKING.includes(c.verifyState);
+
+/** Fired on window when the saved details or the login state change, so the side bar reads its numbers again. */
+export const SIDE_REFRESH = "side:refresh";

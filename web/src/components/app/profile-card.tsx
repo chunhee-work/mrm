@@ -8,7 +8,7 @@ export type Cred = {
   workshop: string | null; workshops: { slot: number; name: string }[]; manager: string | null; adjuster: string | null; complete: boolean; storageOk: boolean; keyOk: boolean; blocks: boolean;
 };
 
-import { BAD, CHECKING } from "@/lib/ext/login-state";
+import { BAD, CHECKING, SIDE_REFRESH } from "@/lib/ext/login-state";
 
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -40,6 +40,10 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  * with what is saved (owner 2026-11-27: one link in the side bar leads there, the details are typed and changed right on it). A login that needs the user (wrong password, a code from the phone) always shows the full card.
  */
 export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "page" }) {
+  // the side bar's amber dot follows the details and the login state at once, not only at the next page move
+  const sideKey = `${cred.complete}|${cred.verifyState}|${cred.blocked}`;
+  const firstKey = useRef(sideKey);
+  useEffect(() => { if (sideKey !== firstKey.current) { firstKey.current = sideKey; window.dispatchEvent(new Event(SIDE_REFRESH)); } }, [sideKey]);
   const configured = cred.keyOk;
   const { t, lang } = useT();
   const [names, setNames] = useState<string[]>(["", "", ""]); // workshop 1..3; "" = not used
@@ -201,7 +205,8 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
       <div className="border-t border-hair px-4 py-2.5 text-[13.5px] text-mute">
         {checking && <p role="status">{t("w.checking")}</p>}
         {good && <p role="status">{t("w.ok")}{cred.updatedAt ? ` · ${t("ml.when", { when: whenOf(cred.updatedAt, lang) })}` : ""}</p>}
-        {bad && <p role="alert" className="field-error">{cred.verifyState === "locked" ? t("w.locked") : t("w.bad")}</p>}
+        {bad && <p role="alert" className="field-error">{t(cred.verifyState === "locked" ? "w.locked" : cred.verifyState === "unknown" ? "w.unknown" : "w.bad")}</p>}
+        {cred.blocked && !bad && !checking && cred.verifyState !== "otp" && <p role="alert" className="field-error">{t("w.blocked")}</p>}
         {cred.verifyState === "otp" && (
           <form onSubmit={sendCode} className="grid gap-2">
             <p className="text-[14px] text-fg">{t("w.otp")}</p>
@@ -211,7 +216,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
             </div>
           </form>
         )}
-        {!checking && !good && !bad && cred.verifyState !== "otp" && cred.updatedAt && <p>{t("ml.when", { when: whenOf(cred.updatedAt, lang) })}</p>}
+        {!checking && !good && !bad && !cred.blocked && cred.verifyState !== "otp" && cred.updatedAt && <p>{t("ml.when", { when: whenOf(cred.updatedAt, lang) })}</p>}
       </div>
   );
   // not complete (or its own page): the whole form

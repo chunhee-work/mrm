@@ -13,7 +13,7 @@ import { useFileDrag } from "./drop-zone";
 import { bucketOf, OPEN_BUCKETS, type Bucket } from "./status";
 import { StepDots, StepHeads } from "./case-steps";
 import type { CaseRow } from "./case-table";
-import { currentStepOf } from "@/lib/case-steps";
+import { currentStepOf, DESK_WAITS, systemBusy } from "@/lib/case-steps";
 import { whenOf } from "@/lib/fmt-when";
 import ProfileCard, { type Cred } from "./profile-card";
 import { checking as loginChecking, needsUser } from "@/lib/ext/login-state";
@@ -60,7 +60,6 @@ function useAct() {
   };
 }
 // the case is being worked on by the system right now (not waiting for the user): its step breathes
-const systemBusy = (r: CaseRow) => ["uploaded", "reading", "phase_b", "checking"].includes(r.status) || (r.status === "phase_a" && !!r.photosDone);
 
 /** The vehicle no. (or the first file's name while the documents are unread), and the car under it. */
 function Who({ r }: { r: CaseRow }) {
@@ -156,7 +155,7 @@ function More({ r, orgId, onDesk }: { r: CaseRow; orgId: string; onDesk: (on: bo
   // documents being read (or a read that failed): the desk waits, as on the case page
   // keyed on the step, not the row object (a new one comes with every refresh): a desk the user closed stays closed
   const bucket = bucketOf(r);
-  useEffect(() => { if (bucket === "photos") setDeskOpen(true); else if (["uploaded", "reading", "failed"].includes(r.status)) setDeskOpen(false); }, [bucket, r.status]);
+  useEffect(() => { if (bucket === "photos") setDeskOpen(true); else if (DESK_WAITS.includes(r.status)) setDeskOpen(false); }, [bucket, r.status]);
   // while a line shows the photo desk, a dropped file goes to the desk and does not start a new case (the page-wide drop is off);
   // a line with nothing to drop into leaves the page-wide drop on
   const takesFiles = deskOpen; // the upload of a missing document is a picker only, so a page drop there still starts a new case
@@ -294,7 +293,11 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
     setOkHold(wasNeeded && !loginNeeds && cred.verifyState === "ok");
   }
   useEffect(() => { if (!okHold) return; const id = window.setTimeout(() => setOkHold(false), 5000); return () => window.clearTimeout(id); }, [okHold]);
-  useEffect(() => setCred(cred0), [cred0]);
+  // a new cred0 object comes with every refresh: take it only when the server's value really changed, so a refresh that
+  // started before a poll came back cannot put the older state back (and blink the card)
+  const credKey = JSON.stringify(cred0);
+  const [lastKey, setLastKey] = useState(credKey);
+  if (lastKey !== credKey) { setLastKey(credKey); setCred(cred0); }
   // a case can be started only with the details filled in; enforced only while saving really works (key set, migration applied)
   const blocked = cred.blocks;
 

@@ -104,6 +104,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const [moveId, setMoveId] = useState<number | null>(null);
   const [help, setHelp] = useState(false);
   const [up, setUp] = useState<{ done: number; total: number } | null>(null);
+  const upRef = useRef(false); // set at once (state waits for a render): two quick drops cannot both start
   const [capped, setCapped] = useState<Record<string, boolean>>({});
   const [flashId, setFlashId] = useState<number | null>(null);
   const [shown, setShown] = useState(true); // browser tab visible
@@ -609,13 +610,15 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   // ───────────── add photos ─────────────
   const onFiles = useCallback(async (files: File[]) => {
     if (!files.length) return;
-    if (up) { say(tRef.current("upWait")); return; } // a second drop while photos go up: say so, do not lose it silently
+    if (upRef.current) { say(tRef.current("upWait")); return; } // a second drop while photos go up: say so, do not lose it silently
     const cid = caseRef.current;
     const tt = tRef.current;
+    upRef.current = true;
     setUp({ done: 0, total: files.length });
     let rep;
     try { rep = await uploadPhotos(cid, orgId, files, (done, total) => setUp({ done, total })); }
     catch { rep = { added: [], duplicates: [], failed: files.map((f) => ({ name: f.name, reason: "upload" })), unchecked: 0 }; }
+    upRef.current = false;
     setUp(null);
     await load(cid, true);
     setCapped((c) => ({ ...c, [cid]: false }));
