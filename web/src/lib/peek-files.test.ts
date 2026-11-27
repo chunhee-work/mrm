@@ -11,6 +11,9 @@ test("R2-B10 zip peek: names come from the central directory; a photos-only zip 
   assert.equal(await zipHasPdf(withPdf), true);
   assert.equal(await zipHasPdf(zip({ "a.jpg": "x", "b.jpg": "y" })), false);
   assert.equal(await zipHasPdf(zip({ "__MACOSX/._claim.pdf": "x", "a.jpg": "y" })), false);
+  // empty entries are never case files, so they are not listed: an empty PDF is no PDF, and an empty plate folder elsewhere is no car
+  assert.deepEqual(await zipNames(zip({ "WA1234B/a.pdf": "%PDF-1", "Police/NCH5773/b.pdf": "" })), ["WA1234B/a.pdf"]);
+  assert.equal(await zipHasPdf(zip({ "claim.pdf": "", "a.jpg": "y" })), false);
 });
 
 test("R2-B10 zip peek: a file that is not a zip, or too small, cannot be told (null), never throws", async () => {
@@ -104,4 +107,9 @@ test("vehicleLayout: a batch folder whose name looks like a plate is looked thro
 
 test("vehicleLayout: a car folder holding its own files plus other plates' folders stays that one car (never looked through)", () => {
   assert.deepEqual(vehicleLayout(["WA1234B/claim.pdf", "WA1234B/NCH5773/r.pdf", "WA1234B/DCD4004/s.pdf"]).cars, ["WA1234B/"]);
+});
+
+test("vehicleLayout: short-numbered folders inside a content folder (Police/KP1/, Police/KP2/) are sub-folders of one car, not cars", () => {
+  assert.deepEqual(vehicleLayout(["Police/KP1/a.pdf", "Police/KP2/b.pdf", "Claim/form.pdf"]).cars, []);
+  assert.deepEqual(vehicleLayout(["S/AAA111/a.pdf", "S/BBB222/b.pdf"]).cars.sort(), ["S/AAA111/", "S/BBB222/"]); // real plates one level down still count
 });

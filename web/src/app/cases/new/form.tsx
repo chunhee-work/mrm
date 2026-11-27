@@ -191,6 +191,13 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
           .catch(() => null);
         if (!sp) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
         const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
+        // several cars in a zip the browser could not read: nothing made or charged; the cars are now known, so the page shows
+        // them with their price and the next press of Upload sends it as a multi-car zip
+        const found = (j as { cars?: unknown } | null)?.cars;
+        if (unknown && sp.status === 409 && j?.error === "cars" && Array.isArray(found) && found.length > 1) {
+          zipCars.current.set(keyOf(files[0]), found.map(String)); zipPdf.current.set(keyOf(files[0]), true);
+          setMsg(t("new.zipCarsFound")); setStep(-1); setBusy(false); return;
+        }
         if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
           // cases the rollback could not undo are in the case list: say so, whatever else went wrong
           if (!sp.ok && (j as { kept?: number } | null)?.kept) {
@@ -209,6 +216,7 @@ export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; 
           return;
         }
       }
+      if (!alive.current) return; // left while the split looked at a zip it then handed back (`empty`): no case, no credit
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done, ...wsBody }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));

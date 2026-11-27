@@ -57,7 +57,8 @@ async function readAll(stream: ReadableStream<Uint8Array>, size: number): Promis
  * On a thrown error every case made in this call is refunded and deleted and every stored blob removed. A function killed by the
  * time limit leaves the cars finished before it (each complete and charged once, or complete and not yet charged) and blobs of the
  * car in progress. The uploaded zip is deleted when the call ends, except when it is not a multi-car zip ("empty") and the browser
- * asked to fall back (`fallback`): then the browser makes it one ordinary case.
+ * asked to fall back (`fallback`): then the browser makes it one ordinary case. A fallback zip that does hold several cars is not
+ * split: 409 "cars" sends its plates back, so the user first sees the cars and their price and then sends it again.
  */
 export async function POST(req: Request) {
   let me: Awaited<ReturnType<typeof getUserOrNull>>;
@@ -104,15 +105,29 @@ export async function POST(req: Request) {
     // the size sent is the zip's key for the lock and the repeat check: it must be the stored file's real size
     if (r.blob.size !== size) return NextResponse.json({ error: "invalid" }, { status: 400 });
     buf = await readAll(r.stream, r.blob.size);
+    // a download cut short without an error is a download failure, not a damaged zip: the zip is kept and can be sent again
+    if (buf.length !== size) return NextResponse.json({ error: "download" }, { status: 502 });
   } catch { return NextResponse.json({ error: "download" }, { status: 502 }); }
 
   let plan;
-  try { plan = planVehicles(buf); }
+  try {
+    plan = planVehicles(buf);
+    // Every car is opened once before anything is made: a car that cannot be inflated (a damaged stream) or whose PDFs open to
+    // nothing fails the same way on every try, so it is refused now, before any car is made or charged. Otherwise it could
+    // stop each retry at the same car, and the user's only way out (a fixed zip, of another size) would make the cars finished
+    // before it again. One car is held at a time.
+    for (const v of plan) if (!unzipVehicle(buf, v.prefix).some((e) => e.kind === "pdf")) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf);
+  }
   catch (e) {
     const code = e instanceof ZipRejected ? e.code : "corrupt";
+    if (!(e instanceof ZipRejected)) console.error("split: reading the zip threw", e); // answered as "cannot be opened", but logged
     if (!(code === "empty" && fallback)) await dropZip(); // "empty" with fallback: the browser makes it one ordinary case
     return NextResponse.json({ error: code, why: e instanceof ZipRejected ? e.message : ZIP_WHY.corrupt }, { status: 422 });
   }
+
+  // The browser could not read this zip's list, so the user was never told it holds several cars or what they cost. Nothing is
+  // made or charged: the plates go back, the page shows them with the price, and the user sends it again as a multi-car zip.
+  if (fallback) { await dropZip(); return NextResponse.json({ error: "cars", cars: plan.map((v) => v.plate) }, { status: 409 }); }
 
   // Only one call at a time splits a given zip (two tabs, or a retry while the first call still runs), and cars an earlier call
   // already made are kept as they are, not made or charged again.
