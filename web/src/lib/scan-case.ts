@@ -16,6 +16,13 @@ const LEASE = "lease:";
 // U10: the model call must be over this long after the read began. Every caller runs inside a 300 s function, and the outcome
 // still has to be written after it; without a limit a hung call left the case on "Reading documents" until the platform killed it.
 const READ_BUDGET_MS = 250_000;
+const OUTCOME_BY_MS = 270_000; // a failed read's state is written by then, even if the photo import is still going
+/** Waits for `p` (settled either way), but at most `ms`. */
+const waitUpTo = (p: Promise<unknown>, ms: number) => new Promise<void>((done) => {
+  const t = setTimeout(done, Math.max(0, ms));
+  const end = () => { clearTimeout(t); done(); };
+  p.then(end, end);
+});
 const TIMED_OUT = "Reading timed out"; // shown as "Reading took too long. Press Read again."
 const READ_FAILED = "Reading failed"; // shown as "We could not read this case. Press Read again. …"
 
@@ -137,7 +144,9 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
   } catch (e) {
     const error = safeError(e);
     console.error("scan failed", id, (e as Error)?.name, String((e as Error)?.message ?? e).split("\n")[0].slice(0, 300)); // the detail stays in the server log
-    // The outcome is written before the photo import is waited for: after a read that ran out of time there may be little time left.
+    // never leave the import running behind a failed read; but after a read that ran out of time the failed state must still be
+    // written before the function's own limit, so the wait ends at OUTCOME_BY_MS
+    await waitUpTo(photos, started + OUTCOME_BY_MS - Date.now());
     const failed = await db.update(schema.cases).set({ status: "failed", error }).where(mine).returning({ id: cid });
     if (failed.length) {
       await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: "Scan failed" });
@@ -146,8 +155,8 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
       const multi = zipRefunded(error, !!claimed[0].readBefore);
       if (!(e instanceof BadFile) && (multi || !userFixable(error))) await refundCase(claimed[0].orgId, id).catch(() => {}); // our failure: the credit goes back. A bad file is the customer's to replace
     }
-    await notePhotosLeftOut(id, await photos); // never leave the import running behind a failed read
     await closeIntakeJobs(id);
+    await notePhotosLeftOut(id, await photos);
     return { ok: false, missing: [], claimed: true };
   }
 }
