@@ -110,8 +110,7 @@ def test_claim_sql_skips_locked_rows_and_bad_logins():
     assert "not_before" in CLAIM_SQL
     assert "merimen_credentials" in CLAIM_SQL
     assert "org_limit" in CLAIM_SQL
-    assert backoff_seconds(1) == 2
-    assert backoff_seconds(10) == 300
+    assert [backoff_seconds(n) for n in (0, 1, 2, 3, 4, 10)] == [30, 30, 120, 600, 600, 600]
 
 
 def test_python_ciphertext_opens_in_node():

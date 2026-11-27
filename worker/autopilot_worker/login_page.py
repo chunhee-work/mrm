@@ -162,6 +162,11 @@ def login_email(kind: str) -> tuple[str, str]:
     return subject, html
 
 
+_BACKOFF = (30, 120, 600)
+
+
 def backoff_seconds(attempts: int) -> int:
-    """Transient errors only. A rejected password does not use this."""
-    return min(300, 2 ** max(attempts, 1))
+    """How long a job that was put back ("try again later") waits before it is claimed again: 30 s after its first try, 2 min after
+    the second, 10 min after the third. Long enough for a Chrome restart or a second tab to be sorted out. Transient errors only;
+    a rejected password does not use this."""
+    return _BACKOFF[min(max(int(attempts), 1), len(_BACKOFF)) - 1]

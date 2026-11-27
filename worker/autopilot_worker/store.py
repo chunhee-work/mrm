@@ -11,7 +11,10 @@ from .jobs import CLAIM_SQL, RECLAIM_SQL, TOUCH_SQL, claim_params
 from .login_page import backoff_seconds
 from .pipeline import Outcome
 
-MAX_ATTEMPTS = 3  # a job is claimed at most this many times: a lease that ran out, a worker error and a "try again later" all count
+MAX_ATTEMPTS = 3  # a lease that ran out (jobs.RECLAIM_SQL) or a worker error (loop.py): the third claim is the last
+# "Try again later" (Outcome "requeue"): try 1 -> wait 30 s -> try 2 -> wait 2 min -> try 3 -> wait 10 min -> try 4 -> failed.
+# jobs.attempts counts every claim of the job, whatever ended it, so the three waits are backoff_seconds(1), (2), (3).
+REQUEUE_MAX_ATTEMPTS = 4
 
 _DETAIL_BAD = ("cfid", "cftoken", "http", "password=")
 
@@ -200,7 +203,7 @@ class PgRepo:
         if outcome.job_state == "requeue":
             # put back with a wait (jobs.not_before, migration 0007), and only so many times: `attempts` is the number of claims so far
             attempts = int(job.get("attempts") or 1)
-            gave_up = attempts >= MAX_ATTEMPTS
+            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS
             state = "failed" if gave_up else "queued"
         if outcome.job_state == "hold":
             st.append(("UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running'", (job["id"],)))
@@ -236,7 +239,7 @@ class PgRepo:
             st.append(("SELECT 1 FROM cases WHERE id = %s FOR UPDATE", (job["case_id"],)))
             if outcome.total_rm:  # the estimate is saved in Merimen either way
                 st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
-        error = outcome.error or ("gave up after %d tries" % MAX_ATTEMPTS if gave_up else None)
+        error = outcome.error or ("gave up after %d tries" % attempts if gave_up else None)
         if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or error:
             st.append((
                 """
@@ -262,7 +265,7 @@ class PgRepo:
         if gave_up:
             st.append((
                 "INSERT INTO case_events (case_id, step, message) SELECT %s, %s, %s WHERE EXISTS (SELECT 1 FROM cases WHERE id = %s)",
-                (job["case_id"], job["step"], "Stopped after %d tries. It will not be tried again by itself." % MAX_ATTEMPTS, job["case_id"]),
+                (job["case_id"], job["step"], "Stopped after %d tries (it waited 30 s, 2 min and 10 min in between). It will not be tried again by itself." % attempts, job["case_id"]),
             ))
         for line in (outcome.extra_events or [])[:4]:
             st.append((
