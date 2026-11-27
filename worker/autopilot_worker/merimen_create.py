@@ -148,6 +148,13 @@ _OK = """() => { var t = [...document.querySelectorAll('input,button')].find(e =
 _MSGS = """() => { var o = []; document.querySelectorAll('*').forEach(e => { var t = (e.childNodes[0] && e.childNodes[0].nodeValue || '').trim();
   if (t && /should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t) && e.offsetParent !== null && t.length < 160) o.push(t); });
   return [...new Set(o)].slice(0, 60); }"""
+_BUSY = re.compile(r"please wait|saving|processing|loading|in progress|submitting", re.I)  # a progress note is not a rejection
+
+
+def _new_msgs(now, pre):
+    return [m for m in now if m not in pre and not _BUSY.search(m)]
+
+
 _CHK = """() => { function g(n) { var e = document.querySelector('[name=' + n + ']'); return e ? e.value : ''; }
   return {rep: g('ddlbREPCOID'), repName: g('ddlbREPCOIDTEXT'), man: g('ddlbMan'), model: g('ddlbModel'), cur: g('sleCURINSCOID'), plate: g('sleREGNO'), chassis: g('sleCHANO')}; }"""
 
@@ -327,6 +334,7 @@ class MerimenCreate:
                 self._need("sleTPnm", c["name"])
                 self._need("sleTPID1", fmt_ic(c["nric"]))
             self._need("sleTPREGNO", a["plate"])
+            claimant = False
             if c["policy"] and c["ins_coid"]:
                 # playbook 02: tick TPOWN first, the two claimant-insurance fields ship disabled and a disabled field is not submitted
                 cur.evaluate("""() => { var c = document.getElementById('TPOWN'); if (c && !c.checked) c.click(); return 1; }""")
@@ -338,6 +346,7 @@ class MerimenCreate:
                 held = cur.evaluate("""() => ['ddlb3INSCOID', 'sleTPPOLNO'].map(n => { var e = document.querySelector('[name=' + n + ']'); return e ? [!e.disabled, !!e.value] : [false, false]; })""")
                 if not all(en and has for en, has in held):
                     P.append("claimant_insurance_not_set")
+                claimant = True
             else:
                 cur.evaluate("""() => { ['ddlb3INSCOID', 'sleTPPOLNO', 'sleTRAILERREGNO', 'sleTRAILERTPREGNO'].forEach(n => { var e = document.querySelector('[name=' + n + ']'); if (e) e.removeAttribute('chkrequired'); }); return 1; }""")
             cur.evaluate("""() => { var sels = [...document.querySelectorAll('select')].filter(s => { var tr = s.closest('tr'); var l = tr ? (tr.innerText || '') : '';
@@ -352,6 +361,10 @@ class MerimenCreate:
                 P.append("policy_cover_option")
             self._pick_model(spec, rep)
             self._need("sleCURINSCOID", spec.ins_coid)
+            if claimant:  # picking the model and the cover re-draws parts of the form: the two claimant-insurance fields must STILL be enabled and filled
+                held2 = cur.evaluate("""() => ['ddlb3INSCOID', 'sleTPPOLNO'].map(n => { var e = document.querySelector('[name=' + n + ']'); return e ? [!e.disabled, !!e.value] : [false, false]; })""")
+                if not all(en and has for en, has in held2) and "claimant_insurance_not_set" not in P:
+                    P.append("claimant_insurance_not_set")
             after = cur.evaluate(_CHK)
             if after.get("cur") != spec.ins_coid:
                 P.append("handling_insurer")
@@ -412,6 +425,18 @@ class MerimenCreate:
                 return self._save(spec, rep)
             except Exception:  # noqa: BLE001
                 # Next may already have been pressed: this is never "try again" (a retry could make a second case)
+                if not rep.case_id:  # a page that was moving made an evaluate fail: the address may already hold the case number
+                    try:
+                        u = self.cur.url or ""
+                        m = re.search(r"caseid=(\d+)", u, re.I) if "adjclmref" in u else None
+                        if m:
+                            rep.case_id = m.group(1)
+                            e = re.search(r"extid=(\d+)", u, re.I)
+                            rep.ext_id = e.group(1) if e else None
+                            if self.on_created:
+                                self.on_created(rep.case_id, rep.ext_id)
+                    except Exception:  # noqa: BLE001
+                        pass
                 if rep.case_id:
                     rep.ok, rep.note = True, rep.note or "manager_adjuster_not_set"
                 else:
@@ -454,7 +479,7 @@ class MerimenCreate:
         url = cur.url or ""
         # a slow Merimen still shows the form while it saves: wait (up to ~20 s more) for the page to move or to say why it will not
         for _ in range(10):
-            if not re.search(r"act_clmreg|dsp_clmreg", url) or self.unexpected or [m for m in cur.evaluate(_MSGS) if m not in pre] or cur.evaluate(
+            if not re.search(r"act_clmreg|dsp_clmreg", url) or self.unexpected or _new_msgs(cur.evaluate(_MSGS), pre) or cur.evaluate(
                     "(rx) => new RegExp(rx, 'i').test(document.body.innerText || '')", DUP.pattern):
                 break
             w(2000)
@@ -469,7 +494,7 @@ class MerimenCreate:
                 # the owner's script confirms this warning; a retry after a crash would also land here, so the worker stops and a person decides
                 rep.ok, rep.code = False, "duplicate_warning"
                 return rep
-            rep.messages = [m[:160] for m in cur.evaluate(_MSGS) if m not in pre]
+            rep.messages = [m[:160] for m in _new_msgs(cur.evaluate(_MSGS), pre)]
             if not rep.messages:  # still the form but nothing NEW says why: the save may still be running, so the mark stays
                 rep.ok, rep.code = False, "create_unclear"
                 rep.messages = ["still on the create form, no new reason shown"]

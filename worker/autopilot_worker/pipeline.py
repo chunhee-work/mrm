@@ -180,6 +180,9 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
         if saved.fatal and saved.line:
             return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"Phase {phase} not saved. {saved.line}"[:400])
         return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
+    if phase == "A" and saved.partial and case.get("merimen_caseid"):
+        # an earlier run already made it: say so, change nothing else (the status stays where it is, no new milestone)
+        return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}".strip()[:400], partial=True)
     if phase == "A" and saved.partial:
         # the case exists in Merimen now: its number is stored so no second case is made, but nothing after the create is automated yet
         return _o(

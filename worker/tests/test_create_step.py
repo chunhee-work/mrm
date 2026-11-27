@@ -244,3 +244,14 @@ def test_a_workshop_that_is_gone_when_locking_is_a_stop_not_a_retry_and_never_fa
 def test_a_finished_create_tells_the_person_what_to_check_by_hand():
     r, _ = step(case(), live=True, rep=CreateReport(ok=True, case_id="22322999"), marks=Marks())
     assert "check by hand" in (r.line or "")
+
+
+def test_a_case_that_already_exists_is_not_filled_or_made_again_even_in_a_dry_run():
+    for live in (False, True):
+        r, asked = step(case(merimen_caseid="22322999"), live=live)
+        assert r.ok and r.case_id == "22322999" and FakeRun.log == [] and asked == []
+
+
+def test_a_progress_note_after_next_is_not_a_rejection():
+    from autopilot_worker.merimen_create import _new_msgs
+    assert _new_msgs(["Please wait, saving...", "Handling Insurer must be indicated", "static required label"], {"static required label"}) == ["Handling Insurer must be indicated"]

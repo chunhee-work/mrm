@@ -122,3 +122,9 @@ def test_a_two_word_make_is_not_split_in_the_middle():
     from autopilot_worker.create_spec import make_and_model
     assert make_and_model("MERCEDES BENZ C 200 AVANTGARDE") == ("MERCEDES-BENZ", "C 200 AVANTGARDE")
     assert make_and_model("LAND ROVER EVOQUE") == ("LAND ROVER", "EVOQUE")
+
+
+def test_d_c_inside_a_model_is_not_a_make_separator_but_a_tight_make_is():
+    from autopilot_worker.create_spec import make_and_model
+    assert make_and_model("ISUZU D-MAX 3.0 D/C") == ("ISUZU", "D-MAX 3.0 D/C")
+    assert make_and_model("PERODUA/MYVI 1.5") == ("PERODUA", "MYVI 1.5")

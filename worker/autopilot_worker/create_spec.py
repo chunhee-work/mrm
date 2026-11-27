@@ -125,8 +125,10 @@ def is_company(name: str, ident: str = "") -> bool:
 def make_and_model(rc_model: str) -> tuple[str, str]:
     """"PERODUA / MYVI - 1500 SE (AUTO)" -> ("PERODUA", "MYVI - 1500 SE (AUTO)"). No " / ": the first word is tried as the make."""
     t = re.sub(r"\s+", " ", rc_model or "").strip()
-    if "/" in t:
-        a, b = t.split("/", 1)
+    tight = re.match(r"^([A-Za-z\-]{4,12})/(.+)$", t)  # "PERODUA/MYVI": a make written tight; "D/C" inside a model is not a make separator
+    sp = re.split(r"\s+/\s+", t, maxsplit=1) if re.search(r"\s/\s", t) else (list(tight.groups()) if tight else [t])
+    if len(sp) == 2:
+        a, b = sp
         make, model = a.strip().upper(), b.strip()
     else:
         two = " ".join(t.split(" ")[:2]).upper()
