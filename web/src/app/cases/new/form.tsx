@@ -8,7 +8,7 @@ import ScanEdge from "@/components/scan-edge";
 import { kindOf, type FileKind as Kind } from "@/lib/file-kind";
 import { MAX_FILE_BYTES, MAX_FILES, MAX_PDF_BYTES, MAX_TOTAL_BYTES } from "@/lib/upload-rules";
 import { runPool } from "@/lib/pool";
-import { headOf, looksLikePhoto, vehicleFolders, zipNames } from "@/lib/peek-files";
+import { headOf, looksLikePhoto, MAX_VEHICLES, vehicleFolders, zipNames } from "@/lib/peek-files";
 import Link from "next/link";
 import { zipWhyKey } from "@/lib/case-text";
 import { takeDropped } from "@/lib/dropped-files";
@@ -41,7 +41,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
   const [ups, setUps] = useState<Record<number, number>>({}); // per-file progress while several upload at once
   const ledger = useRef<HTMLUListElement>(null);
   const zipPdf = useRef<Map<string, boolean | null>>(new Map()); // R2-B10: does each chosen zip hold a PDF (null: cannot tell)
-  const zipCars = useRef<Map<string, string[]>>(new Map()); // vehicle folders of each chosen zip: more than one is refused at once
+  const zipCars = useRef<Map<string, string[] | null>>(new Map()); // vehicle folders of each chosen zip (null: its file list could not be read)
   const leaving = useRef(false); // R2-B01: set once the case exists, so our own redirect never trips the leave guard
 
   // keep the file being uploaded in view inside the ledger
@@ -78,7 +78,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       if (k === "bundle_zip" && f.size > 0) {
         const names = await zipNames(f);
         zipPdf.current.set(keyOf(f), names ? names.some((n) => /\.pdf$/i.test(n) && !/(^|\/)(__MACOSX\/|\._)/.test(n) && !n.endsWith("/")) : null);
-        zipCars.current.set(keyOf(f), names ? vehicleFolders(names) : []);
+        zipCars.current.set(keyOf(f), names ? vehicleFolders(names) : null);
       }
     }));
     const ok = typed.filter((f) => {
@@ -112,6 +112,10 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
     }
     const multi = files.find((f) => kindOf(f) === "bundle_zip" && (zipCars.current.get(keyOf(f))?.length ?? 0) > 1);
     if (multi && files.length > 1) { setMsg(t("new.zipMultiAlone", { name: multi.name })); return; }
+    if (multi && zipCars.current.get(keyOf(multi))!.length > MAX_VEHICLES) { setMsg(t("case.err.zip_too_many_cars")); return; }
+    // a zip alone whose file list the browser could not read (zip64, a damaged list) may still hold several cars: the server
+    // looks first, and when it is not a multi-car zip it becomes one ordinary case below
+    const unknown = !multi && files.length === 1 && kindOf(files[0]) === "bundle_zip" && zipCars.current.get(keyOf(files[0])) === null;
     // the server refuses more files or more bytes than this; say so now instead of after everything went up
     if (files.length > MAX_FILES) { setMsg(t("new.tooMany", { max: String(MAX_FILES), n: String(files.length) })); return; }
     const bytes = files.reduce((s, f) => s + f.size, 0);
@@ -136,16 +140,16 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         setUps((u) => ({ ...u, [i]: 100 })); finished++; setStep(finished);
       });
       uploading = false; setStep(files.length);
-      if (multi) { // one zip, several vehicles: the server makes one case per vehicle
+      if (multi || unknown) { // one zip, several vehicles: the server makes one case per vehicle
         const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(done[0]) });
-        if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
-        if (!sp.ok) {
-          const j = (await sp.json().catch(() => ({}))) as { why?: string };
-          setMsg(j.why ? t(zipWhyKey(j.why)) : t("new.splitFail")); setStep(-1); setBusy(false); return;
+        const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
+        if (!(unknown && sp.status === 422 && j?.error === "empty")) { // "empty": not a multi-car zip, so it is one ordinary case
+          if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
+          if (!sp.ok) { setMsg(j?.why ? t(zipWhyKey(j.why)) : t("new.splitFail")); setStep(-1); setBusy(false); return; }
+          leaving.current = true;
+          window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
+          return;
         }
-        leaving.current = true;
-        window.location.href = "/dashboard"; // the new cases are listed there and start reading by themselves
-        return;
       }
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }

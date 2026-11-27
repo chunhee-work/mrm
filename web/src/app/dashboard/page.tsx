@@ -10,7 +10,7 @@ import CaseTable, { type CaseRow } from "@/components/app/case-table";
 import Home, { type HomeCounts } from "@/components/app/home";
 import { bucketOf, VIEWS, type View } from "@/components/app/status";
 import { after } from "next/server";
-import { scanCase } from "@/lib/scan-case";
+import { leaseTime, scanCase, STALE_MS } from "@/lib/scan-case";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a few waiting cases are read after the page is sent
@@ -33,8 +33,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       .orderBy(desc(schema.cases.createdAt)).limit(1000)
     : [];
   // Self-heal, as on the case page: a case still `uploaded` a minute after it was made never got its read started.
-  const waiting = newest.filter((c) => c.status === "uploaded" && Date.now() - c.createdAt.getTime() > 60_000).slice(0, HEAL_PER_VISIT);
-  if (waiting.length) after(async () => { await Promise.all(waiting.map((c) => scanCase(c.id, "auto").catch(() => {}))); });
+  // A read cut off by a time limit (a split's own reads share its 300 s) stays `reading`: after STALE_MS it is started again, as
+  // the case page does. At most HEAL_PER_VISIT reads of this organisation run at once, counting the live ones.
+  const now = Date.now();
+  const stale = (c: (typeof newest)[number]) => c.status === "reading" && now - (leaseTime(c.error) ?? c.createdAt.getTime()) > STALE_MS;
+  const live = newest.filter((c) => c.status === "reading" && !stale(c)).length;
+  const heal = [
+    ...newest.filter(stale).map((c) => () => scanCase(c.id, "recover", c.error)),
+    ...newest.filter((c) => c.status === "uploaded" && now - c.createdAt.getTime() > 60_000).map((c) => () => scanCase(c.id, "auto")),
+  ].slice(0, Math.max(0, HEAL_PER_VISIT - live));
+  if (heal.length) after(async () => { await Promise.all(heal.map((run) => run().catch(() => {}))); });
   const have = new Set(newest.map((c) => c.id));
   const rows = [...newest, ...older.filter((c) => !have.has(c.id))];
   // only what the count and the table show: which case, whether it is done, and what (if anything) it is missing
