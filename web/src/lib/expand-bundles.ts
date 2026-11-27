@@ -30,9 +30,9 @@ export async function expandBundles(caseId: string, orgId: string): Promise<numb
       return name;
     });
     // One blob store call takes about 1.5 s, so 80 photos one after the other used up most of the call's 300 seconds (a slow day ran
-    // out: the case stayed on "Reading documents"). Six at a time; the rows keep the zip's order.
+    // out: the case stayed on "Reading documents"). Sixteen at a time; the rows keep the zip's order.
     const opened: (typeof schema.caseFiles.$inferInsert)[] = new Array(entries.length);
-    await runPool(entries.length, 6, async (i) => {
+    await runPool(entries.length, 16, async (i) => {
       const e = entries[i];
       const b = await put(`${orgId}/${caseId}${marker}${names[i]}`, Buffer.from(e.bytes), { access: "private", contentType: e.type, addRandomSuffix: false, allowOverwrite: true });
       opened[i] = { caseId, kind: e.kind, blobUrl: b.url, originalName: names[i], size: e.bytes.length };

@@ -60,17 +60,17 @@ async function main() {
   const { importCasePhotos } = await import("../src/lib/photos/import-files");
 
   const tests: [string, () => Promise<void>][] = [
-    ["a zip with many files is stored several at a time (80 serial puts of ~1.5 s ran out the 300 s call), rows keep the zip order", async () => {
+    ["a zip with many files is stored up to 16 at a time (80 serial puts of ~1.5 s ran out the 300 s call), rows keep the zip order", async () => {
       const id = await newCase();
       const pdf = strToU8("%PDF-1.4 x");
       const entries: Record<string, Uint8Array> = { "claim/rc.pdf": pdf };
-      for (let i = 0; i < 30; i++) entries[`claim/photos/p${String(i).padStart(2, "0")}.jpg`] = new Uint8Array([0xff, 0xd8, i]);
+      for (let i = 0; i < 40; i++) entries[`claim/photos/p${String(i).padStart(2, "0")}.jpg`] = new Uint8Array([0xff, 0xd8, i]);
       await addFile(id, "bundle_zip", "big.zip", Buffer.from(zipSync(entries)));
       putDelay = 40; maxInflight = 0;
       const t0 = Date.now();
-      try { assert.equal(await expandBundles(id, ORG), 31); } finally { putDelay = 0; }
-      assert.ok(maxInflight > 1 && maxInflight <= 6, `puts overlap, at most 6 (got ${maxInflight})`);
-      assert.ok(Date.now() - t0 < 31 * 40 * 0.6, "faster than one after the other");
+      try { assert.equal(await expandBundles(id, ORG), 41); } finally { putDelay = 0; }
+      assert.ok(maxInflight > 1 && maxInflight <= 16, `puts overlap, at most 16 (got ${maxInflight})`);
+      assert.ok(Date.now() - t0 < 41 * 40 * 0.4, "faster than one after the other");
       const names = (await files(id)).filter((f) => f.kind === "photo").map((f) => f.originalName);
       assert.deepEqual(names, Object.keys(entries).filter((k) => k.endsWith(".jpg")).map((k) => k.split("/").pop()));
     }],
