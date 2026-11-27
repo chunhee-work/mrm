@@ -41,13 +41,33 @@ export async function zipHasPdf(file: Sliceable): Promise<boolean | null> {
 /** A Malaysian car plate as people name folders: "DCD4004", "QAT110", "TBD 8129", "WA1234B". Words like "Policy" or dates are not. */
 export const PLATE_LIKE = /^[A-Z]{1,3}[\s-]?\d{1,4}[\s-]?[A-Z]{0,2}$/i;
 
+/** Most cars one zip may be split into (the browser refuses more before uploading; the server checks again). */
+export const MAX_VEHICLES = 30;
+
+// Short words people number folders with ("Doc1", "Car 2", "Set 3", "Day 1"): with 1-2 digits and no letters after, not a plate.
+const NUMBERED_WORD = new Set(["DOC", "PDF", "CAR", "SET", "IMG", "PIC", "PIX", "NO", "VOL", "DAY", "PG", "PT", "PHO", "VID", "REF", "INV", "FIG", "TAB", "RPT", "SCN", "ID"]);
+const MONTH = new Set(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]);
+
+/** A folder name that is a car plate: PLATE_LIKE, but not a numbered word ("Doc1", "Car 2") or a month and year ("Nov 2026"). */
+export function isPlate(name: string): boolean {
+  const m = name.match(/^([A-Z]{1,3})[\s-]?(\d{1,4})[\s-]?([A-Z]{0,2})$/i);
+  if (!m) return false;
+  const [, letters, digits, tail] = m;
+  const w = letters.toUpperCase();
+  if (NUMBERED_WORD.has(w) && digits.length <= 2 && !tail) return false;
+  if (MONTH.has(w) && /^(19|20)\d\d$/.test(digits) && !tail) return false;
+  return true;
+}
+
 /**
  * The vehicle folders of a zip: top-level folders named like a car plate that each hold their own PDF ("DCD4004/…pdf").
  * One folder wrapping everything is looked through. Folders named by what they hold ("Docs/", "Policy/", "Photos/") are
- * never vehicles, so a one-car zip sorted into such folders stays one case.
+ * never vehicles, so a one-car zip sorted into such folders stays one case. Names only: a car whose PDFs are all empty files is
+ * dropped later, by planVehicles, which sees the sizes.
  */
 export function vehiclePrefixes(names: string[]): string[] {
-  const usable = names.filter((n) => !n.endsWith("/") && !n.startsWith("__MACOSX/") && !(n.split("/").pop() ?? "").startsWith("."));
+  // only what a case takes counts, also for "one wrapping folder": a readme.txt or a hidden folder (".x/") next to it changes nothing
+  const usable = names.filter((n) => !n.endsWith("/") && !n.startsWith("__MACOSX/") && !n.split("/").some((p) => p.startsWith(".")) && /\.(pdf|jpe?g|png|webp|heic)$/i.test(n));
   const split = (depth: number) => {
     const g = new Map<string, boolean>();
     for (const n of usable) { const parts = n.split("/"); if (parts.length <= depth + 1) continue; const k = parts.slice(0, depth + 1).join("/") + "/"; g.set(k, (g.get(k) ?? false) || /\.pdf$/i.test(n)); }
@@ -55,7 +75,7 @@ export function vehiclePrefixes(names: string[]): string[] {
   };
   let g = split(0);
   if (g.size === 1) g = split(1); // everything sits in one wrapping folder
-  return [...g].filter(([k, hasPdf]) => hasPdf && PLATE_LIKE.test(k.slice(0, -1).split("/").pop() ?? "")).map(([k]) => k);
+  return [...g].filter(([k, hasPdf]) => hasPdf && isPlate(k.slice(0, -1).split("/").pop() ?? "")).map(([k]) => k);
 }
 
 /** Just the folder names (the plates) of vehiclePrefixes. */

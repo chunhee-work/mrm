@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { splitRunning } from "@/lib/split-marks";
 import { after } from "next/server";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -46,7 +47,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const since = leaseTime(c.error) ?? lastEvent;
   const stale = c.status === "reading" && Date.now() - since > STALE_MS;
   if (stale) after(() => scanCase(id, "recover", c.error));
-  else if (c.status === "uploaded" && Date.now() - c.createdAt.getTime() > 60_000) after(() => scanCase(id, "auto"));
+  else if (c.status === "uploaded" && Date.now() - c.createdAt.getTime() > 60_000 && !(await splitRunning(orgId))) after(() => scanCase(id, "auto")); // a running split may still roll this case back
   const d = normalizeCaseData(c.caseData);
   const [dk] = await db.select({
     total: sql<number>`count(*)::int`,
