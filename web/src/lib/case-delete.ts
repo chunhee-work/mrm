@@ -17,7 +17,7 @@ export type DeleteResult = { ok: true; refunded: boolean } | { ok: false; reason
 /**
  * Soft delete, one statement for the decision: the old status, "never sent to Merimen" and "no running job" are checked inside one
  * UPDATE that locks the case row, so a read or a status change in between cannot slip past it and the refund rule below uses the status
- * the UPDATE really matched. (The worker's claim locks the case row too (FOR UPDATE OF j, c SKIP LOCKED), so a claim skips a case this UPDATE holds; but if a claim commits first, the UPDATE's running-job check reads its own snapshot and can still miss it: the job then runs on a hidden case, whose write-backs the worker skips, and later claims skip it.) Then queued jobs are cancelled and an unread case's credit is
+ * the UPDATE really matched. (The worker's claim locks the case row too (FOR NO KEY UPDATE OF j, c SKIP LOCKED), so a claim skips a case this UPDATE holds; but if a claim commits first, the UPDATE's running-job check reads its own snapshot and can still miss it: the job then runs on a hidden case, whose write-backs the worker skips, and later claims skip it.) Then queued jobs are cancelled and an unread case's credit is
  * given back once (refundCase counts debits against refunds).
  */
 export async function deleteCase(orgId: string, userId: string, caseId: string): Promise<DeleteResult> {
