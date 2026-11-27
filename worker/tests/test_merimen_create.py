@@ -246,9 +246,21 @@ def test_a_field_that_is_not_on_the_form_is_a_problem_and_nothing_is_saved(brows
 
 def test_an_error_after_next_is_never_a_retry(browser, monkeypatch):
     ctx, base, _ = site(browser)
-    monkeypatch.setattr(MerimenCreate, "_save", lambda self, spec, rep: (_ for _ in ()).throw(RuntimeError("boom")))
+    def boom(self, spec, rep):
+        self.pressed = True  # the click went out; then something broke
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(MerimenCreate, "_save", boom)
     rep = MerimenCreate(base, timeout_scale=0.02).create(spec())
     assert not rep.ok and rep.code == "create_unclear"
+    ctx.close()
+
+
+def test_an_error_before_the_click_is_a_retryable_form_error(browser, monkeypatch):
+    ctx, base, _ = site(browser)
+    monkeypatch.setattr(MerimenCreate, "_save", lambda self, spec, rep: (_ for _ in ()).throw(RuntimeError("boom")))
+    rep = MerimenCreate(base, timeout_scale=0.02).create(spec())
+    assert not rep.ok and rep.code == "form_error"
     ctx.close()
 
 
@@ -399,3 +411,9 @@ def test_an_ok_box_inside_the_form_table_that_asks_to_proceed_is_never_clicked(b
         assert not rep.ok and rep.code == "unexpected_dialog" and not rep.cleared
     finally:
         ctx.close()
+
+
+def test_a_one_word_manager_name_never_picks_by_partial_match():
+    from autopilot_worker.merimen_create import pick_person
+    assert pick_person([("1", "(HQ) Tan Ah Kow")], "Tan") is None
+    assert pick_person([("1", "(HQ) Tan Ah Kow")], "Tan Ah") == "1"

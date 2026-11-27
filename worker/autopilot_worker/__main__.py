@@ -31,7 +31,7 @@ class _CdpDriver(Driver):
     def _create(self, live: bool):
         from .create_step import run_create_step
 
-        return run_create_step(self.case or {}, profile=self.profile, workshop=self.workshop, page_for=self.page_for, live=live, progress=self.progress, record=self.record, marks=self.marks() if live and self.marks else None)
+        return run_create_step(self.case or {}, profile=self.profile, workshop=self.workshop, page_for=(lambda org: self.page_for(org, strict=True)) if getattr(self, 'strict_tabs', True) and live is not None else self.page_for, live=live, progress=self.progress, record=self.record, marks=self.marks() if live and self.marks else None)
 
     def dry_run(self, phase: str, steps: tuple):
         from .pipeline import DriveResult
@@ -117,7 +117,9 @@ def _page_provider(cfg: Config):
     Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
     state: dict = {}
 
-    def page_for(org_id: str):
+    def page_for(org_id: str, strict: bool = False):
+        """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address);
+        none or several = None, so the case waits instead of opening the form with a guessed session."""
         account = account_for(org_id, cfg.accounts, cfg.org_accounts)
         if not account:
             return None
@@ -129,6 +131,11 @@ def _page_provider(cfg: Config):
                 pw = sync_playwright().start()
                 state[port] = (pw, pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}"))
             browser = state[port][1]
+            if strict:
+                from .merimen_create import session_query
+
+                found = [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
+                return found[0] if len(found) == 1 else None
             for ctx in browser.contexts:
                 for page in ctx.pages:
                     if "merimen.com.my" in (page.url or ""):
@@ -147,6 +154,8 @@ def _page_provider(cfg: Config):
 
 def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
+    if cfg.live_writes and cfg.org_limit > 1:  # one create at a time is the supported setup: refuse to start, change no case
+        raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1: set ORG_CONCURRENCY=1 and start again")
     repo = PgRepo(cfg.database_url, cfg.db_transport)
     script = os.path.join(os.path.dirname(__file__), "..", "cdp.mjs")
     page_for = _page_provider(cfg)

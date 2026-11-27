@@ -60,7 +60,7 @@ def pick_person(options: list[tuple[str, str]], name: str) -> str | None:
             partial.append(value)
     if exact:
         return min(exact, key=lambda x: x[0])[1]  # min keeps the first of equals
-    return partial[0] if len(partial) == 1 else None
+    return partial[0] if len(partial) == 1 and len(want.split()) >= 2 else None  # a one-word name ("Tan") never picks by partial match
 
 
 def pick_workshop_row(rows: list[str], name: str) -> tuple[int | None, str]:
@@ -433,9 +433,13 @@ class MerimenCreate:
         try:
             if not rep.ok:
                 return rep
+            self.pressed = False
             try:
                 return self._save(spec, rep)
             except Exception:  # noqa: BLE001
+                if not self.pressed:  # the mark is written and Next is clicked only after this flag is set: nothing happened, a retry is safe
+                    rep.ok, rep.code = False, "form_error"
+                    return rep
                 # Next may already have been pressed: this is never "try again" (a retry could make a second case)
                 if not rep.case_id:  # a page that was moving made an evaluate fail: the address may already hold the case number
                     try:
@@ -485,6 +489,7 @@ class MerimenCreate:
             if stop:
                 rep.ok, rep.code = False, stop
                 return rep
+        self.pressed = True  # from here on an error means "Next may have gone out"
         try:
             nxt.first.click(force=True, timeout=4000)
         except Exception:  # noqa: BLE001  (a slow click may already have gone out: never submit a second time)
