@@ -60,15 +60,6 @@ export default function Settings({ email, company }: { email: string; company: s
           </div>
         </section>
 
-        {/* the Merimen login and workshop details live on the front page (owner 2026-11-27); one link here, no second form */}
-        <section aria-labelledby="set-merimen">
-          <h2 id="set-merimen" className="label mb-3">{t("pf.title")}</h2>
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[4px] border border-hair bg-panel px-4 py-3">
-            <p className="min-w-0 flex-1 basis-[260px] text-[14.5px] text-mute">{t("pf.settingsSub")}</p>
-            <Link href="/dashboard" className="btn-line !h-11">{t("pf.edit")}</Link>
-          </div>
-        </section>
-
         <section aria-labelledby="set-pw">
           <h2 id="set-pw" className="label mb-3">{t("set.password")}</h2>
           {/* rarely needed: one row with one button until it is opened */}

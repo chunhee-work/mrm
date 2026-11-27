@@ -22,3 +22,7 @@ test("no app host configured, or one that is not app.<domain> over https: nothin
     assert.equal(accountRedirect("example.com", "/login", "", auth), null, auth);
   }
 });
+
+test("the details page opens on the app host too", () => {
+  assert.equal(accountRedirect("example.com", "/details", "", AUTH), "https://app.example.com/details");
+});

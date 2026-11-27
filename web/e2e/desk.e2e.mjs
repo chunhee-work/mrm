@@ -417,16 +417,24 @@ try {
     assert.ok(lines.length >= 4, `the four cases are listed: ${lines.length}`);
     for (const t of lines) { assert.doesNotMatch(t, /\b1 photos\b/); assert.ok((t.match(/✓/g) ?? []).length === 0, `a tick inside the text: ${t}`); }
     // the table has no "New case" of its own, so the bar keeps it there
-    assert.equal(await page.getByTestId("new-case").count(), 1, "New case in the bar of the table");
-    // the first page (owner 2026-11-22): welcome, search, two buttons and the count; a row of the count opens its table
+    assert.equal(await page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').count(), 1, "one New case shows above the table");
+    // the first page (owner 2026-11-22, reworked 2026-11-27): welcome, search, two buttons, and every open case with its own step bar
     await page.goto(`${BASE}/dashboard`);
     assert.match(await page.getByTestId("home-welcome").innerText(), /E2E Tester/);
-    for (const id of ["home-search", "home-new", "home-closed", "home-open", "home-total"]) assert.equal(await page.getByTestId(id).count(), 1, id);
+    for (const id of ["home-search", "home-new", "home-closed", "home-open", "home-list"]) assert.equal(await page.getByTestId(id).count(), 1, id);
     // nothing twice (owner 2026-11-22): one "New case" (the page's, not the bar's) and one "Billing" (the bar's, not the page's)
-    assert.equal(await page.getByTestId("new-case").count(), 0, "no second New case in the bar of the first page");
+    assert.equal(await page.locator('[data-testid="new-case"], [data-testid="new-case-wide"]').count(), 0, "no second New case in the bar of the first page");
     assert.equal(await page.getByTestId("home-billing").count(), 0, "no Billing button on the first page");
     assert.equal(await page.locator('a[href="/cases/new"]').count(), 1, "one way to a new case");
-    assert.equal(await page.getByTestId("case-table").count(), 0, "no case list on the first page");
+    // a one-step table still opens by its address, and its back link returns to the first page
+    await page.goto(`${BASE}/dashboard?view=docs`);
+    await page.getByTestId("case-table").waitFor();
+    await page.getByTestId("list-back").click();
+    await page.waitForURL(/\/dashboard$/);
+    await page.getByTestId("home-list").waitFor();
+    assert.equal(await page.getByTestId("case-table").count(), 0, "no separate case table on the first page");
+    assert.ok(await page.getByTestId("step-dots").count() >= 1, "each open case shows its step bar");
+    assert.equal(await page.getByTestId("step-dots").count(), await page.getByTestId("home-list").locator(":scope > li").count(), "one step bar per case");
     // files dragged onto the first page: a full-page overlay while they hover, a text drag shows nothing,
     // the overlay clears on its own if the browser misses the dragleave, and a drop opens New case with the files
     const drag = (type, kind = "file") => page.evaluate(([type, kind]) => {
@@ -471,7 +479,7 @@ try {
     await page.goto(`${BASE}/cases/new?dropped=1`);
     await page.getByText(/did not arrive|没有带过来|tidak sampai/).waitFor();
     // a drop with a file left out does not send: the note stays and Upload waits for a press
-    await page.goto(`${BASE}/dashboard`);
+    await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" }); // the page listens for drops once it has loaded
     await page.getByTestId("home-new").waitFor();
     let sent = 0;
     await page.route("**/api/cases/credit*", (r) => { sent++; return r.fulfill({ status: 402, body: "{}" }); });
@@ -543,7 +551,7 @@ try {
     await page.getByText("first-drop.pdf").waitFor();
     // the New case of the top bar (on the case table) opens the picker too
     await page.goto(`${BASE}/dashboard?view=all`, { waitUntil: "networkidle" });
-    const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
+    const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').first().click()]); // wide screens: the row above the page
     await page.waitForTimeout(500);
     assert.match(page.url(), /view=all/, "the picker opens in place");
     assert.equal(await page.getByTestId("nav-progress").count(), 0, "no progress bar while the picker is open");
@@ -552,7 +560,7 @@ try {
     await page.waitForTimeout(500);
     assert.match(page.url(), /view=all/, "picking nothing stays put");
     assert.equal(sent, 0, "picking nothing sends nothing");
-    const [chooser3] = await Promise.all([page.waitForEvent("filechooser"), page.getByTestId("new-case").click()]);
+    const [chooser3] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[data-testid="new-case"]:visible, [data-testid="new-case-wide"]:visible').first().click()]); // wide screens: the row above the page
     await chooser3.setFiles([{ name: "bar.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") }]);
     await page.waitForURL(/\/cases\/new$/);
     await page.getByText("bar.pdf").waitFor();
@@ -561,13 +569,34 @@ try {
     assert.equal(sent, 1, "files picked from the bar's New case are sent too");
     await page.unroute("**/api/cases/credit*");
     await page.goto(`${BASE}/dashboard`);
-    const docs = page.locator('[data-bucket="docs"] a');
-    assert.match(await docs.innerText(), /^\s*[1-9]/, "the count of cases waiting for documents");
-    await docs.click();
-    await page.waitForURL(/view=docs/);
-    assert.ok(await page.getByTestId("case-table").locator("li").count() >= 1);
-    await page.getByTestId("list-back").click();
-    await page.waitForURL((u) => u.pathname === "/dashboard" && !u.search);
+    // every job is done on this page (owner 2026-11-27: "all done in the first page, never jump to others pages"):
+    // the photo button opens the line with the photo desk inside it
+    for (const tag of await page.getByTestId("home-act").evaluateAll((els) => els.map((e) => e.tagName))) assert.equal(tag, "BUTTON", "no action button leaves the first page");
+    const photoLine = page.getByTestId("home-list").locator(":scope > li[data-bucket=photos]").first();
+    assert.ok(await photoLine.count(), "a case with photos to name is on the first page"); // not skipped when missing: the check must really run
+    {
+      await photoLine.getByTestId("home-act").click();
+      await photoLine.getByTestId("home-desk").getByTestId("done-btn").waitFor();
+      assert.equal(new URL(page.url()).pathname, "/dashboard", "the photo desk opens inside the line");
+      await photoLine.getByTestId("home-row").click();
+      await photoLine.getByTestId("home-desk").waitFor({ state: "detached" });
+    }
+    // a press on a line opens its details right there (owner 2026-11-27: "by clicking the whole box can open it down"); a second press closes them
+    const row = page.getByTestId("home-row").first();
+    await row.click();
+    await page.getByTestId("home-more").waitFor();
+    assert.equal(await row.getAttribute("aria-expanded"), "true");
+    assert.match(await page.getByTestId("home-open-case").getAttribute("href"), /^\/cases\/[^/]+$/, "the details lead into the case page");
+    assert.equal(new URL(page.url()).pathname, "/dashboard", "opening the details stays on the first page");
+    await row.click();
+    await page.getByTestId("home-more").waitFor({ state: "detached" });
+    const rows0 = await page.getByTestId("home-list").locator(":scope > li").count();
+    // typing narrows the list on this page at once, no trip to another page
+    await page.getByTestId("home-search").locator("input").fill("zz-no-such-plate");
+    await page.getByTestId("home-empty").waitFor();
+    assert.equal(new URL(page.url()).search, "", "typing stays on the first page");
+    await page.getByTestId("home-search").locator("input").fill("");
+    assert.equal(await page.getByTestId("home-list").locator(":scope > li").count(), rows0);
     await page.getByTestId("home-search").locator("input").fill("e2ed");
     await page.getByTestId("home-search").locator("button").click();
     await page.waitForURL(/q=e2ed/);
@@ -703,6 +732,39 @@ try {
       assert.ok(await page.getByTestId("case-log").isVisible(), "the activity list is open without a click");
     } finally { await db.query(`DELETE FROM cases WHERE id = $1`, [Y]); }
   });
+  await step("side bar (owner 2026-11-27): folds to icons and stays folded on the next page; the account menu works by keyboard", async () => {
+    await page.goto(`${BASE}/dashboard`);
+    const bar = page.getByTestId("side-bar");
+    await bar.waitFor();
+    // the account menu: ArrowDown opens it on its first item, Escape gives the focus back to the account row
+    const acct = page.getByTestId("side-account").locator('button[aria-haspopup="menu"]');
+    await acct.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.locator("#account-menu").waitFor();
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("role")), "menuitem", "focus on the first item");
+    await page.keyboard.press("Escape");
+    await page.locator("#account-menu").waitFor({ state: "detached" });
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-haspopup")), "menu", "focus back on the account row");
+    // fold: a thin strip, remembered in a cookie for the next page; the logo opens it again
+    const wide = (await bar.boundingBox()).width;
+    await page.getByTestId("side-fold").click();
+    await page.waitForFunction(() => document.cookie.includes("side=thin"));
+    await page.goto(`${BASE}/billing`);
+    await bar.waitFor();
+    assert.ok((await bar.boundingBox()).width < wide / 2, "still folded on the next page");
+    await page.getByTestId("side-fold").click();
+    await page.waitForFunction(() => document.cookie.includes("side=wide"));
+  });
+
+  await step("Cases page: only one line open at a time", async () => {
+    await page.goto(`${BASE}/dashboard`);
+    const rows = page.getByTestId("home-row");
+    assert.ok((await rows.count()) >= 2, "two open cases to try");
+    await rows.nth(0).click();
+    await rows.nth(1).click();
+    assert.equal(await page.locator('[data-testid="home-row"][aria-expanded="true"]').count(), 1, "one line open");
+  });
+
   await step("signed out while naming (session ended in another tab): the desk says so once and offers to log in again, back to this case", async () => {
     await page.goto(`${BASE}/cases/${B}/photos`);
     await page.locator("article[data-pid]").first().waitFor();

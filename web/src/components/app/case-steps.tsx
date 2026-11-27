@@ -2,7 +2,11 @@
 import Link from "next/link";
 import { useT } from "@/components/lang-provider";
 import { Tick } from "@/components/app/marks";
-import { stepsOf, type StepId } from "@/lib/case-steps";
+import { STEP_IDS, stepsOf, type StepId, type StepState } from "@/lib/case-steps";
+
+/** One colour rule for every step circle: green done, amber the step a case waits at, red a step that failed, grey later. */
+export const circleOf = (s: { state: StepState; open: boolean }, failedHere: boolean) =>
+  s.state === "complete" ? "bg-go text-bay" : failedHere ? "bg-[#dc2626] text-white" : s.state === "current" ? "bg-amber text-bay" : s.open ? "border border-dashed border-mute bg-panel text-fg" : "bg-panel2 text-mute";
 
 const HREF = (id: string, step: StepId) => (step === "photos" ? `/cases/${id}/photos` : `/cases/${id}`);
 
@@ -20,7 +24,7 @@ export default function CaseSteps({ caseId, status, photos, photosDone, here, hi
         {steps.map((s, i) => {
           const on = s.id === (here ?? current);
           const failedHere = status === "failed" && s.state === "current";
-          const circle = s.state === "complete" ? "bg-go text-bay" : failedHere ? "bg-[#dc2626] text-white" : s.state === "current" ? "bg-amber text-bay" : s.open ? "border border-dashed border-mute bg-panel text-fg" : "bg-panel2 text-mute";
+          const circle = circleOf(s, failedHere);
           const label = on || s.state === "current" ? "font-semibold text-fg" : s.state === "complete" ? "font-medium text-fg" : "text-mute";
           const body = (
             <>
@@ -50,5 +54,47 @@ export default function CaseSteps({ caseId, status, photos, photosDone, here, hi
       </ol>
       {hint && <p className="mt-1.5 text-[13.5px] text-mute" data-testid="steps-next">{t(status === "failed" ? "steps.next.failed" : current === "merimen" && status === "checking" ? "case.pp.next.checking" : `steps.next.${current}`)}</p>}
     </nav>
+  );
+}
+
+/**
+ * The same step bar, small and without words, for one case on the first page. The step names are written once, above the list,
+ * so they are not repeated on every case. Read out loud it still says which step the case is on.
+ */
+export function StepDots({ status, photos, photosDone, busy = false, className = "" }: { status: string; photos: number; photosDone: boolean; busy?: boolean; className?: string }) {
+  const { t } = useT();
+  const steps = stepsOf({ status, photos, photosDone });
+  const cur = steps.find((s) => s.state === "current");
+  const say = status === "done" ? t("steps.done") : cur ? `${t(`steps.${cur.id}`)}${status === "failed" ? ` (${t("steps.failed")})` : ""}` : "";
+  return (
+    <ol className={`flex items-center ${className}`} aria-label={`${t("steps.label")}: ${say}`} data-testid="step-dots">
+      {steps.map((s, i) => {
+        const failedHere = status === "failed" && s.state === "current";
+        return (
+          <li key={s.id} aria-hidden="true" className="relative flex min-w-0 flex-1 justify-center" data-state={failedHere ? "failed" : s.state}>
+            {i > 0 && <span className={`absolute left-0 top-1/2 h-[3px] w-1/2 -translate-y-1/2 ${steps[i - 1].state === "complete" ? "bg-go" : "bg-hair2"}`} />}
+            {i < steps.length - 1 && (
+              <span className={`absolute right-0 top-1/2 h-[3px] w-1/2 -translate-y-1/2 overflow-hidden ${s.state === "complete" ? "bg-go" : "bg-hair2"}`}>
+                {/* the system is working on this step: a light runs along the line towards the next step */}
+                {busy && s.state === "current" && <span className="step-flow absolute inset-y-0 left-0 w-2/5 bg-gradient-to-r from-transparent via-amber to-transparent" />}
+              </span>
+            )}
+            <span className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold ${circleOf(s, failedHere)} ${busy && s.state === "current" ? "step-breathe" : ""}`}>
+              {s.state === "complete" ? <Tick className="h-3 w-3" /> : failedHere ? "!" : i + 1}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** The step names once, lined up over a column of StepDots. */
+export function StepHeads({ className = "" }: { className?: string }) {
+  const { t } = useT();
+  return (
+    <div aria-hidden="true" className={`flex ${className}`}>
+      {STEP_IDS.map((id) => <span key={id} className="min-w-0 flex-1 px-0.5 text-center leading-tight [overflow-wrap:anywhere]">{t(`steps.${id}`)}</span>)}
+    </div>
   );
 }

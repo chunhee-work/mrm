@@ -23,7 +23,8 @@ export function useFileDrag(enabled: boolean, onFiles: (files: File[]) => void) 
     if (!enabled) {
       // still catch a file dropped while busy (uploading), or the browser would open it and leave the page
       setOver(false);
-      const block = (e: DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "none"; };
+      // a part of the page that takes files itself (the photo desk inside a first-page line) is left alone
+      const block = (e: DragEvent) => { if (!hasFiles(e) || (e.target as Element | null)?.closest?.("[data-embedded]")) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "none"; };
       window.addEventListener("dragover", block);
       window.addEventListener("drop", block);
       return () => { window.removeEventListener("dragover", block); window.removeEventListener("drop", block); };

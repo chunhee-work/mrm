@@ -1,7 +1,7 @@
 // Where to go after logging in. A signed-out visit to a page that needs an account goes to /login?next=<that page>,
 // so a link to one case (a bookmark, a shared link, an expired session) comes back to that case and not to the case list.
 // Only our own signed-in pages are allowed: never another site ("//evil.example", "https://…"), never /login itself.
-export const GATED = /^\/(dashboard|cases|billing|settings|connection)(\/|$)/;
+export const GATED = /^\/(dashboard|cases|billing|settings|connection|details)(\/|$)/;
 
 export function safeNext(raw: string | null | undefined): string | null {
   if (!raw || raw.length > 500) return null;

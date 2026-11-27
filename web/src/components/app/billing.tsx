@@ -177,7 +177,7 @@ export default function Billing(p: Props) {
       {Banner}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6"><h2 className="text-[20px] font-semibold text-fg">{t("bill.buy")}</h2>{ProviderPick}{PackPick}{p.providers.length > 0 && Go}</div>
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:sticky lg:top-24">{Balance}{History}</div>
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:sticky lg:top-6">{Balance}{History}</div>
       </div>
     </div>
   );
