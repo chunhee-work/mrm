@@ -107,7 +107,7 @@ function Block({ tag, name, lines, art, id, stack }: { tag?: string; name: strin
   );
 }
 
-export default function Guide({ lang, authed }: { lang: Lang; authed: boolean }) {
+export default function Guide({ lang }: { lang: Lang }) {
   const c = GUIDE[lang];
   const names = c.steps.map((s) => s.name);
   const ids = ["docs", "photos", "merimen", "done"] as const;
@@ -151,13 +151,13 @@ export default function Guide({ lang, authed }: { lang: Lang; authed: boolean })
         />
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Block name={c.credits.name} lines={c.credits.lines} id="credits" stack art={<div className="rounded-[4px] border border-hair2 bg-bay px-3 py-2.5 text-[14px] font-semibold text-fg" aria-hidden="true">3 {c.credits.unit}</div>} />
-          <Block name={c.remove.name} lines={c.remove.lines} id="remove" stack art={<div className="flex items-center gap-2 text-mute" aria-hidden="true"><Bin className="h-5 w-5" /><span className="text-[13px]">7 d</span></div>} />
+          <Block name={c.credits.name} lines={c.credits.lines} id="credits" stack art={<div className="rounded-[4px] border border-hair2 bg-bay px-3 py-2.5 text-[14px] font-semibold text-fg" aria-hidden="true">{c.credits.unit}</div>} />
+          <Block name={c.remove.name} lines={c.remove.lines} id="remove" stack art={<div className="flex items-center gap-2 text-mute" aria-hidden="true"><Bin className="h-5 w-5" /><span className="text-[13px]">{c.draw.days}</span></div>} />
         </div>
       </div>
 
       <div className="mt-8">
-        <Link href={authed ? "/dashboard" : "/signup"} className="btn-primary inline-flex">{authed ? c.cta.cases : c.cta.start}</Link>
+        <Link href="/dashboard" className="btn-primary inline-flex">{c.cta.cases}</Link>
       </div>
     </div>
   );
