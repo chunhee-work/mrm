@@ -1,5 +1,6 @@
 """Item 8 (2026-11-27): the worker started Chrome on every pass, and each start on a profile that is already open adds one claims tab."""
 import os
+import tempfile
 
 from autopilot_worker import loop
 from autopilot_worker.chrome import chrome_running
@@ -28,7 +29,7 @@ class Repo:
 
 def run(passes, answers, *, running=lambda _p: False, clock=None):
     loop._launched.clear()
-    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": "/var/lib/autopilot-worker"})
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": tempfile.mkdtemp(prefix="wstate-")})  # writable without root (CI)
     launches, repo = [], Repo()
     t = {"now": 0.0}
     for i in range(passes):
