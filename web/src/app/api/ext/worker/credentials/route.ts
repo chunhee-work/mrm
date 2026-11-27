@@ -30,11 +30,15 @@ export async function POST(req: Request) {
   const password = wantsLogin ? cleanPassword(body?.password, 200) : null;
   if (wantsLogin && (!username || !password)) return NextResponse.json({ error: "invalid" }, { status: 400 });
   // each new login re-queues one check by the worker, so a loop of saves must not become a loop of Merimen log-ins:
-  // at most 5 login saves per organisation in 10 minutes (counted in the audit table)
+  // at most 5 login saves per organisation in 10 minutes. The audit row is written FIRST and then counted, so parallel
+  // requests cannot all pass the count; refused attempts count too (a sliding limit). An error here is not allowed to pass.
   if (wantsLogin) {
-    const r = await db.execute(sql`SELECT count(*)::int AS n FROM merimen_cred_audit WHERE org_id = ${me.orgId} AND action = 'save_consent' AND at > now() - interval '10 minutes'`).catch(() => null);
-    const n = Number(((r as unknown as { rows?: { n: number }[] } | null)?.rows ?? [])[0]?.n ?? 0);
-    if (n >= 5) return NextResponse.json({ error: "too_many" }, { status: 429 });
+    try {
+      await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: "save_consent" });
+      const r = await db.execute(sql`SELECT count(*)::int AS n FROM merimen_cred_audit WHERE org_id = ${me.orgId} AND action = 'save_consent' AND at > now() - interval '10 minutes'`);
+      const n = Number(((r as unknown as { rows?: { n: number }[] }).rows ?? [])[0]?.n ?? 99);
+      if (n > 5) return NextResponse.json({ error: "too_many" }, { status: 429 });
+    } catch (e) { if (missingRelation(e)) return NextResponse.json({ error: "not_configured" }, { status: 503 }); throw e; }
   }
   // from a database sequence: atomic, and still rising after a delete and a new first save (the worker compares versions)
   const nextVersion = sql<number>`nextval('merimen_profile_seq')::int`;
@@ -48,7 +52,7 @@ export async function POST(req: Request) {
       const login = {
         usernameHint: sealed.usernameHint, wrappedDek: sealed.wrappedDek, dekNonce: sealed.dekNonce,
         usernameCt: sealed.usernameCt, usernameNonce: sealed.usernameNonce, passwordCt: sealed.passwordCt, passwordNonce: sealed.passwordNonce,
-        // blocked stays as it is until the worker's single check succeeds, so a job cannot log in during the check
+        // `blocked` is left as it is; the worker's single check (queued, attempts 0) decides
         verifyState: "queued", loginAttempts: 0,
       };
       await db.insert(schema.merimenCredentials).values({ orgId: me.orgId, ...login, ...names, profileVersion: nextVersion, updatedBy: me.user.id })
@@ -57,7 +61,7 @@ export async function POST(req: Request) {
       await db.update(schema.merimenCredentials).set({ ...names, profileVersion: nextVersion, updatedAt: new Date(), updatedBy: me.user.id })
         .where(eq(schema.merimenCredentials.orgId, me.orgId));
     }
-    await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: wantsLogin ? "save_consent" : "save_names" });
+    if (!wantsLogin) await db.insert(schema.merimenCredAudit).values({ orgId: me.orgId, userId: me.user.id, action: "save_names" });
   } catch (e) { if (missingRelation(e)) return NextResponse.json({ error: "not_configured" }, { status: 503 }); throw e; }
   return NextResponse.json(await credView(me.orgId));
 }

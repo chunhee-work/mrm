@@ -74,7 +74,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSend) return;
-    if (first) void send(); else setConfirming(true);
+    if (first || !compact) void send(); else setConfirming(true);
   }
   async function send() {
     setBusy(true); setErr(null);
@@ -101,7 +101,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact }: { cred:
     setBusy(true);
     try {
       const r = await fetch("/api/ext/worker/credentials", { method: "DELETE" });
-      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false }); closeAll(); fill(); onSaved?.(); }
+      if (r.ok) { setCred({ ...cred, saved: false, usernameHint: null, verifyState: "none", blocked: false, updatedAt: null, workshop: null, manager: null, adjuster: null, complete: false, blocks: cred.keyOk && cred.storageOk }); closeAll(); fill(); onSaved?.(); }
     } finally { setBusy(false); setSure(false); }
   }
 

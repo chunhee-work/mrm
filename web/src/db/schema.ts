@@ -358,7 +358,7 @@ export const merimenCredentials = pgTable("merimen_credentials", {
   workshopName: text("workshop_name"), // migration 0013: what the user types once on the front page
   managerName: text("manager_name"),
   adjusterName: text("adjuster_name"),
-  profileVersion: integer("profile_version").notNull().default(0), // +1 on every save: the worker replaces what it remembered
+  profileVersion: integer("profile_version").notNull().default(0), // next value of merimen_profile_seq on every save: the worker replaces what it remembered
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by"),
 });
