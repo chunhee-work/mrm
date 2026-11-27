@@ -47,6 +47,17 @@ class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
 
+    def record_llm_call(self, row: dict) -> None:
+        """One llm_calls row for a Jev (TypeSafe) call: the same ledger the web app writes, so /admin/cost can show it. cost_usd stays NULL
+        (no price known). Needs migration 0016 (INSERT for the worker role); until it is applied the insert is refused and the caller skips it."""
+        self.db.execute(
+            "INSERT INTO llm_calls (request_id, user_id, org_id, case_id, purpose, model, input_tokens, output_tokens, latency_ms, ok, error_class) "
+            "SELECT %s, c.created_by, c.org_id, %s, %s, %s, %s, %s, %s, %s, %s FROM (SELECT 1) one LEFT JOIN cases c ON c.id = %s "
+            "ON CONFLICT (request_id) DO NOTHING",
+            (row["request_id"], row.get("case_id"), row["purpose"], row["model"], row["input_tokens"], row["output_tokens"],
+             row.get("latency_ms"), bool(row["ok"]), row.get("error_class"), row.get("case_id")),
+        )
+
     def heartbeat(self, worker_id: str, model: str, chrome_ok: bool) -> None:
         self.db.execute(
             """

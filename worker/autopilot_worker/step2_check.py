@@ -121,12 +121,37 @@ def gate_rule(name, row, qty):
 
 
 
-def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[str] = ()) -> dict:
+def undecided_pairs(names, rows) -> list[tuple[str, str, str]]:
+    """(photo name, row, qty) pairs the code rules cannot decide: the only ones Jev is asked about."""
+    out = []
+    for n in sorted(set(names)):
+        if VIEWS.search(n):
+            continue
+        for r, q in rows:
+            q = str(q).strip()
+            if not matches(n, r) and gate_rule(n, r, q) is None:
+                out.append((n, r, q))
+    return out
+
+
+def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[str] = (), jev=None, case_id: str | None = None) -> dict:
     """names: every final photo name plus the Space parts. rows: (estimate row label, qty) as Select Parts holds them now.
     changed_from: the model's names that the adjuster changed (corrections): they must not be left ticked.
     Returns {"add": [...], "remove": [...], "ok": bool}."""
     names_set = set(names)
     rq = [(r, str(q).strip()) for r, q in rows]
+    # Jev (owner 2026-11-10): may only CLEAR a false ADD?/REMOVE?, never add one. Off or any error: the code rules alone ("jev off").
+    cleared: set = set()
+    note = "jev off"
+    if jev is not None:
+        try:
+            from .jev import THRESHOLD
+            pairs = undecided_pairs(set(names_set) | set(changed_from), rq)
+            probs = jev.same_parts(pairs, case_id=case_id)
+            cleared = {(n, r) for (n, r, _q), p in probs.items() if p >= THRESHOLD}
+            note = f"jev checked {len(pairs)} pairs, cleared {len(cleared)}"
+        except Exception as e:  # noqa: BLE001
+            note = f"jev off ({type(e).__name__})"
     flipped = [re.sub(r"\b(LH|RH)\b", lambda m: "RH" if m.group(1) == "LH" else "LH", r) for r, q in rq if q == "2" and side(r)]
     old_rows = [r for r, _ in rq] + flipped  # qty 2 (playbook 08): the other side is covered too
 
@@ -134,7 +159,7 @@ def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[st
         if matches(n, r):
             return True
         q = next((q for rr, q in rq if rr == r), "1")
-        return gate_rule(n, r, q) is True
+        return gate_rule(n, r, q) is True or (n, r) in cleared
 
     add = [f"{n!r} has a photo but no estimate row" for n in sorted(names_set) if not VIEWS.search(n) and not any(same(n, r) for r in old_rows)]
     remove = []
@@ -144,4 +169,4 @@ def two_way(names: list[str], rows: list[tuple[str, str]], changed_from: list[st
         hit = [r for r in old_rows if same(old, r) and not any(same(n, r) for n in names_set) and not KEEP.search(r)]
         if hit:
             remove.append(f"{old!r} no photo any more, still selected: {hit}")
-    return {"add": add, "remove": remove, "ok": not add and not remove}
+    return {"add": add, "remove": remove, "ok": not add and not remove, "jev": note}

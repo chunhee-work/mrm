@@ -7,6 +7,7 @@ import { importCasePhotos } from "@/lib/photos/import-files";
 import { userFixable, zipRefunded } from "@/lib/case-text";
 import { refundCase } from "@/lib/payments/case-credit";
 import { notDeleted } from "@/lib/case-delete";
+import { jevInsurerWarnings } from "@/lib/jev-checks";
 
 export const STALE_MS = 6 * 60_000; // one read runs at most 5 minutes; a "reading" case with no news for 6 is dead
 const MAX_ATTEMPTS = 3; // automatic recovery gives up after this many reads of the same case
@@ -79,6 +80,9 @@ export async function scanCase(id: string, mode: ScanMode = "retry", seen: strin
       cacheTokens: usage.cache_read_input_tokens ?? 0, costUsd: costUsd.toFixed(4),
     });
     if (done.length) await db.insert(schema.caseEvents).values({ caseId: id, step: "read_docs", message: data.missing.length ? `Pending: ${data.missing.join("; ")}` : "Documents read" });
+    // Jev second vote on the insurers and the Liberty branch (playbook 02). It only adds a line to the case's activity; the case never
+    // changes status because of it, and a failing or slow Jev adds nothing.
+    if (done.length) for (const message of await jevInsurerWarnings(data, { userId: claimed[0].createdBy ?? undefined, caseId: id })) await db.insert(schema.caseEvents).values({ caseId: id, step: "jev_check", message }).catch(() => {});
     await photos; // the result is shown first; the case page and the desk pick the photos up when they are in
     await closeIntakeJobs(id); // the read above IS the intake: the queued job must not make the worker do it again (B15)
     return { ok: done.length > 0, missing: data.missing, claimed: true };
