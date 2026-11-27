@@ -66,7 +66,7 @@ Worker 用本机 Chrome 里已登录的 Merimen 标签页（Playwright 连本机
 两个开关，默认都关：
 
 1. `MERIMEN_DRYRUN=on`：演练。新开一个标签页，填完整张表，逐项读回检查，关掉标签页。**不保存。** 案子时间线写一行：检查了什么，或缺什么。演练时工坊只“看”（`peek_workshop_for_case`），不锁定，用户还能改。
-2. `MERIMEN_WRITES=on` 且 `WORKER_SUBMIT=on`：真保存。先调用 `claim_workshop_for_case` 锁定工坊（返回 `None` 就停，绝不退回工坊 1），再填表、检查，**只有全部通过才点 Next**。保存后设 manager 和 adjuster，把 caseid（和 extid）写回案子。
+2. `MERIMEN_WRITES=on` 且 `WORKER_SUBMIT=on`：真保存。先用只读的 `peek_workshop_for_case` 看工坊并填表、检查，**只有全部通过才在点 Next 之前一刻**调用 `claim_workshop_for_case` 锁定工坊（要和表单上的一致；返回 `None` 就停，绝不退回工坊 1），再点 Next。保存后设 manager 和 adjuster，把 caseid（和 extid）写回案子。
 
 演练先跑，确认没问题再开第二组。**`MERIMEN_DRYRUN=on` 优先于另外两个开关**：只要它开着，不管 `MERIMEN_WRITES` 和 `WORKER_SUBMIT` 是什么，都只填表检查、什么都不保存。真保存必须把它关掉（或不设）。
 

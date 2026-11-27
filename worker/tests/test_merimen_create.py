@@ -319,7 +319,7 @@ def test_a_confirm_is_dismissed_and_the_case_stops_cleared(browser):
         "onclick=\"location.href='/claims", "onclick=\"if(!confirm('This claim exists. Overwrite?')) return; location.href='/claims")))
     run = MerimenCreate(base, timeout_scale=0.02)
     rep = run.create(spec())
-    assert not rep.ok and rep.code == "unexpected_dialog" and rep.cleared and rep.messages == ["This claim exists. Overwrite?"] and seen["saves"] == 0
+    assert not rep.ok and rep.code == "unexpected_dialog" and not rep.cleared and rep.messages == ["This claim exists. Overwrite?"] and seen["saves"] == 0
     ctx.close()
 
 

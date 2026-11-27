@@ -147,7 +147,7 @@ _OK = """() => { var t = [...document.querySelectorAll('input,button')].find(e =
   t.click(); return 'OK'; }"""
 _MSGS = """() => { var o = []; document.querySelectorAll('*').forEach(e => { var t = (e.childNodes[0] && e.childNodes[0].nodeValue || '').trim();
   if (t && /should|required|must|invalid|specified|cannot|please|exist|duplicate/i.test(t) && e.offsetParent !== null && t.length < 160) o.push(t); });
-  return [...new Set(o)].slice(0, 6); }"""
+  return [...new Set(o)].slice(0, 60); }"""
 _CHK = """() => { function g(n) { var e = document.querySelector('[name=' + n + ']'); return e ? e.value : ''; }
   return {rep: g('ddlbREPCOID'), repName: g('ddlbREPCOIDTEXT'), man: g('ddlbMan'), model: g('ddlbModel'), cur: g('sleCURINSCOID'), plate: g('sleREGNO'), chassis: g('sleCHANO')}; }"""
 
@@ -197,7 +197,7 @@ class MerimenCreate:
     def _dialog(self, d) -> None:
         """An insurer API warning is a JS alert: OK at once and carry on (playbook 02). A confirm() or prompt() is something the owner's
         script never meant to answer (a duplicate or overwrite question): it is dismissed, its text kept, and the case stops."""
-        if d.type == "alert":
+        if d.type in ("alert", "beforeunload"):
             d.accept()
             return
         self.unexpected.append(redact((d.message or "")[:120]))
@@ -253,7 +253,10 @@ class MerimenCreate:
 
     def fill(self, spec: Spec) -> CreateReport:
         rep = CreateReport()
-        bad = self._open_form()
+        try:
+            bad = self._open_form()
+        except Exception:  # noqa: BLE001  (the message of a Playwright error carries the session address: keep only a code)
+            bad = "form_error"
         if bad:
             rep.code = bad
             return rep
@@ -379,12 +382,15 @@ class MerimenCreate:
             P.append("make_not_found:" + make[:30])
             return
         opts: list = []
-        for _ in range(14):  # a big make (Mazda has 360 entries) is filled in by a later callback
+        for _ in range(14):  # a big make (Mazda has 360 entries) is filled in by a later callback: wait until the list stops growing
             cur.wait_for_timeout(self._ms(2000))
-            opts = cur.evaluate(_OPTS, "ddlbModel") or []
-            if len(opts) > 5:
+            now = cur.evaluate(_OPTS, "ddlbModel") or []
+            grown = len(now) != len(opts)
+            opts = now
+            if len(opts) > 5 and not grown:
                 break
         cur.wait_for_timeout(self._ms(1500))
+        opts = cur.evaluate(_OPTS, "ddlbModel") or opts  # one last read after the final wait
         have = [{"v": v, "t": t, "c": c} for v, t, c in opts if v]
         r = pick({make: have}, {"make": make, "rcModel": spec.veh["rc_model"], "cc": spec.veh["cc"],
                                 "transmission": "", "body": spec.veh["body"], "jpjReg": spec.veh["reg_date"], "year": spec.veh["year"]})
@@ -456,8 +462,8 @@ class MerimenCreate:
             w(2000)
             url = cur.url or ""
         if self.unexpected and re.search(r"act_clmreg|dsp_clmreg", url):
-            # a dismissed JS confirm()/prompt() = not submitted; an HTML question box seen after Next may mean it was, so that one keeps the mark
-            rep.ok, rep.code, rep.cleared = False, "unexpected_dialog", not self.boxes
+            # a dismissed question cannot be proven to have come before the POST, so the mark stays and a person looks in the worklist
+            rep.ok, rep.code, rep.cleared = False, "unexpected_dialog", False  # never cleared: a person checks the worklist (a dismissed question can come after the POST)
             rep.messages = list(self.unexpected)[:3]
             return rep
         if re.search(r"act_clmreg|dsp_clmreg", url):
