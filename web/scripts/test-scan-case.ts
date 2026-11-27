@@ -367,7 +367,7 @@ async function main() {
         assert.deepEqual(await events(fine), ["Reading documents", "Documents read"]);
       } finally { photoImport = async () => ({ added: 0, skipped: [], leftOut: noneLeftOut }); }
     }],
-    ["S-U1: one case is read at most 6 times an hour, one organisation 90 times, whoever starts the read; an hour later it reads again", async () => {
+    ["S-U1: one case is read at most so many times an hour, and so is one organisation, whoever starts the read; an hour later it reads again", async () => {
       const { CASE_READS_PER_HOUR, ORG_READS_PER_HOUR, readCapHit } = await import("../src/lib/read-cap");
       const hourAgo = (caseId: string) => db.execute(sql`update case_events set at = now() - interval '61 minutes' where case_id = ${caseId}`);
       // one case: the reads of the last hour count, the first one too
@@ -507,6 +507,16 @@ async function main() {
         reads = 0; claude = slow(ok());
         assert.deepEqual((await Promise.all([press(paid), press(paid)])).map((a) => a.status).sort(), [200, 409]);
         assert.equal(reads, 1); assert.deepEqual(await ledger(paid), { debits: 1, refunds: 0 }); assert.equal(await bal("race-paid"), 0);
+        // read too often in the last hour: the press is answered 429 "too_many", nothing is read and no credit is taken
+        const { CASE_READS_PER_HOUR } = await import("../src/lib/read-cap");
+        signedIn = "race-cap";
+        await db.insert(schema.creditsLedger).values({ orgId: "race-cap", delta: 1000, reason: "purchase:race-cap" });
+        const often = await refunded("race-cap");
+        await db.insert(schema.caseEvents).values(Array.from({ length: CASE_READS_PER_HOUR }, () => ({ caseId: often, step: "read_docs", message: "Reading documents" })));
+        reads = 0; claude = slow(ok());
+        assert.deepEqual(await press(often), { status: 429, body: { error: "too_many" } });
+        assert.equal(reads, 0); assert.deepEqual(await ledger(often), { debits: 1, refunds: 1 }); assert.equal(await bal("race-cap"), 1000);
+        assert.equal((await get(often)).status, "failed");
       } finally { delete process.env.CREDITS_ENFORCE; signedIn = "o"; }
     }],
     ["S-U1b: when taking the credit itself fails, nothing is read and the case goes back to what it was", async () => {

@@ -10,8 +10,13 @@ const ASK_MS = 20_000; // one question to the store, with its own retries
 /** The stored size of one file in bytes, or null when the store has no such file. Throws when the store cannot be asked. */
 export type SizeOf = (url: string) => Promise<number | null>;
 const storedSize: SizeOf = async (url) => {
-  try { return (await head(url, { abortSignal: AbortSignal.timeout(ASK_MS) })).size; }
+  // Our own stop, not AbortSignal.timeout(): that one ends with a "TimeoutError", which the store's client takes for a
+  // network slip and tries again ten times (many minutes). An abort it gives up on at once.
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), ASK_MS);
+  try { return (await head(url, { abortSignal: stop.signal })).size; }
   catch (e) { if (e instanceof BlobNotFoundError) return null; throw e; }
+  finally { clearTimeout(timer); }
 };
 
 /**

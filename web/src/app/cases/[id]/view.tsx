@@ -114,7 +114,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     const fresh = () => { if (navigator.onLine) router.refresh(); }; // offline it could only fail, and a failed refresh loads the whole page again
     const out = await readAgain(c.id, { onLate: fresh });
     if (out === "no_credits") setErr("new.noCredits"); // no credit left: say that, not "could not start"
-    else if (out === "too_many") setErr("auth.tooMany");
+    else if (out === "too_many") setErr("case.readTooMany");
     // a read the server did start is shown by the case itself (its status and its reason), whatever became of this request
     else if (out === "fail" && !taken.current) setErr("case.retryFail");
     setBusy(false);

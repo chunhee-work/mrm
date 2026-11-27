@@ -624,6 +624,7 @@ const en: Dict = {
   "photos.noPlate": "Not read yet",
   "case.err.corruptSome": "One of the PDFs cannot be opened, and we cannot tell which. Check that each PDF opens, then send all the PDFs again.",
   "case.err.tooManyPages": "The PDFs are too long to read in one case. Send shorter PDFs (only the pages the claim needs). The PDFs now in this case are replaced by the ones you send.",
+  "case.readTooMany": "This case was read too many times in the last hour. Try again in about an hour.",
   "new.tooMany": "A case can have up to {max} files. You chose {n}. Remove some, or put them in one zip.",
   "new.tooMuch": "All files together can be up to {gb} GB. These are {size}. Remove some files.",
 };
@@ -1232,6 +1233,7 @@ const zh: Dict = {
   "photos.noPlate": "尚未读取",
   "case.err.corruptSome": "其中一个 PDF 打不开，但无法判断是哪一个。请确认每个 PDF 都能打开，再把所有 PDF 重新发送一次。",
   "case.err.tooManyPages": "这些 PDF 太长，一个案件读不完。请发送较短的 PDF（只保留理赔需要的页）。案件里现有的 PDF 会换成你新发送的。",
+  "case.readTooMany": "这个案件在过去一小时内读取太多次了。请大约一小时后再试。",
   "new.tooMany": "一个案件最多 {max} 个文件，你选了 {n} 个。请移除一些，或打包成一个 zip。",
   "new.tooMuch": "所有文件加起来最多 {gb} GB，现在是 {size}。请移除一些文件。",
 };
@@ -1840,6 +1842,7 @@ const ms: Dict = {
   "photos.noPlate": "Belum dibaca",
   "case.err.corruptSome": "Salah satu PDF tidak boleh dibuka, dan kami tidak dapat pastikan yang mana. Semak setiap PDF boleh dibuka, kemudian hantar semua PDF sekali lagi.",
   "case.err.tooManyPages": "PDF ini terlalu panjang untuk dibaca dalam satu kes. Hantar PDF yang lebih pendek (hanya halaman yang diperlukan untuk tuntutan). PDF dalam kes ini akan diganti dengan yang anda hantar.",
+  "case.readTooMany": "Kes ini dibaca terlalu banyak kali dalam sejam yang lalu. Cuba lagi dalam kira-kira sejam.",
   "new.tooMany": "Satu kes boleh ada sehingga {max} fail. Anda memilih {n}. Buang sebahagian, atau masukkan dalam satu zip.",
   "new.tooMuch": "Semua fail bersama boleh sehingga {gb} GB. Fail ini {size}. Buang sebahagian fail.",
 };
