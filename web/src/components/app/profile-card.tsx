@@ -36,9 +36,9 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  */
 /**
  * `look` (complete profile only): "side" = the card in a side column; "strip" = one slim line across the page (the first page,
- * owner 2026-11-27). A login that needs the user (wrong password, a code from the phone) always shows the full card.
+ * owner 2026-11-27); "rail" = stacked in the left side bar of a wide screen. A login that needs the user (wrong password, a code from the phone) always shows the full card.
  */
-export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "strip" }) {
+export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "strip" | "rail" }) {
   const configured = cred.keyOk;
   const { t, lang } = useT();
   const [workshop, setWorkshop] = useState("");
@@ -191,6 +191,24 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
         <p className="min-w-0 flex-1 truncate text-[14px] text-fg" title={facts}>{facts}<span className="text-mute"> · {t("pf.login")} {cred.usernameHint}</span></p>
         <span className="hidden text-[13px] text-mute md:inline" role="status">{state}</span>
         <button type="button" onClick={openEdit} className="link shrink-0 text-[14px] font-semibold" data-testid="pf-edit">{t("pf.edit")}</button>
+        {modals}
+      </section>
+    );
+  }
+  if ((good || checking) && look === "rail") {
+    // the side bar: the four details stacked, one dot for the login, Edit by the title
+    return (
+      <section aria-labelledby="pf-title" className="rounded-[4px] border border-hair bg-panel2/50 px-3 py-3" data-testid="pf-summary">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="pf-title" className="text-[13px] font-semibold text-mute">{t("pf.title")}</h2>
+          <button type="button" onClick={openEdit} className="link text-[13px] font-semibold" data-testid="pf-edit">{t("pf.edit")}</button>
+        </div>
+        <dl className="mt-2 grid gap-1.5">
+          {([["pf.workshop", cred.workshop], ["pf.manager", cred.manager], ["pf.adjuster", cred.adjuster], ["pf.login", cred.usernameHint]] as [string, string | null][]).map(([k, v]) => (
+            <div key={k} className="min-w-0"><dt className="sr-only">{t(k)}</dt><dd className="truncate text-[13.5px] leading-snug text-fg" title={`${t(k)}: ${v ?? ""}`}>{k === "pf.login" ? <><span className="text-mute">{t(k)} · </span>{v}</> : v}</dd></div>
+          ))}
+        </dl>
+        <p className="mt-2 flex items-center gap-2 text-[12.5px] text-mute" role="status"><span className={`h-2 w-2 shrink-0 rounded-full ${good ? "bg-go" : "bg-amber"}`} aria-hidden="true" />{state}</p>
         {modals}
       </section>
     );

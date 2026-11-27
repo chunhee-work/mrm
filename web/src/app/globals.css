@@ -227,7 +227,7 @@
 /* ───────────────────────── signed-in app (app frame, case list, new case) ───────────────────────── */
 /* a page that is exactly the viewport under the top bar (61px / 65px with its hairline); its list scrolls inside */
 .app-fill { height: calc(100vh - 61px); height: calc(100dvh - 61px); }
-@media (min-width: 1024px) { .app-fill { height: calc(100vh - 65px); height: calc(100dvh - 65px); } }
+@media (min-width: 1024px) { .app-fill { height: 100vh; height: 100dvh; } } /* wide screens: no top bar, the side bar is beside the page */
 /* boxes that scroll inside themselves: a thin hairline scrollbar instead of the system one */
 .app-scroll { scrollbar-width: thin; scrollbar-color: theme(colors.hair) transparent; }
 .app-scroll::-webkit-scrollbar { width: 10px; }

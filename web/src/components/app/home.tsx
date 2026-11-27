@@ -283,7 +283,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   useEffect(() => { takeDropped(); }, []);
   // if the trip never ends (navigation stalled), the overlay goes when the hold runs out and drops work again
   useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), HOLD_MS); return () => window.clearTimeout(id); }, [going]);
-  // a complete profile is one slim line over the list (owner 2026-11-27: the side column took the room the cases need)
+  // a complete profile: one slim line over the list on a phone; a wide screen has it in the side bar (owner 2026-11-27)
   const strip = cred.complete ? <ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact look="strip" /> : null;
   const [deskOpen, setDeskOpen] = useState(false);
   const over = useFileDrag(!going && !blocked && !deskOpen, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
@@ -319,18 +319,19 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
           </div>
         </div>
         {!cred.complete && <div className="mt-8"><ProfileCard cred={cred} setCred={setCred} onSaved={() => router.refresh()} compact={false} /></div>}
-        <div className="mt-9 grid gap-3 sm:grid-cols-2">
+        {/* a wide screen has Closed cases in the side bar (side-bar.tsx); New case stays here at every width */}
+        <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:mt-7 lg:flex">
           {blocked
             ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
-            : <Link href="/cases/new" className="btn-primary !gap-2" data-testid="home-new"><Plus />{t("dash.new")}</Link>}
-          <Link href="/dashboard?view=closed" className="btn-line" data-testid="home-closed">
+            : <Link href="/cases/new" className="btn-primary !gap-2 lg:!px-8" data-testid="home-new"><Plus />{t("dash.new")}</Link>}
+          <Link href="/dashboard?view=closed" className="btn-line lg:hidden" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>
           </Link>
         </div>
         {blocked && <p className="mt-3 text-[14.5px] text-mute" data-testid="pf-need">{t("pf.needFirst")}</p>}
-        {strip && <div className="mt-6">{strip}</div>}
-        <div className={strip ? "mt-3" : "mt-9"}>{table}</div>
+        {strip && <div className="mt-6 lg:hidden">{strip}</div>}
+        <div className={`mt-3 lg:mt-6 ${strip ? "" : "max-lg:mt-9"}`}>{table}</div>
       </div>
       </div>
       {(over || going) && (

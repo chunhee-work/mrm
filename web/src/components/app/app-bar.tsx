@@ -12,7 +12,7 @@ import { VIEWS } from "./status";
 // three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 
-async function logOut() {
+export async function logOut() {
   await authClient.signOut();
   window.location.href = "/";
 }
@@ -29,7 +29,7 @@ function useDismiss(open: boolean, close: (refocus: boolean) => void, ref: React
   }, [open, close, ref]);
 }
 
-function Gear({ className = "" }: { className?: string }) {
+export function Gear({ className = "" }: { className?: string }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
       <circle cx="12" cy="12" r="3.2" />
@@ -255,7 +255,8 @@ export default function AppBar({ email, newBlocked = false }: { email: string; n
   const onNew = path === "/cases/new";
   const onBilling = path.startsWith("/billing");
   return (
-    <header className="sticky top-0 z-40 border-b border-hair bg-panel">
+    // a wide screen has the side bar instead (side-bar.tsx): this bar is for phones and tablets
+    <header className="sticky top-0 z-40 border-b border-hair bg-panel lg:hidden">
       <div className="wrap relative flex h-[60px] items-center gap-4 lg:h-16 lg:gap-10">
         <Link href="/dashboard" className="-my-2 flex items-center py-2">
           <Brand small />
