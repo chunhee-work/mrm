@@ -86,6 +86,8 @@ def maybe_cleanup(cfg: Config, repo: PgRepo, delete, *, every: float = 3600.0, n
 
 
 def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None) -> None:
+    if cfg.ext_connect:
+        repo.ensure_sessions()  # a ready org (login ok + consent) gets its row; with EXT_CONNECT off nothing is asked for
     for row in repo.wanted():
         org = row["org_id"]
         if row["wanted"] == "stop":

@@ -43,6 +43,22 @@ def _missing_workshops(e: Exception) -> bool:
     return "42P01" in t or "42703" in t or "does not exist" in t
 
 
+# The same login + consent conditions the claim statement checks (jobs.CLAIM_SQL), so a row is only asked for when a
+# Phase A job could really be claimed once Chrome is connected.
+ENSURE_SESSIONS_SQL = """
+INSERT INTO worker_sessions (org_id, account_key, status, wanted, last_seen_at, detail)
+SELECT mc.org_id, 'default', 'idle', 'start', now(), 'auto'
+FROM merimen_credentials mc
+JOIN ext_org_settings g ON g.org_id = mc.org_id
+WHERE mc.verify_state = 'ok' AND NOT mc.blocked
+  AND g.enabled AND btrim(coalesce(g.consent_reference, '')) <> ''
+  AND EXISTS (SELECT 1 FROM ext_consents k WHERE k.org_id = mc.org_id)
+ON CONFLICT (org_id) DO UPDATE SET wanted = 'start', detail = 'auto', last_seen_at = now()
+WHERE worker_sessions.wanted = 'none' AND worker_sessions.status <> 'stopped'
+RETURNING org_id
+"""
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -168,6 +184,14 @@ class PgRepo:
     def session_status(self, org_id: str) -> str:
         rows = self.db.execute("SELECT status FROM worker_sessions WHERE org_id = %s", (org_id,))
         return rows[0][0] if rows else "idle"
+
+    def ensure_sessions(self) -> list[str]:
+        """Item 7 (2026-11-27): nothing ever created a worker_sessions row, so Phase A was never claimed. An org whose saved
+        Merimen login checked ok (not blocked) and whose consent is complete (ext_org_settings.enabled + consent_reference +
+        an ext_consents row) gets a row asking for its Chrome session. A row someone stopped (status 'stopped') is left alone,
+        and a row already asking (start/stop) is not touched. No login happens here: sync_sessions only opens the profile."""
+        rows = self.db.execute(ENSURE_SESSIONS_SQL)
+        return [r[0] for r in rows]
 
     def wanted(self) -> list[dict]:
         rows = self.db.execute(

@@ -230,3 +230,55 @@ def test_create_marks_use_only_case_events_and_press_is_one_conditional_insert()
     assert "create_cleared" in rec.calls[1][0]
     none = PgRepo("", db=Rec()).create_marks("c1")
     assert none.pressed() is False and none.press() is False  # an empty answer from the insert means a mark already stands
+
+
+# Item 7: the worker asks for a Chrome session itself once an org's login checked ok and its consent is complete.
+from autopilot_worker.store import ENSURE_SESSIONS_SQL  # noqa: E402
+
+_ORGS = "INSERT INTO organizations (id, name) VALUES ('o1','One'),('o2','Two'),('o3','Three'),('o4','Four'),('o5','Five')"
+_CRED = ("INSERT INTO merimen_credentials (org_id, username_hint, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, password_nonce, verify_state, blocked) VALUES "
+         "('o1','u','w','n','c','n','p','n','ok',false),"          # ready
+         "('o2','u','w','n','c','n','p','n','ok',false),"          # no consent row
+         "('o3','u','w','n','c','n','p','n','bad_credentials',true),"  # login rejected
+         "('o4','u','w','n','c','n','p','n','ok',false),"          # ready, but someone stopped its session
+         "('o5','u','w','n','c','n','p','n','ok',false)")          # ready, already connected
+_GATE = ("INSERT INTO ext_org_settings (org_id, enabled, consent_reference) VALUES "
+         "('o1',true,'details-card:1'),('o2',true,'details-card:1'),('o3',true,'details-card:1'),('o4',true,'details-card:1'),('o5',true,'details-card:1')")
+_CONSENT = "INSERT INTO ext_consents (org_id, user_id, wording_version) VALUES ('o1','u1','v'),('o3','u1','v'),('o4','u1','v'),('o5','u1','v')"
+_ROWS = "INSERT INTO worker_sessions (org_id, status, wanted) VALUES ('o4','stopped','none'),('o5','connected','start')"
+
+
+@needs_pg
+def test_ensure_sessions_asks_only_for_ready_orgs():
+    seed = [_ORGS, "INSERT INTO \"user\" (id, name, email) VALUES ('u1','U','u1@x.invalid')", _CRED, _GATE, _CONSENT, _ROWS]
+    q = "SELECT org_id, account_key, status, wanted FROM worker_sessions ORDER BY org_id"
+    r = run([{"sql": to_numbered(ENSURE_SESSIONS_SQL, ())[0], "params": []}, {"sql": q},
+             {"sql": to_numbered(ENSURE_SESSIONS_SQL, ())[0], "params": []}], seed=seed)
+    assert [row[0] for row in r[0]] == ["o1"]  # o2 no consent, o3 bad login, o4 stopped by a person, o5 already asking
+    rows = {row[0]: row[1:] for row in r[1]}
+    assert rows["o1"] == ["default", "idle", "start"]
+    assert rows["o4"][1:] == ["stopped", "none"]
+    assert rows["o5"][1:] == ["connected", "start"]
+    assert "o2" not in rows and "o3" not in rows
+    assert r[2] == []  # running it again changes nothing
+
+
+def test_sync_sessions_creates_rows_only_with_ext_connect_on():
+    from autopilot_worker.config import Config
+    from autopilot_worker.loop import sync_sessions
+
+    class R:
+        def __init__(self): self.asked = 0
+        def ensure_sessions(self): self.asked += 1; return []
+        def wanted(self): return []
+
+    for on, want in ((True, 1), (False, 0)):
+        cfg = Config.from_env({"EXT_CONNECT": "on" if on else "off"})
+        r = R()
+        sync_sessions(cfg, r, launch=lambda *_: None, inspect=lambda *_: None)
+        assert r.asked == want
+
+
+def test_no_worker_accounts_env_means_one_default_profile():
+    from autopilot_worker.config import account_for, parse_accounts
+    assert account_for("any-org", parse_accounts(""), {}) == "default"
