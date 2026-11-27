@@ -17,9 +17,19 @@ const isTableView = (sp: { get(k: string): string | null }) => (VIEWS as readonl
 // three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
 
-export async function logOut() {
-  await authClient.signOut();
+/**
+ * Signs out and leaves for the front page. Answers false (and stays on the page) when the sign-out did not get through:
+ * the user is still signed in then, so the caller gives the button back for another press. Never throws.
+ */
+export async function logOut(): Promise<boolean> {
+  try {
+    const { error } = await authClient.signOut();
+    if (error) return false;
+  } catch {
+    return false;
+  }
   window.location.href = "/";
+  return true;
 }
 
 /** Closes on Escape (focus back to the trigger) and on a press outside `ref`. */
@@ -148,7 +158,7 @@ function MobileMenu({ email, path, needsYou }: { email: string; path: string; ne
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => { setBusy(true); void logOut(); }}
+                onClick={() => { setBusy(true); void logOut().then((out) => { if (!out) setBusy(false); }); }}
                 className="-mr-1 flex h-11 shrink-0 items-center gap-2.5 px-1 text-[15px] font-semibold text-ice disabled:opacity-55"
               >
                 {t("nav.logout")}
