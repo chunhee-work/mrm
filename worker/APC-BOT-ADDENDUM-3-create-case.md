@@ -48,6 +48,8 @@
 | form_not_ready | 表单读回有一项不对 | 把时间线发回来 |
 | unexpected_dialog | 出现了 worker 不会回答的确认框 | 发回来，人来决定 |
 | **create_unclear / duplicate_warning** | 已经按过 Next，但不确定有没有建出案子 | **先去 Merimen 工作清单（worklist）搜这个车牌，确认有没有案子，再决定。不要重跑。** |
+| form_rejected | Merimen 拒绝了表单（显示了它自己的话），标记已放行，什么都没建 | 读 Merimen 的话，改资料，重新排队；若跟工作坊有关，先按 5c 第 6 条放开工作坊的锁 |
+| mark_error | 锁了工作坊后写「按过 Next」标记时出错 | 同 create_unclear：先搜 worklist |
 | not_logged_in / form_not_open / form_error / workshop_changed | 按 Next 之前就停了，什么都没发生 | 自动会重试；多次失败再看 |
 
 「已建好但经理/审核员没设上」的案子，worker 会提示：请手动设置经理和审核员，并检查对方保险公司和保单。worker 不会再建第二个案子。
@@ -61,7 +63,7 @@
 
 ## 5c. 第一次真建：有人盯着（写入开关之前必须做）
 干跑不会按 Next，所以按 Next 之后的部分（重复警告的文字、跳到 adjclmref、读案号、经理/审核员下拉、OK 框白名单）干跑证明不了。所以：
-1. 干跑表格签字之后，只开**一个案子**的真建：一个 worker、有人在看、建完马上在 Merimen 工作清单按车牌核对，结果记下来。
+1. 干跑表格签字之后，只开**一个案子**的真建：同时设 `MERIMEN_CREATE_ONLY_CASE=<这个案子的 id>`，其它案子都会返回「未移植」、不会建；一个 worker、有人在看、建完马上在 Merimen 工作清单按车牌核对，结果记下来。
 2. 这个结果记录好之前，写入开关再关回去；记录完、老板同意，才长期开。
 3. 开写入期间，主人的旧脚本（createpar2_sinar.mjs）要停用或不要同时跑；任何人在 Merimen 里手动建过的案子，要先把案号填进该案子，再重新排队，否则 worker 看不到它。
 4. 人工放行 `create_cleared` 或填案号只走一条路：由 APC bot 在后台用 worker 数据库角色执行，事件文字里必须写：已搜 worklist、车牌、搜的日期、结果。不要手打随意的 SQL。
@@ -69,6 +71,9 @@
 6. 锁了工作坊但没建成（`form_rejected` 已放行标记、`mark_error`、按 Next 前停下）：工作坊的锁不能自动放开。只在 worklist 搜过、确认没有案子之后，由 APC bot 用 worker 角色在 `merimen_case_workshop` 里把这个案子那一行的 `locked_at` 和 `locked_name` 置空，用户才能再改工作坊；事件文字写明搜的车牌、日期、结果。
 7. 一个 `create_unclear`，时间线上它前面刚有一行 `form_error` 且按 Next 之后没有页面：多半没建出案子，但仍然先搜 worklist。
 8. 标签页规则：建案子只用「恰好一个」已登录的 claims 标签页（https、www.merimen.com.my、/claims/、地址里有会话参数）；没有或有多个都不动，案子等人（`no_tab`）。
+
+## 5d. 一个机构同一时间只能有一个 worker 进程
+重启交接时、第二台机器上，都不要让两个 worker 进程对同一个机构同时跑（共用同一个 Merimen 会话）。先停旧的再起新的。
 
 ## 6. 已知限制（不是 bug）
 - 页面上的选择器还没在真实网站上验证：干跑证明按 Next 之前的部分，按 Next 之后的部分要靠第 5c 节那次有人盯着的真建。

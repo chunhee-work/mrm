@@ -275,3 +275,12 @@ def test_a_failure_while_writing_the_mark_after_the_lock_is_not_retried():
 
     r, _ = step(case(), live=True, rep=CreateReport(ok=True, case_id="9"), marks=Boom())
     assert not r.ok and r.fatal and r.error == "mark_error" and "worklist" in r.line
+
+
+def test_with_a_one_case_limit_only_the_named_case_can_reach_a_live_create(monkeypatch):
+    from autopilot_worker.__main__ import _CdpDriver
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on"), ("MERIMEN_DRYRUN", ""), ("ORG_CONCURRENCY", "1"), ("MERIMEN_CREATE_ONLY_CASE", "c-only")):
+        monkeypatch.setenv(k, v)
+    d = _CdpDriver("x", lambda org: None)
+    d.case = {"id": "c-other"}
+    assert d.save("A", ()).error == "step_not_ported"

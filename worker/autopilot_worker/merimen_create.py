@@ -170,6 +170,7 @@ class MerimenCreate:
     def __init__(self, base_page, *, timeout_scale: float = 1.0, on_created=None, before_submit=None):
         self.base = base_page
         self.before_submit = before_submit  # called after every check passed and right before Next; returns None to go on, or a stop code
+        self.alerts: list[str] = []
         self.unexpected: list[str] = []  # confirm() / prompt() texts that were dismissed, not accepted
         self.on_created = on_created  # called with (case_id, ext_id) the moment the case exists, before the manager and adjuster are set
         self.scale = timeout_scale
@@ -215,6 +216,8 @@ class MerimenCreate:
         """An insurer API warning is a JS alert: OK at once and carry on (playbook 02). A confirm() or prompt() is something the owner's
         script never meant to answer (a duplicate or overwrite question): it is dismissed, its text kept, and the case stops."""
         if d.type in ("alert", "beforeunload"):
+            if d.type == "alert":
+                self.alerts.append(redact((d.message or "")[:160]))  # kept: a duplicate warning shown as an alert must not vanish
             d.accept()
             return
         self.unexpected.append(redact((d.message or "")[:120]))
@@ -513,6 +516,10 @@ class MerimenCreate:
             rep.messages = list(self.unexpected)[:3]
             return rep
         if re.search(r"act_clmreg|dsp_clmreg", url):
+            if any(DUP.search(a) for a in self.alerts):
+                rep.ok, rep.code = False, "duplicate_warning"  # the warning came as an alert and the page is still the form: stop, mark stands
+                rep.messages = [a for a in self.alerts if DUP.search(a)][:1]
+                return rep
             if self._ev("(rx) => new RegExp(rx, 'i').test(document.body.innerText || '')", DUP.pattern, False):
                 # the owner's script confirms this warning; a retry after a crash would also land here, so the worker stops and a person decides
                 rep.ok, rep.code = False, "duplicate_warning"
@@ -538,31 +545,39 @@ class MerimenCreate:
             return rep
         cid = re.search(r"caseid=(\d+)", url, re.I)
         ext = re.search(r"extid=(\d+)", url, re.I)
-        w(1200)
-        if not cid:  # a slow page: look again once before giving up
-            w(2500)
-            url = cur.url or ""
-            cid = re.search(r"caseid=(\d+)", url, re.I)
-            ext = ext or re.search(r"extid=(\d+)", url, re.I)
-        opts_m = cur.evaluate(_OPTS, "ddlbMGRNAME") or []
-        opts_a = cur.evaluate(_OPTS, "ddlbADJNAME") or []
-        mv = pick_person([(v, t) for v, t, _c in opts_m], spec.manager)
-        av = pick_person([(v, t) for v, t, _c in opts_a], spec.adjuster)
-        if not cid:
-            html = cur.evaluate("() => { var m = document.body.innerHTML.match(/caseid=(\\d+)/i); return m ? m[1] : ''; }")
-            cid = re.match(r"(\d+)", html or "")
-        rep.case_id = cid.group(1) if cid else None
-        rep.ext_id = ext.group(1) if ext else None
-        rep.ok = bool(rep.case_id)
+
+        def got(c, e):
+            rep.case_id, rep.ext_id, rep.ok = c, e, True
+            if self.on_created:  # the number is written BEFORE any other page read: nothing below can lose it
+                try:
+                    self.on_created(rep.case_id, rep.ext_id)
+                except Exception:  # noqa: BLE001  (the end of the job writes the number again; a failed early write must not stop the manager step)
+                    pass
+
+        if cid:
+            got(cid.group(1), ext.group(1) if ext else None)
+        else:  # a slow page: look again for a few seconds; only the address and a hidden field named caseid count, never a link on the page
+            for _ in range(3):
+                w(1500)
+                url = cur.url or ""
+                cid = re.search(r"caseid=(\d+)", url, re.I)
+                ext = ext or re.search(r"extid=(\d+)", url, re.I)
+                if cid:
+                    break
+            if not cid:
+                hid = self._ev("() => { var e = document.querySelector('input[name=caseid],input[name=CASEID]'); return e ? e.value : ''; }", None, "")
+                cid = re.match(r"^(\d+)$", str(hid or ""))
+            if cid:
+                got(cid.group(1), ext.group(1) if ext else None)
         if not rep.case_id:
-            rep.code = "create_unclear"
+            rep.ok, rep.code = False, "create_unclear"
             rep.messages = ["manager page opened but no case number was found"]
             return rep
-        if self.on_created:
-            try:
-                self.on_created(rep.case_id, rep.ext_id)
-            except Exception:  # noqa: BLE001  (the end of the job writes the number again; a failed early write must not stop the manager step)
-                pass
+        w(1200)
+        opts_m = self._ev(_OPTS, "ddlbMGRNAME", []) or []
+        opts_a = self._ev(_OPTS, "ddlbADJNAME", []) or []
+        mv = pick_person([(v, t) for v, t, _c in opts_m], spec.manager)
+        av = pick_person([(v, t) for v, t, _c in opts_a], spec.adjuster)
         if not mv or not av:
             rep.note = "manager_adjuster_not_set"  # the case exists: a person sets them, the worker must not make another case
             return rep
