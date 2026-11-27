@@ -15,7 +15,7 @@ import { StepDots, StepHeads } from "./case-steps";
 import type { CaseRow } from "./case-table";
 import { currentStepOf, DESK_WAITS, systemBusy } from "@/lib/case-steps";
 import { whenOf } from "@/lib/fmt-when";
-import ProfileCard, { type Cred } from "./profile-card";
+import ProfileCard, { useServerCred, type Cred } from "./profile-card";
 import { checking as loginChecking, needsUser } from "@/lib/ext/login-state";
 import NewCasePick from "./new-case-pick";
 
@@ -281,7 +281,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   const { t } = useT();
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [cred, setCred] = useState<Cred>(cred0);
+  const [cred, setCred] = useServerCred(cred0);
   // complete, but the login needs the user (a code from the phone, a wrong password), is still being checked, or is blocked
   const loginNeeds = cred.complete && (needsUser(cred) || loginChecking(cred));
   // once the check comes back fine the card stays a few seconds, so "login works" is seen before it goes.
@@ -293,11 +293,6 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
     setOkHold(wasNeeded && !loginNeeds && cred.verifyState === "ok");
   }
   useEffect(() => { if (!okHold) return; const id = window.setTimeout(() => setOkHold(false), 5000); return () => window.clearTimeout(id); }, [okHold]);
-  // a new cred0 object comes with every refresh: take it only when the server's value really changed, so a refresh that
-  // started before a poll came back cannot put the older state back (and blink the card)
-  const credKey = JSON.stringify(cred0);
-  const [lastKey, setLastKey] = useState(credKey);
-  if (lastKey !== credKey) { setLastKey(credKey); setCred(cred0); }
   // a case can be started only with the details filled in; enforced only while saving really works (key set, migration applied)
   const blocked = cred.blocks;
 

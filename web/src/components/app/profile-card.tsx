@@ -39,6 +39,19 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
  * password, a code from the phone, still being checked); "page" = the form itself on its own page, filled in
  * with what is saved (owner 2026-11-27: one link in the side bar leads there, the details are typed and changed right on it). A login that needs the user (wrong password, a code from the phone) always shows the full card.
  */
+/**
+ * The saved details as the page holds them. A new server object comes with every refresh: it is taken only when its value
+ * really changed, so a refresh that started before a poll came back cannot put the older login state back (and blink the card).
+ * Used by the first page and /details alike.
+ */
+export function useServerCred(cred0: Cred): [Cred, (c: Cred) => void] {
+  const [cred, setCred] = useState<Cred>(cred0);
+  const key = JSON.stringify(cred0);
+  const [lastKey, setLastKey] = useState(key);
+  if (lastKey !== key) { setLastKey(key); setCred(cred0); }
+  return [cred, setCred];
+}
+
 export default function ProfileCard({ cred, setCred, onSaved, compact, look = "side" }: { cred: Cred; setCred: (c: Cred) => void; onSaved?: () => void; compact: boolean; look?: "side" | "page" }) {
   // the side bar's amber dot follows the details and the login state at once, not only at the next page move
   const sideKey = `${cred.complete}|${cred.verifyState}|${cred.blocked}`;
