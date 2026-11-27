@@ -220,3 +220,121 @@ test("the login command with no Chrome on the port prints offline, not submitted
   assert.deepEqual(JSON.parse(r.stdout.trim().split("\n").pop()), { offline: true, submitted: false });
   assert.doesNotMatch(r.stdout + r.stderr, /s3cret/);
 });
+
+// ---- the whole login command against a fake debugging port on 127.0.0.1 (a tiny WebSocket server; the "page" is the fake DOM above) ----
+import http from "node:http";
+import { createHash } from "node:crypto";
+import { spawn } from "node:child_process";
+
+function fakeChrome(pageFor, { dropAfterFill = false } = {}) {
+  const evals = [];
+  const server = http.createServer((req, res) => {
+    const port = server.address().port;
+    res.setHeader("content-type", "application/json");
+    res.end(JSON.stringify([{ id: "T1", type: "page", url: pageFor().location.href, webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/T1` }]));
+  });
+  server.on("upgrade", (req, socket) => {
+    const accept = createHash("sha1").update(req.headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+    let buf = Buffer.alloc(0);
+    socket.on("error", () => {});
+    socket.on("data", (chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      for (;;) {
+        if (buf.length < 2) return;
+        let len = buf[1] & 0x7f;
+        let at = 2;
+        if (len === 126) { if (buf.length < 4) return; len = buf.readUInt16BE(2); at = 4; }
+        if (buf.length < at + 4 + len) return;
+        const mask = buf.subarray(at, at + 4);
+        const body = Buffer.from(buf.subarray(at + 4, at + 4 + len));
+        const opcode = buf[0] & 0x0f;
+        buf = buf.subarray(at + 4 + len);
+        if (opcode !== 1) continue; // close / ping: nothing to answer here
+        for (let i = 0; i < body.length; i++) body[i] ^= mask[i % 4];
+        const msg = JSON.parse(body.toString("utf8"));
+        const expression = msg.params.expression;
+        evals.push(expression);
+        const value = vm.runInNewContext(expression, pageFor());
+        if (dropAfterFill && value === "sent") { socket.destroy(); server.dropped = true; return; }
+        const out = Buffer.from(JSON.stringify({ id: msg.id, result: { result: { type: "string", value } } }));
+        const head = out.length < 126 ? Buffer.from([0x81, out.length]) : Buffer.from([0x81, 126, out.length >> 8, out.length & 0xff]);
+        socket.write(Buffer.concat([head, out]));
+      }
+    });
+  });
+  return new Promise((res) => server.listen(0, "127.0.0.1", () => res({ server, evals, port: server.address().port })));
+}
+
+function runLoginCommand(port) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, ["cdp.mjs", "login"], {
+      cwd: new URL(".", import.meta.url).pathname,
+      env: { PATH: process.env.PATH, MERIMEN_LOGIN: "on", CDP_PORT: String(port) },
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => { stdout += d; });
+    child.stderr.on("data", (d) => { stderr += d; });
+    child.on("close", (status) => resolve({ status, stdout, stderr, lines: stdout.trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) }));
+    child.stdin.end(JSON.stringify({ username: "abuser", password: "s3cret" }));
+  });
+}
+
+test("end to end: a logged-in tab is left alone and the command says not_login_page", async () => {
+  const page = fakePage({ inputs: [el({ type: "text", name: "search" })], others: [el({ innerText: "Login history" })] });
+  page.location.href = "https://www.merimen.com.my/claims/index.cfm?CFID=1&RID=2";
+  const chrome = await fakeChrome(() => page);
+  try {
+    const r = await runLoginCommand(chrome.port);
+    assert.equal(r.status, 0);
+    assert.deepEqual(r.lines, [{ result: "not_login_page", submitted: false }]);
+    assert.equal(chrome.evals.length, 1); // the read-only probe; the script that types was never sent
+    assert.equal(typedOrClicked(page), false);
+    assert.doesNotMatch(r.stdout + r.stderr, /s3cret|CFID/);
+  } finally {
+    chrome.server.close();
+  }
+});
+
+test("end to end: the login page is filled once; the mark comes first, then the page that was read", async () => {
+  const user = el({ type: "text" });
+  const pass = el({ type: "password" });
+  const button = el({ type: "submit", value: "Login" });
+  const page = fakePage({ inputs: [user, pass, button] });
+  page.document.querySelectorAll = () => [user, pass, button];
+  const chrome = await fakeChrome(() => page);
+  try {
+    const r = await runLoginCommand(chrome.port);
+    assert.equal(r.status, 0);
+    assert.deepEqual(r.lines[0], { submitted: true });
+    assert.equal(r.lines.length, 2);
+    assert.equal(r.lines[1].submitted, true);
+    assert.equal(r.lines[1].has_password, true);
+    assert.equal(r.lines[1].url, "https://www.merimen.com.my/claims/index.cfm");
+    assert.equal(user.value, "abuser");
+    assert.equal(pass.value, "s3cret");
+    assert.equal(button.clicks, 1);
+    assert.doesNotMatch(r.stdout + r.stderr, /s3cret/);
+  } finally {
+    chrome.server.close();
+  }
+});
+
+test("end to end: Chrome goes away right after the click: unknown and submitted, never offline", async () => {
+  const user = el({ type: "text" });
+  const pass = el({ type: "password" });
+  const button = el({ type: "submit", value: "Login" });
+  const page = fakePage({ inputs: [user, pass, button] });
+  page.document.querySelectorAll = () => [user, pass, button];
+  const chrome = await fakeChrome(() => page, { dropAfterFill: true });
+  chrome.server.on("request", () => { if (chrome.server.dropped) chrome.server.close(); });
+  try {
+    const r = await runLoginCommand(chrome.port);
+    assert.equal(r.status, 0);
+    assert.deepEqual(r.lines, [{ submitted: true }, { result: "unknown", submitted: true }]);
+    assert.equal(button.clicks, 1); // sent exactly once, and nothing asks for a second go
+  } finally {
+    chrome.server.close();
+  }
+});
