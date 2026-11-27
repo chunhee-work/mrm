@@ -1,7 +1,7 @@
 import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { get, put, del, head, BlobNotFoundError } from "@vercel/blob";
+import { get, put, del, head, list, BlobNotFoundError } from "@vercel/blob";
 
 // Photos live in the private Vercel Blob store under `<org>/<case>/photos/…`. Only pathnames are kept in the database.
 // Outside production, PHOTO_STORE_DIR swaps the store for a local folder (tests and local screenshots only).
@@ -46,4 +46,17 @@ export async function savePhoto(p: string, bytes: Buffer, contentType: string): 
   const dir = localDir();
   if (dir) { await fs.mkdir(dir, { recursive: true }); await fs.writeFile(localFile(dir, p), bytes); return; }
   await put(p, bytes, { access: "private", contentType, addRandomSuffix: false, allowOverwrite: true });
+}
+
+/** Every stored pathname under a prefix (the purge of a deleted case); the local folder cannot be listed by prefix, so it gives none. */
+export async function listPrefix(prefix: string): Promise<string[]> {
+  if (localDir()) return [];
+  const out: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const r = await list({ prefix, cursor, limit: 1000 });
+    out.push(...r.blobs.map((b) => b.pathname));
+    cursor = r.hasMore ? r.cursor : undefined;
+  } while (cursor);
+  return out;
 }

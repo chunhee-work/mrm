@@ -5,6 +5,7 @@ import { UPLOAD_EXT, UPLOAD_TYPES, MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES, M
 export { UPLOAD_EXT, UPLOAD_TYPES, MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES, MAX_PDF_BYTES };
 
 export const CaseBody = z.object({
+  workshop: z.number().int().min(1).max(3).optional(), // which of the account's workshops (1..3); none = workshop 1
   plate: z.string().trim().max(20).transform((s) => s.toUpperCase().replace(/\s+/g, "")).optional(),
   files: z.array(z.object({
     kind: z.enum(["bundle_zip", "pdf", "photo"]),

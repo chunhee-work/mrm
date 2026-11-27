@@ -16,6 +16,7 @@ import type { CaseRow } from "./case-table";
 import { currentStepOf } from "@/lib/case-steps";
 import { whenOf } from "@/lib/fmt-when";
 import ProfileCard, { type Cred } from "./profile-card";
+import NewCasePick from "./new-case-pick";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
 const NamingDesk = dynamic(() => import("@/components/photos/naming-desk"), { ssr: false, loading: () => <p className="px-1 py-6 text-[14px] text-mute">…</p> });
@@ -286,7 +287,8 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // if the trip never ends (navigation stalled), the overlay goes when the hold runs out and drops work again
   useEffect(() => { if (!going) return; const id = window.setTimeout(() => setGoing(false), HOLD_MS); return () => window.clearTimeout(id); }, [going]);
   const [lineOpen, setLineOpen] = useState(false); // a line of the list is open
-  const over = useFileDrag(!going && !blocked && !lineOpen, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
+  const [picking, setPicking] = useState(false); // a file picked from New case is on its way
+  const over = useFileDrag(!going && !picking && !blocked && !lineOpen, (files) => { holdDropped(files); setGoing(true); router.push(`/cases/new?${DROPPED_PARAM}=1`); });
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
@@ -327,7 +329,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
         <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:mt-7 lg:flex">
           {blocked
             ? <span role="link" aria-disabled="true" title={t("pf.needFirst")} className="btn-primary !gap-2 cursor-not-allowed opacity-55" data-testid="home-new"><Plus />{t("dash.new")}</span>
-            : <Link href="/cases/new" className="btn-primary !gap-2 lg:!px-8" data-testid="home-new"><Plus />{t("dash.new")}</Link>}
+            : <NewCasePick className="btn-primary !gap-2 lg:!px-8" testId="home-new" onOpening={setPicking} held={going}><Plus />{t("dash.new")}</NewCasePick>}
           <Link href="/dashboard?view=closed" className="btn-line lg:hidden" data-testid="home-closed">
             {t("tray.closed")}
             <span className="num font-mono text-[13px] font-medium opacity-60">{counts.closed}</span>

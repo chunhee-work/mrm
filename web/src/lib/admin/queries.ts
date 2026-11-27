@@ -36,7 +36,7 @@ export async function overview(scope: Scope, db: Db = defaultDb) {
       WHERE created_at > now() - interval '30 days' AND ${userOk(scope)} GROUP BY 1`),
     rows(db, sql`SELECT c.status, count(*) n, count(*) FILTER (WHERE c.status = 'failed' AND c.created_at > now() - interval '7 days') failed7,
       count(*) FILTER (WHERE c.status NOT IN ('done', 'failed', 'pending_doc') AND c.created_at < now() - interval '1 hour') stuck
-      FROM cases c WHERE ${idOk(scope, "c.created_by")} GROUP BY c.status`),
+      FROM cases c WHERE c.deleted_at IS NULL AND ${idOk(scope, "c.created_by")} GROUP BY c.status`),
     rows(db, sql`SELECT coalesce(sum(cost_usd) FILTER (WHERE at >= date_trunc('day', now())), 0) today,
       coalesce(sum(cost_usd) FILTER (WHERE at > now() - interval '7 days'), 0) d7,
       coalesce(sum(cost_usd) FILTER (WHERE at > now() - interval '30 days'), 0) d30,
@@ -125,10 +125,10 @@ export async function costPage(scope: Scope, db: Db = defaultDb) {
 export async function casesPage(scope: Scope, db: Db = defaultDb) {
   const ok = idOk(scope, "c.created_by");
   const [status, stuck, failed] = await Promise.all([
-    rows(db, sql`SELECT c.status, count(*) n FROM cases c WHERE ${ok} GROUP BY c.status`),
+    rows(db, sql`SELECT c.status, count(*) n FROM cases c WHERE c.deleted_at IS NULL AND ${ok} GROUP BY c.status`),
     rows(db, sql`SELECT c.id, c.status, c.car_model, c.insurer, c.created_at FROM cases c
-      WHERE c.status NOT IN ('done', 'failed', 'pending_doc') AND c.created_at < now() - interval '1 hour' AND ${ok} ORDER BY c.created_at LIMIT 50`),
-    rows(db, sql`SELECT c.id, c.car_model, c.insurer, c.error, c.created_at FROM cases c WHERE c.status = 'failed' AND ${ok} ORDER BY c.created_at DESC LIMIT 50`),
+      WHERE c.deleted_at IS NULL AND c.status NOT IN ('done', 'failed', 'pending_doc') AND c.created_at < now() - interval '1 hour' AND ${ok} ORDER BY c.created_at LIMIT 50`),
+    rows(db, sql`SELECT c.id, c.car_model, c.insurer, c.error, c.created_at FROM cases c WHERE c.deleted_at IS NULL AND c.status = 'failed' AND ${ok} ORDER BY c.created_at DESC LIMIT 50`),
   ]);
   return {
     byStatus: status.map((r) => ({ status: String(r.status), n: num(r.n) })),

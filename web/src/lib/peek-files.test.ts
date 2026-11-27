@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
-import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, vehicleLayout, PLATE_LIKE, isPlate, platesAnywhere } from "./peek-files";
+import { zipNames, zipHasPdf, looksLikePhoto, vehicleFolders, vehicleLayout, PLATE_LIKE, isPlate, platesAnywhere, hasPdfName } from "./peek-files";
 
 const zip = (files: Record<string, string>) => new Blob([Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)]))))]);
 
@@ -79,4 +79,29 @@ test("zipNames: a central directory that does not start with an entry cannot be 
   const eocd = bad.length - 22;
   dv.setUint32(eocd + 16, 0, true); // point the list at the first local header
   assert.equal(await zipNames(new Blob([bad])), null);
+});
+
+test("platesAnywhere: short folder numbers (KP1, A1) never make a one-car zip 'layout'; a hidden folder hides its PDF", async () => {
+  assert.equal(platesAnywhere(["Claim/a.pdf", "KP1/b.pdf", "Policy/KP2/c.pdf"]), 0);
+  assert.equal(await zipHasPdf(zip({ ".backup/claim.pdf": "x", "a.jpg": "y" })), false);
+});
+
+test("zipNames: fewer entries than the end record says (list damaged part-way) cannot be told (null)", async () => {
+  const good = new Uint8Array(await zip({ "a.pdf": "x", "b.pdf": "y" }).arrayBuffer());
+  const dv = new DataView(good.buffer);
+  const e = good.length - 22;
+  dv.setUint16(e + 10, 3, true);
+  assert.equal(await zipNames(new Blob([good])), null);
+});
+
+test("vehicleLayout: a batch folder whose name looks like a plate is looked through when it holds two or more real plates", () => {
+  assert.deepEqual(vehicleLayout(["AIG2026/DCD4004/a.pdf", "AIG2026/NCH5773/b.pdf", "AIG2026/WA1234B/c.pdf"]).cars,
+    ["AIG2026/DCD4004/", "AIG2026/NCH5773/", "AIG2026/WA1234B/"]);
+  assert.deepEqual(vehicleLayout(["WA1234B/KP1/a.pdf", "WA1234B/KP2/b.pdf"]).cars, ["WA1234B/"]);
+  assert.equal(hasPdfName([".backup/claim.pdf", "Docs/.old/a.pdf", "x/__MACOSX/b.pdf"]), true); // only a top __MACOSX/ is hidden, as on the server
+  assert.equal(hasPdfName([".backup/claim.pdf", "Docs/.old/a.pdf"]), false);
+});
+
+test("vehicleLayout: a car folder holding its own files plus other plates' folders stays that one car (never looked through)", () => {
+  assert.deepEqual(vehicleLayout(["WA1234B/claim.pdf", "WA1234B/NCH5773/r.pdf", "WA1234B/DCD4004/s.pdf"]).cars, ["WA1234B/"]);
 });

@@ -12,11 +12,12 @@ import { CASE_COST, debitCase, enforcing, exempt, refundCase } from "@/lib/payme
 import { creditBalance } from "@/lib/payments/credit";
 import { runPool } from "@/lib/pool";
 import { MAX_FILE_BYTES } from "@/lib/upload-rules";
+import { slotToStore } from "@/lib/ext/workshops";
 import { ZIP_WHY } from "@/lib/case-text";
 
 export const maxDuration = 300; // the zip is opened and stored in this call; the reading of most cases starts later (see below)
 
-const Body = z.object({ url: z.string().url().max(1000), name: z.string().trim().min(1).max(300), size: z.number().int().positive().max(MAX_FILE_BYTES), fallback: z.boolean().optional() });
+const Body = z.object({ url: z.string().url().max(1000), name: z.string().trim().min(1).max(300), size: z.number().int().positive().max(MAX_FILE_BYTES), fallback: z.boolean().optional(), workshop: z.number().int().min(1).max(3).optional() });
 
 
 /**
@@ -68,6 +69,10 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const { url, name, size, fallback } = parsed.data;
+  let slot: Awaited<ReturnType<typeof slotToStore>>;
+  try { slot = await slotToStore(me.orgId, parsed.data.workshop); } // a database failure here answers like the other checks: 500, nothing made
+  catch (e) { console.error("split failed reading the workshop", e); return NextResponse.json({ error: "failed", kept: 0 }, { status: 500 }); }
+  if (slot === "unknown") return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
   let u: URL;
   let path: string;
   try { u = new URL(url); path = decodeURIComponent(u.pathname); } catch { return NextResponse.json({ error: "prefix" }, { status: 400 }); }
@@ -90,7 +95,7 @@ export async function POST(req: Request) {
     console.error("split failed before reading the zip", e);
     return NextResponse.json({ error: "failed", kept: 0 }, { status: 500 });
   }
-  const dropZip = () => del(url).catch(() => {}); // the cars are stored on their own (or the zip was refused): the big zip is not kept
+  const dropZip = () => del(url).catch((x) => console.error("split: zip delete failed", x)); // the cars are stored on their own (or the zip was refused): the big zip is not kept
 
   let buf: Uint8Array;
   try {
@@ -117,11 +122,12 @@ export async function POST(req: Request) {
   try {
     release = await lockSplit(me.orgId, me.user.id, size);
     if (!release) { await dropZip(); return NextResponse.json({ error: "busy" }, { status: 409 }); } // this upload is its own copy: the running call deletes only its own
-    earlier = await earlierCars(me.orgId, size);
+    // only folders of THIS zip count: a different zip of the same size may have left marks for other folders
+    earlier = new Map([...(await earlierCars(me.orgId, size))].filter(([p]) => plan.some((v) => v.prefix === p)));
     todo = plan.filter((v) => !earlier.has(v.prefix));
     if (todo.length && enforcing() && !exempt(me.orgId) && (await creditBalance(me.orgId)) < CASE_COST * todo.length) {
       await release(); await dropZip();
-      return NextResponse.json({ error: "no_credits", needed: todo.length }, { status: 402 });
+      return NextResponse.json({ error: "no_credits", needed: todo.length, kept: earlier.size }, { status: 402 });
     }
   } catch (e) {
     if (release) await release();
@@ -139,7 +145,8 @@ export async function POST(req: Request) {
     for (const v of todo) {
       const id = crypto.randomUUID();
       const entries = unzipVehicle(buf, v.prefix);
-      if (!entries.length) continue; // planVehicles only keeps cars with a non-empty PDF; nothing to make otherwise
+      // planVehicles only keeps cars with a non-empty PDF: a car that still inflates to nothing is refused, never silently left out
+      if (!entries.some((e) => e.kind === "pdf")) throw new ZipRejected("car_no_pdf", ZIP_WHY.car_no_pdf); // also when its PDFs inflate to nothing
       const seen = new Set<string>();
       const names = entries.map((e) => { let n = e.name; for (let k = 2; seen.has(n); k++) n = e.name.replace(/(\.[^.]+)?$/, `-${k}$1`); seen.add(n); return n; });
       const rows: (typeof schema.caseFiles.$inferInsert)[] = new Array(entries.length);
@@ -157,16 +164,19 @@ export async function POST(req: Request) {
           db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${rows.length} file(s)` }),
           db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.create", detail: id }),
           db.insert(schema.auditLog).values({ orgId: me.orgId, userId: me.user.id, action: "case.split", detail: `${id}|${key}${v.prefix}` }),
-        ]);
+          ...(slot ? [db.insert(schema.merimenCaseWorkshop).values({ caseId: id, slot })] : []),
+        ] as Parameters<typeof db.batch>[0]);
       } catch (e) {
         // the batch may have committed although its answer was lost: then the case exists with its files, and the rollback must
         // treat it as made (refund, then delete it with its blobs), never delete its blobs and leave a case without files
         // A lost answer can also mean the transaction has not committed YET: look again twice, 1.5 s apart, and when the case is
         // still not there keep its blobs anyway (a late commit then finds its files; otherwise a few files are left unused).
-        const check = () => db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).then((r) => r.length > 0, () => true);
-        let exists = await check();
-        for (let k = 0; !exists && k < 2; k++) { await new Promise((r) => setTimeout(r, 1500)); exists = await check(); }
-        if (exists) { made.push(id); madeFor.set(v.prefix, id); } else unsure.add(id);
+        // A check that fails tells nothing: the car is treated as made (refund, delete) AND its blobs are kept, as when unsure.
+        const check = () => db.select({ id: schema.cases.id }).from(schema.cases).where(eq(schema.cases.id, id)).limit(1).then((r) => (r.length > 0 ? "yes" : "no"), () => "error");
+        let seen = await check();
+        for (let k = 0; seen === "no" && k < 2; k++) { await new Promise((r) => setTimeout(r, 1500)); seen = await check(); }
+        if (seen !== "no") { made.push(id); madeFor.set(v.prefix, id); }
+        if (seen !== "yes") unsure.add(id);
         throw e;
       }
       made.push(id); madeFor.set(v.prefix, id);

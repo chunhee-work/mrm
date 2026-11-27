@@ -149,3 +149,25 @@ test("cars inside two wrapping folders are found; cars at different levels are r
   // one car with a plate-like sub-folder ("KP1") stays one ordinary case
   assert.equal(unzipBundle(zipSync({ "WA1234B/KP1/x.pdf": pdf, "WA1234B/Docs/y.pdf": pdf })).length, 2);
 });
+
+// patch the first central-directory entry of a zip (fflate does not check these fields itself)
+const patchCd = (z: Uint8Array, at: number, val: number, bytes: 2 | 4) => {
+  const out = z.slice(); const v = new DataView(out.buffer);
+  for (let p = 0; p + 4 <= out.length; p++) if (v.getUint32(p, true) === 0x02014b50) { if (bytes === 2) v.setUint16(p + at, val, true); else v.setUint32(p + at, val, true); break; }
+  return out;
+};
+
+test("planVehicles: a password zip, and a stored entry whose declared size is not its real size, are refused before anything is made", () => {
+  const pdf = strToU8("%PDF-1.4 hello");
+  const z = zipSync({ "DCD4004/a.pdf": [pdf, { level: 0 }], "NCH5773/b.pdf": [pdf, { level: 0 }] });
+  assert.equal(planVehicles(z).length, 2);
+  assert.throws(() => planVehicles(patchCd(z, 8, 1, 2)), (e: ZipRejected) => e.code === "corrupt"); // encrypted flag
+  assert.throws(() => planVehicles(patchCd(z, 24, 0, 4)), (e: ZipRejected) => e.code === "corrupt"); // declares 0 bytes, holds 14
+  assert.throws(() => planVehicles(patchCd(z, 24, 3, 4)), (e: ZipRejected) => e.code === "corrupt"); // declares 3 bytes
+});
+
+test("planVehicles: an encrypted file outside the car folders (a readme) does not refuse the zip", () => {
+  const pdf = strToU8("%PDF-1.4 hello");
+  const z = zipSync({ "readme.txt": [strToU8("hi"), { level: 0 }], "DCD4004/a.pdf": [pdf, { level: 0 }], "NCH5773/b.pdf": [pdf, { level: 0 }] });
+  assert.equal(planVehicles(patchCd(z, 8, 1, 2)).length, 2); // readme.txt is the first entry and carries the flag
+});

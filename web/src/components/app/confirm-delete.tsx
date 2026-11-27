@@ -11,13 +11,14 @@ export default function ConfirmDelete({ row, onClose, onGone, onStale }: { row: 
   const ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [late, setLate] = useState(false); // after a 409 the answer cannot change: the button goes away and the list refreshes
   const open = !!row;
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
-    if (open) setErr("");
+    if (open) { setErr(""); setLate(false); }
   }, [open]);
 
   async function go() {
@@ -26,7 +27,7 @@ export default function ConfirmDelete({ row, onClose, onGone, onStale }: { row: 
     const res = await fetch(`/api/cases/${encodeURIComponent(row.id)}`, { method: "DELETE" }).catch(() => null);
     setBusy(false);
     if (res?.ok || res?.status === 404) { onGone(row.id); onClose(); }
-    else { setErr(t(res?.status === 409 ? "del.late" : "del.fail")); if (res?.status === 409) onStale(); } // the case moved on: the row shows its new status
+    else { setErr(t(res?.status === 409 ? "del.late" : "del.fail")); if (res?.status === 409) { setLate(true); onStale(); } } // the case moved on: the row shows its new status
   }
 
   const title = t("del.title", { plate: row?.plate || t("dash.noPlate") });
@@ -39,7 +40,7 @@ export default function ConfirmDelete({ row, onClose, onGone, onStale }: { row: 
         {open && <p className="mb-5 text-[15px] leading-snug text-mute [text-wrap:pretty]">{t("del.body")}</p>}
         {err && <p role="alert" className="mb-4 text-[14px] font-semibold text-amber" data-testid="del-error">{err}</p>}
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={go} disabled={busy} className="btn-primary !h-11" data-testid="del-confirm">{busy ? t("del.busy") : t("del.confirm")}</button>
+          {!late && <button type="button" onClick={go} disabled={busy} className="btn-primary !h-11" data-testid="del-confirm">{busy ? t("del.busy") : t("del.confirm")}</button>}
           <button type="button" onClick={onClose} disabled={busy} className="btn-line !h-11" data-testid="del-keep">{t("del.keep")}</button>
         </div>
       </div>

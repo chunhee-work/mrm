@@ -32,7 +32,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       .orderBy(desc(schema.cases.createdAt)).limit(1000)
     : [];
   // Self-heal, as on the case page: a case still `uploaded` a minute after it was made never got its read started.
-  // A read cut off by a time limit (a split's own reads share its 300 s) stays `reading`: after STALE_MS it is started again, as
+  // A read cut off by its time limit stays `reading`: after STALE_MS it is started again, as
   // the case page does. At most HEAL_PER_VISIT reads of this organisation run at once, counting the live ones.
   const now = Date.now();
   const stale = (c: (typeof newest)[number]) => c.status === "reading" && now - (leaseTime(c.error) ?? c.createdAt.getTime()) > STALE_MS;

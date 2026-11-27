@@ -8,6 +8,7 @@ import { Brand } from "@/components/brand-mark";
 import { LANGS, LANG_LABEL, type Lang } from "@/lib/i18n";
 import { Burger, Chevron, Exit, Plus } from "./marks";
 import { VIEWS } from "./status";
+import NewCasePick from "./new-case-pick";
 
 // three buttons share one phone-wide row: each language in one short word (the full name is the spoken label)
 const MENU_LANG: Record<Lang, string> = { en: "English", zh: "中文", ms: "Melayu" };
@@ -165,17 +166,11 @@ function NewCase({ onNew, blocked = false, testId = "new-case" }: { onNew: boole
       <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
     </Link>
   );
-  return (
-    <Link
-      href="/cases/new"
-      aria-current={onNew ? "page" : undefined}
-      data-testid={testId}
-      className={`!h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px] ${onNew ? "btn-line bg-panel max-lg:hidden" : "btn-primary"}`}
-    >
-      <Plus />
-      <span className="max-[359px]:sr-only">{t("nav.newCase")}</span>
-    </Link>
-  );
+  const cls = `!h-10 !gap-1.5 !pl-3 !pr-3.5 !text-[14.5px] lg:!gap-2 lg:!pl-4 lg:!pr-5 lg:!text-[15px] ${onNew ? "btn-line bg-panel max-lg:hidden" : "btn-primary"}`;
+  const inner = <><Plus /><span className="max-[359px]:sr-only">{t("nav.newCase")}</span></>;
+  // on the new-case page itself the button stays a plain link back to an empty form; everywhere else it opens the picker
+  if (onNew) return <Link href="/cases/new" aria-current="page" data-testid={testId} className={cls}>{inner}</Link>;
+  return <NewCasePick className={cls} testId={testId} labelClass="max-[359px]:sr-only">{inner}</NewCasePick>;
 }
 
 /**

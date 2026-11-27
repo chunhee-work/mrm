@@ -36,6 +36,13 @@ LAST_PHOTO_LIST_SQL = (
 )
 
 
+def _missing_workshops(e: Exception) -> bool:
+    """The workshop tables come with migration 0014: a missing table is "not there yet", not an error."""
+    t = str(e)
+    # only a missing table or column. A permission error (42501) must NOT land here: it would quietly use the wrong workshop.
+    return "42P01" in t or "42703" in t or "does not exist" in t
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -214,7 +221,7 @@ class PgRepo:
                   pending_doc = COALESCE(%s, pending_doc),
                   error = %s,
                   done_at = CASE WHEN %s THEN now() ELSE done_at END
-                WHERE id = %s""" + final_sql,
+                WHERE id = %s AND deleted_at IS NULL""" + final_sql,
                 (
                     outcome.case_status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
                     outcome.pending_doc, (outcome.error or None), bool(outcome.done), job["case_id"],
@@ -375,6 +382,61 @@ class PgRepo:
         w, m, a, v = rows[0]
         return {"workshop": w, "manager": m, "adjuster": a, "version": int(v or 0)}
 
+    def workshops_for(self, org_id: str) -> list[dict]:
+        """The user's workshops (migration 0014): [{"slot": 1, "name": ...}, ...] by slot, up to three. Empty before the migration."""
+        try:
+            rows = self.db.execute("SELECT slot, name FROM merimen_workshops WHERE org_id = %s ORDER BY slot", (org_id,))
+        except Exception as e:
+            if _missing_workshops(e):
+                return []
+            raise
+        return [{"slot": int(r[0]), "name": r[1]} for r in rows]
+
+    def claim_workshop_for_case(self, case_id: str) -> dict | None:
+        """Call this at the moment the case is made in Merimen, before typing the workshop. In one statement it fixes (locks) the
+        workshop for this case, so the user can no longer switch it, and returns what to use: {"slot": n, "name": ...}.
+        A case nobody moved is workshop 1. Asking again returns the same workshop and the same name, even if the workshop was renamed since.
+        The lock is only written when the workshop has a name, so an unnamed workshop never freezes a case.
+        Returns None when the case is unknown or its workshop has no name (for example the user removed that workshop).
+        NEVER fall back to workshop 1 on None: stop the case and report it, or it is made in the wrong workshop.
+        Before migration 0014 there is one workshop per account (the 0013 column) and nothing to lock."""
+        try:
+            rows = self.db.execute(
+                """
+                WITH cur AS (
+                  SELECT c.id, COALESCE(cw.slot, 1) AS slot, cw.locked_at, cw.locked_name,
+                         CASE WHEN COALESCE(cw.slot, 1) = 1 THEN COALESCE(w.name, mc.workshop_name) ELSE w.name END AS name
+                  FROM cases c
+                  LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id
+                  LEFT JOIN merimen_workshops w ON w.org_id = c.org_id AND w.slot = COALESCE(cw.slot, 1)
+                  LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id
+                  WHERE c.id = %s
+                ), claim AS (
+                  INSERT INTO merimen_case_workshop (case_id, slot, locked_at, locked_name)
+                  SELECT id, slot, now(), name FROM cur WHERE name IS NOT NULL
+                  ON CONFLICT (case_id) DO UPDATE SET locked_at = COALESCE(merimen_case_workshop.locked_at, now()),
+                                                      locked_name = COALESCE(merimen_case_workshop.locked_name, EXCLUDED.locked_name)
+                  -- the user moved the case between our read and now: write nothing (no lock); the case then comes back as None
+                  WHERE merimen_case_workshop.slot = EXCLUDED.slot
+                  RETURNING slot, locked_name
+                )
+                SELECT COALESCE(claim.slot, cur.slot)::int,
+                       CASE WHEN claim.slot IS NOT NULL THEN claim.locked_name WHEN cur.locked_at IS NOT NULL THEN cur.locked_name END
+                FROM cur LEFT JOIN claim ON true
+                """,
+                (case_id,),
+            )
+        except Exception as e:
+            if not _missing_workshops(e):
+                raise
+            rows = self.db.execute(
+                "SELECT 1, mc.workshop_name FROM cases c LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id WHERE c.id = %s",
+                (case_id,),
+            )
+        if not rows or not rows[0][1]:
+            return None
+        return {"slot": int(rows[0][0]), "name": rows[0][1]}
+
     def claim_verify(self):
         """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement."""
         sql = """
@@ -433,7 +495,7 @@ class PgRepo:
                 """
                 WITH moved AS (
                   UPDATE cases SET status = 'waiting_user'
-                  WHERE org_id = %s AND status IN ('phase_a', 'phase_b', 'checking')
+                  WHERE org_id = %s AND deleted_at IS NULL AND status IN ('phase_a', 'phase_b', 'checking')
                   RETURNING id
                 )
                 INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM moved
@@ -450,7 +512,7 @@ class PgRepo:
                 (org_id,),
             ))
             st.append((
-                "INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM cases WHERE org_id = %s AND status = 'waiting_user'",
+                "INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM cases WHERE org_id = %s AND deleted_at IS NULL AND status = 'waiting_user'",
                 (event, org_id),
             ))
         self.db.batch(st)

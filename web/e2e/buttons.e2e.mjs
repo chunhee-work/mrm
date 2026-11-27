@@ -155,6 +155,7 @@ async function pressAll(ctx, where, url, vw, prep, scope = null) {
     let reqs = 0;
     page.on("request", (r) => { if (["fetch", "xhr", "document"].includes(r.resourceType()) && !r.headers()["next-router-prefetch"]) reqs++; });
     // a link that opens a new tab (an uploaded file): the press did something, and the new tab must load
+    page.on("filechooser", () => { reqs++; }); // New case opens the file picker in place
     page.on("popup", (pop) => { reqs++; pop.on("response", (r) => { if (r.request().isNavigationRequest() && r.status() >= 400) errs.push(`new tab: ${r.status()} on ${new URL(r.url()).pathname}`); }); });
     const tag = await page.evaluate(MARK, [key, scope]);
     if (!tag) { await page.close(); continue; } // only there after another press (a menu item, an undo)

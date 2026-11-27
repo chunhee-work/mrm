@@ -8,6 +8,7 @@ import { createPendingOrder, displayStatus, getOrder } from "../src/lib/payments
 import { creditBalance, creditOrder, refundOrder } from "../src/lib/payments/credit";
 import { debitCase } from "../src/lib/payments/case-credit";
 import { deleteCase } from "../src/lib/case-delete";
+import { purgeDeletedCases } from "../src/lib/purge-deleted-cases";
 import { PACKS, packSellable } from "../src/lib/payments/packs";
 import { decimalToMinor } from "../src/lib/payments/money";
 import { handleLemonSqueezyWebhook, verifySignature } from "../src/lib/payments/providers/lemonsqueezy";
@@ -301,11 +302,116 @@ test("delete: the credit goes back for an unread case only, and not twice for a 
     const n = await mkCase("naming"); assert.ok(await debitCase(org, n)); // documents were read: no free read through delete
     assert.deepEqual(await deleteCase(org, "u1", n), { ok: true, refunded: false });
     assert.equal(await creditBalance(org), 4000);
-    await db.insert(schema.creditsLedger).values({ orgId: org, delta: 1000, reason: "top-up" });
+    // a read case that got more files sits in `uploaded` until the next read starts: its read was already paid, so no credit back
+    const r = await mkCase("uploaded"); assert.ok(await debitCase(org, r));
+    await db.update(schema.cases).set({ caseData: { read: true } as never }).where(sql`${schema.cases.id} = ${r}`);
+    assert.deepEqual(await deleteCase(org, "u1", r), { ok: true, refunded: false });
+    assert.equal(await creditBalance(org), 3000);
+    await db.insert(schema.creditsLedger).values({ orgId: org, delta: 2000, reason: "top-up" });
     const b = await mkCase("failed"); assert.ok(await debitCase(org, b));
     const { refundCase } = await import("../src/lib/payments/case-credit");
     assert.ok(await refundCase(org, b, "failed")); // the worker already gave it back
     assert.deepEqual(await deleteCase(org, "u1", b), { ok: true, refunded: false });
     assert.equal(await creditBalance(org), 5000);
   } finally { delete process.env.CREDITS_ENFORCE; }
+});
+
+// ---- the files of a deleted case are removed after 7 days (lib/purge-deleted-cases) ----
+const mkDeleted = async (daysAgo: number | null) => {
+  const id = randomUUID();
+  await db.insert(schema.cases).values({ id, orgId: org, plate: "PUR1234", status: "failed", caseData: { read: true } as never,
+    deletedAt: daysAgo == null ? null : new Date(Date.now() - daysAgo * 86_400_000) });
+  await db.insert(schema.caseFiles).values({ caseId: id, kind: "pdf", blobUrl: `https://blob.example/${id}/a.pdf`, originalName: "a.pdf", size: 1 });
+  await db.insert(schema.casePhotos).values({ caseId: id, position: 0, origN: 1, srcName: "1.jpg", blobPath: `${org}/${id}/photos/1.jpg`, thumbPath: `${org}/${id}/photos/t1.jpg` });
+  await db.insert(schema.photoUploads).values({ path: `${org}/${id}/photos/late.jpg`, caseId: id });
+  await db.insert(schema.caseEvents).values({ caseId: id, step: "read", message: "Reading documents" });
+  return id;
+};
+const rowsOf = async (id: string) => ({
+  files: (await db.select().from(schema.caseFiles).where(sql`${schema.caseFiles.caseId} = ${id}`)).length,
+  photos: (await db.select().from(schema.casePhotos).where(sql`${schema.casePhotos.caseId} = ${id}`)).length,
+  data: (await db.select({ d: schema.cases.caseData }).from(schema.cases).where(sql`${schema.cases.id} = ${id}`))[0].d,
+});
+
+test("purge: only a case deleted more than 7 days ago loses its files, photos and read text; the case row and audit stay; a second run does nothing", async () => {
+  const old = await mkDeleted(8), fresh = await mkDeleted(3), live = await mkDeleted(null);
+  const removed: string[] = [];
+  const r = await purgeDeletedCases(async (p) => { removed.push(p); });
+  assert.deepEqual(r, { cases: 1, files: 4, failed: 0 });
+  assert.equal(removed.length, 4); assert.ok(removed.every((p) => p.includes(old)));
+  assert.deepEqual(await rowsOf(old), { files: 0, photos: 0, data: null });
+  assert.equal((await rowsOf(fresh)).files, 1); assert.equal((await rowsOf(live)).photos, 1);
+  assert.equal((await db.select().from(schema.cases).where(sql`${schema.cases.id} = ${old}`)).length, 1);
+  assert.equal((await db.select().from(schema.auditLog).where(sql`${schema.auditLog.action} = 'case.purge'`)).length, 1);
+  assert.deepEqual(await purgeDeletedCases(async () => { throw new Error("nothing is due"); }), { cases: 0, files: 0, failed: 0 });
+});
+
+test("purge: a file that cannot be removed leaves the case whole for the next run", async () => {
+  const id = await mkDeleted(9);
+  const r = await purgeDeletedCases(async () => { throw new Error("store down"); });
+  assert.deepEqual(r, { cases: 0, files: 0, failed: 1 });
+  assert.deepEqual(await rowsOf(id), { files: 1, photos: 1, data: { read: true } });
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 1);
+});
+
+test("purge: a file another case still points at is kept, the rest of the deleted case goes", async () => {
+  const gone = await mkDeleted(9), live = await mkDeleted(null);
+  const shared = `https://blob.example/${gone}/a.pdf`;
+  await db.update(schema.caseFiles).set({ blobUrl: shared }).where(sql`${schema.caseFiles.caseId} = ${live}`); // the live case was made from the same URL
+  const removed: string[] = [];
+  const r = await purgeDeletedCases(async (p) => { removed.push(p); });
+  assert.deepEqual({ cases: r.cases, files: r.files, skipped: r.skipped }, { cases: 1, files: 3, skipped: 1 });
+  assert.ok(!removed.includes(shared));
+  assert.equal((await rowsOf(live)).files, 1);
+  assert.equal((await rowsOf(gone)).files, 0);
+});
+
+test("purge: a case whose only leftover is the read text is purged once, and a JSON null counts as nothing", async () => {
+  const id = randomUUID(), nul = randomUUID();
+  const old = new Date(Date.now() - 9 * 86_400_000);
+  await db.insert(schema.cases).values({ id, orgId: org, plate: "T1", status: "failed", caseData: { x: 1 } as never, deletedAt: old });
+  await db.insert(schema.cases).values({ id: nul, orgId: org, plate: "T2", status: "failed", caseData: null as never, deletedAt: old });
+  await db.execute(sql`UPDATE cases SET case_data = 'null'::jsonb WHERE id = ${nul}`);
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 1);
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 0);
+});
+
+test("purge: events and upload rows go too, and a case with a running job is left alone", async () => {
+  const id = await mkDeleted(9);
+  await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "running" });
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 0);
+  await db.update(schema.jobs).set({ state: "queued" }).where(sql`${schema.jobs.caseId} = ${id}`);
+  assert.equal((await purgeDeletedCases(async () => {})).cases, 1);
+  assert.equal((await db.select().from(schema.caseEvents).where(sql`${schema.caseEvents.caseId} = ${id}`)).length, 0);
+  assert.equal((await db.select().from(schema.photoUploads).where(sql`${schema.photoUploads.caseId} = ${id}`)).length, 0);
+  assert.equal((await db.select().from(schema.jobs).where(sql`${schema.jobs.caseId} = ${id}`))[0].state, "cancelled");
+});
+
+test("purge: a file with no row (listed by the case folder) is removed, the error text goes, a full-URL file shared with another case's bare path is kept", async () => {
+  const gone = await mkDeleted(9), live = randomUUID();
+  await db.update(schema.cases).set({ error: "scan failed: Jane Tan IC.pdf", pendingDoc: "insurance form" }).where(sql`${schema.cases.id} = ${gone}`);
+  await db.insert(schema.cases).values({ id: live, orgId: org, plate: "LIVE1", status: "naming" });
+  const url = `https://blob.example/${org}/${gone}/photos/1.jpg`; // a full URL for the very path the live case holds as a bare pathname
+  await db.update(schema.caseFiles).set({ blobUrl: url }).where(sql`${schema.caseFiles.caseId} = ${gone}`);
+  await db.insert(schema.casePhotos).values({ caseId: live, position: 0, origN: 1, srcName: "x.jpg", blobPath: `${org}/${gone}/photos/1.jpg`, thumbPath: "" });
+  const removed: string[] = [];
+  const r = await purgeDeletedCases(async (p) => { removed.push(p); }, { listPrefix: async () => [`${org}/${gone}/orphan.jpg`] });
+  assert.equal(r.cases, 1);
+  assert.ok(removed.includes(`${org}/${gone}/orphan.jpg`));
+  assert.ok(!removed.includes(url));
+  const [row] = await db.select({ e: schema.cases.error, d: schema.cases.pendingDoc }).from(schema.cases).where(sql`${schema.cases.id} = ${gone}`);
+  assert.deepEqual(row, { e: null, d: null });
+  assert.equal((await db.select().from(schema.auditLog).where(sql`${schema.auditLog.action} = 'case.purge'`)).length, 1);
+});
+
+test("purge: a shared file is kept even when the other case stored its name escaped differently", async () => {
+  const gone = randomUUID(), live = randomUUID();
+  const old = new Date(Date.now() - 9 * 86_400_000);
+  await db.insert(schema.cases).values([{ id: gone, orgId: org, plate: "G1", status: "failed", deletedAt: old }, { id: live, orgId: org, plate: "L1", status: "naming" }]);
+  await db.insert(schema.caseFiles).values({ caseId: gone, kind: "pdf", blobUrl: `https://blob.example/${org}/${gone}/Car%20%5B1%5D.pdf`, originalName: "Car [1].pdf", size: 1 });
+  await db.insert(schema.caseFiles).values({ caseId: live, kind: "pdf", blobUrl: `https://blob.example/${org}/${gone}/Car%20[1].pdf`, originalName: "Car [1].pdf", size: 1 });
+  const removed: string[] = [];
+  const r = await purgeDeletedCases(async (p) => { removed.push(p); });
+  assert.deepEqual(removed, []);
+  assert.equal(r.skipped, 1);
 });
