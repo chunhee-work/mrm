@@ -8,7 +8,7 @@ export type Cred = {
   workshop: string | null; workshops: { slot: number; name: string }[]; manager: string | null; adjuster: string | null; complete: boolean; storageOk: boolean; keyOk: boolean; blocks: boolean;
 };
 
-import { BAD, CHECKING, SIDE_REFRESH } from "@/lib/ext/login-state";
+import { BAD, checking as isChecking, SIDE_REFRESH } from "@/lib/ext/login-state";
 
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -76,7 +76,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
 
   // poll while the worker checks the login
   useEffect(() => {
-    if (!CHECKING.includes(cred.verifyState)) return;
+    if (!isChecking(cred)) return;
     let ticks = 0;
     const id = setInterval(async () => {
       if (++ticks > 90) { clearInterval(id); return; } // 3 minutes, then stop asking (the worker may be offline)
@@ -212,7 +212,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   // complete: a small summary on the side
   const bad = BAD.includes(cred.verifyState);
   const good = cred.verifyState === "ok" && !cred.blocked;
-  const checking = CHECKING.includes(cred.verifyState);
+  const checking = isChecking(cred);
   // what Merimen said about the login (and the code box when it asks for one)
   const stateBlock = (
       <div className="border-t border-hair px-4 py-2.5 text-[13.5px] text-mute">
