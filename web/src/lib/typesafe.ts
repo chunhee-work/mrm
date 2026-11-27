@@ -1,4 +1,5 @@
 import "server-only";
+import { trackedJev, type JevCtx } from "./jev-ledger";
 
 // TypeSafe "jev": text judgments only (condition, model variant, misc line, narrative).
 // Owner's rule: jev never reads car damage images. This client refuses anything that looks like an image or an asset,
@@ -30,7 +31,8 @@ export function assertTextOnly(v: unknown, depth = 0): void {
   throw new TypeSafeImageError();
 }
 
-export type JevRequest = { state: string; questions: unknown[] };
+// The live API wants questions as an object keyed by question id ({ ins: { type, instructions, criteria } }); an array gets HTTP 422.
+export type JevRequest = { state: unknown; questions: Record<string, unknown> };
 
 /** The exact request that would be sent. Exported so a test can prove it never carries an image or the image header. */
 export function buildJevRequest(input: JevRequest, key: string): { url: string; init: RequestInit } {
@@ -48,7 +50,12 @@ export function buildJevRequest(input: JevRequest, key: string): { url: string; 
   };
 }
 
-export async function askJev(input: JevRequest): Promise<unknown> {
+/** Pass ctx ({ purpose, userId?, caseId? }) to log the call in the llm_calls ledger (shown on the Cost page). */
+export async function askJev(input: JevRequest, ctx?: JevCtx): Promise<unknown> {
+  return ctx ? trackedJev(ctx, () => callJev(input)) : callJev(input);
+}
+
+async function callJev(input: JevRequest): Promise<unknown> {
   const key = process.env.TYPESAFE_API_KEY;
   if (!key) throw new Error("TYPESAFE_API_KEY is not set");
   const { url, init } = buildJevRequest(input, key);

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db as defaultDb } from "@/db";
-import { idOk, type Scope } from "./queries";
+import { ANTHROPIC_ONLY, idOk, type Scope } from "./queries";
 
 // "Right now" view of the app's own AI spend, counted as each call finishes (so it is current to the second).
 type Db = typeof defaultDb;
@@ -13,7 +13,7 @@ export type LiveCost = {
 const n = (v: unknown) => Number(v ?? 0);
 
 export async function liveCost(scope: Scope, db: Db = defaultDb): Promise<LiveCost> {
-  const ok = idOk(scope, "c.user_id");
+  const ok = sql`${idOk(scope, "c.user_id")} AND ${ANTHROPIC_ONLY}`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const run = async (q: any): Promise<any[]> => { const r = await db.execute(q); return ((r as any).rows ?? r) as any[]; }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const [agg, recent] = await Promise.all([
@@ -35,7 +35,7 @@ export async function liveCost(scope: Scope, db: Db = defaultDb): Promise<LiveCo
 
 /** Whole-app AI spend recorded after `since` (the point where Anthropic's own numbers stop being complete). Not scoped: the plan credit is shared by every user. */
 export async function ownSpendSince(since: Date, db: Db = defaultDb): Promise<number> {
-  const r = await db.execute(sql`SELECT coalesce(sum(cost_usd), 0) usd FROM llm_calls WHERE at > ${since.toISOString()}`);
+  const r = await db.execute(sql`SELECT coalesce(sum(cost_usd), 0) usd FROM llm_calls c WHERE at > ${since.toISOString()} AND ${ANTHROPIC_ONLY}`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = ((r as any).rows ?? r) as any[];
   return n(rows[0]?.usd);
