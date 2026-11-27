@@ -34,7 +34,7 @@ const TAIL = 9; // characters of a long file name that always stay visible (the 
  * the files the user picked or dropped there (`initial`, or "lost" when a hand-off from another page found nothing). When the
  * case is made it says so through `onMade` and the first page lists it; nothing navigates away.
  */
-export type Embed = { initial: File[] | "lost"; more?: { n: number; files: File[] }; dragOff?: boolean; onMade: (id: string | null) => void; onClose: () => void; onBusy?: (busy: boolean) => void };
+export type Embed = { initial: File[] | "lost"; more?: { n: number; files: File[] }; dragOff?: boolean; onEnded?: () => void; onMade: (id: string | null) => void; onClose: () => void; onBusy?: (busy: boolean) => void };
 
 export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: string; workshops?: WorkshopOpt[]; embed?: Embed }) {
   const router = useRouter();
@@ -97,12 +97,22 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
   }, []);
 
   // files picked with New case while this box is open join its list, like files dropped on it: nothing in the box is thrown away
+  // files that come while the box is busy wait for it to be free, then join once
   const more = embed?.more;
-  useEffect(() => { if (more?.files.length && !busy) void addFiles(more.files); }, [more?.n]); // eslint-disable-line react-hooks/exhaustive-deps
+  const moreDone = useRef(0);
+  useEffect(() => {
+    if (!more?.files.length || busy || moreDone.current === more.n) return;
+    moreDone.current = more.n;
+    void addFiles(more.files);
+  }, [more?.n, busy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the first page turns its own drop and New case off while this form uploads
-  const onBusy = embed?.onBusy;
-  useEffect(() => { onBusy?.(busy); }, [busy, onBusy]);
+  const onBusy = embed?.onBusy, onEnded = embed?.onEnded;
+  const reached = useRef(false); // a create or split request went out in this send
+  useEffect(() => {
+    onBusy?.(busy);
+    if (!busy && reached.current) { reached.current = false; onEnded?.(); } // a send that reached the server ended: the list may have changed
+  }, [busy, onBusy, onEnded]);
   useEffect(() => () => onBusy?.(false), [onBusy]);
 
   // B11: leaving or reloading while files go up throws the upload away, so ask first (links inside the app too)
@@ -214,6 +224,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
       if (!alive.current) return; // the user left while the files went up
       if (multi || unknown) { // one zip, several vehicles: the server makes one case per vehicle
         // a lost connection does not stop the server: cars may be made, so the message is the split one, not "nothing happened"
+        reached.current = true; // from here a case may exist even if the answer is lost
         const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...done[0], fallback: unknown, ...wsBody }) })
           .catch(() => null);
         if (!sp) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
@@ -232,7 +243,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
             setMsg(why ? `${why} ${t("new.splitFail")}` : t("new.splitFail")); setStep(-1); setBusy(false); return;
           }
           if (sp.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
-          if (sp.status === 403) { if (embed) { setBusy(false); setStep(-1); router.refresh(); embed.onClose(); return; } leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: nothing was made
+          if (sp.status === 403) { if (embed) { reached.current = false; setBusy(false); setStep(-1); router.refresh(); embed.onClose(); return; } leaving.current = true; window.location.assign("/dashboard"); return; } // details not filled in: nothing was made
           if (sp.status === 409) { setMsg(t("new.splitBusy")); setStep(-1); setBusy(false); return; }
           // 400/401/502: no case was made; 500 with nothing kept: all were rolled back; else (time-out, kept cases) some cars may be made
           const undone = sp.status === 400 || sp.status === 401 || sp.status === 502 || (sp.status === 500 && j?.error === "failed" && !(j as { kept?: number }).kept);
@@ -245,6 +256,7 @@ export default function NewCaseForm({ orgId, workshops = [], embed }: { orgId: s
         }
       }
       if (!alive.current) return; // left while the split looked at a zip it then handed back (`empty`): no case, no credit
+      reached.current = true;
       const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done, ...wsBody }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));

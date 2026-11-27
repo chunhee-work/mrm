@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -346,8 +346,11 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
   // while the box is shown its own drop zone takes the window's drops (added to its list; refused while it uploads)
   const over = useFileDrag(boxShown ? "off" : !blocked && !deskShown, (files) => start(files));
   // a send that ended may have made cases on any path (a split cut short, a lost answer): read the list again
-  const wasBusy = useRef(false);
-  useEffect(() => { if (wasBusy.current && !upBusy) router.refresh(); wasBusy.current = upBusy; }, [upBusy, router]);
+  // Only when online: a refresh that cannot reach the server makes Next reload the whole page, losing the box and its message.
+  const relist = useCallback(() => {
+    if (navigator.onLine) return router.refresh();
+    window.addEventListener("online", () => router.refresh(), { once: true });
+  }, [router]);
 
   // every open case on this page, each with its own step bar: nothing to open in between (owner 2026-11-27).
   // Typing in the search narrows this list at once; Go searches every case, closed ones too.
@@ -398,7 +401,7 @@ export default function Home({ name, counts, cases, busy = false, cred: cred0, o
         {panel && boxShown && (
           <div ref={boxRef} className="mt-6 scroll-mt-20 lg:scroll-mt-4">
             <NewCaseForm key={panel.key} orgId={orgId} workshops={workshops}
-              embed={{ initial: panel.initial, more: panel.more, dragOff: deskShown, onBusy: setUpBusy, onClose: () => setPanel(null), onMade: (id) => { setPanel(null); setMade(id ? "one" : "many"); } }} />
+              embed={{ initial: panel.initial, more: panel.more, dragOff: deskShown, onEnded: relist, onBusy: setUpBusy, onClose: () => setPanel(null), onMade: (id) => { setPanel(null); setMade(id ? "one" : "many"); relist(); } }} />
           </div>
         )}
         {made && <p role="status" className="mt-6 flex items-center gap-2 text-[15px] font-medium text-fg" data-testid="home-made"><Tick className="h-4 w-4 shrink-0 text-ice" />{t(made === "one" ? "new.made" : "new.madeN")}</p>}
