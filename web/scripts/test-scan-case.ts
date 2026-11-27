@@ -225,6 +225,21 @@ async function main() {
       await scanCase(id2, "auto"); assert.equal(await bal(), mid); // customer's bad file: no refund
       delete process.env.CREDITS_ENFORCE;
     }],
+    ["a zip of several cars (or cars at different levels) on the one-case path gives the credit back, unless the case was read before", async () => {
+      process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
+      const { debitCase } = await import("../src/lib/payments/case-credit");
+      const { ZIP_WHY } = await import("../src/lib/case-text");
+      await db.insert(schema.creditsLedger).values({ orgId: "o", delta: 3000, reason: "purchase:multi" });
+      const bal = async () => Number(((await db.execute(sql`SELECT COALESCE(SUM(delta),0)::int AS b FROM credits_ledger WHERE org_id = 'o'`)) as any).rows[0].b);
+      for (const why of [ZIP_WHY.multi, ZIP_WHY.layout]) {
+        claude = async () => { throw new Error(`cars.zip: ${why}`); };
+        const id = await newCase("uploaded"); await debitCase("o", id); const before = await bal();
+        await scanCase(id, "auto"); assert.equal(await bal(), before + 1000, why); // never read: refunded
+        const read = await newCase("uploaded", null, { caseData: { missing: [] } }); await debitCase("o", read); const mid = await bal();
+        await scanCase(read, "auto"); assert.equal(await bal(), mid, why); // read before: that read stays paid for
+      }
+      delete process.env.CREDITS_ENFORCE;
+    }],
     ["B03: no balance -> no debit and false; enough -> exactly one debit even if asked twice; exempt orgs never pay", async () => {
       process.env.CREDITS_ENFORCE = "on"; process.env.CREDITS_EXEMPT_ORGS = "free-org, other";
       const { debitCase, hasCredit } = await import("../src/lib/payments/case-credit");
