@@ -1,4 +1,5 @@
 "use client";
+import WorkshopPicker, { type WorkshopOpt } from "@/components/app/workshop-picker";
 import { useEffect, useRef, useState } from "react";
 import { uploadGuarded, UploadStalled } from "@/lib/upload-guard";
 import { useT } from "@/components/lang-provider";
@@ -27,7 +28,9 @@ const TAG: Record<Kind, string> = {
 };
 const TAIL = 9; // characters of a long file name that always stay visible (the end + extension)
 
-export default function NewCaseForm({ orgId }: { orgId: string }) {
+export default function NewCaseForm({ orgId, workshops = [] }: { orgId: string; workshops?: WorkshopOpt[] }) {
+  const [ws, setWs] = useState(1); // which workshop the case belongs to (only asked when the account has two or more)
+  const wsBody = workshops.length >= 2 && ws !== 1 ? { workshop: ws } : {};
   const { t } = useT();
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -182,7 +185,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
       if (!alive.current) return; // the user left while the files went up
       if (multi || unknown) { // one zip, several vehicles: the server makes one case per vehicle
         // a lost connection does not stop the server: cars may be made, so the message is the split one, not "nothing happened"
-        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...done[0], fallback: unknown }) })
+        const sp = await fetch("/api/cases/split", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...done[0], fallback: unknown, ...wsBody }) })
           .catch(() => null);
         if (!sp) { setMsg(t("new.splitFail")); setStep(-1); setBusy(false); return; }
         const j = sp.ok ? null : ((await sp.json().catch(() => ({}))) as { error?: string; why?: string });
@@ -201,7 +204,7 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
           return;
         }
       }
-      const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done }) });
+      const r = await fetch("/api/cases", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ files: done, ...wsBody }) });
       if (r.status === 402) { setNoCredit(true); setStep(-1); setBusy(false); return; }
       if (!r.ok) throw new Error(t("new.fail"));
       const { id } = (await r.json()) as { id: string };
@@ -232,6 +235,9 @@ export default function NewCaseForm({ orgId }: { orgId: string }) {
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-7 px-5 py-6 sm:px-8 sm:py-8">
+          {workshops.length >= 2 && (
+            <div className="field min-w-0"><span className="label">{t("pf.caseWs")}</span><WorkshopPicker workshops={workshops} value={ws} onChange={setWs} disabled={busy} testid="new-ws" /></div>
+          )}
           <div className="field min-w-0 grid-cols-[minmax(0,1fr)]">
             {/* the page has one job, so the place to put the files comes first; its name is the page title */}
             <label className="sr-only" htmlFor="case-files">{t("new.files")}</label>

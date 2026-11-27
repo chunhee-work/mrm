@@ -154,3 +154,35 @@ def test_profile_for_is_none_before_migration_0013():
         def execute(self, sql, params=()):
             raise RuntimeError('column "workshop_name" does not exist')
     assert PgRepo("", db=Boom()).profile_for("o1") is None
+
+
+def test_workshops_for_lists_the_slots():
+    rec = Rec({"execute": [(1, "Bengkel Ali"), (3, "Bengkel Cheras")]})
+    assert PgRepo("", db=rec).workshops_for("o1") == [{"slot": 1, "name": "Bengkel Ali"}, {"slot": 3, "name": "Bengkel Cheras"}]
+    assert PgRepo("", db=Rec()).workshops_for("o1") == []
+
+
+def test_workshop_for_case_reads_slot_and_name():
+    rec = Rec({"execute": [(2, "Bengkel Cheras")]})
+    assert PgRepo("", db=rec).workshop_for_case("c1") == {"slot": 2, "name": "Bengkel Cheras"}
+    assert "merimen_case_workshop" in rec.calls[0][0] and rec.calls[0][1] == ("c1",)
+    assert PgRepo("", db=Rec()).workshop_for_case("nope") is None
+    assert PgRepo("", db=Rec({"execute": [(1, None)]})).workshop_for_case("c1") is None
+
+
+def test_workshop_before_migration_0014_is_the_one_workshop():
+    class Old:
+        def __init__(self):
+            self.n = 0
+
+        def execute(self, sql, params=()):
+            self.n += 1
+            if "merimen_case_workshop" in sql:
+                raise RuntimeError('relation "merimen_case_workshop" does not exist')
+            return [(1, "Bengkel Ali")]
+    assert PgRepo("", db=Old()).workshop_for_case("c1") == {"slot": 1, "name": "Bengkel Ali"}
+
+    class NoTable:
+        def execute(self, sql, params=()):
+            raise RuntimeError('relation "merimen_workshops" does not exist')
+    assert PgRepo("", db=NoTable()).workshops_for("o1") == []

@@ -1,4 +1,5 @@
 "use client";
+import WorkshopPicker, { type WorkshopOpt } from "@/components/app/workshop-picker";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,6 +37,9 @@ export type CaseDetail = {
   stale: boolean; // reading, but no news for 6 minutes: the server is already restarting it
   cred?: Cred | null;
   credConfigured?: boolean;
+  workshops?: WorkshopOpt[]; // the account's workshops (a choice is shown from two on)
+  workshopSlot?: number; // the one this case belongs to
+  workshopLocked?: boolean; // already made in Merimen: shown, not changeable
   shots?: Shot[] | null; // null: flag off, table not there yet, or not the submitter
   sameCount?: number; // other cases of this org with the same plate (R2-U02)
   createdAt?: string;
@@ -66,6 +70,18 @@ export default function CaseView({ c }: { c: CaseDetail }) {
 
   // pending_doc is not retried here: the same files would give the same missing list (an add-documents flow comes later)
   const canRetry = c.status === "failed" && !userFixable(c.error);
+
+  const [wsBusy, setWsBusy] = useState(false);
+  const [wsErr, setWsErr] = useState(false);
+  async function moveTo(slot: number) {
+    setWsBusy(true); setWsErr(false);
+    try {
+      const r = await fetch(`/api/cases/${c.id}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop: slot }) });
+      if (!r.ok) setWsErr(true);
+    } catch { setWsErr(true); }
+    setWsBusy(false);
+    router.refresh();
+  }
 
   async function retry() {
     setBusy(true); setErr(false);
@@ -264,6 +280,14 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     <>
       {Header()}
       <div className="border-b border-hair px-5 py-3 sm:px-8"><CaseSteps caseId={c.id} status={c.status} photos={c.desk?.total ?? c.photos} photosDone={!!c.desk?.doneAt} hint={false} /></div>
+      {(c.workshops?.length ?? 0) >= 2 && (
+        <div className="grid gap-2 border-b border-hair px-5 py-3 sm:px-8" data-testid="case-ws">
+          <span className="label">{t("pf.caseWs")}</span>
+          <WorkshopPicker workshops={c.workshops!} value={c.workshopSlot ?? 1} onChange={(n) => void moveTo(n)} disabled={wsBusy || !!c.workshopLocked} testid="case-ws-picker" />
+          {c.workshopLocked && <p className="text-[13.5px] text-mute">{t("pf.caseWsLocked")}</p>}
+          {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
+        </div>
+      )}
       {(c.sameCount ?? 0) > 0 && (
         <p className="border-b border-hair px-5 py-2.5 text-[14px] text-mute sm:px-8" data-testid="same-plate">{t("case.samePlate", { n: String(c.sameCount) })}</p>
       )}

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, uuid, index, uniqueIndex, check } from "drizzle-orm/pg-core";
+import { pgTable, jsonb, text, timestamp, boolean, integer, bigint, serial, numeric, uuid, index, uniqueIndex, check, smallint, primaryKey } from "drizzle-orm/pg-core";
 
 // ---- Better Auth tables (names/fields required by Better Auth) ----
 export const user = pgTable("user", {
@@ -361,6 +361,18 @@ export const merimenCredentials = pgTable("merimen_credentials", {
   profileVersion: integer("profile_version").notNull().default(0), // next value of merimen_profile_seq on every save: the worker replaces what it remembered
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by"),
+});
+// migration 0014: up to three workshops per account, and the workshop (1..3) a case belongs to (no row = workshop 1)
+export const merimenWorkshops = pgTable("merimen_workshops", {
+  orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  slot: smallint("slot").notNull(),
+  name: text("name").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.orgId, t.slot] })]);
+export const merimenCaseWorkshop = pgTable("merimen_case_workshop", {
+  caseId: text("case_id").primaryKey().references(() => cases.id, { onDelete: "cascade" }),
+  slot: smallint("slot").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 export const merimenCredAudit = pgTable("merimen_cred_audit", {
   id: serial("id").primaryKey(),

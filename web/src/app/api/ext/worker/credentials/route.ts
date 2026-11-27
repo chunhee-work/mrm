@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { missingRelation } from "@/lib/ext/worker-gate";
@@ -48,6 +48,19 @@ export async function POST(req: Request) {
     // first time: the login is needed. Later: the three names alone may be changed, the stored login stays as it is.
     if (!row && !wantsLogin) return NextResponse.json({ error: "invalid" }, { status: 400 });
     const names = { workshopName: profile.workshop, managerName: profile.manager, adjusterName: profile.adjuster };
+    // workshops: the saved list replaces the old one. A workshop that cases still use cannot be taken away (409): move those cases first.
+    const keep = profile.workshops.map((w) => w.slot);
+    const gone = [1, 2, 3].filter((n) => !keep.includes(n));
+    if (gone.length) {
+      const r = await db.execute(sql`SELECT cw.slot::int AS slot FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
+        WHERE c.org_id = ${me.orgId} AND cw.slot IN (${sql.join(gone.map((n) => sql`${n}`), sql`, `)}) GROUP BY cw.slot`);
+      if (((r as unknown as { rows?: unknown[] }).rows ?? []).length) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
+    }
+    for (const w of profile.workshops) {
+      await db.insert(schema.merimenWorkshops).values({ orgId: me.orgId, slot: w.slot, name: w.name })
+        .onConflictDoUpdate({ target: [schema.merimenWorkshops.orgId, schema.merimenWorkshops.slot], set: { name: w.name, updatedAt: new Date() } });
+    }
+    if (gone.length) await db.delete(schema.merimenWorkshops).where(and(eq(schema.merimenWorkshops.orgId, me.orgId), inArray(schema.merimenWorkshops.slot, gone)));
     if (!row || (wantsLogin && username && password)) {
       const sealed = seal(key, me.orgId, username!, password!);
       const login = {

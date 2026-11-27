@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { profileBlocks } from "@/lib/ext/worker-store";
 import { CaseBody, bodyProblem } from "@/lib/case-body";
+import { slotToStore } from "@/lib/ext/workshops";
 import { scanCase } from "@/lib/scan-case";
 import { debitCase, hasCredit, refundCase } from "@/lib/payments/case-credit";
 
@@ -17,12 +18,15 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const problem = bodyProblem(parsed.data, me.orgId);
   if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+  const slot = await slotToStore(me.orgId, parsed.data.workshop);
+  if (slot === "unknown") return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
   const { plate = "", files } = parsed.data; // "" until the documents are read (the column is NOT NULL)
   if (!(await hasCredit(me.orgId))) return NextResponse.json({ error: "no_credits" }, { status: 402 });
   const id = crypto.randomUUID();
   await db.insert(schema.cases).values({ id, orgId: me.orgId, createdBy: me.user.id, plate, status: "uploaded" });
   if (!(await debitCase(me.orgId, id))) { await db.delete(schema.cases).where(eq(schema.cases.id, id)); return NextResponse.json({ error: "no_credits" }, { status: 402 }); }
   try {
+  if (slot) await db.insert(schema.merimenCaseWorkshop).values({ caseId: id, slot });
   await db.insert(schema.caseFiles).values(files.map((f) => ({ caseId: id, kind: f.kind, blobUrl: f.url, originalName: f.name, size: f.size })));
   await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" });
   await db.insert(schema.caseEvents).values({ caseId: id, step: "upload", message: `Received ${files.length} file(s)` });

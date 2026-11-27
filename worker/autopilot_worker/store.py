@@ -36,6 +36,12 @@ LAST_PHOTO_LIST_SQL = (
 )
 
 
+def _missing_workshops(e: Exception) -> bool:
+    """The workshop tables come with migration 0014: a missing table is "not there yet", not an error."""
+    t = str(e)
+    return "merimen_workshops" in t or "merimen_case_workshop" in t or "42P01" in t
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -374,6 +380,44 @@ class PgRepo:
             return None
         w, m, a, v = rows[0]
         return {"workshop": w, "manager": m, "adjuster": a, "version": int(v or 0)}
+
+    def workshops_for(self, org_id: str) -> list[dict]:
+        """The user's workshops (migration 0014): [{"slot": 1, "name": ...}, ...] by slot, up to three. Empty before the migration."""
+        try:
+            rows = self.db.execute("SELECT slot, name FROM merimen_workshops WHERE org_id = %s ORDER BY slot", (org_id,))
+        except Exception as e:
+            if _missing_workshops(e):
+                return []
+            raise
+        return [{"slot": int(r[0]), "name": r[1]} for r in rows]
+
+    def workshop_for_case(self, case_id: str) -> dict | None:
+        """Which workshop this case belongs to: {"slot": n, "name": ...}. A case nobody moved is workshop 1. Read it when the case is
+        made in Merimen (the user may switch until then). None when the case is unknown or the workshop has no name.
+        Before migration 0014 the one workshop of the account (the 0013 column) is workshop 1."""
+        try:
+            rows = self.db.execute(
+                """
+                SELECT COALESCE(cw.slot, 1)::int,
+                       CASE WHEN COALESCE(cw.slot, 1) = 1 THEN COALESCE(w.name, mc.workshop_name) ELSE w.name END
+                FROM cases c
+                LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id
+                LEFT JOIN merimen_workshops w ON w.org_id = c.org_id AND w.slot = COALESCE(cw.slot, 1)
+                LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id
+                WHERE c.id = %s
+                """,
+                (case_id,),
+            )
+        except Exception as e:
+            if not _missing_workshops(e):
+                raise
+            rows = self.db.execute(
+                "SELECT 1, mc.workshop_name FROM cases c LEFT JOIN merimen_credentials mc ON mc.org_id = c.org_id WHERE c.id = %s",
+                (case_id,),
+            )
+        if not rows or not rows[0][1]:
+            return None
+        return {"slot": int(rows[0][0]), "name": rows[0][1]}
 
     def claim_verify(self):
         """Spend the one queued check. A second worker sees login_attempts = 1 and gets nothing. One statement."""
