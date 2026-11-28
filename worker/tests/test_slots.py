@@ -1757,3 +1757,138 @@ def test_a_slow_claim_is_logged(tmp_path, monkeypatch, capsys):
     m.fill_slots(cfg, Repo(), Pool(), threading.Event(), relogin_ready=False, skip_orgs=list)
     err = capsys.readouterr().err
     assert err.count("slow claim") == 1 and "slow claim 3.5 s" in err
+
+
+# ---------- egm round 16 ----------
+
+def test_a_case_mismatch_or_home_tab_write_sets_the_fuse(tmp_path, monkeypatch):
+    """egm r16: the first wrong-case or home-tab event stops all further Merimen claims in this process, not only that one job."""
+    from autopilot_worker import __main__ as m
+    from autopilot_worker import case_guard as g
+
+    def step():
+        g.add("111")
+        g._flag(g._MINE.st)
+
+    assert not g.FUSE.is_set()
+    _run_one(tmp_path, monkeypatch, step)
+    assert g.FUSE.is_set()
+    g.FUSE.clear()
+
+    def home():
+        m.HomeTab(FakePage("home")).locator("#x")
+
+    _run_one(tmp_path, monkeypatch, home)
+    assert g.FUSE.is_set()
+
+
+def test_after_the_fuse_no_merimen_step_is_claimed(tmp_path, capsys):
+    import threading
+
+    from autopilot_worker import __main__ as m
+    from autopilot_worker import case_guard as g
+
+    cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2", "EXT_CONNECT": "on"})
+    seen = []
+
+    class Pool:
+        def free(self):
+            return 1
+
+        def create_running(self):
+            return False
+
+    class Repo:
+        def claim(self, **k):
+            seen.append(k["ext_connect"])
+            return None
+
+    m.fill_slots(cfg, Repo(), Pool(), threading.Event(), relogin_ready=False, skip_orgs=list)
+    g.trip("case_mismatch")
+    g.trip("case_mismatch")  # printed once
+    m.fill_slots(cfg, Repo(), Pool(), threading.Event(), relogin_ready=False, skip_orgs=list)
+    assert seen == [cfg.ext_connect, False] and cfg.ext_connect
+    assert capsys.readouterr().err.count("merimen fuse: case_mismatch") == 1
+
+
+def test_the_upload_popup_is_checked_before_anything_is_put_in_it():
+    """egm r16: a document-upload popup that opened on another case stops before the file is chosen or the upload starts."""
+    import contextlib
+
+    import pytest as _pt
+
+    from autopilot_worker import case_guard as g
+    from autopilot_worker import merimen_docs as md
+
+    did = []
+
+    class Popup:
+        url = "https://www.merimen.com.my/claims/index.cfm?fuseaction=dsp_docupload&objid=999"
+
+        def on(self, *a):
+            pass
+
+        def wait_for_timeout(self, *a):
+            pass
+
+        def locator(self, sel):
+            did.append("file")
+            raise AssertionError("used")
+
+        def close(self):
+            pass
+
+    class Info:
+        value = Popup()
+
+    class Btn:
+        first = property(lambda self: self)
+
+        def click(self, **k):
+            pass
+
+    class Tab:
+        def get_by_role(self, *a, **k):
+            return Btn()
+
+        @contextlib.contextmanager
+        def expect_popup(self, timeout=None):
+            yield Info()
+
+    class MP:
+        def docview(self, cid, ext):
+            return Tab()
+
+        def ms(self, v):
+            return v
+
+        def close_tab(self, t):
+            pass
+
+    g.start("111", job_id=7)
+    try:
+        with _pt.raises(g.CaseMismatch):
+            md._upload_one(MP(), "111", "e", "/x.pdf", "Other")
+        assert did == []
+    finally:
+        g.stop()
+
+
+def test_the_photo_page_is_checked_before_a_save():
+    import pytest as _pt
+
+    from autopilot_worker import case_guard as g
+    from autopilot_worker import merimen_photos as mph
+
+    class Target:
+        url = "https://www.merimen.com.my/claims/index.cfm?fuseaction=dsp_docmanage&objid=999"
+
+        def evaluate(self, *a):
+            raise AssertionError("saved")
+
+    g.start("111", job_id=7)
+    try:
+        with _pt.raises(g.CaseMismatch):
+            mph.RealPhotos._save(object(), Target())
+    finally:
+        g.stop()

@@ -139,6 +139,7 @@ class RealPhotos:
         raise DocError("no_photo_page")
 
     def _save(self, target) -> None:
+        case_guard.check(getattr(target, "url", "") or "")  # still this case's page right before the save
         target.evaluate("()=>{var b=[...document.querySelectorAll('input[type=button],button,input[type=submit]')].find(e=>/^\\s*Save\\s*$/i.test(e.value||e.innerText||''));if(b)b.click();}")
         target.wait_for_timeout(self.mp.ms(4500))
         for _ in range(3):
@@ -155,6 +156,7 @@ class RealPhotos:
     def _relabel_locked(self, cid: str, ext: str, mapping) -> None:
         try:
             target, _n = self._relabel_page(cid, ext)
+            case_guard.check(getattr(target, "url", "") or "")  # the popup is this case's photo page before anything is changed (egm r16)
             r = target.evaluate(
                 """(J)=>{const onm=[...document.querySelectorAll('input[name^=ONM]')];const bad=[];
                 for(const k in J){const e=onm[+k-1];if(!e){bad.push(k+':missing');continue;}if(e.value.trim()!==J[k][0]){bad.push(k+':differs');continue;}}
@@ -177,6 +179,7 @@ class RealPhotos:
     def _reorder_locked(self, cid: str, ext: str, mapping) -> None:
         try:
             target, _n = self._relabel_page(cid, ext)
+            case_guard.check(getattr(target, "url", "") or "")  # the popup is this case's photo page before anything is changed (egm r16)
             r = target.evaluate(
                 """(J)=>{const rows=[...document.querySelectorAll('input[name^=ONM]')].map(o=>{const tr=o.closest('tr');return {o,sdo:tr.querySelector('input[name^=SDO]')}});const bad=[];
                 rows.forEach((x,i)=>{const k=String(i+1);if(!J[k]){bad.push(k+':no map');return;}if(x.o.value.trim()!==J[k][0])bad.push(k+':name');if(!x.sdo||+x.sdo.value!==i+1)bad.push(k+':order');});

@@ -251,6 +251,7 @@ def _upload_one(mp: MerimenPage, case_id: str, ext_id: str, path: str, label: st
     try:
         popup.on("dialog", lambda d: d.accept())
         popup.wait_for_timeout(mp.ms(2000))
+        case_guard.check(getattr(popup, "url", "") or "")  # the popup is this case's upload page, checked before anything is put in it (egm r16)
         popup.locator("input[type=file]").first.set_input_files(path)
         popup.wait_for_timeout(mp.ms(2500))
         ok = popup.evaluate(
@@ -262,6 +263,7 @@ def _upload_one(mp: MerimenPage, case_id: str, ext_id: str, path: str, label: st
         )
         if not ok:
             raise DocError("upload_form_unexpected")  # no "Other" type or no description box: never upload with an empty type (silent failure)
+        case_guard.check(getattr(popup, "url", "") or "")  # still this case's page right before the upload starts
         try:
             popup.get_by_role("button", name=re.compile("Start upload", re.I)).first.click(force=True, timeout=mp.ms(3000))
         except Exception:  # noqa: BLE001

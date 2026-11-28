@@ -728,15 +728,18 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
                 shoot(step)
         except case_guard.CaseMismatch:
             # a step tab went (or was about to go) to ANOTHER Merimen case. Never retried by itself
+            case_guard.trip("case_mismatch")
             outcome = _case_mismatch()
             shoot("failed")
         except case_guard.HomeTabWrite as e:
             print(f"{threading.current_thread().name} job {job.get('id')} home_tab_write: {e}", file=sys.stderr, flush=True)
+            case_guard.trip("home_tab_write")
             outcome = Outcome("failed", case_status="waiting_user", error="home_tab_write",
                               event="Stopped: a step tried to change the logged-in Merimen tab. Nothing was done on it; a person checks this case")
         except Exception as e:  # noqa: BLE001
             _print_error(job, e)
             if case_guard.mismatched():  # the step failed AFTER a click or redirect took its tab to another case: that case decides
+                case_guard.trip("case_mismatch")
                 outcome = _case_mismatch()
             else:
                 outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event=WORKER_ERROR)

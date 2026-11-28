@@ -37,6 +37,16 @@ class _Mine(threading.local):
 
 _MINE = _Mine()
 
+# The fuse (egm r16): the first case_mismatch or home_tab_write in this process stops every further Merimen claim (WORKER_SLOTS > 1)
+# until a person restarts the worker. The hourly log check reports it; nothing else runs on Merimen meanwhile.
+FUSE = threading.Event()
+
+
+def trip(reason: str) -> None:
+    if not FUSE.is_set():
+        FUSE.set()
+        print(f"merimen fuse: {reason}; no more Merimen steps until the worker is restarted", file=sys.stderr, flush=True)
+
 
 def start(merimen_caseid, job_id="") -> None:
     """A job starts in this thread: its own case id (None before the create)."""

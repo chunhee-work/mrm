@@ -478,7 +478,8 @@ def fill_slots(cfg, repo, pool, stopping, *, relogin_ready: bool, skip_orgs) -> 
         # one pass) means no second create now
         _at("claim")  # a failed claim logs `tick … step=claim`, not the last housekeeping step
         t0 = time.monotonic()
-        job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=skip_orgs(),
+        # after a case_mismatch or home_tab_write the fuse is set: no Merimen step is claimed again until a restart (egm r16)
+        job = repo.claim(ext_connect=cfg.ext_connect and not case_guard.FUSE.is_set(), worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=skip_orgs(),
                          one_chrome=True, no_create=pool.create_running() or _CREATE_LOCK.locked())
         took = time.monotonic() - t0
         if took > SLOW_CLAIM_S:  # the claim's cost grows with the queue: a slow one shows here long before a DB timeout (egm r15)
@@ -623,6 +624,7 @@ class _StepContext:
         raise HomeTabWrite(f"the home tab's context only opens new tabs ({name})")
 
 
+from . import case_guard  # noqa: E402
 from .case_guard import HomeTabWrite  # noqa: E402  (a BaseException: a step's `except Exception` never swallows it)
 
 
