@@ -814,7 +814,10 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       const el = e.target as HTMLElement | null;
       // inside the first page the desk is one part of the page: its keys work while the focus is in it, or after a click in it
       // (a click on a photo selects it but leaves the focus on the page itself)
-      if (embedded && !(el && root.current?.contains(el)) && !(el === document.body && active.current)) return;
+      // the desk may sit in a window (the first page's photo window): a focus anywhere in that window counts as in the desk
+      // (opening the window puts the focus on its top bar, owner 2026-11-29: "i press a nothing change")
+      const host = root.current?.closest("dialog") ?? root.current;
+      if (embedded && !(el && host?.contains(el)) && !(el === document.body && active.current)) return;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (palette || moveId != null || help) return;
       // a window open over the desk (the case's Files): the desk behind it takes no keys. The desk may sit in a window itself
