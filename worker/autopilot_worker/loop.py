@@ -164,7 +164,7 @@ def _may_come_from_logout(job: dict, outcome: Outcome, seen_login: bool) -> bool
         return False
     if outcome.job_state == "requeue" or outcome.error == "worker error":
         return True
-    return job["step"] == "phase_a" and outcome.error == "photos" and seen_login
+    return job["step"] == "phase_a" and outcome.error == "photos" and seen_login and "(not_logged_in)" in (outcome.event or "")
 
 
 def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
@@ -383,8 +383,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     _at("job")
     case = repo.load(job["case_id"])
     if isinstance(case, dict) and job["step"] in PHASE_STEPS and puts_back(cfg, relogin is not None):
-        try:  # this step was put back after a logout lately: a photo list that does not line up is never "already has photos"
-            case["resumed_after_logout"] = repo.put_back_lately(job["case_id"], job["step"])
+        try:  # this job was put back after a logout: a photo list that does not line up is never "already has photos"
+            case["resumed_after_logout"] = repo.was_put_back(job)
         except Exception:  # noqa: BLE001
             pass
     login_seen.reset()

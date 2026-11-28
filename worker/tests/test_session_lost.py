@@ -112,14 +112,16 @@ def test_on_postgres_the_put_back_keeps_the_attempts_and_the_cap_counts_the_even
     PgRepo("", db=count).session_lost_count("c1")
     csql, cargs = to_numbered(*count.calls[0])
     last = Rec2()
-    PgRepo("", db=last).put_back_lately("c1", "phase_b")
-    PgRepo("", db=last).put_back_lately("c1", "phase_a")
-    lsql, largs = to_numbered(*last.calls[0])
-    lsql_a, largs_a = to_numbered(*last.calls[1])
+    PgRepo("", db=last).was_put_back(JOB)
+    PgRepo("", db=last).was_put_back({**JOB, "step": "phase_a"})
+    PgRepo("", db=last).was_put_back({**JOB, "id": 101})
+    q = [dict(zip(("sql", "params"), to_numbered(*c))) for c in last.calls]
     r0 = run([*steps, {"sql": "INSERT INTO case_events (case_id, step, message) VALUES ('c1','phase_b','Phase B dry-run failed.')"},
-              {"sql": lsql, "params": largs}, {"sql": lsql_a, "params": largs_a}], seed=seed)
-    n0 = len(steps) + 1
-    assert r0[n0] == [[True]] and r0[n0 + 1] == [[False]]  # this step was put back (a retry since does not end it); another was not
+              {"sql": "INSERT INTO jobs (id, case_id, step, state, created_at) VALUES (101,'c1','phase_b','queued', now() + interval '1 hour')"},
+              *q], seed=seed)
+    n0 = len(steps) + 2
+    # this job was put back (a retry since does not end it); another step was not; a later job of the step is a new run
+    assert r0[n0] == [[True]] and r0[n0 + 1] == [[False]] and r0[n0 + 2] == [[False]]
     r = run([*steps,
              {"sql": "SELECT state, attempts, not_before > now() FROM jobs WHERE id = 100"},
              {"sql": "SELECT status, detail FROM worker_sessions WHERE org_id = 'o1'"},
@@ -247,7 +249,9 @@ def test_a_login_form_a_step_found_counts_although_the_old_tab_looks_fine(tmp_pa
     assert got.session_lost and "o1" in FORCE_RELOGIN
     FORCE_RELOGIN.clear()
     # a Phase A upload cut off by the login form: put back; the same photo stop without the login form stays a hand fix
-    cut = Outcome("failed", case_status="waiting_user", error="photos", event="Phase A stopped. The photo step failed (not_logged_in).")
+    cut = Outcome("failed", case_status="waiting_user", error="photos", event="Phase A stopped. The photo step failed (not_logged_in). Check")
+    hand = Outcome("failed", case_status="waiting_user", error="photos", event="Phase A stopped. Merimen has 21 photos")
+    assert loop.check_session_after(on, CountRepo(), {**JOB, "step": "phase_a"}, hand, inspect=lambda p: LOGIN_PAGE, page_for=None, seen_login=True) is hand
     pa = {**JOB, "step": "phase_a"}
     assert loop.check_session_after(on, CountRepo(), pa, cut, inspect=lambda p: LOGGED_IN, page_for=None, seen_login=True).session_lost
     FORCE_RELOGIN.clear()

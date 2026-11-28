@@ -310,3 +310,25 @@ def test_live_save_stops_after_the_case_when_the_report_is_not_saved(monkeypatch
     r = d.save("A", ())
     assert not r.ok and r.fatal and r.case_id == "22322999" and "colour_unknown" in r.line
     assert docs == []  # documents wait until the report is saved (playbook order)
+
+
+def test_live_save_tries_the_documents_again_after_a_logout(monkeypatch):
+    from autopilot_worker.merimen_docs import DocReport
+
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on")):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    d = _CdpDriver("x.mjs")
+    d._create = lambda live: DriveResult(ok=True, case_id="22322999", ext_id="9800111", partial=True)
+    d._report = lambda live, cid, ext: (True, False, "Adjuster Report saved")
+    d.case = {"id": "c1"}
+    d._docs = lambda *a: DocReport(ok=False, code="not_logged_in", planned=3)
+    r = d.save("A", ())
+    assert not r.ok and not r.fatal and r.error == "docs" and r.case_id == "22322999"  # a retry by itself (put back after a re-login)
+    # the run after a put-back finds some of the documents: a person looks, never a guess
+    d._docs = lambda *a: DocReport(ok=False, code="docs_partial", planned=3)
+    d.case = {"id": "c1", "resumed_after_logout": True}
+    r = d.save("A", ())
+    assert not r.ok and r.fatal and r.error == "docs" and "by hand" in r.line
+    d.case = {"id": "c1"}  # without a put-back the old behaviour stands (the line says it, the phase goes on)
+    assert d.save("A", ()).ok

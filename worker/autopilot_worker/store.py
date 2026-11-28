@@ -123,12 +123,14 @@ class PgRepo:
         )
         return int(rows[0][0]) if rows else 0
 
-    def put_back_lately(self, case_id: str, step: str) -> bool:
-        """This step of the case was put back because Merimen logged out within LOST_WINDOW: the run now starting may be the one
-        that goes on from where that one stopped (a retry in between does not end it). Only makes the photo step stricter."""
+    def was_put_back(self, job: dict) -> bool:
+        """THIS job was put back before because Merimen logged out (a put-back requeues the same job, so its event is newer than the
+        job itself; a later job of the same step is newer than the event). However long the re-login took, and a retry in between
+        does not end it. Only makes the photo step stricter."""
         rows = self.db.execute(
-            "SELECT EXISTS (SELECT 1 FROM case_events WHERE case_id = %s AND step = %s AND message LIKE %s AND at > now() - %s::interval)",
-            (case_id, step, LOST_EVENT + "%", LOST_WINDOW),
+            "SELECT EXISTS (SELECT 1 FROM case_events e JOIN jobs j ON j.id = %s WHERE e.case_id = %s AND e.step = %s AND e.message LIKE %s"
+            " AND e.at >= j.created_at)",
+            (job["id"], job["case_id"], job["step"], LOST_EVENT + "%"),
         )
         return bool(rows and rows[0][0])
 

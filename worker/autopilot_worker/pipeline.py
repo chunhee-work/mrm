@@ -168,6 +168,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             ev = f"Phase {phase} stopped. {s2.line()}"
             if s2.code == "undone":
                 return _o("cancelled", event=ev)
+            from . import login_seen
+
+            if s2.code == "unreadable" and login_seen.seen():  # the Select Parts page showed the login form: try again after a re-login (ticking only adds ticks)
+                return _o("requeue", error="step2", event=ev)
             return _o("failed", case_status="waiting_user", error="step2", event=ev)
     dry = driver.dry_run(phase, steps)
     if not dry.ok:
