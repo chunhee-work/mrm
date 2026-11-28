@@ -63,6 +63,14 @@ export function isMerimenOrigin(raw) {
   }
 }
 
+// Every Merimen tab, the "Session Expiration Warning" window included: Merimen opens that warning as a page of its own (seen live
+// 2026-11-29, 7 tabs, the warning not the first), so looking at the first Merimen tab alone never finds its "Continue Session" button.
+export function merimenTabs(list) {
+  // the warning may also be a window Merimen wrote itself (about:blank with that title): only "Continue Session" is ever clicked there
+  const warning = (t) => (t.url || "") === "about:blank" && /session expir/i.test(t.title || "");
+  return (list || []).filter((t) => t && t.type === "page" && t.webSocketDebuggerUrl && (isMerimenOrigin(t.url || "") || warning(t)));
+}
+
 export function pickMerimenTab(list) {
   return (list || []).find((t) => t && t.type === "page" && t.webSocketDebuggerUrl && isMerimenOrigin(t.url || "")) || null;
 }
@@ -436,8 +444,23 @@ async function main() {
   }
   try {
     if (cmd === "continue") {
-      const r = await evalOn(port, CONTINUE);
-      process.stdout.write(JSON.stringify({ ok: !!r.ok, clicked: r.value === "clicked" }) + "\n");
+      // the warning's own window first (its title says so), then every other Merimen tab; one slow tab never stops the others
+      const tabs = merimenTabs(await listTabs(port)).sort((a, b) => Number(/expir/i.test(b.title || "")) - Number(/expir/i.test(a.title || "")));
+      let clicked = 0;
+      let ok = tabs.length > 0;
+      for (const page of tabs) {
+        try {
+          const tab = await attachTab(page, { openMs: 3000, evalMs: 3000 });
+          try {
+            if ((await tab.eval(CONTINUE)) === "clicked") clicked += 1;
+          } finally {
+            tab.close();
+          }
+        } catch {
+          ok = false;
+        }
+      }
+      process.stdout.write(JSON.stringify({ ok, clicked: clicked > 0, tabs: tabs.length }) + "\n");
       return;
     }
     const probe = await evalOn(port, PASSWORD_PROBE);
