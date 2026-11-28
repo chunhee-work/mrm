@@ -13,14 +13,13 @@ import { keepOrder } from "@/app/dashboard/line-order";
 import { LOOK_MS, readAgain } from "@/app/cases/[id]/read-again";
 import { useFileDrag } from "./drop-zone";
 import { bucketOf, OPEN_BUCKETS, type Bucket } from "./status";
-import { StepDots, StepHeads } from "./case-steps";
+import { StepHeads, StepTrack } from "./case-steps";
 import type { CaseRow } from "./case-table";
 import { DESK_WAITS, systemBusy } from "@/lib/case-steps";
 import ProfileCard, { useServerCred, type Cred } from "./profile-card";
 import NewCasePick from "./new-case-pick";
 import NewCaseForm from "@/app/cases/new/form";
 import WorkshopPicker, { type WorkshopOpt } from "./workshop-picker";
-import CaseLog from "./case-log";
 import CaseFiles, { type CaseFile } from "./case-files";
 import LoginAlert from "./login-alert";
 
@@ -280,7 +279,8 @@ type ListCtl = { look: () => void; relist: () => void; onUpload: (busy: boolean)
 
 type BriefData = { events: { at: string; message: string }[]; files: CaseFile[]; workshop: { slot: number; locked: boolean } | null };
 
-/** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
+/** The rest of what the case page shows, in the open line: the workshop choice and the files (the activity is in the drop-down
+ * of each step above, owner 2026-11-29). Read when the
  * line opens and again when its status changes, so it follows the case without the user leaving the first page. */
 function Brief({ r, workshops, onFiles, filesInDesk }: { r: CaseRow; workshops: WorkshopOpt[]; onFiles: (f: CaseFile[]) => void; filesInDesk: boolean }) {
   const { t } = useT();
@@ -314,11 +314,9 @@ function Brief({ r, workshops, onFiles, filesInDesk }: { r: CaseRow; workshops: 
   const slot = d.workshop?.slot ?? 1;
   // as on the case page: a choice from two workshops on, or the one it has when that one is gone
   const showWs = d.workshop && (workshops.length >= 2 || (workshops.length > 0 && !workshops.some((w) => w.slot === slot)));
-  const live = reading;
-  const shown = [...d.events].reverse().slice(0, 6);
   // the photo desk open above: the files are in its bar (documents) and in the desk itself (photos), not listed again here
   const filesHere = !filesInDesk && d.files.length > 0;
-  if (!showWs && !d.events.length && !filesHere) return null; // nothing to show: no empty box
+  if (!showWs && !filesHere) return null; // nothing to show: no empty box
   return (
     <div className="space-y-4" data-testid="home-brief">
       {showWs && (
@@ -329,19 +327,7 @@ function Brief({ r, workshops, onFiles, filesInDesk }: { r: CaseRow; workshops: 
           {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
         </div>
       )}
-      {(d.events.length > 0 || filesHere) && (
-        <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
-          {d.events.length > 0 && (
-            <section className="min-w-0" data-testid="home-log">
-              <h3 className="label mb-3">{t("case.log")}</h3>
-              <CaseLog events={shown} live={live} />
-            </section>
-          )}
-          {filesHere && (
-            <section className="min-w-0"><CaseFiles caseId={r.id} files={d.files} testid="home-files" /></section>
-          )}
-        </div>
-      )}
+      {filesHere && <section className="min-w-0"><CaseFiles caseId={r.id} files={d.files} testid="home-files" /></section>}
     </div>
   );
 }
@@ -401,7 +387,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
                     <Who r={r} team={team} />
                     <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 xl:order-4 xl:mt-0 xl:col-start-4 xl:row-start-1 ${on ? "" : "-rotate-90"}`} />
                   </div>
-                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r)} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
+                  <StepTrack c={r} busy={systemBusy(r)} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
                   {/* while the line is open the job is right below it: the button would only say it twice.
                       A job for the user: a wide button under the steps (on wide screens across the step and action columns) */}
                   <div className={`pointer-events-none relative flex ${!on && act(r).kind ? "xl:col-span-2 xl:col-start-2 xl:mt-3" : "xl:justify-end"}`}>{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
