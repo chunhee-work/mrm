@@ -346,17 +346,19 @@ export async function runRelogin({ port, cred, open = openTab, close = closeTab,
     id = String(target.id);
     emit({ relogin_target: id });
     const t0 = now();
-    for (;;) { // read only: wait until the new tab has loaded
+    for (;;) { // read only: wait until the new tab shows Merimen's login form (or is already logged in)
+      // A fresh tab first reports about:blank as "complete" before Merimen's page arrives (seen live 2026-11-28: four re-logins
+      // probed about:blank and were put back), so "loaded" means the login probe itself sees the page, on Merimen's own address.
       await pause(500);
-      let ready = null;
+      let state = null;
       try {
         const t = (await own(port, 2000))[0];
-        if (t && t.webSocketDebuggerUrl) {
+        if (t && t.webSocketDebuggerUrl && isMerimenOrigin(t.url || "")) {
           const a = await attach(t, { openMs: 2000, evalMs: 3000 });
-          try { ready = await a.eval("document.readyState"); } finally { a.close(); }
+          try { state = (JSON.parse(await a.eval(LOGIN_PROBE)) || {}).state; } finally { a.close(); }
         }
-      } catch { ready = null; }
-      if (ready === "complete" || now() - t0 >= RELOGIN_LOAD_MS) break;
+      } catch { state = null; }
+      if (state === "login_page" || state === "session_live" || now() - t0 >= RELOGIN_LOAD_MS) break;
     }
     let out = await runLogin({ port, cred, tabs: own, attach, wait: pause, now, emit: mark });
     if (out && out.result === "unknown" && out.submitted === true) {

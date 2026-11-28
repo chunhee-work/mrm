@@ -527,19 +527,30 @@ test("relogin: the target id comes first, a not-login page is not typed into and
 });
 
 test("relogin: a rejected password closes the own tab; a login that went through keeps it open", async () => {
-  const bad = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", BAD] });
+  const bad = reloginDeps({ answers: [PROBE_LOGIN, PROBE_LOGIN, "sent", BAD] });
   const out = await runRelogin(bad.deps);
   assert.equal(out.submitted, true);
   assert.deepEqual(bad.log.closed, ["N1"]);
   assert.equal(typing(bad.hlog), 1);
-  const ok = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", seen({ href: LIVE_URL, hasPassword: false })] });
+  const ok = reloginDeps({ answers: [PROBE_LOGIN, PROBE_LOGIN, "sent", seen({ href: LIVE_URL, hasPassword: false })] });
   const done = await runRelogin(ok.deps);
   assert.equal(done.url, LIVE_URL);
   assert.deepEqual(ok.log.closed, []);
 });
 
+test("relogin: a fresh tab still at about:blank is waited for, then the login page is typed into once (live 2026-11-28)", async () => {
+  const r = reloginDeps({ answers: [PROBE_LOGIN, PROBE_LOGIN, "sent", BAD] });
+  let lists = 0;
+  const blank = { id: "N1", type: "page", url: "about:blank", webSocketDebuggerUrl: "ws://n1" };
+  const real = r.deps.tabs;
+  r.deps.tabs = async (...a) => { lists += 1; const l = await real(...a); return lists <= 2 ? l.map((t) => (t.id === "N1" ? blank : t)) : l; };
+  const out = await runRelogin(r.deps);
+  assert.equal(out.submitted, true);
+  assert.equal(typing(r.hlog), 1);
+});
+
 test("relogin: the own deadline ends it, closes the own tab and says unknown once the form may have gone", async () => {
-  const r = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", SAME] });
+  const r = reloginDeps({ answers: [PROBE_LOGIN, PROBE_LOGIN, "sent", SAME] });
   r.deps.wait = () => new Promise((res) => setTimeout(res, 5)); // real time, so the deadline fires while the page is watched
   r.deps.now = () => 0; // the 15 s watch never ends by itself
   r.deps.deadlineMs = 50;
@@ -636,7 +647,7 @@ test("relogin: the last page tab is never closed (that would close the Chrome wi
 });
 
 test("relogin: once the deadline fired nothing is typed any more", async () => {
-  const r = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", SAME] });
+  const r = reloginDeps({ answers: [PROBE_LOGIN, PROBE_LOGIN, "sent", SAME] });
   r.deps.wait = () => new Promise((res) => setTimeout(res, 30)); // the load wait outlives the deadline
   r.deps.deadlineMs = 10;
   assert.deepEqual(await runRelogin(r.deps), { offline: true, submitted: false });
