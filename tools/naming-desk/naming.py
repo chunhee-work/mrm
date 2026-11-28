@@ -45,10 +45,9 @@ def build(out, meta_file):
     rows = {p: rows_of(out, p) for p in meta}
     names = set(json.load(open(os.path.join(HERE, "names.json"), encoding="utf-8")))
     for plate, rs in rows.items():
-        log = apply_case(rs, meta.get(plate, ""), norm)
-        for line in log:
+        save = lambda rs=rs, plate=plate: json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
+        for line in apply_case(rs, meta.get(plate, ""), norm, save=save):   # saved back so `final` agrees
             print(f"{plate} {line}")
-        json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
         for r in rs:
             names.add(r["name"]); names.update(r["alts"])
     names = {n for n in map(norm, names) if n}

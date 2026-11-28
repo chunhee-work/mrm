@@ -23,11 +23,25 @@ def brand_of(vehicle):
     return " ".join(w[:2]) if w[:2] in _TWO_WORD else (w[0] if w else "")
 
 
-def apply_case(rows, vehicle, norm):
+def pick(top, final):
+    """case_report's first pick: the first of the model's names (best first) the naming rules allow, else the raw top-1; and up to two
+    allowed alternatives from the next three."""
+    name = next((n for n in (final(FIX.get(t, t)) for t in top) if n), None) or FIX.get(top[0], top[0])
+    return name, alts_of(top, name, final)
+
+
+def alts_of(top, name, final):
+    """up to two allowed alternatives from the model's 2nd-4th names, other than name"""
+    return [a for a in (final(FIX.get(t, t)) for t in top[1:4]) if a and a != name][:2]
+
+
+def apply_case(rows, vehicle, norm, save=None):
     """norm = name_map.final (None = a banned name). Same order as naming.py build had it: model bans, model swaps, naming rules,
-    logo badge, then the case-wide Rear Lamp Inner/Outer rule."""
+    logo badge, then the case-wide Rear Lamp Inner/Outer rule. save(): called at the points where naming.py build saved
+    rows_<PLATE>.json (after bans when the car has any, after swaps that changed a name, after a Rear Lamp change)."""
     vehicle = vehicle or ""
     log = []
+    save = save or (lambda: None)
     bans = [b for v, b in MODEL_BANS if re.search(v, vehicle, re.I)]
     if bans:   # names this car model does not have -> next alternative, marked unsure
         for r in rs_with_name(rows):
@@ -35,12 +49,17 @@ def apply_case(rows, vehicle, norm):
                 alt = next((a for a in r.get("alts", []) if a and not any(re.search(b, a) for b in bans)), None)
                 if alt:
                     r["name"], r["conf"] = alt, min(r.get("conf", 0), 0.3)
+        save()
+    swapped = 0
     for notv, nm, rep in MODEL_SWAPS:
         if not re.search(notv, vehicle, re.I):
             for r in rs_with_name(rows):
                 if re.search(nm, r["name"]):
                     r["name"] = rep
+                    swapped += 1
                     log.append(f"model swap -> {rep}")
+    if swapped:
+        save()
     brand = brand_of(vehicle)
     for r in rs_with_name(rows):   # only names the naming rules allow (merged spelling, banned names dropped)
         n0 = norm(r["name"])
@@ -57,11 +76,15 @@ def apply_case(rows, vehicle, norm):
     have = {m.group(1) for m in (re.match(r"Rear Lamp (Inner|Outer) (LH|RH)$", r["name"]) for r in rs_with_name(rows)) if m}
     if have:
         to = "Outer" if "Inner" in have else "Inner"
+        changed = 0
         for r in rs_with_name(rows):
             m = re.match(r"Rear Lamp (LH|RH)$", r["name"])
             if m:
                 r["name"], r["conf"] = f"Rear Lamp {to} {m.group(1)}", min(r.get("conf", 0), 0.59)
+                changed += 1
                 log.append(f"plain Rear Lamp -> Rear Lamp {to}")
+        if changed:
+            save()
     return log
 
 

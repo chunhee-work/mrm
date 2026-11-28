@@ -65,7 +65,7 @@ def load_rules():
     names the photos with Claude) instead of storing raw, unmerged or banned names."""
     try:
         if _PT not in sys.path:
-            sys.path.insert(0, _PT)
+            sys.path.append(_PT)  # last: its ~40 scripts never shadow the worker's own imports
         from name_map import final  # noqa: PLC0415
         import name_rules  # noqa: PLC0415
     except Exception as e:  # noqa: BLE001
@@ -80,14 +80,14 @@ def apply_name_rules(preds: list[Prediction], vehicle: str, final=None) -> list[
     vehicle = (vehicle or "").strip()
     rows = []
     for p in preds:
-        top = list(p.top) or ([p.model_name] if p.model_name else [])
-        if not top:
+        top = [t for t in p.top if t and t != "__none__"]
+        if p.model_name is None or not top:  # no name from the model: stays empty (the website shows it unnamed)
             rows.append(None)
             continue
-        name = next((n for n in (final(nr.FIX.get(t, t)) for t in top) if n), None) or nr.FIX.get(top[0], top[0])
-        alts = [a for a in (final(nr.FIX.get(t, t)) for t in top[1:4]) if a and a != name][:2]
+        name, alts = nr.pick(top, final)
         rows.append({"name": name, "conf": 0.0 if p.confidence is None else p.confidence, "alts": alts})
-    nr.apply_case([r for r in rows if r], vehicle, final)
+    for line in nr.apply_case([r for r in rows if r], vehicle, final):
+        print(f"name rules: {line}", file=sys.stderr)
     out = []
     for p, r in zip(preds, rows):
         if r is None:

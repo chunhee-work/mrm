@@ -160,3 +160,84 @@ def test_predict_slot_one_at_a_time(tmp_path):
 
 def test_vehicle_with_spaces_is_still_a_perodua():
     assert apply_name_rules([P("Fender Inner LH")], "  PERODUA BEZZA", IDENT)[0].model_name == "Fender Inner LH"
+
+
+# ---- the namer as the worker runs it (__main__._namer_factory), with subprocess and the download faked
+
+def _namer(tmp_path, monkeypatch, run=None, token="tok"):
+    import subprocess
+    from autopilot_worker import __main__ as m
+    from autopilot_worker.config import Config
+    _prod(tmp_path)
+    cfg = Config.from_env({"WORKER_STATE": str(tmp_path / "state"), "PHOTO_MODEL_DIR": str(tmp_path), "HF_TOKEN": token,
+                           "DATABASE_URL": "postgres://secret"})
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw)
+        if run:
+            return run(cmd, **kw)
+        return subprocess.CompletedProcess(cmd, 0, '{"file": "1-a.jpg", "top": [["Grille Badge (LOGO)", 0.9]], "conf": 0.9}\n', "")
+    monkeypatch.setattr(m.subprocess, "run", fake_run)
+    monkeypatch.setenv("HF_TOKEN", "tok")
+    monkeypatch.setenv("DATABASE_URL", "postgres://secret")
+    return m._namer_factory(cfg), seen
+
+
+def test_namer_names_with_rules_and_no_secrets(tmp_path, monkeypatch):
+    namer, seen = _namer(tmp_path, monkeypatch)
+    rows = namer([{"id": 7, "local": "/x/1-a.jpg"}], "PROTON SAGA")
+    assert rows[0]["model_name"] == "Grille Badge (PROTON)" and not rows[0]["failed"]
+    assert "HF_TOKEN" not in seen["env"] and "DATABASE_URL" not in seen["env"] and seen["env"]["VEHICLE"] == "PROTON SAGA"
+    assert seen["timeout"] == 600
+
+
+def test_namer_timeout_is_model_error(tmp_path, monkeypatch):
+    import subprocess
+
+    def boom(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+    namer, _ = _namer(tmp_path, monkeypatch, run=boom)
+    with pytest.raises(ModelError, match="predict timed out"):
+        namer([{"id": 1, "local": "/x/1-a.jpg"}], "PROTON SAGA")
+
+
+def test_namer_crash_is_predict_failed(tmp_path, monkeypatch):
+    import subprocess
+    namer, _ = _namer(tmp_path, monkeypatch, run=lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, "", "Traceback"))
+    with pytest.raises(ModelError, match="predict failed"):
+        namer([{"id": 1, "local": "/x/1-a.jpg"}], "PROTON SAGA")
+
+
+def test_first_download_then_resolve(tmp_path, monkeypatch):
+    import sys
+    import types
+    from autopilot_worker.photos import ensure_weights
+
+    def dl(**kw):
+        d = os.path.join(kw["local_dir"], "production")
+        os.makedirs(d, exist_ok=True)
+        json.dump({"groups": [{"stage1": "models/a.pt", "seq": []}]}, open(os.path.join(d, "production.json"), "w"))
+        open(os.path.join(d, "a.pt"), "wb").write(b"x")
+    monkeypatch.setitem(sys.modules, "huggingface_hub", types.SimpleNamespace(snapshot_download=dl))
+    out = ensure_weights(str(tmp_path), "o/r", "tok")
+    assert json.load(open(out))["groups"][0]["stage1"] == os.path.join(str(tmp_path), "production", "a.pt")
+
+
+def test_no_token_no_files_is_model_missing(tmp_path):
+    from autopilot_worker.photos import ensure_weights
+    with pytest.raises(ModelError, match="model missing"):
+        ensure_weights(str(tmp_path), "o/r", "")
+
+
+def test_download_error_hides_the_token(tmp_path, monkeypatch):
+    import sys
+    import types
+    from autopilot_worker.photos import ensure_weights
+
+    def dl(**kw):
+        raise RuntimeError(f"401 for token {kw['token']}")
+    monkeypatch.setitem(sys.modules, "huggingface_hub", types.SimpleNamespace(snapshot_download=dl))
+    with pytest.raises(ModelError) as e:
+        ensure_weights(str(tmp_path), "o/r", "hf_SECRET")
+    assert str(e.value) == "model download failed" and "hf_SECRET" not in str(e.value)

@@ -29,3 +29,8 @@ worker/files
 worker/chrome
 worker/photo-model
 worker/NEED_LOGIN
+# the photo model's weights and training data never go into the image (the worker downloads production/ itself)
+typesafe/photo_train/models
+typesafe/photo_train/data
+typesafe/photo_train/*.txt
+typesafe/photo_train/*.pt
