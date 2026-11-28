@@ -122,11 +122,13 @@ HOLD_SECONDS = 6 * 3600.0
 # ORG_CAP books nothing until its hold ends (one page that logs out every time must not spend the account's login tries)
 HELD_PAUSED: set[str] = set()
 HOLD_KIND: dict[str, str] = {}
-# org -> times of its put-backs (all cases): ORG_CAP within ORG_WINDOW holds the org, so one page that logs out every time (or a
-# login-looking box Merimen shows while logged in) cannot spend the account's login tries case after case
+# org -> times of its logouts found in jobs (put-backs and case-cap stops, all cases): ORG_CAP within ORG_WINDOW holds the org, so
+# one page that logs out every time (or a login-looking box Merimen shows while logged in) cannot spend the account's login tries
+# case after case. 3 h: a logout followed by a re-login cooldown and a long Phase B still falls inside it. The hard ceiling stays the
+# re-login's own 12 tries / 24 h
 ORG_PUTBACKS: dict[str, list[float]] = {}
-ORG_CAP = 3
-ORG_WINDOW = 3600.0
+ORG_CAP = 4
+ORG_WINDOW = 3 * 3600.0
 
 
 _noted: dict[tuple[str, str], float] = {}
@@ -273,9 +275,9 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         try:
             if seen_login or not session_alive(cfg, inspect, page_for, org):
                 HELD_PAUSED.add(org)  # logged out while held: the org waits (not connected) until the hold ends, nothing typed
+                note(org, "not_put_back_held", now)
         except Exception:  # noqa: BLE001
             pass
-        note(org, "not_put_back_held", now)
         return outcome  # the last forced re-login was refused: never loop into more password tries
     try:
         if not seen_login and session_alive(cfg, inspect, page_for, org):
@@ -290,7 +292,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         _hold(org, now, "held_org_cap")
         HELD_PAUSED.add(org)
         return outcome
-    ORG_PUTBACKS[org] = times + ([now()] if got.session_lost else [])  # put-backs only (the case cap's stop is not one)
+    ORG_PUTBACKS[org] = times + [now()]  # the case cap's stop counts too: it also books a re-login
     FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
     note(job["org_id"], "put_back" if got.job_state != "failed" else "cap_reached", now)
     return got

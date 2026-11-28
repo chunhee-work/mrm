@@ -358,6 +358,10 @@ def _page_provider(cfg: Config):
                 return None
             if strict:
                 found = _session_pages(browser)
+                if not found and any("merimen.com.my" in (pg.url or "") for ctx in browser.contexts for pg in ctx.pages):
+                    from . import login_seen
+
+                    login_seen.mark()  # Merimen is open but no tab has the session marks: logged out (as merimen_docs does)
                 if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
                     found = [pg for pg in found if not _login_box(pg)]
                     if not found:  # every tab with the session marks shows the login form: logged out

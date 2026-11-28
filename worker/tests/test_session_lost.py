@@ -585,6 +585,9 @@ def test_phase_b_waits_for_a_phase_a_that_finished():
     assert followup_steps(case, [a("failed", 40), a("done", 50)], writes=True) == ["phase_b"]
     assert followup_steps(case, [a("failed", 40), a("queued", 50)], writes=True) == []  # a Phase A queued again: after it
     assert followup_steps({**case, "error": "photos"}, [a("failed", 50)], writes=True) == ["phase_b"]  # photos only: Phase B fixes them
+    # that Phase B stopped on its checks (cases.error now "checks"); Undo + Done again after the fix: a new Phase B all the same
+    b = {"step": "phase_b", "state": "failed", "created_epoch": 60}
+    assert followup_steps({**case, "error": "checks", "done_epoch": 70}, [a("failed", 50), b], writes=True) == ["phase_b"]
     assert followup_steps(case, [], writes=True) == ["phase_b"]  # no Phase A job here (made before the worker): as before
 
 
@@ -592,7 +595,7 @@ def test_an_org_logged_out_again_and_again_is_held_and_waits(tmp_path):
     on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
     retry = Outcome("requeue", error="report", event="Phase A not saved")
     t = [1000.0]
-    for i in range(loop.ORG_CAP):  # three cases, one put-back each, inside the hour
+    for i in range(loop.ORG_CAP):  # ORG_CAP cases, one put-back each, inside the window
         got = loop.check_session_after(on, CountRepo(), {**JOB, "case_id": f"c{i}"}, retry, inspect=lambda p: LOGIN_PAGE,
                                        page_for=None, seen_login=True, now=lambda: t[0])
         assert got.session_lost

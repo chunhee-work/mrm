@@ -355,7 +355,11 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     # fix them with the final names, as before. To go on after a hand fix: queue that same phase_a job again (playbook 06)
     a_jobs = sorted((j for j in jobs if j["step"] == "phase_a"), key=lambda j: j.get("created_epoch") or 0.0)
     last_a = a_jobs[-1]["state"] if a_jobs else "done"
-    a_done = last_a == "done" or (last_a not in ("queued", "running") and str(case.get("error") or "").startswith("photos"))
+    # a Phase B already made after that Phase A was let through then (its own stop has since overwritten cases.error): Undo +
+    # Done again still gets a new Phase B
+    b_after_a = bool(a_jobs) and any((j.get("created_epoch") or 0.0) > (a_jobs[-1].get("created_epoch") or 0.0) for j in b_jobs)
+    a_done = last_a == "done" or (last_a not in ("queued", "running")
+                                  and (b_after_a or str(case.get("error") or "").startswith("photos")))
     if (
         a_done
         and case.get("status") in ("waiting_user", "phase_b")

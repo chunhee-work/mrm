@@ -17,6 +17,7 @@ def _fresh_login_seen():
     loop.HELD_PAUSED.clear()
     loop.ORG_PUTBACKS.clear()
     loop.HOLD_KIND.clear()
+    loop._noted.clear()
     yield
     login_seen.reset()
     loop.RELOGIN_HELD.clear()
