@@ -337,6 +337,11 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
         and due
     ):
         out.append("phase_b")
+    # The web read the documents itself and closed the intake job (web scan-case.ts `closeIntakeJobs`, B15), so the worker's intake
+    # step, which used to queue Phase A, never runs. A read case (status phase_a) that has never had a Phase A job gets one here.
+    if case.get("status") == "phase_a" and not case.get("merimen_caseid") and not any(j["step"] == "phase_a" for j in jobs):
+        out.append("phase_a")
+        return out
     dry_done = any(j["step"] == "phase_a" and j["state"] == "done" for j in jobs)
     if writes and case.get("status") == "phase_a" and not case.get("merimen_caseid") and dry_done and "phase_a" not in open_steps:
         out.append("phase_a")

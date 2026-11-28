@@ -469,3 +469,31 @@ def test_followup_cases_pre_0010_keeps_the_done_epoch():
     r = PgRepo.__new__(PgRepo); r.db = Db()
     (case, _), = r.followup_cases()
     assert case["done_epoch"] == 123.0 and case["photos_snapshot"] is None
+
+
+# ---------- 2026-11-28: the web read closes the intake job, so Phase A was never queued (DCD4004) ----------
+def test_a_case_read_by_the_web_gets_its_phase_a_job():
+    from autopilot_worker.pipeline import followup_steps
+
+    read = {"status": "phase_a", "photos_done_at": None, "done_epoch": None, "photos_snapshot": None, "merimen_caseid": None}
+    intake_closed_by_web = [{"step": "intake", "state": "done", "created_epoch": 1}]
+    assert followup_steps(read, intake_closed_by_web, writes=False) == ["phase_a"]
+    assert followup_steps(dict(read, photos_done_at="x", photos_snapshot="s", done_epoch=5), intake_closed_by_web, writes=False) == ["phase_a"]
+    for state in ("queued", "running", "done", "failed", "cancelled", "paused"):  # one Phase A only: any earlier job, whatever its end, blocks a new one
+        assert followup_steps(read, intake_closed_by_web + [{"step": "phase_a", "state": state, "created_epoch": 2}], writes=False) == [], state
+    assert followup_steps(dict(read, merimen_caseid="M1"), intake_closed_by_web, writes=False) == []  # already in Merimen
+    assert followup_steps(dict(read, status="pending_doc"), intake_closed_by_web, writes=False) == []  # documents missing: not yet
+
+
+def test_followup_cases_skips_deleted_cases():
+    from autopilot_worker.store import PgRepo
+
+    seen = []
+
+    class Db:
+        def execute(self, sql, params=None):
+            seen.append(sql)
+            return []
+
+    PgRepo("x", db=Db()).followup_cases()
+    assert "deleted_at IS NULL" in seen[0]

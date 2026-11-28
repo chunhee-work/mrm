@@ -391,20 +391,20 @@ class PgRepo:
                 """
                 SELECT id, org_id, status, photos_done_at, merimen_caseid, photos_snapshot, extract(epoch from photos_done_at)
                 FROM cases
-                WHERE status IN ('phase_a', 'waiting_user', 'phase_b')
+                WHERE status IN ('phase_a', 'waiting_user', 'phase_b') AND deleted_at IS NULL
                 """
             )
         except Exception as e:  # before migration 0010: no snapshot, no photo log; any other error fails the job
             if not _missing_0010(e):
                 raise
             cases = [tuple(c[:5]) + (None, c[5]) for c in self.db.execute(
-                "SELECT id, org_id, status, photos_done_at, merimen_caseid, extract(epoch from photos_done_at) FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b')"
+                "SELECT id, org_id, status, photos_done_at, merimen_caseid, extract(epoch from photos_done_at) FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b') AND deleted_at IS NULL"
             )]
         if not cases:
             return []
         by_case: dict[str, list[dict]] = {c[0]: [] for c in cases}
         for case_id, step, state, created in self.db.execute(
-            "SELECT case_id, step, state, extract(epoch from created_at) FROM jobs WHERE case_id IN (SELECT id FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b'))"
+            "SELECT case_id, step, state, extract(epoch from created_at) FROM jobs WHERE case_id IN (SELECT id FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b') AND deleted_at IS NULL)"
         ):
             by_case.setdefault(case_id, []).append({"step": step, "state": state, "created_epoch": float(created) if created is not None else None})
         return [
