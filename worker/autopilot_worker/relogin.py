@@ -121,8 +121,9 @@ def seen_connected_statement(org_id: str) -> tuple[str, object]:
 
 def outcome_written_statement(org_id: str, try_id) -> tuple[str, object]:
     return (
+        # not login_session_live: the save-time check writes it too, and must not make a kept outcome look written (loop review r7)
         "SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND id > %(tid)s::int AND action IN "
-        "('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch','relogin_cred_gone','relogin_cred_unread') LIMIT 1",
+        "('relogin_put_back','relogin_typed','relogin_key_mismatch','relogin_cred_gone','relogin_cred_unread') LIMIT 1",
         {"org": org_id, "tid": str(int(try_id))},
     )
 
@@ -180,7 +181,7 @@ def block_statement(org_id: str, state: str, action: str, mail_kind: str | None,
     )
 
 
-EVENT_RELOGIN_OTP = "Merimen 需要验证码。请在「连接」页重新保存登录。 / Merimen asked for a code. Save the login again on the Connection page."
+EVENT_RELOGIN_OTP = "Merimen 显示了验证码。请先确认登录在 Merimen 能用，再到「连接」页重新保存。 / Merimen showed a code prompt. Check that the login works on Merimen, then save it again on the Connection page."
 EVENT_RELOGIN_UNKNOWN = "Merimen 两次都没有明确回复自动登录。请在「连接」页重新保存登录；我们不会自动再试。 / Merimen twice gave no clear answer to the automatic login. Save the login again on the Connection page. We will not try again automatically."
 
 
@@ -194,7 +195,7 @@ def relogin_email(kind: str) -> tuple[str, str]:
     elif kind == "orphan":
         return login_email("unknown")
     elif kind == "otp":
-        body = "Merimen 要求输入验证码，自动登录已停止，没有再输入任何东西。请打开「连接」页重新保存登录。 / Merimen asked for a code. The automatic login stopped and nothing more was typed. Open the Connection page and save the login again."
+        body = "Merimen 显示了验证码，自动登录已停止，没有再输入任何东西。这不代表密码一定正确：请先确认用户名和密码在 Merimen 能用，再打开「连接」页重新保存登录。 / Merimen showed a code prompt. The automatic login stopped and nothing more was typed. This does not prove the password is right: check that the user name and password work on Merimen, then open the Connection page and save the login again."
     else:
         raise ValueError("mail kind")
     return subject, f"<p>{body}</p>"
@@ -352,7 +353,7 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
         row, unread = None, True
     if not row:  # the login stopped being ok since the booking (or could not be read): nothing typed, not a put-back
         _write_or_keep(repo, org_id, "relogin_cred_unread" if unread else "relogin_cred_gone", try_id)
-        log_line(org_id, "cred", now=now)
+        log_line(org_id, "cred_unread" if unread else "cred_gone", now=now)
         return "cred"
     nonce = row.get("password_nonce")
     try:

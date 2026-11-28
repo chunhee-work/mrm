@@ -766,6 +766,8 @@ def test_pg_outcome_written_looks_only_after_the_try():
     tid = r[0][0][0]
     assert run(steps([relogin.outcome_written_statement("o1", tid)]), seed=seed)[0] == []  # the older typed row does not count
     assert run(steps([relogin.outcome_written_statement("o1", tid)]), seed=seed + [audit("relogin_typed", "19 minutes")])[0] == [[1]]
+    # a save-time login_session_live after the try is not this try's outcome
+    assert run(steps([relogin.outcome_written_statement("o1", tid)]), seed=seed + [audit("login_session_live", "19 minutes")])[0] == []
 
 
 @needs_pg
