@@ -205,6 +205,12 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     resumed = bool(case.get("resumed_after_logout"))
     alt = {r.get("id"): r.get("model_name") for r in rows if r.get("model_name")}
     k = prefix_done(have, plan, alt) if resumed else 0
+    if k and writes and merimen.labels(case) != have:
+        # a list read while the page was still filling looks like a cut-off start: the rest is uploaded only when a second read
+        # gives the very same list (else a person looks, never a second copy of photos already there)
+        rep.action, rep.upload, rep.code, rep.snapshot = "refused", 0, "hand_fix", None
+        rep.note = "the photo list in Merimen changed between two reads: fix by hand (playbook 06)"
+        return rep
     if k:
         rep.photos = plan = _as_held(plan, have)
         return _resume(rep, case, plan, k, merimen, guard, writes)

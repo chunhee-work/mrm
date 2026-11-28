@@ -354,6 +354,10 @@ def test_a_document_upload_that_stopped_after_some_files_always_waits_for_a_pers
     assert not r.ok and r.fatal and r.error == "docs" and "by hand" in r.line
     d._docs = lambda *a: DocReport(ok=False, code="no_upload_popup", uploaded=0, planned=3)
     assert d.save("A", ()).ok  # nothing went up: as before
+    d.relogin_ready = True  # a logout after some files went up: the same stop at once, no re-login that would only lead to it
+    d._docs = lambda *a: DocReport(ok=False, code="not_logged_in", uploaded=1, planned=3)
+    r = d.save("A", ())
+    assert r.fatal and r.error == "docs" and "by hand" in r.line
 
 
 def test_phase_b_without_a_logged_in_tab_is_tried_again_not_done(monkeypatch):

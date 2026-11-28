@@ -428,7 +428,9 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             got = relogin(org, ports[org])
             if got in ("ok", "session_live"):
                 _lift(org)
-            elif got not in (None, "pending", "db_error", "cooldown", "put_back", "cred"):  # short waits, nothing typed: no hold
+            # short waits, nothing typed: no hold. `cred` (the saved login is not ok, or could not be read) holds: a held org that still
+            # meets the login form books the usual re-login, so a passing read error only costs one more booking, and one that works lifts it
+            elif got not in (None, "pending", "db_error", "cooldown", "put_back"):
                 # refused or failed: no more put-backs for this org for a while, so a stale tab that later counts as connected never
                 # books more password tries by itself (the refusal already mailed / showed why)
                 _hold(org, now, f"held_relogin_{got}" if isinstance(got, str) and got.isidentifier() else "held_relogin")

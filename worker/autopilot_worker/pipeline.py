@@ -349,10 +349,13 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     newest = max((j.get("created_epoch") for j in b_jobs if j.get("created_epoch") is not None), default=None)
     done_at = case.get("done_epoch")
     due = not b_jobs or (newest is not None and done_at is not None and done_at > newest)
-    # Phase A must have finished: a Phase A that stopped for a person (a document set cut off, a case logged out too often, a report
-    # that did not save) also leaves the case waiting_user, and Phase B on top of it could end "ready to submit" with documents missing
+    # Phase A must have got past its documents and report: a Phase A that stopped for a person there (a document set cut off, a case
+    # logged out too often, a report that did not save) also leaves the case waiting_user, and Phase B on top of it could end "ready
+    # to submit" with documents missing. A Phase A that stopped only on its PHOTOS (error "photos...") still lets Phase B upload or
+    # fix them with the final names, as before. To go on after a hand fix: queue that same phase_a job again (playbook 06)
     a_jobs = sorted((j for j in jobs if j["step"] == "phase_a"), key=lambda j: j.get("created_epoch") or 0.0)
-    a_done = not a_jobs or a_jobs[-1]["state"] == "done"
+    last_a = a_jobs[-1]["state"] if a_jobs else "done"
+    a_done = last_a == "done" or (last_a not in ("queued", "running") and str(case.get("error") or "").startswith("photos"))
     if (
         a_done
         and case.get("status") in ("waiting_user", "phase_b")

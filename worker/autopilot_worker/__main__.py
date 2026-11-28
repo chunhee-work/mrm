@@ -166,13 +166,14 @@ class _CdpDriver(Driver):
                     return DriveResult(ok=False, fatal=not retry, error="report", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
                 d = self._docs(True, res.case_id, res.ext_id)  # step 2: the documents (skips what Merimen already has)
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
-                if d.code == "not_logged_in" and self.relogin_ready:  # logged out during the documents: again after a re-login (owner 2026-11-28)
-                    return DriveResult(ok=False, error="docs", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
                 if not d.ok and d.uploaded > 0:
-                    # stopped after some documents went up (a logout in the upload form shows as another code): never guess which
-                    # are missing and never go on to the photos as if the set were complete, a person looks (playbook 06)
+                    # stopped after some documents went up (a logout too, whatever code it shows): never guess which are missing and
+                    # never go on to the photos as if the set were complete, a person looks (playbook 06). Checked first: a re-login
+                    # would only lead to the same stop
                     return DriveResult(ok=False, fatal=True, error="docs", case_id=res.case_id, ext_id=res.ext_id,
                                        line=(res.line + ". Only some of the documents are in Merimen (the upload stopped half way): check them in Merimen by hand")[:380])
+                if d.code == "not_logged_in" and self.relogin_ready:  # logged out during the documents: again after a re-login (owner 2026-11-28)
+                    return DriveResult(ok=False, error="docs", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
                 if d.code == "docs_partial" and (self.relogin_ready or (self.case or {}).get("resumed_after_logout")):
                     # an upload cut off by the logout left some of the documents: never guess which, a person looks (playbook 06)
                     return DriveResult(ok=False, fatal=True, error="docs", case_id=res.case_id, ext_id=res.ext_id,

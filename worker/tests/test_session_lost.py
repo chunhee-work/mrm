@@ -13,7 +13,7 @@ from autopilot_worker.photo_rules import snapshot_of
 from autopilot_worker.pipeline import Outcome
 from autopilot_worker.store import PgRepo
 from test_claim import SEED, needs_pg, run
-from test_photo_sync import Fake, rows
+from test_photo_sync import THREE, Fake, rows
 
 LOGGED_IN = {"urls": ["https://www.merimen.com.my/claims/index.cfm?CFID=1&RID=2"], "has_password": False}
 LOGIN_PAGE = {"urls": ["https://www.merimen.com.my/claims/login.cfm"], "has_password": False}
@@ -576,9 +576,11 @@ def test_phase_b_waits_for_a_phase_a_that_finished():
 
     case = {"status": "waiting_user", "photos_done_at": "x", "done_epoch": 100, "photos_snapshot": "s"}
     a = lambda state, t: {"step": "phase_a", "state": state, "created_epoch": t}  # noqa: E731
-    assert followup_steps(case, [a("failed", 50)], writes=True) == []
-    assert followup_steps(case, [a("done", 40), a("failed", 50)], writes=True) == []  # the newest Phase A counts
+    assert followup_steps({**case, "error": "docs"}, [a("failed", 50)], writes=True) == []
+    assert followup_steps({**case, "error": "session_lost"}, [a("done", 40), a("failed", 50)], writes=True) == []  # the newest counts
     assert followup_steps(case, [a("failed", 40), a("done", 50)], writes=True) == ["phase_b"]
+    assert followup_steps(case, [a("failed", 40), a("queued", 50)], writes=True) == []  # a Phase A queued again: after it
+    assert followup_steps({**case, "error": "photos"}, [a("failed", 50)], writes=True) == ["phase_b"]  # photos only: Phase B fixes them
     assert followup_steps(case, [], writes=True) == ["phase_b"]  # no Phase A job here (made before the worker): as before
 
 
@@ -621,3 +623,18 @@ def test_a_cut_off_start_renamed_on_the_desk_meanwhile_is_resumed_under_the_name
     # a caption that is also another photo's name proves nothing: a person looks
     rs2 = rows((1, "a.jpg", "Bonnet", "Front Bumper"), (2, "b.jpg", "Front Bumper", "Bonnet"), (3, "c.jpg", "Grille", None))
     assert ps.phase_a(RESUMED, rs2, writes=True, merimen=Fake(held=["Bonnet"])).code == "hand_fix"
+
+
+def test_a_cut_off_start_is_resumed_only_when_a_second_read_gives_the_same_list():
+    class Filling(Fake):
+        def __init__(self):
+            super().__init__(held=["Front Bumper"])
+            self.reads = 0
+
+        def labels(self, case):
+            self.reads += 1
+            return ["Front Bumper"] if self.reads == 1 else ["Front Bumper", "Bonnet", "Grille"]  # the page was still filling
+
+    m = Filling()
+    rep = ps.phase_a(RESUMED, THREE, writes=True, merimen=m)
+    assert rep.code == "hand_fix" and m.writes == []  # never a second copy of photos already there
