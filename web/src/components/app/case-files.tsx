@@ -111,7 +111,7 @@ export default function CaseFiles({ caseId, files: all, testid, only, look = "la
           <span className="note ml-1 text-ice underline decoration-hair underline-offset-4">{t("files.view")}</span>
         </button>
       )}
-      <dialog ref={dlg} aria-label={t("case.files")} data-testid="files-window"
+      <dialog ref={dlg} aria-label={t("files.title")} data-testid="files-window"
         onClose={close} onKeyDown={onKey}
         onCancel={(e) => { if (at !== null) { e.preventDefault(); setAt(null); } }}
         onClick={(e) => { if (e.target === dlg.current) close(); }}
@@ -126,7 +126,7 @@ export default function CaseFiles({ caseId, files: all, testid, only, look = "la
                 </button>
               ) : null}
               <p className="min-w-0 flex-1 truncate text-[15px] font-semibold" title={cur?.name}>
-                {cur ? cur.name : <>{t("case.files")} <span className="note font-normal text-mute">· {files.length}</span></>}
+                {cur ? cur.name : <>{t("files.title")} <span className="note font-normal text-mute">· {files.length}</span></>}
               </p>
               {cur && <span className="num note shrink-0 text-mute max-sm:hidden">{at! + 1} / {files.length}</span>}
               <button type="button" onClick={close} aria-label={t("shots.close")} data-testid="files-close" className="grid h-11 w-11 shrink-0 place-items-center rounded-[3px] text-[22px] leading-none text-mute hover:bg-panel2 hover:text-fg">×</button>

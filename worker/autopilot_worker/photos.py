@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+import contextlib
+import fcntl
+import sys
+import tempfile
+import threading
+from dataclasses import dataclass, replace
 
 
 class ModelError(RuntimeError):
@@ -17,6 +22,7 @@ class Prediction:
     model_name: str | None
     confidence: float | None
     alts: tuple[str, ...]
+    top: tuple[str, ...] = ()  # every name predict_case printed, best first (raw, before the naming rules)
 
 
 def parse_predict_stdout(text: str) -> list[Prediction]:
@@ -45,8 +51,164 @@ def parse_predict_stdout(text: str) -> list[Prediction]:
                 alt = " ".join(item[0].split())[:120]
                 if alt and alt != name:
                     alts.append(alt)
-        out.append(Prediction(str(obj.get("file") or ""), name, conf_n, tuple(alts)))
+        raw = tuple(" ".join(t[0].split())[:120] for t in top if isinstance(t, (list, tuple)) and t and isinstance(t[0], str))
+        out.append(Prediction(str(obj.get("file") or ""), name, conf_n, tuple(alts), raw))
     return out
+
+
+# ---- the shop's naming rules on the model's names. ONE copy: typesafe/photo_train/name_rules.py, also used by
+# tools/naming-desk/naming.py build on the owner's Mac; the first pick is case_report.name_of (first name the rules allow).
+_PT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "typesafe", "photo_train"))
+
+
+_RULES_LOCK = threading.Lock()
+_RULES = None
+
+
+def load_rules():
+    """(name_map.final, name_rules). They ship in the same image, so a failed import is a deploy bug: fail the job (the website then
+    names the photos with Claude) instead of storing raw, unmerged or banned names. Loaded once; the lock keeps two job threads from
+    changing sys.path at the same time."""
+    global _RULES  # noqa: PLW0603
+    with _RULES_LOCK:
+        if _RULES is None:
+            _RULES = _load_rules()
+        return _RULES
+
+
+def _load_rules():
+    saved = list(sys.path)
+    try:
+        sys.path.append(_PT)
+        # name_map quietly drops the owner's 名称对齐台 decisions when the file is missing or broken: check it can be read
+        with open(os.path.join(_PT, "name_decisions.json"), encoding="utf-8") as fh:
+            if not isinstance(json.load(fh).get("map"), dict):
+                raise ValueError("name_decisions.json has no map")
+        from name_map import final  # noqa: PLC0415
+        import name_rules  # noqa: PLC0415
+    except Exception as e:  # noqa: BLE001
+        raise ModelError("name rules missing") from e
+    finally:  # name_map puts its folder first; put the path back so its ~40 scripts never shadow the worker's own imports
+        sys.path[:] = saved
+    return final, name_rules
+
+
+def apply_name_rules(preds: list[Prediction], vehicle: str, final=None) -> list[Prediction]:
+    """preds = one case's photos in shooting order (the Rear Lamp Inner/Outer rule looks at the whole case)."""
+    final_, nr = load_rules()
+    final = final or final_
+    vehicle = (vehicle or "").strip()
+    rows = []
+    for i, p in enumerate(preds, 1):
+        top = [t for t in p.top if t and t != "__none__"]
+        if p.model_name is None or not top:  # no name from the model: stays empty (the website shows it unnamed)
+            rows.append(None)
+            continue
+        name, alts = nr.pick(top, final)
+        rows.append({"n": i, "name": name, "conf": 0.0 if p.confidence is None else p.confidence, "alts": alts})
+    for line in nr.apply_case([r for r in rows if r], vehicle, final):
+        print(f"name rules: {line}", file=sys.stderr)
+    out = []
+    for p, r in zip(preds, rows):
+        if r is None:
+            out.append(p)
+            continue
+        conf = None if p.confidence is None else r["conf"]
+        out.append(replace(p, model_name=r["name"][:120], confidence=conf, alts=tuple(a for a in r["alts"] if a != r["name"])[:2]))
+    return out
+
+
+def resolve_production(model_dir: str) -> str:
+    """production.json lists "models/<file>.pt"; predict_case resolves those against typesafe/photo_train/, where the worker has no
+    weights. Write a copy that points at <model_dir>/production/<file> and check every file is there."""
+    d = os.path.join(model_dir, "production")
+    src = os.path.join(d, "production.json")
+    if not os.path.isfile(src):
+        raise ModelError("model missing")
+    try:
+        cfg = json.load(open(src, encoding="utf-8"))
+        if not cfg.get("groups"):
+            raise ModelError("model missing")
+        for g in cfg["groups"]:
+            g["stage1"] = os.path.join(d, os.path.basename(g["stage1"]))
+            g["seq"] = [os.path.join(d, os.path.basename(x)) for x in g.get("seq", [])]
+            for f in [g["stage1"], *g["seq"]]:
+                if not os.path.isfile(f):
+                    raise ModelError("model missing")
+        out = os.path.join(d, "production.resolved.json")
+        text = json.dumps(cfg)
+        if os.path.isfile(out) and open(out, encoding="utf-8").read() == text:
+            return out  # unchanged: never rewrite a file another case's predict_case may be reading
+        fd, tmp = tempfile.mkstemp(dir=d, suffix=".tmp")  # a unique name: two cases at once never share a tmp file
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, out)
+    except ModelError:
+        raise
+    except (OSError, ValueError, KeyError, TypeError) as e:  # a broken production.json is "model missing", so the website falls back
+        raise ModelError("model missing") from e
+    return out
+
+
+@contextlib.contextmanager
+def _locked(model_dir: str, name: str):
+    """flock on <model_dir>/<name>: each call opens the file itself, so it keeps out other threads of this worker and other processes."""
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+        lk = open(os.path.join(model_dir, name), "w")
+    except OSError as e:
+        raise ModelError("model missing") from e
+    with lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        yield
+
+
+def _revision_file(model_dir: str) -> str:
+    return os.path.join(model_dir, ".revision")
+
+
+def ensure_weights(model_dir: str, repo: str, token: str, revision: str = "") -> str:
+    """Download production/ from the private Hugging Face repo once (no-op when the files are already there). With HF_MODEL_REVISION
+    set, a folder downloaded at another revision is downloaded again, so a new model = change that setting and restart."""
+    with _locked(model_dir, ".lock"):  # cases at once download and resolve one at a time
+        have = open(_revision_file(model_dir), encoding="utf-8").read().strip() if os.path.isfile(_revision_file(model_dir)) else ""
+        if not revision or have == revision:
+            try:
+                return resolve_production(model_dir)
+            except ModelError:
+                pass
+        if not token:
+            raise ModelError("model missing")
+        try:
+            from huggingface_hub import snapshot_download  # noqa: PLC0415
+            snapshot_download(repo_id=repo, allow_patterns=["production/*"], local_dir=model_dir, token=token,
+                              revision=revision or None)
+        except Exception:  # noqa: BLE001
+            raise ModelError("model download failed") from None  # not chained: the error text can hold the token
+        with open(_revision_file(model_dir), "w", encoding="utf-8") as fh:
+            fh.write(revision)
+        return resolve_production(model_dir)
+
+
+def predict_slot(model_dir: str):
+    """One predict_case at a time: two ViT-L + ViT-B processes would share the CPU and double the memory."""
+    return _locked(model_dir, ".predict.lock")
+
+
+_ENV_KEEP = ("PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "DINOV2_HUB",
+             "TORCH_HOME", "XDG_CACHE_HOME", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
+
+
+def predict_env(base, extra: dict[str, str]) -> dict[str, str]:
+    """The environment for predict_case: what Python and torch need plus the predict settings; no secrets (it unpickles downloaded files)."""
+    env = {k: v for k, v in base.items() if k in _ENV_KEEP}
+    env.update(extra)
+    return env
+
+
+def predict_timeout(n: int) -> int:
+    """Two backbones (ViT-B + ViT-L) on CPU: ~2-4 s a photo. 600 s cut off cases with 100+ photos."""
+    return max(600, 300 + 8 * n)
 
 
 def predict_command(python: str, script: str, images: list[str], *, vehicle: str, prod_file: str, batch: int) -> tuple[list[str], dict[str, str]]:
@@ -56,7 +218,6 @@ def predict_command(python: str, script: str, images: list[str], *, vehicle: str
         "PROD": "1",
         "PROD_FILE": prod_file,
         "VEHICLE": vehicle[:120],
-        "JEV": "0",
         "PRED_BS": str(batch),
     }
     return [python, script, "auto", *images], env

@@ -20,12 +20,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "..", "typesafe", "photo_train"))
 from name_map import final as norm  # the user's naming rules; returns None for banned names (General View, TAIL LAMP…)
 PAGE_NAMES = set(json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "names.json"), encoding="utf-8")))
 
-# names a car model does NOT have (user rules, playbook 10): (model regex, name regex)
-MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner"),
-              (r"^PERODUA\b", r"^Front Panel Assembly$")]   # user 2026-11-04: Perodua never Front Panel Assembly (Fender Inner / Front Panel Upper / Front Crossmember …)   # user 2026-10-29/30: Perodua Viva has no quarter liner
-# (vehicle must NOT match, name regex, replacement): user 2026-11-03 — only Perodua has a Bonnet Latch Stud Plate; any other make -> Front Panel Assembly
-MODEL_SWAPS = [(r"^PERODUA\b", r"^Bonnet Latch Stud Plate", "Front Panel Assembly"),
-               (r"^PERODUA\b", r"^Fender Inner (LH|RH)$", "Front Panel Assembly")]   # user 2026-11-04: only Perodua has Fender Inner; other makes call it Front Panel Assembly
+from name_rules import apply_case  # the shop's naming rules, one copy shared with the worker (typesafe/photo_train/name_rules.py)
 
 CORNERS = {"Front View Right", "Front View Left", "Rear View Right", "Rear View Left"}
 FTYPE = {"Odometer Reading": "Odometer Reading", "Chassis Number": "Chassis Number", "Engine Compartment": "Engine view"}
@@ -50,47 +45,11 @@ def build(out, meta_file):
     rows = {p: rows_of(out, p) for p in meta}
     names = set(json.load(open(os.path.join(HERE, "names.json"), encoding="utf-8")))
     for plate, rs in rows.items():
-        bans = [b for v, b in MODEL_BANS if re.search(v, meta.get(plate, ""), re.I)]
-        if bans:   # names this car model does not have -> next alternative, marked unsure; saved back so `final` agrees
-            for r in rs:
-                if any(re.search(b, r["name"]) for b in bans):
-                    alt = next((a for a in r.get("alts", []) if a and not any(re.search(b, a) for b in bans)), None)
-                    if alt:
-                        r["name"], r["conf"] = alt, min(r.get("conf", 0), 0.3)
-            json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
-        swapped = 0
-        for notv, nm, rep in MODEL_SWAPS:
-            if not re.search(notv, meta.get(plate, ""), re.I):
-                for r in rs:
-                    if re.search(nm, r["name"]):
-                        r["name"] = rep; swapped += 1
-        if swapped:
-            json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
-            print(f"{plate}: {swapped} model-swapped names")
-        w = meta.get(plate, "").upper().split(); brand = " ".join(w[:2]) if w[:2] in (["LAND", "ROVER"], ["GREAT", "WALL"], ["KING", "LONG"], ["DONG", "FENG"]) else (w[0] if w else "")
-        for r in rs:  # the page only offers names the naming rules allow (merged spelling, banned names dropped)
-            n0 = norm(r["name"])
-            if n0 is None:   # banned name (user "never use") -> first allowed alternative, marked unsure
-                n0 = next((x for x in map(norm, r.get("alts", [])) if x), None)
-                if n0:
-                    r["conf"] = min(r.get("conf", 0), 0.59); print(f"{plate} #{r['n']}: banned {r['name']} -> {n0}")
-            r["name"] = n0 or r["name"]
-            if brand and r["name"].endswith("Badge (LOGO)"):   # playbook 11: a bare logo badge = the car's brand, in CAPITALS
-                r["name"] = r["name"].replace("(LOGO)", "(" + brand + ")")
-            r["alts"] = list(dict.fromkeys(n for n in map(norm, r.get("alts", [])) if n))
+        save = lambda rs=rs, plate=plate: json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
+        for line in apply_case(rs, meta.get(plate, ""), norm, save=save):   # saved back so `final` agrees
+            print(f"{plate} {line}")
+        for r in rs:
             names.add(r["name"]); names.update(r["alts"])
-        # user 2026-11-03: a car with Rear Lamp Inner also has Rear Lamp Outer (and the other way round) -> plain "Rear Lamp LH/RH" becomes the missing one
-        have = {re.match(r"Rear Lamp (Inner|Outer) (LH|RH)$", r["name"]).group(1) for r in rs if re.match(r"Rear Lamp (Inner|Outer) (LH|RH)$", r["name"])}
-        if have:
-            to = "Outer" if "Inner" in have else "Inner"
-            changed = 0
-            for r in rs:
-                m = re.match(r"Rear Lamp (LH|RH)$", r["name"])
-                if m:
-                    r["name"], r["conf"] = f"Rear Lamp {to} {m.group(1)}", min(r.get("conf", 0), 0.59); changed += 1; names.add(r["name"])
-            if changed:
-                json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
-                print(f"{plate}: {changed} plain Rear Lamp -> Rear Lamp {to}")
     names = {n for n in map(norm, names) if n}
     js = lambda o: json.dumps(o, ensure_ascii=False).replace("</", "<\\/")
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()

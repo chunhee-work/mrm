@@ -86,6 +86,7 @@ class Config:
     mailer: object | None = None
     worker_submit: bool = False
     merimen_relogin: bool = False  # MERIMEN_RELOGIN=on (needs MERIMEN_LOGIN=on): log in again by itself with the saved login (plan #133)
+    hf_revision: str = ""  # HF_MODEL_REVISION: the photo-model repo commit to use; empty = whatever is there at the first download
     merimen_dryrun: bool = False  # MERIMEN_DRYRUN=on: fill Merimen's create form, never save. While it is on nothing is written anywhere in Merimen
 
     @property
@@ -118,6 +119,7 @@ class Config:
             pred_bs=max(1, int(e.get("PRED_BS") or "4")),
             poll_seconds=float(e.get("POLL_SECONDS") or "2"),
             model_dir=e.get("PHOTO_MODEL_DIR") or os.path.join(state, "photo-model"),
+            hf_revision=(e.get("HF_MODEL_REVISION") or "").strip(),
             db_transport=_transport(e.get("DB_TRANSPORT")),
             lease_seconds=max(60, int(e.get("JOB_LEASE_SECONDS") or "900")),
             worker_ui=_on(e, "WORKER_UI"),

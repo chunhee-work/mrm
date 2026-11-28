@@ -231,7 +231,7 @@ try {
     assert.equal((await shown(B))[2], "Front Bumper");
   });
 
-  await step("add a part with no photo (Space palette)", async () => {
+  await step("add a part with no photo (A palette)", async () => {
     await page.getByRole("button", { name: /Add part|加零件|Tambah alat/ }).click();
     const input = page.getByRole("combobox");
     await input.fill("Cowl Panel");

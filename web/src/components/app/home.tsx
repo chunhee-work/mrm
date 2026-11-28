@@ -187,6 +187,30 @@ function RetryHere({ r, look, relist }: { r: CaseRow; look: () => void; relist: 
   );
 }
 
+/** The photo desk as a window over the page (owner 2026-11-29: "a new pop out window", like the Files window). */
+function DeskWindow({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const { t } = useT();
+  const dlg = useRef<HTMLDialogElement>(null);
+  // no close() on unmount: it would fire onClose (and in development the effect runs twice); a removed dialog leaves the top layer by itself
+  useEffect(() => { const d = dlg.current; if (d && !d.open) d.showModal(); }, []);
+  return (
+    <dialog ref={dlg} aria-label={title} data-testid="desk-window"
+      // a window inside it (Files) closing must not close this one
+      onClose={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      // Escape belongs to the desk (it clears a selection, closes its own lists): only the × closes the window
+      onCancel={(e) => e.preventDefault()}
+      className="h-[min(94dvh,1100px)] w-[min(97vw,1280px)] max-w-none overflow-hidden rounded-[6px] bg-panel2 p-0 text-fg backdrop:bg-black/60 max-sm:!m-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-screen max-sm:max-w-none max-sm:rounded-none">
+      <div className="flex h-full flex-col">
+        <div className="flex min-h-14 shrink-0 items-center gap-3 border-b border-hair bg-panel px-4">
+          <p className="min-w-0 flex-1 truncate text-[16px] font-semibold">{title}</p>
+          <button type="button" onClick={() => dlg.current?.close()} aria-label={t("shots.close")} data-testid="desk-window-close" className="grid h-11 w-11 shrink-0 place-items-center rounded-[3px] text-[24px] leading-none text-mute hover:bg-panel2 hover:text-fg">×</button>
+        </div>
+        <div className="app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 sm:p-4" data-desk-scroll data-testid="home-desk">{children}</div>
+      </div>
+    </dialog>
+  );
+}
+
 /** What opens under a line when it is pressed: the job itself when it can be done here, then the facts, then the way into the full case page. */
 function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string; onDesk: (on: boolean) => void; workshops: WorkshopOpt[]; ctl: ListCtl }) {
   const { t } = useT();
@@ -196,47 +220,50 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
   // "Received" stays a moment after the upload (the case has moved on by then), then the card is back to what the case needs
   useEffect(() => { if (!sent) return; const id = window.setTimeout(() => setSent(false), 4000); return () => window.clearTimeout(id); }, [sent]);
   // a document is uploaded right here, with the same picker, limits and progress as the case page (one component, NeedCard)
-  // the photo desk, in this line: the job of step 2, and on the way while documents are still missing.
-  // Once shown it stays while the line is open, until 完成: then it closes by itself (owner 2026-11-28) and the line keeps the
-  // desk's message, with "See photo names" to open it again (完成 is taken back there with the Finished button). A document still
-  // missing (pending_doc): the desk stays, its message is the only one there.
+  // the photo desk: the job of step 2. Owner 2026-11-29: it is a window over the page (like the Files window), never a part
+  // that drops down under the line. It opens by itself when the line is opened for naming, and stays open after 完成 (the
+  // 完成 button turns green with a tick, as on the desk page); the line keeps a "Photo names" card to open it again.
+  // It waits only while documents are being read or one is missing.
+  const hasDesk = (r.deskTotal ?? 0) > 0;
   const [deskOpen, setDeskOpen] = useState(bucketOf(r) === "photos");
-  // 完成 pressed in the desk: the desk closes by itself and its message stays here (owner 2026-11-28)
+  // 完成 pressed in the desk: its message, read out below and shown on the card
   const [finished, setFinished] = useState("");
-  const reopen = useRef<HTMLButtonElement>(null);
-  // the press was inside the desk that is gone now: the keyboard carries on from the button that opens it again
-  useEffect(() => { if (finished) reopen.current?.focus(); }, [finished]);
-  // documents being read (or a read that failed): the desk waits, as on the case page
-  // keyed on the step, not the row object (a new one comes with every refresh): a desk the user closed stays closed
   const bucket = bucketOf(r);
   useEffect(() => { if (bucket === "photos") setDeskOpen(true); else if (DESK_WAITS.includes(r.status)) setDeskOpen(false); }, [bucket, r.status]);
-  // while a line shows the photo desk, a dropped file goes to the desk and does not start a new case (the page-wide drop is off);
-  // a line with nothing to drop into leaves the page-wide drop on
-  const takesFiles = deskOpen; // the upload of a missing document is a picker only, so a page drop there still starts a new case
+  // while the desk is open, a dropped file goes to the desk and does not start a new case (the page-wide drop is off)
+  const takesFiles = deskOpen;
   useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
-  // the case's files, read by Brief below: while the desk is open its documents sit in the desk's bar (the photos are the desk itself)
+  // the case's files, read by Brief below: they sit in the desk's bar (the Files button), not in a second list
   const [files, setFiles] = useState<CaseFile[]>([]);
-  // beside the desk: the documents, and any uploaded picture the desk left out (too large, unreadable)
-  const docs = files.filter((f) => !f.onDesk);
+  const plate = r.plate || t("dash.noPlate");
   const desk = (
-    <div className="overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
-      <NamingDesk orgId={orgId} initialId={r.id} embedded barExtra={docs.length > 0 ? <CaseFiles caseId={r.id} files={files} only="docs" look="chip" testid="desk-files" /> : undefined} onDone={ctl.relist} onFinished={(said, status) => { if (status === "pending_doc") return; setFinished(said); setDeskOpen(false); }}
-        tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
+    <DeskWindow title={t("desk.window", { plate })} onClose={() => setDeskOpen(false)}>
+      <NamingDesk orgId={orgId} initialId={r.id} embedded barExtra={files.length > 0 ? <CaseFiles caseId={r.id} files={files} look="chip" testid="desk-files" /> : undefined} onDone={ctl.relist} onFinished={(said, status) => { if (status === "pending_doc") return; setFinished(said); }}
+        tabs={[{ id: r.id, plate, carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
+    </DeskWindow>
+  );
+  const named = !!finished || !!r.photosDone || bucket !== "photos";
+  const namesCard = hasDesk && !sent && !DESK_WAITS.includes(r.status) && r.status !== "pending_doc" && (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[4px] border border-hair bg-panel px-4 py-3" data-testid="home-names">
+      <span aria-hidden="true" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${named ? "bg-go/10 text-go" : "bg-ambertint text-fg"}`}>{named ? <Tick className="h-4 w-4" /> : <Photo className="h-4 w-4" />}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-semibold text-fg">{t("tray.names.title")} <span className="num ml-1 font-mono text-[13px] font-medium text-mute">{r.deskTotal}</span></p>
+        <p className="mt-0.5 text-[14px] text-mute" data-testid="home-names-say">{finished || t(named ? "tray.names.done" : "tray.names.todo")}</p>
+      </div>
+      <button type="button" onClick={() => setDeskOpen(true)} aria-haspopup="dialog" className="inline-flex h-11 shrink-0 items-center gap-2 rounded-[6px] border border-fg/25 bg-panel px-4 text-[15px] font-semibold text-fg transition-colors duration-150 hover:border-fg hover:bg-panel2 max-sm:w-full max-sm:justify-center" data-testid="home-names-open">
+        <Photo className="h-4 w-4 shrink-0" />{t("tray.names.open")}
+      </button>
     </div>
   );
   const job = sent || r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null))
     ? (
       <>
         <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} onBusy={ctl.onUpload} onPhotos={() => { if (!DESK_WAITS.includes(r.status)) setDeskOpen((v) => !v); }} /></ul>
-        {deskOpen && desk}
       </>
     )
     : r.status === "failed" ? <RetryHere r={r} look={ctl.look} relist={ctl.relist} />
-    : deskOpen ? desk
-    : null;
+    : namesCard || null;
   const reading = r.status === "uploaded" || r.status === "reading";
-  // past the photo step (or 完成 just pressed, before the list is read again) the names are done
-  const named = !!finished || !!r.photosDone || bucket !== "photos";
   return (
     <div id={`more-${r.id}`} className="space-y-4 border-t border-hairsoft bg-panel2/60 px-4 pb-4 pt-3 lg:px-5" data-testid="home-more">
       {/* documents being read: say so here, nothing to press (owner 2026-11-27: everything stays on the first page) */}
@@ -247,20 +274,8 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
         </div>
       )}
       {job}
-      {/* the names stay one press away once the desk is closed: open it again to look them over (owner 2026-11-28) */}
-      {!deskOpen && !sent && (r.deskTotal ?? 0) > 0 && !DESK_WAITS.includes(r.status) && r.status !== "pending_doc" && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[4px] border border-hair bg-panel px-4 py-3" data-testid="home-names">
-          <span aria-hidden="true" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${named ? "bg-go/10 text-go" : "bg-ambertint text-fg"}`}>{named ? <Tick className="h-4 w-4" /> : <Photo className="h-4 w-4" />}</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-fg">{t("tray.names.title")} <span className="num ml-1 font-mono text-[13px] font-medium text-mute">{r.deskTotal}</span></p>
-            <p className="mt-0.5 text-[14px] text-mute" data-testid="home-names-say">{finished || t(named ? "tray.names.done" : "tray.names.todo")}</p>
-          </div>
-          <button ref={reopen} type="button" onClick={() => { setFinished(""); setDeskOpen(true); }} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-[6px] border border-fg/25 bg-panel px-4 text-[15px] font-semibold text-fg transition-colors duration-150 hover:border-fg hover:bg-panel2 max-sm:w-full max-sm:justify-center" data-testid="home-names-open">
-            <Photo className="h-4 w-4 shrink-0" />{t("tray.names.open")}
-          </button>
-        </div>
-      )}
-      <Brief r={r} workshops={workshops} relist={ctl.relist} onFiles={setFiles} filesInDesk={deskOpen} />
+      {deskOpen && desk}
+      <Brief r={r} workshops={workshops} relist={ctl.relist} onFiles={setFiles} filesInDesk={hasDesk} />
       {r.canDelete && (
         <div className="flex justify-end">
           {/* a case the worker has not taken yet can still be deleted (same pop-up and rules as the case list) */}
@@ -269,7 +284,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
         </div>
       )}
       <ConfirmDelete row={ask ? { id: r.id, plate: r.plate || r.firstFile || "", inMerimen: !!r.inMerimen } : null} onClose={() => setAsk(false)} onGone={() => router.refresh()} onStale={() => router.refresh()} />
-      {/* always there, so the desk's message is read out when it lands in the "Photo names" card */}
+      {/* always there, so the desk's message is read out when it is said (the desk stays, its 完成 button turns green) */}
       <p role="status" className="sr-only">{finished}</p>
     </div>
   );

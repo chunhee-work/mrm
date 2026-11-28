@@ -153,25 +153,27 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const frame = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
+  // embedded in a window (the first page's photo window, owner 2026-11-29): that window's body scrolls, not the page
+  const outer = useCallback(() => root.current?.closest<HTMLElement>("[data-desk-scroll]") ?? null, []);
   // Where the photos scroll. On its own page: inside the frame. Inside a line of the first page (owner 2026-11-28, "this naming part
   // is too short"): the desk is as tall as its photos and the page itself scrolls, with the bar of buttons held at the top of the screen.
   const view = useCallback((): { top: number; bottom: number } => {
-    if (embedded) return { top: headRef.current?.getBoundingClientRect().bottom ?? 0, bottom: window.innerHeight };
+    if (embedded) return { top: headRef.current?.getBoundingClientRect().bottom ?? 0, bottom: outer()?.getBoundingClientRect().bottom ?? window.innerHeight };
     const b = frame.current?.getBoundingClientRect();
     return b ? { top: b.top, bottom: b.bottom } : { top: 0, bottom: 0 };
-  }, [embedded]);
+  }, [embedded, outer]);
   const scrollByY = useCallback((dy: number, smooth = false) => {
-    if (embedded) window.scrollBy({ top: dy, behavior: smooth ? "smooth" : "auto" });
+    if (embedded) (outer() ?? window).scrollBy({ top: dy, behavior: smooth ? "smooth" : "auto" });
     else frame.current?.scrollBy({ top: dy, behavior: smooth ? "smooth" : "auto" });
-  }, [embedded]);
+  }, [embedded, outer]);
   /** Back to the first photo: the frame to its top; in a line, the page only when the photos' top has gone under the bar. */
   const toTop = useCallback(() => {
     const f = frame.current;
     if (!f) return;
     if (!embedded) { f.scrollTop = 0; return; }
     const dy = f.getBoundingClientRect().top - view().top;
-    if (dy < 0) window.scrollBy({ top: dy });
-  }, [embedded, view]);
+    if (dy < 0) (outer() ?? window).scrollBy({ top: dy });
+  }, [embedded, view, outer]);
   const onDoneRef = useRef(onDone); onDoneRef.current = onDone; // the first page passes a new function each render
   // embedded: 完成 went through. Owner 2026-11-28: "when i click done this auto close the window": the line closes the desk
   // and shows the message itself (this desk, and its toast, are gone then)
@@ -815,8 +817,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       if (embedded && !(el && root.current?.contains(el)) && !(el === document.body && active.current)) return;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (palette || moveId != null || help) return;
-      // a window open over the page (the case's Files): the desk behind it takes no keys
-      if (embedded && document.querySelector("dialog[open]")) return;
+      // a window open over the desk (the case's Files): the desk behind it takes no keys. The desk may sit in a window itself
+      // (the first page's photo window): only a window that does not hold the desk counts
+      if (embedded && [...document.querySelectorAll("dialog[open]")].some((d) => !d.contains(root.current))) return;
       const key = e.key;
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && key.toLowerCase() === "z") { e.preventDefault(); void undoLast(); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -856,8 +859,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
           }
           break;
         }
-        case " ": case "Spacebar":
-          if (onControl) break;
+        // owner 2026-11-29: not Space (it scrolls, and users press it by mistake): A, for "add"
+        case "a": case "A":
           e.preventDefault(); setPalette(true);
           break;
         case "?": e.preventDefault(); setHelp(true); break;
@@ -956,14 +959,20 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
         className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[3px] px-2 text-[13px] font-semibold text-fg transition-colors duration-150 hover:bg-panel2 disabled:opacity-40"
       >
         <Plus className="h-3 w-3" />{t("addPart")}
-        <kbd className="ml-1 hidden rounded-[2px] border border-hair px-1 font-mono text-[10.5px] font-normal text-mute lg:inline">Space</kbd>
+        <kbd className="ml-1 hidden rounded-[2px] border border-hair px-1 font-mono text-[10.5px] font-normal text-mute lg:inline">A</kbd>
       </button>
+      {/* what "Add part" is for, on a mouse over (or a tap / the keyboard focus) on the ? (owner 2026-11-29) */}
+      <span className="group relative inline-flex shrink-0">
+        <button type="button" aria-label={t("addPartHelp")} data-testid="add-part-help"
+          className="grid h-6 w-6 place-items-center rounded-full border border-hair text-[12px] font-bold leading-none text-mute transition-colors duration-150 hover:border-fg hover:text-fg focus-visible:border-fg focus-visible:text-fg">?</button>
+        <span role="tooltip" className="pointer-events-none invisible absolute left-1/2 top-full z-50 mt-2 w-[min(300px,80vw)] -translate-x-1/2 rounded-[4px] bg-fg px-3 py-2 text-[13px] font-normal leading-snug text-bay opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">{t("addPartHelp")}</span>
+      </span>
     </div>
   );
   const head = (
     // one raised card holds everything about this case: the cases, the case, its extra parts
     // in a line of the first page this bar stays at the top of the screen (under the phone's top bar) while the page scrolls the photos
-    <div ref={headRef} className={`shrink-0 pb-2.5 pt-2.5 max-sm:pb-2 max-sm:pt-2 ${embedded ? "sticky top-[60px] z-30 bg-panel lg:top-0" : ""}`} data-testid="desk-head">
+    <div ref={headRef} className={`shrink-0 pb-2.5 pt-2.5 max-sm:pb-2 max-sm:pt-2 ${embedded ? "sticky top-[60px] z-30 bg-panel lg:top-0 [[data-desk-scroll]_&]:top-0" : ""}`} data-testid="desk-head">
       <div className="wrap max-sm:px-3">
         {st && !embedded && <div className="mb-2"><CaseSteps caseId={caseId} status={st.status} photos={st.photos.length} photosDone={st.done} here="photos" hint={false} /></div>}
         <div className="rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(10,14,19,0.06),0_10px_28px_-14px_rgba(10,14,19,0.22)] ring-1 ring-hair">

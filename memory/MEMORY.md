@@ -56,3 +56,4 @@
 - [Jev in workflow](jev-in-workflow.md) — where Jev is used / rejected (2026-11-10 tests)
 - [Batch timing log](batch-timing-log.md) — minutes per case per batch (baseline for speed-up %)
 - [Training ETA = whole round](training-eta-full-round.md) — report final-score time (~27 h per ViT-L round), not one step
+- [worker-photo-model](worker-photo-model.md) — worker runs the shop's photo model (PR #152): weights, name_rules.py + photo-rules.json, heartbeat during long jobs, deploy check

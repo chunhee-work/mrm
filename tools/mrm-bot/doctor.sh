@@ -36,7 +36,7 @@ pgrep -f "node keepalive.mjs" >/dev/null && ok "keepalive.mjs running" || bad "c
 echo "Photo model (typesafe/photo_train)"
 [ -x "$PT/.venv/bin/python" ] && ok ".venv" || bad "cd $PT && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
 for m in dinov2_b_big10a.pt seq_best.pt seq_best_crop.pt; do [ -e "$PT/models/$m" ] && ok "models/$m" || bad "models/$m missing (not in git: copy from the old Mac, see TUTORIAL.md A6)"; done
-if [ -n "${TYPESAFE_API_KEY:-}" ] || security find-generic-password -a "$USER" -s TYPESAFE_API_KEY >/dev/null 2>&1; then ok "TypeSafe key (Jev second opinion)"; else info "no TypeSafe key: run predict with JEV=0"; fi
+if [ -n "${TYPESAFE_API_KEY:-}" ] || security find-generic-password -a "$USER" -s TYPESAFE_API_KEY >/dev/null 2>&1; then ok "TypeSafe key (Jev page checks)"; else info "no TypeSafe key (photo naming does not need it)"; fi
 
 echo "Repo"
 [ -e "$REPO/memory/MEMORY.md" ] && ok "memory/ ($(ls "$REPO/memory" | wc -l | tr -d ' ') files)" || bad "memory/ missing"
