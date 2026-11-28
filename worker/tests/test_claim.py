@@ -85,10 +85,23 @@ def test_lease_expiry_requeues_and_gives_up_after_three_tries():
         {"sql": touch, "params": [str(a) for a in targs]},
         {"sql": wrong, "params": [str(a) for a in wargs]},
         {"sql": "SELECT id, state, locked_by FROM jobs ORDER BY id"},
+        {"sql": "SELECT case_id, step, message FROM case_events ORDER BY id"},
     ], seed=seed)
     assert sorted(x[0] for x in r[0]) == [10, 11]
     assert r[1] == [[12]] and r[2] == []  # only the holder can renew
     assert r[3] == [[10, "queued", None], [11, "failed", None], [12, "running", "alive"]]
+    # the job given up (the worker hung or died on it) gets the crash line, so its case can be deleted (plan #159); the requeued one not
+    assert r[4] == [["c1", "photo_model", "Worker error"]]
+
+
+def test_crash_line_is_the_one_the_web_matches():
+    """loop.py writes WORKER_ERROR when it crashes; the web delete rule (case-delete.ts FAULT_LINE) matches the same text."""
+    from autopilot_worker.jobs import WORKER_ERROR
+    assert WORKER_ERROR == "Worker error"
+    loop = (HERE.parent / "autopilot_worker" / "loop.py").read_text()
+    assert 'event=WORKER_ERROR' in loop and '"Worker error"' not in loop
+    web = (HERE.parent.parent / "web" / "src" / "lib" / "case-delete.ts").read_text()
+    assert 'FAULT_LINE = "Worker error"' in web
 
 
 @needs_pg

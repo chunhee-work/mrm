@@ -26,13 +26,19 @@ export async function debitCase(orgId: string, caseId: string): Promise<boolean>
   return false;
 }
 
-/** Gives the credit of a case back, once per debit (a retry that was charged again can be refunded again). */
+/**
+ * Gives the credit of a case back, once per debit (a retry that was charged again can be refunded again). The refund carries its
+ * number for the case (":#n", n = refunds so far + 1); 0020's unique index lets one row per case and number in, so two refunds
+ * at the same moment (a failed read and a delete) cannot both pass the count check: the second hits the index and adds nothing.
+ */
 export async function refundCase(orgId: string, caseId: string, why = "failed"): Promise<boolean> {
   if (!enforcing() || exempt(orgId)) return false;
-  const res = await db.execute(sql`INSERT INTO credits_ledger (org_id, delta, reason, case_id)
-    SELECT ${orgId}, ${CASE_COST}, ${"case-refund:" + why + ":" + caseId + ":" + crypto.randomUUID()}, ${caseId}
+  const res = await db.execute(sql`WITH n AS (SELECT count(*) AS refunds FROM credits_ledger WHERE case_id = ${caseId} AND reason LIKE 'case-refund:%')
+    INSERT INTO credits_ledger (org_id, delta, reason, case_id)
+    SELECT ${orgId}, ${CASE_COST}, ${"case-refund:" + why + ":" + caseId + ":#"} || (n.refunds + 1), ${caseId} FROM n
     WHERE (SELECT count(*) FROM credits_ledger WHERE case_id = ${caseId} AND delta < 0 AND (reason = ${"case:" + caseId} OR reason LIKE 'case-retry:%'))
-        > (SELECT count(*) FROM credits_ledger WHERE case_id = ${caseId} AND reason LIKE 'case-refund:%')
+        > n.refunds
+    ON CONFLICT DO NOTHING
     RETURNING id`);
   return rowsOf(res).length > 0;
 }
