@@ -57,3 +57,12 @@ def test_resolve_production_points_at_model_dir(tmp_path):
 
 def test_timeout_grows_with_photos():
     assert predict_timeout(10) == 600 and predict_timeout(150) == 1500
+
+
+def test_real_name_rules_load_without_official_names():
+    # official_names.txt is gitignored, so the worker image does not have it; name_map.final must still load
+    from autopilot_worker.photos import _final_fn
+    f = _final_fn()
+    assert f.__name__ == "final"
+    r = apply_name_rules([P("Grille Badge (LOGO)")], "PERODUA MYVI 1.3", f)[0]
+    assert r.model_name == "Grille Badge (PERODUA)"

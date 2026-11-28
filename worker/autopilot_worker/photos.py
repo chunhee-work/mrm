@@ -75,7 +75,8 @@ def _final_fn():
                 sys.path.insert(0, here)
             from name_map import final  # noqa: PLC0415
             _FINAL = final
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
+            print(f"name rules: name_map not loaded ({type(e).__name__}), names kept as the model gave them", file=sys.stderr)
             _FINAL = lambda n: n  # noqa: E731
     return _FINAL
 
@@ -123,9 +124,10 @@ def resolve_production(model_dir: str) -> str:
             if not os.path.isfile(f):
                 raise ModelError("model missing")
     out = os.path.join(d, "production.resolved.json")
-    with open(out + ".tmp", "w", encoding="utf-8") as fh:
+    tmp = f"{out}.{os.getpid()}.tmp"  # one file per process: two cases naming at once must not write the same tmp file
+    with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(cfg, fh)
-    os.replace(out + ".tmp", out)
+    os.replace(tmp, out)
     return out
 
 
