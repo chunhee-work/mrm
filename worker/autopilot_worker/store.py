@@ -165,7 +165,10 @@ class PgRepo:
         try:
             rows = self.db.execute(CLAIM_SQL, claim_params(ext_connect, org_limit, worker_id))
         except Exception as e:  # migration 0019/0014 not applied: claim as before (nothing can be confirmed without it)
-            if not _missing_workshops(e):
+            t = str(e)
+            # only a missing table or column of the workshop gate itself; anything else (a permission, another object) stays an error
+            if not (("42P01" in t or "42703" in t or "does not exist" in t)
+                    and any(n in t for n in ("merimen_case_workshop", "merimen_workshops", "confirmed_at"))):
                 raise
             rows = self.db.execute(CLAIM_SQL_NO_WORKSHOPS, claim_params(ext_connect, org_limit, worker_id))
         if not rows:

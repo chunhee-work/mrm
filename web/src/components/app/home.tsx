@@ -57,12 +57,12 @@ function useAct() {
       const n = (r.pendingDoc ?? "").split("; ").filter((d) => d.trim()).length;
       return { kind: "here", say: n ? t("tray.act.docsN", { n: String(n) }) : t("tray.act.docsAny"), tone: "amber", icon: "upload" };
     }
+    // the workshop first: Phase A (made in Merimen while the photos are named) waits for this Confirm (owner 2026-11-29)
+    if (r.wsAsk && (b === "photos" || b === "active")) return { kind: "here", say: t("tray.act.ws"), tone: "amber", icon: "tick" };
     if (b === "photos") {
       if (!r.deskTotal || r.deskConfirm) return { kind: "here", say: r.deskTotal ? t("tray.act.photosN", { n: String(r.deskConfirm) }) : t("tray.act.addPhotos"), tone: "amber", icon: "photo" };
       return { kind: "here", say: t("tray.act.press"), tone: "amber", icon: "tick" };
     }
-    // the photos are done and the case would go to Merimen, but its workshop waits for Confirm (owner 2026-11-29)
-    if (r.wsAsk) return { kind: "here", say: t("tray.act.ws"), tone: "amber", icon: "tick" };
     return { kind: null, say: t(r.status === "checking" ? "list.s.checkingAlone" : "list.s.merimenAlone"), busy: false };
   };
 }
@@ -373,7 +373,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
                     <Who r={r} team={team} />
                     <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 xl:order-4 xl:mt-0 xl:col-start-4 xl:row-start-1 ${on ? "" : "-rotate-90"}`} />
                   </div>
-                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r) && !r.wsAsk} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
+                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r) && !(r.wsAsk && bucketOf(r) === "active")} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
                   {/* while the line is open the job is right below it: the button would only say it twice.
                       A job for the user: a wide button under the steps (on wide screens across the step and action columns) */}
                   <div className={`pointer-events-none relative flex ${!on && act(r).kind ? "xl:col-span-2 xl:col-start-2 xl:mt-3" : "xl:justify-end"}`}>{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>

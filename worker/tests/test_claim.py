@@ -221,3 +221,16 @@ def test_store_claim_falls_back_only_when_the_workshop_tables_are_missing():
     repo.db = DB("permission denied for table jobs (42501)")
     with pytest.raises(Exception):
         repo.claim(ext_connect=True, worker_id="w")
+
+
+def test_store_claim_does_not_fall_back_for_other_missing_objects():
+    from autopilot_worker.store import PgRepo
+
+    class DB:
+        def execute(self, sql, params=None):
+            raise Exception('relation "jobs_view" does not exist (42P01)')
+
+    repo = PgRepo.__new__(PgRepo)
+    repo.db = DB()
+    with pytest.raises(Exception):
+        repo.claim(ext_connect=True, worker_id="w")
