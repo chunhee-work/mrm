@@ -65,7 +65,7 @@ const TAB = {
  * One case, no tab strip, no step bar (the line has one), the page address is left alone, keys work only while the focus is inside
  * the desk, and the photos scroll in a box of their own. `onDone` runs after 完成 went through, so the first page reads the case again.
  */
-export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial, embedded = false, onDone, onFinished }: { orgId: string; tabs: DeskTab[]; initialId: string; initial?: CaseState; embedded?: boolean; onDone?: () => void; onFinished?: (said: string, status: string) => void }) {
+export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial, embedded = false, onDone, onFinished, barExtra }: { orgId: string; tabs: DeskTab[]; initialId: string; initial?: CaseState; embedded?: boolean; onDone?: () => void; onFinished?: (said: string, status: string) => void; barExtra?: React.ReactNode }) {
   const { lang } = useT();
   const t = useMemo(() => photoT(lang), [lang]);
   const tRef = useRef(t); tRef.current = t;
@@ -815,6 +815,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       if (embedded && !(el && root.current?.contains(el)) && !(el === document.body && active.current)) return;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (palette || moveId != null || help) return;
+      // a window open over the page (the case's Files): the desk behind it takes no keys
+      if (embedded && document.querySelector("dialog[open]")) return;
       const key = e.key;
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && key.toLowerCase() === "z") { e.preventDefault(); void undoLast(); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -993,6 +995,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
           {embedded ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-1.5 lg:px-5" data-testid="desk-bar">
               <div role="group" aria-label={t("filter")} className="flex shrink-0 rounded-[4px] bg-panel2 p-0.5" data-testid="desk-filter">{soft("all", t("f.all"), n?.total ?? null, false)}</div>
+              {/* the case's documents (police report, insurance papers), beside the photos: given by the first page */}
+              {barExtra}
               <div className="min-w-0 flex-1 max-sm:[&>div]:flex-wrap max-sm:[&>div]:overflow-visible">{extrasRow}</div>
               <div className="max-sm:w-full" data-testid="done-wrap">{doneBtn}</div>
               {/* the picker stays for the empty desk's own Add photos; dropping photos on the desk still adds them */}
