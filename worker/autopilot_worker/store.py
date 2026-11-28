@@ -171,17 +171,16 @@ class PgRepo:
     def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = MAX_ATTEMPTS) -> int:
         return len(self.db.execute(RECLAIM_SQL, (max_attempts, int(lease_seconds))))
 
+    def chrome_taken_by_other(self, org_id: str) -> bool:
+        """jobs.CHROME_TAKEN_SQL: another org owns this org's Chrome port (WORKER_SLOTS > 1)."""
+        from .jobs import CHROME_TAKEN_SQL
+
+        rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id})
+        return bool(rows and rows[0][0])
+
     def touch_job(self, job_id: int, worker_id: str) -> bool:
         """Renew the lease. False means the job is no longer ours."""
         return bool(self.db.execute(TOUCH_SQL, (job_id, worker_id)))
-
-    def still_mine(self, job: dict, worker_id: str) -> bool:
-        """This very run still holds the job (running, ours, and not claimed again since: each claim adds one to attempts). Renews
-        the lease when so. Asked before writing the outcome of a job that ran past WORKER_JOB_MAX_SECONDS (plan #150)."""
-        return bool(self.db.execute(
-            "UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running' AND locked_by = %s AND attempts = %s RETURNING id",
-            (job["id"], worker_id, int(job.get("attempts") or 0)),
-        ))
 
     def load(self, case_id: str) -> dict:
         c = self.db.execute(

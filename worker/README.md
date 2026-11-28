@@ -70,15 +70,15 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 ### 同时做几单（`WORKER_SLOTS`，计划 #150）
 
 - `WORKER_SLOTS=1`（默认）：一次一单，和以前完全一样。`2` 到 `8`：一个 worker 进程同时跑这么多 job，每个 job 一个线程，自己的 Playwright 连接，每个 Merimen 步骤开自己的标签页（playbook 00「one tab per case」）。
-- 顺序：**先上传的案子先做**，包括它后面的步骤（`ORDER BY cases.created_at`）。用户 1 先上传，用户 1 的案子先占满空位；用户 2 的照片模型可以用剩下的空位。
+- 顺序：**先上传的案子先做**，包括它后面的步骤（`ORDER BY cases.created_at, cases.id, jobs.created_at, jobs.id`）。用户 1 先上传，用户 1 的案子先占满空位；用户 2 的照片模型可以用剩下的空位。
 - 同一个案子永远不会同时跑两个 job。
-- 一个 Chrome 只装一个 Merimen 登录（只在开槽位时检查）：几个有 Merimen 登录的机构共用同一个 Chrome 端口时，只有第一个案子最早的那个机构能跑 Merimen 步骤；别的机构的 Merimen 步骤一直排队，直到它有自己的 Chrome 配置（`WORKER_ACCOUNTS` + `WORKER_ORG_ACCOUNTS`）。不会把一个用户的案子写进另一个用户的 Merimen 账号。
+- 一个 Chrome 只装一个 Merimen 登录（只在开槽位时检查）：几个有 Merimen 登录的机构共用同一个 Chrome 端口时，只有第一个案子最早的那个机构能跑 Merimen 步骤；别的机构不会被自动登录到这个 Chrome（会话 `waiting_login`，detail `shared_chrome`），它的 Merimen 步骤一直排队，直到它有自己的 Chrome 配置（`WORKER_ACCOUNTS` + `WORKER_ORG_ACCOUNTS`）。不会把一个用户的案子写进另一个用户的 Merimen 账号。
 - 建新案子（Phase A 第 1 步）一次只建一个；之后的 Adjuster Report、文件、照片、Phase B 各案子同时跑。
 - 照片模型（DINOv2 在 CPU 上）一次只跑一个。
 - job 里发现 Merimen 登出：这个机构不再领新的 Merimen 步骤，等重新登录；重新登录等这个机构正在跑的 Merimen 步骤结束，最多等 10 分钟（`session_lost: relogin_waits_for_jobs`）。几个 job 同时撞到同一次登出（2 分钟内、中间没有成功的重新登录）只算一次登出。
-- 一个 job 跑超过 `WORKER_JOB_MAX_SECONDS`（默认 3 小时）：不再续租，槽位放出来给新 job，租约到期后队列把它收回。它晚到的结果只在这一次运行还拿着这个 job 时才写（没被收回、没被重新领取）；已被收回就不写，文件也留给新的那次运行。
-- 停止（SIGTERM）：不再领新 job，正在跑的最多再等 `WORKER_STOP_SECONDS`（默认 80 秒，比 systemd 的 90 秒短），还没完的随进程结束，租约到期回到队列。
-- 每个槽位多一个 Playwright 连接和一个 Chrome 标签页。上线时量一下机器的内存再加大。
+- 一个 job 跑超过 `WORKER_JOB_MAX_SECONDS`（默认 3 小时）：只在 stderr 写一行提醒（`slot job … still running`），它继续占着自己的槽位和租约，不会被切断、也不会被再跑一次（Merimen 里的步骤可能会做两次）。其它槽位照常干活。
+- 停止（SIGTERM）：不再领新 job，正在跑的最多再等 `WORKER_STOP_SECONDS`（默认 80 秒），还没完的随进程结束，租约到期回到队列。管进程的工具给的停止时间要比它长：systemd 默认 90 秒够；pm2 要加 `--kill-timeout 90000`；`kill` 只发 TERM，然后等 90 秒再看。
+- 每个槽位多一个 Playwright 连接（node 进程）和一个 Chrome 标签页。先开 2，看机器内存（Chrome + worker 的 RSS）再开 3；最多 8。启动时 stdout 打印 `worker slots: N, jobs per org: M`；`ORG_CONCURRENCY` 如果在 env 里写成 1，同一个用户还是一次一单，要删掉这一行。
 - 只支持一个 worker 进程开多个槽位（同一个案子不同时跑两个 job，这一点只在一个进程里保证）。不开槽位、`ORG_CONCURRENCY` 大于 1 的多进程写入照旧拒绝（`concurrency_unsafe`）。
 - 截图只从主标签页截，不会截到别的 job 正在做的另一个案子。
 

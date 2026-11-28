@@ -17,22 +17,21 @@ MERIMEN_STEPS = ("phase_a", "checks", "phase_b")
 
 
 class JobPool:
-    def __init__(self, slots: int, run, *, make_driver, name: str = "slot", max_seconds: float = 3 * 3600.0, now=time.monotonic):
+    def __init__(self, slots: int, run, *, make_driver, name: str = "slot", warn_seconds: float = 3 * 3600.0, now=time.monotonic):
         """run(job, driver, extra) runs one job to its end (loop.run_job). make_driver() -> a driver for one slot thread.
-        A job still running after max_seconds (a hung browser call) frees its slot: a new slot thread takes its place, and the
-        hung thread ends when its call returns (its lease already stopped, so the queue has the job back; loop.run_job)."""
+        A job still running after warn_seconds keeps its slot and its lease (a hung call is never cut off or run a second time: a
+        step in Merimen could then be done twice); one stderr line per such job says so. The other slots go on."""
         self.slots = max(1, int(slots))
         self._run = run
         self._make_driver = make_driver
         self._name = name
-        self._max = float(max_seconds)
+        self._max = float(warn_seconds)
         self._now = now
         self._q: queue.Queue = queue.Queue()
         self._lock = threading.Lock()
         self._running: dict[int, dict] = {}  # job id -> job, from submit until its thread is done with it (or gives it up)
         self._started: dict[int, float] = {}
-        self._given_up: set[threading.Thread] = set()
-        self._thread_of: dict[int, threading.Thread] = {}
+        self._warned: set[int] = set()
         self._n = 0
         for _ in range(self.slots):
             self._spawn()
@@ -41,20 +40,16 @@ class JobPool:
         self._n += 1
         threading.Thread(target=self._loop, name=f"{self._name}-{self._n}", daemon=True).start()
 
-    def _give_up_late(self) -> None:
-        late = [jid for jid, t in self._started.items() if self._now() - t > self._max]
-        for jid in late:
-            job = self._running.pop(jid, None)
-            self._started.pop(jid, None)
-            th = self._thread_of.pop(jid, None)
-            if th is not None:
-                self._given_up.add(th)
-            print(f"slot job {jid} still running after {int(self._max)} s: its slot is freed", file=sys.stderr, flush=True)
-            self._spawn()
+    def _warn_late(self) -> None:
+        for jid, t in self._started.items():
+            if jid not in self._warned and self._now() - t > self._max:
+                self._warned.add(jid)
+                job = self._running.get(jid) or {}
+                print(f"slot job {jid} {job.get('step')} still running after {int(self._max)} s (it keeps its slot)", file=sys.stderr, flush=True)
 
     def free(self) -> int:
         with self._lock:
-            self._give_up_late()
+            self._warn_late()
             return self.slots - len(self._running)
 
     def running(self) -> list[dict]:
@@ -75,12 +70,8 @@ class JobPool:
 
     def _loop(self) -> None:
         driver = None
-        me = threading.current_thread()
         while True:
             job, extra = self._q.get()
-            with self._lock:
-                if int(job["id"]) in self._running:
-                    self._thread_of[int(job["id"])] = me
             try:
                 if driver is None:
                     driver = self._make_driver()
@@ -89,15 +80,10 @@ class JobPool:
                 print(f"slot job {job.get('id')} {job.get('step')} {type(e).__name__}", file=sys.stderr, flush=True)
             finally:
                 with self._lock:
-                    if self._running.get(int(job["id"])) is job:
-                        self._running.pop(int(job["id"]), None)
-                        self._started.pop(int(job["id"]), None)
-                        self._thread_of.pop(int(job["id"]), None)
-                    given_up = me in self._given_up
-                    self._given_up.discard(me)
+                    self._running.pop(int(job["id"]), None)
+                    self._started.pop(int(job["id"]), None)
+                    self._warned.discard(int(job["id"]))
                 self._q.task_done()
-            if given_up:
-                return  # a new slot thread already took this one's place
 
     def wait_idle(self, timeout: float | None = None) -> bool:
         """Tests: wait until every submitted job is done."""

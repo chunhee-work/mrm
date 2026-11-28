@@ -320,43 +320,21 @@ def test_a_paused_org_gets_no_new_merimen_step_but_keeps_its_photo_work():
 
 # ---------- a job that hangs, the lease, the tabs a job leaves ----------
 
-def test_a_job_past_its_time_limit_frees_its_slot_and_its_late_thread_ends():
+def test_a_job_past_its_time_limit_keeps_its_slot_and_gets_one_warning(capsys):
+    """Never cut off or run twice: a step in Merimen could then be done twice (plan #150 v3). The other slots go on."""
     t = [0.0]
     release = threading.Event()
-    ran = []
-
-    def run_one(job, d, e):
-        ran.append(job["id"])
-        if job["id"] == 1:
-            release.wait(5)
-
-    pool = JobPool(1, run_one, make_driver=lambda: object(), max_seconds=100, now=lambda: t[0])
+    pool = JobPool(2, lambda job, d, e: release.wait(5) if job["id"] == 1 else None, make_driver=lambda: object(), warn_seconds=100, now=lambda: t[0])
     pool.submit({"id": 1, "step": "phase_b"})
     time.sleep(0.05)
-    assert pool.free() == 0
     t[0] = 101
-    assert pool.free() == 1  # given up: a new slot thread takes its place
-    pool.submit({"id": 2, "step": "intake"})
-    assert pool.wait_idle(2) and ran == [1, 2]
-    release.set()
+    assert pool.free() == 1 and pool.free() == 1
+    assert capsys.readouterr().err.count("slot job 1 phase_b still running") == 1
+    pool.submit({"id": 2, "step": "intake"})  # the other slot still works
     time.sleep(0.05)
     assert pool.free() == 1
-
-
-def test_the_lease_stops_after_the_time_limit():
-    class R:
-        def __init__(self):
-            self.n = 0
-
-        def touch_job(self, *a):
-            self.n += 1
-
-    t = [0.0]
-    k = loop.LeaseKeeper(R(), 1, "w", 60, max_seconds=100, now=lambda: t[0])
-    assert not k.overdue()
-    t[0] = 101
-    assert k.overdue()
-    assert not loop.LeaseKeeper(R(), 1, "w", 60, now=lambda: t[0]).overdue()  # WORKER_SLOTS=1: no limit, as before
+    release.set()
+    assert pool.wait_idle(2)
 
 
 def test_a_jobs_own_leftover_tabs_are_closed_when_it_ends_and_the_ids_survive_a_restart(monkeypatch, tmp_path):
@@ -409,60 +387,6 @@ def test_left_step_tabs_are_closed_at_start_by_their_ids_only(monkeypatch, tmp_p
     m.STEP_TABS.clear()
 
 
-@pytest.mark.parametrize("mine,written", [(False, False), (True, True)])
-def test_a_late_outcome_is_written_only_while_this_run_still_holds_the_job(tmp_path, monkeypatch, mine, written):
-    """A job that ran past WORKER_JOB_MAX_SECONDS: taken back meanwhile = its late outcome must not overwrite the new run (and its
-    files stay, the new run uses the same folder); still ours = written as usual."""
-    from autopilot_worker.pipeline import Outcome
-
-    cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "WORKER_SLOTS": "2", "WORKER_JOB_MAX_SECONDS": "600"})
-    applied, forgot = [], []
-
-    class Repo:
-        def load(self, cid):
-            return {"id": cid, "org_id": "o1", "photos": [], "files": []}
-
-        def gate(self, *a, **k):
-            return "ready"
-
-        def session_status(self, org):
-            return "connected"
-
-        def touch_job(self, *a):
-            pass
-
-        def still_mine(self, job, worker):
-            return mine
-
-        def apply(self, job, outcome):
-            applied.append(job["id"])
-
-    t = [0.0]
-    monkeypatch.setattr(loop, "handle_job", lambda *a, **k: (t.__setitem__(0, 700.0), Outcome("done"))[1])
-    loop.run_job(cfg, Repo(), {"id": 9, "case_id": "c1", "step": "intake", "attempts": 1, "org_id": "o1"}, inspect=lambda p: None,
-                 namer=None, driver=Driver(), download=lambda *a: None, now=lambda: t[0], forget_files=lambda c, j: forgot.append(j))
-    assert (applied == [9]) is written and (forgot == [9]) is written
-    t[0] = 0.0
-    applied.clear()
-    monkeypatch.setattr(loop, "handle_job", lambda *a, **k: Outcome("done"))
-    loop.run_job(cfg, Repo(), {"id": 10, "case_id": "c1", "step": "intake", "attempts": 1, "org_id": "o1"}, inspect=lambda p: None,
-                 namer=None, driver=Driver(), download=lambda *a: None, now=lambda: t[0])
-    assert applied == [10]  # in time: written without asking
-
-
-def test_still_mine_checks_the_run_by_its_attempts():
-    from autopilot_worker.store import PgRepo
-
-    class Rec:
-        def execute(self, sql, params):
-            self.sql, self.params = sql, params
-            return [(1,)]
-
-    r = Rec()
-    assert PgRepo("", db=r).still_mine({"id": 5, "attempts": 2}, "w1")
-    assert "attempts = %s" in r.sql and "locked_by = %s" in r.sql and "state = 'running'" in r.sql and r.params == (5, "w1", 2)
-
-
 def test_without_slots_the_claim_keeps_its_old_merimen_rule():
     from autopilot_worker.jobs import claim_params
 
@@ -497,3 +421,52 @@ def test_one_logout_dedupe_is_only_for_slots_and_ends_with_a_relogin(tmp_path):
     loop.ORG_PUTBACKS.clear()
     loop.FORCE_RELOGIN.clear()
     loop.RELOGIN_OK.clear()
+
+
+def test_a_second_org_on_a_shared_chrome_is_never_logged_in(tmp_path, fresh):
+    """WORKER_SLOTS > 1: the Chrome is never switched to another org's Merimen account (no re-login, never connected)."""
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on",
+                           "MERIMEN_RELOGIN": "on", "WORKER_SLOTS": "2"})
+
+    class Shared(SessRepo):
+        def chrome_taken_by_other(self, org):
+            return True
+
+    asked = []
+    repo = Shared()
+    loop.sync_sessions(cfg, repo, launch=lambda a: None, inspect=lambda p: LOGIN_PAGE, relogin=lambda org, port: asked.append(org))
+    assert asked == [] and repo.sessions[-1][1]["detail"] == "shared_chrome" and repo.sessions[-1][1]["status"] == "waiting_login"
+    asked.clear()
+    repo = SessRepo()  # its own Chrome (or the owner): as before
+    loop.sync_sessions(cfg, repo, launch=lambda a: None, inspect=lambda p: LOGIN_PAGE, relogin=lambda org, port: asked.append(org))
+    assert asked == ["o1"]
+
+
+@needs_pg
+def test_chrome_taken_sql_matches_the_claim_rule():
+    from autopilot_worker.db import to_numbered
+    from autopilot_worker.jobs import CHROME_TAKEN_SQL
+
+    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org})))  # noqa: E731
+    r = run([q("o1"), q("o2")], seed=ORGS_CASES + READY + sessions())
+    assert r == [[[False]], [[True]]]
+    r = run([q("o2")], seed=ORGS_CASES + READY + sessions(9222, 9223))
+    assert r == [[[False]]]  # its own Chrome: free
+
+
+@needs_pg
+def test_equal_upload_times_still_give_one_fixed_order():
+    seed = ["INSERT INTO organizations (id, name) VALUES ('o1', 'One')",
+            "INSERT INTO cases (id, org_id, plate, status, created_at) VALUES ('cb','o1','B','phase_a', '2026-01-01'), ('ca','o1','A','phase_a', '2026-01-01')",
+            "INSERT INTO jobs (id, case_id, step, state, created_at) VALUES (1,'cb','intake','queued','2026-01-01'), (2,'ca','intake','queued','2026-01-01')"]
+    r = run([claim("w", 5), claim("w", 5)], seed=seed)
+    assert [x[0][1] for x in r] == ["ca", "cb"]
+
+
+def test_an_unreadable_step_tabs_file_starts_empty(tmp_path, capsys):
+    from autopilot_worker import __main__ as m
+
+    (tmp_path / m.STEP_TABS_FILE).write_text('["a", ')
+    assert m.load_step_tabs(str(tmp_path)) == []
+    assert "step tabs file unreadable" in capsys.readouterr().err
+    m._step_tabs_dir[0] = ""

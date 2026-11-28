@@ -349,7 +349,10 @@ def load_step_tabs(state_dir: str) -> list[str]:
     try:
         with open(os.path.join(state_dir, STEP_TABS_FILE)) as f:
             got = [str(x) for x in json.load(f) if isinstance(x, (str, int))]
+    except FileNotFoundError:
+        return []
     except (OSError, ValueError, TypeError):
+        print("step tabs file unreadable: started without it", file=sys.stderr, flush=True)
         return []
     with _STEP_TABS_LOCK:
         STEP_TABS.update(got)
@@ -554,12 +557,17 @@ def _page_provider(cfg: Config):
         return None
 
     def session_tabs(org_id: str):
-        """One bool per tab with session marks in its address: True = that page shows a password box. None when Chrome cannot be asked."""
+        """One bool per tab with session marks in its address: True = that page shows a password box. None when Chrome cannot be asked.
+        WORKER_SLOTS > 1: the home tab decides (a step tab that loaded before a logout can still show a form); step tabs only
+        when no other session tab is left."""
         try:
             _port, browser = _browser(org_id)
             if browser is None:
                 return None
-            return [_login_box(pg) for pg in _session_pages(browser)]
+            pages = _session_pages(browser)
+            if slots > 1 and len(pages) > 1:
+                pages = not_step_tabs(pages) or pages
+            return [_login_box(pg) for pg in pages]
         except Exception:
             _drop(org_id)
             return None
@@ -718,7 +726,7 @@ def main() -> None:
                 end_job_tabs()  # a step that raised half way leaves no tab behind
 
         _close_left_step_tabs(cfg)
-        pool = JobPool(cfg.slots, _run, make_driver=lambda: slot_driver(driver), max_seconds=cfg.job_max_seconds)
+        pool = JobPool(cfg.slots, _run, make_driver=lambda: slot_driver(driver), warn_seconds=cfg.job_max_seconds)
         stopping = threading.Event()
 
         def _stop(_sig, _frm):
@@ -726,7 +734,7 @@ def main() -> None:
 
         signal.signal(signal.SIGTERM, _stop)
         signal.signal(signal.SIGINT, _stop)
-        print(f"worker slots: {cfg.slots}", flush=True)
+        print(f"worker slots: {cfg.slots}, jobs per org: {cfg.org_limit}", flush=True)
         while not stopping.is_set():
             sweep_files()
             try:

@@ -98,11 +98,26 @@ WHERE j.state = 'queued'
     )
   )
 -- the case uploaded first goes first, with all its later steps: user 1's cases are done before user 2's (owner 2026-11-28)
-ORDER BY c.created_at, j.created_at
+ORDER BY c.created_at, c.id, j.created_at, j.id
 FOR NO KEY UPDATE OF j, c SKIP LOCKED
 LIMIT 1
 )
 RETURNING id, case_id, step, attempts, (SELECT c3.org_id FROM cases c3 WHERE c3.id = jobs.case_id)
+"""
+
+
+# Another org with a verified Merimen login shares this org's Chrome port and its first live case came earlier: that org "owns" the
+# Chrome (one Chrome holds one Merimen login). Used by the claim (above, inline) and by the session sync (no re-login for this org,
+# so the Chrome is never switched to this org's Merimen account under the owner's running cases). %(org)s = this org.
+CHROME_TAKEN_SQL = """
+SELECT EXISTS (
+  SELECT 1 FROM worker_sessions s0
+  JOIN worker_sessions s6 ON s6.port = s0.port AND s6.org_id <> s0.org_id
+  JOIN merimen_credentials m6 ON m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked
+  WHERE s0.org_id = %(org)s AND s0.port IS NOT NULL
+    AND (SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id AND c7.deleted_at IS NULL)
+      < (SELECT min(c8.created_at) FROM cases c8 WHERE c8.org_id = %(org)s AND c8.deleted_at IS NULL)
+)
 """
 
 

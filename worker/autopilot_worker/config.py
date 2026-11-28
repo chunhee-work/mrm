@@ -97,7 +97,7 @@ class Config:
     mailer: object | None = None
     worker_submit: bool = False
     merimen_relogin: bool = False  # MERIMEN_RELOGIN=on (needs MERIMEN_LOGIN=on): log in again by itself with the saved login (plan #133)
-    job_max_seconds: int = 3 * 3600  # WORKER_JOB_MAX_SECONDS: a job still running after this frees its slot (pool.py)
+    job_max_seconds: int = 3 * 3600  # WORKER_JOB_MAX_SECONDS: a job still running after this gets one warning line (pool.py)
     stop_seconds: int = 80  # WORKER_STOP_SECONDS: on stop, how long running jobs may still finish (below systemd's 90 s)
     slots: int = 1  # WORKER_SLOTS: jobs this process runs at the same time, each in its own thread and Merimen tab (plan #150)
     merimen_dryrun: bool = False  # MERIMEN_DRYRUN=on: fill Merimen's create form, never save. While it is on nothing is written anywhere in Merimen

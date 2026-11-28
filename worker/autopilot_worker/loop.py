@@ -23,22 +23,14 @@ from .store import LOST_EVENT, LOST_WINDOW, PgRepo
 class LeaseKeeper:
     """Renews a running job's lease every third of the lease time, so a long job is not taken over while it still runs."""
 
-    def __init__(self, repo: PgRepo, job_id: int, worker_id: str, lease_seconds: int, max_seconds: float | None = None, now=time.monotonic):
+    def __init__(self, repo: PgRepo, job_id: int, worker_id: str, lease_seconds: int):
         self.repo, self.job_id, self.worker_id = repo, job_id, worker_id
         self.every = max(5.0, lease_seconds / 3)
-        self.max_seconds, self._now = max_seconds, now
-        self._t0 = now()
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
-    def overdue(self) -> bool:
-        """Ran longer than max_seconds (WORKER_JOB_MAX_SECONDS): the lease is no longer renewed, so the queue gets the job back."""
-        return self.max_seconds is not None and self._now() - self._t0 > self.max_seconds
-
     def _run(self) -> None:
         while not self._stop.wait(self.every):
-            if self.overdue():
-                return
             try:
                 self.repo.touch_job(self.job_id, self.worker_id)
             except Exception:
@@ -126,7 +118,8 @@ def job_error_line(job: dict, e: BaseException) -> str:
 
 def _print_error(job: dict, e: BaseException) -> None:
     try:
-        print(job_error_line(job, e), file=sys.stderr, flush=True)
+        slot = threading.current_thread().name
+        print((f"[{slot}] " if slot.startswith("slot-") else "") + job_error_line(job, e), file=sys.stderr, flush=True)
     except Exception:  # noqa: BLE001  (the log line never changes the outcome)
         pass
 
@@ -445,6 +438,15 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             )
             continue
         port = cfg.accounts[account]
+        if getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
+            try:
+                taken = repo.chrome_taken_by_other(org)
+            except Exception:  # noqa: BLE001  (not known: the safe side, no login for this org this pass)
+                taken = True
+            if taken:  # one Chrome holds one Merimen login: never log it in as this org, never count it connected (plan #150)
+                repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
+                note(org, "shared_chrome", now)
+                continue
         profile = profile_dir(cfg.state_dir, account)
         argv = chrome_argv(cfg.chrome_bin, port, profile)
         info = inspect(port)  # ask the debugging port first: a Chrome that answers is never started again
@@ -590,7 +592,6 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
         except Exception:  # noqa: BLE001  (not known: the stricter way, a partial list stops for a person)
             case["resumed_after_logout"] = True
     login_seen.reset()
-    lease = None
     shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
 
@@ -635,8 +636,7 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
             # while the org is held the old stops stand (a person looks), exactly as with re-login off
             driver.relogin_ready = puts_back(cfg, relogin is not None) and not held(job["org_id"], now)
-            lease = LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds, max_seconds=cfg.job_max_seconds if cfg.slots > 1 else None, now=now)
-            with lease:
+            with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
                 outcome = handle_job(
                     job, case, case["photos"], gate=gate, session=session,
                     photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
@@ -654,14 +654,7 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
-        late = False
-        if lease is not None and lease.overdue():
-            try:  # still this run's job (nobody took it back)? Then its outcome is written as usual
-                late = not repo.still_mine(job, cfg.worker_id)
-            except Exception:  # noqa: BLE001  (not known: the safe side, nothing is written; the lease gives the job back)
-                late = True
-        if forget_files and not late:  # the job is over, done or failed: its own downloaded files leave this machine
-            # (a run that was taken back leaves them: a new run of the same job uses the same folder; the hourly sweep takes them)
+        if forget_files:  # the job is over, done or failed: its own downloaded files leave this machine
             try:
                 forget_files(job["case_id"], job["id"])
             except Exception:  # noqa: BLE001  (the hourly sweep takes what is left)
@@ -670,10 +663,5 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
     outcome = check_session_after(cfg, repo, job, outcome, inspect=inspect, page_for=page_for or getattr(driver, "page_for", None), now=now,
                                   relogin_ready=relogin is not None, seen_login=login_seen.seen())
     _at("apply")
-    if late:
-        # ran past its time limit and was taken back meanwhile (requeued, or claimed again): writing this late outcome could
-        # overwrite that run, so it is dropped
-        print(f"job {job.get('id')} {job.get('step')} ended after its time limit and was taken back: outcome not written", file=sys.stderr, flush=True)
-        return job["step"]
     repo.apply(job, outcome)
     return job["step"]
