@@ -125,6 +125,9 @@ class _CdpDriver(Driver):
         # MERIMEN_DRYRUN=on fills Merimen's create form without saving it. While it is on nothing is ever saved (see save).
         if phase == "A" and os.environ.get("MERIMEN_DRYRUN") == "on":
             res = self._create(False)
+            from .pool import create_done
+
+            create_done()  # the form was only filled, never saved: the next create may be claimed beside the rest of this one
             if res.ok:
                 if (self.case or {}).get("merimen_caseid"):  # the case exists: its report can be filled and read back (never saved here)
                     ok, retry, line = self._report(False, None, None)
@@ -239,25 +242,38 @@ _SLOTS_LOCK: list = []  # the open lock file, held for the life of the process
 
 
 def _one_slots_process(cfg: Config, *, hold: bool = True) -> bool:
-    """ONE worker process per state folder (its Chrome, its create lock, its step tabs), in every mode since GPR-150-4 G7: a
-    second one would close the first one's step tabs at its start. hold: the lock is kept for the life of the process and a second
-    worker refuses to start (plan #150 DPR-150-3 D1 / GPR-150-3 G6); it ends with the process, also on a kill.
-    Not hold: only asks (False while another worker holds it); the lock is not kept."""
+    """ONE worker process per state folder AND per Chrome port, in every mode (GPR-150-4 G7, egm round 3): a second one would
+    close the first one's step tabs at its start, and its own create lock and tab rules would not see the first one's jobs.
+    The lock files: `<state>/worker_slots.lock`, and `<WORKER_LOCK_DIR or the temp folder>/autopilot-worker-chrome-<port>.lock` for
+    each Chrome port this worker uses (so two workers with different WORKER_STATE on one Chrome are refused too).
+    hold: the locks are kept for the life of the process and a second worker refuses to start; they end with the process, also on
+    a kill. Not hold: only asks (False while another worker holds one); nothing is kept."""
     import fcntl
+    import tempfile
 
     os.makedirs(cfg.state_dir or ".", exist_ok=True)
-    f = open(os.path.join(cfg.state_dir or ".", "worker_slots.lock"), "a+")
-    try:
-        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        f.close()
-        if not hold:
-            return False
-        raise SystemExit("another worker is running on this machine with the same WORKER_STATE: only one is supported; stop it first")
+    lock_dir = os.environ.get("WORKER_LOCK_DIR") or tempfile.gettempdir()
+    paths = [os.path.join(cfg.state_dir or ".", "worker_slots.lock")]
+    paths += [os.path.join(lock_dir, f"autopilot-worker-chrome-{int(p)}.lock") for p in sorted(set((cfg.accounts or {}).values()))]
+    got = []
+    for path in paths:
+        f = open(path, "a+")
+        try:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            f.close()
+            for g in got:
+                g.close()
+            if not hold:
+                return False
+            raise SystemExit("another worker is running on this machine with the same WORKER_STATE or the same Chrome port: "
+                             "only one is supported; stop it first")
+        got.append(f)
     if hold:
-        _SLOTS_LOCK.append(f)
+        _SLOTS_LOCK.extend(got)
     else:
-        f.close()  # closing the file lets the lock go
+        for g in got:
+            g.close()  # closing the files lets the locks go
     return True
 
 
@@ -435,16 +451,37 @@ def load_step_tabs(state_dir: str) -> list[str]:
 
 
 def _register_step_tab(pg) -> None:
-    tid = str(_target_info(pg).get("targetId") or "")
-    if tid:
-        with _STEP_TABS_LOCK:  # dropped again when the job ends (end_job_tabs) or at the next start (_close_left_step_tabs)
-            STEP_TABS.add(tid)
-        _save_step_tabs()
     if not hasattr(_job_tabs, "pages"):
         _job_tabs.pages = []
     mine = _job_tabs.pages
-    mine.append((tid, pg))
+    mine.append(["", pg])
     _follow_popups(pg, mine)
+    record_job_tabs()
+
+
+def record_job_tabs() -> None:
+    """Record the Chrome ids of this job's tabs that have none yet (its popups, a tab whose id could not be read when it opened),
+    in STEP_TABS and the file, so a kill of the worker never leaves one behind that counts as a second home tab (several_tabs).
+    Runs in the job's own thread: at each new step tab and before each use of a step tab (case_guard.on_use)."""
+    added = False
+    for entry in getattr(_job_tabs, "pages", []):
+        if entry[0]:
+            continue
+        try:
+            if entry[1].is_closed():
+                continue
+        except AttributeError:
+            pass
+        except Exception:  # noqa: BLE001
+            continue
+        tid = str(_target_info(entry[1]).get("targetId") or "")
+        if tid:
+            entry[0] = tid
+            with _STEP_TABS_LOCK:  # dropped again when the job ends (end_job_tabs) or at the next start (_close_left_step_tabs)
+                STEP_TABS.add(tid)
+            added = True
+    if added:
+        _save_step_tabs()
 
 
 def _follow_popups(pg, mine: list) -> None:
@@ -455,7 +492,7 @@ def _follow_popups(pg, mine: list) -> None:
         return
 
     def popup(p):
-        mine.append(("", p))
+        mine.append(["", p])  # its id is read later in the job's thread (record_job_tabs)
         _follow_popups(p, mine)
 
     try:
@@ -532,7 +569,7 @@ class _StepContext:
 
         pg = self._ctx.new_page(*a, **k)
         _register_step_tab(pg)
-        return guard_page(pg)  # it may only open this job's own Merimen case
+        return guard_page(pg, context=self)  # it may only open this job's own Merimen case; its context is this one
 
     def __getattr__(self, name):
         # only new_page: another tab of the context (context.pages[i]) or context.close() would reach the home tab or every tab
@@ -861,7 +898,10 @@ def main() -> None:
     _one_slots_process(cfg)
     _close_left_step_tabs(cfg)
     if cfg.slots > 1:
+        from . import case_guard
         from .pool import JobPool, slot_driver
+
+        case_guard.on_use(record_job_tabs)  # a popup's tab id is recorded at the step's next use of its tab
 
         import signal
 

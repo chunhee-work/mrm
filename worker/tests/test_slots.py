@@ -218,6 +218,26 @@ def test_relogin_waits_while_a_merimen_job_of_the_org_runs_then_goes_ahead(tmp_p
     assert asked == ["o1"]
 
 
+def test_a_relogin_wait_ends_when_the_session_comes_back_so_a_later_logout_waits_again(tmp_path, fresh):
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on", "MERIMEN_RELOGIN": "on"})
+    t = [1000.0]
+    asked = []
+    page = [LOGIN_PAGE]
+
+    def sync():
+        loop.sync_sessions(cfg, SessRepo(), launch=lambda a: None, inspect=lambda p: page[0], now=lambda: t[0],
+                           relogin=lambda org, port: asked.append(org), busy_orgs=lambda: {"o1"})
+
+    sync()  # logged out while a job runs: the wait starts
+    page[0] = {"urls": ["https://www.merimen.com.my/claims/index.cfm?CFID=1&RID=2"], "has_password": False}
+    t[0] += 60
+    sync()  # the session came back by itself
+    page[0] = LOGIN_PAGE
+    t[0] += loop.RELOGIN_BUSY_WAIT + 60
+    sync()  # a new logout much later, jobs still running: a new wait, nothing typed under the running steps
+    assert asked == []
+
+
 def test_without_slots_the_relogin_never_waits(tmp_path, fresh):
     cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on", "MERIMEN_RELOGIN": "on"})
     asked = []
@@ -715,6 +735,50 @@ def test_a_job_end_closes_the_popups_its_step_tabs_left_open_also_after_the_step
     m.STEP_TABS.clear()
 
 
+def test_a_popup_of_a_step_tab_is_recorded_in_the_file_at_the_next_use_of_the_tab(monkeypatch, tmp_path):
+    import json as _json
+
+    from autopilot_worker import __main__ as m
+    from autopilot_worker import case_guard as g
+
+    class Pg(FakePage):
+        def __init__(self, tid):
+            super().__init__(tid)
+            self.handlers = {}
+            self.context = self
+
+        def on(self, name, fn):
+            self.handlers.setdefault(name, []).append(fn)
+
+        def new_page(self):
+            return Pg("s1")
+
+        def is_closed(self):
+            return False
+
+        def wait_for_timeout(self, ms):
+            return None
+
+        def goto(self, url, **k):
+            self.url = url
+
+    monkeypatch.setattr(m, "_target_info", info)
+    monkeypatch.setattr(m, "_step_tabs_dir", [str(tmp_path)])
+    monkeypatch.setattr(g, "_ON_USE", [m.record_job_tabs])
+    m.STEP_TABS.clear()
+    m._job_tabs.pages = []
+    step = m._StepContext(Pg("home")).new_page()
+    for fn in step._real.handlers["popup"]:
+        fn(Pg("p1"))  # a Relabel popup: no Chrome call in the event handler
+    assert "p1" not in m.STEP_TABS
+    step.wait_for_timeout(1)  # the step's next use of its tab, in its own thread
+    assert {"s1", "p1"} <= m.STEP_TABS
+    assert {"s1", "p1"} <= set(_json.load(open(tmp_path / m.STEP_TABS_FILE)))  # a kill now leaves nothing unknown behind
+    m.end_job_tabs()
+    assert not m.STEP_TABS
+    m._job_tabs.pages = []
+
+
 def test_the_home_tab_allows_only_reading_its_address_and_opening_a_new_tab():
     from autopilot_worker import __main__ as m
 
@@ -863,3 +927,118 @@ def test_every_driver_attribute_has_a_threading_model():
     names |= set(_re.findall(r"\bdriver\.([a-z_]+) = ", src))
     assert names <= SHARED | PER_JOB, names - SHARED - PER_JOB
     assert not SHARED & PER_JOB
+
+
+# ---------- egm round 3 ----------
+
+def _run_one(tmp_path, monkeypatch, behaviour):
+    """run_job with a step that does `behaviour()` (a fake handle_job): what outcome is written."""
+
+    from autopilot_worker import loop
+    from autopilot_worker.pipeline import Driver, Outcome
+
+    applied = []
+
+    class Repo:
+        def load(self, case_id):
+            return {"id": "c1", "org_id": "o1", "status": "phase_a", "plate": "A1", "case_data": {}, "photos": [], "files": []}
+
+        def was_put_back(self, job): return False
+        def gate(self, org, env_on): return "off"
+        def session_status(self, org): return "idle"
+        def touch(self, *a, **k): return True
+        def apply(self, job, outcome): applied.append(outcome)
+        def __getattr__(self, name): return lambda *a, **k: None
+
+    def fake_handle(*a, **k):
+        behaviour()
+        return Outcome("done", event="ok")
+
+    monkeypatch.setattr(loop, "handle_job", fake_handle)
+    c = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true"})
+    loop.run_job(c, Repo(), {"id": 7, "case_id": "c1", "step": "phase_a", "attempts": 1, "org_id": "o1"}, inspect=lambda p: None,
+                 namer=None, driver=Driver(), download=lambda *a: None)
+    return applied[-1]
+
+
+def test_run_job_ends_a_job_whose_tab_was_sent_to_another_case(tmp_path, monkeypatch):
+    from autopilot_worker import case_guard as g
+
+    class Frame:
+        parent_frame = None
+        url = "https://www.merimen.com.my/claims/index.cfm?caseid=999"
+
+    def step():  # the step's tab was redirected to another case, and the step itself returned normally
+        g.add("111")
+        g._flag(g._MINE.st) if g._other(g._MINE.st, Frame.url) else None
+
+    out = _run_one(tmp_path, monkeypatch, step)
+    assert out.job_state == "failed" and out.error == "case_mismatch" and out.case_status == "waiting_user"
+
+
+def test_a_step_that_fails_after_its_tab_was_sent_to_another_case_is_not_retried(tmp_path, monkeypatch):
+    from autopilot_worker import case_guard as g
+
+    def step():  # a redirect marked the job, then the step's next wait timed out with a plain error
+        g.add("111")
+        g._flag(g._MINE.st)
+        raise TimeoutError("locator timed out")
+
+    out = _run_one(tmp_path, monkeypatch, step)
+    assert out.job_state == "failed" and out.error == "case_mismatch"
+
+
+def test_run_job_ends_a_job_that_tried_to_change_the_home_tab(tmp_path, monkeypatch):
+    from autopilot_worker import __main__ as m
+
+    def step():
+        try:
+            m.HomeTab(FakePage("home")).locator("#x")
+        except Exception:  # noqa: BLE001  (a step's own handler: it must not swallow it)
+            raise AssertionError("swallowed")
+
+    out = _run_one(tmp_path, monkeypatch, step)
+    assert out.job_state == "failed" and out.error == "home_tab_write"
+
+
+def test_a_tab_opened_from_a_step_tab_is_recorded_and_cannot_reach_the_home_tab(monkeypatch):
+    from autopilot_worker import __main__ as m
+
+    class Tab(FakePage):
+        def goto(self, url, **k):
+            self.url = url
+
+    class Ctx:
+        def __init__(self):
+            self.n = 0
+
+        def new_page(self):
+            self.n += 1
+            return Tab(f"t{self.n}")
+
+    monkeypatch.setattr(m, "_target_info", info)
+    m.STEP_TABS.clear()
+    sc = m._StepContext(Ctx())
+    tab = sc.new_page()
+    second = tab.context.new_page()  # through the step tab's own context
+    assert {"t1", "t2"} <= m.STEP_TABS and second is not None
+    with pytest.raises(m.HomeTabWrite):
+        tab.context.pages  # noqa: B018
+    m.end_job_tabs()
+    m.STEP_TABS.clear()
+
+
+def test_two_workers_on_one_chrome_are_refused_even_with_different_state_folders(tmp_path, monkeypatch):
+    from autopilot_worker import __main__ as m
+
+    monkeypatch.setenv("WORKER_LOCK_DIR", str(tmp_path))
+    a = Config.from_env({"WORKER_STATE": str(tmp_path / "a"), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+    b = Config.from_env({"WORKER_STATE": str(tmp_path / "b"), "CHROME_BIN": "/usr/bin/true"})
+    try:
+        assert m._one_slots_process(a)
+        assert m._one_slots_process(b, hold=False) is False  # same Chrome port 9222, other state folder
+    finally:
+        for f in m._SLOTS_LOCK:
+            f.close()
+        m._SLOTS_LOCK.clear()
+    assert m._one_slots_process(b, hold=False) is True

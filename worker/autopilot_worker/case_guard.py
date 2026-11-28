@@ -80,6 +80,13 @@ def check(url: str, st: dict | None = None) -> None:
 
 
 _FREE = frozenset({"url", "is_closed", "close"})  # reading the address, closing the tab: never stopped
+_ON_USE: list = [None]  # set by the worker: called (in the job's own thread) before each use of a step tab
+
+
+def on_use(fn) -> None:
+    """fn() runs before every checked use of a step tab, in the step's own thread (the worker records its popups' tab ids there:
+    a Chrome call is not allowed inside a Playwright event handler)."""
+    _ON_USE[0] = fn
 
 
 class _Guarded:
@@ -88,14 +95,23 @@ class _Guarded:
     also checked before it opens. Navigations of the tab and of its popups are watched as they happen and mark the job, so run_job
     ends it as case_mismatch even when the step had nothing left to do."""
 
-    def __init__(self, real, st):
+    def __init__(self, real, st, context=None):
         object.__setattr__(self, "_real", real)
         object.__setattr__(self, "_st", st)
+        object.__setattr__(self, "_ctx", context)
 
     def __getattr__(self, name):
         real, st = self._real, self._st
         if name not in _FREE:
+            hook = _ON_USE[0]
+            if hook is not None:
+                try:
+                    hook()
+                except Exception:  # noqa: BLE001  (bookkeeping only: never stops the step)
+                    pass
             check(getattr(real, "url", "") or "", st)
+        if name == "context" and self._ctx is not None:  # the step tab's context is the recorded one: no way back to the home tab
+            return self._ctx
         if name == "goto":
             def goto(url, *a, **k):
                 check(url, st)
@@ -138,10 +154,12 @@ def _watch(pg, st) -> None:
         pass
 
 
-def guard_page(pg):
-    """The step tab, checked on every use (see _Guarded). An object without goto is returned as it is."""
+def guard_page(pg, context=None):
+    """The step tab, checked on every use (see _Guarded). context: what `tab.context` gives the step (the recording context, so a
+    tab opened from a step tab is recorded and guarded too, and `context.pages` cannot reach the home tab). An object without goto
+    is returned as it is."""
     if getattr(pg, "goto", None) is None:
         return pg
     st = _MINE.st
     _watch(pg, st)
-    return _Guarded(pg, st)
+    return _Guarded(pg, st, context)

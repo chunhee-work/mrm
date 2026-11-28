@@ -237,6 +237,11 @@ def session_alive(cfg: Config, inspect, page_for, org_id: str) -> bool:
     return True
 
 
+def _case_mismatch() -> Outcome:
+    return Outcome("failed", case_status="waiting_user", error="case_mismatch",
+                   event="Stopped: a step tab reached another Merimen case. A person checks this case and that one in Merimen")
+
+
 def _not_merimen(outcome: Outcome) -> bool:
     """Stops that do not depend on the session (a missing document or field, a setting): never turned into a put-back."""
     err = outcome.error or ""
@@ -524,6 +529,10 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
 
                 reason = detail_for(org) or reason
         repo.set_session(org, status=status, wanted="start", account=account, port=port, detail=reason)
+    wanted = {o for o, _ in want_relogin}
+    for org in list(_busy_since):  # a wait whose org is no longer logged out ends here: a later logout starts a new 10-minute wait
+        if org not in wanted:
+            _busy_since.pop(org, None)
     if relogin and want_relogin:
         # orgs tried longest ago first; a refused or throttled org hands the turn to the next one, so one stopped org never starves
         # the others. Still at most ONE real try per tick.
@@ -697,8 +706,7 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
                 shoot(step)
         except case_guard.CaseMismatch:
             # a step tab went (or was about to go) to ANOTHER Merimen case. Never retried by itself
-            outcome = Outcome("failed", case_status="waiting_user", error="case_mismatch",
-                              event="Stopped: a step tab reached another Merimen case. A person checks this case and that one in Merimen")
+            outcome = _case_mismatch()
             shoot("failed")
         except case_guard.HomeTabWrite as e:
             print(f"{threading.current_thread().name} job {job.get('id')} home_tab_write: {e}", file=sys.stderr, flush=True)
@@ -706,7 +714,10 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
                               event="Stopped: a step tried to change the logged-in Merimen tab. Nothing was done on it; a person checks this case")
         except Exception as e:  # noqa: BLE001
             _print_error(job, e)
-            outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
+            if case_guard.mismatched():  # the step failed AFTER a click or redirect took its tab to another case: that case decides
+                outcome = _case_mismatch()
+            else:
+                outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
