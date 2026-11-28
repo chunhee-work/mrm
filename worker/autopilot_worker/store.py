@@ -166,7 +166,10 @@ class PgRepo:
         if not rows:
             return None
         r = rows[0]
-        return {"id": r[0], "case_id": r[1], "step": r[2], "attempts": r[3], "org_id": r[4]}
+        job = {"id": r[0], "case_id": r[1], "step": r[2], "attempts": r[3], "org_id": r[4]}
+        if len(r) > 5:  # a Phase A of a case with no Merimen case yet makes the case: one at a time (WORKER_SLOTS > 1)
+            job["create"] = bool(r[5]) and r[2] == "phase_a"
+        return job
 
     def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = MAX_ATTEMPTS) -> int:
         return len(self.db.execute(RECLAIM_SQL, (max_attempts, int(lease_seconds))))
@@ -287,7 +290,8 @@ class PgRepo:
         if outcome.job_state == "requeue":
             # put back with a wait (jobs.not_before, migration 0007), and only so many times: `attempts` is the number of claims so far
             attempts = int(job.get("attempts") or 1)
-            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS and not outcome.session_lost
+            busy = outcome.error == "create_busy"  # only waited for another case's create: never a try (WORKER_SLOTS > 1)
+            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS and not outcome.session_lost and not busy
             state = "failed" if gave_up else "queued"
         if outcome.session_lost and state == "queued":
             # Merimen logged out half way: the claim's try is given back, and the session waits for the re-login before the next claim
@@ -299,6 +303,12 @@ class PgRepo:
             st.append((
                 "UPDATE worker_sessions SET status = 'expired', detail = 'not_logged_in' WHERE org_id = %s AND status = 'connected'",
                 (job["org_id"],),
+            ))
+        elif outcome.error == "create_busy" and state == "queued":
+            st.append((
+                "UPDATE jobs SET state = 'queued', locked_by = NULL, locked_at = NULL, attempts = GREATEST(attempts - 1, 0), "
+                "not_before = now() + interval '60 seconds' WHERE id = %s AND state = 'running'",
+                (job["id"],),
             ))
         elif outcome.job_state == "hold":
             st.append(("UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running'", (job["id"],)))

@@ -542,3 +542,123 @@ def test_only_one_slots_worker_per_state_folder(tmp_path):
             f.close()
         m._SLOTS_LOCK.clear()
     assert m._one_slots_process(cfg, hold=False) is True  # gone: free again
+
+
+# ---------- review round 1 (egm) ----------
+
+def test_a_second_orgs_login_check_never_types_into_a_shared_chrome(tmp_path, fresh):
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+
+    class VRepo:
+        finished = None
+
+        def claim_verify(self, skip=()):
+            return {"org_id": "o2"}
+
+        def chrome_taken_by_other(self, org, port):
+            return True
+
+        def owner_email(self, org):
+            return None
+
+        def finish_verify(self, org, decision, **k):
+            VRepo.finished = decision
+
+    typed = []
+    loop._verify_wait.clear()
+    loop.verify_once(cfg, VRepo(), lambda user, password, port: typed.append(port), b"k" * 32)
+    assert typed == [] and VRepo.finished["release"] and VRepo.finished["reason"] == "shared_chrome"
+    loop._verify_wait.clear()
+
+
+def test_the_pool_never_starts_a_job_twice_and_knows_a_claimed_create(capsys):
+    from autopilot_worker.pool import JobPool
+
+    gate = threading.Event()
+    pool = JobPool(2, lambda job, d, extra: gate.wait(5), make_driver=lambda: object())
+    pool.submit({"id": 1, "step": "phase_a", "create": True})
+    assert pool.has(1) and pool.create_running()
+    with pytest.raises(RuntimeError):
+        pool.submit({"id": 1, "step": "phase_a", "create": True})
+    gate.set()
+    assert pool.wait_idle(5) and not pool.create_running()
+    out = capsys.readouterr().out
+    assert "job 1 phase_a start" in out and "job 1 phase_a end" in out  # the trial reads the overlap from these lines
+
+
+def test_slots_one_keeps_popups_as_tabs_and_slots_keep_a_lone_home_tab_opened_from_a_link(monkeypatch):
+    from autopilot_worker import __main__ as m
+
+    monkeypatch.setattr(m, "_target_info", info)
+    m.STEP_TABS.clear()
+    home, linked = FakePage("home"), FakePage("linked", opener="someone")
+    assert m.not_step_tabs([home, linked], info=info, popups=False) == [home, linked]  # WORKER_SLOTS=1: several_tabs as before
+    assert m.not_step_tabs([linked], info=info, popups=False) == [linked]  # slots, one tab: a home tab opened from a link still works
+    step = m.HomeTab(home).context.new_page()
+    child = FakePage("child", opener=step.tid)
+    assert m.not_step_tabs([child], info=info, popups=False) == []  # a popup of a step tab is never the home tab
+    m.STEP_TABS.clear()
+
+
+def test_the_home_tab_is_read_only():
+    from autopilot_worker import __main__ as m
+
+    home = m.HomeTab(FakePage("home"))
+    assert home.url
+    for name in ("goto", "click", "fill", "reload", "evaluate", "close"):
+        with pytest.raises(m.HomeTabWrite):
+            getattr(home, name)
+
+
+def test_a_case_mismatch_ends_the_job_for_a_person_and_is_not_swallowed():
+    from autopilot_worker import case_guard as g
+
+    assert not issubclass(g.CaseMismatch, Exception)  # the steps' own `except Exception` never turns it into a retry
+    try:
+        try:
+            raise g.CaseMismatch("case_mismatch")
+        except Exception:  # noqa: BLE001
+            raise AssertionError("swallowed")
+    except g.CaseMismatch:
+        pass
+
+
+def test_waiting_for_another_create_gives_its_try_back():
+    from autopilot_worker.pipeline import Outcome
+    from autopilot_worker.store import PgRepo
+
+    class Db:
+        def __init__(self):
+            self.sql = []
+
+        def batch(self, st, *a, **k):
+            self.sql += list(st)
+            return []
+
+        def execute(self, *a, **k):
+            return []
+
+    repo = PgRepo.__new__(PgRepo)
+    repo.db = Db()
+    repo.apply({"id": 7, "case_id": "c", "org_id": "o", "attempts": 4, "step": "phase_a"},
+               Outcome("requeue", error="create_busy", event="Waiting for another case to be created in Merimen first"))
+    text = " ".join(s for s, _ in repo.db.sql)
+    assert "attempts = GREATEST(attempts - 1, 0)" in text and "'failed'" not in text
+
+
+def test_stop_seconds_stay_below_the_supervisor_timeout(tmp_path):
+    c = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_STOP_SECONDS": "300"})
+    assert c.stop_seconds == 85
+
+
+def test_any_worker_refuses_to_start_beside_a_slots_worker(tmp_path):
+    from autopilot_worker import __main__ as m
+
+    cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+    try:
+        assert m._one_slots_process(cfg)
+        assert m._one_slots_process(cfg, hold=False) is False  # main() refuses a WORKER_SLOTS=1 start on that answer
+    finally:
+        for f in m._SLOTS_LOCK:
+            f.close()
+        m._SLOTS_LOCK.clear()

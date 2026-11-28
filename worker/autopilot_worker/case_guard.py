@@ -14,21 +14,23 @@ import threading
 _CASEID = re.compile(r"[?&]caseid=(\d+)", re.I)
 
 
-class CaseMismatch(RuntimeError):
-    pass
+class CaseMismatch(BaseException):
+    """A BaseException on purpose: the steps' own `except Exception` handlers (a retry later) never swallow it. run_job ends the job
+    for a person (failed, waiting_user, case_mismatch)."""
 
 
 class _Mine(threading.local):
     ids: frozenset = frozenset()
     on: bool = False
+    job: str = ""
 
 
 _MINE = _Mine()
 
 
-def start(merimen_caseid) -> None:
+def start(merimen_caseid, job_id="") -> None:
     """A job starts in this thread: its own case id (None before the create)."""
-    _MINE.on = True
+    _MINE.on, _MINE.job = True, str(job_id or "")
     _MINE.ids = frozenset({str(merimen_caseid)}) if merimen_caseid else frozenset()
 
 
@@ -48,7 +50,8 @@ def check(url: str) -> None:
         return
     m = _CASEID.search(url or "")
     if m and m.group(1) not in _MINE.ids:
-        print(f"{threading.current_thread().name} case_mismatch: a step tab was sent to another Merimen case, stopped", file=sys.stderr, flush=True)
+        print(f"{threading.current_thread().name} job {_MINE.job} case_mismatch: a step tab was sent to another Merimen case, stopped",
+              file=sys.stderr, flush=True)
         raise CaseMismatch("case_mismatch")
 
 

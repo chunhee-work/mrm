@@ -395,7 +395,16 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
         decision = release_verify("no_account")
     else:
         port = cfg.accounts[account]
-        decision = run_verify(claimed, master, lambda user, password: fetch_page(user, password, port))
+        taken = False
+        if getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
+            try:  # another org owns this Chrome (one Merimen login per Chrome, plan #150): its password is never typed here
+                taken = bool(repo.chrome_taken_by_other(org, port))
+            except Exception:  # noqa: BLE001  (not known: nothing is typed now, the check comes back later)
+                taken = True
+        if taken:
+            decision = release_verify("shared_chrome")
+        else:
+            decision = run_verify(claimed, master, lambda user, password: fetch_page(user, password, port))
     if decision.get("release"):
         reason = str(decision.get("reason") or "offline")
         before = _verify_wait.get(org) or {"n": 0, "reason": None}
@@ -479,7 +488,10 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                     FORCE_RELOGIN.pop(org, None)  # without re-login nobody acts on the mark: the address decides, as before
         status = next_status(row["status"] or "idle", reason is None)
         if reason is None:
-            keep(port)
+            # the keep-alive script clicks "Continue session" in the first Merimen tab it finds; with slots that can be a running
+            # job's step tab, so it waits while the org has a Merimen step running (that step keeps the session in use anyway)
+            if not (getattr(cfg, "slots", 1) > 1 and busy_orgs and org in set(busy_orgs())):
+                keep(port)
             if relogin and row.get("status") != "connected" and not held(org, now):
                 # ends an open put-back streak, however Chrome was fixed. Not while held: a stale tab that counts as connected then
                 # must not end a failed re-login streak (that would book more password tries)
@@ -598,7 +610,7 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
         except Exception:  # noqa: BLE001  (not known: the stricter way, a partial list stops for a person)
             case["resumed_after_logout"] = True
     login_seen.reset()
-    case_guard.start(case.get("merimen_caseid"))
+    case_guard.start(case.get("merimen_caseid"), job["id"])
     shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
 
@@ -659,6 +671,11 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
                         pass
             for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
                 shoot(step)
+        except case_guard.CaseMismatch:
+            # a step tab was about to open ANOTHER Merimen case: stopped before that page opened. Never retried by itself
+            outcome = Outcome("failed", case_status="waiting_user", error="case_mismatch",
+                              event="Stopped: a step tried to open another Merimen case. Nothing was changed there; a person checks this case")
+            shoot("failed")
         except Exception as e:  # noqa: BLE001
             _print_error(job, e)
             outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")

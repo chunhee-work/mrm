@@ -18,6 +18,7 @@ def _transport(raw: str | None) -> str:
 
 
 SLOTS_MAX = 8
+STOP_MAX = 85  # WORKER_STOP_SECONDS never reaches systemd's 90 s stop timeout
 
 
 def _slots(raw: str | None) -> int:
@@ -127,7 +128,7 @@ class Config:
             org_limit=max(1, int(e.get("ORG_CONCURRENCY") or _slots(e.get("WORKER_SLOTS")))),
             slots=_slots(e.get("WORKER_SLOTS")),
             job_max_seconds=max(600, int(e.get("WORKER_JOB_MAX_SECONDS") or str(3 * 3600))),
-            stop_seconds=max(0, int(e.get("WORKER_STOP_SECONDS") or "80")),
+            stop_seconds=min(STOP_MAX, max(0, int(e.get("WORKER_STOP_SECONDS") or "80"))),
             worker_id=(e.get("WORKER_ID") or "worker")[:40],
             state_dir=state,
             accounts=parse_accounts(e.get("WORKER_ACCOUNTS", "")),

@@ -106,7 +106,8 @@ ORDER BY c.created_at, c.id, j.created_at, j.id
 FOR NO KEY UPDATE OF j, c SKIP LOCKED
 LIMIT 1
 )
-RETURNING id, case_id, step, attempts, (SELECT c3.org_id FROM cases c3 WHERE c3.id = jobs.case_id)
+RETURNING id, case_id, step, attempts, (SELECT c3.org_id FROM cases c3 WHERE c3.id = jobs.case_id),
+  (SELECT c9.merimen_caseid IS NULL FROM cases c9 WHERE c9.id = jobs.case_id)
 """
 
 

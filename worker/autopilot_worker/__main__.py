@@ -322,7 +322,9 @@ def _inspect(port: int):
             tabs = json.load(r)
     except Exception:
         return None
-    urls = [t.get("url") or "" for t in tabs if t.get("type") == "page"]
+    with _STEP_TABS_LOCK:  # a job's step tab that loaded before a logout must not make the session look alive (plan #150)
+        mine = set(STEP_TABS)
+    urls = [t.get("url") or "" for t in tabs if t.get("type") == "page" and str(t.get("id") or "") not in mine]
     return {"urls": urls, "has_password": False}
 
 
@@ -451,14 +453,16 @@ def end_job_tabs() -> int:
     return closed
 
 
-def not_step_tabs(pages, info=_target_info) -> list:
-    """Of several session tabs, the ones that are neither a step tab of this worker nor a popup (a tab with an opener)."""
+def not_step_tabs(pages, info=_target_info, *, popups: bool = True) -> list:
+    """The session tabs that are not a step tab of this worker (a recorded id) and not a popup a step tab opened.
+    popups: also leave out every other popup (a tab with an opener). Off, such a tab still counts, as before #150."""
     out = []
     for pg in pages:
         t = info(pg)
+        opener = str(t.get("openerId") or "")
         with _STEP_TABS_LOCK:
-            mine = str(t.get("targetId") or "") in STEP_TABS
-        if not mine and not t.get("openerId"):
+            mine = str(t.get("targetId") or "") in STEP_TABS or (opener and opener in STEP_TABS)
+        if not mine and not (popups and opener):
             out.append(pg)
     return out
 
@@ -480,14 +484,26 @@ class _StepContext:
         return getattr(self._ctx, name)
 
 
+class HomeTabWrite(RuntimeError):
+    pass
+
+
 class HomeTab:
-    """The logged-in home tab handed to a step (WORKER_SLOTS > 1): the same page, but tabs opened from its context are recorded."""
+    """The logged-in home tab handed to a step (WORKER_SLOTS > 1): the same page, but tabs opened from its context are recorded,
+    and it is read only. Every step reads only its address (`url`, the session marks) and opens its own tab from `context`; a
+    call that would move or change the home tab (another job's steps depend on it) raises instead."""
+
+    _WRITES = frozenset({"goto", "reload", "go_back", "go_forward", "click", "dblclick", "fill", "type", "press", "check", "uncheck",
+                         "select_option", "set_input_files", "evaluate", "evaluate_handle", "set_content", "dispatch_event", "close",
+                         "bring_to_front", "tap", "hover", "focus"})
 
     def __init__(self, page):
         self._page = page
         self.context = _StepContext(page.context)
 
     def __getattr__(self, name):
+        if name in HomeTab._WRITES:
+            raise HomeTabWrite(f"the home tab is read only ({name})")
         return getattr(self._page, name)
 
 
@@ -593,10 +609,13 @@ def _page_provider(cfg: Config):
                     from . import login_seen
 
                     login_seen.mark()  # Merimen is open but no tab has the session marks: logged out (as merimen_docs does)
-                if slots > 1 and found:  # another job's step tab or a popup is never the home tab, even when it is the only one left (plan #150)
-                    found = not_step_tabs(found)
-                elif len(found) > 1:  # a step tab id the last run left (WORKER_SLOTS back at 1) is still not the home tab
-                    found = not_step_tabs(found)
+                if slots > 1 and found:
+                    # another job's step tab (or a popup it opened) is never the home tab, even when it is the only one left; other
+                    # popups are left out only when there are several tabs, so a home tab opened from a link still works (plan #150)
+                    found = not_step_tabs(found, popups=len(found) > 1)
+                elif len(found) > 1:
+                    # WORKER_SLOTS=1: only a step tab id the last slots run left is left out; popups count as before #150
+                    found = not_step_tabs(found, popups=False)
                 if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
                     found = [pg for pg in found if not _login_box(pg)]
                     if not found:  # every tab with the session marks shows the login form: logged out
@@ -632,8 +651,11 @@ def _page_provider(cfg: Config):
             if browser is None:
                 return None
             pages = _session_pages(browser)
-            if slots > 1 and len(pages) > 1:
-                pages = not_step_tabs(pages) or pages
+            if slots > 1 and pages:
+                home = not_step_tabs(pages, popups=len(pages) > 1)
+                if not home:  # only step tabs still have the session marks: the home tab lost them, so the session is gone
+                    return [True]
+                pages = home
             return [_login_box(pg) for pg in pages]
         except Exception:
             _drop(org_id)
@@ -782,6 +804,8 @@ def main() -> None:
     # never while another slots worker runs (they are its tabs). With slots this process takes the one-process lock first
     if _one_slots_process(cfg, hold=cfg.slots > 1):
         _close_left_step_tabs(cfg)
+    else:  # a worker with slots runs on this state folder: a second worker beside it would claim outside its rules
+        raise SystemExit("a worker with WORKER_SLOTS above 1 is running on this machine (same WORKER_STATE): stop it before starting another worker")
     if cfg.slots > 1:
         from .pool import JobPool, slot_driver
 
@@ -799,7 +823,11 @@ def main() -> None:
         pool = JobPool(cfg.slots, _run, make_driver=lambda: slot_driver(driver), warn_seconds=cfg.job_max_seconds)
         stopping = threading.Event()
 
+        stop_at: list[float] = []
+
         def _stop(_sig, _frm):
+            if not stop_at:
+                stop_at.append(time.monotonic())  # the stop time counts from the signal, not from the end of the current pass
             stopping.set()
 
         signal.signal(signal.SIGTERM, _stop)
@@ -811,17 +839,23 @@ def main() -> None:
                 relogin = housekeeping(cfg, repo, launch=_launch, inspect=_inspect, keep=_keep, fetch_page=fetch_page, master=master,
                                        delete_blob=delete_blob if shots else None, relogin_fetch=relogin_fetch, busy_orgs=pool.busy_orgs)
                 while pool.free() > 0 and not stopping.is_set():  # fill every free slot; the claim order puts the case uploaded first in front
+                    # a create already claimed (not only one holding the lock: two creates of one batch would otherwise both be
+                    # claimed in this one pass) means no second create now
                     job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=paused_orgs(),
-                                     one_chrome=True, no_create=_CREATE_LOCK.locked())
+                                     one_chrome=True, no_create=pool.create_running() or _CREATE_LOCK.locked())
                     if not job:
                         break
+                    if pool.has(job["id"]):
+                        # its lease ran out while it still runs here (Neon could not be reached for longer than the lease): the slot
+                        # thread keeps it and renews the lease again; it is never started a second time
+                        continue
                     pool.submit(job, relogin_ready=relogin is not None)
             except Exception as e:
                 print(tick_error_line(e), file=sys.stderr)
             stopping.wait(cfg.poll_seconds)
         # stop: nothing new is claimed; the running jobs get WORKER_STOP_SECONDS to end (each closes its own tab and writes its outcome).
         # One still running after that is cut off with the process: its lease gives it back to the queue, as after any restart
-        left = pool.wait_idle(cfg.stop_seconds)
+        left = pool.wait_idle(max(0.0, cfg.stop_seconds - (time.monotonic() - (stop_at[0] if stop_at else time.monotonic()))))
         print(f"worker stopped: {'all jobs ended' if left else 'jobs still running were cut off'}", flush=True)
         return
 

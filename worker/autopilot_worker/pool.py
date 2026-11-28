@@ -56,6 +56,15 @@ class JobPool:
         with self._lock:
             return list(self._running.values())
 
+    def has(self, job_id) -> bool:
+        """This job is still running in a slot of this process (a claim after a lost lease must not start it a second time)."""
+        with self._lock:
+            return int(job_id) in self._running
+
+    def create_running(self) -> bool:
+        """A claimed create (Phase A of a case with no Merimen case yet) is in a slot: no second one is claimed (plan #150)."""
+        return any(j.get("step") == "phase_a" and j.get("create") for j in self.running())
+
     def busy_orgs(self) -> set[str]:
         """Orgs with a Merimen step running in this process: their re-login waits for it (loop.sync_sessions)."""
         return {str(j.get("org_id")) for j in self.running() if j.get("step") in MERIMEN_STEPS and j.get("org_id")}
@@ -64,6 +73,8 @@ class JobPool:
         with self._lock:
             if len(self._running) >= self.slots:
                 raise RuntimeError("no free slot")
+            if int(job["id"]) in self._running:
+                raise RuntimeError("job already running")
             self._running[int(job["id"])] = job
             self._started[int(job["id"])] = self._now()
         self._q.put((job, extra))
@@ -72,13 +83,20 @@ class JobPool:
         driver = None
         while True:
             job, extra = self._q.get()
+            me = threading.current_thread().name
+            t0 = self._now()
+            # one line at the start and the end of every job (job id and step only, no case or org): the rollout trial reads the
+            # overlap of two jobs from these times
+            print(f"{me} job {job.get('id')} {job.get('step')} start {time.strftime('%Y-%m-%dT%H:%M:%S')}", flush=True)
             try:
                 if driver is None:
                     driver = self._make_driver()
                 self._run(job, driver, extra)
             except BaseException as e:  # noqa: BLE001  (run_job writes its own outcome; anything that escapes it must not end the slot)
-                print(f"slot job {job.get('id')} {job.get('step')} {type(e).__name__}", file=sys.stderr, flush=True)
+                print(f"{me} slot job {job.get('id')} {job.get('step')} {type(e).__name__}", file=sys.stderr, flush=True)
             finally:
+                print(f"{me} job {job.get('id')} {job.get('step')} end {time.strftime('%Y-%m-%dT%H:%M:%S')} "
+                      f"after {int(self._now() - t0)} s", flush=True)
                 with self._lock:
                     self._running.pop(int(job["id"]), None)
                     self._started.pop(int(job["id"]), None)
