@@ -287,12 +287,18 @@ def test_phase_b_a_browser_or_network_break_on_select_parts_is_tried_again_and_l
 
 
 def test_phase_b_a_page_that_said_no_still_stops_for_a_person():
-    class Broke(FakeStep2):
-        def apply(self, case, plan):
-            raise ValueError("bad row")
+    class PwError(Exception):
+        pass
 
-    o = run_phase("B", case_b(), writes=True, driver=D(Broke(), Fake(held=[])))
-    assert o.job_state == "failed" and o.case_status == "waiting_user" and "(ValueError)" in o.event
+    PwError.__name__ = "Error"
+    PwError.__module__ = "playwright._impl._errors"
+    for err in (ValueError("bad row"), PwError("Evaluation failed: TypeError: Cannot read properties of null"), FileNotFoundError("x.json")):
+        class Broke(FakeStep2):
+            def apply(self, case, plan, err=err):
+                raise err
+
+        o = run_phase("B", case_b(), writes=True, driver=D(Broke(), Fake(held=[])))
+        assert o.job_state == "failed" and o.case_status == "waiting_user" and "could not be ticked" in o.event
 
 
 # ---------- the real reviewer (HTTP faked) ----------
