@@ -15,6 +15,7 @@ from .cdp_client import page_block
 from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
 from .config import Config, account_for
 from .db import DbError
+from .jobs import WORKER_ERROR
 from .pipeline import Driver, Outcome, followup_steps, handle_job
 from .screens import CODE_TO_STEP, Screenshotter, cleanup, milestones_after
 from .store import LOST_EVENT, LOST_WINDOW, PgRepo
@@ -160,7 +161,7 @@ HOLD_KIND: dict[str, str] = {}
 # org -> times of its logouts found in jobs (put-backs and case-cap stops, all cases): ORG_CAP within ORG_WINDOW holds the org, so
 # one page that logs out every time (or a login-looking box Merimen shows while logged in) cannot spend the account's login tries
 # case after case. 3 h: a logout followed by a re-login cooldown and a long Phase B still falls inside it. The hard ceiling stays the
-# re-login's own 12 tries / 24 h
+# re-login's own limits: 12 tries that did not log in, 48 tries in all, per 24 h
 ORG_PUTBACKS: dict[str, list[float]] = {}
 ORG_CAP = 4
 ORG_WINDOW = 3 * 3600.0
@@ -734,7 +735,7 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
             if case_guard.mismatched():  # the step failed AFTER a click or redirect took its tab to another case: that case decides
                 outcome = _case_mismatch()
             else:
-                outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
+                outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event=WORKER_ERROR)
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
