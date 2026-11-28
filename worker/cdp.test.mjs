@@ -22,7 +22,7 @@ import vm from "node:vm";
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { isMerimenOrigin, pickMerimenTab, LOGIN_PROBE, LOGIN_SIGNALS, loginFillExpression, runLogin, runRelogin, closeIfNotLast, loginRunner, AFTER_SUBMIT_MS } from "./cdp.mjs";
+import { isMerimenOrigin, pickMerimenTab, LOGIN_PROBE, LOGIN_SIGNALS, loginFillExpression, runLogin, runRelogin, closeIfNotLast, loginRunner, AFTER_SUBMIT_MS, MERIMEN_START } from "./cdp.mjs";
 
 const LOGIN_URL = "https://www.merimen.com.my/claims/index.cfm";
 const LIVE_URL = "https://www.merimen.com.my/claims/index.cfm?fusebox=MTRroot&fuseaction=dsp_home&CFID=11&CFTOKEN=22&USID=33&RID=44";
@@ -574,7 +574,7 @@ test("end to end --relogin: own tab opened at Merimen's start page, typed once, 
     assert.deepEqual(r.lines[0], { relogin_target: "T1" });
     assert.equal(chrome.opened.length, 1);
     assert.equal(chrome.opened[0].method, "PUT");
-    assert.ok(chrome.opened[0].url.endsWith("?https://www.merimen.com.my/claims/index.cfm"));
+    assert.ok(chrome.opened[0].url.endsWith("?" + MERIMEN_START) && MERIMEN_START.endsWith("?skip_browsertest=1"));
     assert.deepEqual(chrome.closed, ["T1"]);
     assert.equal(f.button.clicks, 1);
     assert.doesNotMatch(r.stdout + r.stderr, /s3cret/);
@@ -599,7 +599,7 @@ test("relogin: a tab made although the open answer was lost is closed; tabs that
   let made = false;
   const deps = {
     port: 9222, cred: { username: "abuser", password: "s3cret" },
-    tabs: async () => [{ id: "OLD", type: "page", url: LOGIN_URL }, ...(made ? [{ id: "NEW", type: "page", url: LOGIN_URL }] : [])],
+    tabs: async () => [{ id: "OLD", type: "page", url: LOGIN_URL }, ...(made ? [{ id: "NEW", type: "page", url: MERIMEN_START }] : [])],
     open: async () => { made = true; throw new Error("slow answer"); },
     close: async (_p, id) => { log.closed.push(id); },
     attach: async () => { throw new Error("never"); },

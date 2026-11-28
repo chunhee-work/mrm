@@ -962,3 +962,14 @@ def test_no_hand_login_notice_while_relogin_is_active(tmp_path, info):
     assert not os.path.exists(notice)  # round 24: switch on removes the old notice, so it never misleads
     sync_sessions(c, SessRepo([row("o1")]), launch=lambda a: None, inspect=lambda p: info, relogin=lambda org, port: "ok")
     assert not os.path.exists(notice)
+
+
+@pytest.mark.parametrize("page,word", [
+    ({"result": "not_login_page", "submitted": False}, "relogin: done_put_back (not_login_page)"),
+    ({"offline": True, "submitted": False}, "relogin: done_put_back (offline)"),
+])
+def test_a_put_back_logs_which_kind(tmp_path, capsys, page, word):
+    # 2026-11-28 first live try: a bare done_put_back could not tell "no login page" from "Chrome would not open the tab"
+    out, _, _ = go(tmp_path, TryRepo(), page)
+    assert out == "put_back"
+    assert word in capsys.readouterr().err
