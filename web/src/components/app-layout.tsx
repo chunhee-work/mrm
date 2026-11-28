@@ -5,9 +5,6 @@ import { sideFacts } from "@/lib/side-facts";
 import AppBar, { WideNewCase } from "./app/app-bar";
 import SideBar from "./app/side-bar";
 import NavProgress from "./app/nav-progress";
-import LoginBanner from "./app/login-banner";
-import { sessionView } from "@/lib/ext/worker-store";
-import { loginNotice } from "@/lib/ext/login-notice";
 import { PageSlot } from "./lang-provider"; // R5-B03: see PageSlot
 
 /** Signed-in pages: the working frame, on white. Wide screens: side bar + the page; phones: top bar + the page. No marketing footer. */
@@ -16,8 +13,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // the side bar of a wide screen holds the user's details and the closed-case count
   const { cred, closed, credits } = me ? await sideFacts(me.orgId) : { cred: null, closed: null, credits: null };
   const email = me?.user.email ?? "";
-  // the Merimen login line at the top of every signed-in page (owner 2026-11-28); the e-mails still go out as before
-  const notice = me && cred ? loginNotice(cred, await sessionView(me.orgId)) : null;
   const newBlocked = cred?.blocks ?? false;
   // the same rule as the side bar dot: only while the details are not saved
   const needsYou = cred ? !cred.complete : false;
@@ -27,7 +22,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <NavProgress />
         <AppBar email={email} newBlocked={newBlocked} needsYou={needsYou} />
-        {me && <LoginBanner notice={notice} />}
         {me && <WideNewCase blocked={newBlocked} />}
         <main id="main" className="flex min-h-0 flex-1 flex-col"><PageSlot>{children}</PageSlot></main>
       </div>
