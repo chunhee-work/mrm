@@ -25,7 +25,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     .where(eq(schema.caseFiles.caseId, id)).orderBy(asc(schema.caseFiles.id)).limit(400);
   // the workshop tables come with migration 0014: without them there is no choice to show
   const ws = await Promise.all([caseSlot(id), orgWorkshops(me.orgId)]).catch((e) => { if (missingRelation(e)) return null; throw e; });
-  const workshop = ws && workshopState(ws[0], ws[1], c.merimenCaseId);
+  const workshop = ws && workshopState(ws[0], ws[1], c.merimenCaseId, c.status);
   return NextResponse.json({
     events: ev.reverse().map((e) => ({ at: e.at.toISOString(), message: e.message })),
     files: files.map((f) => ({ id: f.id, name: f.name, size: Number(f.size) })),

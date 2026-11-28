@@ -96,7 +96,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     cred: await credView(orgId),
     credConfigured: credKeyReady(),
     workshops: wsList,
-    workshop: workshopState(ws, wsList, c.merimenCaseId),
+    workshop: workshopState(ws, wsList, c.merimenCaseId, c.status),
     // only the user who submitted the case gets this list; anyone else in the organisation gets none
     shots: workerUiOn() ? await timelineFor(id, user.id, c.createdBy).catch((e) => { if (missingRelation(e)) return null; throw e; }) : null,
   };

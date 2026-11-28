@@ -26,6 +26,7 @@ export type CaseRow = {
   photosDone?: boolean; // 完成 was pressed on the desk
   firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
   canDelete?: boolean; // the worker has not taken it: it can still be deleted from the list
+  wsAsk?: boolean; // the workshop waits for the user's Confirm: the case is not started in Merimen before it
 };
 
 const REFRESH_MS = 20_000;

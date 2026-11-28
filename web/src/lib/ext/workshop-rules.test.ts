@@ -18,4 +18,6 @@ test("workshop: chosen freely until Confirm, then fixed; a removed workshop can 
   // made in Merimen, or fixed by the worker: never changeable, and nothing left to confirm
   assert.deepEqual(workshopState(base, list, "M1"), { slot: 2, locked: true, confirmed: false, needsConfirm: false });
   assert.equal(workshopState({ ...base, locked: true, fixed: true }, list, null).needsConfirm, false);
+  // a case finished (by hand) never asks
+  assert.equal(workshopState(base, list, null, "done").needsConfirm, false);
 });

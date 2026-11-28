@@ -12,14 +12,16 @@ export function canSwitchWorkshop(c: { status?: string; merimenCaseId: string | 
  * What the page shows for a case's workshop (owner 2026-11-29: chosen once, then Confirm; after that it cannot change).
  * `locked`: no change any more (made in Merimen, fixed by the worker, or confirmed). A confirmed or worker-locked workshop that the
  * user has since removed is the one way back: the case can then be moved and confirmed again (the worker stopped it anyway).
- * `needsConfirm`: the Confirm button is shown; the worker does not start the case in Merimen before it is pressed.
+ * `needsConfirm`: the Confirm button is shown; the worker does not start the case in Merimen before it is pressed (never on a
+ * finished case, which may have been finished by hand).
  */
 export function workshopState(
   cs: { slot: number; locked: boolean; fixed: boolean; confirmed: boolean },
   list: { slot: number }[],
   merimenCaseId: string | null,
+  status?: string,
 ): { slot: number; locked: boolean; confirmed: boolean; needsConfirm: boolean } {
   const exists = list.some((w) => w.slot === cs.slot);
   const locked = !canSwitchWorkshop({ merimenCaseId }) || (cs.locked && (cs.fixed || exists)) || (cs.confirmed && exists);
-  return { slot: cs.slot, locked, confirmed: cs.confirmed, needsConfirm: !locked && !cs.confirmed };
+  return { slot: cs.slot, locked, confirmed: cs.confirmed, needsConfirm: !locked && !cs.confirmed && status !== "done" };
 }

@@ -25,13 +25,27 @@ WHERE j.state = 'queued'
       AND j.step = 'phase_a'
       AND c.status IN ('phase_a', 'waiting_user')
       -- owner 2026-11-29: with two or more workshops the user confirms the case's workshop first (migration 0019),
-      -- a workshop the worker already locked (the case was made) needs nothing more
+      -- a workshop the worker already locked (the case was made) needs nothing more. A confirmed workshop the user removed
+      -- since waits too: the page lets the user pick another one and confirm again, the worker could only stop the case.
+      -- With one workshop (or only the old single name) there is nothing to choose, unless the case sits on a removed one.
       AND (
         EXISTS (
           SELECT 1 FROM merimen_case_workshop cw
-          WHERE cw.case_id = c.id AND (cw.confirmed_at IS NOT NULL OR cw.locked_at IS NOT NULL)
+          WHERE cw.case_id = c.id AND (
+            cw.locked_at IS NOT NULL
+            OR (cw.confirmed_at IS NOT NULL AND EXISTS (SELECT 1 FROM merimen_workshops w WHERE w.org_id = c.org_id AND w.slot = cw.slot))
+          )
         )
-        OR (SELECT count(*) FROM merimen_workshops w WHERE w.org_id = c.org_id) < 2
+        OR (
+          (SELECT count(*) FROM merimen_workshops w WHERE w.org_id = c.org_id) < 2
+          AND (
+            NOT EXISTS (SELECT 1 FROM merimen_workshops w WHERE w.org_id = c.org_id)
+            OR EXISTS (
+              SELECT 1 FROM merimen_workshops w WHERE w.org_id = c.org_id
+                AND w.slot = COALESCE((SELECT cw.slot FROM merimen_case_workshop cw WHERE cw.case_id = c.id), 1)
+            )
+          )
+        )
       )
       AND EXISTS (
         SELECT 1 FROM merimen_credentials mc

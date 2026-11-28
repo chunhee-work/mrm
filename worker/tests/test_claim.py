@@ -170,3 +170,16 @@ def test_migration_0019_counts_every_existing_case_as_confirmed():
     ] + [s for s in mig.split("--> statement-breakpoint") if s.strip()] * 2  # runs twice
     r = run([{"sql": "SELECT case_id, slot, confirmed_at IS NOT NULL FROM merimen_case_workshop ORDER BY case_id"}], seed=seed)
     assert r[0] == [["c1", 1, True], ["c2", 2, True]]
+
+
+@needs_pg
+def test_phase_a_waits_when_the_cases_workshop_was_removed():
+    # confirmed on workshop 2, then the user removed workshop 2: wait for a new pick + Confirm (the worker could only stop it)
+    two_then_one = _merimen_seed(2, ["INSERT INTO merimen_case_workshop (case_id, slot, confirmed_at) VALUES ('c1', 2, now())",
+                                     "DELETE FROM merimen_workshops WHERE org_id = 'o1' AND slot = 2"])
+    assert run([mclaim()], seed=two_then_one) == [[]]
+    # one workshop left and the case not confirmed, but on the removed slot: waits as well
+    assert run([mclaim()], seed=_merimen_seed(1, ["INSERT INTO merimen_case_workshop (case_id, slot) VALUES ('c1', 2)"])) == [[]]
+    # moved to the remaining workshop: with one workshop there is nothing to confirm
+    r = run([mclaim()], seed=_merimen_seed(1, ["INSERT INTO merimen_case_workshop (case_id, slot) VALUES ('c1', 1)"]))
+    assert len(r[0]) == 1

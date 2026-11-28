@@ -1,4 +1,6 @@
 import { orgWorkshops } from "@/lib/ext/workshops";
+import { workshopState } from "@/lib/ext/workshop-rules";
+import { missingRelation } from "@/lib/ext/worker-gate";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import { credView } from "@/lib/ext/worker-store";
@@ -79,6 +81,26 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     total: sql<number>`count(*)::int`,
   }).from(schema.casePhotos).where(inArray(schema.casePhotos.caseId, open)).groupBy(schema.casePhotos.caseId) : [];
   const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
+  // owner 2026-11-29: a case whose workshop still waits for Confirm says so on its line (the worker will not start it before)
+  const wsAsk = new Set<string>();
+  const orgs = [...new Set(rows.map((c) => c.orgId))];
+  if (open.length && orgs.length === 1) {
+    try {
+      const ws = await orgWorkshops(orgs[0]);
+      if (ws.length) {
+        const cw = await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedAt: schema.merimenCaseWorkshop.lockedAt, lockedName: schema.merimenCaseWorkshop.lockedName, confirmedAt: schema.merimenCaseWorkshop.confirmedAt })
+          .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, open));
+        const byCase = new Map(cw.map((x) => [x.caseId, x]));
+        for (const c of rows) {
+          if (!open.includes(c.id)) continue;
+          const x = byCase.get(c.id);
+          const st = workshopState({ slot: x?.slot ?? 1, locked: !!x?.lockedAt, fixed: !!x?.lockedAt && !!x?.lockedName, confirmed: !!x?.confirmedAt }, ws, c.merimenCaseId, c.status);
+          // the same rule as the block on the case: shown from two workshops on, or when the case's workshop was removed
+          if (st.needsConfirm && (ws.length >= 2 || !ws.some((w) => w.slot === st.slot))) wsAsk.add(c.id);
+        }
+      }
+    } catch (e) { if (!missingRelation(e)) throw e; }
+  }
   const total = new Map(todo.map((x) => [x.caseId, Number(x.total)]));
   return rows.map((c) => ({
     deskConfirm: confirm.get(c.id) ?? 0,
@@ -95,5 +117,6 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     status: c.status,
     pendingDoc: c.pendingDoc,
     totalRm: c.totalRm,
+    wsAsk: wsAsk.has(c.id),
   }));
 }
