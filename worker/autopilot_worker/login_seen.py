@@ -7,6 +7,12 @@ from __future__ import annotations
 _SEEN: list[bool] = [False]
 
 
+class LoggedOut(RuntimeError):
+    """A step learnt only afterwards that its writes were cut off by the logout (e.g. the photo check read the login form)."""
+
+    code = "not_logged_in"
+
+
 def mark() -> None:
     _SEEN[0] = True
 

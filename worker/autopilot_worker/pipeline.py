@@ -60,6 +60,8 @@ class Driver:
     case = None  # set by run_phase: the case being worked (the Merimen create step reads its data)
     progress = None  # set per job: a driver that ports a Merimen step calls progress("create_case") after it
     guard = staticmethod(lambda: True)  # set per job: False once Done was undone or the names changed, asked before every photo write
+    # set per job (loop.puts_back): a step that met the login form is a retry, put back after a re-login; off = the old stops
+    relogin_ready = False
 
     def merimen_photos(self, case: dict):
         return _NoMerimenPhotos()
@@ -170,7 +172,7 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
                 return _o("cancelled", event=ev)
             from . import login_seen
 
-            if s2.code == "unreadable" and login_seen.seen():  # the Select Parts page showed the login form: try again after a re-login (ticking only adds ticks)
+            if s2.code == "unreadable" and login_seen.seen() and driver.relogin_ready:  # the Select Parts page showed the login form: try again after a re-login (ticking only adds ticks)
                 return _o("requeue", error="step2", event=ev)
             return _o("failed", case_status="waiting_user", error="step2", event=ev)
     dry = driver.dry_run(phase, steps)
@@ -201,7 +203,8 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             # "checks": Merimen was saved, but a check the owner set before submitting failed: the list waits for a person
             lead = f"Phase {phase}:" if saved.error == "checks" else f"Phase {phase} not saved."
             return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"{lead} {saved.line}"[:400])
-        return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
+        why = f". {saved.line}" if saved.line and saved.error in ("docs", "estimate") else ""  # the case exists: say what is left
+        return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved{why}"[:400])
     if phase == "A" and saved.partial:
         # the case exists in Merimen (made now, or by an earlier run: nothing is made twice). Its number is stored so no second case is made.
         # After the create come the Adjuster Report and the documents (done by the driver, in `saved.line`) and the photos here.

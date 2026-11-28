@@ -218,6 +218,12 @@ def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhot
     rest = plan[start:]
     merimen.upload(case, rest, chunked(rest))
     check = merimen.verify(case, plan)
+    from . import login_seen
+
+    if check.get("count") == -1 and login_seen.seen():
+        # the list could not be read back because Merimen logged out during the upload: the same stop as an upload that met the
+        # login form (a person looks, or with re-login on the job is put back and goes on from the photos that are there)
+        raise login_seen.LoggedOut("not_logged_in")
     for _ in range(2):  # dropped photos: upload the missing positions again (playbook 06, up to 2 rounds)
         miss = check.get("missing") or []
         if not miss:

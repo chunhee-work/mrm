@@ -166,7 +166,7 @@ class _CdpDriver(Driver):
                     return DriveResult(ok=False, fatal=not retry, error="report", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
                 d = self._docs(True, res.case_id, res.ext_id)  # step 2: the documents (skips what Merimen already has)
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
-                if d.code == "not_logged_in":  # logged out during the documents: try again after a re-login (owner 2026-11-28)
+                if d.code == "not_logged_in" and self.relogin_ready:  # logged out during the documents: again after a re-login (owner 2026-11-28)
                     return DriveResult(ok=False, error="docs", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
                 if d.code == "docs_partial" and (self.case or {}).get("resumed_after_logout"):
                     # an upload cut off by the logout left some of the documents: never guess which, a person looks (playbook 06)
@@ -189,7 +189,7 @@ class _CdpDriver(Driver):
             total = read_total(lambda: self.page_for(case.get("org_id") or "", strict=True), case)
             from . import login_seen
 
-            if total is None and login_seen.seen():
+            if total is None and login_seen.seen() and self.relogin_ready:
                 # the total page showed the login form: try again after a re-login (setting the same values again is safe)
                 return DriveResult(ok=False, error="estimate", line="the case total could not be read: Merimen logged out")
             left = gate(r, total)

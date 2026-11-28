@@ -128,6 +128,9 @@ class MerimenPage:
     def query(self) -> str:
         q = session_query(self.base.url)
         if not q:
+            from . import login_seen
+
+            login_seen.mark()  # the tab lost its session marks: as good as the login form
             raise DocError("not_logged_in")
         return q
 

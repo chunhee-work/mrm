@@ -323,6 +323,8 @@ def test_live_save_tries_the_documents_again_after_a_logout(monkeypatch):
     d._report = lambda live, cid, ext: (True, False, "Adjuster Report saved")
     d.case = {"id": "c1"}
     d._docs = lambda *a: DocReport(ok=False, code="not_logged_in", planned=3)
+    assert d.save("A", ()).ok  # re-login off: the old behaviour (the line says it, the phase goes on)
+    d.relogin_ready = True
     r = d.save("A", ())
     assert not r.ok and not r.fatal and r.error == "docs" and r.case_id == "22322999"  # a retry by itself (put back after a re-login)
     # the run after a put-back finds some of the documents: a person looks, never a guess

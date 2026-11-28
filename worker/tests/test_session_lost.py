@@ -189,13 +189,11 @@ def test_the_mark_stays_while_the_relogin_is_refused_and_goes_without_relogin(tm
     FORCE_RELOGIN["o1"] = time.monotonic()
     sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p: "pending")
     assert "o1" in FORCE_RELOGIN  # a try still on its way: the mark stays
-    sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p: "cap")
-    assert "o1" not in FORCE_RELOGIN  # refused for a while: the tab decides again (a hand login is seen at once)
-    for got in ("cooldown", "put_back"):
-        FORCE_RELOGIN["o1"] = time.monotonic()
-        sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p, g=got: g)
-        assert "o1" not in FORCE_RELOGIN
-    FORCE_RELOGIN["o1"] = time.monotonic()
+    for got in ("cap", "streak", "cooldown", "put_back"):
+        # refused or put back: the mark stays, so the stale tab never counts as connected (that would end a failed streak)
+        repo = SessRepo([row()])
+        sync_sessions(cfg(tmp_path), repo, launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p, g=got: g)
+        assert "o1" in FORCE_RELOGIN and repo.seen == [] and repo.sessions[-1][1]["status"] != "connected"
     sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=None)
     assert "o1" not in FORCE_RELOGIN
     FORCE_RELOGIN.clear()
@@ -269,6 +267,20 @@ def test_a_phase_b_photo_write_that_broke_stays_a_hand_fix(tmp_path):
     own = Outcome("failed", case_status="waiting_user", error="photos", event="Phase B stopped. The photo step failed (x).")
     assert loop.check_session_after(on, CountRepo(), JOB, own, inspect=lambda p: LOGIN_PAGE, page_for=None, seen_login=True) is own
     assert FORCE_RELOGIN == {}
+
+
+def test_an_upload_whose_check_meets_the_login_form_is_a_logout_stop():
+    import pytest
+    from autopilot_worker import login_seen
+
+    unread = lambda plan: {"count": -1, "mismatch": len(plan), "missing": []}  # noqa: E731
+    login_seen.reset()
+    rep = ps.phase_a({"merimen_caseid": "1"}, TEN, writes=True, merimen=Fake(held=[], verify=unread))
+    assert not rep.ok and rep.code == "hand_fix"  # no login form seen: the old hand-fix stop
+    login_seen.mark()
+    with pytest.raises(login_seen.LoggedOut):  # the pipeline makes this "The photo step failed (not_logged_in)"
+        ps.phase_a({"merimen_caseid": "1"}, TEN, writes=True, merimen=Fake(held=[], verify=unread))
+    login_seen.reset()
 
 
 def test_login_seen_marks_and_resets():

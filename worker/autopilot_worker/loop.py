@@ -264,7 +264,6 @@ LAUNCH_WAIT = 30.0
 
 
 # what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
-RELOGIN_SOON = (None, "pending", "db_error")  # try_once was not asked, or asks again within a minute: the forced mark stays
 TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending")
 
 
@@ -339,9 +338,9 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             order = [o for o, _ in want_relogin]
         for org in order:
             got = relogin(org, ports[org])
-            if got not in RELOGIN_SOON:
-                # tried (done, put back, unclear) or refused for a while (cap, streak, cooldown...): the mark goes and the tab decides
-                # again, so a person who logs in by hand is seen at once; a job that meets the login form again is put back again
+            if got in ("ok", "session_live"):
+                # logged in again: the mark goes. Any other answer (refused, put back, cooldown) keeps it until FORCE_TTL: a stale tab
+                # must not count as connected meanwhile, which would end a failed streak and book more password tries
                 FORCE_RELOGIN.pop(org, None)
             if got in TRIED:
                 break
@@ -430,6 +429,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             driver.workshop = lambda lock: repo.claim_workshop_for_case(job["case_id"]) if lock else repo.peek_workshop_for_case(job["case_id"])
             # asked before every photo write in Merimen: Done must still be pressed on the same version of the names
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
+            driver.relogin_ready = puts_back(cfg, relogin is not None)
             with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
                 outcome = handle_job(
                     job, case, case["photos"], gate=gate, session=session,
