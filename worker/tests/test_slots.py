@@ -316,6 +316,18 @@ def test_a_free_slot_takes_a_later_cases_job_while_the_earlier_case_waits_for_it
     assert r[0][0][0] == 2
 
 
+
+@needs_pg
+def test_an_owner_that_saves_its_login_again_keeps_the_chrome():
+    """egm r10: o1 owns 9222 and saves its Merimen login again (being checked now): o2 must not take over a Chrome that still holds
+    o1's session, so o2's Merimen step keeps waiting."""
+    seed = ORGS_CASES + READY + sessions() + [
+        "UPDATE merimen_credentials SET verify_state = 'queued' WHERE org_id = 'o1'",
+        "INSERT INTO jobs (id, case_id, step, state) VALUES (2,'c3','phase_a','queued')",
+    ]
+    r = run([mclaim("w")], seed=seed)
+    assert r[0] == []
+
 @needs_pg
 def test_never_two_jobs_of_one_case_at_once():
     seed = ORGS_CASES + ["INSERT INTO jobs (id, case_id, step, state) VALUES (1,'c1','intake','running'), (2,'c1','photo_model','queued')"]
@@ -1395,7 +1407,7 @@ def test_chrome_used_sql_sees_any_other_user_on_the_port():
     q = lambda org, port=9222: dict(zip(("sql", "params"), to_numbered(CHROME_USED_SQL, {"org": org, "port": port})))  # noqa: E731
     pending = ["UPDATE merimen_credentials SET verify_state = 'queued' WHERE org_id = 'o2'"]  # o2's login is new, not checked yet
     r = run([q("o2"), q("o1"), q("o2", 9223)], seed=ORGS_CASES + READY + sessions() + pending)
-    assert r == [[[True]], [[False]], [[False]]]  # o1 (checked) is on 9222; o2 is not counted yet; 9223 is free
+    assert r == [[[True]], [[True]], [[False]]]  # o1 (checked) is on 9222; o2's login is still being checked, it counts too; 9223 is free
     # a fresh start: o1 (checked, logged in on 9222) has no port on its row yet, so the check of o2's new login waits for it
     noport = ["UPDATE worker_sessions SET port = NULL WHERE org_id = 'o1'"]
     r = run([q("o2")], seed=ORGS_CASES + READY + sessions() + pending + noport)

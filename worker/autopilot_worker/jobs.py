@@ -32,9 +32,10 @@ WHERE j.state = 'queued'
         WHERE s0.org_id = c.org_id AND s0.port IS NOT NULL
           -- another org on this Chrome: its row has this port, or it lost the port (gate) while a Merimen step of it still runs
           AND (s6.port = s0.port OR (s6.port IS NULL AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
-          -- that org takes part when its saved login is ok, or while a Merimen step of it runs (a login blocked under a running
-          -- step never hands the Chrome to another org before that step ends)
-          AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked)
+          -- that org takes part when its saved login is ok or still being checked (an owner that saves its login again keeps its
+          -- place, so the other org never takes over a Chrome that holds the owner's session, egm r10), or while a Merimen step of it
+          -- runs (a login blocked under a running step never hands the Chrome to another org before that step ends)
+          AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
                OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
           -- the owner: an org with a Merimen step running now first (ownership never moves under running work), then the first
           -- non-deleted case first (an org without one comes last), ties by org id
@@ -158,7 +159,7 @@ SELECT EXISTS (
   SELECT 1 FROM worker_sessions s6
   WHERE s6.org_id <> %(org)s
     AND (s6.port = %(port)s OR (s6.port IS NULL AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
-    AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked)
+    AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
          OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
     AND (NOT EXISTS (SELECT 1 FROM jobs jr6 JOIN cases jr6c ON jr6c.id = jr6.case_id WHERE jr6c.org_id = s6.org_id AND jr6.state = 'running' AND jr6.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id AND c7.deleted_at IS NULL), 'infinity'), s6.org_id)
       < (NOT EXISTS (SELECT 1 FROM jobs jr8 JOIN cases jr8c ON jr8c.id = jr8.case_id WHERE jr8c.org_id = %(org)s AND jr8.state = 'running' AND jr8.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c8.created_at) FROM cases c8 WHERE c8.org_id = %(org)s AND c8.deleted_at IS NULL), 'infinity'), %(org)s::text)
@@ -176,7 +177,7 @@ SELECT EXISTS (
     -- a row with no port yet (a fresh start: the session sync writes ports after the login check; a gate not ready) may be on this
     -- Chrome: it counts, so the check waits until that row has its port (egm r8)
     AND (s6.port = %(port)s OR s6.port IS NULL)
-    AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked)
+    AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
          OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
 )
 """
