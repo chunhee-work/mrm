@@ -394,6 +394,11 @@ function refuseWrites() {
   }
 }
 
+// Which login path a command line runs. Only --relogin opens a tab; the save-time path never does.
+export function loginRunner(argv) {
+  return argv.includes("--relogin") ? runRelogin : runLogin;
+}
+
 async function main() {
   const cmd = process.argv[2] || "inspect";
   if (cmd === "login") {
@@ -406,7 +411,7 @@ async function main() {
     let cred = {};
     try { cred = JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { cred = {}; }
     const line = (o) => writeSync(1, JSON.stringify(o) + "\n"); // written at once: the caller reads the mark even if it stops this script
-    const run = process.argv.includes("--relogin") ? runRelogin : runLogin; // --relogin: own fresh tab (plan #133); without it nothing navigates
+    const run = loginRunner(process.argv); // --relogin: own fresh tab (plan #133); without it nothing navigates
     const out = await run({
       port: Number(process.env.CDP_PORT || "9222"),
       cred: { username: String(cred.username || ""), password: String(cred.password || "") },

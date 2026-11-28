@@ -22,7 +22,7 @@ import vm from "node:vm";
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { isMerimenOrigin, pickMerimenTab, LOGIN_PROBE, LOGIN_SIGNALS, loginFillExpression, runLogin, runRelogin, closeIfNotLast, AFTER_SUBMIT_MS } from "./cdp.mjs";
+import { isMerimenOrigin, pickMerimenTab, LOGIN_PROBE, LOGIN_SIGNALS, loginFillExpression, runLogin, runRelogin, closeIfNotLast, loginRunner, AFTER_SUBMIT_MS } from "./cdp.mjs";
 
 const LOGIN_URL = "https://www.merimen.com.my/claims/index.cfm";
 const LIVE_URL = "https://www.merimen.com.my/claims/index.cfm?fusebox=MTRroot&fuseaction=dsp_home&CFID=11&CFTOKEN=22&USID=33&RID=44";
@@ -553,6 +553,9 @@ test("the save-time login never opens or closes a tab (no --relogin)", async () 
   h.deps.open = async () => { opened += 1; };
   await runLogin(h.deps);
   assert.equal(opened, 0);
+  // the real guard: without --relogin the command runs runLogin, which has no tab-opening step
+  assert.equal(loginRunner(["node", "cdp.mjs", "login"]), runLogin);
+  assert.equal(loginRunner(["node", "cdp.mjs", "login", "--relogin"]), runRelogin);
 });
 
 test("end to end --relogin: own tab opened at Merimen's start page, typed once, closed after a rejection; the other tab is never touched", async () => {
