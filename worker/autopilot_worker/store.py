@@ -744,7 +744,8 @@ class PgRepo:
 
     def book_relogin(self, org_id: str) -> dict:
         """One transaction (db.batch): the advisory lock, the conditional booking row, then a read-only look at why it was refused.
-        {"booked": bool, "reason": None|cooldown|cap|unclear|streak|cred, "streak_first": bool}."""
+        {"booked": bool, "reason": None|cred|orphan|cap|streak|unclear_block|cooldown|db_error, "streak_first": bool,
+        "try_id": the booked row's id (only when booked)}."""
         from .relogin import booking_statements, read_refusal
 
         res = self.db.batch(booking_statements(org_id))

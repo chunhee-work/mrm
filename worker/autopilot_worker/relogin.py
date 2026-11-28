@@ -104,7 +104,8 @@ def read_refusal(res: list) -> dict:
     # the cooldown hides the others most of the time; the cap and the streak are still reported, so their session detail stays on
     for name in ("cred", "orphan", "cap", "streak", "unclear", "cooldown"):
         if flags[names.index(name)]:
-            return {"booked": False, "reason": name, "streak_first": name == "streak" and not flags[5]}
+            # the unclear REFUSAL gets its own word: "unclear" is the outcome of a typed try (loop.TRIED), this typed nothing
+            return {"booked": False, "reason": "unclear_block" if name == "unclear" else name, "streak_first": name == "streak" and not flags[5]}
     return {"booked": False, "reason": "db_error", "streak_first": False}
 
 
@@ -285,6 +286,7 @@ _detail: dict[str, str | None] = {}
 def clear_detail(org_id: str) -> None:
     """The org is connected again: no re-login refusal is shown any more."""
     _detail.pop(org_id, None)
+    _capped_logged.discard(org_id)
 
 
 def detail_for(org_id: str) -> str | None:
@@ -327,21 +329,26 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
         reason = booking["reason"]
         if reason == "streak":
             _detail[org_id] = "relogin_failed"
-            if booking.get("streak_first") and repo.book_mail(org_id, "relogin_failed"):
+            if booking.get("streak_first") and _book_mail(repo, org_id, "relogin_failed"):
                 _send(cfg.mailer, lambda: repo.owner_email(org_id), relogin_email("relogin_failed"))
         elif reason == "orphan":
             _detail[org_id] = "relogin_stopped"
-            if repo.book_mail(org_id, "orphan"):
+            if _book_mail(repo, org_id, "orphan"):
                 _send(cfg.mailer, lambda: repo.owner_email(org_id), relogin_email("orphan"))
         elif reason == "cap":
-            if _detail.get(org_id) != "relogin_capped":
+            if org_id not in _capped_logged:
                 repo.audit(org_id, "relogin_capped")
+                _capped_logged.add(org_id)
             _detail[org_id] = "relogin_capped"
         log_line(org_id, reason, now=now)
         return reason
-    row = repo.relogin_cred(org_id)
-    if not row:  # the login stopped being ok since the booking: nothing typed, not a put-back (no streak, no "no login page" mail)
-        repo.finish_relogin(org_id, _audit(org_id, "relogin_cred_gone"))
+    try_id = booking.get("try_id")
+    try:
+        row = repo.relogin_cred(org_id)
+    except Exception:  # noqa: BLE001  (booked, nothing typed: the try still gets its outcome row, never a false orphan)
+        row = None
+    if not row:  # the login stopped being ok since the booking (or could not be read): nothing typed, not a put-back
+        _write_or_keep(repo, org_id, "relogin_cred_gone", try_id)
         log_line(org_id, "cred", now=now)
         return "cred"
     nonce = row.get("password_nonce")
@@ -351,7 +358,7 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
         user = open_secret(master, org_id, row, "user")
         password = open_secret(master, org_id, row, "pass")
     except Exception:  # noqa: BLE001  (wrong key: Merimen was never asked; not a put-back, so no "no login page" mail)
-        repo.finish_relogin(org_id, _audit(org_id, "relogin_key_mismatch"))
+        _write_or_keep(repo, org_id, "relogin_key_mismatch", try_id)
         _detail[org_id] = "relogin_stopped"
         log_line(org_id, "key_mismatch", now=now)
         return "key_mismatch"
@@ -373,11 +380,15 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
     try:
         out = finish(repo, org_id, page, email_to=lambda: repo.owner_email(org_id), poster=cfg.mailer, seen_nonce=nonce)
     except Exception:  # noqa: BLE001  (the outcome must still be written: kept here and written again before any new try)
-        _pending[org_id] = {"page": page, "try_id": booking.get("try_id"), "nonce": nonce}
+        _pending[org_id] = {"page": page, "try_id": try_id, "nonce": nonce}
         log_line(org_id, "outcome_pending", now=now)
         out = "pending"
+    # the tab follows what the PAGE showed, also while its write is pending: a logged-in tab holds the session and is kept
+    shown = outcome_of(page) if out == "pending" else out
     if out in ("ok", "session_live"):
         _detail.pop(org_id, None)  # the detail clears only on a success or when the org is seen connected (G7)
+        _capped_logged.discard(org_id)
+    if shown in ("ok", "session_live"):
         if page.get("relogin_target"):
             _own_tab[org_id] = str(page["relogin_target"])
     elif page.get("relogin_target"):
@@ -391,6 +402,23 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
 _pending: dict[str, dict] = {}
 # org -> the own tab a successful try kept (it holds the session). Closed before the next try; lost on a worker restart.
 _own_tab: dict[str, str] = {}
+# orgs whose relogin_capped row this process already wrote (one per worker-process episode, whatever detail came between)
+_capped_logged: set[str] = set()
+
+
+def _book_mail(repo, org_id: str, kind: str) -> bool:
+    try:
+        return bool(repo.book_mail(org_id, kind))
+    except Exception:  # noqa: BLE001  (nothing booked: the next refusal asks again)
+        return False
+
+
+def _write_or_keep(repo, org_id: str, action: str, try_id) -> None:
+    """The outcome row of a try that typed nothing. If the write fails it is kept and written before any new try (no false orphan)."""
+    try:
+        repo.finish_relogin(org_id, _audit(org_id, action))
+    except Exception:  # noqa: BLE001
+        _pending[org_id] = {"audit": action, "try_id": try_id}
 
 
 def retry_pending(cfg, repo) -> None:
@@ -402,7 +430,10 @@ def retry_pending(cfg, repo) -> None:
             if kept.get("try_id") is not None and repo.outcome_written(org_id, kept["try_id"]):
                 _pending.pop(org_id, None)
                 continue
-            finish(repo, org_id, kept["page"], email_to=lambda o=org_id: repo.owner_email(o), poster=cfg.mailer, seen_nonce=kept.get("nonce"))
+            if "audit" in kept:
+                repo.finish_relogin(org_id, _audit(org_id, kept["audit"]))
+            else:
+                finish(repo, org_id, kept["page"], email_to=lambda o=org_id: repo.owner_email(o), poster=cfg.mailer, seen_nonce=kept.get("nonce"))
         except Exception:  # noqa: BLE001
             continue
         _pending.pop(org_id, None)
@@ -412,6 +443,7 @@ def reset() -> None:
     """For tests: forget the in-process timers."""
     _pending.clear()
     _own_tab.clear()
+    _capped_logged.clear()
     _asked.clear()
     _logged.clear()
     _detail.clear()

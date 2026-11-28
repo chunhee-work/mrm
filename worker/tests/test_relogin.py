@@ -106,7 +106,7 @@ def test_at_most_one_org_per_tick_in_the_repos_order(tmp_path):
     assert asked == ["o2"]  # the repo's order; one real try per tick
 
 
-@pytest.mark.parametrize("refused", ["cooldown", "cap", "streak", "orphan", "cred", "db_error", "key_mismatch", None])
+@pytest.mark.parametrize("refused", ["cooldown", "cap", "streak", "orphan", "unclear_block", "cred", "db_error", "key_mismatch", None])
 def test_a_refused_org_hands_the_turn_to_the_next(tmp_path, refused):
     # loop review round 1: an org that is refused (nothing typed) must not take the tick's only try from the others
     asked = []
@@ -233,7 +233,7 @@ UNREAD = {"result": "unknown", "submitted": True}
 
 
 def test_refused_booking_never_types(tmp_path, capsys):
-    for reason in ("cooldown", "cap", "unclear", "streak", "cred", "db_error", "orphan"):
+    for reason in ("cooldown", "cap", "unclear_block", "streak", "cred", "db_error", "orphan"):
         relogin.reset()
         repo = TryRepo(booking={"booked": False, "reason": reason, "streak_first": False})
         out, fetched, sent = go(tmp_path, repo, OK_PAGE)
@@ -389,6 +389,57 @@ def test_an_orphan_refusal_sets_the_detail_and_mails_once(tmp_path):
     relogin.reset()
     repo2 = TryRepo(booking={"booked": False, "reason": "orphan", "streak_first": False}, mailed=0)
     assert go(tmp_path, repo2, OK_PAGE)[2] == []  # mail already booked in this episode
+
+
+def test_a_db_error_after_booking_still_writes_the_outcome_row_before_any_new_try(tmp_path):
+    class Down(TryRepo):
+        down = True
+
+        def relogin_cred(self, org):
+            if self.down:
+                raise RuntimeError("db away")
+            return super().relogin_cred(org)
+
+        def finish_relogin(self, org, statements):
+            if self.down:
+                raise RuntimeError("db away")
+            return super().finish_relogin(org, statements)
+
+        def outcome_written(self, org, try_id):
+            return False
+
+    repo = Down(booking={"booked": True, "reason": None, "streak_first": False, "try_id": 7})
+    out, fetched, _ = go(tmp_path, repo, OK_PAGE, now=lambda: 0.0)
+    assert out == "cred" and fetched == []
+    out, fetched, _ = go(tmp_path, repo, OK_PAGE, now=lambda: 100.0)
+    assert out == "pending" and fetched == []  # kept: no new booking
+    repo.down = False
+    out, fetched, _ = go(tmp_path, repo, OK_PAGE, now=lambda: 200.0)
+    assert actions(repo)[0] == "relogin_cred_gone" and out == "ok" and len(fetched) == 1
+
+
+def test_a_mail_booking_error_on_a_refusal_does_not_break_the_tick(tmp_path):
+    class NoMail(TryRepo):
+        def book_mail(self, org, kind):
+            raise RuntimeError("db away")
+
+    out, fetched, sent = go(tmp_path, NoMail(booking={"booked": False, "reason": "orphan", "streak_first": False}), OK_PAGE)
+    assert out == "orphan" and sent == []
+
+
+def test_a_logged_in_tab_is_kept_while_its_write_is_pending(tmp_path):
+    class Flaky(TryRepo):
+        def finish_relogin(self, org, statements):
+            raise RuntimeError("db away")
+
+    closed = []
+    out, _, _ = go(tmp_path, Flaky(), {**OK_PAGE, "relogin_target": "T5"}, closed=closed)
+    assert out == "pending" and closed == []
+
+
+def test_the_booking_takes_the_advisory_lock_first():
+    first, _ = relogin.booking_statements("o1")[0]
+    assert "pg_advisory_xact_lock" in first
 
 
 def test_first_unclear_changes_nothing_and_mails_once(tmp_path):
@@ -569,7 +620,7 @@ def test_pg_cap_counts_typed_tries_only():
 @needs_pg
 def test_pg_unclear_blocks_24h_unless_a_success_came_after():
     (b,), _ = book([audit("relogin_unclear", "2 hours")])
-    assert b["reason"] == "unclear"
+    assert b["reason"] == "unclear_block"
     (b,), _ = book([audit("relogin_unclear", "2 hours"), audit("login_ok", "1 hour")])
     assert b["booked"]  # the user saved again and it worked: re-login is back (G1)
     (b,), _ = book([audit("relogin_unclear", "25 hours")])
@@ -594,7 +645,7 @@ def test_pg_refusal_reason_order():
     (b,), _ = book([audit("relogin_typed", f"{i + 1} minutes") for i in range(12)] + [audit("relogin_try", "1 minute"), audit("relogin_unclear", "1 minute")])
     assert b["reason"] == "cap"  # cap before unclear before cooldown
     (b,), _ = book([audit("relogin_try", "1 minute"), audit("relogin_unclear", "1 minute")])
-    assert b["reason"] == "unclear"
+    assert b["reason"] == "unclear_block"
 
 
 @needs_pg
@@ -752,4 +803,4 @@ def test_pg_a_try_without_an_outcome_blocks_like_unclear():
 @needs_pg
 def test_pg_a_hand_login_does_not_lift_the_unclear_block():
     (b,), _ = book([audit("relogin_unclear", "2 hours"), audit("login_session_live", "1 hour"), audit("session_seen_connected", "1 hour")])
-    assert b["reason"] == "unclear"  # neither tested the saved password
+    assert b["reason"] == "unclear_block"  # neither tested the saved password
