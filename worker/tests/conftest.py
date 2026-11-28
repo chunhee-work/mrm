@@ -13,6 +13,8 @@ def _fresh_login_seen():
 
     login_seen.reset()
     loop.RELOGIN_HELD.clear()
+    loop.FORCE_RELOGIN.clear()
     yield
     login_seen.reset()
     loop.RELOGIN_HELD.clear()
+    loop.FORCE_RELOGIN.clear()

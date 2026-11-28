@@ -407,7 +407,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         return None
     _at("job")
     case = repo.load(job["case_id"])
-    if isinstance(case, dict) and job["step"] in PHASE_STEPS and puts_back(cfg, relogin is not None) and hasattr(repo, "was_put_back"):
+    if isinstance(case, dict) and job["step"] in PHASE_STEPS and puts_back(cfg, relogin is not None) and not held(job["org_id"], now) \
+            and hasattr(repo, "was_put_back"):
         try:  # this job was put back after a logout: a photo list that does not line up is never "already has photos"
             case["resumed_after_logout"] = repo.was_put_back(job)
         except Exception:  # noqa: BLE001  (not known: the stricter way, a partial list stops for a person)
