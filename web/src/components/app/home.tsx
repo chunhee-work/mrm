@@ -174,7 +174,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
   const takesFiles = deskOpen; // the upload of a missing document is a picker only, so a page drop there still starts a new case
   useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
   const desk = (
-    <div className="overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
+    <div className="overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
       <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={ctl.relist}
         tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
     </div>
@@ -329,7 +329,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
   // wide screens: vehicle | steps | action | arrow. The step and action tracks give way before the vehicle no. does.
   const COLS = "xl:grid xl:grid-cols-[minmax(150px,1fr)_260px_220px_20px] xl:items-center xl:gap-x-6";
   return (
-    <section aria-labelledby="open-title" className="sheet overflow-hidden rounded-[4px] border border-hair bg-panel" data-testid="home-open">
+    <section aria-labelledby="open-title" className="sheet overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-open">
       <div className={`border-b border-hair bg-panel2 px-4 py-3 xl:px-5 ${COLS}`}>
         <h2 id="open-title" className="whitespace-nowrap text-[15px] font-semibold leading-none text-fg">{t("tray.open")} <span className="num ml-1 font-mono text-[13px] font-medium text-mute">{total}</span></h2>
         <StepHeads className="mt-3 pr-8 text-[12px] font-medium text-mute xl:mt-0 xl:pr-0" />

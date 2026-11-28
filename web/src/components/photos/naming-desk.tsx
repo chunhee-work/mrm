@@ -152,6 +152,26 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frame = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  // Where the photos scroll. On its own page: inside the frame. Inside a line of the first page (owner 2026-11-28, "this naming part
+  // is too short"): the desk is as tall as its photos and the page itself scrolls, with the bar of buttons held at the top of the screen.
+  const view = useCallback((): { top: number; bottom: number } => {
+    if (embedded) return { top: headRef.current?.getBoundingClientRect().bottom ?? 0, bottom: window.innerHeight };
+    const b = frame.current?.getBoundingClientRect();
+    return b ? { top: b.top, bottom: b.bottom } : { top: 0, bottom: 0 };
+  }, [embedded]);
+  const scrollByY = useCallback((dy: number, smooth = false) => {
+    if (embedded) window.scrollBy({ top: dy, behavior: smooth ? "smooth" : "auto" });
+    else frame.current?.scrollBy({ top: dy, behavior: smooth ? "smooth" : "auto" });
+  }, [embedded]);
+  /** Back to the first photo: the frame to its top; in a line, the page only when the photos' top has gone under the bar. */
+  const toTop = useCallback(() => {
+    const f = frame.current;
+    if (!f) return;
+    if (!embedded) { f.scrollTop = 0; return; }
+    const dy = f.getBoundingClientRect().top - view().top;
+    if (dy < 0) window.scrollBy({ top: dy });
+  }, [embedded, view]);
   const onDoneRef = useRef(onDone); onDoneRef.current = onDone; // the first page passes a new function each render
   // embedded: the last press on the page was inside this desk (its keys follow it, its drops add photos)
   const active = useRef(false);
@@ -439,12 +459,11 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
 
   function reveal(id: number) {
     requestAnimationFrame(() => {
-      const f = frame.current;
-      const el = f?.querySelector<HTMLElement>(`[data-pid="${id}"]`);
-      if (!f || !el) return;
-      const a = el.getBoundingClientRect(), b = f.getBoundingClientRect();
-      if (a.top < b.top + 8) f.scrollTop -= b.top + 8 - a.top;
-      else if (a.bottom > b.bottom - 8) f.scrollTop += Math.min(a.bottom - b.bottom + 8, a.top - b.top - 8);
+      const el = frame.current?.querySelector<HTMLElement>(`[data-pid="${id}"]`);
+      if (!el) return;
+      const a = el.getBoundingClientRect(), b = view();
+      if (a.top < b.top + 8) scrollByY(a.top - b.top - 8);
+      else if (a.bottom > b.bottom - 8) scrollByY(Math.min(a.bottom - b.bottom + 8, a.top - b.top - 8));
     });
   }
   const moveTo = useCallback((id: number, to: number) => {
@@ -476,8 +495,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       // R3-B11: the name field is put in the middle of the frame (the card is taller than the field, so centring the card left it at the bottom edge)
       const el = f?.querySelector<HTMLElement>(`[data-pid="${target.id}"] [data-pname]`) ?? f?.querySelector<HTMLElement>(`[data-pid="${target.id}"]`);
       if (f && el) {
-        const a = el.getBoundingClientRect(), b = f.getBoundingClientRect();
-        f.scrollTo({ top: Math.max(0, f.scrollTop + (a.top - b.top) - Math.max(8, (b.height - a.height) / 2)), behavior: "smooth" });
+        const a = el.getBoundingClientRect(), b = view();
+        scrollByY((a.top - b.top) - Math.max(8, (b.bottom - b.top - a.height) / 2), true);
       }
       setCur(target.id);
       setHl(target.id);
@@ -582,8 +601,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     setLoadFailed(false);
     setCaseId(id);
     if (!embedded) window.history.replaceState(null, "", `/cases/${id}/photos`);
-    if (frame.current) frame.current.scrollTop = 0;
-  }, [disarm, setEditing, embedded]);
+    toTop();
+  }, [disarm, setEditing, embedded, toTop]);
   const goCase = useCallback((dir: number) => {
     const i = tabs.findIndex((x) => x.id === caseRef.current);
     const next = tabs[i + dir];
@@ -606,7 +625,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     setFilter(f);
     const c = statesRef.current[caseRef.current];
     setFrozen(f === "all" || !c ? null : visible(c.photos, f).map((p) => p.id));
-    if (frame.current) frame.current.scrollTop = 0;
+    toTop();
   }
   useEffect(() => { setFrozen(null); }, [caseId]);
   const list = useMemo(() => {
@@ -936,7 +955,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   );
   const head = (
     // one raised card holds everything about this case: the cases, the case, its extra parts
-    <div className="shrink-0 pb-2.5 pt-2.5 max-sm:pb-2 max-sm:pt-2">
+    // in a line of the first page this bar stays at the top of the screen (under the phone's top bar) while the page scrolls the photos
+    <div ref={headRef} className={`shrink-0 pb-2.5 pt-2.5 max-sm:pb-2 max-sm:pt-2 ${embedded ? "sticky top-[60px] z-30 bg-panel lg:top-0" : ""}`} data-testid="desk-head">
       <div className="wrap max-sm:px-3">
         {st && !embedded && <div className="mb-2"><CaseSteps caseId={caseId} status={st.status} photos={st.photos.length} photosDone={st.done} here="photos" hint={false} /></div>}
         <div className="rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(10,14,19,0.06),0_10px_28px_-14px_rgba(10,14,19,0.22)] ring-1 ring-hair">
@@ -964,6 +984,16 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
             </nav>
             {next}
           </div>}
+          {/* inside a line of the first page: ONE line, the number of photos, the parts with no photo and 完成 (owner 2026-11-28: no To confirm / Edited, no Add photos) */}
+          {embedded ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-1.5 lg:px-5" data-testid="desk-bar">
+              <div role="group" aria-label={t("filter")} className="flex shrink-0 rounded-[4px] bg-panel2 p-0.5" data-testid="desk-filter">{soft("all", t("f.all"), n?.total ?? null, false)}</div>
+              <div className="min-w-0 flex-1 max-sm:[&>div]:flex-wrap max-sm:[&>div]:overflow-visible">{extrasRow}</div>
+              <div className="max-sm:w-full" data-testid="done-wrap">{doneBtn}</div>
+              {/* the picker stays for the empty desk's own Add photos; dropping photos on the desk still adds them */}
+              <span hidden>{addBtn}</span>
+            </div>
+          ) : <>
           {/* one row: the case, the filter with its three numbers, add photos, and 完成 at the right end (a phone gets 完成 as a bar along the bottom edge, R3-B03) */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-1.5 lg:px-5">
             {/* inside a line of the first page the line already shows the vehicle no. and the car */}
@@ -974,6 +1004,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
             <div className={embedded ? "max-sm:w-full" : "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-40 max-sm:border-t max-sm:border-hair max-sm:bg-panel max-sm:p-2.5 max-sm:pb-[calc(10px+env(safe-area-inset-bottom))] max-sm:shadow-[0_-8px_20px_-12px_rgba(10,14,19,0.35)]"} data-testid="done-wrap">{doneBtn}</div>
           </div>
           <div className="border-t border-hair px-4 py-1.5 max-sm:py-1 lg:px-5">{extrasRow}</div>
+          </>}
         </div>
       </div>
     </div>
@@ -985,7 +1016,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       // embedded: photos dropped on the desk are added to this case (the page's own drop, which starts a new case, is off meanwhile)
       onDragOver={embedded ? (e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } } : undefined}
       onDrop={embedded ? (e) => { const f = Array.from(e.dataTransfer.files); if (f.length) { e.preventDefault(); void onFiles(f); } } : undefined}
-      className={embedded ? "flex h-[min(760px,85vh)] flex-col [&_.wrap]:!max-w-none [&_.wrap]:!px-3 sm:[&_.wrap]:!px-4" : "app-fill flex flex-col"} data-embedded={embedded || undefined}>
+      className={embedded ? "flex flex-col [&_.wrap]:!max-w-none [&_.wrap]:!px-3 sm:[&_.wrap]:!px-4" : "app-fill flex flex-col"} data-embedded={embedded || undefined}>
       {head}
       <div className="shrink-0">
         {signedOut && (
@@ -1011,8 +1042,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
         )}
       </div>
 
-      {/* the photos: this frame scrolls, the page does not */}
-      <div ref={frame} className="app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-hair" tabIndex={-1}>
+      {/* the photos: on its own page this frame scrolls and the page does not; in a line of the first page the page scrolls */}
+      <div ref={frame} className={`border-t border-hair ${embedded ? "" : "app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"}`} tabIndex={-1} data-testid="desk-frame">
         {loadFailed && !st ? (
           <div className="wrap flex flex-col items-center gap-4 py-16 text-center">
             <p className="text-[15px] text-fg">{t("loadFailed")}</p>
