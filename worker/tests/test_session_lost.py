@@ -283,6 +283,27 @@ def test_an_upload_whose_check_meets_the_login_form_is_a_logout_stop():
     login_seen.reset()
 
 
+def test_a_refused_relogin_holds_further_put_backs(tmp_path):
+    FORCE_RELOGIN.clear()
+    loop.RELOGIN_HELD.clear()
+    FORCE_RELOGIN["o1"] = time.monotonic()
+    sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p: "streak")
+    assert "o1" in loop.RELOGIN_HELD
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
+    retry = Outcome("requeue", error="report", event="Phase A not saved")
+    # the stale tab may count as connected later: the job keeps its own tries, no new forced re-login is booked
+    assert loop.check_session_after(on, CountRepo(), JOB, retry, inspect=lambda p: LOGIN_PAGE, page_for=None, seen_login=True) is retry
+    sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p: "ok")
+    assert "o1" not in loop.RELOGIN_HELD  # a re-login that worked lifts the hold
+    FORCE_RELOGIN.clear()
+    loop.RELOGIN_HELD.clear()
+
+
+def test_the_put_back_line_keeps_what_the_job_said():
+    got = session_lost_outcome(JOB, Outcome("requeue", error="step2", event="Phase B stopped. the Merimen catalogue could not be read"), count=0)
+    assert got.event.startswith(loop.LOST_EVENT) and "catalogue could not be read" in got.event
+
+
 def test_login_seen_marks_and_resets():
     from autopilot_worker import login_seen
 

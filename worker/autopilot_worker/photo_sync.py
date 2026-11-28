@@ -208,6 +208,16 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     return _upload(rep, case, plan, merimen, guard)
 
 
+def _checked(check: dict) -> dict:
+    """A photo check that could not read the list because Merimen logged out during the upload is the same stop as an upload that
+    met the login form (a person looks; with re-login on the job is put back and goes on from the photos that are there)."""
+    from . import login_seen
+
+    if check.get("count") == -1 and login_seen.seen():
+        raise login_seen.LoggedOut("not_logged_in")
+    return check
+
+
 def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhotos, guard: Guard, start: int = 0) -> PhotoReport:
     """`start`: the first `start` photos of the plan are already in Merimen in order (prefix_done); only the rest goes up, the whole
     list is verified."""
@@ -217,13 +227,7 @@ def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhot
         return rep
     rest = plan[start:]
     merimen.upload(case, rest, chunked(rest))
-    check = merimen.verify(case, plan)
-    from . import login_seen
-
-    if check.get("count") == -1 and login_seen.seen():
-        # the list could not be read back because Merimen logged out during the upload: the same stop as an upload that met the
-        # login form (a person looks, or with re-login on the job is put back and goes on from the photos that are there)
-        raise login_seen.LoggedOut("not_logged_in")
+    check = _checked(merimen.verify(case, plan))
     for _ in range(2):  # dropped photos: upload the missing positions again (playbook 06, up to 2 rounds)
         miss = check.get("missing") or []
         if not miss:
@@ -234,7 +238,7 @@ def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhot
             return rep
         part = [plan[i] for i in miss if 0 <= i < len(plan)]
         merimen.upload(case, part, chunked(part))
-        check = merimen.verify(case, plan)
+        check = _checked(merimen.verify(case, plan))
     if check.get("count") != len(plan) or check.get("mismatch"):
         rep.action, rep.code, rep.snapshot = "refused", "hand_fix", None
         rep.note = f"after the upload Merimen has {check.get('count')} photos and {check.get('mismatch')} mismatches (plan {len(plan)})"
