@@ -87,7 +87,7 @@ def main():
                 # (no plate check here), so it only changes the hint: open those other-side pages and look for the at-fault plate's insurance.
                 cand = sorted((p for p in P if name == "I-search" and p["ours"] is not None and p["ours"] < 0.5 and p["doc_type"]
                                not in ("vehicle_ownership_certificate", "police_report", "police_investigation_result", "police_sketch")),
-                              key=lambda p: ({"isearch_report": 0, "insurance_schedule_or_cover_note": 1}.get(p["doc_type"], 2), p["ours"]))
+                              key=lambda p: ({"isearch_report": 0, "insurance_schedule_or_cover_note": 1}.get(p["doc_type"], 2), p["ours"], -(p["conf"] or 0)))
                 other = [f'{p["pdf"]} p{p["page"]}' for p in cand[:6]]  # same order and cap as the worker's plate question
                 miss.append(f"I-search (maybe at {', '.join(other)}: check for the at-fault plate's insurance)" if other else name)
         c["maybe_missing"] = {"draft": True, "items": miss,

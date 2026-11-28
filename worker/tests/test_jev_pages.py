@@ -122,15 +122,19 @@ def test_a_not_ours_schedule_for_another_plate_still_warns():
 
 def test_a_low_confidence_lookup_page_is_asked_too():
     # QAT110 (rotated mySIKAP, isearch 0.53) / VBD9393 (phone screenshot typed insurance 0.37): low type confidence, still the I-SEARCH page
-    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("other id", "other", 0.97, 0.09), ("rotated", "isearch", 0.53, 0.04)], af_pages={5: 0.9})
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("other id", "other", 0.97, 0.01), ("rotated", "isearch", 0.53, 0.04)], af_pages={5: 0.9})
     assert jp.run(jev, case, fetch) == []
     asked = [b for b in fake.sent if "af" in b["questions"]]
     assert len(asked) == 1  # the look-up page is asked first and says yes
 
 
 def test_only_not_ours_non_police_pages_are_asked_and_at_most_six():
-    pages = NO_ISEARCH + [("ours edge", "pol", 1.0, 0.5), ("their report", "rep", 1.0, 0.1), ("their rc", "rc", 1.0, 0.1)] + [(f"s{i}", "pol", 1.0, 0.1) for i in range(8)]
-    jev, case, fake, rows, fetch = setup(pages)
+    pages = NO_ISEARCH + [("ours edge", "pol", 1.0, 0.5), ("their report", "rep", 1.0, 0.1), ("their rc", "rc", 1.0, 0.1), ("their kep", "kep", 1.0, 0.1)] \
+        + [(f"s{i}", "pol", 1.0, 0.1) for i in range(2)]
+    jev, case, fake, rows, fetch = setup(pages, af_pages={i: 0.95 for i in (4, 5, 6, 7)})  # the excluded pages WOULD say yes
+    assert jp.run(jev, case, fetch) == WARN_IS
+    assert len([b for b in fake.sent if "af" in b["questions"]]) == 2  # only the two real candidates
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [(f"s{i}", "pol", 1.0, 0.1) for i in range(8)])
     assert jp.run(jev, case, fetch) == WARN_IS
     assert len([b for b in fake.sent if "af" in b["questions"]]) == 6
 
@@ -166,7 +170,7 @@ def test_spaces_in_the_at_fault_plate_do_not_matter():
 def test_the_daily_cap_stops_the_plate_question_quietly():
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 0.95})
     out = jp.run(jev, case, fetch, env={"JEV_PAGES_DAILY": "6"})  # 5 pages + the RC reserve fill the day
-    assert out == [] and not [b for b in fake.sent if "af" in b["questions"]]
+    assert out == WARN_IS and not [b for b in fake.sent if "af" in b["questions"]]
     assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "skip_daily_cap" for r in rows)
 
 
@@ -177,23 +181,65 @@ def test_no_at_fault_plate_means_no_plate_question():
     assert not [b for b in fake.sent if "af" in b["questions"]]
 
 
-def test_an_unreadable_plate_answer_gives_no_isearch_warning_and_a_ledger_row():
+def test_an_unreadable_plate_answer_keeps_the_warning_and_writes_a_row():
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 7.0})
-    assert jp.run(jev, case, fetch) == []
+    assert jp.run(jev, case, fetch) == WARN_IS  # not confirmed: the old warning stays
     assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "bad_answer" for r in rows)
 
 
 def test_near_the_budget_the_plate_question_is_skipped():
     t = iter([0.0] + [56.0] * 100)
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 0.95})
-    assert jp.run(jev, case, fetch, now=lambda: next(t)) == []
+    assert jp.run(jev, case, fetch, now=lambda: next(t)) == WARN_IS
     assert not [b for b in fake.sent if "af" in b["questions"]]
     assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "skip_budget" for r in rows)
 
 
-def test_a_failed_plate_question_gives_no_isearch_warning():
+def test_a_failed_plate_question_keeps_the_isearch_warning():
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_fail=True)
-    assert jp.run(jev, case, fetch) == []  # could not check: no proof it is missing
+    assert jp.run(jev, case, fetch) == WARN_IS  # could not confirm: the old warning stays (warn-only, safe direction)
+
+
+def test_a_later_page_can_say_yes_after_earlier_noes():
+    pages = NO_ISEARCH + [("ours cont", "pol", 1.0, 0.05), ("their policy", "pol", 1.0, 0.2)]
+    jev, case, fake, rows, fetch = setup(pages, af_pages={5: 0.95})
+    assert jp.run(jev, case, fetch) == []
+    assert len([b for b in fake.sent if "af" in b["questions"]]) == 2
+    assert any(r["purpose"] == "jev_isearch_check" and r["ok"] and r["error_class"] == "confirmed" for r in rows)
+
+
+def test_reader_plate_not_the_blamed_plate_keeps_the_warning():
+    d = dict(DATA, police={**DATA["police"], "blamed_plate": "BGN 9963"}, at_fault={"plate": "WUH8189"})
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
+    assert jp.run(jev, case, fetch) == WARN_IS and not [b for b in fake.sent if "af" in b["questions"]]
+    d = dict(DATA, police={**DATA["police"], "blamed_plate": "abc-1"})  # same plate, other spelling: asked
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
+    assert jp.run(jev, case, fetch) == []
+
+
+def test_the_switch_turns_off_only_the_plate_question():
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 0.95})
+    assert jp.run(jev, case, fetch, env={"JEV_ISEARCH_PLATE": "0"}) == WARN_IS
+    assert not [b for b in fake.sent if "af" in b["questions"]]
+
+
+def test_the_rc_check_runs_before_the_plate_questions_use_the_budget():
+    clock = {"t": 0.0}
+
+    def now():
+        return clock["t"]
+
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [(f"s{i}", "pol", 1.0, 0.1) for i in range(3)], rc={"model": 0.02, "cc": 0.97, "date": 0.97})
+    post = fake.post
+
+    def slow(body, timeout):
+        if "af" in body["questions"]:
+            clock["t"] += 30.0  # each plate question is slow
+        return post(body, timeout)
+
+    jev.post = slow
+    out = jp.run(jev, case, fetch, now=now)
+    assert out == WARN_IS + ['Jev check: RC model "TOYOTA / WISH" not seen on the RC card by Jev']
 
 
 def test_our_own_insurance_schedule_is_not_an_isearch_page():

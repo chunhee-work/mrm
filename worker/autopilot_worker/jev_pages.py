@@ -151,7 +151,7 @@ def rc_questions(data: dict) -> tuple[dict, dict]:
 
 # ---- day cap and per-PDF cache (in this process only; nothing is stored)
 _day = {"d": "", "pages": 0, "cap": DAILY_PAGES}  # cap = this run's daily cap, for the helpers
-_cache: dict[tuple, dict] = {}  # (pdf sha, plate, page index) -> a parsed page; only good answers are kept
+_cache: dict[tuple, dict] = {}  # (pdf sha, our plate, page in that pdf) -> a parsed page; (pdf sha, "af:"+at-fault plate, page) -> {"p": yes}
 
 
 def _daily_cap(env) -> int:
@@ -191,6 +191,7 @@ def run(jev: Jev, case: dict, fetch: Callable[[str], bytes | None], *, env=None,
     """The Activity lines (stored English, at most MAX_LINES) for one case. [] on anything but a clean, complete pass."""
     env = env or {}
     _day["cap"] = _daily_cap(env)
+    _day["af_on"] = env.get("JEV_ISEARCH_PLATE") != "0"  # one switch for the I-SEARCH plate question alone
     cid = case.get("id")
     try:
         return _run(jev, case, fetch, env, now, today(), cid)
@@ -307,33 +308,37 @@ def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
     data = {**data, **{k: (data.get(k) if isinstance(data.get(k), dict) else {}) for k in ("police", "at_fault", "client_vehicle")},
             "missing": data.get("missing") if isinstance(data.get("missing"), list) else []}
     out: list[str] = []
-    # rule A: a needed document with no page, and the reader did not already say it is missing. Skipped when any page could not be read (no proof of absence).
-    if complete and all(results):
-        listed = {reader_missing(str(m)) for m in (data.get("missing") or [])}
-        for doc in NEEDED:
-            if doc in listed or _present(results, doc):
-                continue
-            if doc == "isearch":
-                af = _at_fault_schedule(jev, data, results, docs, now, t0, cid)
-                if af is not False:  # True = the at-fault party's own schedule is here; None = could not ask, so no proof it is missing
-                    continue
-            if doc == "our_policy" and not data.get("client_policy"):
-                continue  # the reader found no client insurance: that is not a blocker, nothing to compare
-            if doc == "police_report" and not (data.get("police") or {}).get("client_report_no"):
-                continue
-            if doc in ("keputusan", "isearch") and not (data.get("at_fault") or {}).get("plate") and not (data.get("police") or {}).get("report_no"):
-                continue
-            out.append(f"Jev check: no {DOC_WORDS[doc]} page found in the files")
-    # RC card check: the best RC page, only when both the type and our side are sure
+    # RC card check FIRST: it is one call, and the I-SEARCH plate step below may use up the time budget (review round 3)
+    rc_out: list[str] = []
     best = None
     for idx, r in enumerate(results):
         if r and r["label"] == "vehicle_ownership_certificate" and r["conf"] >= SURE and r["ours"] >= SURE and (best is None or r["conf"] > results[best]["conf"]):
             best = idx
     if best is not None:
         try:
-            out.extend(_rc_lines(jev, data, docs, best, now, t0, cid))
-        except Exception:  # noqa: BLE001  (the missing-document lines above stay)
-            pass
+            rc_out = _rc_lines(jev, data, docs, best, now, t0, cid)
+        except Exception:  # noqa: BLE001  (the missing-document lines below still run)
+            rc_out = []
+    # rule A: a needed document with no page, and the reader did not already say it is missing. Skipped when any page could not be read (no proof of absence).
+    if complete and all(results):
+        listed = {reader_missing(str(m)) for m in (data.get("missing") or [])}
+        for doc in NEEDED:
+            if doc in listed or _present(results, doc):
+                continue
+            if doc == "our_policy" and not data.get("client_policy"):
+                continue  # the reader found no client insurance: that is not a blocker, nothing to compare
+            if doc == "police_report" and not (data.get("police") or {}).get("client_report_no"):
+                continue
+            if doc in ("keputusan", "isearch") and not (data.get("at_fault") or {}).get("plate") and not (data.get("police") or {}).get("report_no"):
+                continue
+            if doc == "isearch" and _day.get("af_on", True):
+                try:
+                    if _at_fault_schedule(jev, data, results, docs, now, t0, cid):
+                        continue  # a page shows the at-fault plate's insurance; anything else (no, could not ask) keeps the old warning
+                except Exception:  # noqa: BLE001
+                    pass
+            out.append(f"Jev check: no {DOC_WORDS[doc]} page found in the files")
+    out.extend(rc_out)
     seen, lines = set(), []
     for ln in out:
         if ln not in seen:
@@ -352,13 +357,19 @@ def norm_plate(v) -> str:
     return re.sub(r"[^A-Z0-9]", "", str(v or "").upper())
 
 
-def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool | None:
+def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool:
     """Playbook 01: JPJ SEARCH = 对方保单 = the at-fault party's insurance/I-SEARCH page. The page is not always a clean ISM printout: the
     at-fault vehicle's own insurance schedule (DCD4004), a rotated mySIKAP page (QAT110) or a phone screenshot (VBD9393) also do the job,
     and Jev types those with low confidence. "Not ours" alone is too weak (our own continuation page scores low, a misfiled schedule names
     another plate), so each candidate page (not ours, not an RC or police page) is asked one question: does it show the at-fault plate's insurance?
-    True = yes on a page; False = no candidate, no at-fault plate, or every asked page said no; None = a question could not be asked."""
+    True = yes on a page (an ok ledger row "confirmed" records it). False = anything else: no candidate, no at-fault plate, the plate differs from
+    the police's blamed plate, every asked page said no, or a question could not be asked; False keeps the old warning (warn-only: a false
+    warning only makes a person look, a false "present" would hide a missing page)."""
     plate = norm_plate((data.get("at_fault") or {}).get("plate"))
+    blamed = norm_plate((data.get("police") or {}).get("blamed_plate"))
+    if plate and blamed and blamed != plate:
+        jev.log("isearch_check", case_id=cid, ok=False, error_class="skip_plate_mismatch", model=PAGE_MODEL)
+        return False  # the reader's at-fault plate is not the plate the police blamed: a person must look, so the warning stays
     cands = [g for g, r in enumerate(results) if r and r["label"] not in NOT_INSURANCE and r["ours"] < OURS_MIN]
     cands.sort(key=lambda g: (AF_ORDER.get(results[g]["label"], 2), results[g]["ours"], -results[g]["conf"]))  # the least "ours" first
     if not plate or not cands:
@@ -375,19 +386,20 @@ def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool | None:
             img = None if skip else _page_jpg(docs, g, DPI)  # not RC_DPI: a full scanned page at 150 dpi was refused (HTTP 400, QAT110)
             if img is None:
                 jev.log("isearch_check", case_id=cid, ok=False, error_class=skip or "skip_render", model=PAGE_MODEL)
-                return None
+                return False
             ref, assets = _asset(img)
             _day["pages"] += 1  # a sent call counts against the day, answered or not
             try:
                 ans = jev.ask({"page": ref, "at_fault_plate": plate}, q, purpose="isearch_check", case_id=cid, assets=assets, model=PAGE_MODEL).get("answers")
             except JevError:
-                return None  # Jev.ask already wrote the failed row
+                return False  # Jev.ask already wrote the failed row
             p = _prob((ans if isinstance(ans, dict) else {}).get("af"))
             if p is None:
                 jev.log("isearch_check", case_id=cid, ok=False, error_class="bad_answer", model=PAGE_MODEL)
-                return None
+                return False
             _cache[key] = {"p": p}
         if _cache[key]["p"] >= AF_YES:
+            jev.log("isearch_check", case_id=cid, ok=True, error_class="confirmed", model=PAGE_MODEL)  # an audit row: this page stopped a warning
             return True
     return False
 
