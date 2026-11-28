@@ -49,7 +49,7 @@ const en: GuideCopy = {
     legend: { go: "Finished", wait: "Waiting for you", fail: "Failed", later: "Not yet" },
   },
   credits: { name: "Credits", lines: ["Each case costs 1,000 credits.", "Your balance is in Billing.", "Buy more any time."], unit: "1 case = 1,000 credits" },
-  remove: { name: "Delete a case", lines: ["The case leaves your list.", "Nothing is sent to Merimen.", "A credit comes back only if the documents were not read yet.", "Its files are wiped after 7 days.", "Not possible once the case is in Merimen."] },
+  remove: { name: "Delete a case", lines: ["Only shown on a case where something went wrong on our side.", "The case leaves your list.", "Nothing is sent to Merimen, and a case there is not changed.", "Its credit comes back, once.", "Its files are wiped after 7 days."] },
   draw: { days: "7 days", drop: "Drop files here", doneBtn: "Done", signIn: "Sign in", parts: "Parts list", upload: "Photos", finished: "Finished", checkNames: "Check the names" },
   cta: { start: "Start a case", cases: "Back to my cases" },
 };
@@ -79,7 +79,7 @@ const zh: GuideCopy = {
     legend: { go: "已完成", wait: "等你处理", fail: "失败", later: "还没到" },
   },
   credits: { name: "点数", lines: ["每个案件扣 1,000 点。", "余额在「账单」里。", "随时可以充值。"], unit: "1 个案件 = 1,000 点" },
-  remove: { name: "删除案件", lines: ["案件会从你的列表消失。", "不会发送任何东西到 Merimen。", "只有文件还没被读取时，才会退回 1 点。", "文件在 7 天后清除。", "案件进入 Merimen 后不能再删除。"] },
+  remove: { name: "删除案件", lines: ["只有我方出错的案件才会显示删除。", "案件会从你的列表消失。", "不会发送任何东西到 Merimen，Merimen 里的案件也不会改动。", "额度会退回 1 点（只退一次）。", "文件在 7 天后清除。"] },
   draw: { days: "7 天", drop: "把文件拖到这里", doneBtn: "完成", signIn: "登录", parts: "部件清单", upload: "照片", finished: "已完成", checkNames: "检查名称" },
   cta: { start: "开始一个案件", cases: "回到我的案件" },
 };
@@ -109,7 +109,7 @@ const ms: GuideCopy = {
     legend: { go: "Siap", wait: "Menunggu anda", fail: "Gagal", later: "Belum lagi" },
   },
   credits: { name: "Kredit", lines: ["Setiap kes menggunakan 1,000 kredit.", "Baki anda ada di Bil.", "Beli lagi bila-bila masa."], unit: "1 kes = 1,000 kredit" },
-  remove: { name: "Padam kes", lines: ["Kes keluar dari senarai anda.", "Tiada apa dihantar ke Merimen.", "Kredit dipulangkan hanya jika dokumen belum dibaca.", "Failnya dipadam selepas 7 hari.", "Tidak boleh dipadam selepas kes masuk Merimen."] },
+  remove: { name: "Padam kes", lines: ["Hanya dipaparkan pada kes yang bermasalah di pihak kami.", "Kes keluar dari senarai anda.", "Tiada apa dihantar ke Merimen, dan kes di sana tidak diubah.", "Kreditnya dipulangkan, sekali sahaja.", "Failnya dipadam selepas 7 hari."] },
   draw: { days: "7 hari", drop: "Lepaskan fail di sini", doneBtn: "Selesai", signIn: "Log masuk", parts: "Senarai bahagian", upload: "Gambar", finished: "Siap", checkNames: "Semak nama" },
   cta: { start: "Mulakan kes", cases: "Kembali ke kes saya" },
 };

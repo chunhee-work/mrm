@@ -88,11 +88,21 @@ def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker
     return {"merimen": ext_connect, "org_limit": int(org_limit), "worker": worker_id}
 
 
+# The case line the worker writes when it crashed on a job (our fault). The web app's delete rule matches it exactly
+# (web/src/lib/case-delete.ts FAULT_LINE; both sides have a test that pins it), so change both together or not at all.
+WORKER_ERROR = "Worker error"
+
 # A running job whose lease ran out goes back to the queue (or to failed after too many tries). One statement.
+# A job given up this way (the worker hung or died on it) gets the crash line too, so the case can be deleted (plan #159).
 RECLAIM_SQL = """
+WITH moved AS (
 UPDATE jobs SET state = CASE WHEN attempts >= %s THEN 'failed' ELSE 'queued' END, locked_by = NULL, locked_at = NULL
 WHERE state = 'running' AND (locked_at IS NULL OR locked_at < now() - (%s || ' seconds')::interval)
-RETURNING id
+RETURNING id, case_id, step, state
+), lost AS (
+INSERT INTO case_events (case_id, step, message) SELECT case_id, step, '""" + WORKER_ERROR + """' FROM moved WHERE state = 'failed'
+)
+SELECT id FROM moved
 """
 
 # The worker that holds a job renews the lease. A renewal for a job another worker has since taken matches nothing.

@@ -15,6 +15,7 @@ from .cdp_client import page_block
 from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
 from .config import Config, account_for
 from .db import DbError
+from .jobs import WORKER_ERROR
 from .pipeline import Driver, Outcome, followup_steps, handle_job
 from .screens import CODE_TO_STEP, Screenshotter, cleanup, milestones_after
 from .store import LOST_EVENT, LOST_WINDOW, PgRepo
@@ -551,7 +552,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
                 shoot(step)
         except Exception as e:  # noqa: BLE001
             _print_error(job, e)
-            outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
+            outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event=WORKER_ERROR)
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
