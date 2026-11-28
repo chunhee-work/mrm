@@ -225,8 +225,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         got = session_lost_outcome(job, outcome, count=repo.session_lost_count(job["case_id"]))
     except Exception:  # noqa: BLE001
         return outcome
-    if got.session_lost:
-        FORCE_RELOGIN[job["org_id"]] = now()
+    FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
     return got
 
 

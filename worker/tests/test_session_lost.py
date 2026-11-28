@@ -299,6 +299,23 @@ def test_a_refused_relogin_holds_further_put_backs(tmp_path):
     loop.RELOGIN_HELD.clear()
 
 
+def test_at_the_cap_the_job_fails_but_a_relogin_is_still_booked(tmp_path):
+    FORCE_RELOGIN.clear()
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
+    retry = Outcome("requeue", error="report", event="Phase A not saved")
+    got = loop.check_session_after(on, CountRepo(LOST_CAP), JOB, retry, inspect=lambda p: LOGIN_PAGE, page_for=None)
+    assert got.job_state == "failed" and "o1" in FORCE_RELOGIN
+    FORCE_RELOGIN.clear()
+
+
+def test_a_resumed_phase_a_that_finds_all_its_photos_logs_them_as_its_upload():
+    names = [f"Part {i}" for i in range(1, 11)]
+    rep = ps.phase_a(RESUMED, TEN, writes=True, merimen=Fake(held=names))
+    assert rep.ok and rep.action == "upload" and rep.upload == 0 and rep.row()["action"] == "upload"
+    rep = ps.phase_a({"merimen_caseid": "1"}, TEN, writes=True, merimen=Fake(held=names))
+    assert rep.action == "none"  # not after a put-back: as before
+
+
 def test_the_hold_runs_out():
     loop.RELOGIN_HELD["o1"] = 100.0
     assert loop.held("o1", lambda: 100.0 + loop.HOLD_SECONDS - 1)

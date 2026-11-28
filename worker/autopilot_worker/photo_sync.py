@@ -189,6 +189,10 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     k = prefix_done(have, plan) if resumed else 0
     if k:
         return _resume(rep, case, plan, k, merimen, guard, writes)
+    if resumed and have and have == [p["name"] for p in plan]:
+        # the run before was cut off after its upload: the list is logged as this upload, so Phase B can compare with it
+        rep.action, rep.upload, rep.note = "upload", 0, f"an upload was cut off after its last photo: Merimen has all {len(plan)}"
+        return rep
     if resumed and have and have != [p["name"] for p in plan]:
         # put back after a logout: anything but the clean start or the whole list (a gap, a repeated caption, a name changed
         # meanwhile, a photo stored twice) is never taken as "already has photos", a person looks (playbook 06)
