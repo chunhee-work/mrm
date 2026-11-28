@@ -22,7 +22,7 @@ import vm from "node:vm";
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { isMerimenOrigin, pickMerimenTab, LOGIN_PROBE, LOGIN_SIGNALS, loginFillExpression, runLogin, AFTER_SUBMIT_MS } from "./cdp.mjs";
+import { isMerimenOrigin, pickMerimenTab, LOGIN_PROBE, LOGIN_SIGNALS, loginFillExpression, runLogin, runRelogin, closeIfNotLast, loginRunner, AFTER_SUBMIT_MS } from "./cdp.mjs";
 
 const LOGIN_URL = "https://www.merimen.com.my/claims/index.cfm";
 const LIVE_URL = "https://www.merimen.com.my/claims/index.cfm?fusebox=MTRroot&fuseaction=dsp_home&CFID=11&CFTOKEN=22&USID=33&RID=44";
@@ -351,12 +351,35 @@ test("the login command with no Chrome on the port prints offline, not submitted
 
 // ---- the whole command against a fake debugging port: a tiny WebSocket server whose "page" is the fake DOM above ----
 // onSent(page) is called when the script clicked: the test changes the page the way Merimen would.
-function fakeChrome(page, { onSent = () => {}, dropAfterFill = false } = {}) {
+// relogin: true = the tab list starts with only someone else's tab (O1); PUT /json/new opens T1 (the fake page), /json/close/<id>
+// is recorded and removes it. opened / closed say what the script did.
+function fakeChrome(page, { onSent = () => {}, dropAfterFill = false, relogin = false } = {}) {
   const evals = [];
+  const opened = [];
+  const closed = [];
+  const other = { id: "O1", type: "page", url: "https://www.merimen.com.my/claims/index.cfm?CFID=9&RID=9&x=other", webSocketDebuggerUrl: "ws://127.0.0.1:1/devtools/page/O1" };
+  let open = !relogin;
   const server = http.createServer((req, res) => {
     const port = server.address().port;
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify([{ id: "T1", type: "page", url: page.location.href, webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/T1` }]));
+    const t1 = { id: "T1", type: "page", url: page.location.href, webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/T1` };
+    if (req.url.startsWith("/json/new")) {
+      opened.push({ method: req.method, url: req.url });
+      open = true;
+      res.end(JSON.stringify(t1));
+      return;
+    }
+    if (req.url.startsWith("/json/close/")) {
+      closed.push(decodeURIComponent(req.url.slice("/json/close/".length)));
+      if (closed.at(-1) === "T1") open = false;
+      res.end("{}");
+      return;
+    }
+    if (relogin) {
+      res.end(JSON.stringify(open ? [other, t1] : [other]));
+      return;
+    }
+    res.end(JSON.stringify([t1]));
   });
   server.on("upgrade", (req, socket) => {
     const accept = createHash("sha1").update(req.headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");
@@ -391,12 +414,12 @@ function fakeChrome(page, { onSent = () => {}, dropAfterFill = false } = {}) {
       }
     });
   });
-  return new Promise((res) => server.listen(0, "127.0.0.1", () => res({ server, evals, port: server.address().port })));
+  return new Promise((res) => server.listen(0, "127.0.0.1", () => res({ server, evals, opened, closed, port: server.address().port })));
 }
 
-function runLoginCommand(port) {
+function runLoginCommand(port, extra = []) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ["cdp.mjs", "login"], {
+    const child = spawn(process.execPath, ["cdp.mjs", "login", ...extra], {
       cwd: new URL(".", import.meta.url).pathname,
       env: { PATH: process.env.PATH, MERIMEN_LOGIN: "on", CDP_PORT: String(port) },
     });
@@ -470,4 +493,154 @@ test("end to end: Chrome goes away right after the click: unknown and submitted,
   } finally {
     chrome.server.close();
   }
+});
+
+
+// ---- re-login (plan #133): own fresh tab only ----
+function reloginDeps({ answers = [], openFails = false, tabsAfterOpen = null } = {}) {
+  const h = harness({ answers });
+  const log = { ...h.log, opened: 0, closed: [] };
+  let isOpen = false;
+  const own = { id: "N1", type: "page", url: LOGIN_URL, webSocketDebuggerUrl: "ws://n1" };
+  const someone = { id: "P1", type: "page", url: LOGIN_URL, webSocketDebuggerUrl: "ws://p1" };
+  const deps = {
+    ...h.deps,
+    open: async () => { if (openFails) throw new Error("no"); log.opened += 1; isOpen = true; return own; },
+    close: async (_port, id) => { log.closed.push(id); isOpen = false; },
+    tabs: async () => (tabsAfterOpen || (isOpen ? [someone, own] : [someone])),
+  };
+  return { deps, log, hlog: h.log };
+}
+
+test("relogin: no tab can be opened: offline, nothing typed, nothing closed", async () => {
+  const r = reloginDeps({ openFails: true });
+  assert.deepEqual(await runRelogin(r.deps), { offline: true, submitted: false });
+  assert.deepEqual(r.log.closed, []);
+});
+
+test("relogin: the target id comes first, a not-login page is not typed into and only its own tab is closed", async () => {
+  const r = reloginDeps({ answers: ["complete", PROBE_NOT] });
+  assert.deepEqual(await runRelogin(r.deps), { result: "not_login_page", submitted: false });
+  assert.deepEqual(r.hlog.lines[0], { relogin_target: "N1" });
+  assert.deepEqual(r.log.closed, ["N1"]);
+  assert.equal(typing(r.hlog), 0);
+});
+
+test("relogin: a rejected password closes the own tab; a login that went through keeps it open", async () => {
+  const bad = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", BAD] });
+  const out = await runRelogin(bad.deps);
+  assert.equal(out.submitted, true);
+  assert.deepEqual(bad.log.closed, ["N1"]);
+  assert.equal(typing(bad.hlog), 1);
+  const ok = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", seen({ href: LIVE_URL, hasPassword: false })] });
+  const done = await runRelogin(ok.deps);
+  assert.equal(done.url, LIVE_URL);
+  assert.deepEqual(ok.log.closed, []);
+});
+
+test("relogin: the own deadline ends it, closes the own tab and says unknown once the form may have gone", async () => {
+  const r = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", SAME] });
+  r.deps.wait = () => new Promise((res) => setTimeout(res, 5)); // real time, so the deadline fires while the page is watched
+  r.deps.now = () => 0; // the 15 s watch never ends by itself
+  r.deps.deadlineMs = 50;
+  assert.deepEqual(await runRelogin(r.deps), { result: "unknown", submitted: true });
+  assert.deepEqual(r.log.closed, ["N1"]);
+});
+
+test("the save-time login never opens or closes a tab (no --relogin)", async () => {
+  const h = harness({ answers: [PROBE_NOT] });
+  let opened = 0;
+  h.deps.open = async () => { opened += 1; };
+  await runLogin(h.deps);
+  assert.equal(opened, 0);
+  // the real guard: without --relogin the command runs runLogin, which has no tab-opening step
+  assert.equal(loginRunner(["node", "cdp.mjs", "login"]), runLogin);
+  assert.equal(loginRunner(["node", "cdp.mjs", "login", "--relogin"]), runRelogin);
+});
+
+test("end to end --relogin: own tab opened at Merimen's start page, typed once, closed after a rejection; the other tab is never touched", async () => {
+  const f = loginForm();
+  const page = fakePage({ elements: f.elements });
+  const chrome = await fakeChrome(page, {
+    relogin: true,
+    onSent: (pg) => setTimeout(() => {
+      pg.location.href = LOGIN_URL + "?msg=bad&token=QUERYTOKEN123";
+      pg.document.querySelector = (sel) => (sel.startsWith(".error") ? { innerText: "Invalid User ID or password" } : sel === "input[type=password]" ? f.pass : null);
+    }, 1500),
+  });
+  try {
+    const r = await runLoginCommand(chrome.port, ["--relogin"]);
+    assert.equal(r.status, 0);
+    assert.deepEqual(r.lines[0], { relogin_target: "T1" });
+    assert.equal(chrome.opened.length, 1);
+    assert.equal(chrome.opened[0].method, "PUT");
+    assert.ok(chrome.opened[0].url.endsWith("?https://www.merimen.com.my/claims/index.cfm"));
+    assert.deepEqual(chrome.closed, ["T1"]);
+    assert.equal(f.button.clicks, 1);
+    assert.doesNotMatch(r.stdout + r.stderr, /s3cret/);
+    assert.doesNotMatch(r.stderr, /QUERYTOKEN123|CFID/); // nothing about the address is logged
+  } finally {
+    chrome.server.close();
+  }
+});
+
+test("relogin: an unread answer is checked once on the OWN tab; a logged-in own tab comes back as a read page and stays open", async () => {
+  const r = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", new Error("gone"), seen({ href: LIVE_URL, hasPassword: false })] });
+  let calls = 0;
+  r.deps.tabs = async () => { calls += 1; return calls > 2 ? [{ id: "N1", type: "page", url: LIVE_URL, webSocketDebuggerUrl: "ws://n1" }] : [{ id: "N1", type: "page", url: LOGIN_URL, webSocketDebuggerUrl: "ws://n1" }]; };
+  r.deps.now = (() => { let t = 0; return () => (t += 20000); })(); // the 15 s watch ends at once
+  const out = await runRelogin(r.deps);
+  assert.equal(out.url, LIVE_URL);
+  assert.deepEqual(r.log.closed, []);
+});
+
+test("relogin: a tab made although the open answer was lost is closed; tabs that were there are not", async () => {
+  const log = { closed: [] };
+  let made = false;
+  const deps = {
+    port: 9222, cred: { username: "abuser", password: "s3cret" },
+    tabs: async () => [{ id: "OLD", type: "page", url: LOGIN_URL }, ...(made ? [{ id: "NEW", type: "page", url: LOGIN_URL }] : [])],
+    open: async () => { made = true; throw new Error("slow answer"); },
+    close: async (_p, id) => { log.closed.push(id); },
+    attach: async () => { throw new Error("never"); },
+    wait: async () => {}, now: () => 0, emit: () => {},
+  };
+  assert.deepEqual(await runRelogin(deps), { offline: true, submitted: false });
+  assert.deepEqual(log.closed, ["NEW"]);
+});
+
+test("relogin: a lost open answer never closes a new tab that is not exactly the start page (a person's logged-in tab)", async () => {
+  const log = { closed: [] };
+  let made = false;
+  const deps = {
+    port: 9222, cred: { username: "abuser", password: "s3cret" },
+    tabs: async () => (made ? [{ id: "PERSON", type: "page", url: LIVE_URL }, { id: "Q", type: "page", url: LOGIN_URL + "?fusebox=x" }] : []),
+    open: async () => { made = true; throw new Error("slow answer"); },
+    close: async (_p, id) => { log.closed.push(id); },
+    attach: async () => { throw new Error("never"); },
+    wait: async () => {}, now: () => 0, emit: () => {},
+  };
+  assert.deepEqual(await runRelogin(deps), { offline: true, submitted: false });
+  assert.deepEqual(log.closed, []);
+});
+
+test("relogin: the last page tab is never closed (that would close the Chrome window)", async () => {
+  const closed = [];
+  const one = async () => [{ id: "OWN", type: "page", url: LOGIN_URL }];
+  assert.equal(await closeIfNotLast(9222, "OWN", { tabs: one, close: async (_p, id) => closed.push(id) }), false);
+  const two = async () => [{ id: "OWN", type: "page", url: LOGIN_URL }, { id: "X", type: "page", url: LIVE_URL }];
+  assert.equal(await closeIfNotLast(9222, "OWN", { tabs: two, close: async (_p, id) => closed.push(id) }), true);
+  const bg = async () => [{ id: "OWN", type: "page", url: LOGIN_URL }, { id: "SW", type: "service_worker", url: "x" }];
+  assert.equal(await closeIfNotLast(9222, "OWN", { tabs: bg, close: async (_p, id) => closed.push(id) }), false);
+  assert.deepEqual(closed, ["OWN"]);
+});
+
+test("relogin: once the deadline fired nothing is typed any more", async () => {
+  const r = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", SAME] });
+  r.deps.wait = () => new Promise((res) => setTimeout(res, 30)); // the load wait outlives the deadline
+  r.deps.deadlineMs = 10;
+  assert.deepEqual(await runRelogin(r.deps), { offline: true, submitted: false });
+  await new Promise((res) => setTimeout(res, 100));
+  assert.equal(typing(r.hlog), 0);
+  assert.deepEqual(r.log.closed, ["N1"]);
 });

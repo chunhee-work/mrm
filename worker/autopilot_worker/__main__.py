@@ -253,6 +253,15 @@ def _mail(to: str, subject: str, html: str) -> None:
         return
 
 
+def pick_merimen_page(pages):
+    """The page used for screenshots (non-strict): a logged-in Merimen tab first, because after a re-login (plan #133) an old
+    login-page tab may still be open beside it; else the first Merimen tab; else None."""
+    from .chrome import is_logged_in_url
+
+    merimen = [pg for pg in pages if "merimen.com.my" in (pg.url or "")]
+    return next((pg for pg in merimen if is_logged_in_url(pg.url or "")), merimen[0] if merimen else None)
+
+
 def _page_provider(cfg: Config):
     """The Merimen tab of the worker Chrome for an org, through Playwright over the local debugging port.
     Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
@@ -277,10 +286,7 @@ def _page_provider(cfg: Config):
 
                 found = [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
                 return found[0] if len(found) == 1 else None
-            for ctx in browser.contexts:
-                for page in ctx.pages:
-                    if "merimen.com.my" in (page.url or ""):
-                        return page
+            return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
         except Exception:
             old = state.pop(port, None)
             if old:
@@ -394,9 +400,10 @@ def main() -> None:
         except ValueError:
             master = b""
 
-    from .login_flow import script_fetch
+    from .login_flow import relogin_fetch as _relogin_fetch, script_fetch
 
     fetch_page = script_fetch(script)  # fetch_page(user, password, port): one run of `cdp.mjs login` per check, on the org's own Chrome
+    relogin_fetch = _relogin_fetch(script) if cfg.merimen_relogin else None  # MERIMEN_RELOGIN: `cdp.mjs login --relogin`, own fresh tab
 
     def put_blob(path: str, data: bytes) -> None:
         from .blobstore import blob_put
@@ -422,7 +429,7 @@ def main() -> None:
         try:
             tick(cfg, repo, launch=_launch, inspect=_inspect, namer=namer, driver=driver, download=download, keep=_keep, fetch_page=fetch_page, master=master,
                  page_for=page_for if shots else None, put_blob=put_blob if shots else None, delete_blob=delete_blob if shots else None, side_check=side_check,
-                 forget_files=forget_files)
+                 forget_files=forget_files, relogin_fetch=relogin_fetch)
         except Exception as e:
             print(tick_error_line(e), file=sys.stderr)
         time.sleep(cfg.poll_seconds)

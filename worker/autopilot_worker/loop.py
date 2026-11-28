@@ -9,7 +9,7 @@ import threading
 import time
 
 from .cdp_client import page_block
-from .chrome import chrome_argv, chrome_running, login_notice, next_status, profile_dir
+from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
 from .config import Config, account_for
 from .db import DbError
 from .pipeline import Driver, Outcome, followup_steps, handle_job
@@ -136,7 +136,15 @@ _launched: dict[int, float] = {}
 LAUNCH_WAIT = 30.0
 
 
-def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running) -> None:
+# what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
+TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending")
+
+
+def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running, relogin=None) -> None:
+    """relogin(org, port) -> outcome word: MERIMEN_RELOGIN. At most ONE real try per tick, only when that org's Chrome answers, no
+    tab of it is logged in, and its gate (settings + consent) is "ready". Whether the saved login is ok and not blocked is checked
+    inside the booking (the `cred` refusal), never here. Orgs tried longest ago go first."""
+    want_relogin: list[tuple[str, int]] = []
     if cfg.ext_connect:
         repo.ensure_sessions()  # a ready org (login ok + consent) gets its row; with EXT_CONNECT off nothing is asked for
     for row in repo.wanted():
@@ -163,18 +171,45 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 launch(argv)
         if not info:
             repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="not_logged_in")
-            login_notice(cfg.state_dir)
+            if not relogin:  # with re-login active nobody is asked to log in by hand (owner 2026-11-28)
+                login_notice(cfg.state_dir)
+            else:
+                clear_login_notice(cfg.state_dir)  # an old notice from before the switch would mislead
             continue
         reason = page_block(info)
         status = next_status(row["status"] or "idle", reason is None)
         if reason is None:
             keep(port)
+            if relogin and row.get("status") != "connected":
+                repo.seen_connected(org)  # ends an open put-back streak, however Chrome was fixed
+                from .relogin import clear_detail
+
+                clear_detail(org)
         else:
-            login_notice(cfg.state_dir)
+            if not relogin:  # with re-login active nobody is asked to log in by hand (owner 2026-11-28)
+                login_notice(cfg.state_dir)
+            else:
+                clear_login_notice(cfg.state_dir)  # an old notice from before the switch would mislead
+            if relogin and reason == "not_logged_in":
+                want_relogin.append((org, port))
+                from .relogin import detail_for
+
+                reason = detail_for(org) or reason
         repo.set_session(org, status=status, wanted="start", account=account, port=port, detail=reason)
+    if relogin and want_relogin:
+        # orgs tried longest ago first; a refused or throttled org hands the turn to the next one, so one stopped org never starves
+        # the others. Still at most ONE real try per tick.
+        ports = dict(want_relogin)
+        try:
+            order = repo.relogin_order([o for o, _ in want_relogin])
+        except Exception:  # noqa: BLE001  (a DB error here must not abort the tick; the booking itself still decides)
+            order = [o for o, _ in want_relogin]
+        for org in order:
+            if relogin(org, ports[org]) in TRIED:
+                break
 
 
-def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic, forget_files=None) -> str | None:
+def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic, forget_files=None, relogin_fetch=None) -> str | None:
     _at("heartbeat")
     repo.heartbeat(cfg.worker_id, cfg.hf_repo, chrome_ok=True)
     if cfg.merimen_login and fetch_page and master:
@@ -185,7 +220,18 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     _at("cleanup")
     maybe_cleanup(cfg, repo, delete_blob)
     _at("session_sync")
-    sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep, now=now)
+    relogin = None
+    if cfg.merimen_relogin and cfg.merimen_login and relogin_fetch and master:
+        from .relogin import try_once
+
+        def relogin(org: str, port: int):
+            return try_once(cfg, repo, org, port, fetch_page=relogin_fetch, master=master, now=now)
+
+        from .relogin import retry_pending
+
+        retry_pending(cfg, repo)  # a try whose outcome write failed is written before anything else
+
+    sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep, now=now, relogin=relogin)
     _at("followup_cases")
     for case, jobs in repo.followup_cases():
         if repo.gate(case["org_id"], env_on=cfg.ext_connect) != "ready":

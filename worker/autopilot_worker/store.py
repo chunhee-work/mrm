@@ -66,6 +66,36 @@ RETURNING org_id
 """
 
 
+def pause_statements(org_id: str, event: str, *, only_if_state: str | None = None) -> list[tuple[str, object]]:
+    """Pause the org's Merimen jobs and move its open cases to waiting_user with one case event. Shared by the save-time check
+    (store.finish_verify) and the re-login (relogin.py). only_if_state: run only while the login row is in that state AND blocked,
+    so a re-login whose guarded block did not change the row (the user saved again meanwhile) pauses nothing."""
+    p = {"org": org_id, "event": str(event)[:400], "state": only_if_state}
+    # updated_at = now(): the row was blocked by THIS transaction (now() is the transaction's start), not by an earlier check
+    guard = (" AND EXISTS (SELECT 1 FROM merimen_credentials WHERE org_id = %(org)s AND verify_state = %(state)s AND blocked AND updated_at = now())"
+             if only_if_state else "")
+    return [
+        (
+            """
+            UPDATE jobs SET state = 'paused', locked_by = NULL, locked_at = NULL
+            WHERE state IN ('queued', 'running') AND step IN ('phase_a', 'phase_b', 'checks')
+              AND case_id IN (SELECT id FROM cases WHERE org_id = %(org)s)""" + guard,
+            p,
+        ),
+        (
+            """
+            WITH moved AS (
+              UPDATE cases SET status = 'waiting_user'
+              WHERE org_id = %(org)s AND deleted_at IS NULL AND status IN ('phase_a', 'phase_b', 'checking')""" + guard + """
+              RETURNING id
+            )
+            INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %(event)s FROM moved
+            """,
+            p,
+        ),
+    ]
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -651,25 +681,7 @@ class PgRepo:
         if not live:
             st.append(("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, "login_" + str(decision["verify_state"])[:40])))
         if decision.get("pause"):
-            st.append((
-                """
-                UPDATE jobs SET state = 'paused', locked_by = NULL, locked_at = NULL
-                WHERE state IN ('queued', 'running') AND step IN ('phase_a', 'phase_b', 'checks')
-                  AND case_id IN (SELECT id FROM cases WHERE org_id = %s)
-                """,
-                (org_id,),
-            ))
-            st.append((
-                """
-                WITH moved AS (
-                  UPDATE cases SET status = 'waiting_user'
-                  WHERE org_id = %s AND deleted_at IS NULL AND status IN ('phase_a', 'phase_b', 'checking')
-                  RETURNING id
-                )
-                INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM moved
-                """,
-                (org_id, event),
-            ))
+            st.extend(pause_statements(org_id, event))
         if decision.get("resume"):
             st.append((
                 """
@@ -716,3 +728,76 @@ class PgRepo:
 
     def mark_screenshot_deleted(self, row_id: str) -> None:
         self.db.execute("UPDATE case_screenshots SET deleted_at = now() WHERE id = %s AND deleted_at IS NULL", (row_id,))
+
+    # ---- re-login (MERIMEN_RELOGIN, plan #133). Every action string here is fixed; nothing from a page is stored. ----
+
+    def relogin_order(self, orgs: list[str]) -> list[str]:
+        """Orgs whose re-login was tried longest ago (or never) first, so no org waits behind another (D9)."""
+        if len(orgs) < 2:
+            return list(orgs)
+        rows = self.db.execute(
+            "SELECT org_id, max(at) FROM merimen_cred_audit WHERE action = 'relogin_try' AND org_id = ANY(string_to_array(%s::text, %s::text)) GROUP BY org_id",
+            ("\n".join(orgs), "\n"),
+        )
+        last = {r[0]: str(r[1]) for r in rows}
+        return sorted(orgs, key=lambda o: (o in last, last.get(o, "")))
+
+    def book_relogin(self, org_id: str) -> dict:
+        """One transaction (db.batch): the advisory lock, the conditional booking row, then a read-only look at why it was refused.
+        {"booked": bool, "reason": None|cred|orphan|cap|streak|unclear_block|cooldown|db_error, "streak_first": bool,
+        "try_id": the booked row's id (only when booked)}."""
+        from .relogin import booking_statements, read_refusal
+
+        res = self.db.batch(booking_statements(org_id))
+        return read_refusal(res)
+
+    def seen_connected(self, org_id: str) -> None:
+        """One `session_seen_connected` row, only while a re-login episode is open (a put-back streak, an unclear answer, a cap):
+        however Chrome was fixed, re-login is back on (G2)."""
+        from .relogin import seen_connected_statement
+
+        self._audit_sql(*seen_connected_statement(org_id))
+
+    def audit(self, org_id: str, action: str) -> None:
+        """Public form of _audit for other modules (relogin.py): one fixed-string row that nothing depends on. A failure logs
+        `relogin audit row skipped: <error class>`, like seen_connected."""
+        self._audit_sql("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, action[:60]))
+
+    def _audit_sql(self, sql: str, params) -> None:
+        try:
+            self.db.execute(sql, params)
+        except Exception as e:  # noqa: BLE001
+            print("relogin audit row skipped:", type(e).__name__, file=sys.stderr, flush=True)
+
+    def outcome_written(self, org_id: str, try_id) -> bool:
+        from .relogin import outcome_written_statement
+
+        return bool(self.db.execute(*outcome_written_statement(org_id, try_id)))
+
+    def relogin_unclear_in_a_row(self, org_id: str) -> int:
+        from .relogin import unclear_count_statement
+
+        rows = self.db.execute(*unclear_count_statement(org_id))
+        return int(rows[0][0]) if rows else 0
+
+    def finish_relogin(self, org_id: str, statements: list[tuple[str, object]]) -> list[list[tuple]]:
+        return self.db.batch(statements)
+
+    def book_mail(self, org_id: str, kind: str) -> bool:
+        from .relogin import mail_booking_statement
+
+        return bool(self.db.execute(*mail_booking_statement(org_id, kind)))
+
+    def relogin_cred(self, org_id: str) -> dict | None:
+        """The saved login, read the same way as at save time, only while it is ok and not blocked. Never logged."""
+        rows = self.db.execute(
+            """
+            SELECT org_id, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, password_nonce
+            FROM merimen_credentials WHERE org_id = %s AND verify_state = 'ok' AND NOT blocked
+            """,
+            (org_id,),
+        )
+        if not rows:
+            return None
+        keys = ("org_id", "wrapped_dek", "dek_nonce", "username_ct", "username_nonce", "password_ct", "password_nonce")
+        return dict(zip(keys, rows[0]))
