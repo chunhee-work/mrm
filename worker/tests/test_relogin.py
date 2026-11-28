@@ -22,6 +22,7 @@ def _fresh():
     loop._launched.clear()
     yield
     relogin.reset()
+    loop._launched.clear()
 
 
 def cfg(tmp_path, **extra):
@@ -439,6 +440,7 @@ def test_a_logged_in_tab_is_kept_while_its_write_is_pending(tmp_path):
     closed = []
     out, _, _ = go(tmp_path, Flaky(), {**OK_PAGE, "relogin_target": "T5"}, closed=closed)
     assert out == "pending" and closed == []
+    assert relogin._own_tab["o1"] == "T5"  # remembered, so the next try's close_kept_tab looks at it
 
 
 def test_the_booking_takes_the_advisory_lock_first():
