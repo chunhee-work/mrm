@@ -65,10 +65,17 @@ export default function CaseFiles({ caseId, files: all, testid, only, look = "la
     if (!open && d.open) d.close();
   }, [open]);
   // back on the list: the same place in it as before the file was opened
-  useEffect(() => { if (at === null && scroller.current) scroller.current.scrollTop = listTop.current; }, [at]);
+  // and the keyboard on the file it came from, so focus never falls out of the window
+  const lastAt = useRef<number | null>(null);
+  useEffect(() => {
+    if (at !== null) { lastAt.current = at; return; }
+    if (scroller.current) scroller.current.scrollTop = listTop.current;
+    const i = lastAt.current; lastAt.current = null;
+    if (i !== null) scroller.current?.querySelectorAll<HTMLElement>('[data-testid="files-item"]')[i]?.focus({ preventScroll: true });
+  }, [at]);
 
   const show = (i: number) => { if (at === null && scroller.current) listTop.current = scroller.current.scrollTop; setAt(i); };
-  const close = () => { setOpen(false); setAt(null); listTop.current = 0; };
+  const close = () => { setOpen(false); setAt(null); listTop.current = 0; lastAt.current = null; };
   const cur = at !== null ? files[at] ?? null : null;
   // the list was read again while a file is shown and that file is gone: back to the list
   useEffect(() => { if (at !== null && !files[at]) setAt(null); }, [at, files]);

@@ -815,6 +815,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
       if (embedded && !(el && root.current?.contains(el)) && !(el === document.body && active.current)) return;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (palette || moveId != null || help) return;
+      // a window open over the page (the case's Files): the desk behind it takes no keys
+      if (embedded && document.querySelector("dialog[open]")) return;
       const key = e.key;
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && key.toLowerCase() === "z") { e.preventDefault(); void undoLast(); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
