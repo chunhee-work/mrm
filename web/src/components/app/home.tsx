@@ -390,14 +390,16 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
     const top = el.getBoundingClientRect().top;
     if (top < 0 || top > window.innerHeight * 0.6) el.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [open]);
-  // wide screens: vehicle | steps | action | arrow. The step and action tracks give way before the vehicle no. does.
+  // wider than a phone: vehicle | steps | action | arrow. The step and action tracks give way before the vehicle no. does.
   const act = useAct();
-  const COLS = "xl:grid xl:grid-cols-[minmax(150px,1fr)_260px_220px_20px] xl:items-center xl:gap-x-6";
+  // owner 2026-11-29: the line is one row on every screen wider than a phone (tablet and laptop too); only a phone stacks it.
+  // Tablet and small laptop: narrower step and action tracks, so the case info keeps its room.
+  const COLS = "md:grid md:grid-cols-[minmax(170px,1fr)_240px_160px_20px] md:items-center md:gap-x-4 xl:grid-cols-[minmax(150px,1fr)_260px_220px_20px] xl:gap-x-6";
   return (
     <section aria-labelledby="open-title" className="sheet overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-open">
-      <div className={`border-b border-hair bg-panel2 px-4 py-3 xl:px-5 ${COLS}`}>
+      <div className={`border-b border-hair bg-panel2 px-4 py-3 md:px-5 ${COLS}`}>
         <h2 id="open-title" className="whitespace-nowrap text-[15px] font-semibold leading-none text-fg">{t("tray.open")} <span className="num ml-1 font-mono text-[13px] font-medium text-mute">{total}</span></h2>
-        <StepHeads className="mt-3 pr-8 text-[12px] font-medium text-mute xl:mt-0 xl:pr-0" />
+        <StepHeads className="mt-3 pr-8 text-[12px] font-medium text-mute md:mt-0 md:pr-0 md:text-[11.5px] md:[&>span]:[overflow-wrap:normal] xl:text-[12px]" />
       </div>
       {rows.length === 0 ? <Empty needle={needle} blocked={blocked} /> : (
         <ul className={open ? "" : "max-h-[min(680px,72vh)] overflow-y-auto overscroll-contain"} data-testid="home-list">
@@ -405,21 +407,21 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
             const on = open === r.id;
             return (
               <li key={r.id} className="scroll-mt-20 border-b border-hairsoft last:border-b-0" data-line={r.id} data-bucket={bucketOf(r)} data-open={on || undefined}>
-                <div className={`relative px-4 py-3 transition-colors duration-150 hover:bg-panel2 xl:px-5 ${on ? "bg-panel2" : ""} ${COLS}`}>
+                <div className={`relative px-4 py-3 transition-colors duration-150 hover:bg-panel2 md:px-5 ${on ? "bg-panel2" : ""} ${COLS}`}>
                   {/* the whole line is one button that opens the details; the action button sits on top of it */}
                   <button
                     type="button" aria-expanded={on} aria-controls={`more-${r.id}`} onClick={() => toggle(on ? null : r.id)}
                     aria-label={`${r.plate || r.firstFile || t("dash.noPlate")}: ${t(on ? "tray.more.hide" : "tray.more.show")}`}
                     className="absolute inset-0 z-0 w-full rounded-none outline-offset-[-2px]" data-testid="home-row"
                   />
-                  <div className="pointer-events-none relative flex items-start justify-between gap-3 xl:contents">
+                  <div className="pointer-events-none relative flex items-start justify-between gap-3 md:contents">
                     <Who r={r} team={team} />
-                    <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 xl:order-4 xl:mt-0 xl:col-start-4 xl:row-start-1 ${on ? "" : "-rotate-90"}`} />
+                    <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 md:order-4 md:mt-0 md:col-start-4 md:row-start-1 ${on ? "" : "-rotate-90"}`} />
                   </div>
-                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r)} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
+                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r)} className="pointer-events-none relative my-3 pr-8 md:my-0 md:pr-0" />
                   {/* while the line is open the job is right below it: the button would only say it twice.
                       A job for the user: a wide button under the steps (on wide screens across the step and action columns) */}
-                  <div className={`pointer-events-none relative flex ${!on && act(r).kind ? "xl:col-span-2 xl:col-start-2 xl:mt-3" : "xl:justify-end"}`}>{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
+                  <div className={`pointer-events-none relative flex ${!on && act(r).kind ? "md:col-span-2 md:col-start-2 md:mt-3" : "md:justify-end"}`}>{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
                 </div>
                 {on && <More r={r} orgId={orgId} onDesk={onDesk} workshops={workshops} ctl={ctl} />}
               </li>
@@ -428,7 +430,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
         </ul>
       )}
       {total > rows.length && !needle && (
-        <Link href="/dashboard?view=open" className="block border-t border-hair px-4 py-3 text-[14px] font-semibold text-fg hover:bg-panel2 xl:px-5">{t("tray.more.all", { n: String(total) })} →</Link>
+        <Link href="/dashboard?view=open" className="block border-t border-hair px-4 py-3 text-[14px] font-semibold text-fg hover:bg-panel2 md:px-5">{t("tray.more.all", { n: String(total) })} →</Link>
       )}
     </section>
   );
