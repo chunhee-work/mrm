@@ -592,11 +592,12 @@ def test_slots_one_keeps_popups_as_tabs_and_slots_keep_a_lone_home_tab_opened_fr
     monkeypatch.setattr(m, "_target_info", info)
     m.STEP_TABS.clear()
     home, linked = FakePage("home"), FakePage("linked", opener="someone")
-    assert m.not_step_tabs([home, linked], info=info, popups=False) == [home, linked]  # WORKER_SLOTS=1: several_tabs as before
-    assert m.not_step_tabs([linked], info=info, popups=False) == [linked]  # slots, one tab: a home tab opened from a link still works
+    assert m.not_step_tabs([home, linked], info=info, chain=False) == [home, linked]  # WORKER_SLOTS=1: several_tabs as before
+    assert m.not_step_tabs([linked], info=info) == [linked]  # slots, one tab: a home tab opened from a link still works
     step = m.HomeTab(home).context.new_page()
     child = FakePage("child", opener=step.tid)
-    assert m.not_step_tabs([child], info=info, popups=False) == []  # a popup of a step tab is never the home tab
+    grandchild = FakePage("grandchild", opener="child")
+    assert m.not_step_tabs([child, grandchild], info=info) == []  # a popup of a step tab (and its popup) is never the home tab
     m.STEP_TABS.clear()
 
 
@@ -662,3 +663,109 @@ def test_any_worker_refuses_to_start_beside_a_slots_worker(tmp_path):
         for f in m._SLOTS_LOCK:
             f.close()
         m._SLOTS_LOCK.clear()
+
+
+# ---------- egm round 1 / plan review round 4 (GPR-150-4, DPR-150-4) ----------
+
+def test_a_tab_a_person_opened_from_the_home_tab_still_stops_the_pick(monkeypatch):
+    from autopilot_worker import __main__ as m
+
+    monkeypatch.setattr(m, "_target_info", info)
+    m.STEP_TABS.clear()
+    home = FakePage("home")
+    by_hand = FakePage("hand-popup", opener="home")  # target=_blank or a middle click from the home tab keeps the opener
+    assert m.not_step_tabs([home, by_hand], info=info) == [home, by_hand]  # two tabs: several_tabs, the #147 safe stop
+    m.STEP_TABS.clear()
+
+
+def test_a_job_end_closes_the_popups_its_step_tabs_left_open(monkeypatch):
+    from autopilot_worker import __main__ as m
+
+    class Pg:
+        def __init__(self, tid, opener=None, ctx=None):
+            self.tid, self.opener, self.closed = tid, opener, False
+            self.context = ctx
+
+        def is_closed(self):
+            return self.closed
+
+        def close(self):
+            self.closed = True
+
+    class Ctx:
+        pages: list = []
+
+    ctx = Ctx()
+    step, pop, other_job, hand = Pg("s1", ctx=ctx), Pg("p1", "s1", ctx), Pg("s2", ctx=ctx), Pg("h", "home", ctx)
+    ctx.pages = [step, pop, other_job, hand]
+    monkeypatch.setattr(m, "_target_info", info)
+    m._job_tabs.pages = [("s1", step)]
+    assert m.end_job_tabs() == 2
+    assert step.closed and pop.closed and not other_job.closed and not hand.closed
+
+
+def test_a_click_or_redirect_to_another_case_stops_the_next_action_and_ends_the_job():
+    import pytest as _pt
+
+    from autopilot_worker import case_guard as g
+
+    handlers = {}
+
+    class Tab:
+        url = "https://www.merimen.com.my/claims/index.cfm?caseid=111"
+
+        def on(self, name, fn):
+            handlers[name] = fn
+
+        def goto(self, url, **k):
+            self.url = url
+
+        def click(self, sel):
+            self.url = "https://www.merimen.com.my/claims/index.cfm?caseid=222"  # a link that led to another case
+
+        def locator(self, sel):
+            return sel
+
+    g.start("111", 5)
+    t = g.guard_page(Tab())
+    t.click("a.next")  # the click itself was on the own case
+    with _pt.raises(g.CaseMismatch):
+        t.locator("#save")  # the next use of the tab stops
+    assert g.mismatched()
+    g.start("111", 6)  # a new job starts clean
+    assert not g.mismatched()
+
+    class Frame:
+        parent_frame = None
+        url = "https://www.merimen.com.my/claims/index.cfm?caseid=333"
+
+    handlers["framenavigated"](Frame())  # a redirect seen as it happens: the job is marked, run_job ends it as case_mismatch
+    assert g.mismatched()
+
+    class Popup:
+        url = "https://www.merimen.com.my/claims/index.cfm?caseid=111"
+
+        def on(self, name, fn):
+            pass
+
+    g.start("111", 7)
+    handlers["popup"](Popup())
+    assert not g.mismatched()  # a popup on the own case is fine
+    Popup.url = "https://www.merimen.com.my/claims/index.cfm?caseid=444"
+    handlers["popup"](Popup())
+    assert g.mismatched()
+    g.stop()
+
+
+def test_every_driver_attribute_has_a_threading_model():
+    import re as _re
+    from pathlib import Path
+
+    from autopilot_worker import __main__ as m
+    from autopilot_worker.pool import PER_JOB, SHARED
+
+    names = set(m._CdpDriver("s").__dict__)
+    src = Path(m.__file__).read_text() + Path(m.__file__).with_name("loop.py").read_text() + Path(m.__file__).with_name("pipeline.py").read_text()
+    names |= set(_re.findall(r"\bdriver\.([a-z_]+) = ", src))
+    assert names <= SHARED | PER_JOB, names - SHARED - PER_JOB
+    assert not SHARED & PER_JOB

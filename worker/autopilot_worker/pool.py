@@ -113,11 +113,18 @@ class JobPool:
         return True
 
 
+# The threading model of every driver attribute (DPR-150-4 D5). A test fails when the driver or run_job gets an attribute that is in
+# neither list, so a new one is always classified. SHARED: thread-safe, one for all slots. PER_JOB: set again by run_job /
+# handle_job for every job on the slot's own copy, so two jobs never see each other's.
+SHARED = frozenset({"script", "page_for", "jev", "step2_reviewer", "fetch_bytes", "strict_tabs"})
+PER_JOB = frozenset({"case", "progress", "profile", "marks", "record", "workshop", "guard", "relogin_ready"})
+
+
 def slot_driver(base):
     """A shallow copy of the main driver for one slot thread. The shared parts (page provider, Jev, the Step 2 reviewer, fetch_bytes)
     are thread-safe; per-job attributes are set on the copy by run_job / handle_job, so two jobs never see each other's case."""
     d = copy.copy(base)
-    for attr in ("case", "progress", "profile", "marks", "record", "workshop", "guard"):
+    for attr in PER_JOB:
         if attr in d.__dict__:
             d.__dict__.pop(attr)
     d.profile = lambda: None

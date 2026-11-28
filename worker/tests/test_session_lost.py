@@ -741,6 +741,8 @@ def test_jobs_that_find_the_same_logout_side_by_side_count_once_for_the_org_cap(
     """WORKER_SLOTS > 1 (plan #150): several running jobs meet ONE logout within SAME_LOGOUT; that is one logout, not several."""
     on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on", WORKER_SLOTS="3")
     retry = Outcome("requeue", error="report", event="Phase A not saved")
+    for st in (loop.ORG_PUTBACKS, loop.FORCE_RELOGIN, loop.RELOGIN_OK, loop.HELD_PAUSED, loop.RELOGIN_HELD, loop.HOLD_KIND):
+        st.clear()  # earlier tests used the real clock; these use a fixed one (a host up longer than t would mix them)
     t = [5000.0]
     for i in range(loop.ORG_CAP + 2):  # more jobs than the cap, all in the same minute
         got = loop.check_session_after(on, CountRepo(), {**JOB, "case_id": f"s{i}"}, retry, inspect=lambda p: LOGIN_PAGE,
@@ -755,6 +757,8 @@ def test_a_second_job_meeting_the_logout_just_counted_never_pushes_the_org_over_
     are put back and the org is not held."""
     on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on", WORKER_SLOTS="2")
     retry = Outcome("requeue", error="report", event="Phase A not saved")
+    for st in (loop.ORG_PUTBACKS, loop.FORCE_RELOGIN, loop.RELOGIN_OK, loop.HELD_PAUSED, loop.RELOGIN_HELD, loop.HOLD_KIND):
+        st.clear()  # earlier tests used the real clock; these use a fixed one (a host up longer than t would mix them)
     t = [9000.0]
     loop.ORG_PUTBACKS["o1"] = [t[0] - 3000 + 600 * i for i in range(loop.ORG_CAP - 1)]  # earlier, separate logouts
     for i in range(2):

@@ -7,6 +7,7 @@ import os
 import subprocess
 from dataclasses import replace
 import sys
+import threading
 import time
 
 from .config import Config, account_for
@@ -231,9 +232,10 @@ _SLOTS_LOCK: list = []  # the open lock file, held for the life of the process
 
 
 def _one_slots_process(cfg: Config, *, hold: bool = True) -> bool:
-    """WORKER_SLOTS > 1 is supported for ONE worker process per state folder (its Chrome, its create lock, its step tabs).
-    hold: a second one refuses to start (plan #150 DPR-150-3 D1 / GPR-150-3 G6); the lock ends with the process, also on a kill.
-    Not hold (WORKER_SLOTS=1): False while a slots worker runs, so its tabs are left alone; the lock is not kept."""
+    """ONE worker process per state folder (its Chrome, its create lock, its step tabs), in every mode since GPR-150-4 G7: a
+    second one would close the first one's step tabs at its start. hold: the lock is kept for the life of the process and a second
+    worker refuses to start (plan #150 DPR-150-3 D1 / GPR-150-3 G6); it ends with the process, also on a kill.
+    Not hold: only asks (False while another worker holds it); the lock is not kept."""
     import fcntl
 
     os.makedirs(cfg.state_dir or ".", exist_ok=True)
@@ -244,7 +246,7 @@ def _one_slots_process(cfg: Config, *, hold: bool = True) -> bool:
         f.close()
         if not hold:
             return False
-        raise SystemExit("another worker with WORKER_SLOTS above 1 is running on this machine (same WORKER_STATE): only one is supported; stop it first")
+        raise SystemExit("another worker is running on this machine with the same WORKER_STATE: only one is supported; stop it first")
     if hold:
         _SLOTS_LOCK.append(f)
     else:
@@ -438,6 +440,20 @@ def end_job_tabs() -> int:
     pages = getattr(_job_tabs, "pages", [])
     _job_tabs.pages = []
     closed = 0
+    own = {tid for tid, _pg in pages if tid}
+    for _tid, pg in pages:  # first the popups its step tabs opened and left open (a popup's chain leads to an own tab)
+        try:
+            if pg.is_closed():
+                continue
+            others = [(p, _target_info(p)) for p in pg.context.pages]
+            kids = _descendants([(str(t.get("targetId") or ""), str(t.get("openerId") or "")) for _p, t in others], own) - own
+            for p, t in others:
+                if str(t.get("targetId") or "") in kids and not p.is_closed():
+                    p.close()
+                    closed += 1
+        except Exception:  # noqa: BLE001
+            pass
+        break  # one context holds them all
     for tid, pg in pages:
         try:
             if not pg.is_closed():
@@ -453,18 +469,29 @@ def end_job_tabs() -> int:
     return closed
 
 
-def not_step_tabs(pages, info=_target_info, *, popups: bool = True) -> list:
-    """The session tabs that are not a step tab of this worker (a recorded id) and not a popup a step tab opened.
-    popups: also leave out every other popup (a tab with an opener). Off, such a tab still counts, as before #150."""
-    out = []
-    for pg in pages:
-        t = info(pg)
-        opener = str(t.get("openerId") or "")
-        with _STEP_TABS_LOCK:
-            mine = str(t.get("targetId") or "") in STEP_TABS or (opener and opener in STEP_TABS)
-        if not mine and not (popups and opener):
-            out.append(pg)
+def _descendants(pairs, roots: set) -> set:
+    """Target ids whose opener chain leads to one of roots (a popup a step tab opened, a popup of that popup...)."""
+    out = set(roots)
+    grew = True
+    while grew:
+        grew = False
+        for tid, opener in pairs:
+            if tid and tid not in out and opener and opener in out:
+                out.add(tid)
+                grew = True
     return out
+
+
+def not_step_tabs(pages, info=_target_info, *, chain: bool = True) -> list:
+    """The session tabs that are not a step tab of this worker (a recorded id). chain (WORKER_SLOTS > 1): nor a tab whose opener
+    chain leads to a step tab (its popups). Any other tab counts, also one a person opened from the home tab or from a link
+    (GPR-150-4 G5): two of them stop the strict pick with several_tabs, as #147 does. Off (WORKER_SLOTS=1): popups count, as before."""
+    infos = [(pg, str((t := info(pg)).get("targetId") or ""), str(t.get("openerId") or "")) for pg in pages]
+    with _STEP_TABS_LOCK:
+        mine = set(STEP_TABS)
+    if chain:
+        mine = _descendants([(tid, op) for _pg, tid, op in infos], mine)
+    return [pg for pg, tid, _op in infos if not (tid and tid in mine)]
 
 
 class _StepContext:
@@ -596,9 +623,14 @@ def _page_provider(cfg: Config):
 
         return [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
 
-    def page_for(org_id: str, strict: bool = False):
+    def page_for(org_id: str, strict: bool = False, own_only: bool = False):
         """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address,
         no password box on the page); none or several = None, so the case waits instead of opening the form with a guessed session."""
+        if own_only:  # a milestone screenshot with slots: only this job's own open step tab shows its case (GPR-150-4 G4)
+            own = own_open_step_tab()
+            if own is None:
+                print(f"{threading.current_thread().name} screenshot skipped: no step tab of this job is open", file=sys.stderr, flush=True)
+            return own
         try:
             _port, browser = _browser(org_id)
             if browser is None:
@@ -610,12 +642,12 @@ def _page_provider(cfg: Config):
 
                     login_seen.mark()  # Merimen is open but no tab has the session marks: logged out (as merimen_docs does)
                 if slots > 1 and found:
-                    # another job's step tab (or a popup it opened) is never the home tab, even when it is the only one left; other
-                    # popups are left out only when there are several tabs, so a home tab opened from a link still works (plan #150)
-                    found = not_step_tabs(found, popups=len(found) > 1)
+                    # another job's step tab (or a popup it opened) is never the home tab, even when it is the only one left; any
+                    # other tab still counts, also a popup a person opened (GPR-150-4 G5)
+                    found = not_step_tabs(found)
                 elif len(found) > 1:
                     # WORKER_SLOTS=1: only a step tab id the last slots run left is left out; popups count as before #150
-                    found = not_step_tabs(found, popups=False)
+                    found = not_step_tabs(found, chain=False)
                 if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
                     found = [pg for pg in found if not _login_box(pg)]
                     if not found:  # every tab with the session marks shows the login form: logged out
@@ -652,7 +684,7 @@ def _page_provider(cfg: Config):
                 return None
             pages = _session_pages(browser)
             if slots > 1 and pages:
-                home = not_step_tabs(pages, popups=len(pages) > 1)
+                home = not_step_tabs(pages)
                 if not home:  # only step tabs still have the session marks: the home tab lost them, so the session is gone
                     return [True]
                 pages = home
@@ -800,12 +832,10 @@ def main() -> None:
         except OSError:
             pass
 
-    # step tabs a killed slots run left open are closed by their ids in every mode (also after a roll back to WORKER_SLOTS=1), but
-    # never while another slots worker runs (they are its tabs). With slots this process takes the one-process lock first
-    if _one_slots_process(cfg, hold=cfg.slots > 1):
-        _close_left_step_tabs(cfg)
-    else:  # a worker with slots runs on this state folder: a second worker beside it would claim outside its rules
-        raise SystemExit("a worker with WORKER_SLOTS above 1 is running on this machine (same WORKER_STATE): stop it before starting another worker")
+    # one worker per state folder, in every mode (GPR-150-4 G7): the lock is taken first (a second worker stops here), then the
+    # step tabs a killed run left open are closed by their ids (also after a roll back to WORKER_SLOTS=1)
+    _one_slots_process(cfg)
+    _close_left_step_tabs(cfg)
     if cfg.slots > 1:
         from .pool import JobPool, slot_driver
 

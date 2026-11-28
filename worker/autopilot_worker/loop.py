@@ -611,7 +611,10 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
             case["resumed_after_logout"] = True
     login_seen.reset()
     case_guard.start(case.get("merimen_caseid"), job["id"])
-    shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
+    shot_page = page_for or (lambda _o: None)
+    if getattr(cfg, "slots", 1) > 1 and page_for:  # never the home tab or another job's tab: only this job's own step tab
+        shot_page = lambda o: page_for(o, own_only=True)  # noqa: E731
+    shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=shot_page, put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
 
     def shoot(step: str) -> None:
@@ -669,6 +672,8 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
                         outcome.extra_events = list(side_check(case))[:4]
                     except Exception:  # noqa: BLE001
                         pass
+            if case_guard.mismatched():  # a click, redirect or popup of this job landed on another case (GPR-150-4 G3)
+                raise case_guard.CaseMismatch("case_mismatch")
             for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
                 shoot(step)
         except case_guard.CaseMismatch:
