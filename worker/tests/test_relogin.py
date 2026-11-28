@@ -216,6 +216,8 @@ def go(tmp_path, repo, page, *, mailer=None, now=lambda: 0.0, closed=None):
 
     def fetch(user, password, port):
         fetched.append((user, password, port))
+        if isinstance(page, Exception):
+            raise page
         return page
 
     import autopilot_worker.crypto as crypto
@@ -535,6 +537,15 @@ def test_first_unclear_changes_nothing_and_mails_once(tmp_path):
     relogin.reset()
     repo2 = TryRepo(unclear=0, mailed=0)  # already mailed in this episode
     assert go(tmp_path, repo2, UNREAD)[2] == []
+
+
+def test_a_fetch_that_raises_is_unclear_never_a_put_back(tmp_path):
+    # loop review round 30: a thrown fetch may have typed, so it counts as unclear (never put back, never a free retry)
+    repo = TryRepo(unclear=0)
+    out, fetched, _ = go(tmp_path, repo, RuntimeError("child died"))
+    assert out == "unclear" and len(fetched) == 1
+    assert actions(repo)[:2] == ["relogin_typed", "relogin_unclear"]
+    assert "relogin_put_back" not in actions(repo)
 
 
 def test_second_unclear_in_a_row_stops_like_the_save_time_unknown(tmp_path):

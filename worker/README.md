@@ -12,7 +12,7 @@
 
 ### 自动重新登录（`MERIMEN_RELOGIN=on`，计划 #133）
 
-只要 Chrome 回答了但没有任何标签页登录着 Merimen（例如 worker 或 Chrome 重启后，或 Merimen 把会话踢回登录页）（没有 `/claims/…` 加 `CFID` 和 `RID` 的页面），worker 就用用户在网站上保存的登录**自己**再登录一次。没有人需要手动登录（开关打开、而且 worker 能读到 `MERIMEN_CRED_KEY` 时，worker 不再写「请手动登录」的 `NEED_LOGIN` 提示，开关打开前留下的旧提示也会在 Chrome 没登录时被删掉；开关打开后它又出现，就去查 `MERIMEN_LOGIN=on` 和 `MERIMEN_CRED_KEY`（没设或格式不对都会这样）。默认关；还要 `MERIMEN_LOGIN=on`。代码在 `relogin.py` 和 `cdp.mjs login --relogin`。
+只要 Chrome 回答了但没有任何标签页登录着 Merimen（例如 worker 或 Chrome 重启后，或 Merimen 把会话踢回登录页）（没有 `/claims/…` 加 `CFID` 和 `RID` 的页面），worker 就用用户在网站上保存的登录**自己**再登录一次。没有人需要手动登录（开关打开、而且 worker 能读到 `MERIMEN_CRED_KEY` 时，worker 不再写「请手动登录」的 `NEED_LOGIN` 提示，开关打开前留下的旧提示也会在 Chrome 没登录或调试口不回应时被删掉；开关打开后它又出现，就去查 `MERIMEN_LOGIN=on` 和 `MERIMEN_CRED_KEY`（没设或格式不对都会这样）。默认关；还要 `MERIMEN_LOGIN=on`。代码在 `relogin.py` 和 `cdp.mjs login --relogin`。
 
 - 只在 worker **自己新开的一个标签页**里打字（打开 `https://www.merimen.com.my/claims/index.cfm`），别的标签页不导航、不打字、不关（唯一例外：打开自己的标签页失败时，会关掉这期间新出现、地址正好是起始页的那个标签页）。没登录成功（成功或已登录着都会留下）就把自己的标签页关掉（但绝不关最后一个标签页，那会关掉 Chrome 窗口）；超时被杀时 worker 按标签页 id 关掉它。上次成功留下的自己的标签页，下次重试前如果已经退出登录（仍是 Merimen `/claims/` 页面）会被关掉；但它只记在当前 worker 进程里（重启后就不记得），而且是最后一个标签页时也不关。
 - 只有保存的登录是 `ok` 且没被封、机构的 gate 是 ready（设置 + 同意书）、`EXT_CONNECT=on`、这个机构在 `WORKER_ACCOUNTS` / `WORKER_ORG_ACCOUNTS` 里有账号和端口、worker 能读到 `MERIMEN_CRED_KEY`（密钥不对时照样会试，每 10 分钟写一对 `relogin_try` + `relogin_key_mismatch`，什么都不打）、`worker_sessions` 里这个机构的行是 `wanted='start'`（用户停掉的机构不会试）、Chrome 回答、0 个已登录标签页时才会试。机构映射到 9222（默认，也是现在生产上的情况）时也照样在 9222 那个自动化 Chrome 里试：只用自己新开的标签页，不关窗口；所以不要再在那个窗口里跑 `relogin.mjs` 或手动输密码，那些失败不算在 worker 的限制里。每个 tick 最多一次真正的尝试；被拒的机构把机会让给下一个。
