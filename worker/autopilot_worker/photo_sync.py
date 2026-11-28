@@ -206,7 +206,7 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     alt = {r.get("id"): r.get("model_name") for r in rows if r.get("model_name")}
     k = prefix_done(have, plan, alt) if resumed else 0
     again = merimen.labels(case) if k and writes else have
-    if k and writes and again is None:  # the second read failed: try again later, nothing written
+    if k and writes and (again is None or (have and not again)):  # the second read failed (or read the known empty-list blip): try again later
         rep.action, rep.upload, rep.note, rep.code = "unreadable", 0, "could not read the photos in Merimen", "unreadable"
         return rep
     if k and writes and again != have:

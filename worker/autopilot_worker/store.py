@@ -327,7 +327,7 @@ class PgRepo:
             st.append(("SELECT 1 FROM cases WHERE id = %s FOR UPDATE", (job["case_id"],)))
             if outcome.total_rm:  # the estimate is saved in Merimen either way
                 st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
-        error = outcome.error or ("gave up after %d tries" % attempts if gave_up else None)
+        error = outcome.error or (((outcome.stop_error + ": " if outcome.stop_error else "") + "gave up after %d tries" % attempts) if gave_up else None)
         # a logout put-back that keeps the case number it wrote leaves the case's error as it was
         if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or error:
             st.append((

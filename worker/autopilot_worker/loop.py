@@ -217,7 +217,7 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
     if count >= LOST_CAP:
         lead = f"Merimen logged out {LOST_CAP} times in {LOST_WINDOW}: {phase} is not tried again by itself."
         # a put-back job's own outcome may be a bare requeue (no error, no status): the case still has to show it waits for a person
-        return replace(outcome, job_state="failed", error=outcome.error or "session_lost", case_status=outcome.case_status or "waiting_user",
+        return replace(outcome, job_state="failed", error=outcome.error or outcome.stop_error or "session_lost", case_status=outcome.case_status or "waiting_user",
                        event=(lead + (f" {outcome.event}" if outcome.event else ""))[:400])
     return replace(
         outcome, job_state="requeue", session_lost=True, case_status=None, error=None, enqueue=[], done=False, pending_doc=None,

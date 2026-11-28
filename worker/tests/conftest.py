@@ -9,9 +9,10 @@ import pytest  # noqa: E402
 @pytest.fixture(autouse=True)
 def _fresh_login_seen():
     """The "a step met the login form" mark is per job (loop.tick resets it): every test starts without it."""
-    from autopilot_worker import login_seen, loop
+    from autopilot_worker import login_seen, loop, relogin
 
     login_seen.reset()
+    relogin.reset()
     loop.RELOGIN_HELD.clear()
     loop.FORCE_RELOGIN.clear()
     loop.HELD_PAUSED.clear()
@@ -25,3 +26,5 @@ def _fresh_login_seen():
     loop.HELD_PAUSED.clear()
     loop.ORG_PUTBACKS.clear()
     loop.HOLD_KIND.clear()
+    loop._noted.clear()
+    relogin.reset()

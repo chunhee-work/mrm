@@ -105,6 +105,9 @@ class Outcome:
     # Merimen logged the worker out during the job (owner 2026-11-28): put back WITHOUT using a try, the session marked for a re-login;
     # the job then goes on from where it stopped (every step skips what Merimen already has). Set only by loop.session_lost_outcome
     session_lost: bool = False
+    # a retry that ends the job (tries used up, or the logout cap) leaves this as the case's error: "photos" for a photo list that
+    # could not be read, so Phase B still follows the Done press (a photo-only stop)
+    stop_error: str | None = None
 
 
 def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcome:
@@ -292,7 +295,7 @@ def _photo_stop(phase: str, rep) -> "Outcome | None":
     if rep.code in ("edited", "undone"):
         return Outcome("cancelled", event=event, photo_log=row)
     if rep.code == "unreadable":
-        return Outcome("requeue", event=event)
+        return Outcome("requeue", event=event, stop_error="photos")
     return Outcome("failed", case_status="waiting_user", error="photos", event=event, photo_log=row)
 
 

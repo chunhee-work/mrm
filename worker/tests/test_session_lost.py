@@ -693,3 +693,44 @@ def test_a_stale_tab_seen_while_held_does_not_end_a_failed_streak(tmp_path):
     sync_sessions(cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on"), repo, launch=lambda a: None, inspect=lambda p: LOGGED_IN,
                   relogin=lambda o, p: "ok")
     assert repo.seen == []
+
+
+# ---------- egm round 8 ----------
+
+def test_a_photo_list_that_stays_unreadable_still_lets_phase_b_follow():
+    """Phase A whose photo list could not be read until its tries ran out (or the logout cap) is a photo-only stop: Phase B follows Done."""
+    from test_requeue import applied, job
+    from autopilot_worker.pipeline import _photo_stop, followup_steps
+
+    class Rep:
+        ok, code, photos = False, "unreadable", []
+
+        def line(self):
+            return "could not read the photos in Merimen"
+
+        def row(self):
+            return None
+
+    out = _photo_stop("A", Rep())
+    assert out.job_state == "requeue" and out.error is None and out.stop_error == "photos"
+    assert not [1 for s, p in applied(job(3), out) if "UPDATE cases SET" in s]  # a retry still leaves the case alone
+    case_update = [p for s, p in applied(job(4), out) if "UPDATE cases SET" in s]
+    assert case_update[0][5] == "photos: gave up after 4 tries"
+    assert session_lost_outcome({**JOB, "step": "phase_a"}, out, count=LOST_CAP).error == "photos"
+    case = {"status": "waiting_user", "photos_done_at": "x", "done_epoch": 100, "photos_snapshot": "s", "error": "photos: gave up after 4 tries"}
+    assert followup_steps(case, [{"step": "phase_a", "state": "failed", "created_epoch": 50}], writes=True) == ["phase_b"]
+
+
+def test_an_empty_second_read_is_tried_again_not_a_hand_fix():
+    class Blip(Fake):
+        def __init__(self):
+            super().__init__(held=["Front Bumper"])
+            self.reads = 0
+
+        def labels(self, case):
+            self.reads += 1
+            return ["Front Bumper"] if self.reads == 1 else []
+
+    m = Blip()
+    rep = ps.phase_a(RESUMED, THREE, writes=True, merimen=m)
+    assert rep.code == "unreadable" and m.writes == []
