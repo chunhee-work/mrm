@@ -161,8 +161,8 @@ class PgRepo:
             return worker_gate(env_on=True, enabled=False, consent_reference=None, consented=False)
         return worker_gate(env_on=True, enabled=bool(row[0]), consent_reference=row[1], consented=bool(row[2]))
 
-    def claim(self, *, ext_connect: bool, worker_id: str, org_limit: int = 1, skip_orgs=()):
-        rows = self.db.execute(CLAIM_SQL, claim_params(ext_connect, org_limit, worker_id, skip_orgs))
+    def claim(self, *, ext_connect: bool, worker_id: str, org_limit: int = 1, skip_orgs=(), one_chrome: bool = False):
+        rows = self.db.execute(CLAIM_SQL, claim_params(ext_connect, org_limit, worker_id, skip_orgs, one_chrome))
         if not rows:
             return None
         r = rows[0]
@@ -174,6 +174,14 @@ class PgRepo:
     def touch_job(self, job_id: int, worker_id: str) -> bool:
         """Renew the lease. False means the job is no longer ours."""
         return bool(self.db.execute(TOUCH_SQL, (job_id, worker_id)))
+
+    def still_mine(self, job: dict, worker_id: str) -> bool:
+        """This very run still holds the job (running, ours, and not claimed again since: each claim adds one to attempts). Renews
+        the lease when so. Asked before writing the outcome of a job that ran past WORKER_JOB_MAX_SECONDS (plan #150)."""
+        return bool(self.db.execute(
+            "UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running' AND locked_by = %s AND attempts = %s RETURNING id",
+            (job["id"], worker_id, int(job.get("attempts") or 0)),
+        ))
 
     def load(self, case_id: str) -> dict:
         c = self.db.execute(

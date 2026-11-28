@@ -161,6 +161,9 @@ class _CdpDriver(Driver):
             only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
             if only and str((self.case or {}).get("id")) != only:  # the supervised first live create: every other case is left alone
                 return DriveResult(ok=False, error="step_not_ported")
+            if int(os.environ.get("ORG_CONCURRENCY") or "1") > 1 and int(os.environ.get("WORKER_SLOTS") or "1") <= 1:
+                # several worker PROCESSES may each create for one org: refused as before (the lock below only holds inside one process)
+                return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1 without WORKER_SLOTS; set it and restart the worker")
             with _CREATE_LOCK:  # one live create at a time (plan #150, Grok G1); the report, documents and photos after it run side by side
                 res = self._create(True)  # step 1 of Phase A
             if res.ok and (res.case_id or (self.case or {}).get("merimen_caseid")):
@@ -226,6 +229,7 @@ def _close_left_step_tabs(cfg: Config) -> None:
     for port in sorted(set(cfg.accounts.values())):
         for tid in ids:
             close_target(port, tid)  # a tab that is gone (or on another Chrome) is a no-op; never the last tab of a window
+    # kept in the set: a tab close_target would not close (the window's last tab) still never counts as the home tab
 
 
 def _namer_factory(cfg: Config):
@@ -329,12 +333,11 @@ def _save_step_tabs() -> None:
         return
     try:
         path = os.path.join(d, STEP_TABS_FILE)
-        with _STEP_TABS_LOCK:
-            data = sorted(STEP_TABS)
-        tmp = path + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(data, f)
-        os.replace(tmp, path)
+        with _STEP_TABS_LOCK:  # one writer at a time: the copy, the temporary file and the rename
+            tmp = path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(sorted(STEP_TABS), f)
+            os.replace(tmp, path)
     except OSError:
         pass
 
@@ -356,9 +359,7 @@ def load_step_tabs(state_dir: str) -> list[str]:
 def _register_step_tab(pg) -> None:
     tid = str(_target_info(pg).get("targetId") or "")
     if tid:
-        with _STEP_TABS_LOCK:
-            if len(STEP_TABS) > 2000:  # ids of long-closed tabs: never reused by Chrome, safe to forget
-                STEP_TABS.clear()
+        with _STEP_TABS_LOCK:  # dropped again when the job ends (end_job_tabs) or at the next start (_close_left_step_tabs)
             STEP_TABS.add(tid)
         _save_step_tabs()
     if not hasattr(_job_tabs, "pages"):
@@ -544,7 +545,10 @@ def _page_provider(cfg: Config):
                 if len(found) != 1:
                     return None
                 return HomeTab(found[0]) if slots > 1 else found[0]
-            return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
+            pages = [pg for ctx in browser.contexts for pg in ctx.pages]
+            if slots > 1:  # another job's step tab may show ANOTHER case: a screenshot only ever comes from the home tab (plan #150)
+                pages = not_step_tabs([pg for pg in pages if "merimen.com.my" in (pg.url or "")])
+            return pick_merimen_page(pages)
         except Exception:
             _drop(org_id)
         return None
@@ -566,6 +570,8 @@ def _page_provider(cfg: Config):
 
 def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
+    if cfg.live_writes and cfg.slots <= 1 and cfg.org_limit > 1:  # several processes creating for one org: refuse, as before
+        raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1 without WORKER_SLOTS: set ORG_CONCURRENCY=1 (or use WORKER_SLOTS) and start again")
     repo = PgRepo(cfg.database_url, cfg.db_transport)
     from . import relogin as relogin_mod
 
@@ -703,7 +709,6 @@ def main() -> None:
         import signal
 
         from .loop import paused_orgs
-        from .pool import JobPool, slot_driver
 
         def _run(job, slot_drv, extra):
             try:
@@ -728,7 +733,8 @@ def main() -> None:
                 relogin = housekeeping(cfg, repo, launch=_launch, inspect=_inspect, keep=_keep, fetch_page=fetch_page, master=master,
                                        delete_blob=delete_blob if shots else None, relogin_fetch=relogin_fetch, busy_orgs=pool.busy_orgs)
                 while pool.free() > 0 and not stopping.is_set():  # fill every free slot; the claim order puts the case uploaded first in front
-                    job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=paused_orgs())
+                    job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=paused_orgs(),
+                                     one_chrome=True)
                     if not job:
                         break
                     pool.submit(job, relogin_ready=relogin is not None)

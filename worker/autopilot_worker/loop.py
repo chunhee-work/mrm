@@ -160,6 +160,7 @@ ORG_PUTBACKS: dict[str, list[float]] = {}
 ORG_CAP = 4
 ORG_WINDOW = 3 * 3600.0
 SAME_LOGOUT = 120.0
+RELOGIN_OK: dict[str, float] = {}  # org -> when its last re-login worked (ok / session_live): a logout after it is a new one
 
 
 def paused_orgs(now=time.monotonic) -> list[str]:
@@ -357,7 +358,9 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
             return outcome
         # the case cap's stop counts too: it also books a re-login. Several jobs that find the SAME logout (WORKER_SLOTS > 1, they
         # run side by side) count once: a logout found within SAME_LOGOUT of the last one is that one
-        ORG_PUTBACKS[org] = times if times and now() - times[-1] < SAME_LOGOUT else times + [now()]
+        same = (getattr(cfg, "slots", 1) > 1 and times and now() - times[-1] < SAME_LOGOUT
+                and RELOGIN_OK.get(org, float("-inf")) < times[-1])  # a re-login that worked since: this is a new logout
+        ORG_PUTBACKS[org] = times if same else times + [now()]
         FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
     note(job["org_id"], "put_back" if got.job_state != "failed" else "cap_reached", now)
     return got
@@ -511,6 +514,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             got = relogin(org, ports[org])
             if got in ("ok", "session_live"):
                 _lift(org)
+                RELOGIN_OK[org] = now()
             # short waits, nothing typed: no hold. `cred` (the saved login is not ok, or could not be read) holds: a held org that still
             # meets the login form books the usual re-login, so a passing read error only costs one more booking, and one that works lifts it
             elif got not in (None, "pending", "db_error", "cooldown", "put_back"):
@@ -650,7 +654,14 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
-        if forget_files:  # the job is over, done or failed: its own downloaded files leave this machine
+        late = False
+        if lease is not None and lease.overdue():
+            try:  # still this run's job (nobody took it back)? Then its outcome is written as usual
+                late = not repo.still_mine(job, cfg.worker_id)
+            except Exception:  # noqa: BLE001  (not known: the safe side, nothing is written; the lease gives the job back)
+                late = True
+        if forget_files and not late:  # the job is over, done or failed: its own downloaded files leave this machine
+            # (a run that was taken back leaves them: a new run of the same job uses the same folder; the hourly sweep takes them)
             try:
                 forget_files(job["case_id"], job["id"])
             except Exception:  # noqa: BLE001  (the hourly sweep takes what is left)
@@ -659,10 +670,10 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
     outcome = check_session_after(cfg, repo, job, outcome, inspect=inspect, page_for=page_for or getattr(driver, "page_for", None), now=now,
                                   relogin_ready=relogin is not None, seen_login=login_seen.seen())
     _at("apply")
-    if lease is not None and lease.overdue():
-        # its slot was given up and its lease ran out: the queue has the job back (maybe running again already). Writing this late
-        # outcome could overwrite that run, so it is dropped
-        print(f"job {job.get('id')} {job.get('step')} ended after its time limit: outcome not written", file=sys.stderr, flush=True)
+    if late:
+        # ran past its time limit and was taken back meanwhile (requeued, or claimed again): writing this late outcome could
+        # overwrite that run, so it is dropped
+        print(f"job {job.get('id')} {job.get('step')} ended after its time limit and was taken back: outcome not written", file=sys.stderr, flush=True)
         return job["step"]
     repo.apply(job, outcome)
     return job["step"]

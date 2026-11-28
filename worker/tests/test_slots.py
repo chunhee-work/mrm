@@ -249,7 +249,7 @@ def mclaim(worker, limit=3):
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CLAIM_SQL, claim_params
 
-    sql, args = to_numbered(CLAIM_SQL, claim_params(True, limit, worker))
+    sql, args = to_numbered(CLAIM_SQL, claim_params(True, limit, worker, one_chrome=True))
     return {"sql": sql, "params": args}
 
 
@@ -313,7 +313,7 @@ def test_a_paused_org_gets_no_new_merimen_step_but_keeps_its_photo_work():
     from autopilot_worker.jobs import CLAIM_SQL, claim_params
 
     seed = ORGS_CASES + READY + sessions() + ["INSERT INTO jobs (id, case_id, step, state) VALUES (1,'c1','phase_a','queued'), (2,'c2','photo_model','queued')"]
-    sql, args = to_numbered(CLAIM_SQL, claim_params(True, 3, "w", skip_orgs=["o1", "o9"]))
+    sql, args = to_numbered(CLAIM_SQL, claim_params(True, 3, "w", skip_orgs=["o1", "o9"], one_chrome=True))
     r = run([{"sql": sql, "params": args}, {"sql": sql, "params": args}], seed=seed)
     assert r[0][0][0] == 2 and r[1] == []
 
@@ -409,12 +409,14 @@ def test_left_step_tabs_are_closed_at_start_by_their_ids_only(monkeypatch, tmp_p
     m.STEP_TABS.clear()
 
 
-def test_a_late_outcome_is_not_written(tmp_path, monkeypatch):
-    """A job that ran past WORKER_JOB_MAX_SECONDS: its lease stopped, the queue has it back; its late outcome must not overwrite a new run."""
+@pytest.mark.parametrize("mine,written", [(False, False), (True, True)])
+def test_a_late_outcome_is_written_only_while_this_run_still_holds_the_job(tmp_path, monkeypatch, mine, written):
+    """A job that ran past WORKER_JOB_MAX_SECONDS: taken back meanwhile = its late outcome must not overwrite the new run (and its
+    files stay, the new run uses the same folder); still ours = written as usual."""
     from autopilot_worker.pipeline import Outcome
 
     cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "WORKER_SLOTS": "2", "WORKER_JOB_MAX_SECONDS": "600"})
-    applied = []
+    applied, forgot = [], []
 
     class Repo:
         def load(self, cid):
@@ -429,19 +431,42 @@ def test_a_late_outcome_is_not_written(tmp_path, monkeypatch):
         def touch_job(self, *a):
             pass
 
+        def still_mine(self, job, worker):
+            return mine
+
         def apply(self, job, outcome):
             applied.append(job["id"])
 
     t = [0.0]
     monkeypatch.setattr(loop, "handle_job", lambda *a, **k: (t.__setitem__(0, 700.0), Outcome("done"))[1])
     loop.run_job(cfg, Repo(), {"id": 9, "case_id": "c1", "step": "intake", "attempts": 1, "org_id": "o1"}, inspect=lambda p: None,
-                 namer=None, driver=Driver(), download=lambda *a: None, now=lambda: t[0])
-    assert applied == []
+                 namer=None, driver=Driver(), download=lambda *a: None, now=lambda: t[0], forget_files=lambda c, j: forgot.append(j))
+    assert (applied == [9]) is written and (forgot == [9]) is written
     t[0] = 0.0
+    applied.clear()
     monkeypatch.setattr(loop, "handle_job", lambda *a, **k: Outcome("done"))
     loop.run_job(cfg, Repo(), {"id": 10, "case_id": "c1", "step": "intake", "attempts": 1, "org_id": "o1"}, inspect=lambda p: None,
                  namer=None, driver=Driver(), download=lambda *a: None, now=lambda: t[0])
-    assert applied == [10]
+    assert applied == [10]  # in time: written without asking
+
+
+def test_still_mine_checks_the_run_by_its_attempts():
+    from autopilot_worker.store import PgRepo
+
+    class Rec:
+        def execute(self, sql, params):
+            self.sql, self.params = sql, params
+            return [(1,)]
+
+    r = Rec()
+    assert PgRepo("", db=r).still_mine({"id": 5, "attempts": 2}, "w1")
+    assert "attempts = %s" in r.sql and "locked_by = %s" in r.sql and "state = 'running'" in r.sql and r.params == (5, "w1", 2)
+
+
+def test_without_slots_the_claim_keeps_its_old_merimen_rule():
+    from autopilot_worker.jobs import claim_params
+
+    assert claim_params(True, 1, "w")["one_chrome"] is False and claim_params(True, 1, "w")["skip_orgs"] == ""
 
 
 def test_chrome_starts_without_slowing_background_tabs():
@@ -449,3 +474,26 @@ def test_chrome_starts_without_slowing_background_tabs():
 
     argv = chrome_argv("/usr/bin/chrome", 9222, "/var/lib/x/profile")
     assert "--disable-background-timer-throttling" in argv and "--disable-renderer-backgrounding" in argv
+
+
+def test_one_logout_dedupe_is_only_for_slots_and_ends_with_a_relogin(tmp_path):
+    from test_session_lost import CountRepo, JOB, LOGIN_PAGE
+    from autopilot_worker.pipeline import Outcome
+
+    retry = Outcome("requeue", error="report", event="Phase A not saved")
+    for slots, relogin_between, want in (("1", False, 2), ("2", False, 1), ("2", True, 2)):
+        loop.ORG_PUTBACKS.clear()
+        loop.FORCE_RELOGIN.clear()
+        loop.RELOGIN_OK.clear()
+        c = Config.from_env({"WORKER_STATE": str(tmp_path), "EXT_CONNECT": "on", "MERIMEN_RELOGIN": "on", "MERIMEN_LOGIN": "on", "WORKER_SLOTS": slots})
+        t = [9000.0]
+        loop.check_session_after(c, CountRepo(), {**JOB, "case_id": "a"}, retry, inspect=lambda p: LOGIN_PAGE, page_for=None, seen_login=True, now=lambda: t[0])
+        t[0] += 30
+        if relogin_between:
+            loop.RELOGIN_OK["o1"] = t[0]
+        t[0] += 30
+        loop.check_session_after(c, CountRepo(), {**JOB, "case_id": "b"}, retry, inspect=lambda p: LOGIN_PAGE, page_for=None, seen_login=True, now=lambda: t[0])
+        assert len(loop.ORG_PUTBACKS["o1"]) == want, (slots, relogin_between)
+    loop.ORG_PUTBACKS.clear()
+    loop.FORCE_RELOGIN.clear()
+    loop.RELOGIN_OK.clear()

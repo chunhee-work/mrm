@@ -739,7 +739,7 @@ def test_an_empty_second_read_is_tried_again_not_a_hand_fix():
 
 def test_jobs_that_find_the_same_logout_side_by_side_count_once_for_the_org_cap(tmp_path):
     """WORKER_SLOTS > 1 (plan #150): several running jobs meet ONE logout within SAME_LOGOUT; that is one logout, not several."""
-    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on", WORKER_SLOTS="3")
     retry = Outcome("requeue", error="report", event="Phase A not saved")
     t = [5000.0]
     for i in range(loop.ORG_CAP + 2):  # more jobs than the cap, all in the same minute
