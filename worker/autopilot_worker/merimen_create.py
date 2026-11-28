@@ -235,7 +235,7 @@ class MerimenCreate:
         if self.cur.locator("input[type=password]").count() > 0:
             from . import login_seen
 
-            login_seen.mark()  # the code stays "form_not_open" (create_step retries it as before); the mark lets loop log in again
+            login_seen.mark_if_shown(self.cur)  # the code stays "form_not_open" (create_step retries it as before); the mark lets loop log in again
             return "form_not_open"
         if not self.cur.locator("select[name=ddlbInsurer]").count():
             return "form_not_open"

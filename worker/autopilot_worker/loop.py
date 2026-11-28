@@ -118,6 +118,19 @@ RELOGIN_HELD: dict[str, float] = {}
 HOLD_SECONDS = 6 * 3600.0
 
 
+_noted: dict[tuple[str, str], float] = {}
+
+
+def note(org_id: str, word: str, now=time.monotonic) -> None:
+    """One fixed-word stderr line (never values) when an org is marked, held or put back, at most once an hour per org and word, so
+    an operator can see why a logout was or was not put back."""
+    key, t = (str(org_id), word), now()
+    if key in _noted and t - _noted[key] < 3600.0:
+        return
+    _noted[key] = t
+    print(f"session_lost: {word}", file=sys.stderr, flush=True)
+
+
 def _forced(org_id: str, now) -> bool:
     t = FORCE_RELOGIN.get(org_id)
     if t is None:
@@ -125,6 +138,7 @@ def _forced(org_id: str, now) -> bool:
     if now() - t >= FORCE_TTL:
         FORCE_RELOGIN.pop(org_id, None)
         RELOGIN_HELD[org_id] = now()  # no re-login fixed it in time: the old stops stand for a while (a person looks)
+        note(org_id, "held_force_timeout", now)
         return False
     return True
 
@@ -219,6 +233,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
     if job["step"] not in PHASE_STEPS or not puts_back(cfg, relogin_ready) or not _may_come_from_logout(job, outcome, seen_login):
         return outcome
     if held(job["org_id"], now):
+        note(job["org_id"], "not_put_back_held", now)
         return outcome  # the last forced re-login was refused: never loop into more password tries
     try:
         if not seen_login and session_alive(cfg, inspect, page_for, job["org_id"]):
@@ -227,6 +242,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
     except Exception:  # noqa: BLE001
         return outcome
     FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
+    note(job["org_id"], "put_back" if got.job_state != "failed" else "cap_reached", now)
     return got
 
 
@@ -365,6 +381,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 # refused or failed: no more put-backs for this org for a while, so a stale tab that later counts as connected never
                 # books more password tries by itself (the refusal already mailed / showed why)
                 RELOGIN_HELD[org] = now()
+                note(org, f"held_relogin_{got}" if isinstance(got, str) and got.isidentifier() else "held_relogin", now)
             if got in ("ok", "session_live"):
                 # logged in again: the mark goes. Any other answer (refused, put back, cooldown) keeps it until FORCE_TTL: a stale tab
                 # must not count as connected meanwhile, which would end a failed streak and book more password tries
@@ -410,8 +427,9 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     case = repo.load(job["case_id"])
     if isinstance(case, dict) and job["step"] in PHASE_STEPS and hasattr(repo, "was_put_back"):
         # asked whatever the re-login state (also while the org is held or re-login is off): this only makes the checks stricter
-        try:  # this job was put back after a logout: a photo list that does not line up is never "already has photos"
-            case["resumed_after_logout"] = repo.was_put_back(job)
+        try:  # put back after a logout, or simply not the first run of this job (a worker killed half way, e.g. by a restart, leaves
+            # no put-back event): a photo list that does not line up is never "already has photos"
+            case["resumed_after_logout"] = int(job.get("attempts") or 1) > 1 or bool(repo.was_put_back(job))
         except Exception:  # noqa: BLE001  (not known: the stricter way, a partial list stops for a person)
             case["resumed_after_logout"] = True
     login_seen.reset()

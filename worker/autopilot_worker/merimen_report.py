@@ -136,7 +136,7 @@ class MerimenReport:
         if self.cur.locator("input[type=password]").count() > 0:
             from . import login_seen
 
-            login_seen.mark()
+            login_seen.mark_if_shown(self.cur)
             return "not_logged_in"
         if not self.cur.locator("[name=sleFILENO],[name=slePoliceRef]").count():
             return "report_not_open"

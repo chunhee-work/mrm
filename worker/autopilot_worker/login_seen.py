@@ -17,6 +17,17 @@ def mark() -> None:
     _SEEN[0] = True
 
 
+def mark_if_shown(page) -> None:
+    """Mark only when the password box is VISIBLE (the login form shows it): a hidden password field on a logged-in page is no
+    logout. Same rule as the strict tab pick (__main__._login_box). A page that cannot be asked counts as shown (as before)."""
+    try:
+        shown = bool(page.locator("input[type=password]").first.is_visible())
+    except Exception:  # noqa: BLE001
+        shown = True
+    if shown:
+        mark()
+
+
 def reset() -> None:
     _SEEN[0] = False
 

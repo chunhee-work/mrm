@@ -95,7 +95,7 @@ class RealStep2:
         if page.locator("input[type=password]").count() > 0:
             from . import login_seen
 
-            login_seen.mark()
+            login_seen.mark_if_shown(page)
             page.close()
             return None
         return page

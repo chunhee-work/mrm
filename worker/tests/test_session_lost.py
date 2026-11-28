@@ -512,3 +512,57 @@ def test_the_relogin_tab_survives_a_worker_restart(tmp_path):
     relogin.load_own_tabs(str(tmp_path))  # a broken file = none known, never a crash
     assert relogin._own_tab == {}
     relogin.load_own_tabs(None)
+
+
+# ---------- review round 12 ----------
+
+def test_a_later_run_of_the_same_job_is_strict_without_a_put_back_event(tmp_path):
+    """The worker was killed half way (no put-back event): the second run of the job still never takes a partial list as done."""
+    from autopilot_worker.pipeline import Driver
+
+    loop._last_cleanup[0] = 1e12
+
+    class Again(HeldRepo):
+        def claim(self, **k): return {"id": 7, "case_id": "c1", "step": "phase_a", "attempts": 2, "org_id": "o1"}
+        def was_put_back(self, job): return False
+
+    repo = Again()
+    loop.tick(cfg(tmp_path), repo, launch=lambda a: None, inspect=lambda p: None, namer=None, driver=Driver(), download=lambda *a: None)
+    assert repo.case["resumed_after_logout"] is True
+    first = HeldRepo()
+    first.was_put_back = lambda job: False
+    loop.tick(cfg(tmp_path), first, launch=lambda a: None, inspect=lambda p: None, namer=None, driver=Driver(), download=lambda *a: None)
+    assert first.case["resumed_after_logout"] is False  # the first run keeps the old rule (a case with photos is skipped)
+
+
+def test_a_hidden_password_field_is_no_logout():
+    from autopilot_worker import login_seen
+
+    class Loc:
+        def __init__(self, shown): self.shown = shown
+        @property
+        def first(self): return self
+        def is_visible(self): return self.shown
+
+    class Pg:
+        def __init__(self, shown): self.shown = shown
+        def locator(self, sel): return Loc(self.shown)
+
+    login_seen.reset()
+    login_seen.mark_if_shown(Pg(False))
+    assert not login_seen.seen()
+    login_seen.mark_if_shown(Pg(True))
+    assert login_seen.seen()
+    login_seen.reset()
+    login_seen.mark_if_shown(object())  # cannot be asked: counts as shown, as before
+    assert login_seen.seen()
+    login_seen.reset()
+
+
+def test_the_operator_lines_are_fixed_words_once_an_hour(capsys):
+    loop._noted.clear()
+    loop.note("o1", "put_back", now=lambda: 0.0)
+    loop.note("o1", "put_back", now=lambda: 10.0)
+    loop.note("o1", "put_back", now=lambda: 3601.0)
+    assert capsys.readouterr().err.count("session_lost: put_back") == 2
+    loop._noted.clear()

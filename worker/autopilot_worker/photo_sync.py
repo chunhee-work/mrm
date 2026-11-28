@@ -176,7 +176,7 @@ def _resume(rep: PhotoReport, case: dict, plan: list[dict], k: int, merimen: Mer
 
 def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhotos, guard: Guard = lambda: True) -> PhotoReport:
     """Upload with the names the model gave (the adjuster may be slow). A case that already has a photo in Merimen is skipped.
-    Only after a logout put-back (`resumed_after_logout`): photos that are exactly the start of this list (an upload that was cut
+    Only after a logout put-back or on a later run of the same job (`resumed_after_logout`): photos that are exactly the start of this list (an upload that was cut
     off) get the rest uploaded, and any other partial list stops for a hand fix."""
     plan = plan_rows(rows)
     rep = PhotoReport("A", "live" if writes else "dry", "upload", upload=len(plan), photos=plan)
@@ -189,13 +189,15 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     k = prefix_done(have, plan) if resumed else 0
     if k:
         return _resume(rep, case, plan, k, merimen, guard, writes)
-    if resumed and have and have == [p["name"] for p in plan]:
-        # the run before was cut off after its upload: the list is logged as this upload, so Phase B can compare with it
+    names = [p["name"] for p in plan]
+    if resumed and have and have == names:
+        # the run before was cut off after its upload: the list is logged as this upload, so Phase B can compare with it. Captions
+        # only (a repeated caption is taken as listed): Phase B checks each photo again before it writes anything
         rep.action, rep.upload, rep.note = "upload", 0, f"an upload was cut off after its last photo: Merimen has all {len(plan)}"
         return rep
-    if resumed and have and have != [p["name"] for p in plan]:
-        # put back after a logout: anything but the clean start or the whole list (a gap, a repeated caption, a name changed
-        # meanwhile, a photo stored twice) is never taken as "already has photos", a person looks (playbook 06)
+    if resumed and have:
+        # put back after a logout (or a later run of the same job): anything but the clean start or the whole list (a gap, a
+        # repeated caption, a name changed meanwhile, a photo stored twice) is never taken as "already has photos", a person looks (playbook 06)
         rep.action, rep.upload, rep.code, rep.snapshot = "refused", 0, "hand_fix", None
         rep.note = f"Merimen has {len(have)} photos that do not line up with this list of {len(plan)}: fix by hand (playbook 06)"
         return rep

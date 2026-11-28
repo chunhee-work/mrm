@@ -216,7 +216,7 @@ class MerimenEstimate:
         if page.locator("input[type=password]").count() > 0:
             from . import login_seen
 
-            login_seen.mark()
+            login_seen.mark_if_shown(page)
             page.close()
             return None
         return page
@@ -476,7 +476,7 @@ def read_total(page_for, case: dict, *, timeout_scale: float = 1.0) -> float | N
         if page.locator("input[type=password]").count() > 0:
             from . import login_seen
 
-            login_seen.mark()
+            login_seen.mark_if_shown(page)
             return None
         m = re.search(r"RM\s?([\d,]+\.\d\d)", page.evaluate("() => document.body.innerText") or "")
         return _money(m.group(1)) if m else None

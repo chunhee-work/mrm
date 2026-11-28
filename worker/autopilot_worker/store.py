@@ -126,7 +126,7 @@ class PgRepo:
     def was_put_back(self, job: dict) -> bool:
         """THIS job was put back before because Merimen logged out (a put-back requeues the same job, so its event is newer than the
         job itself; a later job of the same step is newer than the event). However long the re-login took, and a retry in between
-        does not end it. Only makes the photo step stricter."""
+        does not end it. Used by Phase A photos and documents (photo_sync.phase_a: resume a clean start, else a hand fix)."""
         rows = self.db.execute(
             "SELECT EXISTS (SELECT 1 FROM case_events e JOIN jobs j ON j.id = %s WHERE e.case_id = %s AND e.step = %s AND e.message LIKE %s"
             " AND e.at >= j.created_at)",
