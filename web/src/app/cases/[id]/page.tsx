@@ -22,6 +22,7 @@ import { credKeyReady } from "@/lib/crypto/merimen-cred";
 import { timelineFor } from "@/lib/screenshots/server";
 import { missingRelation } from "@/lib/ext/worker-gate";
 import { notDeleted } from "@/lib/case-delete";
+import { activityOf, lastEventAt } from "@/lib/case-events";
 
 /** R4-B04: the tab says which case it is ("WXY9999 · Case · Autopilotclaim"), so several open cases can be told apart.
  * `absolute`: the layout above sets a plain title, which drops the root "%s · brand" template for everything below it. */
@@ -42,13 +43,14 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId), notDeleted)).limit(1);
   if (!c) notFound();
-  // the newest 100, oldest first; rows written in one transaction share `at`, so the id keeps their order
-  const events = (await db.select().from(schema.caseEvents).where(eq(schema.caseEvents.caseId, id)).orderBy(desc(schema.caseEvents.at), desc(schema.caseEvents.id)).limit(100)).reverse();
+  // the newest 100 lines the user did not remove, oldest first (plan #148)
+  const events = await activityOf(id, 100);
   const files = await db.select({ id: schema.caseFiles.id, name: schema.caseFiles.originalName, kind: schema.caseFiles.kind, size: schema.caseFiles.size }).from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id)).orderBy(asc(schema.caseFiles.id)).limit(400);
   const [ph] = await db.select({ n: sql<number>`count(*)::int`, todo: sql<number>`count(*) filter (where final_name is null and (name_state <> 'named' or confidence is null or confidence < 0.9))::int` }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id));
   // Self-heal, so no case waits forever: a dead read is started again (max 3 reads per case), and a case that never
   // got its first read (the after-upload trigger did not run) is claimed here.
-  const lastEvent = events.length ? events[events.length - 1].at.getTime() : c.createdAt.getTime();
+  // from every line, removed ones too: removing a line must not make a running read look stuck (or a stuck one look fine)
+  const lastEvent = ((await lastEventAt(id)) ?? c.createdAt).getTime();
   const since = leaseTime(c.error) ?? lastEvent;
   const stale = c.status === "reading" && Date.now() - since > STALE_MS;
   if (stale) after(() => scanCase(id, "recover", c.error));
@@ -91,7 +93,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     },
     desk: dk ? { total: Number(dk.total), confirm: Number(dk.confirm), edited: Number(dk.edited), doneAt: c.photosDoneAt ? c.photosDoneAt.toISOString() : null } : null,
     photoPlan: plan ? { mode: plan.mode, action: plan.action, upload: plan.would.upload ?? 0, relabel: plan.would.relabel ?? 0, reorder: plan.would.reorder ?? 0 } : null,
-    events: events.map((e) => ({ at: e.at.toISOString(), message: e.message })),
+    events,
     stale,
     cred: await credView(orgId),
     credConfigured: credKeyReady(),

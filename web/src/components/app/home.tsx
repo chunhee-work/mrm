@@ -245,7 +245,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
  */
 type ListCtl = { look: () => void; relist: () => void; onUpload: (busy: boolean) => void };
 
-type BriefData = { events: { at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: { slot: number; locked: boolean } | null };
+type BriefData = { events: { id: number; at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: { slot: number; locked: boolean } | null };
 
 /** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
  * line opens and again when its status changes, so it follows the case without the user leaving the first page. */
@@ -281,7 +281,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
   // as on the case page: a choice from two workshops on, or the one it has when that one is gone
   const showWs = d.workshop && (workshops.length >= 2 || (workshops.length > 0 && !workshops.some((w) => w.slot === slot)));
   const live = reading;
-  const shown = [...d.events].reverse().slice(0, 6);
+  const shown = [...d.events].reverse();
   if (!showWs && !d.events.length && !d.files.length) return null; // nothing to show: no empty box
   return (
     <div className="space-y-4" data-testid="home-brief">
@@ -298,7 +298,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
           {d.events.length > 0 && (
             <section className="min-w-0" data-testid="home-log">
               <h3 className="label mb-3">{t("case.log")}</h3>
-              <CaseLog events={shown} live={live} />
+              <CaseLog events={shown} max={6} live={live} caseId={r.id} />
             </section>
           )}
           {d.files.length > 0 && (

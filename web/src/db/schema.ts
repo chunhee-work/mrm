@@ -167,6 +167,9 @@ export const caseEvents = pgTable("case_events", {
   at: timestamp("at").notNull().defaultNow(),
   step: text("step").notNull(),
   message: text("message").notNull(),
+  // the user removed the line from the Activity list (plan #148): display only, backend readers ignore it. hiddenBy = users.id
+  hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+  hiddenBy: text("hidden_by"),
 });
 
 export const usage = pgTable("usage", {

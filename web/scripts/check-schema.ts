@@ -1,8 +1,9 @@
 // Build gate: refuses to build (so nothing deploys) when the database is behind this code. The photo desk reads columns from migration
 // 0010 (cases.photos_snapshot, cases.photos_arranged_at, tables photo_upload_log, step2_log, photo_learning); `select *` on cases fails without them.
+// The Activity list reads case_events.hidden_at (20261128_1621_case_event_hide.sql); without it every case page answers 500.
 // Runs before `next build`. No DATABASE_URL (a plain local build): nothing to check. Apply migrations first: `npm run db:migrate`.
 const url = process.env.DATABASE_URL;
-const NEED_COLUMNS = [["cases", "photos_snapshot"], ["cases", "photos_arranged_at"], ["cases", "deleted_at"]] as const;
+const NEED_COLUMNS = [["cases", "photos_snapshot"], ["cases", "photos_arranged_at"], ["cases", "deleted_at"], ["case_events", "hidden_at"]] as const;
 const NEED_TABLES = ["photo_upload_log", "step2_log", "photo_learning"];
 
 async function run(q: string): Promise<{ rows: Record<string, string>[] }> {
@@ -17,7 +18,7 @@ async function run(q: string): Promise<{ rows: Record<string, string>[] }> {
 }
 
 export async function missing(): Promise<string[]> {
-  const cols = await run(`SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('cases','case_files')`);
+  const cols = await run(`SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('cases','case_files','case_events')`);
   const tabs = await run(`SELECT table_name AS t FROM information_schema.tables WHERE table_schema = 'public'`);
   const have = new Set(cols.rows.map((r) => `${r.t}.${r.c}`));
   const tables = new Set(tabs.rows.map((r) => r.t));

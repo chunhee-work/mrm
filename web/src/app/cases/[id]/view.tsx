@@ -35,7 +35,7 @@ export type CaseDetail = {
   photos: number;
   photosTodo: number;
   facts: { owner: string; policyNo: string | null; policeReport: string | null; accidentAt: string | null; atFaultPlate: string | null; atFaultInsurer: string | null } | null;
-  events: { at: string; message: string }[];
+  events: { id: number; at: string; message: string }[];
   stale: boolean; // reading, but no news for 6 minutes: the server is already restarting it
   cred?: Cred | null;
   credConfigured?: boolean;
@@ -58,6 +58,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(""); // the message key of what went wrong with "Read again"
   const [allLog, setAllLog] = useState(false);
+  const [removed, setRemoved] = useState(0); // Activity lines the user removed on this page (plan #148)
 
   const working = c.status === "uploaded" || c.status === "reading";
   const failed = c.status === "failed";
@@ -195,13 +196,13 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   // newest first; the lists grow with their content (no inner scroll box), long ones show 5 and "Show all"
   const LOG_SHORT = 5;
   const newest = [...c.events].reverse();
-  const shownLog = allLog ? newest : newest.slice(0, LOG_SHORT);
+
   const Log = () => (
     // always open (owner 2026-11-27: "must be always showing, not I open then only show"); the 5 newest, then "Show all"
     <section aria-labelledby="case-log-title" data-testid="case-log">
-      <h2 id="case-log-title" className="label mb-3 flex items-center gap-2">{t("case.log")}<span className="note text-mute">· {c.events.length}</span></h2>
-      <CaseLog events={shownLog} live={working} waiting={c.status === "waiting_user"} />
-      {newest.length > LOG_SHORT && (
+      <h2 id="case-log-title" className="label mb-3 flex items-center gap-2">{t("case.log")}<span className="note text-mute">· {c.events.length - removed}</span></h2>
+      <CaseLog events={newest} max={allLog ? undefined : LOG_SHORT} live={working} waiting={c.status === "waiting_user"} caseId={c.id} onRemoved={setRemoved} />
+      {newest.length - removed > LOG_SHORT && (
         <button type="button" className="btn-quiet mt-2 !text-[15px] !font-medium !text-mute hover:!text-fg" data-testid="log-more" onClick={() => setAllLog((v) => !v)}>{allLog ? t("case.showLess") : t("case.showAll")}</button>
       )}
     </section>
