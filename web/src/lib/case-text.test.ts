@@ -128,3 +128,20 @@ test("photos left out of a case are said in the page language, one line per reas
   assert.deepEqual(eventTr("Photos left out: 4 (cannot be opened)"), { key: "ev.photosBad", vars: { n: "4" } });
   assert.equal(eventKind("Photos left out: 3 (HEIC)"), "note"); // a note: the case itself went on
 });
+
+test("Phase A practice run: the long worker sentence with Merimen field names becomes one short plain line", () => {
+  const long = "Phase A dry-run only. Merimen was not changed. Photos, dry run (Merimen not changed): would upload 78 · relabel 0 · reorder 0 Create form filled and checked, not saved (ddlbInsurer=Allianz General Insurance Company (Malaysia) Berhad; ddlbINSCOID=HQ; ddlbPOLCOVER=Comprehensive; ddlb3INSCOID=Zurich Ge";
+  assert.deepEqual(eventTr(long), { key: "ev.dryAPhotos", vars: { n: "78" } });
+  assert.deepEqual(eventTr("Phase A dry-run only. Merimen was not changed. Create form filled and checked, not saved (Allianz)"), { key: "ev.dryA" });
+  // a documents line also says "would upload": only the photos count is used
+  assert.deepEqual(eventTr("Phase A dry-run only. Merimen was not changed. Documents (dry run): would upload 5 Create form filled"), { key: "ev.dryA" });
+  assert.deepEqual(eventTr("Phase B dry-run only. Merimen was not changed. Step 2 plan: 12 parts"), { key: "ev.dryB" });
+  assert.deepEqual(eventTr("Phase A dry-run only. Merimen was not changed."), { key: "ev.dryA" });
+  assert.equal(eventKind(long), "ok");
+  for (const key of ["ev.dryAPhotos", "ev.dryA", "ev.dryB"]) for (const l of ["en", "zh", "ms"] as const) {
+    const s = (DICTS[l] as Record<string, string>)[key];
+    assert.ok(s && !/ddlb|=/.test(s), `${l} ${key}`);
+  }
+  // a dry run that failed keeps its own words (it says why)
+  assert.equal(eventTr("Phase A dry-run failed. x").key, "");
+});
