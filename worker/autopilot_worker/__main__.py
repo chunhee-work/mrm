@@ -253,6 +253,15 @@ def _mail(to: str, subject: str, html: str) -> None:
         return
 
 
+def pick_merimen_page(pages):
+    """The page used for screenshots (non-strict): a logged-in Merimen tab first, because after a re-login (plan #133) an old
+    login-page tab may still be open beside it; else the first Merimen tab; else None."""
+    from .chrome import is_logged_in_url
+
+    merimen = [pg for pg in pages if "merimen.com.my" in (pg.url or "")]
+    return next((pg for pg in merimen if is_logged_in_url(pg.url or "")), merimen[0] if merimen else None)
+
+
 def _page_provider(cfg: Config):
     """The Merimen tab of the worker Chrome for an org, through Playwright over the local debugging port.
     Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
@@ -277,11 +286,7 @@ def _page_provider(cfg: Config):
 
                 found = [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
                 return found[0] if len(found) == 1 else None
-            from .chrome import is_logged_in_url
-
-            pages = [pg for ctx in browser.contexts for pg in ctx.pages if "merimen.com.my" in (pg.url or "")]
-            # a logged-in tab first: after a re-login (plan #133) an old login-page tab may still be open beside it
-            return next((pg for pg in pages if is_logged_in_url(pg.url or "")), pages[0] if pages else None)
+            return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
         except Exception:
             old = state.pop(port, None)
             if old:

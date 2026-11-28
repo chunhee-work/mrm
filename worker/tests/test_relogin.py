@@ -887,3 +887,32 @@ def test_pg_a_try_without_an_outcome_blocks_like_unclear():
 def test_pg_a_hand_login_does_not_lift_the_unclear_block():
     (b,), _ = book([audit("relogin_unclear", "2 hours"), audit("login_session_live", "1 hour"), audit("session_seen_connected", "1 hour")])
     assert b["reason"] == "unclear_block"  # neither tested the saved password
+
+
+# --- round 10: shared stop texts and the screenshot tab ---------------------------------------------------------------------
+
+def test_the_shared_stop_texts_say_check_on_merimen_first():
+    from autopilot_worker import login_page as lp
+
+    assert "Check that the user name and password work on Merimen" in lp.EVENT_BAD
+    assert "Check that the user name and password work on Merimen" in lp.login_email("bad_credentials")[1]
+    assert "Wait until Merimen unlocks it" in lp.EVENT_LOCKED
+    assert "Wait until Merimen unlocks it" in lp.login_email("locked")[1]
+    assert "Saving before it is unlocked tries the password again" in lp.login_email("locked")[1]
+
+
+class _Pg:
+    def __init__(self, url):
+        self.url = url
+
+
+def test_the_screenshot_page_prefers_a_logged_in_merimen_tab():
+    from autopilot_worker.__main__ import pick_merimen_page
+
+    login = _Pg("https://www.merimen.com.my/claims/index.cfm?fusebox=login")
+    live = _Pg("https://www.merimen.com.my/claims/index.cfm?CFID=1&CFTOKEN=2&RID=3")
+    other = _Pg("https://example.com/")
+    assert pick_merimen_page([other, login, live]) is live
+    assert pick_merimen_page([other, login]) is login
+    assert pick_merimen_page([other]) is None
+    assert pick_merimen_page([]) is None
