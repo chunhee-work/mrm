@@ -85,7 +85,7 @@ def test_tab_gate_zero_one_two(tmp_path, urls, want):
 def test_no_relogin_when_chrome_is_down_or_the_gate_is_not_ready(tmp_path):
     asked = []
     sync(tmp_path, SessRepo([row()]), None, asked)  # Chrome does not answer: the launch path starts it; nothing is typed
-    sync(tmp_path, SessRepo([row()], gate="blocked"), LOGIN_PAGE, asked)  # login not ok / blocked / otp: gate is not ready
+    sync(tmp_path, SessRepo([row()], gate="blocked"), LOGIN_PAGE, asked)  # the gate (settings + consent) is not ready; the login itself is checked in the booking
     assert asked == []
 
 
@@ -416,7 +416,7 @@ def test_a_db_error_after_booking_still_writes_the_outcome_row_before_any_new_tr
     assert out == "pending" and fetched == []  # kept: no new booking
     repo.down = False
     out, fetched, _ = go(tmp_path, repo, OK_PAGE, now=lambda: 200.0)
-    assert actions(repo)[0] == "relogin_cred_gone" and out == "ok" and len(fetched) == 1
+    assert actions(repo)[0] == "relogin_cred_unread" and out == "ok" and len(fetched) == 1
 
 
 def test_a_mail_booking_error_on_a_refusal_does_not_break_the_tick(tmp_path):

@@ -759,8 +759,9 @@ class PgRepo:
         self._audit_sql(*seen_connected_statement(org_id))
 
     def audit(self, org_id: str, action: str) -> None:
-        """Public form of _audit for other modules (relogin.py): one fixed-string row that nothing depends on."""
-        self._audit(org_id, action)
+        """Public form of _audit for other modules (relogin.py): one fixed-string row that nothing depends on. A failure logs
+        `relogin audit row skipped: <error class>`, like seen_connected."""
+        self._audit_sql("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, action[:60]))
 
     def _audit_sql(self, sql: str, params) -> None:
         try:

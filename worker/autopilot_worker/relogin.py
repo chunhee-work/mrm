@@ -58,13 +58,13 @@ _UNCLEAR = (
 # password, so it blocks like an unclear answer (code review: a lost outcome write must never lead to the same password again)
 # It does NOT end after 24 h: only a password-proving success (relogin_ok, or the save-time login_ok after the user saves again) ends
 # it, because the lost answer may have been a rejection (loop review round 1).
-OUTCOME_ACTIONS = ("relogin_put_back", "relogin_typed", "login_session_live", "relogin_key_mismatch", "relogin_cred_gone")
+OUTCOME_ACTIONS = ("relogin_put_back", "relogin_typed", "login_session_live", "relogin_key_mismatch", "relogin_cred_gone", "relogin_cred_unread")
 _ORPHAN = (
     "EXISTS (SELECT 1 FROM merimen_cred_audit t WHERE t.org_id = %(org)s AND t.action = 'relogin_try' "
     "AND t.at < now() - interval '3 minutes' "
     f"AND t.at > {_LAST_PROVEN} "
     "AND NOT EXISTS (SELECT 1 FROM merimen_cred_audit o WHERE o.org_id = t.org_id "
-    "AND o.action IN ('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch','relogin_cred_gone') AND o.id > t.id))"
+    "AND o.action IN ('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch','relogin_cred_gone','relogin_cred_unread') AND o.id > t.id))"
 )
 _STREAK = (
     f"(SELECT count(*) FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_put_back' AND at > now() - interval '{STREAK_WINDOW}' "
@@ -122,7 +122,7 @@ def seen_connected_statement(org_id: str) -> tuple[str, object]:
 def outcome_written_statement(org_id: str, try_id) -> tuple[str, object]:
     return (
         "SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND id > %(tid)s::int AND action IN "
-        "('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch','relogin_cred_gone') LIMIT 1",
+        "('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch','relogin_cred_gone','relogin_cred_unread') LIMIT 1",
         {"org": org_id, "tid": str(int(try_id))},
     )
 
@@ -345,12 +345,13 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
         log_line(org_id, reason, now=now)
         return reason
     try_id = booking.get("try_id")
+    unread = False
     try:
         row = repo.relogin_cred(org_id)
-    except Exception:  # noqa: BLE001  (booked, nothing typed: the try still gets its outcome row, never a false orphan)
-        row = None
+    except Exception:  # noqa: BLE001  (booked, nothing typed: the try still gets its outcome row)
+        row, unread = None, True
     if not row:  # the login stopped being ok since the booking (or could not be read): nothing typed, not a put-back
-        _write_or_keep(repo, org_id, "relogin_cred_gone", try_id)
+        _write_or_keep(repo, org_id, "relogin_cred_unread" if unread else "relogin_cred_gone", try_id)
         log_line(org_id, "cred", now=now)
         return "cred"
     nonce = row.get("password_nonce")
