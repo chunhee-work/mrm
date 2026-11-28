@@ -24,6 +24,6 @@ export function workshopState(
 ): { slot: number; shown: boolean; locked: boolean; confirmed: boolean; needsConfirm: boolean } {
   const exists = list.some((w) => w.slot === cs.slot);
   const shown = list.length >= 2 || (list.length > 0 && !exists);
-  const locked = !canSwitchWorkshop({ merimenCaseId }) || (cs.locked && (cs.fixed || exists)) || (cs.confirmed && exists);
-  return { slot: cs.slot, shown, locked, confirmed: cs.confirmed, needsConfirm: shown && !locked && status !== "done" };
+  const locked = !canSwitchWorkshop({ merimenCaseId }) || status === "done" || (cs.locked && (cs.fixed || exists)) || (cs.confirmed && exists);
+  return { slot: cs.slot, shown, locked, confirmed: cs.confirmed, needsConfirm: shown && !locked };
 }

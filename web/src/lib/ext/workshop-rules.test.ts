@@ -24,4 +24,5 @@ test("workshop: chosen freely until Confirm, then fixed; a removed workshop can 
   assert.equal(workshopState({ ...base, locked: true, fixed: true }, list, null).needsConfirm, false);
   // a case finished (by hand) never asks
   assert.equal(workshopState(base, list, null, "done").needsConfirm, false);
+  assert.equal(workshopState(base, list, null, "done").locked, true); // a finished case cannot be moved either
 });
