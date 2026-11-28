@@ -190,8 +190,10 @@ function RetryHere({ r, look, relist }: { r: CaseRow; look: () => void; relist: 
 function DeskWindow({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   const { t } = useT();
   const dlg = useRef<HTMLDialogElement>(null);
+  // the keyboard starts in the desk, not on × (keys like A, arrows and Enter Enter work at once)
+  const body = useRef<HTMLDivElement>(null);
   // no close() on unmount: it would fire onClose (and in development the effect runs twice); a removed dialog leaves the top layer by itself
-  useEffect(() => { const d = dlg.current; if (d && !d.open) d.showModal(); }, []);
+  useEffect(() => { const d = dlg.current; if (d && !d.open) { d.showModal(); body.current?.focus({ preventScroll: true }); } }, []);
   return (
     <dialog ref={dlg} aria-label={title} data-testid="desk-window"
       // a window inside it (Files) closing must not close this one
@@ -204,7 +206,7 @@ function DeskWindow({ title, onClose, children }: { title: string; onClose: () =
           <p className="min-w-0 flex-1 truncate text-[16px] font-semibold">{title}</p>
           <button type="button" onClick={() => dlg.current?.close()} aria-label={t("shots.close")} data-testid="desk-window-close" className="grid h-11 w-11 shrink-0 place-items-center rounded-[3px] text-[24px] leading-none text-mute hover:bg-panel2 hover:text-fg">×</button>
         </div>
-        <div className="app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 sm:p-4" data-desk-scroll data-testid="home-desk">{children}</div>
+        <div ref={body} tabIndex={-1} className="app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 outline-none sm:p-4" data-desk-scroll data-testid="home-desk">{children}</div>
       </div>
     </dialog>
   );
