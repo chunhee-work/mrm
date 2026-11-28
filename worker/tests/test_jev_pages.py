@@ -541,3 +541,9 @@ def test_a_failed_plate_call_still_counts_against_the_day():
     jp.run(jev, case, fetch)
     sent = len([b for b in fake.sent if "af" not in b["questions"]])  # page sort + RC check, all answered
     assert jp._day["pages"] == sent + 1  # + the one failed plate call
+
+
+def test_an_at_fault_plate_of_only_punctuation_falls_back_to_the_blamed_plate():
+    d = dict(DATA, at_fault={"plate": "-"}, police={**DATA["police"], "blamed_plate": "ABC 1"})
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
+    assert jp.run(jev, case, fetch) == []
