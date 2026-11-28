@@ -10,6 +10,18 @@
 
 Worker 只在 `MERIMEN_LOGIN=on` 时向 Merimen 提交登录，而且**只试一次**。Merimen 多次失败会锁定账号（locktime=15）。页面结果只有四种：成功、用户名或密码不对、账号已锁定、需要验证码。
 
+### 自动重新登录（`MERIMEN_RELOGIN=on`，计划 #133）
+
+worker 或 Chrome 重启后，Chrome 回答了但没有任何标签页登录着 Merimen（没有 `/claims/…` 加 `CFID` 和 `RID` 的页面），worker 就用用户在网站上保存的登录**自己**再登录一次。没有人需要手动登录。默认关；还要 `MERIMEN_LOGIN=on`。代码在 `relogin.py` 和 `cdp.mjs login --relogin`。
+
+- 只在 worker **自己新开的一个标签页**里打字（打开 `https://www.merimen.com.my/claims/index.cfm`），别的标签页不导航、不打字、不关。没登录成功就把自己的标签页关掉；超时被杀时 worker 按标签页 id 关掉它。
+- 只有保存的登录是 `ok` 且没被封、Chrome 回答、0 个已登录标签页时才会试。每个 tick 最多一个机构。
+- 限制（全在 `merimen_cred_audit` 里，数据库时间）：每 10 分钟最多一次；24 小时最多 12 次**真的打字**的尝试；一次「没有明确回复」之后 24 小时不再试（之后有成功就解除）；连续两次没有明确回复就按保存时的 `unknown` 处理（封、暂停、邮件）；连续 6 次没找到登录页（什么都没打）就发一封邮件，会话 detail 显示 `relogin_failed`。
+- 密码不对 / 账号锁定：和保存时一样封住、暂停、发邮件，之后再也不打字，直到用户重新保存。只有这次运行时登录还是 `ok` 才会改（用户刚好重新保存了就不动）。
+- 要验证码：不写 `otp`（网页会显示一个已经没人接的验证码框），写 `unknown` + 封住，审计 `relogin_otp`，发一封邮件请用户重新保存。
+- 子进程只拿一小份环境变量（没有 `MERIMEN_CRED_KEY`、`DATABASE_URL`）。日志只有固定的词，没有地址、页面文字、用户名或密码。
+- 回退：`MERIMEN_RELOGIN=off` 再重启 worker。
+
 「只试一次」的规则（`cdp.mjs login` + `login_flow.py`）：
 
 - 只在 Merimen 自己的登录页上打字。登录页的判定（全部满足才算）：标签页的 origin 正好是 `https://www.merimen.com.my`（解析整个地址，不看地址里有没有这几个字）；页面**不是**已登录页（已登录页 = `/claims/…` 加 `CFID` 和 `RID`，和别处用的是同一条规则）；页面上**恰好一个**可见的密码框；**同一个 form 里**恰好一个可见的用户名文本框和一个可见的登录按钮。隐藏的 input 永远不当按钮。少一样就什么都不打，结果是 `not_login_page`。已登录页上的密码框（例如改密码页）不会被填。绝不点 Logout。

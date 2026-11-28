@@ -62,7 +62,7 @@ def read_login_output(stdout) -> dict:
             obj = json.loads(raw)
         except ValueError:
             continue
-        if isinstance(obj, dict):
+        if isinstance(obj, dict) and set(obj) != {"relogin_target"}:  # the re-login tab id is not a result
             lines.append(obj)
     marked = any(o.get("submitted") is True for o in lines)
     final = next((o for o in reversed(lines) if set(o) - {"submitted"}), None)
@@ -112,6 +112,67 @@ def script_fetch(script: str, *, popen=subprocess.Popen, timeout: float = 90, no
             )
         except OSError:  # node is not installed or cannot start: nothing ran
             return dict(_OFFLINE)
+        if out is None:
+            return dict(_SENT_UNREAD)
+        return read_login_output(out)
+
+    return fetch_page
+
+
+# ---- re-login (MERIMEN_RELOGIN, plan #133) ----
+_CHILD_ENV = ("PATH", "HOME", "LANG", "TZ", "NODE_EXTRA_CA_CERTS")  # an exact list, no wildcard (D6)
+
+
+def relogin_env(environ, port: int) -> dict:
+    """The small env the re-login child gets: never MERIMEN_CRED_KEY, DATABASE_URL or any other worker key (G8)."""
+    env = {k: environ[k] for k in _CHILD_ENV if k in environ}
+    env["CDP_PORT"] = str(int(port))
+    env["MERIMEN_LOGIN"] = "on"  # cdp.mjs refuses `login` without it; the caller only runs this with MERIMEN_LOGIN=on
+    return env
+
+
+def relogin_target(stdout) -> str | None:
+    """The id of the tab cdp.mjs opened for this try (its first line), so a killed script's tab can still be closed."""
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode("utf-8", "replace")
+    for raw in (stdout or "").splitlines():
+        try:
+            obj = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(obj, dict) and isinstance(obj.get("relogin_target"), str):
+            return obj["relogin_target"][:80]
+    return None
+
+
+def close_target(port: int, target: str) -> None:
+    """Close ONE tab by its id (the re-login's own). Never any other tab."""
+    from urllib.parse import quote
+    from urllib.request import urlopen
+
+    try:
+        with urlopen(f"http://127.0.0.1:{int(port)}/json/close/{quote(target, safe='')}", timeout=5):
+            pass
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def relogin_fetch(script: str, *, popen=subprocess.Popen, timeout: float = 90, node: str = "node", environ=None, closer=close_target):
+    """fetch_page(user, password, port) for a re-login: ONE run of `node cdp.mjs login --relogin`, login on stdin, a small env.
+    A time-out kills the script; its own tab is then closed by id (D5). Same reading of the output as the save-time check."""
+
+    def fetch_page(user: str, password: str, port: int) -> dict:
+        try:
+            out, timed_out = run_script(
+                [node, script, "login", "--relogin"], json.dumps({"username": user, "password": password}),
+                relogin_env(os.environ if environ is None else environ, port), timeout, popen,
+            )
+        except OSError:
+            return dict(_OFFLINE)
+        if timed_out:
+            target = relogin_target(out)
+            if target:
+                closer(port, target)
         if out is None:
             return dict(_SENT_UNREAD)
         return read_login_output(out)

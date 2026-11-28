@@ -275,6 +275,74 @@ export async function runLogin({ port, cred, tabs = listTabs, attach = attachTab
   return { submitted: true, url: last.href, text: String(last.text || ""), has_password: !!last.hasPassword, has_otp: !!last.hasOtp };
 }
 
+// ---- re-login (MERIMEN_RELOGIN, plan #133): the worker's own fresh tab, never anyone else's ----
+// Opens ONE new tab at Merimen's start page, waits for it to load, and runs the same one try as `login` on that tab only. It prints
+// {"relogin_target": id} first, so a caller that has to kill this script can still close that tab. The tab is closed again unless
+// the try ended logged in. Other tabs are never navigated, typed into or closed. No address is printed except the read-back the
+// worker classifies (never logged by it).
+export const RELOGIN_DEADLINE_MS = 75000; // the worker kills the script at 90 s; this ends it (and closes the tab) first
+export const RELOGIN_LOAD_MS = 15000;
+
+async function openTab(port, url, ms = 5000) {
+  const r = await fetch(`http://127.0.0.1:${port}/json/new?${url}`, { method: "PUT", signal: AbortSignal.timeout(ms) });
+  return r.json();
+}
+
+async function closeTab(port, id, ms = 5000) {
+  await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(String(id))}`, { signal: AbortSignal.timeout(ms) });
+}
+
+function endedLoggedIn(out) {
+  return !!out && (out.result === "session_live" || (out.submitted === true && !out.result && !out.has_password && isLoggedInUrl(out.url || "")));
+}
+
+export async function runRelogin({ port, cred, open = openTab, close = closeTab, tabs = listTabs, attach = attachTab, wait = (ms) => new Promise((r) => setTimeout(r, ms)), now = Date.now, emit = () => {}, deadlineMs = RELOGIN_DEADLINE_MS }) {
+  const OFFLINE = { offline: true, submitted: false };
+  if (!cred || !cred.username || !cred.password) return OFFLINE;
+  let target;
+  try {
+    target = await open(port, MERIMEN_START);
+  } catch {
+    return OFFLINE;
+  }
+  if (!target || !target.id) return OFFLINE;
+  const id = String(target.id);
+  emit({ relogin_target: id });
+  const own = async (p, ms) => ((await tabs(p, ms)) || []).filter((t) => t && String(t.id) === id);
+  let marked = false;
+  let stopped = false; // set when the deadline fired: the try underneath stops at its next wait, nothing more is read or typed
+  const mark = (o) => { if (o && o.submitted === true) marked = true; emit(o); };
+  const pause = async (ms) => {
+    if (stopped) throw new Error("stopped");
+    await wait(ms);
+    if (stopped) throw new Error("stopped");
+  };
+  let out;
+  try {
+    const t0 = now();
+    for (;;) { // read only: wait until the new tab has loaded
+      await wait(500);
+      let ready = null;
+      try {
+        const t = (await own(port, 2000))[0];
+        if (t && t.webSocketDebuggerUrl) {
+          const a = await attach(t, { openMs: 2000, evalMs: 3000 });
+          try { ready = await a.eval("document.readyState"); } finally { a.close(); }
+        }
+      } catch { ready = null; }
+      if (ready === "complete" || now() - t0 >= RELOGIN_LOAD_MS) break;
+    }
+    out = await within(runLogin({ port, cred, tabs: own, attach, wait: pause, now, emit: mark }), deadlineMs);
+  } catch {
+    stopped = true;
+    out = marked ? { result: "unknown", submitted: true } : OFFLINE;
+  }
+  if (!endedLoggedIn(out)) {
+    try { await close(port, id); } catch { /* the worker closes it by id if it is still there */ }
+  }
+  return out;
+}
+
 function refuseWrites() {
   if (process.env.MERIMEN_WRITES !== "on") {
     process.stdout.write(JSON.stringify({ ok: false, error: "writes_off" }) + "\n");
@@ -294,7 +362,8 @@ async function main() {
     let cred = {};
     try { cred = JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { cred = {}; }
     const line = (o) => writeSync(1, JSON.stringify(o) + "\n"); // written at once: the caller reads the mark even if it stops this script
-    const out = await runLogin({
+    const run = process.argv.includes("--relogin") ? runRelogin : runLogin; // --relogin: own fresh tab (plan #133); without it nothing navigates
+    const out = await run({
       port: Number(process.env.CDP_PORT || "9222"),
       cred: { username: String(cred.username || ""), password: String(cred.password || "") },
       emit: line,

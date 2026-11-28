@@ -85,6 +85,7 @@ class Config:
     retention_days: int = 90
     mailer: object | None = None
     worker_submit: bool = False
+    merimen_relogin: bool = False  # MERIMEN_RELOGIN=on (needs MERIMEN_LOGIN=on): log in again by itself with the saved login (plan #133)
     merimen_dryrun: bool = False  # MERIMEN_DRYRUN=on: fill Merimen's create form, never save. While it is on nothing is written anywhere in Merimen
 
     @property
@@ -123,4 +124,5 @@ class Config:
             retention_days=max(1, int(e.get("SCREENSHOT_RETENTION_DAYS") or "90")),
             worker_submit=_on(e, "WORKER_SUBMIT"),
             merimen_dryrun=_on(e, "MERIMEN_DRYRUN"),
+            merimen_relogin=_on(e, "MERIMEN_RELOGIN") and _on(e, "MERIMEN_LOGIN"),
         )

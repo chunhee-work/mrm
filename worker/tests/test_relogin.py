@@ -1,0 +1,549 @@
+"""Log in again by itself (MERIMEN_RELOGIN, plan #133): who may try, how often, and what each answer writes."""
+import io
+import json
+import subprocess
+
+import pytest
+
+from autopilot_worker import loop, relogin
+from autopilot_worker.config import Config
+from autopilot_worker.db import to_numbered
+from autopilot_worker.login_flow import read_login_output, relogin_env, relogin_fetch, relogin_target
+from autopilot_worker.loop import sync_sessions
+from test_claim import needs_pg, run
+
+LOGGED_IN = "https://www.merimen.com.my/claims/index.cfm?CFID=1&RID=2"
+LOGIN_PAGE = {"urls": ["https://www.merimen.com.my/claims/index.cfm"], "has_password": False}
+
+
+@pytest.fixture(autouse=True)
+def _fresh():
+    relogin.reset()
+    loop._launched.clear()
+    yield
+    relogin.reset()
+
+
+def cfg(tmp_path, **extra):
+    env = {"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on", "MERIMEN_RELOGIN": "on", **extra}
+    return Config.from_env(env)
+
+
+# ---------- the switch ----------
+
+def test_the_switch_needs_merimen_login_too(tmp_path):
+    assert cfg(tmp_path).merimen_relogin is True
+    assert cfg(tmp_path, MERIMEN_LOGIN="off").merimen_relogin is False
+    assert Config.from_env({"WORKER_STATE": str(tmp_path), "MERIMEN_LOGIN": "on"}).merimen_relogin is False  # default off
+
+
+# ---------- sync_sessions: when a re-login is asked for ----------
+
+class SessRepo:
+    def __init__(self, rows, gate="ready"):
+        self.rows, self.sessions, self.seen, self._gate = rows, [], [], gate
+
+    def ensure_sessions(self):
+        pass
+
+    def wanted(self):
+        return self.rows
+
+    def gate(self, org, env_on):
+        return self._gate
+
+    def set_session(self, org, **k):
+        self.sessions.append((org, k))
+
+    def seen_connected(self, org):
+        self.seen.append(org)
+
+    def relogin_order(self, orgs):
+        return list(reversed(orgs))  # the repo decides the order
+
+
+def row(org="o1", status="waiting_login"):
+    return {"org_id": org, "account_key": "default", "status": status, "wanted": "start", "port": 9222}
+
+
+def sync(tmp_path, repo, info, asked):
+    sync_sessions(cfg(tmp_path), repo, launch=lambda a: None, inspect=lambda p: info, relogin=lambda org, port: asked.append((org, port)))
+
+
+@pytest.mark.parametrize("urls,want", [
+    ([], True),                                  # 0 session tabs: may log in again
+    (["https://www.merimen.com.my/claims/index.cfm"], True),
+    ([LOGGED_IN], False),                        # 1 session tab: logged in
+    ([LOGGED_IN, LOGGED_IN + "&x=2"], False),    # 2 session tabs: logged in by the same rule, never typed into
+])
+def test_tab_gate_zero_one_two(tmp_path, urls, want):
+    asked = []
+    sync(tmp_path, SessRepo([row()]), {"urls": urls, "has_password": False}, asked)
+    assert bool(asked) is want
+
+
+def test_no_relogin_when_chrome_is_down_or_the_gate_is_not_ready(tmp_path):
+    asked = []
+    sync(tmp_path, SessRepo([row()]), None, asked)  # Chrome does not answer: the launch path starts it; nothing is typed
+    sync(tmp_path, SessRepo([row()], gate="blocked"), LOGIN_PAGE, asked)  # login not ok / blocked / otp: gate is not ready
+    assert asked == []
+
+
+def test_no_relogin_without_the_hook(tmp_path):
+    repo = SessRepo([row()])
+    sync_sessions(cfg(tmp_path), repo, launch=lambda a: None, inspect=lambda p: LOGIN_PAGE)
+    assert repo.sessions[-1][1]["detail"] == "not_logged_in"
+
+
+def test_at_most_one_org_per_tick_in_the_repos_order(tmp_path):
+    asked = []
+    sync(tmp_path, SessRepo([row("o1"), row("o2")]), LOGIN_PAGE, asked)
+    assert asked == [("o2", 9222)]
+
+
+def test_seen_connected_is_written_when_the_org_turns_connected(tmp_path):
+    repo = SessRepo([row(status="waiting_login")])
+    sync(tmp_path, repo, {"urls": [LOGGED_IN], "has_password": False}, [])
+    assert repo.seen == ["o1"]
+    repo2 = SessRepo([row(status="connected")])
+    sync(tmp_path, repo2, {"urls": [LOGGED_IN], "has_password": False}, [])
+    assert repo2.seen == []  # already connected: no extra row every tick
+
+
+def test_tick_without_the_switch_never_builds_a_relogin(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_sync(*a, **k):
+        seen["relogin"] = k.get("relogin")
+
+    monkeypatch.setattr(loop, "sync_sessions", fake_sync)
+
+    class R:
+        def __getattr__(self, name):
+            return lambda *a, **k: [] if name == "followup_cases" else None
+
+    c = cfg(tmp_path, MERIMEN_RELOGIN="off")
+    loop.tick(c, R(), launch=None, inspect=None, namer=None, driver=None, download=None, fetch_page=None, master=b"k", relogin_fetch=lambda *a: {})
+    assert seen["relogin"] is None
+    loop.tick(cfg(tmp_path), R(), launch=None, inspect=None, namer=None, driver=None, download=None, fetch_page=None, master=b"k", relogin_fetch=lambda *a: {})
+    assert callable(seen["relogin"])
+
+
+# ---------- try_once with a recording repo ----------
+
+class TryRepo:
+    def __init__(self, booking=None, unclear=0, changed=1, mailed=1):
+        self.booking = booking or {"booked": True, "reason": None, "streak_first": False}
+        self.unclear, self.changed, self.mailed = unclear, changed, mailed
+        self.batches, self.audits, self.mails, self.beats = [], [], [], 0
+
+    def book_relogin(self, org):
+        return self.booking
+
+    def relogin_cred(self, org):
+        return {"org_id": org}
+
+    def heartbeat(self, *a, **k):
+        self.beats += 1
+
+    def owner_email(self, org):
+        return "owner@example.test"
+
+    def relogin_unclear_in_a_row(self, org):
+        return self.unclear
+
+    def book_mail(self, org, kind):
+        self.mails.append(("booked", kind))
+        return bool(self.mailed)
+
+    def _audit(self, org, action):
+        self.audits.append(action)
+
+    def finish_relogin(self, org, statements):
+        self.batches.append(statements)
+        out = []
+        for sql, _ in statements:
+            if "WITH upd AS" in sql:
+                out.append([(self.changed, self.mailed)])
+            elif "relogin_mailed_" in sql or "%(mailed)s" in sql:
+                out.append([(1,)] if self.mailed else [])
+            else:
+                out.append([])
+        return out
+
+
+def actions(repo):
+    """The fixed audit strings written, in order."""
+    acts = []
+    for b in repo.batches:
+        for sql, params in b:
+            if sql.startswith("INSERT INTO merimen_cred_audit (org_id, action) VALUES"):
+                acts.append(params[1])
+            elif "WITH upd AS" in sql:
+                acts.append(("block", params["state"], params["action"]))
+            elif "%(mailed)s" in sql:
+                acts.append(("mail", params["mailed"]))
+    return acts
+
+
+def go(tmp_path, repo, page, *, probe=None, mailer=None, now=lambda: 0.0):
+    sent = []
+    c = cfg(tmp_path)
+    object.__setattr__(c, "mailer", mailer or (lambda to, subject, html: sent.append((to, subject, html))))
+    fetched = []
+
+    def fetch(user, password, port):
+        fetched.append((user, password, port))
+        return page
+
+    import autopilot_worker.crypto as crypto
+    orig = crypto.open_secret
+    crypto.open_secret = lambda master, org, row, which: "abuser" if which == "user" else "s3cret-pass"
+    try:
+        out = relogin.try_once(c, repo, "o1", 9222, fetch_page=fetch, master=b"k", inspect=lambda port: probe, now=now)
+    finally:
+        crypto.open_secret = orig
+    return out, fetched, sent
+
+
+OK_PAGE = {"submitted": True, "url": LOGGED_IN, "text": "", "has_password": False, "has_otp": False}
+BAD_PAGE = {"submitted": True, "url": "https://www.merimen.com.my/claims/index.cfm", "text": "Invalid User ID or password", "has_password": True, "has_otp": False}
+LOCK_PAGE = {**BAD_PAGE, "text": "Your account has been locked"}
+OTP_PAGE = {**BAD_PAGE, "text": "", "has_otp": True}
+UNREAD = {"result": "unknown", "submitted": True}
+
+
+def test_refused_booking_never_types(tmp_path, capsys):
+    for reason in ("cooldown", "cap", "unclear", "streak", "cred", "db_error"):
+        relogin.reset()
+        repo = TryRepo(booking={"booked": False, "reason": reason, "streak_first": False})
+        out, fetched, sent = go(tmp_path, repo, OK_PAGE)
+        assert out == reason and fetched == [] and repo.batches == []
+    assert "relogin: cooldown" in capsys.readouterr().err
+
+
+def test_ok_writes_typed_and_ok_and_a_heartbeat_after(tmp_path):
+    repo = TryRepo()
+    out, fetched, sent = go(tmp_path, repo, OK_PAGE)
+    assert out == "ok" and len(fetched) == 1 and fetched[0][2] == 9222
+    assert actions(repo) == ["relogin_typed", "relogin_ok"]
+    assert repo.beats == 1 and sent == []
+
+
+def test_put_back_and_session_live_type_nothing_and_do_not_count_as_typed(tmp_path):
+    repo = TryRepo()
+    assert go(tmp_path, repo, {"result": "not_login_page", "submitted": False})[0] == "put_back"
+    relogin.reset()
+    assert go(tmp_path, repo, {"offline": True, "submitted": False})[0] == "put_back"
+    relogin.reset()
+    assert go(tmp_path, repo, {"result": "session_live", "submitted": False})[0] == "session_live"
+    assert actions(repo) == ["relogin_put_back", "relogin_put_back", "login_session_live"]
+
+
+def test_unknown_with_a_logged_in_tab_on_the_probe_is_ok(tmp_path):
+    repo = TryRepo()
+    out, _, sent = go(tmp_path, repo, UNREAD, probe={"urls": [LOGGED_IN]})
+    assert out == "ok" and actions(repo) == ["relogin_typed", "relogin_ok"] and sent == []
+
+
+def test_first_unclear_changes_nothing_and_mails_once(tmp_path):
+    repo = TryRepo(unclear=0)
+    out, _, sent = go(tmp_path, repo, UNREAD, probe={"urls": []})
+    assert out == "unclear"
+    assert actions(repo) == ["relogin_typed", "relogin_unclear", ("mail", "relogin_mailed_relogin_unclear")]
+    assert not any("UPDATE merimen_credentials" in s for b in repo.batches for s, _ in b)
+    assert len(sent) == 1 and "24" in sent[0][2]
+    relogin.reset()
+    repo2 = TryRepo(unclear=0, mailed=0)  # already mailed in this episode
+    assert go(tmp_path, repo2, UNREAD, probe=None)[2] == []
+
+
+def test_second_unclear_in_a_row_stops_like_the_save_time_unknown(tmp_path):
+    repo = TryRepo(unclear=1)
+    out, _, sent = go(tmp_path, repo, UNREAD, probe=None)
+    assert out == "unclear_stop"
+    assert ("block", "unknown", "relogin_unclear_stop") in actions(repo)
+    assert len(sent) == 1 and "Merimen did not give a clear answer" in sent[0][2]
+
+
+@pytest.mark.parametrize("page,state", [(BAD_PAGE, "bad_credentials"), (LOCK_PAGE, "locked")])
+def test_rejected_or_locked_blocks_pauses_and_mails_once(tmp_path, page, state):
+    repo = TryRepo()
+    out, _, sent = go(tmp_path, repo, page)
+    assert out == state
+    assert actions(repo)[:2] == ["relogin_typed", ("block", state, "login_" + state)]
+    assert any("UPDATE jobs SET state = 'paused'" in s for b in repo.batches for s, _ in b)
+    assert len(sent) == 1
+
+
+def test_a_concurrent_re_save_means_no_mail(tmp_path):
+    repo = TryRepo(changed=0)
+    out, _, sent = go(tmp_path, repo, BAD_PAGE)
+    assert out == "bad_credentials" and sent == []
+
+
+def test_otp_never_writes_otp_and_mails_once(tmp_path):
+    repo = TryRepo()
+    out, _, sent = go(tmp_path, repo, OTP_PAGE)
+    assert out == "otp"
+    assert ("block", "unknown", "relogin_otp") in actions(repo)
+    assert not any(isinstance(p, dict) and p.get("state") == "otp" for b in repo.batches for _, p in b)
+    assert len(sent) == 1 and "code" in sent[0][2]
+
+
+def test_streak_first_mails_once_and_sets_the_detail(tmp_path):
+    repo = TryRepo(booking={"booked": False, "reason": "streak", "streak_first": True})
+    _, _, sent = go(tmp_path, repo, OK_PAGE)
+    assert relogin.detail_for("o1") == "relogin_failed" and len(sent) == 1
+    relogin.reset()
+    repo2 = TryRepo(booking={"booked": False, "reason": "streak", "streak_first": False})
+    assert go(tmp_path, repo2, OK_PAGE)[2] == []  # later ticks: the detail stays, no second mail
+    assert relogin.detail_for("o1") == "relogin_failed"
+
+
+def test_cap_sets_the_detail_and_one_audit_row(tmp_path):
+    repo = TryRepo(booking={"booked": False, "reason": "cap", "streak_first": False})
+    go(tmp_path, repo, OK_PAGE, now=lambda: 0.0)
+    go(tmp_path, repo, OK_PAGE, now=lambda: 1000.0)
+    assert relogin.detail_for("o1") == "relogin_capped" and repo.audits == ["relogin_capped"]
+
+
+def test_a_booked_try_clears_the_detail(tmp_path):
+    go(tmp_path, TryRepo(booking={"booked": False, "reason": "cap", "streak_first": False}), OK_PAGE, now=lambda: 0.0)
+    go(tmp_path, TryRepo(), OK_PAGE, now=lambda: 1000.0)
+    assert relogin.detail_for("o1") is None
+
+
+def test_booking_is_not_asked_more_than_once_a_minute(tmp_path):
+    repo = TryRepo(booking={"booked": False, "reason": "cooldown", "streak_first": False})
+    assert go(tmp_path, repo, OK_PAGE, now=lambda: 0.0)[0] == "cooldown"
+    assert go(tmp_path, repo, OK_PAGE, now=lambda: 30.0)[0] is None
+
+
+def test_the_password_never_reaches_a_log_line(tmp_path, capsys):
+    for page in (OK_PAGE, BAD_PAGE, UNREAD, OTP_PAGE, {"result": "not_login_page", "submitted": False}):
+        relogin.reset()
+        go(tmp_path, TryRepo(), page)
+    err = capsys.readouterr()
+    assert "s3cret-pass" not in err.err + err.out and "abuser" not in err.err + err.out and "CFID" not in err.err + err.out
+
+
+def test_new_mail_texts_have_no_secrets_and_both_languages():
+    for kind in relogin.MAIL_KINDS:
+        subject, html = relogin.relogin_email(kind)
+        assert "/" in html and "@" not in html and "password=" not in html
+
+
+# ---------- the child: env, output, time-out ----------
+
+def test_relogin_child_env_has_no_secrets():
+    env = relogin_env({"PATH": "/bin", "HOME": "/h", "MERIMEN_CRED_KEY": "k", "DATABASE_URL": "postgres://x", "NODE_OPTIONS": "--require=/evil.js", "NODE_EXTRA_CA_CERTS": "/ca"}, 9333)
+    assert env == {"PATH": "/bin", "HOME": "/h", "NODE_EXTRA_CA_CERTS": "/ca", "CDP_PORT": "9333", "MERIMEN_LOGIN": "on"}
+
+
+def test_the_target_line_is_not_a_result():
+    out = json.dumps({"relogin_target": "T1"}) + "\n"
+    assert relogin_target(out) == "T1"
+    assert read_login_output(out) == {"offline": True, "submitted": False}
+    assert read_login_output(out + json.dumps({"submitted": True}) + "\n") == {"result": "unknown", "submitted": True}
+
+
+class FakeProc:
+    def __init__(self, out, hang):
+        self.out, self.hang, self.killed, self.calls, self.args = out, hang, False, 0, None
+
+    def communicate(self, payload=None, timeout=None):
+        self.calls += 1
+        if self.hang and self.calls == 1:
+            raise subprocess.TimeoutExpired("node", timeout)
+        return self.out, ""
+
+    def kill(self):
+        self.killed = True
+
+
+def test_a_timed_out_relogin_closes_only_its_own_tab():
+    closed, procs = [], []
+
+    def popen(argv, **k):
+        procs.append(FakeProc(json.dumps({"relogin_target": "T7"}) + "\n" + json.dumps({"submitted": True}) + "\n", hang=True))
+        procs[-1].args = (argv, k)
+        return procs[-1]
+
+    fetch = relogin_fetch("cdp.mjs", popen=popen, environ={"PATH": "/bin", "MERIMEN_CRED_KEY": "k"}, closer=lambda port, t: closed.append((port, t)))
+    page = fetch("abuser", "s3cret", 9222)
+    assert page == {"result": "unknown", "submitted": True} and closed == [(9222, "T7")]
+    argv, k = procs[0].args
+    assert argv[-2:] == ["login", "--relogin"] and "MERIMEN_CRED_KEY" not in k["env"]
+    assert "s3cret" not in " ".join(argv)
+
+
+def test_a_relogin_that_ends_in_time_closes_nothing_from_python():
+    closed = []
+    fetch = relogin_fetch("cdp.mjs", popen=lambda argv, **k: FakeProc(json.dumps({"relogin_target": "T7"}) + "\n" + json.dumps({"result": "not_login_page", "submitted": False}) + "\n", hang=False),
+                          environ={}, closer=lambda port, t: closed.append(t))
+    assert fetch("a", "b", 9222) == {"result": "not_login_page", "submitted": False} and closed == []
+
+
+# ---------- the SQL on a real Postgres ----------
+
+CRED = ("INSERT INTO merimen_credentials (org_id, username_hint, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, password_nonce, verify_state) "
+        "VALUES ('o1','u','a','b','c','d','e','f','ok')")
+SEED = ["INSERT INTO organizations (id, name) VALUES ('o1', 'One'), ('o2', 'Two')", CRED]
+
+
+def audit(action, ago="1 minute", org="o1"):
+    return f"INSERT INTO merimen_cred_audit (org_id, action, at) VALUES ('{org}', '{action}', now() - interval '{ago}')"
+
+
+def steps(statements):
+    return [{"sql": to_numbered(s, p)[0], "params": to_numbered(s, p)[1]} for s, p in statements]
+
+
+def book(seed_extra=(), n=1):
+    r = run(steps(relogin.booking_statements("o1")) * n + [{"sql": "SELECT count(*) FROM merimen_cred_audit WHERE action = 'relogin_try' AND at > now() - interval '5 seconds'"}],
+            seed=SEED + list(seed_extra))
+    return [relogin.read_refusal(r[i * 3:(i + 1) * 3]) for i in range(n)], r[-1][0][0]
+
+
+@needs_pg
+def test_pg_first_booking_goes_and_a_second_is_the_cooldown():
+    (first, second), rows = book(n=2)
+    assert first["booked"] and second == {"booked": False, "reason": "cooldown", "streak_first": False} and rows == 1
+
+
+@needs_pg
+def test_pg_cap_counts_typed_tries_only():
+    (b,), _ = book([audit("relogin_put_back", f"{i + 20} minutes") for i in range(5)] + [audit("relogin_try", f"{i + 20} minutes") for i in range(20)])
+    assert b["booked"]  # 20 tries but nothing typed: put-backs never use up the cap
+    (b,), _ = book([audit("relogin_typed", f"{i + 20} minutes") for i in range(12)])
+    assert b["reason"] == "cap"
+
+
+@needs_pg
+def test_pg_unclear_blocks_24h_unless_a_success_came_after():
+    (b,), _ = book([audit("relogin_unclear", "2 hours")])
+    assert b["reason"] == "unclear"
+    (b,), _ = book([audit("relogin_unclear", "2 hours"), audit("login_ok", "1 hour")])
+    assert b["booked"]  # the user saved again and it worked: re-login is back (G1)
+    (b,), _ = book([audit("relogin_unclear", "25 hours")])
+    assert b["booked"]
+
+
+@needs_pg
+def test_pg_streak_first_reaching_six_and_its_end():
+    six = [audit("relogin_put_back", f"{20 + i} minutes") for i in range(6)]
+    (b,), _ = book(six)
+    assert b == {"booked": False, "reason": "streak", "streak_first": True}
+    (b,), _ = book(six + [audit("relogin_mailed_relogin_failed", "15 minutes")])
+    assert b["reason"] == "streak" and b["streak_first"] is False  # already mailed this episode
+    (b,), _ = book(six + [audit("session_seen_connected", "11 minutes")])
+    assert b["booked"]  # Chrome was fixed some other way: the streak ended by itself
+    (b,), _ = book([audit("relogin_put_back", f"{7 * 60 + i} minutes") for i in range(6)] + [audit("relogin_put_back", "20 minutes")])
+    assert b["booked"]  # most of them fell out of the 6 h window
+
+
+@needs_pg
+def test_pg_refusal_reason_order():
+    (b,), _ = book([audit("relogin_typed", f"{i + 1} minutes") for i in range(12)] + [audit("relogin_try", "1 minute"), audit("relogin_unclear", "1 minute")])
+    assert b["reason"] == "cap"  # cap before unclear before cooldown
+    (b,), _ = book([audit("relogin_try", "1 minute"), audit("relogin_unclear", "1 minute")])
+    assert b["reason"] == "unclear"
+
+
+@needs_pg
+def test_pg_blocked_or_otp_login_is_never_booked():
+    r = run(steps(relogin.booking_statements("o1")), seed=SEED + ["UPDATE merimen_credentials SET verify_state = 'otp'"])
+    assert relogin.read_refusal(r)["reason"] == "cred"
+    r = run(steps(relogin.booking_statements("o1")), seed=SEED + ["UPDATE merimen_credentials SET blocked = true"])
+    assert relogin.read_refusal(r)["reason"] == "cred"
+
+
+@needs_pg
+def test_pg_block_statement_is_guarded_and_mails_once_per_episode():
+    st = relogin.block_statement("o1", "unknown", "relogin_otp", "otp")
+    r = run(steps([st, st]) + [{"sql": "SELECT verify_state, blocked FROM merimen_credentials"},
+                               {"sql": "SELECT action FROM merimen_cred_audit ORDER BY id"}], seed=SEED)
+    assert r[0] == [[1, 1]] and r[1] == [[0, 0]]  # second run: the row is no longer ok, nothing changes, no second mail
+    assert r[2] == [["unknown", True]]
+    assert sorted(r[3]) == [["relogin_mailed_otp"], ["relogin_otp"]]
+    r = run(steps([st]) + [{"sql": "SELECT verify_state, blocked FROM merimen_credentials"}], seed=SEED + ["UPDATE merimen_credentials SET verify_state = 'queued'"])
+    assert r[0] == [[0, 0]] and r[1] == [["queued", False]]  # the user saved again during the run: left alone
+
+
+@needs_pg
+def test_pg_pause_runs_only_after_this_runs_block():
+    org_seed = SEED + [
+        "INSERT INTO cases (id, org_id, plate, status) VALUES ('c1','o1','A1','phase_a')",
+        "INSERT INTO jobs (id, case_id, step, state) VALUES (1,'c1','phase_a','queued')",
+    ]
+    pause = relogin._pause("o1", "bad_credentials", "bad")
+    r = run(steps(pause) + [{"sql": "SELECT state FROM jobs"}], seed=org_seed)
+    assert r[-1] == [["queued"]]  # the row is still ok: no pause
+    r = run(steps([relogin.block_statement("o1", "bad_credentials", "login_bad_credentials", None)] + pause)
+            + [{"sql": "SELECT state FROM jobs"}, {"sql": "SELECT status FROM cases"}], seed=org_seed)
+    assert r[-2] == [["paused"]] and r[-1] == [["waiting_user"]]
+
+
+@needs_pg
+def test_pg_mail_booking_once_per_episode_and_again_after_a_success():
+    st = relogin.mail_booking_statement("o1", "relogin_unclear")
+    r = run(steps([st, st]), seed=SEED)
+    assert r == [[[1]], []]
+    r = run(steps([st]), seed=SEED + [audit("relogin_mailed_relogin_unclear", "2 hours"), audit("relogin_ok", "1 hour")])
+    assert r == [[[1]]]
+
+
+@needs_pg
+def test_pg_seen_connected_only_while_an_episode_is_open():
+    st = relogin.seen_connected_statement("o1")
+    count = {"sql": "SELECT count(*) FROM merimen_cred_audit WHERE action = 'session_seen_connected'"}
+    assert run(steps([st]) + [count], seed=SEED)[-1] == [[0]]
+    assert run(steps([st, st]) + [count], seed=SEED + [audit("relogin_put_back")])[-1] == [[1]]
+
+
+@needs_pg
+def test_pg_unclear_count_and_order():
+    from autopilot_worker.store import PgRepo
+
+    r = run(steps([relogin.unclear_count_statement("o1")]), seed=SEED + [audit("relogin_unclear", "3 hours"), audit("relogin_ok", "2 hours"), audit("relogin_unclear", "1 hour")])
+    assert r == [[[1]]]
+
+    class Db:
+        def execute(self, sql, params=()):
+            text, args = to_numbered(sql, params)
+            return [tuple(x) for x in run([{"sql": text, "params": args}], seed=SEED + [audit("relogin_try", "2 hours", "o1"), audit("relogin_try", "1 hour", "o2")])[0]]
+
+    assert PgRepo("", db=Db()).relogin_order(["o1", "o2", "o3"]) == ["o3", "o1", "o2"]
+
+
+# ---------- end to end over ticks: Chrome restarted on the login page -> one re-login -> connected next tick ----------
+
+def test_end_to_end_restart_relogin_connected(tmp_path):
+    tabs = {"urls": ["https://www.merimen.com.my/claims/index.cfm"], "has_password": False}
+    repo = SessRepo([row(status="waiting_login")])
+    trepo = TryRepo()
+    c = cfg(tmp_path)
+    object.__setattr__(c, "mailer", lambda *a: None)
+    fetched = []
+
+    def fetch(user, password, port):
+        fetched.append(port)
+        tabs["urls"] = tabs["urls"] + [LOGGED_IN]  # the own tab ended logged in
+        return OK_PAGE
+
+    import autopilot_worker.crypto as crypto
+    orig = crypto.open_secret
+    crypto.open_secret = lambda *a: "x"
+    try:
+        def hook(org, port):
+            relogin.try_once(c, trepo, org, port, fetch_page=fetch, master=b"k", inspect=lambda p: tabs, now=lambda: 0.0)
+
+        sync_sessions(c, repo, launch=lambda a: None, inspect=lambda p: tabs, relogin=hook)
+        assert fetched == [9222] and repo.sessions[-1][1]["status"] == "waiting_login"
+        repo.rows = [row(status="waiting_login")]
+        sync_sessions(c, repo, launch=lambda a: None, inspect=lambda p: tabs, relogin=hook)
+    finally:
+        crypto.open_secret = orig
+    assert fetched == [9222]  # typed once, no manual step
+    assert repo.sessions[-1][1]["status"] == "connected" and repo.sessions[-1][1]["detail"] is None

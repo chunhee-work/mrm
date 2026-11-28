@@ -716,3 +716,65 @@ class PgRepo:
 
     def mark_screenshot_deleted(self, row_id: str) -> None:
         self.db.execute("UPDATE case_screenshots SET deleted_at = now() WHERE id = %s AND deleted_at IS NULL", (row_id,))
+
+    # ---- re-login (MERIMEN_RELOGIN, plan #133). Every action string here is fixed; nothing from a page is stored. ----
+
+    def relogin_order(self, orgs: list[str]) -> list[str]:
+        """Orgs whose re-login was tried longest ago (or never) first, so no org waits behind another (D9)."""
+        if len(orgs) < 2:
+            return list(orgs)
+        rows = self.db.execute(
+            "SELECT org_id, max(at) FROM merimen_cred_audit WHERE action = 'relogin_try' AND org_id = ANY(string_to_array(%s::text, %s::text)) GROUP BY org_id",
+            ("\n".join(orgs), "\n"),
+        )
+        last = {r[0]: str(r[1]) for r in rows}
+        return sorted(orgs, key=lambda o: (o in last, last.get(o, "")))
+
+    def book_relogin(self, org_id: str) -> dict:
+        """One transaction (db.batch): the advisory lock, the conditional booking row, then a read-only look at why it was refused.
+        {"booked": bool, "reason": None|cooldown|cap|unclear|streak|cred, "streak_first": bool}."""
+        from .relogin import booking_statements, read_refusal
+
+        res = self.db.batch(booking_statements(org_id))
+        return read_refusal(res)
+
+    def seen_connected(self, org_id: str) -> None:
+        """One `session_seen_connected` row, only while a re-login episode is open (a put-back streak, an unclear answer, a cap):
+        however Chrome was fixed, re-login is back on (G2)."""
+        from .relogin import seen_connected_statement
+
+        self._audit_sql(*seen_connected_statement(org_id))
+
+    def _audit_sql(self, sql: str, params) -> None:
+        try:
+            self.db.execute(sql, params)
+        except Exception as e:  # noqa: BLE001
+            print("relogin audit row skipped:", type(e).__name__, file=sys.stderr, flush=True)
+
+    def relogin_unclear_in_a_row(self, org_id: str) -> int:
+        from .relogin import unclear_count_statement
+
+        rows = self.db.execute(*unclear_count_statement(org_id))
+        return int(rows[0][0]) if rows else 0
+
+    def finish_relogin(self, org_id: str, statements: list[tuple[str, object]]) -> list[list[tuple]]:
+        return self.db.batch(statements)
+
+    def book_mail(self, org_id: str, kind: str) -> bool:
+        from .relogin import mail_booking_statement
+
+        return bool(self.db.execute(*mail_booking_statement(org_id, kind)))
+
+    def relogin_cred(self, org_id: str) -> dict | None:
+        """The saved login, read the same way as at save time, only while it is ok and not blocked. Never logged."""
+        rows = self.db.execute(
+            """
+            SELECT org_id, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, password_nonce
+            FROM merimen_credentials WHERE org_id = %s AND verify_state = 'ok' AND NOT blocked
+            """,
+            (org_id,),
+        )
+        if not rows:
+            return None
+        keys = ("org_id", "wrapped_dek", "dek_nonce", "username_ct", "username_nonce", "password_ct", "password_nonce")
+        return dict(zip(keys, rows[0]))
