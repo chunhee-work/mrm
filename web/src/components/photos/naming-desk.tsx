@@ -942,7 +942,8 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
   );
   const extrasRow = (
     <div className={`flex items-center gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible ${noBar}`}>
-      <span className="shrink-0 pr-1 text-[12.5px] text-mute">{t("extras")}</span>
+      {/* in a line of the first page the bar has no label for these (owner 2026-11-28) */}
+      {!embedded && <span className="shrink-0 pr-1 text-[12.5px] text-mute">{t("extras")}</span>}
       {st?.extras.map((e) => <ExtraChip key={e.id} e={e} onRemove={removeExtra} t={t} />)}
       <button
         type="button" disabled={!st} onClick={() => setPalette(true)}
