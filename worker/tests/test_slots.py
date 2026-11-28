@@ -1603,3 +1603,24 @@ def test_a_portless_user_with_a_running_step_owns_only_the_chrome_the_config_giv
     two = "o1:9222,o2:9223"
     r = run([q("o2", 9223, two, False), q("o2", 9222, two, False), q("o2", 9223)], seed=seed)
     assert r == [[[False]], [[True]], [[True]]]  # not on o2's own Chrome; on o1's Chrome yes; one Chrome: every portless runner counts
+
+
+@needs_pg
+def test_a_stopped_user_hands_the_chrome_on_once_its_merimen_steps_are_done():
+    """egm r13: user 1 (first case, ok login) stopped its worker session, which keeps the old port. User 2 must get the Chrome, and
+    its new login must be checked, unless a Merimen step of user 1 still runs."""
+    from autopilot_worker.db import to_numbered
+    from autopilot_worker.jobs import CHROME_TAKEN_SQL, CHROME_USED_SQL
+
+    def q(sql):
+        return dict(zip(("sql", "params"), to_numbered(sql, {"org": "o2", "port": 9222, "org_ports": "", "one_port": True})))
+
+    stopped = ORGS_CASES + READY + sessions() + [
+        "UPDATE worker_sessions SET status = 'stopped', wanted = 'stop' WHERE org_id = 'o1'",
+        "INSERT INTO jobs (id, case_id, step, state) VALUES (2,'c3','phase_a','queued')",
+    ]
+    r = run([q(CHROME_TAKEN_SQL), q(CHROME_USED_SQL), mclaim("w")], seed=stopped)
+    assert r[0] == [[False]] and r[1] == [[False]] and r[2][0][0] == 2
+    running = stopped + ["INSERT INTO jobs (id, case_id, step, state, locked_by, locked_at) VALUES (1,'c1','phase_b','running','w',now())"]
+    r = run([q(CHROME_TAKEN_SQL), q(CHROME_USED_SQL), mclaim("w")], seed=running)
+    assert r[0] == [[True]] and r[1] == [[True]] and r[2] == []

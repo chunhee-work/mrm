@@ -827,7 +827,7 @@ def main() -> None:
 
     import threading
 
-    _rec_lock = threading.Lock()  # page calls run in a small pool; one ledger write at a time on the shared connection
+    _rec_lock = threading.Lock()  # page calls run in a small pool; one ledger write at a time from this pool
 
     def _record_jev(row: dict) -> None:
         try:

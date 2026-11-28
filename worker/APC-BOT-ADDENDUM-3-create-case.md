@@ -30,7 +30,7 @@
 - 工作坊被正确认出（时间线里能看到工作坊的编号和 COID）。
 - 干跑之后 Merimen 里**没有留下草稿，也没有扣费**（第一次干跑后请你去 Merimen 看一眼）。
 - 没有出现「未知确认框」的停止；如果出现，把停止原因发回来。
-- 全程只开一个 worker，每个机构同时只跑一个 job。（从计划 #150 Rollout 第 1.4 步起：env 文件里**不再留** `ORG_CONCURRENCY` 这一行，不要再加回去；它默认等于 `WORKER_SLOTS`，一个槽位时就是 1；同一个进程里建案照样一次一个。）
+- 全程只开一个 worker，每个机构同时只跑一个 job。（从计划 #150 Rollout 第 1.4 步起：env 文件里**不再留** `ORG_CONCURRENCY` 这一行，不要再加回去（唯一例外：按计划 1.6c / 回滚步骤退回旧代码时，把 1.2 记下的那一行原样加回）；它默认等于 `WORKER_SLOTS`，一个槽位时就是 1；同一个进程里建案照样一次一个。）
 - 把每个案子的结果记在一张表里（案子、保险公司、分行、工作坊、结果）发给老板；老板（Chun Hee）看过并同意**之前不要开写入开关**。
 
 过了以后再进第 2 步。第一个真建的案子见 5c（要用一个真的案子，由老板盯着）。
@@ -58,7 +58,7 @@
 - 不想再建：把 `MERIMEN_WRITES` 或 `WORKER_SUBMIT` 关掉（或开 `MERIMEN_DRYRUN`），重启 worker。
 - 案子被「按过 Next」的标记挡住：在 Merimen 工作清单（worklist）按车牌搜。搜到了 → 把案号填进该案子；没搜到 → 才由人在 case_events 里插一行 `create_cleared`。重复警告也是同样处理，先搜再决定，不要人工再建第二个。
 - 工作坊被锁了但没建成：标记还在，案子停下；确认没有案子后同样插 `create_cleared`（工作坊那一格的锁要在后台处理，这次没做自动放开）。
-- 出现 `concurrency_unsafe`：删掉 `ORG_CONCURRENCY` 这一行（默认等于 `WORKER_SLOTS`）再重启。
+- 新代码启动时如果报 `ORG_CONCURRENCY is above 1`（拒绝启动）：删掉 `ORG_CONCURRENCY` 这一行（默认等于 `WORKER_SLOTS`）再重启。旧代码里每单报 `concurrency_unsafe` 也是同样处理。
 
 
 ## 5c. 第一次真建：有人盯着（写入开关之前必须做）

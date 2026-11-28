@@ -34,6 +34,8 @@ WHERE j.state = 'queued'
           -- (only when the config gives that org this Chrome: one_port = the only Chrome, org_ports = 'org:port' pairs, egm r12)
           AND (s6.port = s0.port OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || s0.port::text) = ANY(string_to_array(%(org_ports)s, ',')))
                AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+          -- a stopped user takes part only while a Merimen step of it still runs (its row keeps the old port for good, egm r13)
+          AND (s6.status IS DISTINCT FROM 'stopped' OR EXISTS (SELECT 1 FROM jobs jt6 JOIN cases jt6c ON jt6c.id = jt6.case_id WHERE jt6c.org_id = s6.org_id AND jt6.state = 'running' AND jt6.step IN ('phase_a', 'phase_b')))
           -- that org takes part when its saved login is ok or still being checked (an owner that saves its login again keeps its
           -- place, so the other org never takes over a Chrome that holds the owner's session, egm r10), or while a Merimen step of it
           -- runs (a login blocked under a running step never hands the Chrome to another org before that step ends)
@@ -110,7 +112,8 @@ WHERE j.state = 'queued'
       AND EXISTS (SELECT 1 FROM ext_consents k WHERE k.org_id = c.org_id)
     )
   )
--- the case uploaded first goes first, with all its later steps: user 1's cases are done before user 2's (owner 2026-11-28)
+-- the case uploaded first goes first, with all its later steps: each claim takes the earliest claimable case, so user 1's cases go
+-- first, and with free slots another user's case can start while user 1's case waits on a Chrome or the create lock (owner 2026-11-28)
 ORDER BY c.created_at, c.id, j.created_at, j.id
 FOR NO KEY UPDATE OF j, c SKIP LOCKED
 LIMIT 1
@@ -162,6 +165,7 @@ SELECT EXISTS (
   WHERE s6.org_id <> %(org)s
     AND (s6.port = %(port)s OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || %(port)s::text) = ANY(string_to_array(%(org_ports)s, ',')))
          AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+    AND (s6.status IS DISTINCT FROM 'stopped' OR EXISTS (SELECT 1 FROM jobs jt6 JOIN cases jt6c ON jt6c.id = jt6.case_id WHERE jt6c.org_id = s6.org_id AND jt6.state = 'running' AND jt6.step IN ('phase_a', 'phase_b')))
     AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
          OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
     AND (NOT EXISTS (SELECT 1 FROM jobs jr6 JOIN cases jr6c ON jr6c.id = jr6.case_id WHERE jr6c.org_id = s6.org_id AND jr6.state = 'running' AND jr6.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id AND c7.deleted_at IS NULL), 'infinity'), s6.org_id)
@@ -181,6 +185,7 @@ SELECT EXISTS (
     -- config would give that org THIS Chrome (one_port = the only Chrome, where every org goes; org_ports = 'org:port' pairs), so
     -- the check waits until that row has its port (egm r8), and a portless user of another Chrome never blocks this one (egm r11)
     AND (s6.port = %(port)s OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || %(port)s::text) = ANY(string_to_array(%(org_ports)s, ',')))))
+    AND (s6.status IS DISTINCT FROM 'stopped' OR EXISTS (SELECT 1 FROM jobs jt6 JOIN cases jt6c ON jt6c.id = jt6.case_id WHERE jt6c.org_id = s6.org_id AND jt6.state = 'running' AND jt6.step IN ('phase_a', 'phase_b')))
     AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
          OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
 )

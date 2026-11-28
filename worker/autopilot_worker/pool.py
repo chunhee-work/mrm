@@ -132,7 +132,7 @@ class JobPool:
 # The threading model of every driver attribute (DPR-150-4 D5). A test fails when the driver or run_job gets an attribute that is in
 # neither list, so a new one is always classified. SHARED: thread-safe, one for all slots. PER_JOB: set again by run_job /
 # handle_job for every job on the slot's own copy, so two jobs never see each other's.
-SHARED = frozenset({"script", "page_for", "jev", "step2_reviewer", "fetch_bytes", "strict_tabs"})
+SHARED = frozenset({"script", "page_for", "jev", "step2_reviewer", "fetch_bytes"})
 PER_JOB = frozenset({"case", "progress", "profile", "marks", "record", "workshop", "guard", "relogin_ready"})
 
 
