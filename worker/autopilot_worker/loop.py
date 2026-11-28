@@ -133,7 +133,9 @@ def session_alive(cfg: Config, inspect, page_for, org_id: str) -> bool:
         info = inspect(cfg.accounts[account])
     except Exception:  # noqa: BLE001
         info = None
-    if not info or page_block(info) is not None:
+    if not info:
+        return True  # Chrome did not answer this once (busy, a slow /json/list): unknown, the job's own outcome stands
+    if page_block(info) is not None:
         return False
     look = getattr(page_for, "session_tabs", None)
     if look:
@@ -149,7 +151,9 @@ def session_alive(cfg: Config, inspect, page_for, org_id: str) -> bool:
 def _not_merimen(outcome: Outcome) -> bool:
     """Stops that do not depend on the session (a missing document or field, a setting): never turned into a put-back."""
     err = outcome.error or ""
-    return bool(outcome.pending_doc) or err in ("documents", "concurrency_unsafe") or err.startswith("missing ")
+    if outcome.job_state == "requeue" and not err and (not outcome.event or outcome.event.startswith("Waiting for you to log in")):
+        return True  # a wait before the step ran (gate, session, Done not pressed): Merimen was not driven, nothing was cut off
+    return bool(outcome.pending_doc) or err in ("documents", "concurrency_unsafe", "writes_off") or err.startswith("missing ")
 
 
 def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
@@ -159,7 +163,9 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
     phase = _PHASE_NAME.get(job["step"], job["step"])
     if count >= LOST_CAP:
         lead = f"Merimen logged out {LOST_CAP} times in {LOST_WINDOW}: {phase} is not tried again by itself."
-        return replace(outcome, job_state="failed", event=(lead + (f" {outcome.event}" if outcome.event else ""))[:400])
+        # a put-back job's own outcome may be a bare requeue (no error, no status): the case still has to show it waits for a person
+        return replace(outcome, job_state="failed", error=outcome.error or "session_lost", case_status=outcome.case_status or "waiting_user",
+                       event=(lead + (f" {outcome.event}" if outcome.event else ""))[:400])
     return replace(
         outcome, job_state="requeue", session_lost=True, case_status=None, error=None, enqueue=[], done=False, pending_doc=None,
         require_snapshot=None, stale_event=None, invalidate=False, verify_state=None,
@@ -170,7 +176,9 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
 def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspect, page_for, now=time.monotonic) -> Outcome:
     """After a Merimen job that did not finish: was the session logged out meanwhile? Then the put-back outcome (and, with re-login
     on, the org is marked so the next tick books one). A check that fails itself leaves the outcome as it was."""
-    if job["step"] not in PHASE_STEPS or outcome.job_state not in ("failed", "requeue") or not cfg.ext_connect or _not_merimen(outcome):
+    # only with re-login on: without it nobody logs in again, the job keeps its own outcome and the usual login notice asks the user
+    if job["step"] not in PHASE_STEPS or outcome.job_state not in ("failed", "requeue") or not (cfg.ext_connect and cfg.merimen_relogin) \
+            or _not_merimen(outcome):
         return outcome
     try:
         if session_alive(cfg, inspect, page_for, job["org_id"]):
@@ -178,7 +186,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         got = session_lost_outcome(job, outcome, count=repo.session_lost_count(job["case_id"]))
     except Exception:  # noqa: BLE001
         return outcome
-    if got.session_lost and cfg.merimen_relogin:
+    if got.session_lost:
         FORCE_RELOGIN[job["org_id"]] = now()
     return got
 
@@ -353,7 +361,12 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         return None
     _at("job")
     case = repo.load(job["case_id"])
-    shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
+    if isinstance(case, dict) and job["step"] in PHASE_STEPS and cfg.merimen_relogin:
+        try:  # put back after a logout lately: a partial photo list in Merimen is then a cut-off upload, never "already has photos"
+            case["resumed_after_logout"] = repo.session_lost_count(job["case_id"]) > 0
+        except Exception:  # noqa: BLE001
+            pass
+    shooter =Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
 
     def shoot(step: str) -> None:

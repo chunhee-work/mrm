@@ -49,7 +49,7 @@ def test_session_alive_reads_the_tab_addresses_and_the_pages(tmp_path):
     c = cfg(tmp_path)
     assert session_alive(c, lambda p: LOGGED_IN, None, "o1") is True
     assert session_alive(c, lambda p: LOGIN_PAGE, None, "o1") is False
-    assert session_alive(c, lambda p: None, None, "o1") is False  # Chrome not answering: the job cannot go on either
+    assert session_alive(c, lambda p: None, None, "o1") is True  # Chrome did not answer once: unknown, the job's own outcome stands
     # an old address that still carries the session marks, but the page shows a password box
     assert session_alive(c, lambda p: LOGGED_IN, provider(True), "o1") is False
     assert session_alive(c, lambda p: LOGGED_IN, provider(False), "o1") is True
@@ -254,10 +254,37 @@ def test_check_after_the_job(tmp_path):
     assert loop.check_session_after(on, CountRepo(), {**JOB, "step": "photo_model"}, fail, inspect=lambda p: LOGIN_PAGE, page_for=None) is fail
     # the count could not be read: the outcome is left as it was
     assert loop.check_session_after(on, BrokenCount(), JOB, fail, inspect=lambda p: LOGIN_PAGE, page_for=None) is fail
-    # without re-login the job is still put back, nobody is marked
+    # without re-login nobody logs in again: the job keeps its own outcome, nobody is marked
     off = cfg(tmp_path)
-    assert loop.check_session_after(off, CountRepo(), JOB, fail, inspect=lambda p: LOGIN_PAGE, page_for=None).session_lost
+    assert loop.check_session_after(off, CountRepo(), JOB, fail, inspect=lambda p: LOGIN_PAGE, page_for=None) is fail
     assert FORCE_RELOGIN == {}
+    # a wait before the step ran (gate, session, Done not pressed) is not a cut-off job
+    for wait in (Outcome("requeue"), Outcome("requeue", event="Waiting for you to log in on the worker Chrome")):
+        assert loop.check_session_after(on, CountRepo(), JOB, wait, inspect=lambda p: LOGIN_PAGE, page_for=None) is wait
+    assert FORCE_RELOGIN == {}
+
+
+def test_at_the_cap_a_bare_requeue_still_leaves_the_case_waiting_for_a_person():
+    got = session_lost_outcome(JOB, Outcome("requeue", event="Phase B stopped. could not read the photos in Merimen"), count=LOST_CAP)
+    assert got.job_state == "failed" and got.error == "session_lost" and got.case_status == "waiting_user"
+
+
+def test_phase_a_refuses_a_cut_off_upload_with_a_gap():
+    m = Fake(held=["Part 1", "Part 3"])
+    rep = ps.phase_a({"merimen_caseid": "1", "resumed_after_logout": True}, TEN, writes=True, merimen=m)
+    assert not rep.ok and rep.code == "hand_fix" and m.writes == []
+    # not after a logout: the owner's rule stands, a case that already has photos is skipped
+    rep = ps.phase_a({"merimen_caseid": "1"}, TEN, writes=True, merimen=Fake(held=["Part 1", "Part 3"]))
+    assert rep.ok and rep.action == "none"
+
+
+def test_phase_b_does_not_resume_over_a_short_phase_a_list_with_other_files():
+    # Phase A put up X 'Front Bumper', Y 'Rear Bumper' (Z dropped); the final list swaps the names: same captions, other files
+    final = rows((1, "y.jpg", "Rear Bumper", "Front Bumper"), (2, "x.jpg", "Front Bumper", "Rear Bumper"), (3, "z.jpg", "Side", "Side"))
+    pa = [{"name": "Front Bumper", "src": "x.jpg"}, {"name": "Rear Bumper", "src": "y.jpg"}, {"name": "Side", "src": "z.jpg"}]
+    m = Fake(held=["Front Bumper", "Rear Bumper"])
+    ps.phase_b({"merimen_caseid": "1"}, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=pa, writes=True, merimen=m)
+    assert not any(w.startswith("upload") for w in m.writes)
 
 
 def test_stops_that_are_not_about_the_session_are_left_alone(tmp_path):

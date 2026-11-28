@@ -187,6 +187,13 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     k = prefix_done(have, plan)
     if k:
         return _resume(rep, case, plan, k, merimen, guard, writes)
+    names = {p["name"] for p in plan}
+    if case.get("resumed_after_logout") and have and len(have) < len(plan) and all(h in names for h in have):
+        # the job was put back after a logout: fewer photos than the plan, all with this plan's captions, but not its clean start (a
+        # cut-off upload with a gap, or a repeated caption) is never taken as "already has photos", a person looks (playbook 06)
+        rep.action, rep.upload, rep.code, rep.snapshot = "refused", 0, "hand_fix", None
+        rep.note = f"Merimen has {len(have)} of {len(plan)} photos that are not the start of this list: fix by hand (playbook 06)"
+        return rep
     if have is not None and len(have) >= int(rules()["photoUpload"]["skipWhenMerimenHasPhotos"]):
         rep.action, rep.upload, rep.note = "none", 0, f"Merimen already has {len(have)} photos"
         return rep
@@ -252,8 +259,14 @@ def phase_b(
         rep.action, rep.note, rep.code, rep.snapshot = "unreadable", "could not read the photos in Merimen", "unreadable", None
         return rep
     # 2a an upload of these final names was cut off (logged out half way): Merimen holds exactly their start, only the rest goes up
-    # (not when Merimen holds exactly the Phase A list: that is the usual relabel case of step 4, never a cut-off upload)
-    k = 0 if have == [x["name"] for x in phase_a_photos or []] else prefix_done(have, new)
+    # Not when Merimen holds exactly the Phase A list (the usual relabel case of step 4). When the captions could also be the start of
+    # the Phase A upload, they only count as this upload's start when the same files sit there in both lists (captions alone do not say
+    # which photo carries which).
+    pa = phase_a_photos or []
+    pa_names = [x["name"] for x in pa]
+    k = 0 if have == pa_names else prefix_done(have, new)
+    if k and have == pa_names[:k] and [x.get("src") for x in new[:k]] != [x.get("src") for x in pa[:k]]:
+        k = 0
     if k:
         return _resume(rep, case, new, k, merimen, guard, writes)
     # 2 nothing in Merimen yet (Done was pressed before Phase A reached the upload): upload with the final names and order
