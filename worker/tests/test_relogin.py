@@ -935,3 +935,15 @@ def test_the_sql_action_lists_come_from_the_tuples():
     assert lst(relogin.EPISODE_ACTIONS) in relogin.seen_connected_statement("o1")[0]
     written = relogin.outcome_written_statement("o1", 1)[0]
     assert lst(a for a in relogin.OUTCOME_ACTIONS if a != "login_session_live") in written and "login_session_live" not in written
+
+
+@pytest.mark.parametrize("info", [LOGIN_PAGE, None])
+def test_no_hand_login_notice_while_relogin_is_active(tmp_path, info):
+    # loop review round 22: re-login active means nobody is asked to log in by hand
+    import os
+
+    c = cfg(tmp_path)
+    sync_sessions(c, SessRepo([row("o1")]), launch=lambda a: None, inspect=lambda p: info, relogin=lambda org, port: "ok")
+    assert not os.path.exists(os.path.join(c.state_dir, "NEED_LOGIN"))
+    sync_sessions(c, SessRepo([row("o1")]), launch=lambda a: None, inspect=lambda p: info, relogin=None)
+    assert os.path.exists(os.path.join(c.state_dir, "NEED_LOGIN"))  # switch off: the old notice stays

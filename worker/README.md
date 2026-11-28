@@ -12,11 +12,11 @@
 
 ### 自动重新登录（`MERIMEN_RELOGIN=on`，计划 #133）
 
-只要 Chrome 回答了但没有任何标签页登录着 Merimen（例如 worker 或 Chrome 重启后，或 Merimen 把会话踢回登录页）（没有 `/claims/…` 加 `CFID` 和 `RID` 的页面），worker 就用用户在网站上保存的登录**自己**再登录一次。没有人需要手动登录。默认关；还要 `MERIMEN_LOGIN=on`。代码在 `relogin.py` 和 `cdp.mjs login --relogin`。
+只要 Chrome 回答了但没有任何标签页登录着 Merimen（例如 worker 或 Chrome 重启后，或 Merimen 把会话踢回登录页）（没有 `/claims/…` 加 `CFID` 和 `RID` 的页面），worker 就用用户在网站上保存的登录**自己**再登录一次。没有人需要手动登录（开着时 worker 也不再写「请手动登录」的 `NEED_LOGIN` 提示）。默认关；还要 `MERIMEN_LOGIN=on`。代码在 `relogin.py` 和 `cdp.mjs login --relogin`。
 
 - 只在 worker **自己新开的一个标签页**里打字（打开 `https://www.merimen.com.my/claims/index.cfm`），别的标签页不导航、不打字、不关。没登录成功（成功或已登录着都会留下）就把自己的标签页关掉（但绝不关最后一个标签页，那会关掉 Chrome 窗口）；超时被杀时 worker 按标签页 id 关掉它。上次成功留下的自己的标签页，下次重试前如果已经退出登录（仍是 Merimen `/claims/` 页面）会被关掉；但它只记在当前 worker 进程里（重启后就不记得），而且是最后一个标签页时也不关。
 - 只有保存的登录是 `ok` 且没被封、机构的 gate 是 ready（设置 + 同意书）、`EXT_CONNECT=on`、这个机构在 `WORKER_ACCOUNTS` / `WORKER_ORG_ACCOUNTS` 里有账号和端口、worker 有可用的 `MERIMEN_CRED_KEY`、Chrome 回答、0 个已登录标签页时才会试。每个 tick 最多一次真正的尝试；被拒的机构把机会让给下一个。
-- 限制（全在 `merimen_cred_audit` 里，数据库时间）：每 10 分钟最多一次；24 小时最多 12 次**真的打字**的尝试；一次「没有明确回复」之后发一封邮件，24 小时不再试，只有**证明了密码**的成功（`relogin_ok` 或保存时的 `login_ok`）才提前解除，人手登录（`login_session_live`）或看到已连接都不算；连续两次没有明确回复（中间没有证明密码的成功）就按保存时的 `unknown` 处理（封、暂停、邮件）；自上次成功以来、在滑动的 6 小时窗口里 6 次放回（没找到登录页或 Chrome 没回应，什么都没打）就发一封邮件，会话 detail 显示 `relogin_failed`，并且不再试，直到最早那次放回滑出 6 小时窗口或出现任何成功（包括看到已连接）。
+- 限制（全在 `merimen_cred_audit` 里，数据库时间）：每 10 分钟最多一次；24 小时最多 12 次**真的打字**的尝试；一次「没有明确回复」之后发一封邮件，24 小时不再试，只有**证明了密码**的成功（`relogin_ok` 或保存时的 `login_ok`）才提前解除，人手登录（`login_session_live`）或看到已连接都不算；连续两次没有明确回复（中间没有证明密码的成功）就按保存时的 `unknown` 处理（封、暂停、邮件）；自上次成功以来、在滑动的 6 小时窗口里 6 次放回（没找到登录页、Chrome 没回应、node 起不来，或页面复查在填任何值之前就拒绝了：什么都没打）就发一封邮件，会话 detail 显示 `relogin_failed`，并且不再试，直到最早那次放回滑出 6 小时窗口或出现任何成功（包括看到已连接）。
 - 孤儿尝试：一次 `relogin_try` 超过 3 分钟还没有结果行（结果没写进去，或 worker 中途死了），就一直不再试，没有 24 小时期限。一发现孤儿就发一封邮件，会话 detail 显示 `relogin_stopped`；直到之后出现任何结果行（包括重新保存时 Chrome 已登录着写下的 `login_session_live`），或证明密码的成功（通常是用户先在 Merimen 确认登录再重新保存），才解除。`login_session_live` 不解除「没有明确回复」的 24 小时封锁。密钥不对时 detail 也显示 `relogin_stopped`，但那时什么都没打，也不发邮件。到达 24 小时 12 次上限时 detail 显示 `relogin_capped`。
 - **自动重新登录只要开过一次，就绝不要手动用 SQL 把保存时检查重新排队**（`verify_state='queued'`），关掉回退以后也一样：那会在所有限制之外再打一次密码（第一次没读到结果或 orphan 之后，登录行还是 `ok`）。要重试就让用户在网站上重新保存登录。
 - 密码不对 / 账号锁定：和保存时一样封住、暂停、发邮件，之后再也不打字，直到用户重新保存。锁定时邮件请用户先等 Merimen 解锁再保存。只有这次运行时登录还是 `ok`、而且还是这次打的那个密码（`password_nonce` 没变）才会改（用户刚好重新保存了就不动）。

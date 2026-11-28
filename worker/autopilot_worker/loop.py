@@ -171,7 +171,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 launch(argv)
         if not info:
             repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="not_logged_in")
-            login_notice(cfg.state_dir)
+            if not relogin:  # with re-login active nobody is asked to log in by hand (owner 2026-11-28)
+                login_notice(cfg.state_dir)
             continue
         reason = page_block(info)
         status = next_status(row["status"] or "idle", reason is None)
@@ -183,7 +184,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
 
                 clear_detail(org)
         else:
-            login_notice(cfg.state_dir)
+            if not relogin:  # with re-login active nobody is asked to log in by hand (owner 2026-11-28)
+                login_notice(cfg.state_dir)
             if relogin and reason == "not_logged_in":
                 want_relogin.append((org, port))
                 from .relogin import detail_for
