@@ -76,10 +76,8 @@ export async function POST(req: Request) {
       const left = await db.select({ slot: schema.merimenWorkshops.slot }).from(schema.merimenWorkshops).where(and(eq(schema.merimenWorkshops.orgId, me.orgId), inArray(schema.merimenWorkshops.slot, gone)));
       if (left.length) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
     }
-    for (const w of profile.workshops) {
-      await db.insert(schema.merimenWorkshops).values({ orgId: me.orgId, slot: w.slot, name: w.name })
-        .onConflictDoUpdate({ target: [schema.merimenWorkshops.orgId, schema.merimenWorkshops.slot], set: { name: w.name, updatedAt: new Date() } });
-    }
+    // the Confirm changes run before the new names are saved: a stale Confirm is never valid on a re-added slot, even for a
+    // moment, and a save cut off after the upsert cannot skip the backfill (the next save already sees two workshops)
     // owner 2026-11-29 (migration 0019): a removed workshop takes back the Confirm of the cases on it that are not in Merimen yet,
     // so they ask again (and a slot added back later does not bring old Confirms back). A rename keeps them: it is the same
     // workshop with its name corrected, and cases already confirmed must not stall.
@@ -99,6 +97,10 @@ export async function POST(req: Request) {
         SELECT c.id, 1, now() FROM cases c WHERE c.org_id = ${me.orgId} AND c.deleted_at IS NULL AND c.merimen_caseid IS NULL AND c.status <> 'done'
         ON CONFLICT (case_id) DO UPDATE SET confirmed_at = now(), updated_at = now()
         WHERE merimen_case_workshop.confirmed_at IS NULL AND merimen_case_workshop.locked_at IS NULL AND merimen_case_workshop.slot = 1`);
+    }
+    for (const w of profile.workshops) {
+      await db.insert(schema.merimenWorkshops).values({ orgId: me.orgId, slot: w.slot, name: w.name })
+        .onConflictDoUpdate({ target: [schema.merimenWorkshops.orgId, schema.merimenWorkshops.slot], set: { name: w.name, updatedAt: new Date() } });
     }
     if (!row || (wantsLogin && username && password)) {
       const sealed = seal(key, me.orgId, username!, password!);
