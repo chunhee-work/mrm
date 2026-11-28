@@ -80,7 +80,7 @@ const repairerOf = (r: CaseRow, team: Team) => r.wsName || team.workshops.find((
 function Who({ r, team }: { r: CaseRow; team: Team }) {
   const { t } = useT();
   const plate = (
-    <p className="num truncate font-mono text-[16px] font-semibold tracking-[0.01em] text-fg" data-testid="home-case">
+    <p className="num max-w-full truncate font-mono text-[16px] font-semibold tracking-[0.01em] text-fg" data-testid="home-case">
       {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{r.firstFile || t("dash.noPlate")}</span>}
     </p>
   );
@@ -89,13 +89,15 @@ function Who({ r, team }: { r: CaseRow; team: Team }) {
   const repairer = repairerOf(r, team);
   // Merimen's columns, labelled, in Merimen's order
   const cells: [string, string | null][] = [["adjuster", team.adjuster], ["manager", team.manager], ["insurer", insurer], ["repairer", repairer]];
-  const have = cells.filter(([, v]) => v) as [string, string][];
+  // documents not read yet (no plate): nothing of the case is known, so no line about it
+  const have = (r.plate ? cells.filter(([, v]) => v) : []) as [string, string][];
   return (
     <div className="min-w-0">
-      <div className="flex min-w-0 items-baseline gap-2">{plate}{tp}</div>
+      {/* the plate is never cut for the other car's: in a narrow column [TP] goes to the next line */}
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">{plate}{tp}</div>
       {have.length > 0 && (
         <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-[13px] leading-snug" data-testid="home-who">
-          {have.map(([k, v]) => <div key={k} className="contents"><dt className="text-mute">{t(`row.${k}`)}</dt><dd className="truncate text-fg" title={v}>{v}</dd></div>)}
+          {have.map(([k, v]) => <div key={k} className="contents"><dt className="text-mute">{t(`row.${k}`)}</dt><dd className="min-w-0 text-fg [overflow-wrap:anywhere]">{v}</dd></div>)}
         </dl>
       )}
     </div>
