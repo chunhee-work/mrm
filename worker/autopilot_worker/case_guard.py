@@ -12,6 +12,9 @@ import sys
 import threading
 
 _CASEID = re.compile(r"[?&]caseid=(\d+)", re.I)
+# the document / photo / relabel pages name the case as `objid=` (dsp_docview, dsp_docupload, dsp_docmanage; egm r9)
+_DOCPAGE = re.compile(r"[?&]fuseaction=dsp_doc", re.I)
+_OBJID = re.compile(r"[?&]objid=(\d+)", re.I)
 
 
 class CaseMismatch(BaseException):
@@ -59,7 +62,7 @@ def mismatched() -> bool:
 def _other(st: dict, url: str) -> bool:
     if not st.get("on") or not st.get("ids"):
         return False
-    m = _CASEID.search(url or "")
+    m = _CASEID.search(url or "") or (_OBJID.search(url or "") if _DOCPAGE.search(url or "") else None)
     return bool(m and m.group(1) not in st["ids"])
 
 

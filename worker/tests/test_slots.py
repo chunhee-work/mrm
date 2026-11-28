@@ -576,6 +576,62 @@ def test_a_step_tab_may_open_only_its_own_case():
     t.goto("https://www.merimen.com.my/claims/index.cfm?caseid=222")  # outside a job: unchecked
 
 
+
+def test_the_document_and_photo_pages_are_checked_by_their_objid():
+    import pytest as _pt
+
+    from autopilot_worker import case_guard as g
+    from autopilot_worker.merimen_docs import DOC_VIEW
+    from autopilot_worker.merimen_photos import UPLOAD_PAGE
+
+    class Tab:
+        url = ""
+
+        def goto(self, url, **k):
+            self.url = url
+
+    base = "https://www.merimen.com.my/claims/index.cfm?"
+    t = g.guard_page(Tab())
+    g.start("111")
+    try:
+        t.goto(base + DOC_VIEW.format(cid="111", ext="9"))
+        t.goto(base + UPLOAD_PAGE.format(cid="111"))
+        for page in (DOC_VIEW.format(cid="222", ext="9"), UPLOAD_PAGE.format(cid="222"),
+                     "fusebox=SVCdoc&fuseaction=dsp_docmanage&domainid=1&objid=222&corole=4"):
+            g.start("111")  # a mismatch marks the job; each page is checked on a fresh one
+            with _pt.raises(g.CaseMismatch):
+                t.goto(base + page)
+        g.start("111")
+        t.goto(base + "fusebox=X&fuseaction=dsp_other&objid=222")  # objid of another kind of page is not a case number
+    finally:
+        g.stop()
+
+
+def test_one_relabel_or_reorder_page_at_a_time_in_the_process():
+    import threading
+
+    from autopilot_worker import merimen_photos as mp
+
+    seen = []
+
+    class P(mp.RealPhotos):
+        def __init__(self):
+            pass
+
+        def _ids(self, case):
+            return "1", "2"
+
+        def _relabel_locked(self, cid, ext, mapping):
+            seen.append(mp.RELABEL_LOCK.locked())
+
+        def _reorder_locked(self, cid, ext, mapping):
+            seen.append(mp.RELABEL_LOCK.locked())
+
+    P().relabel({}, {})
+    P().reorder({}, {})
+    assert seen == [True, True] and not mp.RELABEL_LOCK.locked()
+    assert isinstance(mp.RELABEL_LOCK, type(threading.Lock()))
+
 def test_only_one_slots_worker_per_state_folder(tmp_path):
     import pytest as _pt
 

@@ -6,6 +6,7 @@ Reads (labels, verify) are always safe. upload / relabel / reorder only run when
 from __future__ import annotations
 
 import re
+import threading
 
 from .merimen_create import CLAIMS, redact
 from .merimen_docs import DocError, MerimenPage
@@ -14,6 +15,9 @@ from .photo_sync import NotPorted
 UPLOAD_PAGE = ("fusebox=SVCdoc&fuseaction=dsp_docupload&domainid=1&objid={cid}&corole=4&docclassid=2&maxno=250&picwidth=&picheight=&picfixort="
                "&BCO_FLAGMODE=ADD&BCOREAD=&BCOCONTROL=&SHOWLABEL=0&DEFAULTSEL=&nolayout=1")
 BATCH = 250
+# one Relabel/Reorder page at a time in this process (WORKER_SLOTS > 1): parallel relabel windows close each other's popups
+# (tools/batch/phase_b.py, batch 8). Reads and uploads are not held back.
+RELABEL_LOCK = threading.Lock()
 LABEL_RX = re.compile(r"\d+ \d\d/\d\d/\d\d \d\d:\d\d (.+?) Load JPG")
 
 
@@ -143,6 +147,10 @@ class RealPhotos:
 
     def relabel(self, case: dict, mapping: dict[str, list[str]]) -> None:
         cid, ext = self._ids(case)
+        with RELABEL_LOCK:
+            self._relabel_locked(cid, ext, mapping)
+
+    def _relabel_locked(self, cid: str, ext: str, mapping) -> None:
         try:
             target, _n = self._relabel_page(cid, ext)
             r = target.evaluate(
@@ -161,6 +169,10 @@ class RealPhotos:
 
     def reorder(self, case: dict, mapping: dict[str, list]) -> None:
         cid, ext = self._ids(case)
+        with RELABEL_LOCK:
+            self._reorder_locked(cid, ext, mapping)
+
+    def _reorder_locked(self, cid: str, ext: str, mapping) -> None:
         try:
             target, _n = self._relabel_page(cid, ext)
             r = target.evaluate(
