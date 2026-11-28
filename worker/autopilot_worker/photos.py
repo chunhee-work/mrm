@@ -8,7 +8,6 @@ import contextlib
 import fcntl
 import sys
 import tempfile
-import threading
 from dataclasses import dataclass, replace
 
 
@@ -61,7 +60,7 @@ def parse_predict_stdout(text: str) -> list[Prediction]:
 _PT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "typesafe", "photo_train"))
 
 
-def _rules():
+def load_rules():
     """(name_map.final, name_rules). They ship in the same image, so a failed import is a deploy bug: fail the job (the website then
     names the photos with Claude) instead of storing raw, unmerged or banned names."""
     try:
@@ -76,7 +75,7 @@ def _rules():
 
 def apply_name_rules(preds: list[Prediction], vehicle: str, final=None) -> list[Prediction]:
     """preds = one case's photos in shooting order (the Rear Lamp Inner/Outer rule looks at the whole case)."""
-    final_, nr = _rules()
+    final_, nr = load_rules()
     final = final or final_
     vehicle = (vehicle or "").strip()
     rows = []
@@ -129,7 +128,17 @@ def resolve_production(model_dir: str) -> str:
     return out
 
 
-_WEIGHTS_LOCK = threading.Lock()  # cases naming at once (threads) download and resolve one at a time
+@contextlib.contextmanager
+def _locked(model_dir: str, name: str):
+    """flock on <model_dir>/<name>: each call opens the file itself, so it keeps out other threads of this worker and other processes."""
+    try:
+        os.makedirs(model_dir, exist_ok=True)
+        lk = open(os.path.join(model_dir, name), "w")
+    except OSError as e:
+        raise ModelError("model missing") from e
+    with lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        yield
 
 
 def _revision_file(model_dir: str) -> str:
@@ -139,48 +148,29 @@ def _revision_file(model_dir: str) -> str:
 def ensure_weights(model_dir: str, repo: str, token: str, revision: str = "") -> str:
     """Download production/ from the private Hugging Face repo once (no-op when the files are already there). With HF_MODEL_REVISION
     set, a folder downloaded at another revision is downloaded again, so a new model = change that setting and restart."""
-    with _WEIGHTS_LOCK:
-        try:
-            os.makedirs(model_dir, exist_ok=True)
-            lk = open(os.path.join(model_dir, ".lock"), "w")  # and another worker process on the same folder
-        except OSError as e:
-            raise ModelError("model missing") from e
-        with lk:
-            fcntl.flock(lk, fcntl.LOCK_EX)
-            have = open(_revision_file(model_dir), encoding="utf-8").read().strip() if os.path.isfile(_revision_file(model_dir)) else ""
-            if not revision or have == revision:
-                try:
-                    return resolve_production(model_dir)
-                except ModelError:
-                    pass
-            if not token:
-                raise ModelError("model missing")
+    with _locked(model_dir, ".lock"):  # cases at once download and resolve one at a time
+        have = open(_revision_file(model_dir), encoding="utf-8").read().strip() if os.path.isfile(_revision_file(model_dir)) else ""
+        if not revision or have == revision:
             try:
-                from huggingface_hub import snapshot_download  # noqa: PLC0415
-                snapshot_download(repo_id=repo, allow_patterns=["production/*"], local_dir=model_dir, token=token,
-                                  revision=revision or None)
-            except Exception as e:  # noqa: BLE001  (the token is never printed)
-                raise ModelError("model download failed") from e
-            with open(_revision_file(model_dir), "w", encoding="utf-8") as fh:
-                fh.write(revision)
-            return resolve_production(model_dir)
-
-
-_PREDICT_LOCK = threading.Lock()
-
-
-@contextlib.contextmanager
-def predict_slot(model_dir: str):
-    """One predict_case at a time: a thread lock for cases in this worker, a file lock for another worker process on the same folder."""
-    with _PREDICT_LOCK:
+                return resolve_production(model_dir)
+            except ModelError:
+                pass
+        if not token:
+            raise ModelError("model missing")
         try:
-            os.makedirs(model_dir, exist_ok=True)
-            lk = open(os.path.join(model_dir, ".predict.lock"), "w")
-        except OSError as e:
-            raise ModelError("model missing") from e
-        with lk:
-            fcntl.flock(lk, fcntl.LOCK_EX)
-            yield
+            from huggingface_hub import snapshot_download  # noqa: PLC0415
+            snapshot_download(repo_id=repo, allow_patterns=["production/*"], local_dir=model_dir, token=token,
+                              revision=revision or None)
+        except Exception as e:  # noqa: BLE001  (the token is never printed)
+            raise ModelError("model download failed") from e
+        with open(_revision_file(model_dir), "w", encoding="utf-8") as fh:
+            fh.write(revision)
+        return resolve_production(model_dir)
+
+
+def predict_slot(model_dir: str):
+    """One predict_case at a time: two ViT-L + ViT-B processes would share the CPU and double the memory."""
+    return _locked(model_dir, ".predict.lock")
 
 
 _ENV_KEEP = ("PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "DINOV2_HUB",
@@ -206,7 +196,6 @@ def predict_command(python: str, script: str, images: list[str], *, vehicle: str
         "PROD": "1",
         "PROD_FILE": prod_file,
         "VEHICLE": vehicle[:120],
-        "JEV": "0",
         "PRED_BS": str(batch),
     }
     return [python, script, "auto", *images], env

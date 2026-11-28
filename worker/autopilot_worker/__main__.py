@@ -12,8 +12,8 @@ import time
 from .config import Config, account_for
 from .pipeline import Driver
 from .loop import tick, tick_error_line
-from .photos import (ModelError, _rules, apply_name_rules, ensure_weights, names_for_photos, parse_predict_stdout, predict_command,
-                     predict_env, predict_slot, predict_timeout)
+from .photos import (ModelError, apply_name_rules, ensure_weights, names_for_photos, parse_predict_stdout, predict_command,
+                     load_rules, predict_env, predict_slot, predict_timeout)
 from .store import PgRepo
 
 
@@ -220,7 +220,7 @@ def _namer_factory(cfg: Config):
     def namer(photos, vehicle):
         if not photos:
             return []
-        _rules()  # a broken deploy fails here, before minutes of CPU on the model
+        load_rules()  # a broken deploy fails here, before minutes of CPU on the model
         prod = ensure_weights(cfg.model_dir, cfg.hf_repo, cfg.hf_token, cfg.hf_revision)  # downloads production/ once; paths point at model_dir
         images = [p.get("local") or p.get("src_name") or "" for p in photos]
         cmd, extra = predict_command(sys.executable, bundled, images, vehicle=vehicle, prod_file=prod, batch=cfg.pred_bs)

@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "..", "typesafe", "photo_train"))
 from name_map import final as norm  # the user's naming rules; returns None for banned names (General View, TAIL LAMP…)
 PAGE_NAMES = set(json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "names.json"), encoding="utf-8")))
 
-from name_rules import MODEL_BANS, apply_case  # the shop's naming rules, one copy shared with the worker (typesafe/photo_train/name_rules.py)
+from name_rules import apply_case  # the shop's naming rules, one copy shared with the worker (typesafe/photo_train/name_rules.py)
 
 CORNERS = {"Front View Right", "Front View Left", "Rear View Right", "Rear View Left"}
 FTYPE = {"Odometer Reading": "Odometer Reading", "Chassis Number": "Chassis Number", "Engine Compartment": "Engine view"}
@@ -48,8 +48,7 @@ def build(out, meta_file):
         log = apply_case(rs, meta.get(plate, ""), norm)
         for line in log:
             print(f"{plate} {line}")
-        if log or any(re.search(v, meta.get(plate, ""), re.I) for v, _ in MODEL_BANS):   # saved back so `final` agrees
-            json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
+        json.dump(rs, open(os.path.join(out, "rows_%s.json" % plate), "w", encoding="utf-8"), ensure_ascii=False)
         for r in rs:
             names.add(r["name"]); names.update(r["alts"])
     names = {n for n in map(norm, names) if n}

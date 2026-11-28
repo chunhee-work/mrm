@@ -61,8 +61,8 @@ def test_timeout_grows_with_photos():
 
 def test_real_name_rules_load_without_official_names():
     # official_names.txt is gitignored, so the worker image does not have it; the real rules must still load
-    from autopilot_worker.photos import _rules
-    final, nr = _rules()
+    from autopilot_worker.photos import load_rules
+    final, nr = load_rules()
     assert final.__name__ == "final" and nr.apply_case
     r = apply_name_rules([P("Grille Badge (LOGO)")], "PERODUA MYVI 1.3")[0]
     assert r.model_name == "Grille Badge (PERODUA)"
