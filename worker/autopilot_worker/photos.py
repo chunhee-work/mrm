@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
-import re
+import fcntl
 import sys
+import tempfile
+import threading
 from dataclasses import dataclass, replace
 
 
@@ -53,59 +55,45 @@ def parse_predict_stdout(text: str) -> list[Prediction]:
     return out
 
 
-# ---- the shop's naming rules on the model's names (the same as typesafe/photo_train/case_report.py + tools/naming-desk/naming.py
-# build on the owner's Mac, 2026-11-28). Without them the worker stored the model's raw top-1 (banned / unmerged spellings, Perodua
-# names on other makes).
-FIX = {"ENGINEVIEW": "Engine Compartment", "FRT GENERAL VIEW": "Front View"}
-# names a car model does NOT have -> next guess, marked unsure (naming.py MODEL_BANS)
-MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner"), (r"^PERODUA\b", r"^Front Panel Assembly$")]
-# (vehicle must NOT match, name, replacement): only Perodua has these (naming.py MODEL_SWAPS)
-MODEL_SWAPS = [(r"^PERODUA\b", r"^Bonnet Latch Stud Plate", "Front Panel Assembly"),
-               (r"^PERODUA\b", r"^Fender Inner (LH|RH)$", "Front Panel Assembly")]
-_FINAL = None
+# ---- the shop's naming rules on the model's names. ONE copy: typesafe/photo_train/name_rules.py, also used by
+# tools/naming-desk/naming.py build on the owner's Mac; the first pick is case_report.name_of (first name the rules allow).
+_PT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "typesafe", "photo_train"))
 
 
-def _final_fn():
-    """name_map.final from typesafe/photo_train (merged spellings, the owner's decisions; None = a banned name). Missing -> keep names."""
-    global _FINAL
-    if _FINAL is None:
-        here = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "typesafe", "photo_train"))
-        try:
-            if here not in sys.path:
-                sys.path.insert(0, here)
-            from name_map import final  # noqa: PLC0415
-            _FINAL = final
-        except Exception as e:  # noqa: BLE001
-            print(f"name rules: name_map not loaded ({type(e).__name__}), names kept as the model gave them", file=sys.stderr)
-            _FINAL = lambda n: n  # noqa: E731
-    return _FINAL
+def _rules():
+    """(name_map.final, name_rules). They ship in the same image, so a failed import is a deploy bug: fail the job (the website then
+    names the photos with Claude) instead of storing raw, unmerged or banned names."""
+    try:
+        if _PT not in sys.path:
+            sys.path.insert(0, _PT)
+        from name_map import final  # noqa: PLC0415
+        import name_rules  # noqa: PLC0415
+    except Exception as e:  # noqa: BLE001
+        raise ModelError("name rules missing") from e
+    return final, name_rules
 
 
 def apply_name_rules(preds: list[Prediction], vehicle: str, final=None) -> list[Prediction]:
-    final = final or _final_fn()
-    v = (vehicle or "").strip()
-    w = v.upper().split()
-    brand = " ".join(w[:2]) if w[:2] in (["LAND", "ROVER"], ["GREAT", "WALL"], ["KING", "LONG"], ["DONG", "FENG"]) else (w[0] if w else "")
-    bans = [b for vre, b in MODEL_BANS if re.search(vre, v, re.I)]
-    out = []
+    """preds = one case's photos in shooting order (the Rear Lamp Inner/Outer rule looks at the whole case)."""
+    final_, nr = _rules()
+    final = final or final_
+    rows = []
     for p in preds:
-        names = list(p.top) or ([p.model_name] if p.model_name else [])
-        allowed = list(dict.fromkeys(n for n in (final(FIX.get(t, t)) for t in names) if n and n != "__none__"))
-        if not allowed:
+        top = list(p.top) or ([p.model_name] if p.model_name else [])
+        if not top:
+            rows.append(None)
+            continue
+        name = next((n for n in (final(nr.FIX.get(t, t)) for t in top) if n), None) or nr.FIX.get(top[0], top[0])
+        alts = [a for a in (final(nr.FIX.get(t, t)) for t in top[1:4]) if a and a != name][:2]
+        rows.append({"name": name, "conf": 0.0 if p.confidence is None else p.confidence, "alts": alts})
+    nr.apply_case([r for r in rows if r], vehicle or "", final)
+    out = []
+    for p, r in zip(preds, rows):
+        if r is None:
             out.append(p)
             continue
-        name, conf, rest = allowed[0], p.confidence, allowed[1:]
-        if bans and any(re.search(b, name) for b in bans):
-            alt = next((a for a in rest if not any(re.search(b, a) for b in bans)), None)
-            if alt:
-                rest = [a for a in rest if a != alt]
-                name, conf = alt, None if conf is None else min(conf, 0.3)
-        for notv, nm, rep in MODEL_SWAPS:
-            if v and not re.search(notv, v, re.I) and re.search(nm, name):
-                name = rep
-        if brand and name.endswith("Badge (LOGO)"):  # playbook 11: a bare logo badge = the car's brand, in CAPITALS
-            name = name.replace("(LOGO)", "(" + brand + ")")
-        out.append(replace(p, model_name=name[:120], confidence=conf, alts=tuple(a for a in rest if a != name)[:2]))
+        conf = None if p.confidence is None else r["conf"]
+        out.append(replace(p, model_name=r["name"][:120], confidence=conf, alts=tuple(a for a in r["alts"] if a != r["name"])[:2]))
     return out
 
 
@@ -116,35 +104,64 @@ def resolve_production(model_dir: str) -> str:
     src = os.path.join(d, "production.json")
     if not os.path.isfile(src):
         raise ModelError("model missing")
-    cfg = json.load(open(src, encoding="utf-8"))
-    for g in cfg.get("groups", []):
-        g["stage1"] = os.path.join(d, os.path.basename(g["stage1"]))
-        g["seq"] = [os.path.join(d, os.path.basename(x)) for x in g.get("seq", [])]
-        for f in [g["stage1"], *g["seq"]]:
-            if not os.path.isfile(f):
-                raise ModelError("model missing")
-    out = os.path.join(d, "production.resolved.json")
-    tmp = f"{out}.{os.getpid()}.tmp"  # one file per process: two cases naming at once must not write the same tmp file
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(cfg, fh)
-    os.replace(tmp, out)
+    try:
+        cfg = json.load(open(src, encoding="utf-8"))
+        for g in cfg.get("groups", []):
+            g["stage1"] = os.path.join(d, os.path.basename(g["stage1"]))
+            g["seq"] = [os.path.join(d, os.path.basename(x)) for x in g.get("seq", [])]
+            for f in [g["stage1"], *g["seq"]]:
+                if not os.path.isfile(f):
+                    raise ModelError("model missing")
+        out = os.path.join(d, "production.resolved.json")
+        text = json.dumps(cfg)
+        if os.path.isfile(out) and open(out, encoding="utf-8").read() == text:
+            return out  # unchanged: never rewrite a file another case's predict_case may be reading
+        fd, tmp = tempfile.mkstemp(dir=d, suffix=".tmp")  # a unique name: two cases at once never share a tmp file
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, out)
+    except ModelError:
+        raise
+    except (OSError, ValueError, KeyError, TypeError) as e:  # a broken production.json is "model missing", so the website falls back
+        raise ModelError("model missing") from e
     return out
 
 
-def ensure_weights(model_dir: str, repo: str, token: str) -> str:
-    """Download production/ from the private Hugging Face repo once (no-op when the files are already there)."""
-    try:
-        return resolve_production(model_dir)
-    except ModelError:
-        pass
-    if not token:
-        raise ModelError("model missing")
-    try:
-        from huggingface_hub import snapshot_download  # noqa: PLC0415
-        snapshot_download(repo_id=repo, allow_patterns=["production/*"], local_dir=model_dir, token=token)
-    except Exception as e:  # noqa: BLE001  (the token is never printed)
-        raise ModelError("model download failed") from e
-    return resolve_production(model_dir)
+_WEIGHTS_LOCK = threading.Lock()  # cases naming at once (threads) download and resolve one at a time
+
+
+def _revision_file(model_dir: str) -> str:
+    return os.path.join(model_dir, ".revision")
+
+
+def ensure_weights(model_dir: str, repo: str, token: str, revision: str = "") -> str:
+    """Download production/ from the private Hugging Face repo once (no-op when the files are already there). With HF_MODEL_REVISION
+    set, a folder downloaded at another revision is downloaded again, so a new model = change that setting and restart."""
+    with _WEIGHTS_LOCK:
+        try:
+            os.makedirs(model_dir, exist_ok=True)
+            lk = open(os.path.join(model_dir, ".lock"), "w")  # and another worker process on the same folder
+        except OSError as e:
+            raise ModelError("model missing") from e
+        with lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)
+            have = open(_revision_file(model_dir), encoding="utf-8").read().strip() if os.path.isfile(_revision_file(model_dir)) else ""
+            if not revision or have == revision:
+                try:
+                    return resolve_production(model_dir)
+                except ModelError:
+                    pass
+            if not token:
+                raise ModelError("model missing")
+            try:
+                from huggingface_hub import snapshot_download  # noqa: PLC0415
+                snapshot_download(repo_id=repo, allow_patterns=["production/*"], local_dir=model_dir, token=token,
+                                  revision=revision or None)
+            except Exception as e:  # noqa: BLE001  (the token is never printed)
+                raise ModelError("model download failed") from e
+            with open(_revision_file(model_dir), "w", encoding="utf-8") as fh:
+                fh.write(revision)
+            return resolve_production(model_dir)
 
 
 def predict_timeout(n: int) -> int:

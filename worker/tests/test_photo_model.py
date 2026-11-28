@@ -60,9 +60,74 @@ def test_timeout_grows_with_photos():
 
 
 def test_real_name_rules_load_without_official_names():
-    # official_names.txt is gitignored, so the worker image does not have it; name_map.final must still load
-    from autopilot_worker.photos import _final_fn
-    f = _final_fn()
-    assert f.__name__ == "final"
-    r = apply_name_rules([P("Grille Badge (LOGO)")], "PERODUA MYVI 1.3", f)[0]
+    # official_names.txt is gitignored, so the worker image does not have it; the real rules must still load
+    from autopilot_worker.photos import _rules
+    final, nr = _rules()
+    assert final.__name__ == "final" and nr.apply_case
+    r = apply_name_rules([P("Grille Badge (LOGO)")], "PERODUA MYVI 1.3")[0]
     assert r.model_name == "Grille Badge (PERODUA)"
+
+
+def test_rules_missing_fails_the_job(monkeypatch):
+    import autopilot_worker.photos as ph
+    monkeypatch.setattr(ph, "_PT", "/nonexistent")
+    monkeypatch.setitem(__import__("sys").modules, "name_rules", None)  # import name_rules -> ImportError
+    with pytest.raises(ModelError, match="name rules missing"):
+        ph.apply_name_rules([P("Bonnet")], "PROTON SAGA", IDENT)
+
+
+def test_rear_lamp_inner_makes_plain_rear_lamp_outer():
+    out = apply_name_rules([P("Rear Lamp Inner LH"), P("Rear Lamp RH")], "TOYOTA VIOS", IDENT)
+    assert [o.model_name for o in out] == ["Rear Lamp Inner LH", "Rear Lamp Outer RH"] and out[1].confidence == 0.59
+
+
+def test_swap_also_when_vehicle_unknown():
+    # same as naming.py build: only a car known to be a Perodua keeps Fender Inner
+    assert apply_name_rules([P("Fender Inner LH")], "", IDENT)[0].model_name == "Front Panel Assembly"
+
+
+def _prod(tmp_path):
+    d = tmp_path / "production"
+    d.mkdir()
+    (d / "production.json").write_text(json.dumps({"groups": [{"stage1": "models/a.pt", "seq": []}]}))
+    (d / "a.pt").write_bytes(b"x")
+
+
+def test_resolve_production_safe_with_threads(tmp_path):
+    import threading
+    _prod(tmp_path)
+    errs = []
+
+    def run():
+        for _ in range(200):
+            try:
+                json.load(open(resolve_production(str(tmp_path))))
+            except Exception as e:  # noqa: BLE001
+                errs.append(e)
+    ts = [threading.Thread(target=run) for _ in range(4)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert not errs and not [f for f in os.listdir(tmp_path / "production") if f.endswith(".tmp")]
+
+
+def test_broken_production_json_is_model_missing(tmp_path):
+    d = tmp_path / "production"
+    d.mkdir()
+    (d / "production.json").write_text("{not json")
+    with pytest.raises(ModelError, match="model missing"):
+        resolve_production(str(tmp_path))
+
+
+def test_revision_change_downloads_again(tmp_path, monkeypatch):
+    import sys
+    import types
+    from autopilot_worker.photos import ensure_weights
+    _prod(tmp_path)
+    calls = []
+    hub = types.SimpleNamespace(snapshot_download=lambda **kw: calls.append(kw["revision"]))
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
+    ensure_weights(str(tmp_path), "o/r", "tok")             # files there, no revision pinned: no download
+    assert calls == []
+    ensure_weights(str(tmp_path), "o/r", "tok", "abc123")   # pinned and the folder is not at it: download once
+    ensure_weights(str(tmp_path), "o/r", "tok", "abc123")
+    assert calls == ["abc123"]

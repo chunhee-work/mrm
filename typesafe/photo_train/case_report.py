@@ -6,7 +6,8 @@ order is wrong, applies the opening rule, and writes <out_dir>/rows_<PLATE>.json
 import glob, json, os, re, subprocess, sys
 from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
-FIX = {"ENGINEVIEW": "Engine Compartment", "FRT GENERAL VIEW": "Front View"}
+sys.path.insert(0, HERE)
+from name_rules import FIX  # old training spellings; one copy shared with naming.py and the worker
 OPEN = ["Front View Right", "Front View Left", "Rear View Right", "Rear View Left"]
 ID_ORDER = ["Interior View", "Road Tax", "Odometer Reading", "Chassis Number", "Engine Compartment"]
 

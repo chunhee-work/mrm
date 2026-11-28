@@ -7,6 +7,7 @@ import os
 import subprocess
 from dataclasses import replace
 import sys
+import threading
 import time
 
 from .config import Config, account_for
@@ -213,21 +214,27 @@ class _CdpDriver(Driver):
         return DriveResult(ok=False, error="step_not_ported")
 
 
+_PREDICT_LOCK = threading.Lock()
+
+
 def _namer_factory(cfg: Config):
     bundled = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "typesafe", "photo_train", "predict_case.py"))
 
     def namer(photos, vehicle):
         if not photos:
             return []
-        prod = ensure_weights(cfg.model_dir, cfg.hf_repo, cfg.hf_token)  # downloads production/ once; paths point at model_dir
+        prod = ensure_weights(cfg.model_dir, cfg.hf_repo, cfg.hf_token, cfg.hf_revision)  # downloads production/ once; paths point at model_dir
         use = bundled
         images = [p.get("local") or p.get("src_name") or "" for p in photos]
         cmd, extra = predict_command(sys.executable, use, images, vehicle=vehicle, prod_file=prod, batch=cfg.pred_bs)
         env = os.environ.copy()
         env.update(extra)
-        if cfg.hf_token:
-            env["HF_TOKEN"] = cfg.hf_token
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=predict_timeout(len(images)), env=env)
+        env.pop("HF_TOKEN", None)  # predict_case loads local files only; the token stays in the worker
+        try:
+            with _PREDICT_LOCK:  # one predict_case at a time: two ViT-L + ViT-B processes would share the CPU and double the memory
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=predict_timeout(len(images)), env=env)
+        except subprocess.TimeoutExpired as e:  # a ModelError, so the photos fall back to Claude instead of staying unnamed
+            raise ModelError("predict timed out") from e
         if proc.returncode != 0:
             raise ModelError("predict failed")
         return names_for_photos(photos, apply_name_rules(parse_predict_stdout(proc.stdout), vehicle))
