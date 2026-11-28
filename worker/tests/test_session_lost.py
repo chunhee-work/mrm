@@ -715,7 +715,7 @@ def test_a_photo_list_that_stays_unreadable_still_lets_phase_b_follow():
     assert out.job_state == "requeue" and out.error is None and out.stop_error == "photos"
     assert not [1 for s, p in applied(job(3), out) if "UPDATE cases SET" in s]  # a retry still leaves the case alone
     case_update = [p for s, p in applied(job(4), out) if "UPDATE cases SET" in s]
-    assert case_update[0][5] == "photos: gave up after 4 tries"
+    assert case_update[0][5] == "photos: gave up after 4 tries" and case_update[0][0] == "waiting_user"  # a first Phase A was phase_a
     assert session_lost_outcome({**JOB, "step": "phase_a"}, out, count=LOST_CAP).error == "photos"
     case = {"status": "waiting_user", "photos_done_at": "x", "done_epoch": 100, "photos_snapshot": "s", "error": "photos: gave up after 4 tries"}
     assert followup_steps(case, [{"step": "phase_a", "state": "failed", "created_epoch": 50}], writes=True) == ["phase_b"]

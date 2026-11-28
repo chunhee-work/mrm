@@ -328,8 +328,11 @@ class PgRepo:
             if outcome.total_rm:  # the estimate is saved in Merimen either way
                 st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
         error = outcome.error or (((outcome.stop_error + ": " if outcome.stop_error else "") + "gave up after %d tries" % attempts) if gave_up else None)
+        # a retry that ran out with a stop of its own (a photo list never readable) waits for a person like that stop does, so the
+        # Done press can start Phase B (followup_steps wants waiting_user / phase_b; a first Phase A would else stay phase_a)
+        status = outcome.case_status or ("waiting_user" if gave_up and outcome.stop_error else None)
         # a logout put-back that keeps the case number it wrote leaves the case's error as it was
-        if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or error:
+        if status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or error:
             st.append((
                 """
                 UPDATE cases SET
@@ -342,7 +345,7 @@ class PgRepo:
                   done_at = CASE WHEN %s THEN now() ELSE done_at END
                 WHERE id = %s AND deleted_at IS NULL""" + final_sql,
                 (
-                    outcome.case_status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
+                    status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
                     outcome.pending_doc, error, bool(outcome.done), job["case_id"],
                 ) + final_args,
             ))
