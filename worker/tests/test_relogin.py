@@ -800,10 +800,15 @@ def test_pg_mail_booking_once_per_episode_and_again_after_a_success():
 
 
 @needs_pg
-def test_pg_orphan_mail_episode_ends_only_on_a_proven_success():
+def test_pg_orphan_mail_episode_ends_when_the_orphan_block_ends():
     st = relogin.mail_booking_statement("o1", "orphan")
-    assert run(steps([st]), seed=SEED + [audit("relogin_mailed_orphan", "2 hours"), audit("login_session_live", "1 hour")]) == [[]]
+    # the same orphan, refused again: mailed once already, nothing ended it -> no second mail
+    assert run(steps([st]), seed=SEED + [audit("relogin_try", "20 minutes"), audit("relogin_mailed_orphan", "10 minutes")]) == [[]]
+    # a proven success ends the episode
     assert run(steps([st]), seed=SEED + [audit("relogin_mailed_orphan", "2 hours"), audit("login_ok", "1 hour")]) == [[[1]]]
+    # any outcome row ends the orphan block (login_session_live too), so a later new orphan is mailed again (loop review 20)
+    assert run(steps([st]), seed=SEED + [audit("relogin_mailed_orphan", "2 hours"), audit("login_session_live", "1 hour"),
+                                          audit("relogin_try", "20 minutes")]) == [[[1]]]
 
 
 @needs_pg

@@ -137,11 +137,17 @@ def mail_booking_statement(org_id: str, kind: str) -> tuple[str, object]:
     if kind not in MAIL_KINDS:
         raise ValueError("mail kind")
     p = {"org": org_id, "mailed": "relogin_mailed_" + kind}
-    # the orphan block ends only on a proven success, so its mail episode does too (a hand login must not send it again)
     since = _LAST_PROVEN if kind == "orphan" else _LAST_OK
+    # the orphan mail episode ends exactly when the orphan block does: on a proven success OR on any outcome row (the block's own
+    # list, login_session_live included). So the same orphan is mailed once, and a later new orphan is mailed again (loop review 20).
+    after_outcome = (
+        " AND id > (SELECT coalesce(max(id), 0) FROM merimen_cred_audit WHERE org_id = %(org)s AND action IN "
+        "('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch','relogin_cred_gone','relogin_cred_unread'))"
+        if kind == "orphan" else ""
+    )
     return (
         "INSERT INTO merimen_cred_audit (org_id, action) SELECT %(org)s, %(mailed)s "
-        f"WHERE NOT EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action = %(mailed)s AND at > {since}) RETURNING 1",
+        f"WHERE NOT EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action = %(mailed)s AND at > {since}{after_outcome}) RETURNING 1",
         p,
     )
 
