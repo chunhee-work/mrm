@@ -179,6 +179,9 @@ test("desk: what counts as to confirm, edited, naming", () => {
   assert.deepEqual(altsOf(list[1]), ["Front Bumper"]);
   assert.deepEqual(altsOf(list[3]), ["Bonnet"]); // edited: the suggestion is one press away
   assert.deepEqual(altsOf(list[0]), []);
+  // a sure photo (95 %) still shows its other options (owner 2026-11-28)
+  assert.deepEqual(altsOf(photo({ alts: ["Door Front Lock RH", "Door Front Check Strap RH"] })), ["Door Front Lock RH", "Door Front Check Strap RH"]);
+  assert.deepEqual(altsOf(photo({ state: "pending", modelName: null, confidence: null, alts: ["Bonnet"] })), []); // still being named
 });
 test("desk: paste saves a list name at once, asks for anything else", () => {
   const p = photo({ modelName: "Bonnet", finalName: "Grille Front" });
