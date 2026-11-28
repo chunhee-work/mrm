@@ -34,7 +34,9 @@ const REFRESH_MS = 20_000;
 const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 // the user's turn first (on hold, then missing documents, then photos to name), then what is being read, then what the worker has; newest first inside
 const RANK: Record<Bucket, number> = { hold: 0, docs: 1, photos: 2, active: 3, closed: 4 };
-const yourTurn = (r: CaseRow) => r.status === "failed" || r.status === "pending_doc" || bucketOf(r) === "photos" || (!!r.wsAsk && bucketOf(r) === "active"); // the same cases whose line shows the Confirm button
+/** a case the worker holds back until the user confirms its workshop (photos already named, so the line would say "with the worker") */
+const wsTurn = (r: CaseRow) => !!r.wsAsk && bucketOf(r) === "active";
+const yourTurn = (r: CaseRow) => r.status === "failed" || r.status === "pending_doc" || bucketOf(r) === "photos" || wsTurn(r); // the same cases whose line shows the Confirm button
 function sortCases(rows: CaseRow[]) {
   return [...rows].sort((a, b) => (yourTurn(a) ? 0 : 1) - (yourTurn(b) ? 0 : 1) || RANK[bucketOf(a)] - RANK[bucketOf(b)] || (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 }
@@ -373,7 +375,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
                     <Who r={r} team={team} />
                     <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 xl:order-4 xl:mt-0 xl:col-start-4 xl:row-start-1 ${on ? "" : "-rotate-90"}`} />
                   </div>
-                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r) && !(r.wsAsk && bucketOf(r) === "active")} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
+                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r) && !wsTurn(r)} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
                   {/* while the line is open the job is right below it: the button would only say it twice.
                       A job for the user: a wide button under the steps (on wide screens across the step and action columns) */}
                   <div className={`pointer-events-none relative flex ${!on && act(r).kind ? "xl:col-span-2 xl:col-start-2 xl:mt-3" : "xl:justify-end"}`}>{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
