@@ -165,6 +165,26 @@ def test_lease_keeper_renews_while_running():
         assert hit.wait(2)
 
 
+def test_lease_keeper_keeps_the_heartbeat_fresh():
+    # the website calls the worker gone after 90 s without a heartbeat; a long photo_model job must not look offline
+    import threading
+
+    beat = threading.Event()
+
+    class R:
+        def touch_job(self, job_id, worker): pass
+
+        def heartbeat(self, worker_id, model, chrome_ok):
+            assert (worker_id, model, chrome_ok) == ("w1", "owner/model", True)
+            beat.set()
+
+    k = LeaseKeeper(R(), 3, "w1", 900, "owner/model")
+    assert k.every == 30.0
+    k.every = 0.01
+    with k:
+        assert beat.wait(2)
+
+
 class FakeRepo(Repo):
     def __init__(self, step, created_by="userA"):
         super().__init__()

@@ -21,11 +21,13 @@ from .store import LOST_EVENT, LOST_WINDOW, PgRepo
 
 
 class LeaseKeeper:
-    """Renews a running job's lease every third of the lease time, so a long job is not taken over while it still runs."""
+    """Renews a running job's lease, so a long job is not taken over while it still runs, and keeps the worker's heartbeat fresh:
+    the website calls the worker gone after 90 s without one and would then name the photos with Claude while the photo model
+    still runs (one main thread: tick's own heartbeat waits for the job)."""
 
-    def __init__(self, repo: PgRepo, job_id: int, worker_id: str, lease_seconds: int):
-        self.repo, self.job_id, self.worker_id = repo, job_id, worker_id
-        self.every = max(5.0, lease_seconds / 3)
+    def __init__(self, repo: PgRepo, job_id: int, worker_id: str, lease_seconds: int, model: str | None = None):
+        self.repo, self.job_id, self.worker_id, self.model = repo, job_id, worker_id, model
+        self.every = min(30.0, max(5.0, lease_seconds / 3))
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
@@ -35,6 +37,11 @@ class LeaseKeeper:
                 self.repo.touch_job(self.job_id, self.worker_id)
             except Exception:
                 pass  # one missed renewal is fine; the lease is three times longer
+            if self.model is not None:
+                try:
+                    self.repo.heartbeat(self.worker_id, self.model, chrome_ok=True)  # same values as tick's own heartbeat
+                except Exception:
+                    pass  # one missed heartbeat is fine: three fit in the website's 90 s
 
     def __enter__(self):
         self._thread.start()
@@ -537,7 +544,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
             # while the org is held the old stops stand (a person looks), exactly as with re-login off
             driver.relogin_ready = puts_back(cfg, relogin is not None) and not held(job["org_id"], now)
-            with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
+            with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds, cfg.hf_repo):
                 outcome = handle_job(
                     job, case, case["photos"], gate=gate, session=session,
                     photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
