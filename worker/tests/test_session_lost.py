@@ -601,7 +601,7 @@ def test_an_org_logged_out_again_and_again_is_held_and_waits(tmp_path):
         assert got.session_lost
     got = loop.check_session_after(on, CountRepo(), {**JOB, "case_id": "c9"}, retry, inspect=lambda p: LOGIN_PAGE, page_for=None,
                                    seen_login=True, now=lambda: t[0])
-    assert got is retry and loop.held("o1", now=lambda: t[0])  # the 4th is not put back: the org is held
+    assert got is retry and loop.held("o1", now=lambda: t[0])  # the 5th logout in 3 h is not put back: the org is held
     asked = []
     repo = SessRepo([row("connected")])
     sync_sessions(cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on"), repo, launch=lambda a: None, inspect=lambda p: LOGGED_IN,

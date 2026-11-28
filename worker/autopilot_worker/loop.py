@@ -287,7 +287,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         return outcome
     times = [t for t in ORG_PUTBACKS.get(org, []) if now() - t < ORG_WINDOW]
     if len(times) >= ORG_CAP:
-        # this org was logged out ORG_CAP times in the last hour (any cases): stop putting back, keep the job's own outcome
+        # this org was logged out ORG_CAP times within ORG_WINDOW (3 h, any cases): stop putting back, keep the job's own outcome
         ORG_PUTBACKS[org] = times
         _hold(org, now, "held_org_cap")
         HELD_PAUSED.add(org)
