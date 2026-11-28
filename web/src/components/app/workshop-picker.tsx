@@ -27,7 +27,7 @@ export default function WorkshopPicker({ workshops, value, onChange, disabled = 
   );
 }
 
-export type WorkshopState = { slot: number; locked: boolean; confirmed: boolean; needsConfirm: boolean };
+export type WorkshopState = { slot: number; shown: boolean; locked: boolean; confirmed: boolean; needsConfirm: boolean };
 
 /**
  * The workshop block of a case (case page and the open line on the first page). Owner 2026-11-29: the workshop is picked once

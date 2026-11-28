@@ -183,3 +183,41 @@ def test_phase_a_waits_when_the_cases_workshop_was_removed():
     # moved to the remaining workshop: with one workshop there is nothing to confirm
     r = run([mclaim()], seed=_merimen_seed(1, ["INSERT INTO merimen_case_workshop (case_id, slot) VALUES ('c1', 1)"]))
     assert len(r[0]) == 1
+
+
+@needs_pg
+def test_a_worker_lock_without_a_name_on_a_removed_workshop_waits_like_the_page():
+    # the page offers this case a new pick (the lock never named a workshop and that workshop is gone): the worker waits for it
+    seed = _merimen_seed(2, ["INSERT INTO merimen_case_workshop (case_id, slot, locked_at) VALUES ('c1', 3, now())"])
+    assert run([mclaim()], seed=seed) == [[]]
+
+
+@needs_pg
+def test_the_fallback_claim_has_no_workshop_gate():
+    from autopilot_worker.jobs import CLAIM_SQL_NO_WORKSHOPS
+    assert "merimen_case_workshop" not in CLAIM_SQL_NO_WORKSHOPS and ";" not in CLAIM_SQL_NO_WORKSHOPS
+    sql, args = to_numbered(CLAIM_SQL_NO_WORKSHOPS, claim_params(True, 1, "w1"))
+    r = run([{"sql": sql, "params": args}], seed=_merimen_seed(2))
+    assert len(r[0]) == 1
+
+
+def test_store_claim_falls_back_only_when_the_workshop_tables_are_missing():
+    from autopilot_worker.jobs import CLAIM_SQL_NO_WORKSHOPS
+    from autopilot_worker.store import PgRepo
+
+    class DB:
+        def __init__(self, err):
+            self.err, self.seen = err, []
+        def execute(self, sql, params=None):
+            self.seen.append(sql)
+            if len(self.seen) == 1:
+                raise Exception(self.err)
+            return [(1, "c1", "phase_a", 1, "o1")]
+
+    repo = PgRepo.__new__(PgRepo)
+    repo.db = DB('column "confirmed_at" does not exist (42703)')
+    assert repo.claim(ext_connect=True, worker_id="w")["case_id"] == "c1"
+    assert repo.db.seen[1] == CLAIM_SQL_NO_WORKSHOPS
+    repo.db = DB("permission denied for table jobs (42501)")
+    with pytest.raises(Exception):
+        repo.claim(ext_connect=True, worker_id="w")

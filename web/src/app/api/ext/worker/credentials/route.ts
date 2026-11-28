@@ -52,15 +52,17 @@ export async function POST(req: Request) {
     const names = { workshopName: profile.workshop, managerName: profile.manager, adjusterName: profile.adjuster };
     // workshops: the saved list replaces the old one. A workshop that open cases still use cannot be removed or renamed (409): move those
     // cases first. Cases the worker already made in Merimen (locked) do not count: their workshop is settled and they cannot be moved.
+    // Confirmed cases (migration 0019) cannot be moved either: they do not block, and after the removal they ask for a new pick +
+    // Confirm on their line (the worker waits for it), instead of leaving a workshop nobody can remove.
     const keep = profile.workshops.map((w) => w.slot);
     const have = await db.select({ slot: schema.merimenWorkshops.slot, name: schema.merimenWorkshops.name }).from(schema.merimenWorkshops).where(eq(schema.merimenWorkshops.orgId, me.orgId));
     const gone = [1, 2, 3].filter((n) => !keep.includes(n));
     const changed = [...gone, ...profile.workshops.filter((w) => have.some((h) => h.slot === w.slot && h.name !== w.name)).map((w) => w.slot)];
     const open = sql`c.deleted_at IS NULL AND c.merimen_caseid IS NULL AND c.status IN (${sql.join(OPEN_STATUSES.map((x) => sql`${x}`), sql`, `)})`;
     const inUse = async (slots: number[]) => {
-      // a case with no row is workshop 1; locked cases (the worker already used their workshop) do not count
+      // a case with no row is workshop 1; locked or confirmed cases do not count (see above)
       const r = await db.execute(sql`SELECT 1 FROM cases c LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id
-        WHERE c.org_id = ${me.orgId} AND cw.locked_at IS NULL AND ${open} AND COALESCE(cw.slot, 1) IN (${sql.join(slots.map((n) => sql`${n}`), sql`, `)}) LIMIT 1`);
+        WHERE c.org_id = ${me.orgId} AND cw.locked_at IS NULL AND cw.confirmed_at IS NULL AND ${open} AND COALESCE(cw.slot, 1) IN (${sql.join(slots.map((n) => sql`${n}`), sql`, `)}) LIMIT 1`);
       return ((r as unknown as { rows?: unknown[] }).rows ?? []).length > 0;
     };
     // renaming only matters when there is a choice: with one workshop an open case simply takes the corrected name
@@ -70,7 +72,7 @@ export async function POST(req: Request) {
       // the delete itself refuses a workshop an open case picked a moment ago; it runs before anything is saved
       await db.execute(sql`DELETE FROM merimen_workshops w WHERE w.org_id = ${me.orgId} AND w.slot IN (${sql.join(gone.map((n) => sql`${n}`), sql`, `)})
         AND NOT EXISTS (SELECT 1 FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
-          WHERE c.org_id = w.org_id AND cw.slot = w.slot AND cw.locked_at IS NULL AND ${open})`);
+          WHERE c.org_id = w.org_id AND cw.slot = w.slot AND cw.locked_at IS NULL AND cw.confirmed_at IS NULL AND ${open})`);
       const left = await db.select({ slot: schema.merimenWorkshops.slot }).from(schema.merimenWorkshops).where(and(eq(schema.merimenWorkshops.orgId, me.orgId), inArray(schema.merimenWorkshops.slot, gone)));
       if (left.length) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
     }

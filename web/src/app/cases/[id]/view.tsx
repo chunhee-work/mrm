@@ -279,9 +279,9 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     <>
       {Header()}
       <div className="border-b border-hair px-5 py-3 sm:px-8"><CaseSteps caseId={c.id} status={c.status} photos={c.desk?.total ?? c.photos} photosDone={!!c.desk?.doneAt} hint={false} /></div>
-      {c.workshop && ((c.workshops?.length ?? 0) >= 2 || (!!c.workshops?.length && !c.workshops.some((w) => w.slot === c.workshop!.slot))) && (
+      {c.workshop?.shown && c.workshops && (
         <div className="border-b border-hair px-5 py-3 sm:px-8">
-          <WorkshopChoice caseId={c.id} workshops={c.workshops!} state={c.workshop} onSaved={() => router.refresh()} testid="case-ws" />
+          <WorkshopChoice caseId={c.id} workshops={c.workshops} state={c.workshop} onSaved={() => router.refresh()} testid="case-ws" />
         </div>
       )}
       {(c.sameCount ?? 0) > 0 && (

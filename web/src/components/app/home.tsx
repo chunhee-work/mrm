@@ -292,9 +292,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
     return () => window.clearInterval(id);
   }, [reading]);
   if (!d) return null;
-  const slot = d.workshop?.slot ?? 1;
-  // as on the case page: a choice from two workshops on, or the one it has when that one is gone
-  const showWs = d.workshop && (workshops.length >= 2 || (workshops.length > 0 && !workshops.some((w) => w.slot === slot)));
+  const showWs = !!d.workshop?.shown;
   const live = reading;
   const shown = [...d.events].reverse().slice(0, 6);
   if (!showWs && !d.events.length && !d.files.length) return null; // nothing to show: no empty box

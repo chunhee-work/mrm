@@ -1,6 +1,5 @@
 import { orgWorkshops } from "@/lib/ext/workshops";
 import { workshopState } from "@/lib/ext/workshop-rules";
-import { missingRelation } from "@/lib/ext/worker-gate";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import { credView } from "@/lib/ext/worker-store";
@@ -81,31 +80,18 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     n: CONFIRM_COUNT,
     total: sql<number>`count(*)::int`,
   }).from(schema.casePhotos).where(inArray(schema.casePhotos.caseId, open)).groupBy(schema.casePhotos.caseId) : [];
-  // the workshop each case goes to (no row = workshop 1), and the name the worker fixed it with once the case is in Merimen
-  const ws = rows.length ? await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedName: schema.merimenCaseWorkshop.lockedName })
+  // the workshop each case goes to (no row = workshop 1), the name the worker fixed it with once the case is in Merimen, and
+  // (owner 2026-11-29) whether it still waits for the user's Confirm: the line then says so (the worker does not start it before)
+  const ws = rows.length ? await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedAt: schema.merimenCaseWorkshop.lockedAt, lockedName: schema.merimenCaseWorkshop.lockedName, confirmedAt: schema.merimenCaseWorkshop.confirmedAt })
     .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, rows.map((c) => c.id))).catch(() => []) : [];
   const wsOf = new Map(ws.map((x) => [x.caseId, x]));
   const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
-  // owner 2026-11-29: a case whose workshop still waits for Confirm says so on its line (the worker will not start it before)
-  const wsAsk = new Set<string>();
-  const orgs = [...new Set(rows.map((c) => c.orgId))];
-  if (open.length && orgs.length === 1) {
-    try {
-      const list = await orgWorkshops(orgs[0]);
-      if (list.length) {
-        const cw = await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedAt: schema.merimenCaseWorkshop.lockedAt, lockedName: schema.merimenCaseWorkshop.lockedName, confirmedAt: schema.merimenCaseWorkshop.confirmedAt })
-          .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, open));
-        const byCase = new Map(cw.map((x) => [x.caseId, x]));
-        for (const c of rows) {
-          if (!open.includes(c.id)) continue;
-          const x = byCase.get(c.id);
-          const st = workshopState({ slot: x?.slot ?? 1, locked: !!x?.lockedAt, fixed: !!x?.lockedAt && !!x?.lockedName, confirmed: !!x?.confirmedAt }, list, c.merimenCaseId, c.status);
-          // the same rule as the block on the case: shown from two workshops on, or when the case's workshop was removed
-          if (st.needsConfirm && (list.length >= 2 || !list.some((w) => w.slot === st.slot))) wsAsk.add(c.id);
-        }
-      }
-    } catch (e) { if (!missingRelation(e)) throw e; }
-  }
+  // every row is of the signed-in user's organisation (the page reads one org), so one workshop list serves them all
+  const list = rows.length ? await orgWorkshops(rows[0].orgId).catch(() => []) : [];
+  const wsAsk = (c: (typeof rows)[number]) => {
+    const x = wsOf.get(c.id);
+    return workshopState({ slot: x?.slot ?? 1, locked: !!x?.lockedAt, fixed: !!x?.lockedAt && !!x?.lockedName, confirmed: !!x?.confirmedAt }, list, c.merimenCaseId, c.status).needsConfirm;
+  };
   const total = new Map(todo.map((x) => [x.caseId, Number(x.total)]));
   return rows.map((c) => ({
     deskConfirm: confirm.get(c.id) ?? 0,
@@ -122,7 +108,7 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     status: c.status,
     pendingDoc: c.pendingDoc,
     totalRm: c.totalRm,
-    wsAsk: wsAsk.has(c.id),
+    wsAsk: wsAsk(c),
     ...merimenLine(c.caseData),
     wsSlot: wsOf.get(c.id)?.slot ?? 1,
     wsName: wsOf.get(c.id)?.lockedName ?? null,

@@ -9,19 +9,21 @@ export function canSwitchWorkshop(c: { status?: string; merimenCaseId: string | 
 }
 
 /**
- * What the page shows for a case's workshop (owner 2026-11-29: chosen once, then Confirm; after that it cannot change).
- * `locked`: no change any more (made in Merimen, fixed by the worker, or confirmed). A confirmed or worker-locked workshop that the
- * user has since removed is the one way back: the case can then be moved and confirmed again (the worker stopped it anyway).
- * `needsConfirm`: the Confirm button is shown; the worker does not start the case in Merimen before it is pressed (never on a
- * finished case, which may have been finished by hand).
+ * THE rule for a case's workshop (owner 2026-11-29: chosen once, then Confirm; after that it cannot change). The worker's claim
+ * (worker/autopilot_worker/jobs.py WS_GATE) is the same rule in SQL: it starts Phase A only when `needsConfirm` is false.
+ * `shown`: the block is on the page: from two workshops on, or when the case's own workshop was removed.
+ * `locked`: no change any more (made in Merimen, fixed by the worker, or confirmed on a workshop that still exists).
+ * `needsConfirm`: the Confirm button is shown and the case waits for it. A confirmed or unnamed worker lock on a workshop the user
+ * removed since asks again: the case is moved to another one and confirmed. A finished case (maybe finished by hand) never asks.
  */
 export function workshopState(
   cs: { slot: number; locked: boolean; fixed: boolean; confirmed: boolean },
   list: { slot: number }[],
   merimenCaseId: string | null,
   status?: string,
-): { slot: number; locked: boolean; confirmed: boolean; needsConfirm: boolean } {
+): { slot: number; shown: boolean; locked: boolean; confirmed: boolean; needsConfirm: boolean } {
   const exists = list.some((w) => w.slot === cs.slot);
+  const shown = list.length >= 2 || (list.length > 0 && !exists);
   const locked = !canSwitchWorkshop({ merimenCaseId }) || (cs.locked && (cs.fixed || exists)) || (cs.confirmed && exists);
-  return { slot: cs.slot, locked, confirmed: cs.confirmed, needsConfirm: !locked && !cs.confirmed && status !== "done" };
+  return { slot: cs.slot, shown, locked, confirmed: cs.confirmed, needsConfirm: shown && !locked && status !== "done" };
 }
