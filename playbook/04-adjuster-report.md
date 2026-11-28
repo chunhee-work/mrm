@@ -45,6 +45,7 @@ Side mapping: INSURED / Insured Driver = the AT-FAULT party; CLAIMANT = OUR clie
 - Acc place `sleAccPlace`, state `ddlbLossState`, city `ddlbLOSSCITY`, postcode `sleAPcode`; GPS blank. [merimen-adjuster-report-fields]
 - State names are the full ones: Terengganu Darul Iman, Kedah Darul Aman, Perlis Indera Kayangan, Pahang Darul Makmur; Penang = "Pulau Pinang (Island)" vs "Pulau Pinang (Mainland)"; city "George Town" (not Georgetown). [merimen-session-timeout-workflow]
 - **No city in the bundle → never stop (owner 2026-11-28, DCD4004):** take the town the address names, else the postcode's town (21300 → Kuala Terengganu), else the state's main town; say the guessed city in the "check by hand" line. Worker: `my_postcode.guess_city`.
+- **RC body type only says MOTOKAR (car) → labour type from the model (owner 2026-11-28, DCD4004):** Myvi/Axia… = 5 DR HATCH, Saga/Bezza… = 4 DR|SALOON, Alza/Exora… = MPV; an unknown model = 4 DR|SALOON. Say it in the "check by hand" line. Worker: `report_spec.labour_from_model`.
 
 ## Every party (Insured, Insured Driver, Claimant, Claimant Driver)
 - Name + NRIC + DOB + Gender (EXACT match: "Male" substring-hits "Female") + Address1 + State → City → Postcode. [merimen-adjuster-report-fields] [merimen-az-progress]

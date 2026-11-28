@@ -110,6 +110,28 @@ def labour_rx(body: str) -> str | None:
     return None
 
 
+# RC body type "MOTOKAR" (just "car") says nothing: the labour type then comes from the model (owner 2026-11-28: never stop to ask)
+_MODEL_LABOUR = (
+    (r"alza|aruz|avanza|exora|ertiga|innova|serena|stream|odyssey|estima|alphard|vellfire|freed|br-?v|staria|starex|hiace|vito|v-class|caddy|carnival|rush", "MPV"),
+    (r"hilux|navara|triton|ranger|d-?max|bt-?50|ativa|x50|x70|x90|cr-?v|hr-?v|cx-?[3589]|rav4|fortuner|harrier|corolla\s*cross|x-?trail|outlander|asx|sportage|tucson|seltos|forester|xv|land\s*cruiser|prado|pajero|vitara|kicks|wr-?v|santa\s*fe|sorento|ecosport|kona|venue|t-?cross|tiguan|q[357]\b|x[1-7]\b|glc|gla|glb|gle", "4X4|SUV|ESTATE|PICK"),
+    (r"myvi|axia|kancil|kelisa|viva|kenari|iriz|savvy|satria|compact|jazz|brio|yaris|swift|picanto|mazda\s*2|i10|i20|march|note|polo|fiesta|golf|mini|celerio|ignis|wira\s*aeroback|persona\s*elegance|saga\s*flx|saga\s*blm\s*hatch", "5 DR HATCH"),
+    (r"bezza|saga|persona|preve|wira|waja|inspira|perdana|s70|city|civic|accord|vios|camry|corolla|altis|almera|sylphy|teana|elantra|sonata|accent|cerato|k5|optima|lancer|attrage|mazda\s*[36]|3\s*series|5\s*series|c-?class|e-?class|a-?class\s*sedan|jetta|passat|ciaz|city\s*hatch", "4 DR|SALOON"),
+)
+
+
+def labour_from_model(model: str) -> str | None:
+    m = (model or "").lower()
+    if not m:
+        return None
+    hit = labour_rx(m)  # a model text that names the body ("Myvi 2011 On 5 Dr Hatch") wins
+    if hit:
+        return hit
+    for rx, lab in _MODEL_LABOUR:
+        if re.search(rx, m):
+            return lab
+    return None
+
+
 def _person(p: dict | None, today: date) -> dict:
     p = p or {}
     nric = _s(p.get("nric"))
@@ -180,8 +202,11 @@ def build_report(case_data: dict | None, *, case_id: str, ext_id: str, workshop:
     if impact not in LOSS:
         raise SpecError("impact_unknown", "cannot tell from the photo names where our car was hit (front, rear or side)")
     lab = labour_rx(_s(veh.get("body_type")))
-    if lab is None:
-        raise SpecError("labour_type_unknown", "the RC body type does not say hatchback, saloon or MPV: " + _s(veh.get("body_type"))[:40])
+    lab_guessed = ""
+    if lab is None:  # RC "MOTOKAR" (DCD4004): from the model; a model we do not know is taken as a saloon and said on the case
+        lab = labour_from_model(_s(veh.get("model")))
+        lab_guessed = f"labour type {lab} (from the model)" if lab else "labour type 4 DR|SALOON (body type and model unknown)"
+        lab = lab or "4 DR|SALOON"
     colour = _s(ex.get("colour")) or _s(veh.get("colour"))
     if not colour:
         raise SpecError("colour_unknown", "the car colour comes from the photos and is not stored yet")
@@ -212,7 +237,7 @@ def build_report(case_data: dict | None, *, case_id: str, ext_id: str, workshop:
         "lossDescCat": "Motor Collision" if takaful_my else LOSS[impact], "impact": impact,
         "lossSelect": "Collision" if takaful_my else "",
         "accPlace": _s(police.get("place")), "lossState": loss_state, "lossCity": loss_city,
-        "lossPostcode": loss_pc, "cityGuessed": guessed,
+        "lossPostcode": loss_pc, "cityGuessed": guessed + ([lab_guessed] if lab_guessed else []),
         "isCompanyInsured": is_company(insured["name"]),
         "insured": insured,
         "insDriver": {**ins_driver, "exp": driving_exp(ins_driver["dob"], today)},
