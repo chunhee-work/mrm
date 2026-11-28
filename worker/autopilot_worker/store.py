@@ -7,7 +7,7 @@ import sys
 
 from .db import make_db
 from .gate import worker_gate
-from .jobs import CLAIM_SQL, RECLAIM_SQL, TOUCH_SQL, claim_params
+from .jobs import CLAIM_SQL, CLAIM_SQL_NO_WORKSHOPS, RECLAIM_SQL, TOUCH_SQL, claim_params
 from .login_page import backoff_seconds
 from .pipeline import Outcome
 
@@ -162,7 +162,14 @@ class PgRepo:
         return worker_gate(env_on=True, enabled=bool(row[0]), consent_reference=row[1], consented=bool(row[2]))
 
     def claim(self, *, ext_connect: bool, worker_id: str, org_limit: int = 1):
-        rows = self.db.execute(CLAIM_SQL, claim_params(ext_connect, org_limit, worker_id))
+        try:
+            rows = self.db.execute(CLAIM_SQL, claim_params(ext_connect, org_limit, worker_id))
+        except Exception as e:  # migration 0019/0014 not applied: claim as before (nothing can be confirmed without it)
+            # only a missing table or column of the workshop gate itself; anything else (a permission, another object) stays an error
+            if not (_missing_workshops(e)
+                    and any(n in str(e) for n in ("merimen_case_workshop", "merimen_workshops", "confirmed_at"))):
+                raise
+            rows = self.db.execute(CLAIM_SQL_NO_WORKSHOPS, claim_params(ext_connect, org_limit, worker_id))
         if not rows:
             return None
         r = rows[0]

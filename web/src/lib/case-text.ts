@@ -21,6 +21,7 @@ export function eventTr(message: string): EventTr {
     return m[2] ? { key: "ev.photosHeic", vars: { n: m[1] } } : m[3] ? { key: "ev.photosBig", vars: { n: m[1], mb: m[3] } }
       : m[4] ? { key: "ev.photosLimit", vars: { n: m[1], max: m[4] } } : { key: "ev.photosBad", vars: { n: m[1] } };
   }
+  if ((m = message.match(/^Workshop confirmed (\d+): (.*)$/))) return { key: "ev.workshopOk", vars: { n: m[1], name: m[2] } }; // the user pressed Confirm
   if ((m = message.match(/^Workshop (\d+): (.*)$/))) return { key: "ev.workshop", vars: { n: m[1], name: m[2] } }; // the user moved the case to another workshop
   if ((m = message.match(/^Jev check: (at-fault|client) insurer "(.*)": Jev says (.*), our rules say (.*)$/))) return { key: m[1] === "client" ? "ev.jevCli" : "ev.jevAt", vars: { text: m[2], jev: m[3], mine: m[4] } };
   if ((m = message.match(/^Jev check: Liberty branch for "(.*)": Jev says (.*), our rules say (.*)$/))) return { key: "ev.jevBranch", vars: { place: m[1], jev: m[2], mine: m[3] } };
@@ -45,7 +46,7 @@ export function eventKind(message: string, live = false): EventKind {
   if (key === "ev.failed") return "fail";
   if (key === "ev.pending") return "wait";
   if (key === "ev.reading" || key === "ev.queued") return live ? "work" : "ok";
-  if (key === "ev.received" || key === "ev.receivedMore" || key === "ev.opened" || key === "ev.read") return "ok";
+  if (key === "ev.received" || key === "ev.receivedMore" || key === "ev.opened" || key === "ev.read" || key === "ev.workshopOk") return "ok";
   if (WORKER_KIND[key]) return WORKER_KIND[key];
   return "note";
 }

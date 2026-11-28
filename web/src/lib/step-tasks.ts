@@ -9,12 +9,12 @@ import { STEP_IDS, currentStepOf, type StepId } from "./case-steps";
 export const STEP_TASKS = {
   docs: ["received", "read", "allIn"],
   photos: ["added", "named", "pressed"],
-  merimen: ["created", "report", "docsUp", "photosUp", "parts", "estimate"],
+  merimen: ["workshop", "created", "report", "docsUp", "photosUp", "parts", "estimate"],
   done: ["checked"],
 } as const satisfies Record<StepId, readonly string[]>;
 
 export type TaskId = (typeof STEP_TASKS)[StepId][number];
-export type CaseForTasks = { status: string; photosDone?: boolean | null; deskTotal?: number; deskConfirm?: number; inMerimen?: boolean };
+export type CaseForTasks = { status: string; photosDone?: boolean | null; deskTotal?: number; deskConfirm?: number; inMerimen?: boolean; wsAsk?: boolean };
 
 /** A worker line of a practice run: nothing was saved in Merimen, so it never ticks a job. */
 const DRY = /^Phase [AB] dry-run|dry-run only|dry run \(Merimen not changed\)/;
@@ -48,6 +48,8 @@ export function stepTasks(c: CaseForTasks, events: { message: string }[] | null)
     added: total > 0 || pressed,
     named: pressed || (total > 0 && (c.deskConfirm ?? 1) === 0),
     pressed,
+    // the workshop is confirmed once nothing asks for it any more and the case went on (or it is already in Merimen)
+    workshop: !!c.inMerimen || worker.has("created") || (pressed && !c.wsAsk),
     created: !!c.inMerimen || worker.has("created"),
     report: worker.has("report"),
     docsUp: worker.has("docsUp"),
