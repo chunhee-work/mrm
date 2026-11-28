@@ -458,6 +458,32 @@ def test_a_jobs_own_leftover_tabs_are_closed_when_it_ends_and_the_ids_survive_a_
     m.STEP_TABS.clear()
 
 
+
+def test_a_job_end_never_closes_chromes_last_tab():
+    """egm r15: when the home tab is gone, a job's last step tab is the only tab: closing it would close the Chrome window. It is
+    left open and stays recorded (so it never counts as a logged-in tab, and the next start closes it)."""
+    from autopilot_worker import __main__ as m
+
+    class Ctx:
+        pages = []
+
+    class Tab:
+        context = Ctx()
+        shut = False
+
+        def is_closed(self):
+            return self.shut
+
+        def close(self):
+            self.shut = True
+
+    t = Tab()
+    Ctx.pages = [t]
+    m.STEP_TABS.add("last")
+    m._job_tabs.pages = [("last", t)]
+    assert m.end_job_tabs() == 0 and not t.shut and "last" in m.STEP_TABS
+    m.STEP_TABS.clear()
+
 def test_left_step_tabs_are_closed_at_start_by_their_ids_only(monkeypatch, tmp_path):
     import json
     from autopilot_worker import __main__ as m
@@ -1695,3 +1721,39 @@ def test_a_stopped_user_hands_the_chrome_on_once_its_merimen_steps_are_done():
     running = stopped + ["INSERT INTO jobs (id, case_id, step, state, locked_by, locked_at) VALUES (1,'c1','phase_b','running','w',now())"]
     r = run([q(CHROME_TAKEN_SQL), q(CHROME_USED_SQL), mclaim("w")], seed=running)
     assert r[0] == [[True]] and r[1] == [[True]] and r[2] == []
+
+
+def test_a_slow_claim_is_logged(tmp_path, monkeypatch, capsys):
+    """egm r15: the claim's cost grows with the queue; one that takes over 2 s prints `slow claim` (in the hourly grep)."""
+    import threading
+
+    from autopilot_worker import __main__ as m
+
+    cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+    clock = iter([0.0, 3.5, 10.0, 10.5])
+    monkeypatch.setattr(m.time, "monotonic", lambda: next(clock))
+
+    class Pool:
+        started = []
+
+        def free(self):
+            return 2 - len(self.started)
+
+        def create_running(self):
+            return False
+
+        def has(self, jid):
+            return False
+
+        def submit(self, job, relogin_ready=False):
+            self.started.append(job["id"])
+
+    class Repo:
+        ids = [1]
+
+        def claim(self, **k):
+            return {"id": self.ids.pop(0)} if self.ids else None
+
+    m.fill_slots(cfg, Repo(), Pool(), threading.Event(), relogin_ready=False, skip_orgs=list)
+    err = capsys.readouterr().err
+    assert err.count("slow claim") == 1 and "slow claim 3.5 s" in err

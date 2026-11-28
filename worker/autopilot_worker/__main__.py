@@ -468,14 +468,21 @@ def load_step_tabs(state_dir: str) -> list[str]:
     return got
 
 
+SLOW_CLAIM_S = 2.0
+
+
 def fill_slots(cfg, repo, pool, stopping, *, relogin_ready: bool, skip_orgs) -> None:
     """One pass of the slots main loop: claim a job for every free slot, the case uploaded first in front (the claim order)."""
     while pool.free() > 0 and not stopping.is_set():
         # a create already claimed (not only one holding the lock: two creates of one batch would otherwise both be claimed in this
         # one pass) means no second create now
         _at("claim")  # a failed claim logs `tick … step=claim`, not the last housekeeping step
+        t0 = time.monotonic()
         job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=skip_orgs(),
                          one_chrome=True, no_create=pool.create_running() or _CREATE_LOCK.locked())
+        took = time.monotonic() - t0
+        if took > SLOW_CLAIM_S:  # the claim's cost grows with the queue: a slow one shows here long before a DB timeout (egm r15)
+            print(f"slow claim {took:.1f} s", file=sys.stderr, flush=True)
         if not job:
             return
         if pool.has(job["id"]) or stopping.is_set():
@@ -558,6 +565,9 @@ def end_job_tabs() -> int:
     for tid, pg in pages:
         try:
             if not pg.is_closed():
+                others = getattr(getattr(pg, "context", None), "pages", None)
+                if isinstance(others, list) and len(others) <= 1:
+                    continue  # never Chrome's last tab (closing it closes the window, CLAUDE.md): it stays recorded, closed at a later start
                 pg.close()
                 closed += 1
         except Exception:  # noqa: BLE001
