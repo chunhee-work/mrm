@@ -193,11 +193,13 @@ class PgRepo:
         rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id, "port": int(port)})
         return bool(rows and rows[0][0])
 
-    def chrome_used_by_other(self, org_id: str, port: int) -> bool:
-        """jobs.CHROME_USED_SQL: another org already takes part on this Chrome port, owner or not (WORKER_SLOTS > 1)."""
+    def chrome_used_by_other(self, org_id: str, port: int, here=(), any_here: bool = True) -> bool:
+        """jobs.CHROME_USED_SQL: another org already takes part on this Chrome port, owner or not (WORKER_SLOTS > 1). here: the orgs
+        the config maps to this port; any_here: this is the only Chrome (every org goes to it). Both only matter for a row with no port."""
         from .jobs import CHROME_USED_SQL
 
-        rows = self.db.execute(CHROME_USED_SQL, {"org": org_id, "port": int(port)})
+        here_s = ",".join(str(o) for o in here if o and "," not in str(o))
+        rows = self.db.execute(CHROME_USED_SQL, {"org": org_id, "port": int(port), "here": here_s, "any_here": bool(any_here)})
         return bool(rows and rows[0][0])
 
     def give_back(self, job_id: int, worker_id: str) -> None:

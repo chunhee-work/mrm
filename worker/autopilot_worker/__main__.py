@@ -468,6 +468,25 @@ def load_step_tabs(state_dir: str) -> list[str]:
     return got
 
 
+def fill_slots(cfg, repo, pool, stopping, *, relogin_ready: bool, skip_orgs) -> None:
+    """One pass of the slots main loop: claim a job for every free slot, the case uploaded first in front (the claim order)."""
+    while pool.free() > 0 and not stopping.is_set():
+        # a create already claimed (not only one holding the lock: two creates of one batch would otherwise both be claimed in this
+        # one pass) means no second create now
+        _at("claim")  # a failed claim logs `tick … step=claim`, not the last housekeeping step
+        job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=skip_orgs(),
+                         one_chrome=True, no_create=pool.create_running() or _CREATE_LOCK.locked())
+        if not job:
+            return
+        if pool.has(job["id"]) or stopping.is_set():
+            # its slot already wrote its outcome (back to the queue) and is still closing its tabs: never started a second time here.
+            # Or the stop signal came while the claim ran: nothing new starts after it (egm r6). The claim is undone with its try
+            # given back, and it is taken again in a later pass
+            repo.give_back(job["id"], cfg.worker_id)
+            return
+        pool.submit(job, relogin_ready=relogin_ready)
+
+
 def _register_step_tab(pg) -> None:
     if not hasattr(_job_tabs, "pages"):
         _job_tabs.pages = []
@@ -962,21 +981,7 @@ def main() -> None:
                 relogin = housekeeping(cfg, repo, launch=_launch, inspect=_inspect, keep=_keep, fetch_page=fetch_page, master=master,
                                        delete_blob=delete_blob if shots else None, relogin_fetch=relogin_fetch, busy_orgs=pool.busy_orgs,
                                        running_ids=pool.running_ids)
-                while pool.free() > 0 and not stopping.is_set():  # fill every free slot; the claim order puts the case uploaded first in front
-                    # a create already claimed (not only one holding the lock: two creates of one batch would otherwise both be
-                    # claimed in this one pass) means no second create now
-                    _at("claim")  # a failed claim logs `tick … step=claim`, not the last housekeeping step
-                    job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=paused_orgs(),
-                                     one_chrome=True, no_create=pool.create_running() or _CREATE_LOCK.locked())
-                    if not job:
-                        break
-                    if pool.has(job["id"]) or stopping.is_set():
-                        # its slot already wrote its outcome (back to the queue) and is still closing its tabs: never started a second
-                        # time here. Or the stop signal came while the claim ran: nothing new starts after it (egm r6). The claim is
-                        # undone with its try given back, and it is taken again in a later pass
-                        repo.give_back(job["id"], cfg.worker_id)
-                        break
-                    pool.submit(job, relogin_ready=relogin is not None)
+                fill_slots(cfg, repo, pool, stopping, relogin_ready=relogin is not None, skip_orgs=paused_orgs)
             except Exception as e:
                 print(tick_error_line(e), file=sys.stderr)
             stopping.wait(cfg.poll_seconds)

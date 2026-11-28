@@ -92,6 +92,17 @@ def on_use(fn) -> None:
     _ON_USE[0] = fn
 
 
+def note_popup() -> None:
+    """A step that drives a popup it opened itself (not through the step tab) calls this once it has the popup: the hook records the
+    popup's tab id now, so a stop while the step works in the popup never leaves an unknown tab behind (egm r11)."""
+    hook = _ON_USE[0]
+    if hook is not None:
+        try:
+            hook()
+        except Exception:  # noqa: BLE001  (bookkeeping only)
+            pass
+
+
 class _Guarded:
     """A step tab as the step sees it (GPR-150-4 G3). Before every use of the tab (goto, click, a locator, a popup wait...) its
     current address is checked, so a click, a form post or a redirect that landed on another case stops the next action; a goto is

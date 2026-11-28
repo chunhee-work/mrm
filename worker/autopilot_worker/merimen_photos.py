@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 import threading
 
+from . import case_guard
 from .merimen_create import CLAIMS, redact
 from .merimen_docs import DocError, MerimenPage
 from .photo_sync import NotPorted
@@ -124,6 +125,7 @@ class RealPhotos:
                 popup = None
             if popup:
                 self.mp.tabs.append(popup)  # closed with the others, also when the step stops
+                case_guard.note_popup()  # its tab id is recorded now: the steps below act on the popup, not on the step tab
             target = popup or tab
             target.wait_for_timeout(self.mp.ms(2500))
             count = target.evaluate("()=>document.querySelectorAll('input[name^=ONM]').length")

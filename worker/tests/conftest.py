@@ -8,9 +8,21 @@ import pytest  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _fresh_login_seen():
-    """The "a step met the login form" mark is per job (loop.tick resets it): every test starts without it."""
-    from autopilot_worker import login_seen, loop, relogin
+    """The "a step met the login form" mark is per job (loop.tick resets it): every test starts without it. The slots module state
+    (#150) is reset too, so a test that fails half way never leaks it into the next one (egm r11)."""
+    from autopilot_worker import __main__ as main_mod
+    from autopilot_worker import case_guard, login_seen, loop, relogin
 
+    def _slots_state():
+        loop._busy_since.clear()
+        loop._verify_wait.clear()
+        loop.RELOGIN_OK.clear()
+        main_mod.STEP_TABS.clear()
+        main_mod._step_tabs_dir[0] = ""
+        case_guard._MINE.st.update(on=False, ids=frozenset(), job="", bad=False)
+        case_guard._ON_USE[0] = None
+
+    _slots_state()
     login_seen.reset()
     relogin.reset()
     loop.RELOGIN_HELD.clear()
@@ -28,3 +40,4 @@ def _fresh_login_seen():
     loop.HOLD_KIND.clear()
     loop._noted.clear()
     relogin.reset()
+    _slots_state()

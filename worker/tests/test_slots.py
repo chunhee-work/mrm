@@ -644,6 +644,65 @@ def test_one_relabel_or_reorder_page_at_a_time_in_the_process():
     assert seen == [True, True] and not mp.RELABEL_LOCK.locked()
     assert isinstance(mp.RELABEL_LOCK, type(threading.Lock()))
 
+def test_a_relabel_popup_is_recorded_as_soon_as_the_step_has_it():
+    """egm r11: the Relabel/Reorder step works in its popup, not through the step tab, so the popup's tab id is recorded the moment the
+    step has it (a stop during Phase B never leaves an unknown tab that counts as a second home tab)."""
+    import contextlib
+
+    from autopilot_worker import case_guard
+    from autopilot_worker import merimen_photos as mp
+
+    calls = []
+
+    class Popup:
+        def wait_for_timeout(self, ms):
+            pass
+
+        def evaluate(self, js, *a):
+            calls.append("evaluate")
+            return 30
+
+    class Info:
+        value = Popup()
+
+    class Links:
+        def count(self):
+            return 1
+
+        def nth(self, i):
+            return self
+
+        def click(self):
+            pass
+
+    class Tab:
+        def locator(self, sel):
+            return Links()
+
+        @contextlib.contextmanager
+        def expect_popup(self, timeout=None):
+            yield Info()
+
+    class MP:
+        tabs = []
+
+        def docview(self, cid, ext):
+            return Tab()
+
+        def ms(self, n):
+            return n
+
+    p = mp.RealPhotos.__new__(mp.RealPhotos)
+    p.mp = MP()
+    before = case_guard._ON_USE[0]
+    case_guard.on_use(lambda: calls.append("recorded"))
+    try:
+        target, n = p._relabel_page("1", "2")
+    finally:
+        case_guard._ON_USE[0] = before
+    assert n == 30 and calls[0] == "recorded" and "evaluate" in calls
+
+
 def test_only_one_slots_worker_per_state_folder(tmp_path):
     import pytest as _pt
 
@@ -1383,7 +1442,7 @@ def test_a_new_login_is_never_checked_on_a_chrome_another_user_is_on_even_as_own
         def chrome_taken_by_other(self, org, port):
             return False  # o2 would be the owner by first case
 
-        def chrome_used_by_other(self, org, port):
+        def chrome_used_by_other(self, org, port, here=(), any_here=True):
             return True  # o1 is on that Chrome
 
         def owner_email(self, org):
@@ -1404,7 +1463,8 @@ def test_chrome_used_sql_sees_any_other_user_on_the_port():
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CHROME_USED_SQL
 
-    q = lambda org, port=9222: dict(zip(("sql", "params"), to_numbered(CHROME_USED_SQL, {"org": org, "port": port})))  # noqa: E731
+    q = lambda org, port=9222, here="", any_here=True: dict(zip(("sql", "params"), to_numbered(  # noqa: E731
+        CHROME_USED_SQL, {"org": org, "port": port, "here": here, "any_here": any_here})))
     pending = ["UPDATE merimen_credentials SET verify_state = 'queued' WHERE org_id = 'o2'"]  # o2's login is new, not checked yet
     r = run([q("o2"), q("o1"), q("o2", 9223)], seed=ORGS_CASES + READY + sessions() + pending)
     assert r == [[[True]], [[True]], [[False]]]  # o1 (checked) is on 9222; o2's login is still being checked, it counts too; 9223 is free
@@ -1412,3 +1472,100 @@ def test_chrome_used_sql_sees_any_other_user_on_the_port():
     noport = ["UPDATE worker_sessions SET port = NULL WHERE org_id = 'o1'"]
     r = run([q("o2")], seed=ORGS_CASES + READY + sessions() + pending + noport)
     assert r == [[[True]]]
+    # several Chromes: a portless o1 counts only on the Chrome the config gives it, never on another user's own Chrome (egm r11)
+    r = run([q("o2", 9223, here="o2", any_here=False), q("o2", 9222, here="o1", any_here=False)],
+            seed=ORGS_CASES + READY + sessions() + pending + noport)
+    assert r == [[[False]], [[True]]]
+
+
+def test_the_login_check_tells_the_store_which_users_the_config_puts_on_this_chrome(tmp_path, fresh):
+    """egm r11: with several Chrome profiles a portless row of another user counts only on the Chrome the config gives that user, so
+    the check passes the users mapped to this port and says this is not the only Chrome."""
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2",
+                           "WORKER_ACCOUNTS": "a:9222,b:9223", "WORKER_ORG_ACCOUNTS": "o1:a,o2:b,o3:b"})
+    seen = []
+
+    class VRepo:
+        def claim_verify(self, skip=()):
+            return {"org_id": "o2"}
+
+        def chrome_taken_by_other(self, org, port):
+            return False
+
+        def chrome_used_by_other(self, org, port, here=(), any_here=True):
+            seen.append((org, port, sorted(here), any_here))
+            return True
+
+        def owner_email(self, org):
+            return None
+
+        def finish_verify(self, org, decision, **k):
+            pass
+
+    loop._verify_wait.clear()
+    loop.verify_once(cfg, VRepo(), lambda user, password, port: None, b"k" * 32)
+    assert seen == [("o2", 9223, ["o2", "o3"], False)]
+    loop._verify_wait.clear()
+
+
+def test_the_slots_main_loop_fills_free_slots_and_gives_back_a_claim_it_cannot_start(tmp_path):
+    """egm r11: the claim pass of the slots main loop. Every free slot gets a job; a running create (or one holding the create lock)
+    asks the claim for no second create; a claim of a job a slot still holds, or one that returns after the stop signal, is given back
+    with its try and nothing more is claimed in that pass."""
+    import threading
+
+    from autopilot_worker import __main__ as m
+
+    cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "3"})
+
+    class Pool:
+        def __init__(self, free, creating=False, held=()):
+            self.n, self.creating, self.held, self.started = free, creating, set(held), []
+
+        def free(self):
+            return self.n - len(self.started)
+
+        def create_running(self):
+            return self.creating
+
+        def has(self, jid):
+            return jid in self.held
+
+        def submit(self, job, relogin_ready=False):
+            self.started.append(job["id"])
+
+    class Repo:
+        def __init__(self, ids, stop=None):
+            self.ids, self.stop, self.no_create, self.given = list(ids), stop, [], []
+
+        def claim(self, **k):
+            self.no_create.append(k["no_create"])
+            if self.stop is not None:
+                self.stop.set()  # the stop signal comes while this claim runs
+            return {"id": self.ids.pop(0)} if self.ids else None
+
+        def give_back(self, jid, worker):
+            self.given.append(jid)
+
+    go = threading.Event()
+    pool, repo = Pool(3), Repo([1, 2, 3, 4])
+    m.fill_slots(cfg, repo, pool, go, relogin_ready=False, skip_orgs=list)
+    assert pool.started == [1, 2, 3] and repo.given == [] and repo.no_create == [False] * 3
+
+    pool, repo = Pool(2, creating=True), Repo([5])
+    m.fill_slots(cfg, repo, pool, go, relogin_ready=False, skip_orgs=list)
+    assert repo.no_create == [True, True] and pool.started == [5]
+
+    with m._CREATE_LOCK:
+        pool, repo = Pool(1), Repo([6])
+        m.fill_slots(cfg, repo, pool, go, relogin_ready=False, skip_orgs=list)
+    assert repo.no_create == [True]
+
+    pool, repo = Pool(2, held={7}), Repo([7, 8])
+    m.fill_slots(cfg, repo, pool, go, relogin_ready=False, skip_orgs=list)
+    assert repo.given == [7] and pool.started == []
+
+    stop = threading.Event()
+    pool, repo = Pool(2), Repo([9, 10], stop=stop)
+    m.fill_slots(cfg, repo, pool, stop, relogin_ready=False, skip_orgs=list)
+    assert repo.given == [9] and pool.started == []
