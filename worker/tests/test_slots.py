@@ -149,6 +149,8 @@ def test_the_home_tab_records_the_tabs_its_steps_open(monkeypatch):
     # another job's step tab and a popup are not the home tab; a second tab opened by hand still is one more (several_tabs, as before)
     assert m.not_step_tabs([home, step, popup], info=info) == [home]
     assert m.not_step_tabs([home, step, hand], info=info) == [home, hand]
+    # only a step tab left (the home tab was closed): it is never taken as the home tab
+    assert m.not_step_tabs([step], info=info) == []
     m.STEP_TABS.clear()
 
 
@@ -429,7 +431,7 @@ def test_a_second_org_on_a_shared_chrome_is_never_logged_in(tmp_path, fresh):
                            "MERIMEN_RELOGIN": "on", "WORKER_SLOTS": "2"})
 
     class Shared(SessRepo):
-        def chrome_taken_by_other(self, org):
+        def chrome_taken_by_other(self, org, port):
             return True
 
     asked = []
@@ -447,11 +449,23 @@ def test_chrome_taken_sql_matches_the_claim_rule():
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CHROME_TAKEN_SQL
 
-    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org})))  # noqa: E731
+    q = lambda org, port=9222: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": port})))  # noqa: E731
     r = run([q("o1"), q("o2")], seed=ORGS_CASES + READY + sessions())
     assert r == [[[False]], [[True]]]
-    r = run([q("o2")], seed=ORGS_CASES + READY + sessions(9222, 9223))
+    r = run([q("o2", 9223)], seed=ORGS_CASES + READY + sessions(9222, 9223))
     assert r == [[[False]]]  # its own Chrome: free
+
+
+@needs_pg
+def test_an_org_without_a_live_case_never_owns_the_chrome():
+    from autopilot_worker.db import to_numbered
+    from autopilot_worker.jobs import CHROME_TAKEN_SQL
+
+    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222})))  # noqa: E731
+    seed = ["INSERT INTO organizations (id, name) VALUES ('o1', 'One'), ('o2', 'Two')",
+            "INSERT INTO cases (id, org_id, plate, status, created_at) VALUES ('c3','o2','B1','phase_a', now())"]
+    r = run([q("o1"), q("o2")], seed=seed + READY + sessions())
+    assert r == [[[True]], [[False]]]  # o1 has no case: o2 (with a case) owns it
 
 
 @needs_pg

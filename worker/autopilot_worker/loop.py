@@ -330,7 +330,8 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
     if held(org, now):
         try:
             if seen_login or not session_alive(cfg, inspect, page_for, org):
-                HELD_PAUSED.add(org)  # logged out while held: the org waits (not connected) until the hold ends, nothing typed
+                with SESSION_LOCK:
+                    HELD_PAUSED.add(org)  # logged out while held: the org waits (not connected) until the hold ends, nothing typed
                 note(org, "not_put_back_held", now)
         except Exception:  # noqa: BLE001
             pass
@@ -440,9 +441,9 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         port = cfg.accounts[account]
         if getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
             try:
-                taken = repo.chrome_taken_by_other(org)
-            except Exception:  # noqa: BLE001  (not known: the safe side, no login for this org this pass)
-                taken = True
+                taken = repo.chrome_taken_by_other(org, port)
+            except Exception:  # noqa: BLE001  (not known: this org is left as it is this pass, no login, no status written)
+                continue
             if taken:  # one Chrome holds one Merimen login: never log it in as this org, never count it connected (plan #150)
                 repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
                 note(org, "shared_chrome", now)
@@ -472,7 +473,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             if relogin and reason is None:
                 reason = "not_logged_in"  # a job found this session logged out: book a re-login whatever the tab address says
             elif not relogin:
-                FORCE_RELOGIN.pop(org, None)  # without re-login nobody acts on the mark: the address decides, as before
+                with SESSION_LOCK:
+                    FORCE_RELOGIN.pop(org, None)  # without re-login nobody acts on the mark: the address decides, as before
         status = next_status(row["status"] or "idle", reason is None)
         if reason is None:
             keep(port)
@@ -516,7 +518,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             got = relogin(org, ports[org])
             if got in ("ok", "session_live"):
                 _lift(org)
-                RELOGIN_OK[org] = now()
+                with SESSION_LOCK:
+                    RELOGIN_OK[org] = now()
             # short waits, nothing typed: no hold. `cred` (the saved login is not ok, or could not be read) holds: a held org that still
             # meets the login form books the usual re-login, so a passing read error only costs one more booking, and one that works lifts it
             elif got not in (None, "pending", "db_error", "cooldown", "put_back"):
@@ -526,7 +529,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             if got in ("ok", "session_live"):
                 # logged in again: the mark goes. Any other answer (refused, put back, cooldown) keeps it until FORCE_TTL: a stale tab
                 # must not count as connected meanwhile, which would end a failed streak and book more password tries
-                FORCE_RELOGIN.pop(org, None)
+                with SESSION_LOCK:
+                    FORCE_RELOGIN.pop(org, None)
             if got in TRIED:
                 break
 

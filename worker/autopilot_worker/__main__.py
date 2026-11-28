@@ -229,7 +229,24 @@ def _close_left_step_tabs(cfg: Config) -> None:
     for port in sorted(set(cfg.accounts.values())):
         for tid in ids:
             close_target(port, tid)  # a tab that is gone (or on another Chrome) is a no-op; never the last tab of a window
-    # kept in the set: a tab close_target would not close (the window's last tab) still never counts as the home tab
+    # ids Chrome no longer has are forgotten; one close_target would not close (the window's last tab) stays, so it never counts as
+    # the home tab
+    _forget_gone_step_tabs(cfg)
+
+
+def _forget_gone_step_tabs(cfg: Config, opener=None) -> None:
+    from urllib.request import urlopen
+
+    alive: set[str] = set()
+    for port in sorted(set(cfg.accounts.values())):
+        try:
+            with (opener or urlopen)(f"http://127.0.0.1:{int(port)}/json/list", timeout=5) as r:
+                alive |= {str(t.get("id")) for t in json.loads(r.read() or b"[]") if isinstance(t, dict)}
+        except Exception:  # noqa: BLE001  (Chrome did not answer: keep every id, nothing is lost)
+            return
+    with _STEP_TABS_LOCK:
+        STEP_TABS.intersection_update(alive)
+    _save_step_tabs()
 
 
 def _namer_factory(cfg: Config):
@@ -531,7 +548,9 @@ def _page_provider(cfg: Config):
                     from . import login_seen
 
                     login_seen.mark()  # Merimen is open but no tab has the session marks: logged out (as merimen_docs does)
-                if len(found) > 1:  # other jobs' step tabs and popups are not the home tab (WORKER_SLOTS > 1, plan #150)
+                if slots > 1 and found:  # another job's step tab or a popup is never the home tab, even when it is the only one left (plan #150)
+                    found = not_step_tabs(found)
+                elif len(found) > 1:  # a step tab id the last run left (WORKER_SLOTS back at 1) is still not the home tab
                     found = not_step_tabs(found)
                 if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
                     found = [pg for pg in found if not _login_box(pg)]

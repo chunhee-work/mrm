@@ -171,11 +171,11 @@ class PgRepo:
     def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = MAX_ATTEMPTS) -> int:
         return len(self.db.execute(RECLAIM_SQL, (max_attempts, int(lease_seconds))))
 
-    def chrome_taken_by_other(self, org_id: str) -> bool:
-        """jobs.CHROME_TAKEN_SQL: another org owns this org's Chrome port (WORKER_SLOTS > 1)."""
+    def chrome_taken_by_other(self, org_id: str, port: int) -> bool:
+        """jobs.CHROME_TAKEN_SQL: another org owns the Chrome port this org is given (WORKER_SLOTS > 1)."""
         from .jobs import CHROME_TAKEN_SQL
 
-        rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id})
+        rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id, "port": int(port)})
         return bool(rows and rows[0][0])
 
     def touch_job(self, job_id: int, worker_id: str) -> bool:

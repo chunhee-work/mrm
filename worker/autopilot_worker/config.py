@@ -124,7 +124,7 @@ class Config:
             merimen_writes=_on(e, "MERIMEN_WRITES"),
             merimen_login=_on(e, "MERIMEN_LOGIN"),
             # unset: as many running jobs per org as there are slots, so one user's cases fill every slot (owner 2026-11-28)
-            org_limit=max(1, int(e.get("ORG_CONCURRENCY") or e.get("WORKER_SLOTS") or "1")),
+            org_limit=max(1, int(e.get("ORG_CONCURRENCY") or _slots(e.get("WORKER_SLOTS")))),
             slots=_slots(e.get("WORKER_SLOTS")),
             job_max_seconds=max(600, int(e.get("WORKER_JOB_MAX_SECONDS") or str(3 * 3600))),
             stop_seconds=max(0, int(e.get("WORKER_STOP_SECONDS") or "80")),
