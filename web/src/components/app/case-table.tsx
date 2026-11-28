@@ -26,6 +26,10 @@ export type CaseRow = {
   photosDone?: boolean; // 完成 was pressed on the desk
   firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
   canDelete?: boolean; // the worker has not taken it: it can still be deleted from the list
+  tpPlate?: string | null; // the other car (at fault), shown as [TDG1378] under the plate, as in Merimen's case list
+  tpInsurer?: string | null; // the at-fault party's insurer: the one the claim goes to in Merimen
+  wsSlot?: number; // the workshop (1..3) the case goes to
+  wsName?: string | null; // the workshop name the worker fixed once the case was made in Merimen
 };
 
 const REFRESH_MS = 20_000;
