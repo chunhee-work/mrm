@@ -267,35 +267,67 @@ def _page_provider(cfg: Config):
     Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
     state: dict = {}
 
-    def page_for(org_id: str, strict: bool = False):
-        """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address);
-        none or several = None, so the case waits instead of opening the form with a guessed session."""
+    def _browser(org_id: str):
         account = account_for(org_id, cfg.accounts, cfg.org_accounts)
         if not account:
-            return None
+            return None, None
         port = cfg.accounts[account]
+        if port not in state:
+            from playwright.sync_api import sync_playwright
+
+            pw = sync_playwright().start()
+            state[port] = (pw, pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}"))
+        return port, state[port][1]
+
+    def _drop(org_id: str) -> None:
+        account = account_for(org_id, cfg.accounts, cfg.org_accounts)
+        old = state.pop(cfg.accounts[account], None) if account else None
+        if old:
+            try:
+                old[0].stop()
+            except Exception:
+                pass
+
+    def _login_box(pg) -> bool:
+        """The page shows a password box (Merimen's login form): a tab whose address still has the session marks of a session that
+        is gone. A page that cannot be asked counts as no box (the address decides)."""
         try:
-            if port not in state:
-                from playwright.sync_api import sync_playwright
+            return bool(pg.evaluate("() => !!document.querySelector('input[type=password]')"))
+        except Exception:
+            return False
 
-                pw = sync_playwright().start()
-                state[port] = (pw, pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}"))
-            browser = state[port][1]
+    def _session_pages(browser) -> list:
+        from .merimen_create import session_query
+
+        return [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
+
+    def page_for(org_id: str, strict: bool = False):
+        """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address,
+        no password box on the page); none or several = None, so the case waits instead of opening the form with a guessed session."""
+        try:
+            _port, browser = _browser(org_id)
+            if browser is None:
+                return None
             if strict:
-                from .merimen_create import session_query
-
-                found = [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
+                found = [pg for pg in _session_pages(browser) if not _login_box(pg)]
                 return found[0] if len(found) == 1 else None
             return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
         except Exception:
-            old = state.pop(port, None)
-            if old:
-                try:
-                    old[0].stop()
-                except Exception:
-                    pass
+            _drop(org_id)
         return None
 
+    def session_tabs(org_id: str):
+        """One bool per tab with session marks in its address: True = that page shows a password box. None when Chrome cannot be asked."""
+        try:
+            _port, browser = _browser(org_id)
+            if browser is None:
+                return None
+            return [_login_box(pg) for pg in _session_pages(browser)]
+        except Exception:
+            _drop(org_id)
+            return None
+
+    page_for.session_tabs = session_tabs
     return page_for
 
 

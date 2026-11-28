@@ -45,6 +45,11 @@ A case is not done until BOTH its documents and its photos are in Merimen; say s
 ## Dropped photos (2026-11-04)
 - `chkorder.mjs` prints `<PLATE> MISSING i,j` (0-based plan positions) when Merimen has fewer photos than the plan. `photos.py upload` re-uploads those positions (up to 2 rounds). The Phase B relabel/reorder puts them back in order. Batch 9 lost SYG7166 #3 and VFT4204 #4, #19 this way.
 
+## Logged out half way (owner 2026-11-28, DCD4004)
+- When Merimen logs the worker out during Phase A / Phase B / the checks, the job is put back WITHOUT using a try, the worker logs in again by itself (MERIMEN_RELOGIN, same limits as always) and the job goes on from where it stopped: the case is not made twice, the report and estimate details are set again, documents and ticks already there are skipped.
+- Photos: when Merimen holds EXACTLY the first k photos of the list (same captions, same order), only the rest is uploaded and the whole list is checked. Anything else (a gap, a different order, more photos, a caption the list uses twice among those first k, or Merimen holding exactly the Phase A list in Phase B) is never guessed: it goes the usual way or stops for a hand fix as before. A tab that still has the session marks in its address but shows the login form counts as logged out.
+- At most 5 such put-backs per case in 6 hours; the next one stops the job as a normal failure. Worker: `loop.check_session_after`, `photo_sync.prefix_done`.
+
 ## Photo upload timing (user 2026-11-04)
 - Upload in Phase A with the model's names (the user may be slow to name). Before phase_a's photo step, read db `status` on the 照片命名台: cases already marked 「完成」 go in `DONE_PLATES=P1,P2` → phase_a skips them and `phase_b.py` uploads them with the final names and order.
 - After a case's 「完成」: `python3 tools/batch/phase_b.py <batch> <db_dir> <PLATE>` checks Merimen = the Phase A plan (count + mismatch 0), then `relabel_ui.mjs` (changed names, positions in the current order) and `reorder_ui.mjs` (all positions, matched by the original file), then chkorder against the new plan. If Merimen ≠ the Phase A plan it does NOT relabel; fix by hand. One case at a time.

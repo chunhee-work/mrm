@@ -154,8 +154,29 @@ def _read_labels(m: MerimenPhotos, case: dict) -> list[str] | None:
     return got
 
 
+def prefix_done(have: list[str] | None, plan: list[dict]) -> int:
+    """How many photos an upload that was cut off (Merimen logged out half way, owner 2026-11-28) already left in Merimen: k when the
+    captions Merimen holds are EXACTLY the first k planned names in the same order (0 < k < plan). 0 for anything else: an empty list,
+    the full list, or photos that do not line up (those keep the hand-fix path, never a guess). A caption that the plan uses more than
+    once is not proof of WHICH photo went up, so a start that holds one is not resumed either."""
+    if not have or len(have) >= len(plan):
+        return 0
+    names = [p["name"] for p in plan]
+    k = len(have)
+    if have != names[:k] or any(names.count(n) > 1 for n in have):
+        return 0
+    return k
+
+
+def _resume(rep: PhotoReport, case: dict, plan: list[dict], k: int, merimen: MerimenPhotos, guard: Guard, writes: bool) -> PhotoReport:
+    rep.action, rep.upload = "upload", len(plan) - k
+    rep.note = f"an upload was cut off: Merimen has the first {k} of {len(plan)}, only the rest is uploaded"
+    return rep if not writes else _upload(rep, case, plan, merimen, guard, start=k)
+
+
 def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhotos, guard: Guard = lambda: True) -> PhotoReport:
-    """Upload with the names the model gave (the adjuster may be slow). A case that already has a photo in Merimen is skipped."""
+    """Upload with the names the model gave (the adjuster may be slow). A case that already has a photo in Merimen is skipped,
+    unless those photos are exactly the start of this list (an upload that was cut off): then only the rest is uploaded."""
     plan = plan_rows(rows)
     rep = PhotoReport("A", "live" if writes else "dry", "upload", upload=len(plan), photos=plan)
     if not plan:
@@ -163,6 +184,9 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
         return rep
     have = _read_labels(merimen, case)
     rep.merimen_count = None if have is None else len(have)
+    k = prefix_done(have, plan)
+    if k:
+        return _resume(rep, case, plan, k, merimen, guard, writes)
     if have is not None and len(have) >= int(rules()["photoUpload"]["skipWhenMerimenHasPhotos"]):
         rep.action, rep.upload, rep.note = "none", 0, f"Merimen already has {len(have)} photos"
         return rep
@@ -176,12 +200,15 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     return _upload(rep, case, plan, merimen, guard)
 
 
-def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhotos, guard: Guard) -> PhotoReport:
+def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhotos, guard: Guard, start: int = 0) -> PhotoReport:
+    """`start`: the first `start` photos of the plan are already in Merimen in order (prefix_done); only the rest goes up, the whole
+    list is verified."""
     if not guard():
         rep.snapshot = None
         rep.action, rep.upload, rep.note, rep.code = "refused", 0, "the case changed before the upload", "undone"
         return rep
-    merimen.upload(case, plan, chunked(plan))
+    rest = plan[start:]
+    merimen.upload(case, rest, chunked(rest))
     check = merimen.verify(case, plan)
     for _ in range(2):  # dropped photos: upload the missing positions again (playbook 06, up to 2 rounds)
         miss = check.get("missing") or []
@@ -224,6 +251,11 @@ def phase_b(
     if have is None and writes:
         rep.action, rep.note, rep.code, rep.snapshot = "unreadable", "could not read the photos in Merimen", "unreadable", None
         return rep
+    # 2a an upload of these final names was cut off (logged out half way): Merimen holds exactly their start, only the rest goes up
+    # (not when Merimen holds exactly the Phase A list: that is the usual relabel case of step 4, never a cut-off upload)
+    k = 0 if have == [x["name"] for x in phase_a_photos or []] else prefix_done(have, new)
+    if k:
+        return _resume(rep, case, new, k, merimen, guard, writes)
     # 2 nothing in Merimen yet (Done was pressed before Phase A reached the upload): upload with the final names and order
     empty = (have is not None and len(have) == 0) or (have is None and not phase_a_photos)
     if empty:

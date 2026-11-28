@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import traceback
+from dataclasses import replace
 
 from .cdp_client import page_block
 from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
@@ -97,6 +98,89 @@ def _print_error(job: dict, e: BaseException) -> None:
         print(job_error_line(job, e), file=sys.stderr, flush=True)
     except Exception:  # noqa: BLE001  (the log line never changes the outcome)
         pass
+
+
+# ---- Merimen logged out during a job (owner 2026-11-28: "will the worker notice, log in and go on?") ----
+PHASE_STEPS = ("phase_a", "phase_b", "checks")
+LOST_EVENT = "Merimen logged out during"  # the event every put-back writes; the cap counts these (store.session_lost_count)
+LOST_CAP = 5  # put-backs for one case in LOST_WINDOW; the next one takes the normal failure path
+LOST_WINDOW = "6 hours"
+_PHASE_NAME = {"phase_a": "Phase A", "phase_b": "Phase B", "checks": "the checks"}
+FORCE_TTL = 1200.0  # a mark nobody could act on (re-login refused, a person logged in) ends after 20 min: the address decides again
+# org -> when a job found its session logged out: the next sync_sessions books a re-login even if a tab address still carries the
+# session marks (a page that shows a password box at an old address). Cleared when a re-login is ok or finds the session live.
+FORCE_RELOGIN: dict[str, float] = {}
+
+
+def _forced(org_id: str, now) -> bool:
+    t = FORCE_RELOGIN.get(org_id)
+    if t is None:
+        return False
+    if now() - t >= FORCE_TTL:
+        FORCE_RELOGIN.pop(org_id, None)
+        return False
+    return True
+
+
+def session_alive(cfg: Config, inspect, page_for, org_id: str) -> bool:
+    """A fresh look after a job that did not finish: a tab whose address is a logged-in claims page, and (when the page provider can
+    look inside, `page_for.session_tabs`) at least one such tab shows no password box. Chrome not answering counts as logged out
+    (the job cannot go on either). Two logged-in tabs are NOT logged out."""
+    account = account_for(org_id, cfg.accounts, cfg.org_accounts)
+    if not account:
+        return True  # no Chrome for this org: nothing to say about a login
+    try:
+        info = inspect(cfg.accounts[account])
+    except Exception:  # noqa: BLE001
+        info = None
+    if not info or page_block(info) is not None:
+        return False
+    look = getattr(page_for, "session_tabs", None)
+    if look:
+        try:
+            tabs = look(org_id)  # one bool per tab with session marks: True = that page shows a password box
+        except Exception:  # noqa: BLE001  (the look itself failed: the address check above decides)
+            tabs = None
+        if tabs and all(tabs):  # an empty look says nothing: the address check above decides
+            return False
+    return True
+
+
+def _not_merimen(outcome: Outcome) -> bool:
+    """Stops that do not depend on the session (a missing document or field, a setting): never turned into a put-back."""
+    err = outcome.error or ""
+    return bool(outcome.pending_doc) or err in ("documents", "concurrency_unsafe") or err.startswith("missing ")
+
+
+def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
+    """The outcome of a job that Merimen logged out half way. Under the cap: put back without using a try, nothing it found is
+    taken as the case's state (no status, error or follow-up job), what it did write (the case number, the photo and Step 2 logs)
+    is kept. At the cap: the job's own outcome as a failure, with one line that says why it stops."""
+    phase = _PHASE_NAME.get(job["step"], job["step"])
+    if count >= LOST_CAP:
+        lead = f"Merimen logged out {LOST_CAP} times in {LOST_WINDOW}: {phase} is not tried again by itself."
+        return replace(outcome, job_state="failed", event=(lead + (f" {outcome.event}" if outcome.event else ""))[:400])
+    return replace(
+        outcome, job_state="requeue", session_lost=True, case_status=None, error=None, enqueue=[], done=False, pending_doc=None,
+        require_snapshot=None, stale_event=None, invalidate=False, verify_state=None,
+        event=f"{LOST_EVENT} {phase}. Logging in again, then it goes on from where it stopped.",
+    )
+
+
+def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspect, page_for, now=time.monotonic) -> Outcome:
+    """After a Merimen job that did not finish: was the session logged out meanwhile? Then the put-back outcome (and, with re-login
+    on, the org is marked so the next tick books one). A check that fails itself leaves the outcome as it was."""
+    if job["step"] not in PHASE_STEPS or outcome.job_state not in ("failed", "requeue") or not cfg.ext_connect or _not_merimen(outcome):
+        return outcome
+    try:
+        if session_alive(cfg, inspect, page_for, job["org_id"]):
+            return outcome
+        got = session_lost_outcome(job, outcome, count=repo.session_lost_count(job["case_id"]))
+    except Exception:  # noqa: BLE001
+        return outcome
+    if got.session_lost and cfg.merimen_relogin:
+        FORCE_RELOGIN[job["org_id"]] = now()
+    return got
 
 
 def maybe_cleanup(cfg: Config, repo: PgRepo, delete, *, every: float = 3600.0, now=time.monotonic) -> int:
@@ -194,6 +278,11 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 clear_login_notice(cfg.state_dir)  # an old notice from before the switch would mislead
             continue
         reason = page_block(info)
+        if _forced(org, now):
+            if relogin and reason is None:
+                reason = "not_logged_in"  # a job found this session logged out: book a re-login whatever the tab address says
+            elif not relogin:
+                FORCE_RELOGIN.pop(org, None)  # without re-login nobody acts on the mark: the address decides, as before
         status = next_status(row["status"] or "idle", reason is None)
         if reason is None:
             keep(port)
@@ -222,7 +311,10 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         except Exception:  # noqa: BLE001  (a DB error here must not abort the tick; the booking itself still decides)
             order = [o for o, _ in want_relogin]
         for org in order:
-            if relogin(org, ports[org]) in TRIED:
+            got = relogin(org, ports[org])
+            if got in ("ok", "session_live"):
+                FORCE_RELOGIN.pop(org, None)
+            if got in TRIED:
                 break
 
 
@@ -326,6 +418,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
                 forget_files(job["case_id"], job["id"])
             except Exception:  # noqa: BLE001  (the hourly sweep takes what is left)
                 pass
+    _at("session_check")
+    outcome = check_session_after(cfg, repo, job, outcome, inspect=inspect, page_for=page_for or getattr(driver, "page_for", None), now=now)
     _at("apply")
     repo.apply(job, outcome)
     return job["step"]

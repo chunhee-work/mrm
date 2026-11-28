@@ -100,6 +100,9 @@ class Outcome:
     require_snapshot: str | None = None
     extra_events: list[str] | None = None  # Jev page-check lines (step jev_check); each written once per case, never makes a job fail
     stale_event: str | None = None  # with require_snapshot: written instead of `event` when 完成 or the names changed meanwhile
+    # Merimen logged the worker out during the job (owner 2026-11-28): put back WITHOUT using a try, the session marked for a re-login;
+    # the job then goes on from where it stopped (every step skips what Merimen already has). Set only by loop.session_lost_outcome
+    session_lost: bool = False
 
 
 def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcome:

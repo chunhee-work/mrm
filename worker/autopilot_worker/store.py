@@ -112,6 +112,14 @@ class PgRepo:
              row.get("latency_ms"), bool(row["ok"]), row.get("error_class"), row.get("case_id")),
         )
 
+    def session_lost_count(self, case_id: str) -> int:
+        """Put-backs because Merimen logged out (loop.LOST_EVENT) for this case in the last 6 hours (loop.LOST_CAP)."""
+        rows = self.db.execute(
+            "SELECT count(*) FROM case_events WHERE case_id = %s AND message LIKE %s AND at > now() - interval '6 hours'",
+            (case_id, "Merimen logged out during%"),
+        )
+        return int(rows[0][0]) if rows else 0
+
     def heartbeat(self, worker_id: str, model: str, chrome_ok: bool) -> None:
         self.db.execute(
             """
@@ -258,9 +266,20 @@ class PgRepo:
         if outcome.job_state == "requeue":
             # put back with a wait (jobs.not_before, migration 0007), and only so many times: `attempts` is the number of claims so far
             attempts = int(job.get("attempts") or 1)
-            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS
+            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS and not outcome.session_lost
             state = "failed" if gave_up else "queued"
-        if outcome.job_state == "hold":
+        if outcome.session_lost and state == "queued":
+            # Merimen logged out half way: the claim's try is given back, and the session waits for the re-login before the next claim
+            st.append((
+                "UPDATE jobs SET state = 'queued', locked_by = NULL, locked_at = NULL, attempts = GREATEST(attempts - 1, 0), "
+                "not_before = now() + interval '30 seconds' WHERE id = %s AND state = 'running'",
+                (job["id"],),
+            ))
+            st.append((
+                "UPDATE worker_sessions SET status = 'expired', detail = 'not_logged_in' WHERE org_id = %s AND status = 'connected'",
+                (job["org_id"],),
+            ))
+        elif outcome.job_state == "hold":
             st.append(("UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running'", (job["id"],)))
         elif state == "queued":
             st.append((
