@@ -564,7 +564,11 @@ def test_the_operator_lines_are_fixed_words_once_an_hour(capsys):
     loop.note("o1", "put_back", now=lambda: 0.0)
     loop.note("o1", "put_back", now=lambda: 10.0)
     loop.note("o1", "put_back", now=lambda: 3601.0)
-    assert capsys.readouterr().err.count("session_lost: put_back") == 2
+    err = capsys.readouterr().err
+    assert err.count("session_lost: put_back") == 2
+    import re
+
+    assert re.fullmatch(r"(session_lost: put_back org=[0-9a-f]{6}\n){2}", err)  # fixed words and a short hash, never the org id
     loop._noted.clear()
 
 
@@ -638,3 +642,51 @@ def test_a_cut_off_start_is_resumed_only_when_a_second_read_gives_the_same_list(
     m = Filling()
     rep = ps.phase_a(RESUMED, THREE, writes=True, merimen=m)
     assert rep.code == "hand_fix" and m.writes == []  # never a second copy of photos already there
+
+
+# ---------- review round 14 ----------
+
+def test_the_org_cap_books_no_login_even_when_the_address_is_logged_out(tmp_path):
+    t = [1000.0]
+    loop._hold("o1", lambda: t[0], "held_org_cap")
+    loop.HELD_PAUSED.add("o1")
+    asked = []
+    repo = SessRepo([row("connected")])
+    sync_sessions(cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on"), repo, launch=lambda a: None, inspect=lambda p: LOGIN_PAGE,
+                  now=lambda: t[0], relogin=lambda o, p: asked.append(o) or "ok")
+    assert asked == [] and repo.sessions[-1][1]["detail"] == "relogin_held"
+
+
+def test_refusals_while_held_do_not_make_the_hold_longer(tmp_path):
+    t = [1000.0]
+    loop._hold("o1", lambda: t[0], "held_relogin_orphan")
+    loop.HELD_PAUSED.add("o1")
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
+    for t[0] in (2000.0, 3000.0):
+        sync_sessions(on, SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGIN_PAGE, now=lambda: t[0],
+                      relogin=lambda o, p: "orphan")
+    assert loop.RELOGIN_HELD["o1"] == 1000.0  # it still ends 6 h after it began
+    assert not loop.held("o1", now=lambda: 1000.0 + loop.HOLD_SECONDS + 1)
+
+
+def test_a_failed_second_read_is_tried_again_not_a_hand_fix():
+    class Flaky(Fake):
+        def __init__(self):
+            super().__init__(held=["Front Bumper"])
+            self.reads = 0
+
+        def labels(self, case):
+            self.reads += 1
+            return ["Front Bumper"] if self.reads == 1 else None
+
+    m = Flaky()
+    rep = ps.phase_a(RESUMED, THREE, writes=True, merimen=m)
+    assert rep.code == "unreadable" and m.writes == []
+
+
+def test_a_stale_tab_seen_while_held_does_not_end_a_failed_streak(tmp_path):
+    loop._hold("o1", time.monotonic, "held_relogin_streak")
+    repo = SessRepo([row("expired")])
+    sync_sessions(cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on"), repo, launch=lambda a: None, inspect=lambda p: LOGGED_IN,
+                  relogin=lambda o, p: "ok")
+    assert repo.seen == []

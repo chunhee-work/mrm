@@ -237,7 +237,10 @@ def held(org_id: str, now=time.monotonic) -> bool:
 
 
 def _hold(org_id: str, now, word: str) -> None:
-    RELOGIN_HELD[org_id] = now()
+    # a refusal while already held does not make the hold longer: it ends HOLD_SECONDS after it began (or with a re-login that
+    # works). Only the org cap, the stronger hold, starts its own full time
+    if word == "held_org_cap" or not held(org_id, now):
+        RELOGIN_HELD[org_id] = now()
     if HOLD_KIND.get(org_id) != "held_org_cap":  # the org cap is the stronger hold: a later refusal does not soften it
         HOLD_KIND[org_id] = word
     note(org_id, word, now)
@@ -245,8 +248,8 @@ def _hold(org_id: str, now, word: str) -> None:
 
 def _lift(org_id: str) -> None:
     """A re-login worked: the hold ends, except the org cap's (it ends only with its time)."""
-    HELD_PAUSED.discard(org_id)
     if HOLD_KIND.get(org_id) != "held_org_cap":
+        HELD_PAUSED.discard(org_id)
         RELOGIN_HELD.pop(org_id, None)
         HOLD_KIND.pop(org_id, None)
 
@@ -287,7 +290,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         _hold(org, now, "held_org_cap")
         HELD_PAUSED.add(org)
         return outcome
-    ORG_PUTBACKS[org] = times + [now()]
+    ORG_PUTBACKS[org] = times + ([now()] if got.session_lost else [])  # put-backs only (the case cap's stop is not one)
     FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
     note(job["org_id"], "put_back" if got.job_state != "failed" else "cap_reached", now)
     return got
@@ -388,10 +391,11 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 clear_login_notice(cfg.state_dir)  # an old notice from before the switch would mislead
             continue
         reason = page_block(info)
-        if reason is None and org in HELD_PAUSED and held(org, now):
-            # held, and a job saw the login form: the stale address is not believed. The org cap books nothing; any other hold is a
-            # plain logout (the usual re-login, DB limits and all)
-            reason = "relogin_held" if HOLD_KIND.get(org) == "held_org_cap" else "not_logged_in"
+        if HOLD_KIND.get(org) == "held_org_cap" and org in HELD_PAUSED and held(org, now):
+            reason = "relogin_held"  # the org cap books nothing until its hold ends, whatever the tab address says (no try below)
+        elif reason is None and org in HELD_PAUSED and held(org, now):
+            # held, and a job saw the login form: the stale address is not believed; a plain logout (the usual re-login, DB limits)
+            reason = "not_logged_in"
         if _forced(org, now):
             if relogin and reason is None:
                 reason = "not_logged_in"  # a job found this session logged out: book a re-login whatever the tab address says
@@ -400,8 +404,10 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         status = next_status(row["status"] or "idle", reason is None)
         if reason is None:
             keep(port)
-            if relogin and row.get("status") != "connected":
-                repo.seen_connected(org)  # ends an open put-back streak, however Chrome was fixed
+            if relogin and row.get("status") != "connected" and not held(org, now):
+                # ends an open put-back streak, however Chrome was fixed. Not while held: a stale tab that counts as connected then
+                # must not end a failed re-login streak (that would book more password tries)
+                repo.seen_connected(org)
                 from .relogin import clear_detail
 
                 clear_detail(org)

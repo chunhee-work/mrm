@@ -205,7 +205,11 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     resumed = bool(case.get("resumed_after_logout"))
     alt = {r.get("id"): r.get("model_name") for r in rows if r.get("model_name")}
     k = prefix_done(have, plan, alt) if resumed else 0
-    if k and writes and merimen.labels(case) != have:
+    again = merimen.labels(case) if k and writes else have
+    if k and writes and again is None:  # the second read failed: try again later, nothing written
+        rep.action, rep.upload, rep.note, rep.code = "unreadable", 0, "could not read the photos in Merimen", "unreadable"
+        return rep
+    if k and writes and again != have:
         # a list read while the page was still filling looks like a cut-off start: the rest is uploaded only when a second read
         # gives the very same list (else a person looks, never a second copy of photos already there)
         rep.action, rep.upload, rep.code, rep.snapshot = "refused", 0, "hand_fix", None

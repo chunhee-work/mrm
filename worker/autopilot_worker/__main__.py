@@ -174,7 +174,7 @@ class _CdpDriver(Driver):
                                        line=(res.line + ". Only some of the documents are in Merimen (the upload stopped half way): check them in Merimen by hand")[:380])
                 if d.code == "not_logged_in" and self.relogin_ready:  # logged out during the documents: again after a re-login (owner 2026-11-28)
                     return DriveResult(ok=False, error="docs", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
-                if d.code == "docs_partial" and (self.relogin_ready or (self.case or {}).get("resumed_after_logout")):
+                if d.code == "docs_partial":  # any run, any re-login state: a set found half there is never passed on
                     # an upload cut off by the logout left some of the documents: never guess which, a person looks (playbook 06)
                     return DriveResult(ok=False, fatal=True, error="docs", case_id=res.case_id, ext_id=res.ext_id,
                                        line=(res.line + ". Only some of the documents are in Merimen (an upload cut off, e.g. by a logout): check them in Merimen by hand")[:380])
@@ -366,6 +366,10 @@ def _page_provider(cfg: Config):
                         login_seen.mark()
                 if len(found) > 1:  # a forced re-login logs in from its own tab while the old one still has its address: that one
                     found = _relogin_tab(org_id, found)
+                if len(found) > 1:  # several logged-in tabs, none the worker's own: nothing is guessed; close the extra tabs (playbook 06)
+                    from .loop import note
+
+                    note(org_id, "several_tabs")
                 return found[0] if len(found) == 1 else None
             return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
         except Exception:
