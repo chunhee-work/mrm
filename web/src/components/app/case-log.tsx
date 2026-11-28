@@ -58,7 +58,8 @@ export default function CaseLog({ events, live }: { events: Ev[]; live: boolean 
     const tr = eventTr(e.message);
     const text = tr.key ? t(tr.key, tr.key === "ev.pending" ? { docs: (tr.vars?.docs ?? "").split("; ").map((d) => t(`doc.${docKey(d)}`)).join("; ") } : tr.vars) : tr.raw ?? e.message;
     const kind = eventKind(e.message, live && i === 0);
-    return { ...e, text, kind, word: t(`ev.s.${kind}`) };
+    const [head, ...rest] = text.split("\n");
+    return { ...e, head, sub: rest.join(" "), kind, word: t(`ev.s.${kind}`) };
   });
   return (
     <ol className="relative" data-testid="log-list">
@@ -68,7 +69,9 @@ export default function CaseLog({ events, live }: { events: Ev[]; live: boolean 
           <Mark kind={r.kind} />
           <span className="min-w-0 flex-1 text-[14px] leading-[20px] text-fg">
             <span className="sr-only">{r.word}: </span>
-            <span className={`[overflow-wrap:anywhere] ${r.kind === "fail" || r.kind === "wait" || r.kind === "work" ? "font-semibold" : ""}`}>{r.text}</span>
+            {/* a line may carry a short detail after "\n" (the practice-run line): shown under it, small and grey */}
+            <span className={`[overflow-wrap:anywhere] ${r.kind === "fail" || r.kind === "wait" || r.kind === "work" ? "font-semibold" : ""}`}>{r.head}</span>
+            {r.sub && <span className="block text-[13px] leading-[18px] text-mute [overflow-wrap:anywhere]" data-testid="log-sub">{r.sub}</span>}
           </span>
           <time dateTime={r.at} className="num note shrink-0 leading-[20px] text-mute" suppressHydrationWarning>{logWhen(r.at, lang)}</time>
         </li>

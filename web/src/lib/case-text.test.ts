@@ -141,6 +141,7 @@ test("Phase A practice run: the long worker sentence with Merimen field names be
   for (const key of ["ev.dryAPhotos", "ev.dryA", "ev.dryB"]) for (const l of ["en", "zh", "ms"] as const) {
     const s = (DICTS[l] as Record<string, string>)[key];
     assert.ok(s && !/ddlb|=/.test(s), `${l} ${key}`);
+    assert.equal(s.split("\n").length, 2, `${l} ${key}: a short title, then one grey detail line`);
   }
   // a dry run that failed keeps its own words (it says why)
   assert.equal(eventTr("Phase A dry-run failed. x").key, "");
