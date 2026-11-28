@@ -143,8 +143,8 @@ class MerimenPage:
         if tab.locator("input[type=password]").count() > 0:
             from . import login_seen
 
-            login_seen.mark_if_shown(tab)
-            raise DocError("not_logged_in")
+            if login_seen.mark_if_shown(tab):  # a hidden password field on a logged-in page is no logout
+                raise DocError("not_logged_in")
         return tab
 
     def docview(self, case_id: str, ext_id: str):

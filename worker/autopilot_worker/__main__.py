@@ -168,6 +168,11 @@ class _CdpDriver(Driver):
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
                 if d.code == "not_logged_in" and self.relogin_ready:  # logged out during the documents: again after a re-login (owner 2026-11-28)
                     return DriveResult(ok=False, error="docs", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
+                if not d.ok and d.uploaded > 0:
+                    # stopped after some documents went up (a logout in the upload form shows as another code): never guess which
+                    # are missing and never go on to the photos as if the set were complete, a person looks (playbook 06)
+                    return DriveResult(ok=False, fatal=True, error="docs", case_id=res.case_id, ext_id=res.ext_id,
+                                       line=(res.line + ". Only some of the documents are in Merimen (the upload stopped half way): check them in Merimen by hand")[:380])
                 if d.code == "docs_partial" and (self.relogin_ready or (self.case or {}).get("resumed_after_logout")):
                     # an upload cut off by the logout left some of the documents: never guess which, a person looks (playbook 06)
                     return DriveResult(ok=False, fatal=True, error="docs", case_id=res.case_id, ext_id=res.ext_id,
@@ -176,6 +181,11 @@ class _CdpDriver(Driver):
         if phase == "B":
             est = self._estimate()
             if est is None:
+                c = self.case or {}
+                only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
+                if c.get("org_id") and c.get("merimen_caseid") and c.get("merimen_extid") and not (only and str(c.get("id")) != only):
+                    # the case is in Merimen but no logged-in tab (e.g. every tab shows the login form): try again, never "done"
+                    return DriveResult(ok=False, error="no_tab", line="no logged-in Merimen tab for the estimate details")
                 return DriveResult(ok=False, error="step_not_ported")
             from .photo_rules import plan_rows
 
@@ -349,6 +359,10 @@ def _page_provider(cfg: Config):
                 found = _session_pages(browser)
                 if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
                     found = [pg for pg in found if not _login_box(pg)]
+                    if not found:  # every tab with the session marks shows the login form: logged out
+                        from . import login_seen
+
+                        login_seen.mark()
                 if len(found) > 1:  # a forced re-login logs in from its own tab while the old one still has its address: that one
                     found = _relogin_tab(org_id, found)
                 return found[0] if len(found) == 1 else None

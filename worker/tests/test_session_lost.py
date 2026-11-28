@@ -566,3 +566,58 @@ def test_the_operator_lines_are_fixed_words_once_an_hour(capsys):
     loop.note("o1", "put_back", now=lambda: 3601.0)
     assert capsys.readouterr().err.count("session_lost: put_back") == 2
     loop._noted.clear()
+
+
+# ---------- review round 13 ----------
+
+def test_phase_b_waits_for_a_phase_a_that_finished():
+    """A Phase A that stopped for a person (documents cut off, the cap) leaves the case waiting_user: Done must not start Phase B."""
+    from autopilot_worker.pipeline import followup_steps
+
+    case = {"status": "waiting_user", "photos_done_at": "x", "done_epoch": 100, "photos_snapshot": "s"}
+    a = lambda state, t: {"step": "phase_a", "state": state, "created_epoch": t}  # noqa: E731
+    assert followup_steps(case, [a("failed", 50)], writes=True) == []
+    assert followup_steps(case, [a("done", 40), a("failed", 50)], writes=True) == []  # the newest Phase A counts
+    assert followup_steps(case, [a("failed", 40), a("done", 50)], writes=True) == ["phase_b"]
+    assert followup_steps(case, [], writes=True) == ["phase_b"]  # no Phase A job here (made before the worker): as before
+
+
+def test_an_org_logged_out_again_and_again_is_held_and_waits(tmp_path):
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
+    retry = Outcome("requeue", error="report", event="Phase A not saved")
+    t = [1000.0]
+    for i in range(loop.ORG_CAP):  # three cases, one put-back each, inside the hour
+        got = loop.check_session_after(on, CountRepo(), {**JOB, "case_id": f"c{i}"}, retry, inspect=lambda p: LOGIN_PAGE,
+                                       page_for=None, seen_login=True, now=lambda: t[0])
+        assert got.session_lost
+    got = loop.check_session_after(on, CountRepo(), {**JOB, "case_id": "c9"}, retry, inspect=lambda p: LOGIN_PAGE, page_for=None,
+                                   seen_login=True, now=lambda: t[0])
+    assert got is retry and loop.held("o1", now=lambda: t[0])  # the 4th is not put back: the org is held
+    asked = []
+    repo = SessRepo([row("connected")])
+    sync_sessions(cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on"), repo, launch=lambda a: None, inspect=lambda p: LOGGED_IN,
+                  now=lambda: t[0], relogin=lambda o, p: asked.append(o) or "ok")
+    # the stale address is not believed: not connected, and the org cap books no login at all
+    assert asked == [] and repo.sessions[-1][1]["detail"] == "relogin_held" and repo.sessions[-1][1]["status"] != "connected"
+
+
+def test_a_held_org_that_is_logged_out_books_the_usual_relogin(tmp_path):
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
+    loop._hold("o1", time.monotonic, "held_relogin_streak")
+    retry = Outcome("requeue", error="report", event="Phase A not saved")
+    assert loop.check_session_after(on, CountRepo(), JOB, retry, inspect=lambda p: LOGIN_PAGE, page_for=None, seen_login=True) is retry
+    asked = []
+    sync_sessions(on, SessRepo([row("connected")]), launch=lambda a: None, inspect=lambda p: LOGGED_IN,
+                  relogin=lambda o, p: asked.append(o) or "ok")
+    assert asked == ["o1"] and not loop.held("o1")  # within the DB limits as always; one that works lifts the hold
+
+
+def test_a_cut_off_start_renamed_on_the_desk_meanwhile_is_resumed_under_the_names_merimen_holds():
+    rs = rows((1, "a.jpg", "Front Bumper", None), (2, "b.jpg", "Bonnet", "Bonnet Dent"), (3, "c.jpg", "Grille", None))
+    m = Fake(held=["Front Bumper", "Bonnet"])  # uploaded with the model's names; the desk renamed photo 2 while the job waited
+    rep = ps.phase_a(RESUMED, rs, writes=True, merimen=m)
+    assert rep.action == "upload" and m.writes == ["upload:1:1"]
+    assert [p["name"] for p in rep.photos] == ["Front Bumper", "Bonnet", "Grille"]  # logged as Merimen holds it: Phase B relabels
+    # a caption that is also another photo's name proves nothing: a person looks
+    rs2 = rows((1, "a.jpg", "Bonnet", "Front Bumper"), (2, "b.jpg", "Front Bumper", "Bonnet"), (3, "c.jpg", "Grille", None))
+    assert ps.phase_a(RESUMED, rs2, writes=True, merimen=Fake(held=["Bonnet"])).code == "hand_fix"

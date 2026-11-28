@@ -105,10 +105,10 @@ def _print_error(job: dict, e: BaseException) -> None:
 PHASE_STEPS = ("phase_a", "phase_b")  # the jobs that drive Merimen (Phase B runs its own checks); the `checks` job only waits
 LOST_CAP = 3  # put-backs for one case in LOST_WINDOW (store.LOST_EVENT, store.LOST_WINDOW); the next one fails and the case waits
 _PHASE_NAME = {"phase_a": "Phase A", "phase_b": "Phase B", "checks": "the checks"}
-# a mark that no re-login cleared within 15 min ends, and the org is then HELD (RELOGIN_HELD): the address decides again, but no
+# a mark that no re-login cleared within 25 min (two re-login cooldowns and some room) ends, and the org is then HELD (RELOGIN_HELD): the address decides again, but no
 # logout is put back for HOLD_SECONDS, so a stale tab that now counts as connected can never loop into more forced password tries.
 # Until then the org is not "connected" on purpose: a stale tab with the old address cannot be told from a hand login
-FORCE_TTL = 900.0
+FORCE_TTL = 1500.0
 # org -> when a job found its session logged out: the next sync_sessions books a re-login even if a tab address still carries the
 # session marks (a page that shows a password box at an old address). Cleared when a re-login is ok or finds the session live.
 FORCE_RELOGIN: dict[str, float] = {}
@@ -116,6 +116,17 @@ FORCE_RELOGIN: dict[str, float] = {}
 # outcome (its normal tries, or a stop for a person). Cleared by a re-login that works.
 RELOGIN_HELD: dict[str, float] = {}
 HOLD_SECONDS = 6 * 3600.0
+# orgs held while a job of theirs still met the login form: not "connected" (the stale tab address is not believed), so the queue
+# waits instead of every case of the org meeting the login form and stopping one by one. A held re-login / timeout org is then
+# simply logged out: the usual re-login is booked with all its DB limits, and one that works lifts the hold. An org held by
+# ORG_CAP books nothing until its hold ends (one page that logs out every time must not spend the account's login tries)
+HELD_PAUSED: set[str] = set()
+HOLD_KIND: dict[str, str] = {}
+# org -> times of its put-backs (all cases): ORG_CAP within ORG_WINDOW holds the org, so one page that logs out every time (or a
+# login-looking box Merimen shows while logged in) cannot spend the account's login tries case after case
+ORG_PUTBACKS: dict[str, list[float]] = {}
+ORG_CAP = 3
+ORG_WINDOW = 3600.0
 
 
 _noted: dict[tuple[str, str], float] = {}
@@ -128,7 +139,10 @@ def note(org_id: str, word: str, now=time.monotonic) -> None:
     if key in _noted and t - _noted[key] < 3600.0:
         return
     _noted[key] = t
-    print(f"session_lost: {word}", file=sys.stderr, flush=True)
+    import hashlib
+
+    org = hashlib.sha256(str(org_id).encode()).hexdigest()[:6]  # which org, without its id
+    print(f"session_lost: {word} org={org}", file=sys.stderr, flush=True)
 
 
 def _forced(org_id: str, now) -> bool:
@@ -137,8 +151,7 @@ def _forced(org_id: str, now) -> bool:
         return False
     if now() - t >= FORCE_TTL:
         FORCE_RELOGIN.pop(org_id, None)
-        RELOGIN_HELD[org_id] = now()  # no re-login fixed it in time: the old stops stand for a while (a person looks)
-        note(org_id, "held_force_timeout", now)
+        _hold(org_id, now, "held_force_timeout")  # no re-login fixed it in time: the old stops stand for a while (a person looks)
         return False
     return True
 
@@ -213,9 +226,29 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
 
 
 def held(org_id: str, now=time.monotonic) -> bool:
-    """The org's last forced re-login was refused or failed less than HOLD_SECONDS ago."""
+    """The org's last re-login was refused or failed, its force mark timed out, or it was put back ORG_CAP times in ORG_WINDOW,
+    less than HOLD_SECONDS ago."""
     t = RELOGIN_HELD.get(org_id)
-    return t is not None and now() - t < HOLD_SECONDS
+    if t is not None and now() - t < HOLD_SECONDS:
+        return True
+    HELD_PAUSED.discard(org_id)
+    HOLD_KIND.pop(org_id, None)
+    return False
+
+
+def _hold(org_id: str, now, word: str) -> None:
+    RELOGIN_HELD[org_id] = now()
+    if HOLD_KIND.get(org_id) != "held_org_cap":  # the org cap is the stronger hold: a later refusal does not soften it
+        HOLD_KIND[org_id] = word
+    note(org_id, word, now)
+
+
+def _lift(org_id: str) -> None:
+    """A re-login worked: the hold ends, except the org cap's (it ends only with its time)."""
+    HELD_PAUSED.discard(org_id)
+    if HOLD_KIND.get(org_id) != "held_org_cap":
+        RELOGIN_HELD.pop(org_id, None)
+        HOLD_KIND.pop(org_id, None)
 
 
 def puts_back(cfg: Config, relogin_ready: bool = True) -> bool:
@@ -232,15 +265,29 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
     re-login. A check that fails itself leaves the outcome as it was."""
     if job["step"] not in PHASE_STEPS or not puts_back(cfg, relogin_ready) or not _may_come_from_logout(job, outcome, seen_login):
         return outcome
-    if held(job["org_id"], now):
-        note(job["org_id"], "not_put_back_held", now)
+    org = job["org_id"]
+    if held(org, now):
+        try:
+            if seen_login or not session_alive(cfg, inspect, page_for, org):
+                HELD_PAUSED.add(org)  # logged out while held: the org waits (not connected) until the hold ends, nothing typed
+        except Exception:  # noqa: BLE001
+            pass
+        note(org, "not_put_back_held", now)
         return outcome  # the last forced re-login was refused: never loop into more password tries
     try:
-        if not seen_login and session_alive(cfg, inspect, page_for, job["org_id"]):
+        if not seen_login and session_alive(cfg, inspect, page_for, org):
             return outcome
         got = session_lost_outcome(job, outcome, count=repo.session_lost_count(job["case_id"]))
     except Exception:  # noqa: BLE001
         return outcome
+    times = [t for t in ORG_PUTBACKS.get(org, []) if now() - t < ORG_WINDOW]
+    if len(times) >= ORG_CAP:
+        # this org was logged out ORG_CAP times in the last hour (any cases): stop putting back, keep the job's own outcome
+        ORG_PUTBACKS[org] = times
+        _hold(org, now, "held_org_cap")
+        HELD_PAUSED.add(org)
+        return outcome
+    ORG_PUTBACKS[org] = times + [now()]
     FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
     note(job["org_id"], "put_back" if got.job_state != "failed" else "cap_reached", now)
     return got
@@ -341,6 +388,10 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 clear_login_notice(cfg.state_dir)  # an old notice from before the switch would mislead
             continue
         reason = page_block(info)
+        if reason is None and org in HELD_PAUSED and held(org, now):
+            # held, and a job saw the login form: the stale address is not believed. The org cap books nothing; any other hold is a
+            # plain logout (the usual re-login, DB limits and all)
+            reason = "relogin_held" if HOLD_KIND.get(org) == "held_org_cap" else "not_logged_in"
         if _forced(org, now):
             if relogin and reason is None:
                 reason = "not_logged_in"  # a job found this session logged out: book a re-login whatever the tab address says
@@ -376,12 +427,11 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         for org in order:
             got = relogin(org, ports[org])
             if got in ("ok", "session_live"):
-                RELOGIN_HELD.pop(org, None)
-            elif got not in (None, "pending", "db_error", "cooldown", "put_back"):  # short waits, nothing typed: no hold
+                _lift(org)
+            elif got not in (None, "pending", "db_error", "cooldown", "put_back", "cred"):  # short waits, nothing typed: no hold
                 # refused or failed: no more put-backs for this org for a while, so a stale tab that later counts as connected never
                 # books more password tries by itself (the refusal already mailed / showed why)
-                RELOGIN_HELD[org] = now()
-                note(org, f"held_relogin_{got}" if isinstance(got, str) and got.isidentifier() else "held_relogin", now)
+                _hold(org, now, f"held_relogin_{got}" if isinstance(got, str) and got.isidentifier() else "held_relogin")
             if got in ("ok", "session_live"):
                 # logged in again: the mark goes. Any other answer (refused, put back, cooldown) keeps it until FORCE_TTL: a stale tab
                 # must not count as connected meanwhile, which would end a failed streak and book more password tries

@@ -17,15 +17,21 @@ def mark() -> None:
     _SEEN[0] = True
 
 
-def mark_if_shown(page) -> None:
-    """Mark only when the password box is VISIBLE (the login form shows it): a hidden password field on a logged-in page is no
-    logout. Same rule as the strict tab pick (__main__._login_box). A page that cannot be asked counts as shown (as before)."""
+def shown(page) -> bool:
+    """The page shows a VISIBLE password box (Merimen's login form). A hidden password field on a logged-in page is no logout. A
+    page that cannot be asked here (it was already found to hold a password field) counts as shown: the step stops either way."""
     try:
-        shown = bool(page.locator("input[type=password]").first.is_visible())
+        return bool(page.locator("input[type=password]").first.is_visible())
     except Exception:  # noqa: BLE001
-        shown = True
-    if shown:
+        return True
+
+
+def mark_if_shown(page) -> bool:
+    """Mark when `shown`; says whether it did."""
+    got = shown(page)
+    if got:
         mark()
+    return got
 
 
 def reset() -> None:

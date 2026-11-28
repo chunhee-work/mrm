@@ -336,3 +336,34 @@ def test_live_save_tries_the_documents_again_after_a_logout(monkeypatch):
     assert d.save("A", ()).fatal
     d.relogin_ready = False  # re-login off and no put-back: the old behaviour stands (the line says it, the phase goes on)
     assert d.save("A", ()).ok
+
+
+def test_a_document_upload_that_stopped_after_some_files_always_waits_for_a_person(monkeypatch):
+    from autopilot_worker.merimen_docs import DocReport
+
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on")):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    d = _CdpDriver("x.mjs")
+    d._create = lambda live: DriveResult(ok=True, case_id="22322999", ext_id="9800111", partial=True)
+    d._report = lambda live, cid, ext: (True, False, "Adjuster Report saved")
+    d.case = {"id": "c1"}
+    # a logout inside the upload form shows as another code; 2 of 3 went up: never go on to the photos as if all were there
+    d._docs = lambda *a: DocReport(ok=False, code="no_upload_popup", uploaded=2, planned=3)
+    r = d.save("A", ())
+    assert not r.ok and r.fatal and r.error == "docs" and "by hand" in r.line
+    d._docs = lambda *a: DocReport(ok=False, code="no_upload_popup", uploaded=0, planned=3)
+    assert d.save("A", ()).ok  # nothing went up: as before
+
+
+def test_phase_b_without_a_logged_in_tab_is_tried_again_not_done(monkeypatch):
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on")):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    monkeypatch.delenv("MERIMEN_CREATE_ONLY_CASE", raising=False)
+    d = _CdpDriver("x.mjs", page_for=lambda org, strict=False: None)
+    d.case = {"id": "c1", "org_id": "o1", "merimen_caseid": "1", "merimen_extid": "2"}
+    r = d.save("B", ())
+    assert not r.ok and not r.fatal and r.error == "no_tab"
+    d.case = {"id": "c1", "org_id": "o1"}  # not in Merimen: as before
+    assert d.save("B", ()).error == "step_not_ported"

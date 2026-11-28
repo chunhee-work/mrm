@@ -349,8 +349,13 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     newest = max((j.get("created_epoch") for j in b_jobs if j.get("created_epoch") is not None), default=None)
     done_at = case.get("done_epoch")
     due = not b_jobs or (newest is not None and done_at is not None and done_at > newest)
+    # Phase A must have finished: a Phase A that stopped for a person (a document set cut off, a case logged out too often, a report
+    # that did not save) also leaves the case waiting_user, and Phase B on top of it could end "ready to submit" with documents missing
+    a_jobs = sorted((j for j in jobs if j["step"] == "phase_a"), key=lambda j: j.get("created_epoch") or 0.0)
+    a_done = not a_jobs or a_jobs[-1]["state"] == "done"
     if (
-        case.get("status") in ("waiting_user", "phase_b")
+        a_done
+        and case.get("status") in ("waiting_user", "phase_b")
         and case.get("photos_done_at")
         and case.get("photos_snapshot") is not None  # Done and its snapshot are two writes: never start in the gap (nor before migration 0010)
         and "phase_b" not in open_steps

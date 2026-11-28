@@ -154,18 +154,35 @@ def _read_labels(m: MerimenPhotos, case: dict) -> list[str] | None:
     return got
 
 
-def prefix_done(have: list[str] | None, plan: list[dict]) -> int:
+def prefix_done(have: list[str] | None, plan: list[dict], alt: dict | None = None) -> int:
     """How many photos an upload that was cut off (Merimen logged out half way, owner 2026-11-28) already left in Merimen: k when the
-    captions Merimen holds are EXACTLY the first k planned names in the same order (0 < k < plan). 0 for anything else: an empty list,
-    the full list, or photos that do not line up (those keep the hand-fix path, never a guess). A caption that the plan uses more than
-    once is not proof of WHICH photo went up, so a start that holds one is not resumed either."""
+    captions Merimen holds are the first k planned photos in the same order (0 < k < plan). 0 for anything else: an empty list,
+    the full list, or photos that do not line up (those keep the hand-fix path, never a guess). See `lined_up`."""
     if not have or len(have) >= len(plan):
         return 0
-    names = [p["name"] for p in plan]
-    k = len(have)
-    if have != names[:k] or any(names.count(n) > 1 for n in have):
-        return 0
-    return k
+    return len(have) if lined_up(have, plan, alt) else 0
+
+
+def lined_up(have: list[str], plan: list[dict], alt: dict | None = None) -> bool:
+    """Merimen's captions are, position by position, the planned photos: each caption is that photo's name now OR the model's name
+    for it (`alt`: photo id -> model name; the desk may have renamed a photo while the job waited for its re-login), and names
+    NO other photo of the plan (so a caption proves which photo it is; a name used twice is never taken as proof)."""
+    if len(have) > len(plan):
+        return False
+    alt = alt or {}
+    names_of = [{p["name"]} | ({alt[p["id"]]} if alt.get(p.get("id")) else set()) for p in plan]
+    for i, c in enumerate(have):
+        if c not in names_of[i] or sum(1 for n in names_of if c in n) > 1:
+            return False
+    return True
+
+
+def _as_held(plan: list[dict], have: list[str]) -> list[dict]:
+    """The plan with the first photos under the captions Merimen holds (a model name the desk changed since): what is verified and
+    logged as this upload, so Phase B relabels them to the final names as for any Phase A photo."""
+    from .photo_rules import file_type
+
+    return [dict(p, name=have[i], ftype=file_type(have[i])) if i < len(have) and have[i] != p["name"] else p for i, p in enumerate(plan)]
 
 
 def _resume(rep: PhotoReport, case: dict, plan: list[dict], k: int, merimen: MerimenPhotos, guard: Guard, writes: bool) -> PhotoReport:
@@ -186,13 +203,16 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     have = _read_labels(merimen, case)
     rep.merimen_count = None if have is None else len(have)
     resumed = bool(case.get("resumed_after_logout"))
-    k = prefix_done(have, plan) if resumed else 0
+    alt = {r.get("id"): r.get("model_name") for r in rows if r.get("model_name")}
+    k = prefix_done(have, plan, alt) if resumed else 0
     if k:
+        rep.photos = plan = _as_held(plan, have)
         return _resume(rep, case, plan, k, merimen, guard, writes)
     names = [p["name"] for p in plan]
-    if resumed and have and have == names:
+    if resumed and have and (have == names or (len(have) == len(plan) and lined_up(have, plan, alt))):
         # the run before was cut off after its upload: the list is logged as this upload, so Phase B can compare with it. Captions
-        # only (a repeated caption is taken as listed): Phase B checks each photo again before it writes anything
+        # only (a list exactly as planned, repeats included, or each caption naming one photo): Phase B checks each photo again
+        rep.photos = _as_held(plan, have)
         rep.action, rep.upload, rep.note = "upload", 0, f"an upload was cut off after its last photo: Merimen has all {len(plan)}"
         return rep
     if resumed and have:
