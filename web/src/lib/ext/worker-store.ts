@@ -88,3 +88,17 @@ export async function workerFailedCount(caseId: string): Promise<number> {
   const rows = (r as unknown as { rows?: { n: number }[] }).rows ?? [];
   return Number(rows[0]?.n ?? 0);
 }
+
+export type SessionView = { status: string; wanted: string; detail: string | null };
+/** What the worker last wrote for this account's Merimen session (status + why), for the line at the top of the page.
+ * Any read failure is "unknown" (null): the page never breaks and no line is shown. */
+export const sessionView = cache(async (orgId: string): Promise<SessionView | null> => {
+  try {
+    const [r] = await db.select({ status: schema.workerSessions.status, wanted: schema.workerSessions.wanted, detail: schema.workerSessions.detail })
+      .from(schema.workerSessions).where(eq(schema.workerSessions.orgId, orgId)).limit(1);
+    return r ?? null;
+  } catch (e) {
+    if (!missingRelation(e)) console.error("sessionView read failed", (e as { code?: string })?.code ?? "unknown");
+    return null;
+  }
+});

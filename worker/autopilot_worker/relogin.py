@@ -305,7 +305,7 @@ def clear_detail(org_id: str) -> None:
 
 
 def detail_for(org_id: str) -> str | None:
-    """relogin_failed (streak), relogin_capped (cap) or relogin_stopped (orphan, key mismatch). Set when that refusal is seen; cleared
+    """relogin_failed (streak), relogin_capped (cap), relogin_unclear (24 h unclear block) or relogin_stopped (orphan, key mismatch). Set when that refusal is seen; cleared
     only by an ok / session_live try or when the org turns connected, so it may stay on after the refusal itself has ended."""
     return _detail.get(org_id)
 
@@ -357,6 +357,8 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
                 repo.audit(org_id, "relogin_capped")
                 _capped_logged.add(org_id)
             _detail[org_id] = "relogin_capped"
+        elif reason == "unclear_block":
+            _detail[org_id] = "relogin_unclear"  # the website shows why it waits (owner 2026-11-28); nothing is mailed again
         log_line(org_id, reason, now=now)
         return reason
     try_id = booking.get("try_id")

@@ -599,6 +599,12 @@ def test_cap_sets_the_detail_and_one_audit_row(tmp_path):
     assert relogin.detail_for("o1") == "relogin_capped" and repo.audits == ["relogin_capped"]
 
 
+def test_the_unclear_block_sets_its_own_detail_and_mails_nothing(tmp_path):
+    repo = TryRepo(booking={"booked": False, "reason": "unclear_block", "streak_first": False})
+    out, _, sent = go(tmp_path, repo, OK_PAGE)
+    assert out == "unclear_block" and relogin.detail_for("o1") == "relogin_unclear" and sent == []
+
+
 def test_a_booked_try_clears_the_detail(tmp_path):
     go(tmp_path, TryRepo(booking={"booked": False, "reason": "cap", "streak_first": False}), OK_PAGE, now=lambda: 0.0)
     go(tmp_path, TryRepo(), OK_PAGE, now=lambda: 1000.0)
