@@ -71,6 +71,7 @@ def test_real_name_rules_load_without_official_names():
 def test_rules_missing_fails_the_job(monkeypatch):
     import autopilot_worker.photos as ph
     monkeypatch.setattr(ph, "_PT", "/nonexistent")
+    monkeypatch.setattr(ph, "_RULES", None)
     monkeypatch.setitem(__import__("sys").modules, "name_rules", None)  # import name_rules -> ImportError
     with pytest.raises(ModelError, match="name rules missing"):
         ph.apply_name_rules([P("Bonnet")], "PROTON SAGA", IDENT)
@@ -288,6 +289,7 @@ def test_case_vehicle_falls_back_to_the_registration_card():
 def test_rules_need_name_decisions(monkeypatch, tmp_path):
     import autopilot_worker.photos as ph
     monkeypatch.setattr(ph, "_PT", str(tmp_path))
+    monkeypatch.setattr(ph, "_RULES", None)
     with pytest.raises(ModelError, match="name rules missing"):
         ph.load_rules()
 
@@ -297,3 +299,25 @@ def test_rear_lamp_rule_reads_the_shared_playbook():
     from autopilot_worker.photos import load_rules
     _, nr = load_rules()
     assert nr._LAMP_UNSURE == 0.59 and ["LAND", "ROVER"] in nr._TWO_WORD and nr._RULES_JSON
+
+
+def test_model_bans_and_swaps_come_from_the_playbook():
+    import json
+    from autopilot_worker.photos import load_rules
+    _, nr = load_rules()
+    pr = json.load(open(nr._RULES_JSON, encoding="utf-8"))
+    assert nr.MODEL_BANS == [(b["vehicle"], b["name"]) for b in pr["modelBans"]] and nr.MODEL_BANS
+    assert nr.MODEL_SWAPS == [(w["notVehicle"], w["name"], w["to"]) for w in pr["modelSwaps"]] and nr.MODEL_SWAPS
+
+
+def test_load_rules_is_loaded_once():
+    from autopilot_worker.photos import load_rules
+    assert load_rules() is load_rules()
+
+
+def test_namer_other_errors_fall_back_to_claude(tmp_path, monkeypatch):
+    def nolaunch(cmd, **kw):
+        raise OSError("No space left on device")
+    namer, _ = _namer(tmp_path, monkeypatch, run=nolaunch)
+    with pytest.raises(ModelError, match="predict failed"):
+        namer([{"id": 1, "local": "/x/1-a.jpg"}], "PROTON SAGA")

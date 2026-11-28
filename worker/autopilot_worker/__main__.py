@@ -220,6 +220,14 @@ def _namer_factory(cfg: Config):
     def namer(photos, vehicle):
         if not photos:
             return []
+        try:
+            return _name(photos, vehicle)
+        except ModelError:
+            raise
+        except Exception as e:  # noqa: BLE001  any other failure (a full disk, a launch error): fall back to Claude, never leave photos unnamed
+            raise ModelError("predict failed") from e
+
+    def _name(photos, vehicle):
         load_rules()  # a broken deploy fails here, before minutes of CPU on the model
         prod = ensure_weights(cfg.model_dir, cfg.hf_repo, cfg.hf_token, cfg.hf_revision)  # downloads production/ once; paths point at model_dir
         images = [p.get("local") or p.get("src_name") or "" for p in photos]

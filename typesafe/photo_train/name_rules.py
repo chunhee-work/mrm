@@ -10,13 +10,6 @@ import re
 
 FIX = {"ENGINEVIEW": "Engine Compartment", "FRT GENERAL VIEW": "Front View"}   # old training spellings (case_report.py)
 
-# names a car model does NOT have (user rules, playbook 10): (model regex, name regex)
-MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner"),   # user 2026-10-29/30: Perodua Viva has no quarter liner
-              (r"^PERODUA\b", r"^Front Panel Assembly$")]   # user 2026-11-04: Perodua never Front Panel Assembly
-# (vehicle must NOT match, name regex, replacement): user 2026-11-03 — only Perodua has a Bonnet Latch Stud Plate; any other make -> Front Panel Assembly
-MODEL_SWAPS = [(r"^PERODUA\b", r"^Bonnet Latch Stud Plate", "Front Panel Assembly"),
-               (r"^PERODUA\b", r"^Fender Inner (LH|RH)$", "Front Panel Assembly")]   # user 2026-11-04: only Perodua has Fender Inner
-
 # the badge brands and the Rear Lamp rule are also applied by the website (web/src/lib/photos/order-rules.ts) from
 # playbook/photo-rules.json; read them from that same file (the worker image has its copy in autopilot_worker/playbook/)
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +21,10 @@ if _RULES_JSON is None:
 _PR = json.load(open(_RULES_JSON, encoding="utf-8"))
 _TWO_WORD = [b.split() for b in _PR["badge"]["twoWordBrands"]]
 _LAMP_PLAIN, _LAMP_PAIR, _LAMP_UNSURE = _PR["rearLamp"]["plain"], _PR["rearLamp"]["pair"], float(_PR["rearLamp"]["unsure"])
+# names a car model does NOT have (user rules, playbook 10) and model swaps (vehicle must NOT match -> replacement):
+# the data lives in playbook/photo-rules.json (modelBans / modelSwaps); the logic is here
+MODEL_BANS = [(b["vehicle"], b["name"]) for b in _PR["modelBans"]]
+MODEL_SWAPS = [(w["notVehicle"], w["name"], w["to"]) for w in _PR["modelSwaps"]]
 
 
 def brand_of(vehicle):

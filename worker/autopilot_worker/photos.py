@@ -8,6 +8,7 @@ import contextlib
 import fcntl
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass, replace
 
 
@@ -60,9 +61,22 @@ def parse_predict_stdout(text: str) -> list[Prediction]:
 _PT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "typesafe", "photo_train"))
 
 
+_RULES_LOCK = threading.Lock()
+_RULES = None
+
+
 def load_rules():
     """(name_map.final, name_rules). They ship in the same image, so a failed import is a deploy bug: fail the job (the website then
-    names the photos with Claude) instead of storing raw, unmerged or banned names."""
+    names the photos with Claude) instead of storing raw, unmerged or banned names. Loaded once; the lock keeps two job threads from
+    changing sys.path at the same time."""
+    global _RULES  # noqa: PLW0603
+    with _RULES_LOCK:
+        if _RULES is None:
+            _RULES = _load_rules()
+        return _RULES
+
+
+def _load_rules():
     saved = list(sys.path)
     try:
         sys.path.append(_PT)
@@ -83,13 +97,13 @@ def apply_name_rules(preds: list[Prediction], vehicle: str, final=None) -> list[
     final = final or final_
     vehicle = (vehicle or "").strip()
     rows = []
-    for p in preds:
+    for i, p in enumerate(preds, 1):
         top = [t for t in p.top if t and t != "__none__"]
         if p.model_name is None or not top:  # no name from the model: stays empty (the website shows it unnamed)
             rows.append(None)
             continue
         name, alts = nr.pick(top, final)
-        rows.append({"name": name, "conf": 0.0 if p.confidence is None else p.confidence, "alts": alts})
+        rows.append({"n": i, "name": name, "conf": 0.0 if p.confidence is None else p.confidence, "alts": alts})
     for line in nr.apply_case([r for r in rows if r], vehicle, final):
         print(f"name rules: {line}", file=sys.stderr)
     out = []

@@ -27,5 +27,7 @@ ENV PYTHONPATH=/app/worker \
     WORKER_STATE=/var/lib/autopilot-worker \
     PRED_BS=4 \
     DINOV2_HUB=/opt/dinov2_hub
+# the naming rules ship in this image: a missing file (name_decisions.json, photo-rules.json) fails the build, not a case
+RUN python -c "from autopilot_worker.photos import load_rules; load_rules()"
 EXPOSE 8080
 CMD ["python", "-m", "autopilot_worker"]
