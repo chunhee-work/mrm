@@ -1989,3 +1989,38 @@ def test_the_one_slot_loop_also_obeys_the_fuse(tmp_path):
     finally:
         lp.housekeeping = orig
     assert seen == [False]
+
+
+# ---------- egm round 18 ----------
+
+def test_a_chrome_that_does_not_answer_keeps_the_session_holder(tmp_path, fresh):
+    """egm r18: an unanswered /json/list is not known, never read as logged out: the other org's record stays."""
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on",
+                           "MERIMEN_RELOGIN": "on", "WORKER_SLOTS": "2"})
+
+    class Org(SessRepo):
+        def wanted(self):
+            return [{"org_id": "oA", "account_key": "default", "status": "waiting_login", "wanted": "start", "port": 9222}]
+
+        def chrome_taken_by_other(self, org, port):
+            return False
+
+    loop.load_holders(cfg)
+    loop.SESSION_HOLDER[9222] = "oB"
+    asked = []
+    a = Org()
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: None, running=lambda p: True,
+                       relogin=lambda org, port: asked.append(org))
+    assert loop.SESSION_HOLDER == {9222: "oB"} and a.sessions[-1][1]["detail"] == "shared_chrome" and asked == []
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE, relogin=lambda org, port: asked.append(org))
+    assert loop.SESSION_HOLDER == {9222: "oB"} and asked == []
+
+
+def test_one_slot_forgets_the_session_holder(tmp_path, fresh):
+    """egm r18: at 1 slot the record is not kept up to date, so it is removed; slots > 1 later start from a fresh record."""
+    import json
+
+    (tmp_path / "chrome_holder.json").write_text(json.dumps({"9222": "oB"}))
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true"})
+    loop.sync_sessions(cfg, SessRepo(), launch=lambda a: None, inspect=lambda p: LIVE_PAGE)
+    assert not (tmp_path / "chrome_holder.json").exists() and loop.SESSION_HOLDER == {}

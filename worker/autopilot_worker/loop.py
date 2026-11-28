@@ -493,6 +493,22 @@ def _save_holders() -> None:
         print(f"chrome holder file not saved ({type(e).__name__})", file=sys.stderr, flush=True)
 
 
+def forget_holders(cfg) -> None:
+    """WORKER_SLOTS=1: the record is not kept up to date there (I6 is off), so it is removed: a later start with slots > 1 records
+    the first org found logged in again, as on a first start (egm r18)."""
+    path = _holder_path(cfg)
+    if _holder_file[0] == "1slot:" + path:
+        return
+    _holder_file[0] = "1slot:" + path
+    SESSION_HOLDER.clear()
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except Exception as e:  # noqa: BLE001
+        print(f"chrome holder file not removed ({type(e).__name__})", file=sys.stderr, flush=True)
+
+
 def holder_other(port, org) -> bool:
     """True when the Chrome on this port holds another org's Merimen session (as far as this worker knows)."""
     h = SESSION_HOLDER.get(port)
@@ -520,6 +536,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
     inside the booking (the `cred` refusal), never here. Orgs tried longest ago go first."""
     want_relogin: list[tuple[str, int]] = []
     seen_live: set[str] = set()  # orgs found logged in this pass
+    if getattr(cfg, "slots", 1) <= 1:
+        forget_holders(cfg)
     if cfg.ext_connect:
         repo.ensure_sessions()  # a ready org (login ok + consent) gets its row; with EXT_CONNECT off nothing is asked for
     for row in repo.wanted():
@@ -551,11 +569,13 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         if getattr(cfg, "slots", 1) > 1:
             load_holders(cfg)
             if holder_other(port, org):
-                if info and page_block(info) is None:  # still logged in: that is the other org's session, never this org's
+                if not info or page_block(info) is None:
+                    # still logged in, or Chrome did not answer this pass (not known: never read as logged out, egm r18): that is
+                    # the other org's session, never this org's
                     repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
                     note(org, "shared_chrome", now)
                     continue
-                _drop_holder(port)  # no logged-in tab there: no account is live, this org may log in as usual
+                _drop_holder(port)  # Chrome answered with no logged-in tab: no account is live, this org may log in as usual
         if info is None and not running(profile):  # nor one that holds the profile but is slow to answer
             t = now()
             if port not in _launched or t - _launched[port] >= LAUNCH_WAIT:
