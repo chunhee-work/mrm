@@ -87,6 +87,13 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 
 `PHOTO_WORKER=on` 时网站不再把照片发给 Claude，由 worker 写入 `model_name`、`confidence`、`alts`、`name_state`。模型进程起不来、或照片被标成 `worker:` 失败时，才退回 Claude（`PHOTO_WORKER_FALLBACK=off` 可关掉）。权重在私有仓库 `chunhee00/mrm-photo-model` 的 `production/`，用 `predict_case.py auto` 加载。这台机器没有 GPU，`PRED_BS` 默认 4。
 
+照片模型怎么跑起来（2026-11-28 修好；之前 worker 没装 torch、也没有权重，每次都 `predict failed` 退回 Claude）：
+
+- 依赖：CPU 版 torch（`pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0`）、`numpy`、`huggingface_hub`（`requirements.txt`）。DINOv2 的模型代码放在 `DINOV2_HUB`（Docker 镜像里是 `/opt/dinov2_hub`，固定 commit 7764ea0；不用 Docker 时自己下载到那里，或放在 `~/.cache/torch/hub/facebookresearch_dinov2_main`）。
+- 权重：第一次起名时用 `HF_TOKEN` 从 `HF_MODEL_REPO`（默认 `chunhee00/mrm-photo-model`）下载 `production/` 到 `PHOTO_MODEL_DIR`（默认 `<WORKER_STATE>/photo-model`），之后不再下载。`production.json` 里的 `models/…` 路径会改写成这个文件夹里的文件（`production.resolved.json`），缺任何一个文件就是 `model missing`。
+- 名字：模型的名字先过店里的命名规则再写入（`photos.apply_name_rules`，和店主 Mac 上的 `case_report.py` + `naming.py build` 一样）：`name_map.final` 合并写法、禁用的名字换下一个；Viva 没有 Quarter Liner、Perodua 没有 Front Panel Assembly（换下一个，信心降到 0.3）；非 Perodua 的 Bonnet Latch Stud Plate / Fender Inner 改成 Front Panel Assembly；`Badge (LOGO)` 换成车的品牌。
+- `predict_case.py` 和店主 Mac 上的生产版一样（含 2026-11-19 照片不跳边规则，没有 Jev）。超时按照片数算：`max(600, 300 + 8×张数)` 秒。
+
 ## 运行
 
 单机：

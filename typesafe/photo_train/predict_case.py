@@ -3,7 +3,6 @@
   .venv/bin/python predict_case.py <ckpt> <img1> <img2> ...   (images in shooting order)
   .venv/bin/python predict_case.py auto <img1> ...   (or PROD=1): models from models/production.json (swap_model.py; PROD_FILE=<json> overrides)
 Prints JSON lines: {file, top:[[name,prob]x3], conf, sure}  (sure = conf >= 0.60, after neighbour smoothing).
-JEV=0 env: no TypeSafe second opinion for unsure photos (default on).
 SEQ=<models/seq_*.pt> env (batch 10): look at +-4 photos of the case together (whole photo group -> where on the car); then no extra smoothing.
 VEHICLE=<vehicle model> env: PERODUA never gets "Front Panel Assembly" (split pieces instead); other makes never get the split pieces."""
 import json, os, re, sys, collections
@@ -13,7 +12,7 @@ from PIL import Image
 # seq group models}; several groups = probabilities averaged (equal weight per seq model), labels unioned by name.
 # PROD_FILE=<json> overrides models/production.json. Any other ckpt = the old single-backbone behaviour (SEQ env).
 HERE = os.path.dirname(os.path.abspath(__file__)); _M = os.path.join(HERE, "models")
-_HUB = os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main")
+_HUB = os.environ.get("DINOV2_HUB") or os.path.expanduser("~/.cache/torch/hub/facebookresearch_dinov2_main")   # DINOV2_HUB: the worker image keeps it in /opt
 dev = "mps" if torch.backends.mps.is_available() else "cpu"
 BS = int(os.environ.get("PRED_BS", "32"))
 AUTO = sys.argv[1] == "auto" or os.environ.get("PROD") == "1"
@@ -177,40 +176,56 @@ for i, (a, c) in enumerate(_AREAS):
     if c >= 0.50:
         keep = np.array([("ID" in z) or (not z) or (a in z) for z in _LZ], np.float32)
         q = P[i] * keep; P[i] = q / q.sum() if q.sum() > 0 else P[i]
-# second opinion (user 2026-10-15): for unsure photos (< 60%) ask TypeSafe Jev (image model) to pick among our top-5,
-# then mix 70% ours + 30% Jev (test: 53.5% -> 59.0% on unsure photos). JEV=0 turns it off; any API error = keep ours.
+# 2026-11-19 user (TM2555: #40-#56 named Rear LH / LH in a run of Front RH photos): "when the image is shoot LH side the next
+# image will never suddenly jump to RH, same for rear and front". Checked on the user's labels (3,306 test photos):
+#  - a jump to the DIAGONAL corner (Front RH -> Rear LH) never happens (0 of 870 corner pairs; the model did it 7 times)
+#    -> such a name hands its probability to the same part at the previous corner (Rear Shock Absorber LH -> Front Shock
+#    Absorber RH); test set +2, nothing made wrong;
+#  - a lone Front/Rear jump (2 photos before and 2 after agree on the other axle) -> same, test +3.
+#  A general "keep the side of the neighbours" smoothing was tried and LOST 111 photos (real runs do change side), so only
+#  these two. SIDE=0 turns both off.
+_IDX = {n: k for k, n in enumerate(labels)}
+_XV = r"view|chassis number|odometer|road tax|interior|engine comp"
+def _ax(n): return None if re.search(_XV, n, re.I) else "Front" if re.search(r"\bFront\b", n) else "Rear" if re.search(r"\bRear\b", n) else None
+def _sd(n): return None if re.search(_XV, n, re.I) else "LH" if re.search(r"\bLH\b", n) else "RH" if re.search(r"\bRH\b", n) else None
+_AX = [_ax(n) for n in labels]; _SD = [_sd(n) for n in labels]
+def _move(q, bad, to):   # every name k with bad(k) -> same part renamed by to(name); none -> dropped
+    r = q.copy()
+    for k in np.nonzero(q)[0]:
+        if bad(k):
+            t = _IDX.get(to(labels[k]))
+            if t is not None: r[t] += q[k]
+            r[k] = 0
+    return r / r.sum() if r.sum() > 0 else q
+if os.environ.get("SIDE", "1") != "0":
+    top = [int(np.argmax(p)) for p in P]
+    for i in range(len(P)):
+        a = _AX[top[i]]
+        if not a: continue
+        pv = [_AX[top[j]] for j in range(i - 1, -1, -1) if _AX[top[j]]][:2]
+        nx = [_AX[top[j]] for j in range(i + 1, len(P)) if _AX[top[j]]][:2]
+        if len(pv) == 2 and len(nx) == 2 and len(set(pv + nx)) == 1 and pv[0] != a:
+            b = pv[0]
+            P[i] = _move(P[i], lambda k: _AX[k] and _AX[k] != b, lambda n: re.sub(r"\b(Front|Rear)\b", b, n))
+    prev = None
+    for i in range(len(P)):
+        t = int(np.argmax(P[i]))
+        # only when this photo is LESS sure than the photo that set the corner (a wrong corner must not drag the next ones)
+        if prev and _AX[t] and _SD[t] and _AX[t] != prev[0] and _SD[t] != prev[1] and P[i][t] < prev[2]:
+            P[i] = _move(P[i], lambda k: _AX[k] and _SD[k] and _AX[k] != prev[0] and _SD[k] != prev[1],
+                         lambda n: re.sub(r"\b(LH|RH)\b", prev[1], re.sub(r"\b(Front|Rear)\b", prev[0], n)))
+            t = int(np.argmax(P[i]))
+        if _AX[t] and _SD[t]:   # corner strength = the surest photo of the current run at that corner
+            c = float(P[i][t]); prev = (_AX[t], _SD[t], max(c, prev[2]) if prev and prev[:2] == (_AX[t], _SD[t]) else c)
+# 2026-11-15 user: no Jev second opinion for photos any more (was: unsure photos < 60% mixed 70% ours + 30% Jev).
 S = []
 for i, f in enumerate(files):
     s = P[i].copy()
     for j in ((i - 1, i + 1) if not CTX else ()):
         if 0 <= j < len(files): s += 0.5 * P[j]
     S.append(s / s.sum())
-JEV = {}
-def _jev(i):
-    import base64, io, uuid
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))); import client
-    top = [labels[k] for k in np.argsort(-S[i])[:5]]
-    im = Image.open(files[i]).convert("RGB")
-    while im.width * im.height < 78400 or min(im.size) < 256: im = im.resize((im.width * 2, im.height * 2), Image.BICUBIC)
-    im.thumbnail((1568, 1568)); b = io.BytesIO(); im.save(b, "JPEG", quality=92); ref = str(uuid.uuid4())
-    q = {"part": {"type": "choice", "criteria": {n: n for n in top}, "instructions": "This is a car insurance damage photo. Which car part is at the CENTRE of `photo` (the part the photographer aimed at)? LH = left-hand side of the car, RH = right-hand side (from the driver's seat)."}}
-    r = client.ask({"photo": ref}, q, model=os.environ.get("JEV_MODEL", "jev-preview"), images=True,
-                   assets={ref: {"type": "image", "format": "jpg", "data_base64": base64.b64encode(b.getvalue()).decode()}})
-    return r["answers"]["part"].get("probabilities") or {}
-unsure = [i for i in range(len(files)) if S[i].max() < 0.60]
-if os.environ.get("JEV", "1") != "0" and unsure:
-    from concurrent.futures import ThreadPoolExecutor
-    def _safe(i):
-        try: return i, _jev(i)
-        except Exception as e: print("jev skipped:", str(e)[:120], file=sys.stderr); return i, None
-    with ThreadPoolExecutor(4) as ex:
-        for i, pr in ex.map(_safe, unsure):
-            if pr: JEV[i] = pr
 for i, f in enumerate(files):
     s = S[i]
-    if i in JEV:
-        o5 = np.argsort(-s)[:5]; mass = float(s[o5].sum()); s = s.copy()
-        for k in o5: s[k] = mass * (0.7 * s[k] / mass + 0.3 * float(JEV[i].get(labels[k], 0)))
     o = np.argsort(-s)[:3]
     raw = float(P[i][o[0]]) if int(np.argmax(P[i])) == int(o[0]) else 0.0
-    print(json.dumps({"file": f, "top": [[labels[k], round(float(s[k]), 3)] for k in o], "conf": round(max(float(s[o[0]]), raw), 3), "sure": bool(max(float(s[o[0]]), raw) >= 0.60), "area": _AREAS[i][0], "area_conf": round(float(_AREAS[i][1]), 2), "jev": i in JEV}, ensure_ascii=False))
+    print(json.dumps({"file": f, "top": [[labels[k], round(float(s[k]), 3)] for k in o], "conf": round(max(float(s[o[0]]), raw), 3), "sure": bool(max(float(s[o[0]]), raw) >= 0.60), "area": _AREAS[i][0], "area_conf": round(float(_AREAS[i][1]), 2)}, ensure_ascii=False))

@@ -12,7 +12,7 @@ import time
 from .config import Config, account_for
 from .pipeline import Driver
 from .loop import tick, tick_error_line
-from .photos import ModelError, names_for_photos, parse_predict_stdout, predict_command
+from .photos import ModelError, apply_name_rules, ensure_weights, names_for_photos, parse_predict_stdout, predict_command, predict_timeout
 from .store import PgRepo
 
 
@@ -219,9 +219,7 @@ def _namer_factory(cfg: Config):
     def namer(photos, vehicle):
         if not photos:
             return []
-        prod = os.path.join(cfg.model_dir, "production", "production.json")
-        if not os.path.isfile(prod):
-            raise ModelError("model missing")
+        prod = ensure_weights(cfg.model_dir, cfg.hf_repo, cfg.hf_token)  # downloads production/ once; paths point at model_dir
         use = bundled
         images = [p.get("local") or p.get("src_name") or "" for p in photos]
         cmd, extra = predict_command(sys.executable, use, images, vehicle=vehicle, prod_file=prod, batch=cfg.pred_bs)
@@ -229,10 +227,10 @@ def _namer_factory(cfg: Config):
         env.update(extra)
         if cfg.hf_token:
             env["HF_TOKEN"] = cfg.hf_token
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=env)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=predict_timeout(len(images)), env=env)
         if proc.returncode != 0:
             raise ModelError("predict failed")
-        return names_for_photos(photos, parse_predict_stdout(proc.stdout))
+        return names_for_photos(photos, apply_name_rules(parse_predict_stdout(proc.stdout), vehicle))
 
     return namer
 

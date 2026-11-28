@@ -9,6 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 COPY worker/requirements.txt /app/worker/requirements.txt
 RUN pip install --no-cache-dir -r /app/worker/requirements.txt
+# photo model: CPU-only torch, and the DINOv2 model code predict_case loads with torch.hub (source="local", no download at run time)
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 \
+    && mkdir -p /opt/dinov2_hub \
+    && curl -fsSL https://github.com/facebookresearch/dinov2/archive/7764ea0f912e53c92e82eb78a2a1631e92725fc8.tar.gz \
+       | tar -xz --strip-components=1 -C /opt/dinov2_hub
 COPY worker /app/worker
 COPY typesafe/photo_train /app/typesafe/photo_train
 # manual estimate rows: the owner's reference prices (worker/autopilot_worker/manual_price.py; PRICE_DATA_DIR overrides the folder)
@@ -17,6 +22,7 @@ ENV PYTHONPATH=/app/worker \
     CHROME_BIN=chromium \
     CHROME_NO_SANDBOX=on \
     WORKER_STATE=/var/lib/autopilot-worker \
-    PRED_BS=4
+    PRED_BS=4 \
+    DINOV2_HUB=/opt/dinov2_hub
 EXPOSE 8080
 CMD ["python", "-m", "autopilot_worker"]
