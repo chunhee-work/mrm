@@ -240,3 +240,27 @@ def test_tick_takes_nothing_on_the_login_page_and_nothing_when_the_flag_is_off()
     assert repo.rows == [] and puts == []
     repo, puts = run_tick(Page(), flag="")
     assert repo.rows == [] and puts == []
+
+
+def test_a_photo_that_cannot_be_downloaded_does_not_fail_the_photo_job():
+    # 2026-11-28: a Blob error used to end the whole job as "worker error" with every photo left pending (nobody named them)
+    from autopilot_worker import loop
+    loop._last_cleanup[0] = 1e12
+    cfg = Config.from_env({"PHOTO_WORKER": "on"})
+    repo = FakeRepo("photo_model")
+    photos = [{"id": 1, "blob_path": "b/1", "src_name": "1.jpg"}, {"id": 2, "blob_path": "b/2", "src_name": "2.jpg"}]
+    repo.load = (lambda orig: (lambda cid: {**orig(cid), "photos": photos, "photo_count": 2}))(repo.load)
+    seen = {}
+
+    def download(url, name, case_id, job_id, item_id):
+        if item_id == 2:
+            raise OSError("blob 500")
+        return f"/tmp/{item_id}-{name}"
+
+    def namer(ps, vehicle):
+        seen["local"] = [p.get("local") for p in ps]
+        return [{"id": p["id"], "failed": not p.get("local"), "name_error": "worker: no prediction"} for p in ps]
+
+    tick(cfg, repo, launch=lambda a: None, inspect=lambda p: None, namer=namer, driver=SavingDriver(), download=download)
+    assert seen["local"] == ["/tmp/1-1.jpg", None]
+    assert repo.applied and repo.applied[0].error != "worker error"

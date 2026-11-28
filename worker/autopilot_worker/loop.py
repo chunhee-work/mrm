@@ -32,16 +32,21 @@ class LeaseKeeper:
         self._thread = threading.Thread(target=self._run, daemon=True)
 
     def _run(self) -> None:
+        if self.model is not None:  # one beat at once: the tick's own heartbeat may already be a while ago
+            self._beat()
         while not self._stop.wait(self.every):
             try:
                 self.repo.touch_job(self.job_id, self.worker_id)
             except Exception:
                 pass  # one missed renewal is fine; the lease is three times longer
             if self.model is not None:
-                try:
-                    self.repo.heartbeat(self.worker_id, self.model, chrome_ok=True)  # same values as tick's own heartbeat
-                except Exception:
-                    pass  # one missed heartbeat is fine: three fit in the website's 90 s
+                self._beat()
+
+    def _beat(self) -> None:
+        try:
+            self.repo.heartbeat(self.worker_id, self.model, chrome_ok=True)  # same values as tick's own heartbeat
+        except Exception:
+            pass  # one missed heartbeat is fine: three fit in the website's 90 s
 
     def __enter__(self):
         self._thread.start()
@@ -507,6 +512,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         if step not in emitted and shooter.shoot(job, case, step):
             emitted.add(step)
 
+    keeper = LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds, cfg.hf_repo)  # from here: the downloads take time too
+    keeper.__enter__()
     try:
         try:
             # Only the photo model reads files from this machine. (Intake used to download every case PDF here and nothing read them:
@@ -514,7 +521,11 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             # downloads go to <state>/files/<case id>/<job id>/<photo id>-<name>; the name comes from the database and is made safe by the downloader
             if job["step"] == "photo_model":
                 for p in case["photos"]:
-                    local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg", job["case_id"], job["id"], p["id"])
+                    try:
+                        local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg", job["case_id"], job["id"], p["id"])
+                    except Exception as e:  # noqa: BLE001  one photo that cannot be fetched: only that photo goes to Claude (no prediction)
+                        print(f"photo {p['id']} download failed: {type(e).__name__}", file=sys.stderr)
+                        local = None
                     if local:
                         p["local"] = local
             if job["step"] in ("phase_a", "phase_b") and cfg.live_writes and os.environ.get("MERIMEN_DRYRUN") != "on":
@@ -544,16 +555,15 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
             # while the org is held the old stops stand (a person looks), exactly as with re-login off
             driver.relogin_ready = puts_back(cfg, relogin is not None) and not held(job["org_id"], now)
-            with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds, cfg.hf_repo):
-                outcome = handle_job(
-                    job, case, case["photos"], gate=gate, session=session,
-                    photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
-                )
-                if side_check and job["step"] == "phase_a" and outcome.job_state == "done":
-                    try:  # Jev page check (plan #103): after Phase A, warn only, never changes the outcome; the lease is kept alive meanwhile
-                        outcome.extra_events = list(side_check(case))[:4]
-                    except Exception:  # noqa: BLE001
-                        pass
+            outcome = handle_job(
+                job, case, case["photos"], gate=gate, session=session,
+                photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
+            )
+            if side_check and job["step"] == "phase_a" and outcome.job_state == "done":
+                try:  # Jev page check (plan #103): after Phase A, warn only, never changes the outcome; the lease is kept alive meanwhile
+                    outcome.extra_events = list(side_check(case))[:4]
+                except Exception:  # noqa: BLE001
+                    pass
             for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
                 shoot(step)
         except Exception as e:  # noqa: BLE001
@@ -562,6 +572,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
+        keeper.__exit__(None, None, None)
         if forget_files:  # the job is over, done or failed: its own downloaded files leave this machine
             try:
                 forget_files(job["case_id"], job["id"])

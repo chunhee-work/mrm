@@ -321,3 +321,16 @@ def test_namer_other_errors_fall_back_to_claude(tmp_path, monkeypatch):
     namer, _ = _namer(tmp_path, monkeypatch, run=nolaunch)
     with pytest.raises(ModelError, match="predict failed"):
         namer([{"id": 1, "local": "/x/1-a.jpg"}], "PROTON SAGA")
+
+
+def test_namer_skips_a_photo_that_was_not_downloaded(tmp_path, monkeypatch):
+    seen = {}
+
+    def run(cmd, **kw):
+        import subprocess
+        seen["cmd"] = cmd
+        return subprocess.CompletedProcess(cmd, 0, '{"file": "1-a.jpg", "top": [["Bonnet", 0.9]], "conf": 0.9}\n', "")
+    namer, _ = _namer(tmp_path, monkeypatch, run=run)
+    rows = namer([{"id": 1, "local": "/x/1-a.jpg"}, {"id": 2, "src_name": "b.jpg"}], "PROTON SAGA")
+    assert "b.jpg" not in seen["cmd"] and "/x/1-a.jpg" in seen["cmd"]
+    assert rows[0]["model_name"] == "Bonnet" and rows[1]["failed"] and rows[1]["name_error"] == "worker: no prediction"

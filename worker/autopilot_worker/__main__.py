@@ -230,7 +230,11 @@ def _namer_factory(cfg: Config):
     def _name(photos, vehicle):
         load_rules()  # a broken deploy fails here, before minutes of CPU on the model
         prod = ensure_weights(cfg.model_dir, cfg.hf_repo, cfg.hf_token, cfg.hf_revision)  # downloads production/ once; paths point at model_dir
-        images = [p.get("local") or p.get("src_name") or "" for p in photos]
+        # only photos this machine has: one that could not be downloaded gets no prediction (stored failed, Claude names it),
+        # instead of a bare file name that makes predict_case fail the whole case
+        images = [p["local"] for p in photos if p.get("local")]
+        if not images:
+            return names_for_photos(photos, [])
         cmd, extra = predict_command(sys.executable, bundled, images, vehicle=vehicle, prod_file=prod, batch=cfg.pred_bs)
         env = predict_env(os.environ, extra)  # a short list: never the worker's keys (DATABASE_URL, HF_TOKEN, Merimen, API keys)
         try:
