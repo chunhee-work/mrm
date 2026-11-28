@@ -469,6 +469,7 @@ class _Resp:
     ("https://www.merimen.com.my/claims/index.cfm?x=1", True),
     (LOGGED_IN, False),                                             # logged in again (a person or Merimen): left open
     ("https://mail.example.test/inbox", False),                     # a person took the tab elsewhere: left open
+    ("https://www.merimen.com.my/", False),                          # another Merimen page, not /claims/: left open
 ])
 def test_a_kept_tab_is_closed_only_while_it_is_a_logged_out_merimen_page(monkeypatch, url, closes):
     import autopilot_worker.login_flow as lf
