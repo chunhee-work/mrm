@@ -22,20 +22,32 @@ from .store import LOST_EVENT, LOST_WINDOW, PgRepo
 
 
 class LeaseKeeper:
-    """Renews a running job's lease every third of the lease time, so a long job is not taken over while it still runs."""
+    """Renews a running job's lease, so a long job is not taken over while it still runs, and keeps the worker's heartbeat fresh:
+    the website calls the worker gone after 90 s without one and would then name the photos with Claude while the photo model
+    still runs (one main thread: tick's own heartbeat waits for the job)."""
 
-    def __init__(self, repo: PgRepo, job_id: int, worker_id: str, lease_seconds: int):
-        self.repo, self.job_id, self.worker_id = repo, job_id, worker_id
-        self.every = max(5.0, lease_seconds / 3)
+    def __init__(self, repo: PgRepo, job_id: int, worker_id: str, lease_seconds: int, model: str | None = None):
+        self.repo, self.job_id, self.worker_id, self.model = repo, job_id, worker_id, model
+        self.every = min(30.0, max(5.0, lease_seconds / 3))
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
     def _run(self) -> None:
+        if self.model is not None:  # one beat at once: the tick's own heartbeat may already be a while ago
+            self._beat()
         while not self._stop.wait(self.every):
             try:
                 self.repo.touch_job(self.job_id, self.worker_id)
             except Exception:
                 pass  # one missed renewal is fine; the lease is three times longer
+            if self.model is not None:
+                self._beat()
+
+    def _beat(self) -> None:
+        try:
+            self.repo.heartbeat(self.worker_id, self.model, chrome_ok=True)  # same values as tick's own heartbeat
+        except Exception:
+            pass  # one missed heartbeat is fine: three fit in the website's 90 s
 
     def __enter__(self):
         self._thread.start()
@@ -126,7 +138,7 @@ HOLD_KIND: dict[str, str] = {}
 # org -> times of its logouts found in jobs (put-backs and case-cap stops, all cases): ORG_CAP within ORG_WINDOW holds the org, so
 # one page that logs out every time (or a login-looking box Merimen shows while logged in) cannot spend the account's login tries
 # case after case. 3 h: a logout followed by a re-login cooldown and a long Phase B still falls inside it. The hard ceiling stays the
-# re-login's own 12 tries / 24 h
+# re-login's own limits: 12 tries that did not log in, 48 tries in all, per 24 h
 ORG_PUTBACKS: dict[str, list[float]] = {}
 ORG_CAP = 4
 ORG_WINDOW = 3 * 3600.0
@@ -501,6 +513,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         if step not in emitted and shooter.shoot(job, case, step):
             emitted.add(step)
 
+    keeper = LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds, cfg.hf_repo)  # from here: the downloads take time too
+    keeper.__enter__()
     try:
         try:
             # Only the photo model reads files from this machine. (Intake used to download every case PDF here and nothing read them:
@@ -508,7 +522,11 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             # downloads go to <state>/files/<case id>/<job id>/<photo id>-<name>; the name comes from the database and is made safe by the downloader
             if job["step"] == "photo_model":
                 for p in case["photos"]:
-                    local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg", job["case_id"], job["id"], p["id"])
+                    try:
+                        local = download(p.get("blob_path") or "", p.get("src_name") or "photo.jpg", job["case_id"], job["id"], p["id"])
+                    except Exception as e:  # noqa: BLE001  one photo that cannot be fetched: only that photo goes to Claude (no prediction)
+                        print(f"photo {p['id']} download failed: {type(e).__name__}", file=sys.stderr)
+                        local = None
                     if local:
                         p["local"] = local
             if job["step"] in ("phase_a", "phase_b") and cfg.live_writes and os.environ.get("MERIMEN_DRYRUN") != "on":
@@ -538,16 +556,15 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
             # while the org is held the old stops stand (a person looks), exactly as with re-login off
             driver.relogin_ready = puts_back(cfg, relogin is not None) and not held(job["org_id"], now)
-            with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
-                outcome = handle_job(
-                    job, case, case["photos"], gate=gate, session=session,
-                    photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
-                )
-                if side_check and job["step"] == "phase_a" and outcome.job_state == "done":
-                    try:  # Jev page check (plan #103): after Phase A, warn only, never changes the outcome; the lease is kept alive meanwhile
-                        outcome.extra_events = list(side_check(case))[:4]
-                    except Exception:  # noqa: BLE001
-                        pass
+            outcome = handle_job(
+                job, case, case["photos"], gate=gate, session=session,
+                photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
+            )
+            if side_check and job["step"] == "phase_a" and outcome.job_state == "done":
+                try:  # Jev page check (plan #103): after Phase A, warn only, never changes the outcome; the lease is kept alive meanwhile
+                    outcome.extra_events = list(side_check(case))[:4]
+                except Exception:  # noqa: BLE001
+                    pass
             for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
                 shoot(step)
         except Exception as e:  # noqa: BLE001
@@ -556,6 +573,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
+        keeper.__exit__(None, None, None)
         if forget_files:  # the job is over, done or failed: its own downloaded files leave this machine
             try:
                 forget_files(job["case_id"], job["id"])

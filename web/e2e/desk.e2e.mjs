@@ -231,7 +231,7 @@ try {
     assert.equal((await shown(B))[2], "Front Bumper");
   });
 
-  await step("add a part with no photo (Space palette)", async () => {
+  await step("add a part with no photo (A palette)", async () => {
     await page.getByRole("button", { name: /Add part|加零件|Tambah alat/ }).click();
     const input = page.getByRole("combobox");
     await input.fill("Cowl Panel");
@@ -394,9 +394,8 @@ try {
     const shown = page.locator('[data-testid="files-pdf"], [data-testid="files-open-pdf"]');
     await shown.waitFor();
     assert.equal(await shown.getAttribute(await shown.getAttribute("data-testid") === "files-pdf" ? "src" : "href"), `/api/cases/${A}/files/${pdf}`);
-    await page.getByTestId("files-next").click(); // the next file is the photo
-    await page.getByTestId("files-image").waitFor();
-    await page.getByTestId("files-next").click(); // then the zip: no preview, a download
+    // documents come first, then the photos: after the PDF comes the zip (no preview, a download)
+    await page.getByTestId("files-next").click();
     await page.getByTestId("files-download").waitFor();
     await page.keyboard.press("Escape"); // Escape on a file goes back to the list first
     await page.getByTestId("files-item").first().waitFor();

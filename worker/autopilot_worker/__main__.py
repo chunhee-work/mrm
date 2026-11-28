@@ -12,7 +12,8 @@ import time
 from .config import Config, account_for
 from .pipeline import Driver
 from .loop import tick, tick_error_line
-from .photos import ModelError, names_for_photos, parse_predict_stdout, predict_command
+from .photos import (ModelError, apply_name_rules, ensure_weights, names_for_photos, parse_predict_stdout, predict_command,
+                     load_rules, predict_env, predict_slot, predict_timeout)
 from .store import PgRepo
 
 
@@ -219,20 +220,35 @@ def _namer_factory(cfg: Config):
     def namer(photos, vehicle):
         if not photos:
             return []
-        prod = os.path.join(cfg.model_dir, "production", "production.json")
-        if not os.path.isfile(prod):
-            raise ModelError("model missing")
-        use = bundled
-        images = [p.get("local") or p.get("src_name") or "" for p in photos]
-        cmd, extra = predict_command(sys.executable, use, images, vehicle=vehicle, prod_file=prod, batch=cfg.pred_bs)
-        env = os.environ.copy()
-        env.update(extra)
-        if cfg.hf_token:
-            env["HF_TOKEN"] = cfg.hf_token
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=env)
+        try:
+            return _name(photos, vehicle)
+        except ModelError:
+            raise
+        except Exception as e:  # noqa: BLE001  any other failure (a full disk, a launch error): fall back to Claude, never leave photos unnamed
+            raise ModelError("predict failed") from e
+
+    def _name(photos, vehicle):
+        load_rules()  # a broken deploy fails here, before minutes of CPU on the model
+        prod = ensure_weights(cfg.model_dir, cfg.hf_repo, cfg.hf_token, cfg.hf_revision)  # downloads production/ once; paths point at model_dir
+        # only photos this machine has: one that could not be downloaded gets no prediction (stored failed, Claude names it),
+        # instead of a bare file name that makes predict_case fail the whole case
+        images = [p["local"] for p in photos if p.get("local")]
+        if not images:
+            return names_for_photos(photos, [])
+        cmd, extra = predict_command(sys.executable, bundled, images, vehicle=vehicle, prod_file=prod, batch=cfg.pred_bs)
+        env = predict_env(os.environ, extra)  # a short list: never the worker's keys (DATABASE_URL, HF_TOKEN, Merimen, API keys)
+        try:
+            with predict_slot(cfg.model_dir):  # one predict_case at a time: two ViT-L + ViT-B processes would share the CPU and double the memory
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=predict_timeout(len(images)), env=env)
+        except subprocess.TimeoutExpired as e:  # a ModelError, so the photos fall back to Claude instead of staying unnamed
+            raise ModelError("predict timed out") from e
         if proc.returncode != 0:
             raise ModelError("predict failed")
-        return names_for_photos(photos, parse_predict_stdout(proc.stdout))
+        try:
+            preds = parse_predict_stdout(proc.stdout)
+        except ValueError as e:  # a garbled line: fall back to Claude now, not three more full runs
+            raise ModelError("predict failed") from e
+        return names_for_photos(photos, apply_name_rules(preds, vehicle))
 
     return namer
 
@@ -432,15 +448,11 @@ def main() -> None:
         """One photo to <state>/files/<case id>/<job id>/<photo id>-<name> (private). `name` is the uploaded file name: untrusted."""
         if not cfg.blob_token or not url:
             return None
-        from .blobstore import blob_request, local_file, write_private
-        import urllib.request
+        from .blobstore import blob_request, fetch_private, local_file
 
         target = local_file(files_root, case_id, job_id, item_id, name)
         req_url, headers = blob_request(url, cfg.blob_token)
-        req = urllib.request.Request(req_url, headers=headers)
-        with urllib.request.urlopen(req, timeout=60) as r:
-            write_private(target, r.read())
-        return target
+        return fetch_private(target, req_url, headers)  # tried 3 times; a file a former try of this job got is reused
 
     def forget_files(case_id, job_id) -> None:
         from .blobstore import remove_job_files
@@ -485,11 +497,14 @@ def main() -> None:
             print("jev page check off: PyMuPDF is not installed", flush=True)
 
     def _keep(port: int) -> None:
-        subprocess.run(
-            ["node", script, "continue"],
-            env={**os.environ, "CDP_PORT": str(port)},
-            timeout=20, capture_output=True, text=True,
-        )
+        try:
+            subprocess.run(
+                ["node", script, "continue"],
+                env={**os.environ, "CDP_PORT": str(port)},
+                timeout=20, capture_output=True, text=True,
+            )
+        except subprocess.TimeoutExpired:  # a slow tab: try again next tick, never stop the tick (claims and the lease reclaim follow)
+            print("keepalive: timeout", file=sys.stderr, flush=True)
 
     master = b""
     if os.environ.get("MERIMEN_CRED_KEY"):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from . import learning, photo_sync, step2_run
@@ -169,6 +170,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
 
             if code == "unreadable" and login_seen.seen() and driver.relogin_ready:  # a Select Parts page met the login form
                 return _o("requeue", error="step2", event=f"Phase {phase} stopped. Merimen logged out on the Select Parts page")
+            _step2_print(e)
+            if _transient(e):  # the browser or network broke (NCH5773 2026-11-28: the box lost its network): ticking only adds ticks, so try again later
+                return _o("requeue", error="step2", stop_error="step2",
+                          event=f"Phase {phase} paused. The Select Parts page did not answer ({code}); trying again in a few minutes.")
             return _o("failed", case_status="waiting_user", error="step2",
                       event=f"Phase {phase} stopped. Parts and labour could not be ticked ({code}). Check the Select Parts page in Merimen."[:400])
         if s2 is not None and (s2.plan or not s2.ok):
@@ -275,6 +280,40 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
     )
 
 
+def _transient(e: Exception) -> bool:
+    """A broken browser call or network, not a page that said no: Playwright's own Error / TimeoutError (Step2Error is ours and has a code)
+    or an OSError (timeout, refused, reset). These are tried again with the job's normal tries; after the last one the case waits."""
+    if getattr(e, "code", None) or isinstance(e, (FileNotFoundError, PermissionError, IsADirectoryError, NotADirectoryError)):
+        return False  # a missing or locked file of ours is no network break: stop at once
+    if isinstance(e, (OSError, TimeoutError, ConnectionError)):
+        return True
+    if not type(e).__module__.startswith("playwright"):
+        return False
+    if type(e).__name__ in ("TimeoutError", "TargetClosedError"):
+        return True
+    # the base Error is also a script error inside the page (a changed layout): only a closed browser or a lost connection counts
+    return type(e).__name__ == "Error" and bool(_BROKE.search(str(e)))
+
+
+_BROKE = re.compile(r"has been closed|Target closed|Timeout \d+ms exceeded|net::ERR_|Execution context was destroyed|Connection closed|Browser closed", re.I)
+
+
+def _step2_print(e: Exception) -> None:
+    """One scrubbed stderr line, so the next stop on the Select Parts page shows why (it used to show only the class name)."""
+    try:
+        import os
+        import sys
+        import traceback
+
+        from .loop import _scrub
+
+        frames = traceback.extract_tb(e.__traceback__)[-3:]
+        where = " < ".join(f"{os.path.basename(f.filename)}:{f.lineno} {f.name}" for f in reversed(frames))
+        print(f"step2 {type(e).__name__} msg={_scrub(str(e))} at {where}"[:600], file=sys.stderr, flush=True)
+    except Exception:  # noqa: BLE001  (the log line never changes the outcome)
+        pass
+
+
 def _photo_error(phase: str, e: Exception) -> str:
     """A photo write that broke half way is never retried by itself (a retry could store a photo twice): a person looks at Merimen's list."""
     code = getattr(e, "code", None) or type(e).__name__
@@ -333,11 +372,18 @@ def handle_job(job: dict, case: dict, photos: list[dict], *, gate: str, session:
         if not photo_worker:
             return Outcome("done", event="Photo model off")
         try:
-            rows = namer(photos, (case.get("car_model") or "")[:120])
+            rows = namer(photos, case_vehicle(case))
         except ModelError as e:
             return Outcome("failed", photo_fail=f"worker: {str(e)[:160]}", event="Photo model failed")
         return Outcome("done", photo_rows=rows, event="Photos named by the on-site model")
     return Outcome("failed", error="unknown step", event="Unknown job")
+
+
+def case_vehicle(case: dict) -> str:
+    """The car model the naming rules use: the case's car_model, else the registration card's model in case_data (the same
+    fallback as the website's finalizeNaming, web/src/lib/photos/server.ts)."""
+    cv = (case.get("case_data") or {}).get("client_vehicle") or {}
+    return str(case.get("car_model") or (cv.get("model") if isinstance(cv, dict) else "") or "").strip()[:120]
 
 
 def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:

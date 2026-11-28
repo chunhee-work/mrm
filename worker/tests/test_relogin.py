@@ -719,6 +719,17 @@ def test_pg_cap_counts_typed_tries_only():
 
 
 @needs_pg
+def test_pg_logins_that_worked_do_not_use_up_the_cap_but_hit_the_ceiling():
+    good = lambda n: [a for i in range(n) for a in (audit("relogin_typed", f"{i * 25 + 20} minutes"), audit("relogin_ok", f"{i * 25 + 20} minutes"))]
+    (b,), _ = book(good(12))
+    assert b["booked"]  # NCH5773 2026-11-28: 12 good logins must not stop the work for the rest of the day
+    (b,), _ = book(good(relogin.TOTAL_CAP - 1) + [audit("relogin_typed", f"{i + 20} minutes") for i in range(relogin.CAP - 1)])
+    assert b["reason"] == "cap"  # 47 good + 11 that did not log in: the ceiling of 48 typed tries
+    (b,), _ = book(good(20) + [audit("relogin_typed", f"{i + 20} minutes") for i in range(relogin.CAP)])
+    assert b["reason"] == "cap"  # 12 that did not log in still stop it
+
+
+@needs_pg
 def test_pg_unclear_blocks_24h_unless_a_success_came_after():
     (b,), _ = book([audit("relogin_unclear", "2 hours")])
     assert b["reason"] == "unclear_block"
