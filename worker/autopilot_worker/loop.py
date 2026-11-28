@@ -23,14 +23,22 @@ from .store import LOST_EVENT, LOST_WINDOW, PgRepo
 class LeaseKeeper:
     """Renews a running job's lease every third of the lease time, so a long job is not taken over while it still runs."""
 
-    def __init__(self, repo: PgRepo, job_id: int, worker_id: str, lease_seconds: int):
+    def __init__(self, repo: PgRepo, job_id: int, worker_id: str, lease_seconds: int, max_seconds: float | None = None, now=time.monotonic):
         self.repo, self.job_id, self.worker_id = repo, job_id, worker_id
         self.every = max(5.0, lease_seconds / 3)
+        self.max_seconds, self._now = max_seconds, now
+        self._t0 = now()
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
+    def overdue(self) -> bool:
+        """Ran longer than max_seconds (WORKER_JOB_MAX_SECONDS): the lease is no longer renewed, so the queue gets the job back."""
+        return self.max_seconds is not None and self._now() - self._t0 > self.max_seconds
+
     def _run(self) -> None:
         while not self._stop.wait(self.every):
+            if self.overdue():
+                return
             try:
                 self.repo.touch_job(self.job_id, self.worker_id)
             except Exception:
@@ -54,7 +62,29 @@ VERIFY_WAIT_MAX = 60
 
 
 # Which part of tick() was running, for the one log line when a tick fails (2026-11-27: the box only logged "tick DbError").
-STEP = {"name": "start"}
+class _Step(threading.local):
+    """Per thread: with WORKER_SLOTS > 1 each job thread logs its own place, the main thread its own."""
+
+    def __init__(self):
+        self.name = "start"
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+
+STEP = _Step()
+
+# FORCE_RELOGIN, RELOGIN_HELD, HELD_PAUSED, HOLD_KIND, ORG_PUTBACKS are read and changed by the main thread (sync_sessions) and,
+# with WORKER_SLOTS > 1, by job threads (check_session_after). Each read-change-write of them (_forced, held, _hold, _lift, the org
+# cap count) holds this lock; no Chrome look, login or database call is ever made while holding it (plan #150).
+SESSION_LOCK = threading.RLock()
+# org -> when the main thread first wanted to re-login it while a job of that org still ran in this process. The re-login waits for
+# those jobs (a step cut off half way by a new login is worse than a short wait), at most RELOGIN_BUSY_WAIT seconds.
+_busy_since: dict[str, float] = {}
+RELOGIN_BUSY_WAIT = 600.0
 
 
 def _at(name: str) -> None:
@@ -129,6 +159,18 @@ HOLD_KIND: dict[str, str] = {}
 ORG_PUTBACKS: dict[str, list[float]] = {}
 ORG_CAP = 4
 ORG_WINDOW = 3 * 3600.0
+SAME_LOGOUT = 120.0
+
+
+def paused_orgs(now=time.monotonic) -> list[str]:
+    """Orgs whose Merimen steps are not claimed right now (WORKER_SLOTS > 1): a job found their session logged out (a re-login is on
+    its way) or they are held after a job met the login form. Without this, free slots would take more of their cases into the same
+    logout before the next session sync marks them not connected. Only reads: the force mark's timeout is left to sync_sessions."""
+    with SESSION_LOCK:
+        t = now()
+        out = {o for o, at in FORCE_RELOGIN.items() if t - at < FORCE_TTL}
+        out |= {o for o in HELD_PAUSED if o in RELOGIN_HELD and t - RELOGIN_HELD[o] < HOLD_SECONDS}
+        return sorted(out)
 
 
 _noted: dict[tuple[str, str], float] = {}
@@ -148,6 +190,11 @@ def note(org_id: str, word: str, now=time.monotonic) -> None:
 
 
 def _forced(org_id: str, now) -> bool:
+    with SESSION_LOCK:
+        return _forced_locked(org_id, now)
+
+
+def _forced_locked(org_id: str, now) -> bool:
     t = FORCE_RELOGIN.get(org_id)
     if t is None:
         return False
@@ -230,6 +277,11 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
 def held(org_id: str, now=time.monotonic) -> bool:
     """The org's last re-login was refused or failed, its force mark timed out, or it was put back ORG_CAP times in ORG_WINDOW,
     less than HOLD_SECONDS ago."""
+    with SESSION_LOCK:
+        return _held_locked(org_id, now)
+
+
+def _held_locked(org_id: str, now) -> bool:
     t = RELOGIN_HELD.get(org_id)
     if t is not None and now() - t < HOLD_SECONDS:
         return True
@@ -239,6 +291,11 @@ def held(org_id: str, now=time.monotonic) -> bool:
 
 
 def _hold(org_id: str, now, word: str) -> None:
+    with SESSION_LOCK:
+        _hold_locked(org_id, now, word)
+
+
+def _hold_locked(org_id: str, now, word: str) -> None:
     # a refusal while already held does not make the hold longer: it ends HOLD_SECONDS after it began (or with a re-login that
     # works). Only the org cap, the stronger hold, starts its own full time
     if word == "held_org_cap" or not held(org_id, now):
@@ -250,6 +307,11 @@ def _hold(org_id: str, now, word: str) -> None:
 
 def _lift(org_id: str) -> None:
     """A re-login worked: the hold ends, except the org cap's (it ends only with its time)."""
+    with SESSION_LOCK:
+        _lift_locked(org_id)
+
+
+def _lift_locked(org_id: str) -> None:
     if HOLD_KIND.get(org_id) != "held_org_cap":
         HELD_PAUSED.discard(org_id)
         RELOGIN_HELD.pop(org_id, None)
@@ -285,15 +347,18 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         got = session_lost_outcome(job, outcome, count=repo.session_lost_count(job["case_id"]))
     except Exception:  # noqa: BLE001
         return outcome
-    times = [t for t in ORG_PUTBACKS.get(org, []) if now() - t < ORG_WINDOW]
-    if len(times) >= ORG_CAP:
-        # this org was logged out ORG_CAP times within ORG_WINDOW (3 h, any cases): stop putting back, keep the job's own outcome
-        ORG_PUTBACKS[org] = times
-        _hold(org, now, "held_org_cap")
-        HELD_PAUSED.add(org)
-        return outcome
-    ORG_PUTBACKS[org] = times + [now()]  # the case cap's stop counts too: it also books a re-login
-    FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
+    with SESSION_LOCK:
+        times = [t for t in ORG_PUTBACKS.get(org, []) if now() - t < ORG_WINDOW]
+        if len(times) >= ORG_CAP:
+            # this org was logged out ORG_CAP times within ORG_WINDOW (3 h, any cases): stop putting back, keep the job's own outcome
+            ORG_PUTBACKS[org] = times
+            _hold_locked(org, now, "held_org_cap")
+            HELD_PAUSED.add(org)
+            return outcome
+        # the case cap's stop counts too: it also books a re-login. Several jobs that find the SAME logout (WORKER_SLOTS > 1, they
+        # run side by side) count once: a logout found within SAME_LOGOUT of the last one is that one
+        ORG_PUTBACKS[org] = times if times and now() - times[-1] < SAME_LOGOUT else times + [now()]
+        FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
     note(job["org_id"], "put_back" if got.job_state != "failed" else "cap_reached", now)
     return got
 
@@ -356,7 +421,7 @@ LAUNCH_WAIT = 30.0
 TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending")
 
 
-def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running, relogin=None) -> None:
+def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running, relogin=None, busy_orgs=None) -> None:
     """relogin(org, port) -> outcome word: MERIMEN_RELOGIN. At most ONE real try per tick, only when that org's Chrome answers, no
     tab of it is logged in, and its gate (settings + consent) is "ready". Whether the saved login is ok and not blocked is checked
     inside the booking (the `cred` refusal), never here. Orgs tried longest ago go first."""
@@ -432,7 +497,17 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             order = repo.relogin_order([o for o, _ in want_relogin])
         except Exception:  # noqa: BLE001  (a DB error here must not abort the tick; the booking itself still decides)
             order = [o for o, _ in want_relogin]
+        busy = set(busy_orgs() if busy_orgs else ())
+        for org in list(_busy_since):
+            if org not in busy:
+                _busy_since.pop(org, None)
         for org in order:
+            if org in busy:
+                first = _busy_since.setdefault(org, now())
+                if now() - first < RELOGIN_BUSY_WAIT:
+                    note(org, "relogin_waits_for_jobs", now)
+                    continue  # its running jobs end first (a logged-out step ends quickly); no try is used
+            _busy_since.pop(org, None)
             got = relogin(org, ports[org])
             if got in ("ok", "session_live"):
                 _lift(org)
@@ -450,7 +525,10 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 break
 
 
-def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic, forget_files=None, relogin_fetch=None) -> str | None:
+def housekeeping(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, fetch_page=None, master: bytes = b"", delete_blob=None, now=time.monotonic, relogin_fetch=None, busy_orgs=None):
+    """Everything of one pass except the job: heartbeat, login check, reclaim, cleanup, session sync (and re-login), follow-up jobs.
+    Main thread only. Returns the re-login function (None when re-login is off). `busy_orgs()` -> orgs with a job running in this
+    process (WORKER_SLOTS > 1): their re-login waits a while (plan #150)."""
     _at("heartbeat")
     repo.heartbeat(cfg.worker_id, cfg.hf_repo, chrome_ok=True)
     if cfg.merimen_login and fetch_page and master:
@@ -472,17 +550,32 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
 
         retry_pending(cfg, repo)  # a try whose outcome write failed is written before anything else
 
-    sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep, now=now, relogin=relogin)
+    sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep, now=now, relogin=relogin, busy_orgs=busy_orgs)
     _at("followup_cases")
     for case, jobs in repo.followup_cases():
         if repo.gate(case["org_id"], env_on=cfg.ext_connect) != "ready":
             continue
         for step in followup_steps(case, jobs, writes=cfg.live_writes):
             repo.enqueue(case["id"], step)
+    return relogin
+
+
+def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic, forget_files=None, relogin_fetch=None) -> str | None:
+    """One pass with one job at a time (WORKER_SLOTS=1, the default): housekeeping, then claim one job and run it here."""
+    relogin = housekeeping(cfg, repo, launch=launch, inspect=inspect, keep=keep, fetch_page=fetch_page, master=master, delete_blob=delete_blob,
+                           now=now, relogin_fetch=relogin_fetch)
     _at("claim")
     job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit)
     if not job:
         return None
+    return run_job(cfg, repo, job, inspect=inspect, namer=namer, driver=driver, download=download, page_for=page_for, put_blob=put_blob,
+                   side_check=side_check, now=now, forget_files=forget_files, relogin_ready=relogin is not None)
+
+
+def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Driver, download, page_for=None, put_blob=None, side_check=None, now=time.monotonic, forget_files=None, relogin_ready: bool = False) -> str:
+    """Run one claimed job to its end and write its outcome. With WORKER_SLOTS > 1 this runs in the job's own thread, with its own
+    repo, driver copy and Playwright connection (pool.py); the module state it shares with the main thread is changed under SESSION_LOCK."""
+    relogin = True if relogin_ready else None
     _at("job")
     case = repo.load(job["case_id"])
     if isinstance(case, dict) and job["step"] in PHASE_STEPS and hasattr(repo, "was_put_back"):
@@ -493,6 +586,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         except Exception:  # noqa: BLE001  (not known: the stricter way, a partial list stops for a person)
             case["resumed_after_logout"] = True
     login_seen.reset()
+    lease = None
     shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
 
@@ -537,7 +631,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
             # while the org is held the old stops stand (a person looks), exactly as with re-login off
             driver.relogin_ready = puts_back(cfg, relogin is not None) and not held(job["org_id"], now)
-            with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
+            lease = LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds, max_seconds=cfg.job_max_seconds if cfg.slots > 1 else None, now=now)
+            with lease:
                 outcome = handle_job(
                     job, case, case["photos"], gate=gate, session=session,
                     photo_worker=cfg.photo_worker, writes=cfg.live_writes, namer=namer, driver=driver,
@@ -564,5 +659,10 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     outcome = check_session_after(cfg, repo, job, outcome, inspect=inspect, page_for=page_for or getattr(driver, "page_for", None), now=now,
                                   relogin_ready=relogin is not None, seen_login=login_seen.seen())
     _at("apply")
+    if lease is not None and lease.overdue():
+        # its slot was given up and its lease ran out: the queue has the job back (maybe running again already). Writing this late
+        # outcome could overwrite that run, so it is dropped
+        print(f"job {job.get('id')} {job.get('step')} ended after its time limit: outcome not written", file=sys.stderr, flush=True)
+        return job["step"]
     repo.apply(job, outcome)
     return job["step"]

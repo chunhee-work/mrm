@@ -11,9 +11,14 @@ import time
 
 from .config import Config, account_for
 from .pipeline import Driver
-from .loop import tick, tick_error_line
+from .loop import housekeeping, run_job, tick, tick_error_line
 from .photos import ModelError, names_for_photos, parse_predict_stdout, predict_command
 from .store import PgRepo
+
+
+# Making a NEW case in Merimen (duplicate warnings, the workshop popup, the "Next pressed" mark) runs one at a time in this process,
+# also with WORKER_SLOTS > 1. Every later step works on its own case by its Merimen case id, in its own tab.
+_CREATE_LOCK = __import__("threading").Lock()
 
 
 class _CdpDriver(Driver):
@@ -156,9 +161,8 @@ class _CdpDriver(Driver):
             only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
             if only and str((self.case or {}).get("id")) != only:  # the supervised first live create: every other case is left alone
                 return DriveResult(ok=False, error="step_not_ported")
-            if int(os.environ.get("ORG_CONCURRENCY") or "1") > 1:  # the supported setup is ONE create at a time: refuse before anything opens
-                return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1; set it and restart the worker")
-            res = self._create(True)  # step 1 of Phase A
+            with _CREATE_LOCK:  # one live create at a time (plan #150, Grok G1); the report, documents and photos after it run side by side
+                res = self._create(True)  # step 1 of Phase A
             if res.ok and (res.case_id or (self.case or {}).get("merimen_caseid")):
                 ok, retry, line = self._report(True, res.case_id, res.ext_id)  # step 2: the Adjuster Report (playbook order: before documents)
                 res.line = ((res.line + "; ") if res.line else "") + line
@@ -211,6 +215,17 @@ class _CdpDriver(Driver):
             return DriveResult(ok=False, error="step_not_ported", total_rm=f"{total:.2f}",
                                line=f"{r.line()} All checks passed (total RM{total:,.2f}). Ready to submit in Merimen by hand.")
         return DriveResult(ok=False, error="step_not_ported")
+
+
+def _close_left_step_tabs(cfg: Config) -> None:
+    """At start (WORKER_SLOTS > 1): the step tabs a killed job of the last run left open are closed by their recorded ids. Only those
+    ids; a tab the worker did not open itself is never closed here."""
+    from .login_flow import close_target
+
+    ids = load_step_tabs(cfg.state_dir)
+    for port in sorted(set(cfg.accounts.values())):
+        for tid in ids:
+            close_target(port, tid)  # a tab that is gone (or on another Chrome) is a no-op; never the last tab of a window
 
 
 def _namer_factory(cfg: Config):
@@ -284,10 +299,160 @@ def pick_merimen_page(pages):
     return next((pg for pg in merimen if is_logged_in_url(pg.url or "")), merimen[0] if merimen else None)
 
 
+# Chrome target ids of the tabs the worker's own steps opened (base.context.new_page()). With WORKER_SLOTS > 1 several jobs have a
+# step tab open at once, all with the session marks in their address: the strict pick leaves them (and popups) out, so the home tab
+# is still "exactly one" (plan #150). Shared by all job threads.
+STEP_TABS: set[str] = set()
+_STEP_TABS_LOCK = __import__("threading").Lock()
+
+
+def _target_info(pg) -> dict:
+    """Chrome's own info for a page (targetId, openerId). {} when it cannot be asked."""
+    try:
+        s = pg.context.new_cdp_session(pg)
+        try:
+            return dict(s.send("Target.getTargetInfo").get("targetInfo") or {})
+        finally:
+            s.detach()
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+STEP_TABS_FILE = "step_tabs.json"
+_step_tabs_dir: list[str] = [""]  # the state folder: the ids survive a restart of the worker (Chrome keeps its tabs and their ids)
+_job_tabs = __import__("threading").local()  # per job thread: the step tabs this job opened, closed when the job ends
+
+
+def _save_step_tabs() -> None:
+    d = _step_tabs_dir[0]
+    if not d:
+        return
+    try:
+        path = os.path.join(d, STEP_TABS_FILE)
+        with _STEP_TABS_LOCK:
+            data = sorted(STEP_TABS)
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def load_step_tabs(state_dir: str) -> list[str]:
+    """At start: the step tab ids the last run recorded. Kept in STEP_TABS (the strict pick still leaves them out) and returned, so
+    the ones Chrome still has open can be closed (a job killed by a restart leaves its tab behind)."""
+    _step_tabs_dir[0] = state_dir or ""
+    try:
+        with open(os.path.join(state_dir, STEP_TABS_FILE)) as f:
+            got = [str(x) for x in json.load(f) if isinstance(x, (str, int))]
+    except (OSError, ValueError, TypeError):
+        return []
+    with _STEP_TABS_LOCK:
+        STEP_TABS.update(got)
+    return got
+
+
+def _register_step_tab(pg) -> None:
+    tid = str(_target_info(pg).get("targetId") or "")
+    if tid:
+        with _STEP_TABS_LOCK:
+            if len(STEP_TABS) > 2000:  # ids of long-closed tabs: never reused by Chrome, safe to forget
+                STEP_TABS.clear()
+            STEP_TABS.add(tid)
+        _save_step_tabs()
+    if not hasattr(_job_tabs, "pages"):
+        _job_tabs.pages = []
+    _job_tabs.pages.append((tid, pg))
+
+
+def end_job_tabs() -> int:
+    """After a job (its thread): close the step tabs it opened that are still open (a step that raised half way), and forget them.
+    Only this job's own tabs; never the home tab, another job's tab or a tab opened by hand. Returns how many were closed."""
+    pages = getattr(_job_tabs, "pages", [])
+    _job_tabs.pages = []
+    closed = 0
+    for tid, pg in pages:
+        try:
+            if not pg.is_closed():
+                pg.close()
+                closed += 1
+        except Exception:  # noqa: BLE001
+            pass
+        if tid:
+            with _STEP_TABS_LOCK:
+                STEP_TABS.discard(tid)
+    if pages:
+        _save_step_tabs()
+    return closed
+
+
+def not_step_tabs(pages, info=_target_info) -> list:
+    """Of several session tabs, the ones that are neither a step tab of this worker nor a popup (a tab with an opener)."""
+    out = []
+    for pg in pages:
+        t = info(pg)
+        with _STEP_TABS_LOCK:
+            mine = str(t.get("targetId") or "") in STEP_TABS
+        if not mine and not t.get("openerId"):
+            out.append(pg)
+    return out
+
+
+class _StepContext:
+    """The home tab's browser context as a step sees it: every tab it opens is recorded as a step tab."""
+
+    def __init__(self, ctx):
+        self._ctx = ctx
+
+    def new_page(self, *a, **k):
+        pg = self._ctx.new_page(*a, **k)
+        _register_step_tab(pg)
+        return pg
+
+    def __getattr__(self, name):
+        return getattr(self._ctx, name)
+
+
+class HomeTab:
+    """The logged-in home tab handed to a step (WORKER_SLOTS > 1): the same page, but tabs opened from its context are recorded."""
+
+    def __init__(self, page):
+        self._page = page
+        self.context = _StepContext(page.context)
+
+    def __getattr__(self, name):
+        return getattr(self._page, name)
+
+
 def _page_provider(cfg: Config):
     """The Merimen tab of the worker Chrome for an org, through Playwright over the local debugging port.
-    Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
-    state: dict = {}
+    Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time.
+    Playwright's sync objects belong to the thread that made them: each thread (the main loop, each job slot) keeps its own connection."""
+    import threading
+
+    local = threading.local()
+    slots = max(1, int(getattr(cfg, "slots", 1) or 1))
+
+    class _State:
+        def _d(self) -> dict:
+            if not hasattr(local, "d"):
+                local.d = {}
+            return local.d
+
+        def __contains__(self, k):
+            return k in self._d()
+
+        def __getitem__(self, k):
+            return self._d()[k]
+
+        def __setitem__(self, k, v):
+            self._d()[k] = v
+
+        def pop(self, k, default=None):
+            return self._d().pop(k, default)
+
+    state = _State()
 
     def _browser(org_id: str):
         account = account_for(org_id, cfg.accounts, cfg.org_accounts)
@@ -362,6 +527,8 @@ def _page_provider(cfg: Config):
                     from . import login_seen
 
                     login_seen.mark()  # Merimen is open but no tab has the session marks: logged out (as merimen_docs does)
+                if len(found) > 1:  # other jobs' step tabs and popups are not the home tab (WORKER_SLOTS > 1, plan #150)
+                    found = not_step_tabs(found)
                 if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
                     found = [pg for pg in found if not _login_box(pg)]
                     if not found:  # every tab with the session marks shows the login form: logged out
@@ -374,7 +541,9 @@ def _page_provider(cfg: Config):
                     from .loop import note
 
                     note(org_id, "several_tabs")
-                return found[0] if len(found) == 1 else None
+                if len(found) != 1:
+                    return None
+                return HomeTab(found[0]) if slots > 1 else found[0]
             return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
         except Exception:
             _drop(org_id)
@@ -397,8 +566,6 @@ def _page_provider(cfg: Config):
 
 def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
-    if cfg.live_writes and cfg.org_limit > 1:  # one create at a time is the supported setup: refuse to start, change no case
-        raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1: set ORG_CONCURRENCY=1 and start again")
     repo = PgRepo(cfg.database_url, cfg.db_transport)
     from . import relogin as relogin_mod
 
@@ -425,6 +592,13 @@ def main() -> None:
 
     driver.jev = jev_mod.from_env(dict(os.environ), _record_jev)  # None with JEV=0 or without TYPESAFE_API_KEY: the code rules alone
     namer = _namer_factory(cfg)
+    if cfg.slots > 1:
+        _photo_lock = threading.Lock()
+        _one_namer = namer
+
+        def namer(photos, vehicle):  # noqa: F811  one photo model at a time: each run loads DINOv2 on the CPU (the box's RAM)
+            with _photo_lock:
+                return _one_namer(photos, vehicle)
 
     files_root = os.path.join(cfg.state_dir, "files")  # downloads live here only while their job runs
 
@@ -522,6 +696,50 @@ def main() -> None:
             serve(port, {"id": cfg.worker_id, "model": cfg.hf_repo, "chrome": True})
         except OSError:
             pass
+
+    if cfg.slots > 1:
+        from .pool import JobPool, slot_driver
+
+        import signal
+
+        from .loop import paused_orgs
+        from .pool import JobPool, slot_driver
+
+        def _run(job, slot_drv, extra):
+            try:
+                run_job(cfg, repo, job, inspect=_inspect, namer=namer, driver=slot_drv, download=download, page_for=page_for if shots else None,
+                        put_blob=put_blob if shots else None, side_check=side_check, forget_files=forget_files, relogin_ready=extra.get("relogin_ready", False))
+            finally:
+                end_job_tabs()  # a step that raised half way leaves no tab behind
+
+        _close_left_step_tabs(cfg)
+        pool = JobPool(cfg.slots, _run, make_driver=lambda: slot_driver(driver), max_seconds=cfg.job_max_seconds)
+        stopping = threading.Event()
+
+        def _stop(_sig, _frm):
+            stopping.set()
+
+        signal.signal(signal.SIGTERM, _stop)
+        signal.signal(signal.SIGINT, _stop)
+        print(f"worker slots: {cfg.slots}", flush=True)
+        while not stopping.is_set():
+            sweep_files()
+            try:
+                relogin = housekeeping(cfg, repo, launch=_launch, inspect=_inspect, keep=_keep, fetch_page=fetch_page, master=master,
+                                       delete_blob=delete_blob if shots else None, relogin_fetch=relogin_fetch, busy_orgs=pool.busy_orgs)
+                while pool.free() > 0 and not stopping.is_set():  # fill every free slot; the claim order puts the case uploaded first in front
+                    job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=paused_orgs())
+                    if not job:
+                        break
+                    pool.submit(job, relogin_ready=relogin is not None)
+            except Exception as e:
+                print(tick_error_line(e), file=sys.stderr)
+            stopping.wait(cfg.poll_seconds)
+        # stop: nothing new is claimed; the running jobs get WORKER_STOP_SECONDS to end (each closes its own tab and writes its outcome).
+        # One still running after that is cut off with the process: its lease gives it back to the queue, as after any restart
+        left = pool.wait_idle(cfg.stop_seconds)
+        print(f"worker stopped: {'all jobs ended' if left else 'jobs still running were cut off'}", flush=True)
+        return
 
     while True:
         sweep_files()

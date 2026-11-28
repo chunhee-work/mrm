@@ -17,6 +17,17 @@ def _transport(raw: str | None) -> str:
     return v
 
 
+SLOTS_MAX = 8
+
+
+def _slots(raw: str | None) -> int:
+    """WORKER_SLOTS: 1 (default, one job at a time as before) to SLOTS_MAX. Each slot holds one Playwright connection (~60 MB)."""
+    v = (raw or "1").strip()
+    if not v.isdigit() or not 1 <= int(v) <= SLOTS_MAX:
+        raise ValueError(f"WORKER_SLOTS must be 1 to {SLOTS_MAX}")
+    return int(v)
+
+
 def parse_accounts(spec: str) -> dict[str, int]:
     """`default:9222,sinar:9223` -> {account: port}. Empty is one profile on 9222."""
     out: dict[str, int] = {}
@@ -86,6 +97,9 @@ class Config:
     mailer: object | None = None
     worker_submit: bool = False
     merimen_relogin: bool = False  # MERIMEN_RELOGIN=on (needs MERIMEN_LOGIN=on): log in again by itself with the saved login (plan #133)
+    job_max_seconds: int = 3 * 3600  # WORKER_JOB_MAX_SECONDS: a job still running after this frees its slot (pool.py)
+    stop_seconds: int = 80  # WORKER_STOP_SECONDS: on stop, how long running jobs may still finish (below systemd's 90 s)
+    slots: int = 1  # WORKER_SLOTS: jobs this process runs at the same time, each in its own thread and Merimen tab (plan #150)
     merimen_dryrun: bool = False  # MERIMEN_DRYRUN=on: fill Merimen's create form, never save. While it is on nothing is written anywhere in Merimen
 
     @property
@@ -109,7 +123,11 @@ class Config:
             photo_worker=_on(e, "PHOTO_WORKER"),
             merimen_writes=_on(e, "MERIMEN_WRITES"),
             merimen_login=_on(e, "MERIMEN_LOGIN"),
-            org_limit=max(1, int(e.get("ORG_CONCURRENCY") or "1")),
+            # unset: as many running jobs per org as there are slots, so one user's cases fill every slot (owner 2026-11-28)
+            org_limit=max(1, int(e.get("ORG_CONCURRENCY") or e.get("WORKER_SLOTS") or "1")),
+            slots=_slots(e.get("WORKER_SLOTS")),
+            job_max_seconds=max(600, int(e.get("WORKER_JOB_MAX_SECONDS") or str(3 * 3600))),
+            stop_seconds=max(0, int(e.get("WORKER_STOP_SECONDS") or "80")),
             worker_id=(e.get("WORKER_ID") or "worker")[:40],
             state_dir=state,
             accounts=parse_accounts(e.get("WORKER_ACCOUNTS", "")),

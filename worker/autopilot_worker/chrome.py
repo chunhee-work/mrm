@@ -51,6 +51,10 @@ def chrome_argv(binary: str, port: int, profile: str) -> list[str]:
         "--no-default-browser-check",
         "--disable-gpu",
         "--disable-dev-shm-usage",
+        # several cases run in background tabs at once (WORKER_SLOTS, plan #150): no slowing down of tabs that are not in front
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-backgrounding-occluded-windows",
         *(["--no-sandbox"] if os.environ.get("CHROME_NO_SANDBOX") == "on" else []),
         MERIMEN_START,
     ]

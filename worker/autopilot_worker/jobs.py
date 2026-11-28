@@ -12,11 +12,33 @@ JOIN cases c ON c.id = j.case_id
 WHERE j.state = 'queued'
   AND c.deleted_at IS NULL -- a case the user deleted (migration 0015) is never picked up
   AND (j.not_before IS NULL OR j.not_before <= now())
+  -- never two jobs of one case at the same time (WORKER_SLOTS > 1, plan #150). The try-lock covers two claims that run at the
+  -- same moment (two worker processes): the second skips the case instead of both passing the NOT EXISTS
+  AND NOT EXISTS (SELECT 1 FROM jobs j5 WHERE j5.case_id = j.case_id AND j5.state = 'running')
+  AND (
+    j.step NOT IN ('phase_a', 'checks', 'phase_b')
+    OR (
+      -- an org whose Merimen work this process holds back (a logout found in a job, a re-login on its way): no new Merimen step
+      NOT (c.org_id = ANY(string_to_array(%(skip_orgs)s, ',')))
+      -- one Chrome holds ONE Merimen login. When several orgs with a saved login share a Chrome port, only the org whose first case
+      -- came first uses it, the others' Merimen steps wait until they have their own Chrome profile (WORKER_ACCOUNTS +
+      -- WORKER_ORG_ACCOUNTS), so a case is never written into another user's Merimen account
+      AND NOT EXISTS (
+        SELECT 1 FROM worker_sessions s0
+        JOIN worker_sessions s6 ON s6.port = s0.port AND s6.org_id <> s0.org_id
+        JOIN merimen_credentials m6 ON m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked
+        WHERE s0.org_id = c.org_id AND s0.port IS NOT NULL
+          AND (SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id)
+            < (SELECT min(c8.created_at) FROM cases c8 WHERE c8.org_id = c.org_id)
+      )
+    )
+  )
   AND (
     SELECT count(*)::int FROM jobs j2
     JOIN cases c2 ON c2.id = j2.case_id
     WHERE c2.org_id = c.org_id AND j2.state = 'running'
   ) < %(org_limit)s
+  AND pg_try_advisory_xact_lock(150, hashtext(j.case_id))
   AND (
     (j.step = 'intake' AND c.status IN ('phase_a', 'pending_doc'))
     OR j.step = 'photo_model'
@@ -76,7 +98,8 @@ WHERE j.state = 'queued'
       AND EXISTS (SELECT 1 FROM ext_consents k WHERE k.org_id = c.org_id)
     )
   )
-ORDER BY j.created_at
+-- the case uploaded first goes first, with all its later steps: user 1's cases are done before user 2's (owner 2026-11-28)
+ORDER BY c.created_at, j.created_at
 FOR NO KEY UPDATE OF j, c SKIP LOCKED
 LIMIT 1
 )
@@ -84,8 +107,10 @@ RETURNING id, case_id, step, attempts, (SELECT c3.org_id FROM cases c3 WHERE c3.
 """
 
 
-def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker") -> dict:
-    return {"merimen": ext_connect, "org_limit": int(org_limit), "worker": worker_id}
+def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker", skip_orgs=()) -> dict:
+    """skip_orgs: orgs whose Merimen steps are not taken now (loop.paused_orgs). Org ids never hold a comma (they are generated ids)."""
+    skip = ",".join(str(o) for o in skip_orgs if o and "," not in str(o))
+    return {"merimen": ext_connect, "org_limit": int(org_limit), "worker": worker_id, "skip_orgs": skip}
 
 
 # A running job whose lease ran out goes back to the queue (or to failed after too many tries). One statement.
