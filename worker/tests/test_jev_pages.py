@@ -527,3 +527,17 @@ def test_inside_one_type_the_least_ours_page_is_asked_first():
     jev, case, fake, rows, fetch = setup(pages, af_pages={5: 0.95})
     assert jp.run(jev, case, fetch) == []
     assert len([b for b in fake.sent if "af" in b["questions"]]) == 1  # page 5 (ours 0.02) first, and it says yes
+
+
+def test_the_guard_writes_its_row_even_with_no_candidate():
+    d = dict(DATA, police={**DATA["police"], "blamed_plate": "BGN 9963"}, at_fault={"plate": "WUH8189"})
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH, d)
+    assert jp.run(jev, case, fetch) == WARN_IS
+    assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "skip_plate_mismatch" for r in rows)
+
+
+def test_a_failed_plate_call_still_counts_against_the_day():
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_fail=True)
+    jp.run(jev, case, fetch)
+    sent = len([b for b in fake.sent if "af" not in b["questions"]])  # page sort + RC check, all answered
+    assert jp._day["pages"] == sent + 1  # + the one failed plate call
