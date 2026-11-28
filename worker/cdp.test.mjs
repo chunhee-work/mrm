@@ -655,3 +655,17 @@ test("relogin: once the deadline fired nothing is typed any more", async () => {
   assert.equal(typing(r.hlog), 0);
   assert.deepEqual(r.log.closed, ["N1"]);
 });
+
+test("continue looks at every Merimen tab and the expiry warning window, nothing else", async () => {
+  const { merimenTabs } = await import("./cdp.mjs");
+  const ws = "ws://x";
+  const list = [
+    { type: "page", url: "https://www.merimen.com.my/claims/index.cfm?a=1", title: "Merimen e-Claims", webSocketDebuggerUrl: ws },
+    { type: "page", url: "https://www.merimen.com.my/claims/x.cfm", title: "Session Expiration Warning", webSocketDebuggerUrl: ws },
+    { type: "page", url: "about:blank", title: "Session Expiration Warning", webSocketDebuggerUrl: ws },
+    { type: "page", url: "about:blank", title: "New Tab", webSocketDebuggerUrl: ws },
+    { type: "page", url: "https://evil.example/?merimen.com.my", title: "Session Expiration Warning", webSocketDebuggerUrl: ws },
+    { type: "service_worker", url: "https://www.merimen.com.my/sw.js", webSocketDebuggerUrl: ws },
+  ];
+  assert.deepEqual(merimenTabs(list).map((t) => list.indexOf(t)), [0, 1, 2]);
+});
