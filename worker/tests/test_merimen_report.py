@@ -74,6 +74,21 @@ def test_a_missing_city_comes_from_the_postcode_and_is_said():
     assert full["cityGuessed"] == [] and full["insDriver"]["city"] == "Kemaman"  # a city the bundle gives is never replaced
 
 
+def test_a_body_type_that_says_only_car_takes_the_labour_type_from_the_model():
+    # DCD4004 (2026-11-28): RC body type "MOTOKAR", model "PERODUA / MYVI 1.5 SE (MANUAL)"
+    d = report_case()
+    d["client_vehicle"].update(body_type="MOTOKAR", model="PERODUA / MYVI 1.5 SE (MANUAL)")
+    D = build_report(d, case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, today=TODAY)
+    assert D["veh"]["labour"] == "5 DR HATCH" and "labour type 5 DR HATCH (from the model)" in D["cityGuessed"]
+    d["client_vehicle"].update(model="PROTON SAGA 1.3")
+    assert build_report(d, case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, today=TODAY)["veh"]["labour"] == "4 DR|SALOON"
+    d["client_vehicle"].update(model="PERODUA ALZA 1.5")
+    assert build_report(d, case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, today=TODAY)["veh"]["labour"] == "MPV"
+    d["client_vehicle"].update(model="ZZZ UNKNOWN")
+    D = build_report(d, case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, today=TODAY)
+    assert D["veh"]["labour"] == "4 DR|SALOON" and any("unknown" in g for g in D["cityGuessed"])
+
+
 def test_guess_city_order():
     from autopilot_worker.my_postcode import guess_city
     assert guess_city(postcode="", state="", address="NO 3 JALAN BESAR, 20400 KUALA TERENGGANU") == ("Kuala Terengganu", "Terengganu Darul Iman", "address")
