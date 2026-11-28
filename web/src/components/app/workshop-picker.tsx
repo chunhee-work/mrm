@@ -49,7 +49,9 @@ export function WorkshopChoice({ caseId, workshops, state, onSaved, testid }: {
     try {
       const r = await fetch(`/api/cases/${caseId}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(confirm ? { workshop: to, confirm } : { workshop: to }) });
       if (r.ok) setSlot(to);
-      else if (r.status !== 409) setErr(true); // 409 = too late: the re-read shows it fixed
+      // 409 = too late: the re-read shows it fixed. 400 workshop_unknown = the list here was older than a removal: the re-read
+      // (onSaved, which also refreshes the list) asks for a new pick, so no error line either
+      else if (r.status !== 409 && !(r.status === 400 && (await r.json().catch(() => null))?.error === "workshop_unknown")) setErr(true);
     } catch { setErr(true); }
     setBusy(false);
     onSaved();

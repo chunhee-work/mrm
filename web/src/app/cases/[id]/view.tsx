@@ -67,7 +67,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const photoTurn = !working && !failed && !pending && (c.status === "waiting_user" || (photosOpen && ["naming", "phase_a"].includes(c.status)));
   // owner 2026-11-29: the worker does not make the case in Merimen before the workshop is confirmed, so that is the user's turn too
   // (the same rule as the list's wsTurn); like the list's button, the banner names the workshop first (the desk button stays)
-  const wsTurn = !working && !failed && !pending && !!c.workshop?.needsConfirm && ["naming", "phase_a"].includes(c.status);
+  const wsTurn = !working && !failed && !pending && !!c.workshop?.needsConfirm && ["naming", "phase_a", "waiting_user"].includes(c.status);
   const yourTurn = photoTurn || wsTurn;
   // poll while the case moves by itself (read, then the worker's steps); stop when it waits for a person or is done
   const moving = working || ["naming", "phase_a", "phase_b", "checking"].includes(c.status);
