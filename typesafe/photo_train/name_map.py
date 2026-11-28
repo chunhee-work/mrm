@@ -6,7 +6,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_dataset import label
 
-OFF = [l.strip() for l in open(os.path.join(HERE, "official_names.txt")) if l.strip()]
+# official_names.txt is local only (gitignored). final() does not need it, so a missing file (the worker image) = an empty list.
+_OFF_F = os.path.join(HERE, "official_names.txt")
+OFF = [l.strip() for l in open(_OFF_F) if l.strip()] if os.path.isfile(_OFF_F) else []
 VOCAB = sorted({w for n in OFF for w in re.findall(r"[a-z/]+", n.lower())} | {"rear", "front", "lh", "rh", "cover"})
 PHRASE = [(r"\bdoo\b", "door"), (r"\bfoglamp\b", "fog lamp"), (r"^runningboard (lh|rh)$", r"runningboard panel \1"), (r"\b(\w+ \w+) \1\b", r"\1"), (r"\bwheel rim alloy (front|rear)\b", r"\1 wheel rim"), (r"\bdriveshaft front\b", "driveshaft"),
           (r"\bquarter panel liner rear\b", "quarter liner"), (r"\bshock absorber (front|rear)\b", r"\1 shock absorber"), (r"^absorber (front|rear)\b", r"\1 shock absorber"), (r"\b(rear )?end panel\b", "rear panel"), (r"\bquarter panel outer\b", "quarter panel"), (r"^(outer|inner) lamp (rear )?(lh|rh)\b", r"rear lamp \1 \3"), (r"\bfender front\b", "fender"), (r"\bair conditioning condenser\b", "a/c condenser"), (r"\bair cond\b", "a/c"),

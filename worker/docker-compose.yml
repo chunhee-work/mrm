@@ -10,8 +10,14 @@ services:
       - "8080:8080"
     restart: unless-stopped
     shm_size: "1gb"
+    volumes:
+      # the photo model's weights (several GB) survive a rebuild; without this every deploy downloads them again
+      - photo-model:/var/lib/autopilot-worker/photo-model
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+volumes:
+  photo-model:
