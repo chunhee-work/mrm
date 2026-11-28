@@ -725,6 +725,77 @@ def test_a_relabel_popup_is_recorded_as_soon_as_the_step_has_it():
     assert n == 30 and calls[0] == "recorded" and "evaluate" in calls
 
 
+
+def test_the_document_upload_and_workshop_popups_are_recorded_as_soon_as_the_step_has_them():
+    """egm r14: the document upload and the create's workshop search also work in a popup of their own, so a stop there never leaves
+    an unknown tab behind either."""
+    import contextlib
+
+    import pytest as _pt
+
+    from autopilot_worker import case_guard
+    from autopilot_worker import merimen_create as mc
+    from autopilot_worker import merimen_docs as md
+
+    calls = []
+
+    class Stop(Exception):
+        pass
+
+    class Popup:
+        def on(self, *a):
+            calls.append("used")
+            raise Stop()
+
+        def close(self):
+            pass
+
+    class Info:
+        value = Popup()
+
+    class Btn:
+        first = property(lambda self: self)
+
+        def click(self, **k):
+            pass
+
+    class Tab:
+        def get_by_role(self, *a, **k):
+            return Btn()
+
+        def locator(self, sel):
+            return Btn()
+
+        @contextlib.contextmanager
+        def expect_popup(self, timeout=None):
+            yield Info()
+
+    class MP:
+        def docview(self, cid, ext):
+            return Tab()
+
+        def ms(self, n):
+            return n
+
+        def close_tab(self, t):
+            pass
+
+    before = case_guard._ON_USE[0]
+    case_guard.on_use(lambda: calls.append("recorded"))
+    try:
+        with _pt.raises(Stop):
+            md._upload_one(MP(), "1", "2", "/x.pdf", "Doc")
+        assert calls == ["recorded", "used"]
+        calls.clear()
+        c = mc.MerimenCreate(None)
+        c.cur = Tab()
+        spec = type("S", (), {"workshop_name": "ABC Motor"})()
+        rep = mc.CreateReport()
+        c._workshop(spec, rep)  # the stand-in popup fails at its first use: the create gives up the search
+        assert calls == ["recorded", "used"] and rep.problems == ["workshop_popup"]
+    finally:
+        case_guard._ON_USE[0] = before
+
 def test_only_one_slots_worker_per_state_folder(tmp_path):
     import pytest as _pt
 

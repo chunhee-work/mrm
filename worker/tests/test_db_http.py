@@ -101,3 +101,28 @@ def test_transport_switch_and_default(monkeypatch):
     c = Config.from_env({"SCREENSHOT_RETENTION_DAYS": "30", "JOB_LEASE_SECONDS": "300", "WORKER_UI": "on"})
     assert (c.retention_days, c.lease_seconds, c.worker_ui) == (30, 300, True)
     assert Config.from_env({}).retention_days == 90
+
+
+def test_a_cut_off_or_broken_answer_is_a_database_error():
+    """egm r14: a body cut off mid-read or not JSON shows as DbError (a report line in the trial), never as a strange error that the
+    slot log would count as a code bug."""
+    import http.client
+
+    class Cut:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def __init__(self, body=None):
+            self.body = body
+
+        def read(self):
+            if self.body is None:
+                raise http.client.IncompleteRead(b"{")
+            return self.body
+
+    for answer in (Cut(), Cut(b"{not json")):
+        with pytest.raises(DbError):
+            HttpDb(URL, opener=lambda req, timeout, a=answer: a, sleep=lambda s: None).execute("SELECT 1")

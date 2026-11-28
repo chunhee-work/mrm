@@ -12,6 +12,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
+from . import case_guard
 from .merimen_create import CLAIMS, redact, session_query
 
 DOC_VIEW = "fusebox=MTRdoc&fuseaction=dsp_docview&domainid=1&objid={cid}&extid={ext}&corole=4"
@@ -243,6 +244,7 @@ def _upload_one(mp: MerimenPage, case_id: str, ext_id: str, path: str, label: st
         with tab.expect_popup(timeout=mp.ms(8000)) as info:
             tab.get_by_role("button", name=re.compile("Upload Documents", re.I)).first.click(force=True, timeout=mp.ms(6000))
         popup = info.value
+        case_guard.note_popup()  # the step works in this popup: record its tab id now, not at the next use of the step tab
     except Exception as e:  # noqa: BLE001
         mp.close_tab(tab)
         raise DocError("no_upload_popup") from e
