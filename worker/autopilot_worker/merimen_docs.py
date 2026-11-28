@@ -128,6 +128,9 @@ class MerimenPage:
     def query(self) -> str:
         q = session_query(self.base.url)
         if not q:
+            from . import login_seen
+
+            login_seen.mark()  # the tab lost its session marks: as good as the login form
             raise DocError("not_logged_in")
         return q
 
@@ -138,7 +141,10 @@ class MerimenPage:
         tab.goto(url, wait_until="domcontentloaded")
         tab.wait_for_timeout(self.ms(2500))
         if tab.locator("input[type=password]").count() > 0:
-            raise DocError("not_logged_in")
+            from . import login_seen
+
+            if login_seen.mark_if_shown(tab):  # a hidden password field on a logged-in page is no logout
+                raise DocError("not_logged_in")
         return tab
 
     def docview(self, case_id: str, ext_id: str):

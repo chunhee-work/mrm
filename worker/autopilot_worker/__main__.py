@@ -166,10 +166,27 @@ class _CdpDriver(Driver):
                     return DriveResult(ok=False, fatal=not retry, error="report", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
                 d = self._docs(True, res.case_id, res.ext_id)  # step 2: the documents (skips what Merimen already has)
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
+                if not d.ok and d.uploaded > 0:
+                    # stopped after some documents went up (a logout too, whatever code it shows): never guess which are missing and
+                    # never go on to the photos as if the set were complete, a person looks (playbook 06). Checked first: a re-login
+                    # would only lead to the same stop
+                    return DriveResult(ok=False, fatal=True, error="docs", case_id=res.case_id, ext_id=res.ext_id,
+                                       line=(res.line + ". Only some of the documents are in Merimen (the upload stopped half way): check them in Merimen by hand")[:380])
+                if d.code == "not_logged_in" and self.relogin_ready:  # logged out during the documents: again after a re-login (owner 2026-11-28)
+                    return DriveResult(ok=False, error="docs", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
+                if d.code == "docs_partial":  # any run, any re-login state: a set found half there is never passed on
+                    # an upload cut off by the logout left some of the documents: never guess which, a person looks (playbook 06)
+                    return DriveResult(ok=False, fatal=True, error="docs", case_id=res.case_id, ext_id=res.ext_id,
+                                       line=(res.line + ". Only some of the documents are in Merimen (an upload cut off, e.g. by a logout): check them in Merimen by hand")[:380])
             return res
         if phase == "B":
             est = self._estimate()
             if est is None:
+                c = self.case or {}
+                only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
+                if c.get("org_id") and c.get("merimen_caseid") and c.get("merimen_extid") and not (only and str(c.get("id")) != only):
+                    # the case is in Merimen but no logged-in tab (e.g. every tab shows the login form): try again, never "done"
+                    return DriveResult(ok=False, error="no_tab", line="no logged-in Merimen tab for the estimate details")
                 return DriveResult(ok=False, error="step_not_ported")
             from .photo_rules import plan_rows
 
@@ -181,6 +198,11 @@ class _CdpDriver(Driver):
 
             case = self.case or {}
             total = read_total(lambda: self.page_for(case.get("org_id") or "", strict=True), case)
+            from . import login_seen
+
+            if total is None and login_seen.seen() and self.relogin_ready:
+                # the total page showed the login form: try again after a re-login (setting the same values again is safe)
+                return DriveResult(ok=False, error="estimate", line="the case total could not be read: Merimen logged out")
             left = gate(r, total)
             if left:  # the owner's rule: submit only when EVERY check passed; otherwise the case waits for a person with the list
                 return DriveResult(ok=False, fatal=True, error="checks", total_rm=f"{total:.2f}" if total else None,
@@ -267,35 +289,109 @@ def _page_provider(cfg: Config):
     Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
     state: dict = {}
 
-    def page_for(org_id: str, strict: bool = False):
-        """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address);
-        none or several = None, so the case waits instead of opening the form with a guessed session."""
+    def _browser(org_id: str):
         account = account_for(org_id, cfg.accounts, cfg.org_accounts)
         if not account:
-            return None
+            return None, None
         port = cfg.accounts[account]
-        try:
-            if port not in state:
-                from playwright.sync_api import sync_playwright
+        if port not in state:
+            from playwright.sync_api import sync_playwright
 
-                pw = sync_playwright().start()
+            pw = sync_playwright().start()
+            try:
                 state[port] = (pw, pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}"))
-            browser = state[port][1]
-            if strict:
-                from .merimen_create import session_query
+            except Exception:
+                pw.stop()  # a connect that fails leaves no driver process behind
+                raise
+        return port, state[port][1]
 
-                found = [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
+    def _drop(org_id: str) -> None:
+        account = account_for(org_id, cfg.accounts, cfg.org_accounts)
+        old = state.pop(cfg.accounts[account], None) if account else None
+        if old:
+            try:
+                old[0].stop()
+            except Exception:
+                pass
+
+    def _login_box(pg) -> bool:
+        """The page shows a password box (Merimen's login form): a tab whose address still has the session marks of a session that
+        is gone. A page that cannot be asked counts as no box (the address decides)."""
+        try:  # answers at once (no waiting for the box to appear); a visible box only, as the login form shows it
+            return pg.locator("input[type=password]").first.is_visible()
+        except Exception:
+            return False
+
+    def _relogin_tab(org_id: str, pages: list) -> list:
+        """Of several logged-in tabs, the one the worker's last successful re-login opened (relogin._own_tab, by Chrome target id);
+        all of them when it is not among them (the case then waits, as before)."""
+        from . import relogin
+
+        own = relogin._own_tab.get(org_id)
+        if not own:
+            return pages
+        mine = []
+        for pg in pages:
+            try:
+                s = pg.context.new_cdp_session(pg)
+                try:
+                    info = s.send("Target.getTargetInfo")
+                finally:
+                    s.detach()
+                if str((info.get("targetInfo") or {}).get("targetId")) == str(own):
+                    mine.append(pg)
+            except Exception:
+                pass
+        return mine if len(mine) == 1 else pages
+
+    def _session_pages(browser) -> list:
+        from .merimen_create import session_query
+
+        return [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
+
+    def page_for(org_id: str, strict: bool = False):
+        """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address,
+        no password box on the page); none or several = None, so the case waits instead of opening the form with a guessed session."""
+        try:
+            _port, browser = _browser(org_id)
+            if browser is None:
+                return None
+            if strict:
+                found = _session_pages(browser)
+                if not found and any("merimen.com.my" in (pg.url or "") for ctx in browser.contexts for pg in ctx.pages):
+                    from . import login_seen
+
+                    login_seen.mark()  # Merimen is open but no tab has the session marks: logged out (as merimen_docs does)
+                if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
+                    found = [pg for pg in found if not _login_box(pg)]
+                    if not found:  # every tab with the session marks shows the login form: logged out
+                        from . import login_seen
+
+                        login_seen.mark()
+                if len(found) > 1:  # a forced re-login logs in from its own tab while the old one still has its address: that one
+                    found = _relogin_tab(org_id, found)
+                if len(found) > 1:  # several logged-in tabs, none the worker's own: nothing is guessed; close the extra tabs (playbook 06)
+                    from .loop import note
+
+                    note(org_id, "several_tabs")
                 return found[0] if len(found) == 1 else None
             return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
         except Exception:
-            old = state.pop(port, None)
-            if old:
-                try:
-                    old[0].stop()
-                except Exception:
-                    pass
+            _drop(org_id)
         return None
 
+    def session_tabs(org_id: str):
+        """One bool per tab with session marks in its address: True = that page shows a password box. None when Chrome cannot be asked."""
+        try:
+            _port, browser = _browser(org_id)
+            if browser is None:
+                return None
+            return [_login_box(pg) for pg in _session_pages(browser)]
+        except Exception:
+            _drop(org_id)
+            return None
+
+    page_for.session_tabs = session_tabs
     return page_for
 
 
@@ -304,6 +400,9 @@ def main() -> None:
     if cfg.live_writes and cfg.org_limit > 1:  # one create at a time is the supported setup: refuse to start, change no case
         raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1: set ORG_CONCURRENCY=1 and start again")
     repo = PgRepo(cfg.database_url, cfg.db_transport)
+    from . import relogin as relogin_mod
+
+    relogin_mod.load_own_tabs(cfg.state_dir)  # which logged-in tab the last re-login opened survives a restart
     script = os.path.join(os.path.dirname(__file__), "..", "cdp.mjs")
     page_for = _page_provider(cfg)
     driver = _CdpDriver(script, page_for=page_for)

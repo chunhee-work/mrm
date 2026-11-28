@@ -93,6 +93,9 @@ class RealStep2:
         page.goto(f"{CLAIMS}?fusebox=MTRestinterface&fuseaction={action}&caseid={cid}&extid={ext}{tail}&{q}", wait_until="domcontentloaded")
         page.wait_for_timeout(self._ms(5000))
         if page.locator("input[type=password]").count() > 0:
+            from . import login_seen
+
+            login_seen.mark_if_shown(page)
             page.close()
             return None
         return page

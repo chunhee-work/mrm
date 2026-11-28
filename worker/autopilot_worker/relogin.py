@@ -384,6 +384,7 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
         return "key_mismatch"
     old_tab = _own_tab.pop(org_id, None)
     if old_tab:  # the tab a past success kept: the session there has ended (0 logged-in tabs), so it is closed, not left to pile up
+        save_own_tabs(getattr(cfg, "state_dir", None))
         try:
             close_kept(port, old_tab)  # only while it is still a logged-out Merimen page; anything else is left open
         except Exception:  # noqa: BLE001
@@ -411,6 +412,7 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
     if shown in ("ok", "session_live"):
         if page.get("relogin_target"):
             _own_tab[org_id] = str(page["relogin_target"])
+            save_own_tabs(getattr(cfg, "state_dir", None))
     elif page.get("relogin_target"):
         close_target(port, str(page["relogin_target"]))  # the worker and cdp.mjs may disagree on "logged in": a try that is not ok never keeps its tab
     why = ""
@@ -425,8 +427,43 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
 # org -> the page of a try whose outcome write failed. Written again every tick (retry_pending) until it commits. If the worker
 # dies meanwhile, the DB still has the relogin_try row without an outcome, and the booking treats it as unclear (_ORPHAN).
 _pending: dict[str, dict] = {}
-# org -> the own tab a successful try kept (it holds the session). Closed before the next try; lost on a worker restart.
+# org -> the own tab a successful try kept (it holds the session). Closed before the next try. Kept in a small file in the state
+# folder too (Chrome target ids only, no session data), so a worker restart still knows which of two logged-in tabs is the new one.
 _own_tab: dict[str, str] = {}
+OWN_TABS_FILE = "relogin_own_tabs.json"
+
+
+def save_own_tabs(state_dir) -> None:
+    if not state_dir:
+        return
+    import json
+    import os
+
+    try:
+        os.makedirs(state_dir, exist_ok=True)
+        path = os.path.join(state_dir, OWN_TABS_FILE)
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump({str(k): str(v) for k, v in _own_tab.items()}, f)
+        os.replace(tmp, path)
+    except Exception:  # noqa: BLE001  (only the restart case loses it, as before)
+        pass
+
+
+def load_own_tabs(state_dir) -> None:
+    """At start: the own tabs the last process kept. A missing or broken file = none known (as before)."""
+    if not state_dir:
+        return
+    import json
+    import os
+
+    try:
+        with open(os.path.join(state_dir, OWN_TABS_FILE)) as f:
+            got = json.load(f)
+        if isinstance(got, dict):
+            _own_tab.update({str(k): str(v) for k, v in got.items() if isinstance(v, (str, int))})
+    except Exception:  # noqa: BLE001
+        pass
 # orgs whose relogin_capped row this process already wrote (one per worker-process episode, whatever detail came between)
 _capped_logged: set[str] = set()
 

@@ -183,6 +183,17 @@ def test_a_create_only_save_stores_the_case_number_and_claims_no_upload():
     assert o2.case_status == "waiting_user" and o2.enqueue == []
 
 
+def test_a_case_made_by_a_run_that_was_cut_off_still_moves_on():
+    # the run that made the case was put back (Merimen logged out after the create); the next run finds the case number stored
+    made = DriveResult(ok=True, case_id="22322999", ext_id="9800111", partial=True)
+    o = run_phase("A", case(status="phase_a", merimen_caseid="22322999", photos_done_at="2026-11-27T10:00:00"), writes=True, driver=D(save=made))
+    assert "already exists" in o.event and o.case_status == "phase_b" and o.enqueue == ["phase_b"]
+    o = run_phase("A", case(status="phase_a", merimen_caseid="22322999"), writes=True, driver=D(save=made))
+    assert o.case_status == "waiting_user" and o.enqueue == []
+    o = run_phase("A", case(status="checking", merimen_caseid="22322999"), writes=True, driver=D(save=made))
+    assert o.case_status is None and o.enqueue == []  # a case further along keeps its status
+
+
 def test_a_refused_live_save_waits_for_the_user_with_merimens_reason():
     d = D(save=DriveResult(ok=False, fatal=True, error="form_rejected", line="form_rejected Merimen says: Handling Insurer must be indicated"))
     o = run_phase("A", case(), writes=True, driver=d)
@@ -299,3 +310,64 @@ def test_live_save_stops_after_the_case_when_the_report_is_not_saved(monkeypatch
     r = d.save("A", ())
     assert not r.ok and r.fatal and r.case_id == "22322999" and "colour_unknown" in r.line
     assert docs == []  # documents wait until the report is saved (playbook order)
+
+
+def test_live_save_tries_the_documents_again_after_a_logout(monkeypatch):
+    from autopilot_worker.merimen_docs import DocReport
+
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on")):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    d = _CdpDriver("x.mjs")
+    d._create = lambda live: DriveResult(ok=True, case_id="22322999", ext_id="9800111", partial=True)
+    d._report = lambda live, cid, ext: (True, False, "Adjuster Report saved")
+    d.case = {"id": "c1"}
+    d._docs = lambda *a: DocReport(ok=False, code="not_logged_in", planned=3)
+    assert d.save("A", ()).ok  # re-login off: the old behaviour (the line says it, the phase goes on)
+    d.relogin_ready = True
+    r = d.save("A", ())
+    assert not r.ok and not r.fatal and r.error == "docs" and r.case_id == "22322999"  # a retry by itself (put back after a re-login)
+    # the run after a put-back finds some of the documents: a person looks, never a guess
+    d._docs = lambda *a: DocReport(ok=False, code="docs_partial", planned=3)
+    d.case = {"id": "c1", "resumed_after_logout": True}
+    r = d.save("A", ())
+    assert not r.ok and r.fatal and r.error == "docs" and "by hand" in r.line
+    d.case = {"id": "c1"}  # re-login ready: a partial set is never passed on either (an ordinary retry of a cut-off upload)
+    assert d.save("A", ()).fatal
+    d.relogin_ready = False  # re-login off and no put-back: a set found half there still waits for a person (never passed on)
+    assert d.save("A", ()).fatal
+
+
+def test_a_document_upload_that_stopped_after_some_files_always_waits_for_a_person(monkeypatch):
+    from autopilot_worker.merimen_docs import DocReport
+
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on")):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    d = _CdpDriver("x.mjs")
+    d._create = lambda live: DriveResult(ok=True, case_id="22322999", ext_id="9800111", partial=True)
+    d._report = lambda live, cid, ext: (True, False, "Adjuster Report saved")
+    d.case = {"id": "c1"}
+    # a logout inside the upload form shows as another code; 2 of 3 went up: never go on to the photos as if all were there
+    d._docs = lambda *a: DocReport(ok=False, code="no_upload_popup", uploaded=2, planned=3)
+    r = d.save("A", ())
+    assert not r.ok and r.fatal and r.error == "docs" and "by hand" in r.line
+    d._docs = lambda *a: DocReport(ok=False, code="no_upload_popup", uploaded=0, planned=3)
+    assert d.save("A", ()).ok  # nothing went up: as before
+    d.relogin_ready = True  # a logout after some files went up: the same stop at once, no re-login that would only lead to it
+    d._docs = lambda *a: DocReport(ok=False, code="not_logged_in", uploaded=1, planned=3)
+    r = d.save("A", ())
+    assert r.fatal and r.error == "docs" and "by hand" in r.line
+
+
+def test_phase_b_without_a_logged_in_tab_is_tried_again_not_done(monkeypatch):
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on")):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    monkeypatch.delenv("MERIMEN_CREATE_ONLY_CASE", raising=False)
+    d = _CdpDriver("x.mjs", page_for=lambda org, strict=False: None)
+    d.case = {"id": "c1", "org_id": "o1", "merimen_caseid": "1", "merimen_extid": "2"}
+    r = d.save("B", ())
+    assert not r.ok and not r.fatal and r.error == "no_tab"
+    d.case = {"id": "c1", "org_id": "o1"}  # not in Merimen: as before
+    assert d.save("B", ()).error == "step_not_ported"

@@ -60,6 +60,8 @@ class Driver:
     case = None  # set by run_phase: the case being worked (the Merimen create step reads its data)
     progress = None  # set per job: a driver that ports a Merimen step calls progress("create_case") after it
     guard = staticmethod(lambda: True)  # set per job: False once Done was undone or the names changed, asked before every photo write
+    # set per job (loop.puts_back): a step that met the login form is a retry, put back after a re-login; off = the old stops
+    relogin_ready = False
 
     def merimen_photos(self, case: dict):
         return _NoMerimenPhotos()
@@ -100,6 +102,12 @@ class Outcome:
     require_snapshot: str | None = None
     extra_events: list[str] | None = None  # Jev page-check lines (step jev_check); each written once per case, never makes a job fail
     stale_event: str | None = None  # with require_snapshot: written instead of `event` when 完成 or the names changed meanwhile
+    # Merimen logged the worker out during the job (owner 2026-11-28): put back WITHOUT using a try, the session marked for a re-login;
+    # the job then goes on from where it stopped (every step skips what Merimen already has). Set only by loop.session_lost_outcome
+    session_lost: bool = False
+    # a retry that ends the job (tries used up, or the logout cap) leaves this as the case's error: "photos" for a photo list that
+    # could not be read, so Phase B still follows the Done press (a photo-only stop)
+    stop_error: str | None = None
 
 
 def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcome:
@@ -157,6 +165,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             s2 = None
         except Exception as e:  # noqa: BLE001  (the real Select Parts page broke: ticking only adds ticks, a person looks before it runs again)
             code = getattr(e, "code", None) or type(e).__name__
+            from . import login_seen
+
+            if code == "unreadable" and login_seen.seen() and driver.relogin_ready:  # a Select Parts page met the login form
+                return _o("requeue", error="step2", event=f"Phase {phase} stopped. Merimen logged out on the Select Parts page")
             return _o("failed", case_status="waiting_user", error="step2",
                       event=f"Phase {phase} stopped. Parts and labour could not be ticked ({code}). Check the Select Parts page in Merimen."[:400])
         if s2 is not None and (s2.plan or not s2.ok):
@@ -165,6 +177,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             ev = f"Phase {phase} stopped. {s2.line()}"
             if s2.code == "undone":
                 return _o("cancelled", event=ev)
+            from . import login_seen
+
+            if s2.code == "unreadable" and login_seen.seen() and driver.relogin_ready:  # the Select Parts page showed the login form: try again after a re-login (ticking only adds ticks)
+                return _o("requeue", error="step2", event=ev)
             return _o("failed", case_status="waiting_user", error="step2", event=ev)
     dry = driver.dry_run(phase, steps)
     if not dry.ok:
@@ -194,7 +210,8 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             # "checks": Merimen was saved, but a check the owner set before submitting failed: the list waits for a person
             lead = f"Phase {phase}:" if saved.error == "checks" else f"Phase {phase} not saved."
             return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"{lead} {saved.line}"[:400])
-        return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved")
+        why = f". {saved.line}" if saved.line and saved.error in ("docs", "estimate") else ""  # the case exists: say what is left
+        return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved{why}"[:400])
     if phase == "A" and saved.partial:
         # the case exists in Merimen (made now, or by an earlier run: nothing is made twice). Its number is stored so no second case is made.
         # After the create come the Adjuster Report and the documents (done by the driver, in `saved.line`) and the photos here.
@@ -214,7 +231,12 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
         photo_note = f" {rep.line()}" if rep and (rep.photos or not rep.ok) else ""
         tail = ""
         if existed:
-            return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}{photo_note}{tail}".strip()[:400], partial=True, photo_log=_log(rep))
+            # a case still in Phase A (the run that made it was cut off, e.g. Merimen logged out after the create): it moves on as
+            # after a first create; a case already further along keeps its status
+            moves = case.get("status") == "phase_a"
+            nxt = ("phase_b" if case.get("photos_done_at") else "waiting_user") if moves else None
+            return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}{photo_note}{tail}".strip()[:400],
+                      partial=True, photo_log=_log(rep), case_status=nxt, enqueue=(["phase_b"] if nxt == "phase_b" else []))
         return _o(
             "done", case_status=("phase_b" if case.get("photos_done_at") else "waiting_user"), partial=True,
             enqueue=(["phase_b"] if case.get("photos_done_at") else []),  # 完成 was already pressed: Phase B still gets its turn
@@ -273,7 +295,7 @@ def _photo_stop(phase: str, rep) -> "Outcome | None":
     if rep.code in ("edited", "undone"):
         return Outcome("cancelled", event=event, photo_log=row)
     if rep.code == "unreadable":
-        return Outcome("requeue", event=event)
+        return Outcome("requeue", event=event, stop_error="photos")
     return Outcome("failed", case_status="waiting_user", error="photos", event=event, photo_log=row)
 
 
@@ -330,8 +352,20 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
     newest = max((j.get("created_epoch") for j in b_jobs if j.get("created_epoch") is not None), default=None)
     done_at = case.get("done_epoch")
     due = not b_jobs or (newest is not None and done_at is not None and done_at > newest)
+    # Phase A must have got past its documents and report: a Phase A that stopped for a person there (a document set cut off, a case
+    # logged out too often, a report that did not save) also leaves the case waiting_user, and Phase B on top of it could end "ready
+    # to submit" with documents missing. A Phase A that stopped only on its PHOTOS (error "photos...") still lets Phase B upload or
+    # fix them with the final names, as before. To go on after a hand fix: queue that same phase_a job again (playbook 06)
+    a_jobs = sorted((j for j in jobs if j["step"] == "phase_a"), key=lambda j: j.get("created_epoch") or 0.0)
+    last_a = a_jobs[-1]["state"] if a_jobs else "done"
+    # a Phase B already made after that Phase A was let through then (its own stop has since overwritten cases.error): Undo +
+    # Done again still gets a new Phase B
+    b_after_a = bool(a_jobs) and any((j.get("created_epoch") or 0.0) > (a_jobs[-1].get("created_epoch") or 0.0) for j in b_jobs)
+    a_done = last_a == "done" or (last_a not in ("queued", "running")
+                                  and (b_after_a or str(case.get("error") or "").startswith("photos")))
     if (
-        case.get("status") in ("waiting_user", "phase_b")
+        a_done
+        and case.get("status") in ("waiting_user", "phase_b")
         and case.get("photos_done_at")
         and case.get("photos_snapshot") is not None  # Done and its snapshot are two writes: never start in the gap (nor before migration 0010)
         and "phase_b" not in open_steps

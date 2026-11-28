@@ -249,6 +249,25 @@ def test_phase_b_a_failed_two_way_check_stops_for_a_hand_fix_and_keeps_the_log()
     assert o.step2_log["action"] == "refused" and o.step2_log["check"]["add"]
 
 
+def test_phase_b_select_parts_that_meets_the_login_form_is_a_retry_with_relogin_ready():
+    from autopilot_worker import login_seen
+
+    class Broke(FakeStep2):
+        def apply(self, case, plan):
+            login_seen.mark()
+            e = RuntimeError("login form")
+            e.code = "unreadable"
+            raise e
+
+    d = D(Broke(), Fake(held=[]))
+    o = run_phase("B", case_b(), writes=True, driver=d)
+    assert o.job_state == "failed" and o.case_status == "waiting_user"  # re-login off: the old stop
+    d = D(Broke(), Fake(held=[]))
+    d.relogin_ready = True
+    o = run_phase("B", case_b(), writes=True, driver=d)
+    assert o.job_state == "requeue" and o.error == "step2" and o.case_status is None
+
+
 # ---------- the real reviewer (HTTP faked) ----------
 def test_the_anthropic_reviewer_sends_the_playbook_as_the_cached_system_prompt_and_parses_the_json():
     from autopilot_worker.step2_ai import AnthropicStep2Reviewer, from_env

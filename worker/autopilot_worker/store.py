@@ -11,6 +11,9 @@ from .jobs import CLAIM_SQL, RECLAIM_SQL, TOUCH_SQL, claim_params
 from .login_page import backoff_seconds
 from .pipeline import Outcome
 
+LOST_EVENT = "Merimen logged out during"  # the event every logout put-back writes (loop.session_lost_outcome); the cap counts these
+LOST_WINDOW = "6 hours"
+
 MAX_ATTEMPTS = 3  # a lease that ran out (jobs.RECLAIM_SQL) or a worker error (loop.py): the third claim is the last
 # "Try again later" (Outcome "requeue"): try 1 -> wait 30 s -> try 2 -> wait 2 min -> try 3 -> wait 10 min -> try 4 -> failed.
 # jobs.attempts counts every claim of the job, whatever ended it, so the three waits are backoff_seconds(1), (2), (3).
@@ -111,6 +114,25 @@ class PgRepo:
             (row["request_id"], row.get("case_id"), row["purpose"], row["model"], row["input_tokens"], row["output_tokens"],
              row.get("latency_ms"), bool(row["ok"]), row.get("error_class"), row.get("case_id")),
         )
+
+    def session_lost_count(self, case_id: str) -> int:
+        """Put-backs because Merimen logged out (LOST_EVENT) for this case in the last LOST_WINDOW (the cap is loop.LOST_CAP)."""
+        rows = self.db.execute(
+            "SELECT count(*) FROM case_events WHERE case_id = %s AND message LIKE %s AND at > now() - %s::interval",
+            (case_id, LOST_EVENT + "%", LOST_WINDOW),
+        )
+        return int(rows[0][0]) if rows else 0
+
+    def was_put_back(self, job: dict) -> bool:
+        """THIS job was put back before because Merimen logged out (a put-back requeues the same job, so its event is newer than the
+        job itself; a later job of the same step is newer than the event). However long the re-login took, and a retry in between
+        does not end it. Used by Phase A photos only (photo_sync.phase_a: resume a clean start, else a hand fix); documents stop on any partial set anyway."""
+        rows = self.db.execute(
+            "SELECT EXISTS (SELECT 1 FROM case_events e JOIN jobs j ON j.id = %s WHERE e.case_id = %s AND e.step = %s AND e.message LIKE %s"
+            " AND e.at >= j.created_at)",
+            (job["id"], job["case_id"], job["step"], LOST_EVENT + "%"),
+        )
+        return bool(rows and rows[0][0])
 
     def heartbeat(self, worker_id: str, model: str, chrome_ok: bool) -> None:
         self.db.execute(
@@ -258,9 +280,20 @@ class PgRepo:
         if outcome.job_state == "requeue":
             # put back with a wait (jobs.not_before, migration 0007), and only so many times: `attempts` is the number of claims so far
             attempts = int(job.get("attempts") or 1)
-            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS
+            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS and not outcome.session_lost
             state = "failed" if gave_up else "queued"
-        if outcome.job_state == "hold":
+        if outcome.session_lost and state == "queued":
+            # Merimen logged out half way: the claim's try is given back, and the session waits for the re-login before the next claim
+            st.append((
+                "UPDATE jobs SET state = 'queued', locked_by = NULL, locked_at = NULL, attempts = GREATEST(attempts - 1, 0), "
+                "not_before = now() + interval '30 seconds' WHERE id = %s AND state = 'running'",
+                (job["id"],),
+            ))
+            st.append((
+                "UPDATE worker_sessions SET status = 'expired', detail = 'not_logged_in' WHERE org_id = %s AND status = 'connected'",
+                (job["org_id"],),
+            ))
+        elif outcome.job_state == "hold":
             st.append(("UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running'", (job["id"],)))
         elif state == "queued":
             st.append((
@@ -294,8 +327,12 @@ class PgRepo:
             st.append(("SELECT 1 FROM cases WHERE id = %s FOR UPDATE", (job["case_id"],)))
             if outcome.total_rm:  # the estimate is saved in Merimen either way
                 st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
-        error = outcome.error or ("gave up after %d tries" % attempts if gave_up else None)
-        if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or error:
+        error = outcome.error or (((outcome.stop_error + ": " if outcome.stop_error else "") + "gave up after %d tries" % attempts) if gave_up else None)
+        # a retry that ran out with a stop of its own (a photo list never readable) waits for a person like that stop does, so the
+        # Done press can start Phase B (followup_steps wants waiting_user / phase_b; a first Phase A would else stay phase_a)
+        status = outcome.case_status or ("waiting_user" if gave_up and outcome.stop_error else None)
+        # a logout put-back that keeps the case number it wrote leaves the case's error as it was
+        if status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or error:
             st.append((
                 """
                 UPDATE cases SET
@@ -304,11 +341,11 @@ class PgRepo:
                   merimen_extid = COALESCE(%s, merimen_extid),
                   total_rm = COALESCE(%s, total_rm),
                   pending_doc = COALESCE(%s, pending_doc),
-                  error = %s,
+                  error = """ + ("COALESCE(%s, error)" if outcome.session_lost else "%s") + """,
                   done_at = CASE WHEN %s THEN now() ELSE done_at END
                 WHERE id = %s AND deleted_at IS NULL""" + final_sql,
                 (
-                    outcome.case_status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
+                    status, outcome.merimen_caseid, outcome.merimen_extid, outcome.total_rm,
                     outcome.pending_doc, error, bool(outcome.done), job["case_id"],
                 ) + final_args,
             ))
@@ -420,7 +457,7 @@ class PgRepo:
         try:
             cases = self.db.execute(
                 """
-                SELECT id, org_id, status, photos_done_at, merimen_caseid, photos_snapshot, extract(epoch from photos_done_at)
+                SELECT id, org_id, status, photos_done_at, merimen_caseid, photos_snapshot, extract(epoch from photos_done_at), error
                 FROM cases
                 WHERE status IN ('phase_a', 'waiting_user', 'phase_b') AND deleted_at IS NULL
                 """
@@ -428,8 +465,8 @@ class PgRepo:
         except Exception as e:  # before migration 0010: no snapshot, no photo log; any other error fails the job
             if not _missing_0010(e):
                 raise
-            cases = [tuple(c[:5]) + (None, c[5]) for c in self.db.execute(
-                "SELECT id, org_id, status, photos_done_at, merimen_caseid, extract(epoch from photos_done_at) FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b') AND deleted_at IS NULL"
+            cases = [tuple(c[:5]) + (None, c[5], c[6] if len(c) > 6 else None) for c in self.db.execute(
+                "SELECT id, org_id, status, photos_done_at, merimen_caseid, extract(epoch from photos_done_at), error FROM cases WHERE status IN ('phase_a', 'waiting_user', 'phase_b') AND deleted_at IS NULL"
             )]
         if not cases:
             return []
@@ -440,7 +477,8 @@ class PgRepo:
             by_case.setdefault(case_id, []).append({"step": step, "state": state, "created_epoch": float(created) if created is not None else None})
         return [
             ({"id": c[0], "org_id": c[1], "status": c[2], "photos_done_at": c[3].isoformat() if c[3] else None, "merimen_caseid": c[4],
-              "photos_snapshot": c[5], "done_epoch": float(c[6]) if c[6] is not None else None}, by_case[c[0]])
+              "photos_snapshot": c[5], "done_epoch": float(c[6]) if c[6] is not None else None,
+              "error": c[7] if len(c) > 7 else None}, by_case[c[0]])
             for c in cases
         ]
 

@@ -154,8 +154,47 @@ def _read_labels(m: MerimenPhotos, case: dict) -> list[str] | None:
     return got
 
 
+def prefix_done(have: list[str] | None, plan: list[dict], alt: dict | None = None) -> int:
+    """How many photos an upload that was cut off (Merimen logged out half way, owner 2026-11-28) already left in Merimen: k when the
+    captions Merimen holds are the first k planned photos in the same order (0 < k < plan). 0 for anything else: an empty list,
+    the full list, or photos that do not line up (those keep the hand-fix path, never a guess). See `lined_up`."""
+    if not have or len(have) >= len(plan):
+        return 0
+    return len(have) if lined_up(have, plan, alt) else 0
+
+
+def lined_up(have: list[str], plan: list[dict], alt: dict | None = None) -> bool:
+    """Merimen's captions are, position by position, the planned photos: each caption is that photo's name now OR the model's name
+    for it (`alt`: photo id -> model name; the desk may have renamed a photo while the job waited for its re-login), and names
+    NO other photo of the plan (so a caption proves which photo it is; a name used twice is never taken as proof)."""
+    if len(have) > len(plan):
+        return False
+    alt = alt or {}
+    names_of = [{p["name"]} | ({alt[p["id"]]} if alt.get(p.get("id")) else set()) for p in plan]
+    for i, c in enumerate(have):
+        if c not in names_of[i] or sum(1 for n in names_of if c in n) > 1:
+            return False
+    return True
+
+
+def _as_held(plan: list[dict], have: list[str]) -> list[dict]:
+    """The plan with the first photos under the captions Merimen holds (a model name the desk changed since): what is verified and
+    logged as this upload, so Phase B relabels them to the final names as for any Phase A photo."""
+    from .photo_rules import file_type
+
+    return [dict(p, name=have[i], ftype=file_type(have[i])) if i < len(have) and have[i] != p["name"] else p for i, p in enumerate(plan)]
+
+
+def _resume(rep: PhotoReport, case: dict, plan: list[dict], k: int, merimen: MerimenPhotos, guard: Guard, writes: bool) -> PhotoReport:
+    rep.action, rep.upload = "upload", len(plan) - k
+    rep.note = f"an upload was cut off: Merimen has the first {k} of {len(plan)}, only the rest is uploaded"
+    return rep if not writes else _upload(rep, case, plan, merimen, guard, start=k)
+
+
 def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhotos, guard: Guard = lambda: True) -> PhotoReport:
-    """Upload with the names the model gave (the adjuster may be slow). A case that already has a photo in Merimen is skipped."""
+    """Upload with the names the model gave (the adjuster may be slow). A case that already has a photo in Merimen is skipped.
+    Only after a logout put-back or on a later run of the same job (`resumed_after_logout`): photos that are exactly the start of this list (an upload that was cut
+    off) get the rest uploaded, and any other partial list stops for a hand fix."""
     plan = plan_rows(rows)
     rep = PhotoReport("A", "live" if writes else "dry", "upload", upload=len(plan), photos=plan)
     if not plan:
@@ -163,6 +202,35 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
         return rep
     have = _read_labels(merimen, case)
     rep.merimen_count = None if have is None else len(have)
+    resumed = bool(case.get("resumed_after_logout"))
+    alt = {r.get("id"): r.get("model_name") for r in rows if r.get("model_name")}
+    k = prefix_done(have, plan, alt) if resumed else 0
+    again = merimen.labels(case) if k and writes else have
+    if k and writes and (again is None or (have and not again)):  # the second read failed (or read the known empty-list blip): try again later
+        rep.action, rep.upload, rep.note, rep.code = "unreadable", 0, "could not read the photos in Merimen", "unreadable"
+        return rep
+    if k and writes and again != have:
+        # a list read while the page was still filling looks like a cut-off start: the rest is uploaded only when a second read
+        # gives the very same list (else a person looks, never a second copy of photos already there)
+        rep.action, rep.upload, rep.code, rep.snapshot = "refused", 0, "hand_fix", None
+        rep.note = "the photo list in Merimen changed between two reads: fix by hand (playbook 06)"
+        return rep
+    if k:
+        rep.photos = plan = _as_held(plan, have)
+        return _resume(rep, case, plan, k, merimen, guard, writes)
+    names = [p["name"] for p in plan]
+    if resumed and have and (have == names or (len(have) == len(plan) and lined_up(have, plan, alt))):
+        # the run before was cut off after its upload: the list is logged as this upload, so Phase B can compare with it. Captions
+        # only (a list exactly as planned, repeats included, or each caption naming one photo): Phase B checks each photo again
+        rep.photos = _as_held(plan, have)
+        rep.action, rep.upload, rep.note = "upload", 0, f"an upload was cut off after its last photo: Merimen has all {len(plan)}"
+        return rep
+    if resumed and have:
+        # put back after a logout (or a later run of the same job): anything but the clean start or the whole list (a gap, a
+        # repeated caption, a name changed meanwhile, a photo stored twice) is never taken as "already has photos", a person looks (playbook 06)
+        rep.action, rep.upload, rep.code, rep.snapshot = "refused", 0, "hand_fix", None
+        rep.note = f"Merimen has {len(have)} photos that do not line up with this list of {len(plan)}: fix by hand (playbook 06)"
+        return rep
     if have is not None and len(have) >= int(rules()["photoUpload"]["skipWhenMerimenHasPhotos"]):
         rep.action, rep.upload, rep.note = "none", 0, f"Merimen already has {len(have)} photos"
         return rep
@@ -176,13 +244,26 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     return _upload(rep, case, plan, merimen, guard)
 
 
-def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhotos, guard: Guard) -> PhotoReport:
+def _checked(check: dict) -> dict:
+    """A photo check that could not read the list because Merimen logged out during the upload is the same stop as an upload that
+    met the login form (a person looks; with re-login on the job is put back and goes on from the photos that are there)."""
+    from . import login_seen
+
+    if check.get("count") == -1 and login_seen.seen():
+        raise login_seen.LoggedOut("not_logged_in")
+    return check
+
+
+def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhotos, guard: Guard, start: int = 0) -> PhotoReport:
+    """`start`: the first `start` photos of the plan are already in Merimen in order (prefix_done); only the rest goes up, the whole
+    list is verified."""
     if not guard():
         rep.snapshot = None
         rep.action, rep.upload, rep.note, rep.code = "refused", 0, "the case changed before the upload", "undone"
         return rep
-    merimen.upload(case, plan, chunked(plan))
-    check = merimen.verify(case, plan)
+    rest = plan[start:]
+    merimen.upload(case, rest, chunked(rest))
+    check = _checked(merimen.verify(case, plan))
     for _ in range(2):  # dropped photos: upload the missing positions again (playbook 06, up to 2 rounds)
         miss = check.get("missing") or []
         if not miss:
@@ -193,7 +274,7 @@ def _upload(rep: PhotoReport, case: dict, plan: list[dict], merimen: MerimenPhot
             return rep
         part = [plan[i] for i in miss if 0 <= i < len(plan)]
         merimen.upload(case, part, chunked(part))
-        check = merimen.verify(case, plan)
+        check = _checked(merimen.verify(case, plan))
     if check.get("count") != len(plan) or check.get("mismatch"):
         rep.action, rep.code, rep.snapshot = "refused", "hand_fix", None
         rep.note = f"after the upload Merimen has {check.get('count')} photos and {check.get('mismatch')} mismatches (plan {len(plan)})"

@@ -134,6 +134,9 @@ class MerimenReport:
         self.cur.goto(f"{CLAIMS}?fusebox=MTRadjuster&fuseaction=dsp_estmain&caseid={D['cid']}&extid={D['extid']}&{q}", wait_until="domcontentloaded")
         self._w(4500)
         if self.cur.locator("input[type=password]").count() > 0:
+            from . import login_seen
+
+            login_seen.mark_if_shown(self.cur)
             return "not_logged_in"
         if not self.cur.locator("[name=sleFILENO],[name=slePoliceRef]").count():
             return "report_not_open"
