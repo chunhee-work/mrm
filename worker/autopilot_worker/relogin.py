@@ -27,7 +27,10 @@ from .login_page import (
 )
 
 COOLDOWN = "10 minutes"
-CAP = 12  # typed tries in 24 h
+CAP = 12  # typed tries in 24 h that did NOT log in (a rejected, unclear or lost answer)
+# every typed try in 24 h, the ones that worked too: a ceiling against a loop. A login that worked never risks the account, and
+# Merimen ends an idle session often (NCH5773 2026-11-28: 12 good logins by 01:10 MYT, then 16 h of no work behind the old cap of 12)
+TOTAL_CAP = 48
 STREAK = 6  # put-backs in a row (nothing typed) before one mail
 STREAK_WINDOW = "6 hours"
 UNCLEAR_BLOCK = "24 hours"
@@ -57,7 +60,9 @@ _LAST_PROVEN = (
     f"{_sql_list(PROVEN_ACTIONS)}), '-infinity'::timestamp)"
 )
 _COOLDOWN = f"EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_try' AND at > now() - interval '{COOLDOWN}')"
-_CAPPED = f"(SELECT count(*) FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_typed' AND at > now() - interval '24 hours') >= {CAP}"
+_TYPED_24H = "(SELECT count(*) FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_typed' AND at > now() - interval '24 hours')"
+_OK_24H = "(SELECT count(*) FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_ok' AND at > now() - interval '24 hours')"
+_CAPPED = f"({_TYPED_24H} - {_OK_24H} >= {CAP} OR {_TYPED_24H} >= {TOTAL_CAP})"
 _UNCLEAR = (
     f"EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_unclear' AND at > now() - interval '{UNCLEAR_BLOCK}' "
     f"AND at > {_LAST_PROVEN})"
