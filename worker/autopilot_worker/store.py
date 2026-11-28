@@ -123,6 +123,15 @@ class PgRepo:
         )
         return int(rows[0][0]) if rows else 0
 
+    def put_back_last(self, case_id: str, step: str) -> bool:
+        """This step of the case was last put back because Merimen logged out (its newest event, within LOST_WINDOW): the run now
+        starting is the one that goes on from where that one stopped."""
+        rows = self.db.execute(
+            "SELECT message LIKE %s FROM case_events WHERE case_id = %s AND step = %s AND at > now() - %s::interval ORDER BY at DESC, id DESC LIMIT 1",
+            (LOST_EVENT + "%", case_id, step, LOST_WINDOW),
+        )
+        return bool(rows and rows[0][0])
+
     def heartbeat(self, worker_id: str, model: str, chrome_ok: bool) -> None:
         self.db.execute(
             """

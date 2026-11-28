@@ -259,12 +259,6 @@ def phase_b(
     if have is None and writes:
         rep.action, rep.note, rep.code, rep.snapshot = "unreadable", "could not read the photos in Merimen", "unreadable", None
         return rep
-    # 2a an upload of these final names was cut off (logged out half way): Merimen holds exactly their start, only the rest goes up
-    # Only after a logout put-back, and only when there is no Phase A list: Phase B uploads only into an empty Merimen (step 2), so
-    # photos that came from Phase A are always matched by step 3/4 (captions alone do not say which photo carries which).
-    k = prefix_done(have, new) if case.get("resumed_after_logout") and not phase_a_photos else 0
-    if k:
-        return _resume(rep, case, new, k, merimen, guard, writes)
     # 2 nothing in Merimen yet (Done was pressed before Phase A reached the upload): upload with the final names and order
     empty = (have is not None and len(have) == 0) or (have is None and not phase_a_photos)
     if empty:

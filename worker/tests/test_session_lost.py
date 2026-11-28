@@ -111,6 +111,13 @@ def test_on_postgres_the_put_back_keeps_the_attempts_and_the_cap_counts_the_even
     count = Rec2()
     PgRepo("", db=count).session_lost_count("c1")
     csql, cargs = to_numbered(*count.calls[0])
+    last = Rec2()
+    PgRepo("", db=last).put_back_last("c1", "phase_b")
+    PgRepo("", db=last).put_back_last("c1", "phase_a")
+    lsql, largs = to_numbered(*last.calls[0])
+    lsql_a, largs_a = to_numbered(*last.calls[1])
+    r0 = run([*steps, {"sql": lsql, "params": largs}, {"sql": lsql_a, "params": largs_a}], seed=seed)
+    assert r0[len(steps)] == [[True]] and r0[len(steps) + 1] == []  # this step was put back; another step was not
     r = run([*steps,
              {"sql": "SELECT state, attempts, not_before > now() FROM jobs WHERE id = 100"},
              {"sql": "SELECT status, detail FROM worker_sessions WHERE org_id = 'o1'"},
@@ -218,11 +225,39 @@ def test_phase_a_still_skips_photos_that_are_not_its_start():
     assert rep.action == "none" and m.writes == []
 
 
-def test_phase_b_uploads_only_the_rest_of_a_cut_off_final_upload():
+def test_phase_b_never_guesses_a_partial_list_even_after_a_put_back():
+    # Phase B photo writes are matched only as before (captions alone do not say which photo went up)
     final = rows(*[(i, f"{i}.jpg", f"Part {i}", f"Final {i}") for i in range(1, 6)])
     m = Fake(held=["Final 1", "Final 2"])
     rep = ps.phase_b(RESUMED, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=[], writes=True, merimen=m)
-    assert rep.ok and rep.upload == 3 and m.writes == ["upload:3:1"]
+    assert not rep.ok and m.writes == []
+
+
+def test_a_login_form_a_step_found_counts_although_the_old_tab_looks_fine(tmp_path):
+    FORCE_RELOGIN.clear()
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
+    fail = Outcome("failed", case_status="waiting_user", error="docs", event="Phase A not saved.")
+    got = loop.check_session_after(on, CountRepo(), {**JOB, "step": "phase_a"}, fail, inspect=lambda p: LOGGED_IN, page_for=None, seen_login=True)
+    assert got.session_lost and "o1" in FORCE_RELOGIN
+    FORCE_RELOGIN.clear()
+
+
+def test_a_phase_b_photo_write_that_broke_stays_a_hand_fix(tmp_path):
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
+    own = Outcome("failed", case_status="waiting_user", error="photos", event="Phase B stopped. The photo step failed (x).")
+    assert loop.check_session_after(on, CountRepo(), JOB, own, inspect=lambda p: LOGIN_PAGE, page_for=None, seen_login=True) is own
+    assert FORCE_RELOGIN == {}
+
+
+def test_login_seen_marks_and_resets():
+    from autopilot_worker import login_seen
+
+    login_seen.reset()
+    assert not login_seen.seen()
+    login_seen.mark()
+    assert login_seen.seen()
+    login_seen.reset()
+    assert not login_seen.seen()
 
 
 def test_phase_b_with_photos_that_do_not_line_up_is_still_refused():

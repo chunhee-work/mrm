@@ -138,6 +138,9 @@ class MerimenPage:
         tab.goto(url, wait_until="domcontentloaded")
         tab.wait_for_timeout(self.ms(2500))
         if tab.locator("input[type=password]").count() > 0:
+            from . import login_seen
+
+            login_seen.mark()
             raise DocError("not_logged_in")
         return tab
 

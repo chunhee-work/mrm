@@ -214,6 +214,9 @@ class MerimenEstimate:
         page.goto(f"{CLAIMS}?fusebox=MTRestinterface&fuseaction=dsp_details&caseid={cid}&extid={ext}&tpins=0&{q}", wait_until="domcontentloaded")
         page.wait_for_timeout(self._ms(4000))
         if page.locator("input[type=password]").count() > 0:
+            from . import login_seen
+
+            login_seen.mark()
             page.close()
             return None
         return page
@@ -471,6 +474,9 @@ def read_total(page_for, case: dict, *, timeout_scale: float = 1.0) -> float | N
         page.goto(f"{CLAIMS}?fusebox=MTRroot&fuseaction=dsp_clmheader&caseid={cid}&{q}", wait_until="domcontentloaded")
         page.wait_for_timeout(max(0, int(3500 * timeout_scale)))
         if page.locator("input[type=password]").count() > 0:
+            from . import login_seen
+
+            login_seen.mark()
             return None
         m = re.search(r"RM\s?([\d,]+\.\d\d)", page.evaluate("() => document.body.innerText") or "")
         return _money(m.group(1)) if m else None

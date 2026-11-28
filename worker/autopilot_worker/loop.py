@@ -10,6 +10,7 @@ import time
 import traceback
 from dataclasses import replace
 
+from . import login_seen
 from .cdp_client import page_block
 from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
 from .config import Config, account_for
@@ -101,7 +102,7 @@ def _print_error(job: dict, e: BaseException) -> None:
 
 
 # ---- Merimen logged out during a job (owner 2026-11-28: "will the worker notice, log in and go on?") ----
-PHASE_STEPS = ("phase_a", "phase_b", "checks")
+PHASE_STEPS = ("phase_a", "phase_b")  # the jobs that drive Merimen (Phase B runs its own checks); the `checks` job only waits
 LOST_CAP = 5  # put-backs for one case in LOST_WINDOW (store.LOST_EVENT, store.LOST_WINDOW); the next one fails and the case waits
 _PHASE_NAME = {"phase_a": "Phase A", "phase_b": "Phase B", "checks": "the checks"}
 FORCE_TTL = 1200.0  # a mark nobody could act on (re-login refused, a person logged in) ends after 20 min: the address decides again
@@ -178,14 +179,20 @@ def puts_back(cfg: Config, relogin_ready: bool = True) -> bool:
     return bool(cfg.ext_connect and cfg.merimen_relogin and relogin_ready)
 
 
-def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspect, page_for, now=time.monotonic, relogin_ready: bool = True) -> Outcome:
-    """After a Merimen job that did not finish: was the session logged out meanwhile? Then the put-back outcome, and the org is
-    marked so the next tick books a re-login. A check that fails itself leaves the outcome as it was."""
+def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspect, page_for, now=time.monotonic, relogin_ready: bool = True,
+                        seen_login: bool = False) -> Outcome:
+    """After a Merimen job that did not finish: was the session logged out meanwhile (a step found the login form in a page it
+    opened, `seen_login`, or a fresh look at Chrome)? Then the put-back outcome, and the org is marked so the next tick books a
+    re-login. A check that fails itself leaves the outcome as it was."""
     if job["step"] not in PHASE_STEPS or outcome.job_state not in ("failed", "requeue") or not puts_back(cfg, relogin_ready) \
             or _not_merimen(outcome):
         return outcome
+    if job["step"] == "phase_b" and outcome.error == "photos":
+        # a relabel / reorder / final upload that broke half way: a person looks at Merimen's list, as before (matching by caption
+        # alone could give a photo the wrong name)
+        return outcome
     try:
-        if session_alive(cfg, inspect, page_for, job["org_id"]):
+        if not seen_login and session_alive(cfg, inspect, page_for, job["org_id"]):
             return outcome
         got = session_lost_outcome(job, outcome, count=repo.session_lost_count(job["case_id"]))
     except Exception:  # noqa: BLE001
@@ -369,11 +376,12 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     _at("job")
     case = repo.load(job["case_id"])
     if isinstance(case, dict) and job["step"] in PHASE_STEPS and puts_back(cfg, relogin is not None):
-        try:  # put back after a logout lately: a partial photo list in Merimen is then a cut-off upload, never "already has photos"
-            case["resumed_after_logout"] = repo.session_lost_count(job["case_id"]) > 0
+        try:  # this step was last put back after a logout: a partial photo list is then a cut-off upload, never "already has photos"
+            case["resumed_after_logout"] = repo.put_back_last(job["case_id"], job["step"])
         except Exception:  # noqa: BLE001
             pass
-    shooter =Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
+    login_seen.reset()
+    shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
 
     def shoot(step: str) -> None:
@@ -440,7 +448,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
                 pass
     _at("session_check")
     outcome = check_session_after(cfg, repo, job, outcome, inspect=inspect, page_for=page_for or getattr(driver, "page_for", None), now=now,
-                                  relogin_ready=relogin is not None)
+                                  relogin_ready=relogin is not None, seen_login=login_seen.seen())
     _at("apply")
     repo.apply(job, outcome)
     return job["step"]
