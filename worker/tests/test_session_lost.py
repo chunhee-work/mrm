@@ -748,3 +748,21 @@ def test_jobs_that_find_the_same_logout_side_by_side_count_once_for_the_org_cap(
         assert got.session_lost  # every one is put back
         t[0] += 5
     assert len(loop.ORG_PUTBACKS["o1"]) == 1 and not loop.held("o1", now=lambda: t[0])
+
+
+def test_a_second_job_meeting_the_logout_just_counted_never_pushes_the_org_over_the_cap(tmp_path):
+    """Codex #156: ORG_CAP - 1 earlier logouts, then two side-by-side jobs meet the next one. The second is that same logout: both
+    are put back and the org is not held."""
+    on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on", WORKER_SLOTS="2")
+    retry = Outcome("requeue", error="report", event="Phase A not saved")
+    t = [9000.0]
+    loop.ORG_PUTBACKS["o1"] = [t[0] - 3000 + 600 * i for i in range(loop.ORG_CAP - 1)]  # earlier, separate logouts
+    for i in range(2):
+        got = loop.check_session_after(on, CountRepo(), {**JOB, "case_id": f"q{i}"}, retry, inspect=lambda p: LOGIN_PAGE,
+                                       page_for=None, seen_login=True, now=lambda: t[0])
+        assert got.session_lost
+        t[0] += 5
+    assert len(loop.ORG_PUTBACKS["o1"]) == loop.ORG_CAP and not loop.held("o1", now=lambda: t[0])
+    loop.ORG_PUTBACKS.clear()
+    loop.FORCE_RELOGIN.clear()
+    loop.RELOGIN_OK.clear()

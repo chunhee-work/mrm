@@ -344,16 +344,18 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         return outcome
     with SESSION_LOCK:
         times = [t for t in ORG_PUTBACKS.get(org, []) if now() - t < ORG_WINDOW]
-        if len(times) >= ORG_CAP:
+        # Several jobs that find the SAME logout (WORKER_SLOTS > 1, they run side by side) count once: a logout found within
+        # SAME_LOGOUT of the last one, with no re-login that worked since, is that one. Decided BEFORE the cap, so a second job that
+        # meets the logout the first one just counted never pushes the org over the cap
+        same = bool(getattr(cfg, "slots", 1) > 1 and times and now() - times[-1] < SAME_LOGOUT
+                    and RELOGIN_OK.get(org, float("-inf")) < times[-1])
+        if not same and len(times) >= ORG_CAP:
             # this org was logged out ORG_CAP times within ORG_WINDOW (3 h, any cases): stop putting back, keep the job's own outcome
             ORG_PUTBACKS[org] = times
             _hold_locked(org, now, "held_org_cap")
             HELD_PAUSED.add(org)
             return outcome
-        # the case cap's stop counts too: it also books a re-login. Several jobs that find the SAME logout (WORKER_SLOTS > 1, they
-        # run side by side) count once: a logout found within SAME_LOGOUT of the last one is that one
-        same = (getattr(cfg, "slots", 1) > 1 and times and now() - times[-1] < SAME_LOGOUT
-                and RELOGIN_OK.get(org, float("-inf")) < times[-1])  # a re-login that worked since: this is a new logout
+        # the case cap's stop counts too: it also books a re-login
         ORG_PUTBACKS[org] = times if same else times + [now()]
         FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
     note(job["org_id"], "put_back" if got.job_state != "failed" else "cap_reached", now)
