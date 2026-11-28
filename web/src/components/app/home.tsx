@@ -207,7 +207,8 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
   useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
   // the case's files, read by Brief below: while the desk is open its documents sit in the desk's bar (the photos are the desk itself)
   const [files, setFiles] = useState<CaseFile[]>([]);
-  const docs = files.filter((f) => !/\.(jpe?g|png|webp)$/i.test(f.name));
+  // beside the desk: the documents, and any uploaded picture the desk left out (too large, unreadable)
+  const docs = files.filter((f) => !f.onDesk);
   const desk = (
     <div className="overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
       <NamingDesk orgId={orgId} initialId={r.id} embedded barExtra={docs.length > 0 ? <CaseFiles caseId={r.id} files={files} only="docs" look="chip" testid="desk-files" /> : undefined} onDone={ctl.relist} onFinished={(said, status) => { if (status === "pending_doc") return; setFinished(said); setDeskOpen(false); }}
@@ -272,7 +273,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
  */
 type ListCtl = { look: () => void; relist: () => void; onUpload: (busy: boolean) => void };
 
-type BriefData = { events: { at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: { slot: number; locked: boolean } | null };
+type BriefData = { events: { at: string; message: string }[]; files: CaseFile[]; workshop: { slot: number; locked: boolean } | null };
 
 /** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
  * line opens and again when its status changes, so it follows the case without the user leaving the first page. */

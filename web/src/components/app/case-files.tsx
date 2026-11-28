@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/components/lang-provider";
 
-export type CaseFile = { id: number; name: string; size: number };
+export type CaseFile = { id: number; name: string; size: number; onDesk?: boolean };
 
 const ext = (n: string) => n.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? "";
 const kindOf = (n: string): "img" | "pdf" | "other" => {
@@ -42,11 +42,12 @@ function Tile({ href, name, big }: { href: string; name: string; big?: boolean }
  * a press on a file opens it inside the same window, with Back at the top left to return to the list.
  */
 export default function CaseFiles({ caseId, files: all, testid, only, look = "label" }: { caseId: string; files: CaseFile[]; testid: string; only?: "docs"; look?: "label" | "chip" }) {
-  // inside the photo desk the photos are already on screen two in a line: the window there lists the documents only (owner 2026-11-29)
+  // inside the photo desk the photos are already on screen two in a line: the window there lists the rest only (owner 2026-11-29):
+  // documents, and any picture the desk left out
   // documents first (short cards), then the photos (two in a line, like the photo desk); Previous / Next follow the same order
   const docs = all.filter((f) => kindOf(f.name) !== "img");
-  const files = only === "docs" ? docs : [...docs, ...all.filter((f) => kindOf(f.name) === "img")];
-  const nDocs = docs.length;
+  const files = only === "docs" ? [...docs, ...all.filter((f) => kindOf(f.name) === "img" && !f.onDesk)] : [...docs, ...all.filter((f) => kindOf(f.name) === "img")];
+  const nDocs = docs.length; // documents first as short cards, pictures after them as tiles
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<number | null>(null); // index of the file shown, null = the list
