@@ -559,6 +559,9 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         for org in list(_busy_since):
             if org not in busy:
                 _busy_since.pop(org, None)
+        for org in order:  # every logged-out org with a running step starts its 10-minute wait now, also one not reached below (egm r6)
+            if org in busy:
+                _busy_since.setdefault(org, now())
         for org in order:
             if org in busy:
                 first = _busy_since.setdefault(org, now())

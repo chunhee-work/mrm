@@ -26,7 +26,7 @@ def create_done() -> None:
 
 
 class JobPool:
-    def __init__(self, slots: int, run, *, make_driver, name: str = "slot", warn_seconds: float = 3 * 3600.0, now=time.monotonic):
+    def __init__(self, slots: int, run, *, make_driver, name: str = "slot", warn_seconds: float = 1800.0, now=time.monotonic):
         """run(job, driver, extra) runs one job to its end (loop.run_job). make_driver() -> a driver for one slot thread.
         A job still running after warn_seconds keeps its slot and its lease (a hung call is never cut off or run a second time: a
         step in Merimen could then be done twice); one stderr line per such job says so. The other slots go on."""

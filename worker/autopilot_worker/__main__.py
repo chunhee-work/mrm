@@ -12,7 +12,7 @@ import time
 
 from .config import Config, account_for
 from .pipeline import Driver
-from .loop import housekeeping, run_job, tick, tick_error_line
+from .loop import _at, housekeeping, run_job, tick, tick_error_line
 from .photos import (ModelError, apply_name_rules, ensure_weights, names_for_photos, parse_predict_stdout, predict_command,
                      load_rules, predict_env, predict_slot, predict_timeout)
 from .store import PgRepo
@@ -22,6 +22,14 @@ from .store import PgRepo
 # also with WORKER_SLOTS > 1. Every later step works on its own case by its Merimen case id, in its own tab.
 _CREATE_LOCK = __import__("threading").Lock()
 CREATE_WAIT = 600.0  # a create that finds another still running after this long goes back to the queue (nothing done in Merimen yet)
+
+
+def _live_create(case) -> bool:
+    """save("A") would really create in Merimen (the same switches save() reads). Off: no create runs, so `no_create` may end now."""
+    if os.environ.get("MERIMEN_WRITES") != "on" or os.environ.get("WORKER_SUBMIT") != "on" or os.environ.get("MERIMEN_DRYRUN") == "on":
+        return False
+    only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
+    return not (only and str((case or {}).get("id")) != only)
 
 
 class _CdpDriver(Driver):
@@ -142,10 +150,10 @@ class _CdpDriver(Driver):
             est = self._estimate()
             if est is not None:  # read-only: what the estimate details step would set (the parts are not ticked in a dry run)
                 return DriveResult(ok=True, line=est.read(self.case or {}).line())
-        if phase == "A":
+        if phase == "A" and not _live_create(self.case):
             from .pool import create_done
 
-            create_done()  # nothing is created with writes off: the next create may be claimed at once (egm r5)
+            create_done()  # save() creates nothing (writes off, or another case is the supervised one): the next create may be claimed
         return DriveResult(ok=True)
 
     def _estimate(self):
@@ -951,13 +959,15 @@ def main() -> None:
                 while pool.free() > 0 and not stopping.is_set():  # fill every free slot; the claim order puts the case uploaded first in front
                     # a create already claimed (not only one holding the lock: two creates of one batch would otherwise both be
                     # claimed in this one pass) means no second create now
+                    _at("claim")  # a failed claim logs `tick … step=claim`, not the last housekeeping step
                     job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=paused_orgs(),
                                      one_chrome=True, no_create=pool.create_running() or _CREATE_LOCK.locked())
                     if not job:
                         break
-                    if pool.has(job["id"]):
+                    if pool.has(job["id"]) or stopping.is_set():
                         # its slot already wrote its outcome (back to the queue) and is still closing its tabs: never started a second
-                        # time here. The claim is undone with its try given back, and it is taken again in a later pass
+                        # time here. Or the stop signal came while the claim ran: nothing new starts after it (egm r6). The claim is
+                        # undone with its try given back, and it is taken again in a later pass
                         repo.give_back(job["id"], cfg.worker_id)
                         break
                     pool.submit(job, relogin_ready=relogin is not None)

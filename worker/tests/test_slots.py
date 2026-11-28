@@ -1215,3 +1215,26 @@ def test_session_tabs_reads_the_home_tab_and_only_step_tabs_left_is_logged_out(t
         tabs[:] = open_tabs
         cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "WORKER_SLOTS": slots})
         assert m._page_provider(cfg).session_tabs("o1") == want, (slots, want)
+
+
+def test_a_live_create_keeps_no_create_on_until_its_create_ends(monkeypatch):
+    """egm r6 B3: with live writes the dry pass before save() must not end `no_create`; only the create itself does."""
+    from autopilot_worker import pool as pl
+    from autopilot_worker.__main__ import _CdpDriver
+
+    for k, v in (("MERIMEN_WRITES", "on"), ("WORKER_SUBMIT", "on")):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    monkeypatch.delenv("MERIMEN_CREATE_ONLY_CASE", raising=False)
+    job = {"id": 1, "step": "phase_a", "create": True}
+    pl._CURRENT.job = job
+    try:
+        d = _CdpDriver.__new__(_CdpDriver)
+        d.case = {"id": "c1"}
+        _CdpDriver.dry_run(d, "A", ())
+        assert not job.get("create_done")  # still on: the claim takes no second create before this one runs
+        monkeypatch.setenv("MERIMEN_CREATE_ONLY_CASE", "other")
+        _CdpDriver.dry_run(d, "A", ())
+        assert job.get("create_done") is True  # this case is not the supervised one: nothing is created, so it ends at once
+    finally:
+        pl._CURRENT.job = None
