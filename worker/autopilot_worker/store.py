@@ -193,6 +193,13 @@ class PgRepo:
         rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id, "port": int(port)})
         return bool(rows and rows[0][0])
 
+    def chrome_used_by_other(self, org_id: str, port: int) -> bool:
+        """jobs.CHROME_USED_SQL: another org already takes part on this Chrome port, owner or not (WORKER_SLOTS > 1)."""
+        from .jobs import CHROME_USED_SQL
+
+        rows = self.db.execute(CHROME_USED_SQL, {"org": org_id, "port": int(port)})
+        return bool(rows and rows[0][0])
+
     def give_back(self, job_id: int, worker_id: str) -> None:
         """Undo a claim of a job this process still has in a slot (plan #150 I2): queued again in 30 s, its try not counted."""
         self.db.execute(GIVE_BACK_SQL, (int(job_id), worker_id))

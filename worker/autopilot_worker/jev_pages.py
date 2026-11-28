@@ -193,8 +193,12 @@ def run(jev: Jev, case: dict, fetch: Callable[[str], bytes | None], *, env=None,
     _day["cap"] = _daily_cap(env)
     _day["af_on"] = env.get("JEV_ISEARCH_PLATE") != "0"  # one switch for the I-SEARCH plate question alone
     cid = case.get("id")
+    from .mupdf import LOCK
+
     try:
-        return _run(jev, case, fetch, env, now, today(), cid)
+        # one slot at a time: PyMuPDF is not thread-safe, and the daily page cap is read and added to in here (WORKER_SLOTS > 1)
+        with LOCK:
+            return _run(jev, case, fetch, env, now, today(), cid)
     except Exception:  # noqa: BLE001  (nothing here may ever stop a case)
         return []
 

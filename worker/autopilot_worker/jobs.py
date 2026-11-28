@@ -166,6 +166,20 @@ SELECT EXISTS (
 """
 
 
+# Another org already takes part on this Chrome port (its session row has the port and its saved login is ok, or a Merimen step of
+# it runs). A NEW saved login is never checked on such a Chrome (WORKER_SLOTS > 1): the check would find the other org's live session
+# and pass without testing this password, and this org could then become the owner of a Chrome that holds the other's account.
+CHROME_USED_SQL = """
+SELECT EXISTS (
+  SELECT 1 FROM worker_sessions s6
+  WHERE s6.org_id <> %(org)s
+    AND (s6.port = %(port)s OR (s6.port IS NULL AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+    AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked)
+         OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
+)
+"""
+
+
 def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker", skip_orgs=(), one_chrome: bool = False,
                  no_create: bool = False) -> dict:
     """skip_orgs: orgs whose Merimen steps are not taken now (loop.paused_orgs). Org ids never hold a comma (they are generated ids).

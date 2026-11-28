@@ -1238,3 +1238,60 @@ def test_a_live_create_keeps_no_create_on_until_its_create_ends(monkeypatch):
         assert job.get("create_done") is True  # this case is not the supervised one: nothing is created, so it ends at once
     finally:
         pl._CURRENT.job = None
+
+
+def test_every_pymupdf_use_holds_the_one_process_lock():
+    """egm r7: PyMuPDF is not thread-safe; with slots two jobs could render at once. Every module that opens a PDF with fitz does it
+    only inside a function entered under mupdf.LOCK."""
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "autopilot_worker"
+    users = sorted(p.name for p in root.glob("*.py") if re.search(r"\bfitz\.open\(", p.read_text()))
+    assert users == ["jev_pages.py", "merimen_docs.py"], users  # a new user of fitz must take the lock too, then be added here
+    docs = (root / "merimen_docs.py").read_text()
+    assert "with LOCK:" in docs[docs.index("def shrink("):docs.index("def _shrink(")]
+    jev = (root / "jev_pages.py").read_text()
+    i = jev.index("return _run(jev, case")
+    assert "with LOCK:" in jev[i - 300:i]
+    assert "_run(" not in jev.replace("def _run(", "").replace("return _run(jev, case", "")  # _run is called only there
+
+
+def test_a_new_login_is_never_checked_on_a_chrome_another_user_is_on_even_as_owner(tmp_path, fresh):
+    """egm r7 B1: o2's first case is older (it would own the Chrome), but o1 is already logged in there: o2's new login is not checked
+    on that Chrome, so it can never pass on o1's live session and take the Chrome over."""
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+
+    class VRepo:
+        finished = None
+
+        def claim_verify(self, skip=()):
+            return {"org_id": "o2"}
+
+        def chrome_taken_by_other(self, org, port):
+            return False  # o2 would be the owner by first case
+
+        def chrome_used_by_other(self, org, port):
+            return True  # o1 is on that Chrome
+
+        def owner_email(self, org):
+            return None
+
+        def finish_verify(self, org, decision, **k):
+            VRepo.finished = decision
+
+    typed = []
+    loop._verify_wait.clear()
+    loop.verify_once(cfg, VRepo(), lambda user, password, port: typed.append(port), b"k" * 32)
+    assert typed == [] and VRepo.finished["reason"] == "shared_chrome"
+    loop._verify_wait.clear()
+
+
+@needs_pg
+def test_chrome_used_sql_sees_any_other_user_on_the_port():
+    from autopilot_worker.db import to_numbered
+    from autopilot_worker.jobs import CHROME_USED_SQL
+
+    q = lambda org, port=9222: dict(zip(("sql", "params"), to_numbered(CHROME_USED_SQL, {"org": org, "port": port})))  # noqa: E731
+    pending = ["UPDATE merimen_credentials SET verify_state = 'queued' WHERE org_id = 'o2'"]  # o2's login is new, not checked yet
+    r = run([q("o2"), q("o1"), q("o2", 9223)], seed=ORGS_CASES + READY + sessions() + pending)
+    assert r == [[[True]], [[False]], [[False]]]  # o1 (checked) is on 9222; o2 is not counted yet; 9223 is free

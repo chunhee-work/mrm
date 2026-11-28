@@ -74,6 +74,13 @@ def shrink(path: str) -> str:
     os.makedirs(folder, mode=0o700, exist_ok=True)
     os.chmod(folder, 0o700)
     dest = os.path.join(folder, os.path.basename(path))
+    from .mupdf import LOCK
+
+    with LOCK:  # PyMuPDF is not thread-safe: one slot renders at a time (WORKER_SLOTS > 1)
+        return _shrink(fitz, path, dest)
+
+
+def _shrink(fitz, path: str, dest: str) -> str:
     src = fitz.open(path)
     try:
         for dpi in DPIS:

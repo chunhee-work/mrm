@@ -417,8 +417,10 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
         port = cfg.accounts[account]
         taken = False
         if getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
-            try:  # another org owns this Chrome (one Merimen login per Chrome, plan #150): its password is never typed here
-                taken = bool(repo.chrome_taken_by_other(org, port))
+            try:  # another org is already on this Chrome (one Merimen login per Chrome, plan #150): a new login is never checked
+                # here, owner or not. The check would meet the other org's live session and pass without testing this password (egm r7)
+                used = getattr(repo, "chrome_used_by_other", None)
+                taken = bool(used(org, port) if used else repo.chrome_taken_by_other(org, port))
             except Exception:  # noqa: BLE001  (not known: nothing is typed now, the check comes back later)
                 taken = True
         if taken:
