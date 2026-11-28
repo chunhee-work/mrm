@@ -48,7 +48,7 @@ def apply_case(rows, vehicle, norm, save=None):
     """norm = name_map.final (None = a banned name). Same order as naming.py build had it: model bans, model swaps, naming rules,
     logo badge, then the case-wide Rear Lamp Inner/Outer rule. save(): called at the points where naming.py build saved
     rows_<PLATE>.json (after bans when the car has any, after swaps that changed a name, after a Rear Lamp change)."""
-    vehicle = vehicle or ""
+    vehicle = (vehicle or "").strip()   # same as the worker: leading spaces never hide a PERODUA
     log = []
     save = save or (lambda: None)
     bans = [b for v, b in MODEL_BANS if re.search(v, vehicle, re.I)]
