@@ -375,6 +375,7 @@ export const merimenCaseWorkshop = pgTable("merimen_case_workshop", {
   slot: smallint("slot").notNull(),
   lockedName: text("locked_name"),
   lockedAt: timestamp("locked_at"), // set by the worker when it makes the case in Merimen: the workshop is then fixed
+  confirmedAt: timestamp("confirmed_at"), // migration 0019: the user pressed Confirm; the worker starts Phase A only after it (two or more workshops)
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 export const merimenCredAudit = pgTable("merimen_cred_audit", {

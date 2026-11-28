@@ -17,7 +17,7 @@ import { SITE } from "@/lib/site";
 import { workerUiOn } from "@/lib/ext/worker-gate";
 import { credView } from "@/lib/ext/worker-store";
 import { orgWorkshops, caseSlot } from "@/lib/ext/workshops";
-import { canSwitchWorkshop } from "@/lib/ext/workshop-rules";
+import { workshopState } from "@/lib/ext/workshop-rules";
 import { credKeyReady } from "@/lib/crypto/merimen-cred";
 import { timelineFor } from "@/lib/screenshots/server";
 import { missingRelation } from "@/lib/ext/worker-gate";
@@ -96,8 +96,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     cred: await credView(orgId),
     credConfigured: credKeyReady(),
     workshops: wsList,
-    workshopSlot: ws.slot,
-    workshopLocked: !canSwitchWorkshop({ merimenCaseId: c.merimenCaseId }) || (ws.locked && (ws.fixed || wsList.some((w) => w.slot === ws.slot))),
+    workshop: workshopState(ws, wsList, c.merimenCaseId, c.status),
     // only the user who submitted the case gets this list; anyone else in the organisation gets none
     shots: workerUiOn() ? await timelineFor(id, user.id, c.createdBy).catch((e) => { if (missingRelation(e)) return null; throw e; }) : null,
   };

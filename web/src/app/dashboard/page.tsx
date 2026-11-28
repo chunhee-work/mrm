@@ -1,4 +1,5 @@
-import { orgWorkshops } from "@/lib/ext/workshops";
+import { orgWorkshops, slotState } from "@/lib/ext/workshops";
+import { workshopState } from "@/lib/ext/workshop-rules";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
 import { credView } from "@/lib/ext/worker-store";
@@ -79,14 +80,22 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     n: CONFIRM_COUNT,
     total: sql<number>`count(*)::int`,
   }).from(schema.casePhotos).where(inArray(schema.casePhotos.caseId, open)).groupBy(schema.casePhotos.caseId) : [];
-  // the workshop each case goes to (no row = workshop 1), and the name the worker fixed it with once the case is in Merimen
-  const ws = rows.length ? await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedName: schema.merimenCaseWorkshop.lockedName })
-    .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, rows.map((c) => c.id))).catch(() => []) : [];
-  const wsOf = new Map(ws.map((x) => [x.caseId, x]));
+  // the workshop each case goes to (no row = workshop 1), the name the worker fixed it with once the case is in Merimen, and
+  // (owner 2026-11-29) whether it still waits for the user's Confirm: the line then says so (the worker does not start it before)
+  const ws = rows.length ? await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedAt: schema.merimenCaseWorkshop.lockedAt, lockedName: schema.merimenCaseWorkshop.lockedName, confirmedAt: schema.merimenCaseWorkshop.confirmedAt })
+    .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, rows.map((c) => c.id))).catch(() => null) : [];
+  const wsRead = ws !== null; // a read that failed asks nobody: it must not put every case on "Confirm the workshop"
+  const wsOf = new Map((ws ?? []).map((x) => [x.caseId, x]));
   // plan #159: the delete icon only on an open case that hit a problem on our side (one EXISTS rule per case, shared with deleteCase)
   const del = rows.length ? await db.execute(sql`SELECT c.id, ${canDeleteSql()} AS ok FROM cases c WHERE c.id IN (${sql.join(rows.map((c) => sql`${c.id}`), sql`, `)})`).catch((e) => { console.error("delete flags failed", e); return []; }) : []; // a failure hides the icons, not the list
   const deletable = new Set(((Array.isArray(del) ? del : (del as { rows?: unknown[] }).rows ?? []) as { id: string; ok: boolean }[]).filter((x) => x.ok).map((x) => x.id));
   const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
+  // every row is of the signed-in user's organisation (the page reads one org), so one workshop list serves them all
+  const list = rows.length ? await orgWorkshops(rows[0].orgId).catch(() => []) : [];
+  const wsAsk = (c: (typeof rows)[number]) => {
+    if (!wsRead) return false;
+    return workshopState(slotState(wsOf.get(c.id)), list, c.merimenCaseId, c.status).needsConfirm;
+  };
   const total = new Map(todo.map((x) => [x.caseId, Number(x.total)]));
   return rows.map((c) => ({
     deskConfirm: confirm.get(c.id) ?? 0,
@@ -104,6 +113,7 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     status: c.status,
     pendingDoc: c.pendingDoc,
     totalRm: c.totalRm,
+    wsAsk: wsAsk(c),
     ...merimenLine(c.caseData),
     wsSlot: wsOf.get(c.id)?.slot ?? 1,
     wsName: wsOf.get(c.id)?.lockedName ?? null,
