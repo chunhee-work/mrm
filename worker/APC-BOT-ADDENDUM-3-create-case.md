@@ -4,7 +4,7 @@
 只写环境变量的名字，不写任何值。
 
 ## 1. 你要做的（按顺序）
-1. 在 worker 那台机器上拉最新 `main`，重启 worker。
+1. 在 worker 那台机器上拉最新 `main`，重启 worker。（#150 同时做几单的上线步骤进行中时不适用：那时按计划第 1.6 步，用固定的 commit，先做空闲检查再重启。）
 2. 不需要新的数据库迁移（0013–0016 已经在生产里；这次不加）。
 3. 唯一的新开关：`MERIMEN_DRYRUN`。其它开关沿用：`MERIMEN_WRITES`、`WORKER_SUBMIT`、`EXT_CONNECT`。
 

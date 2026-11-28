@@ -29,6 +29,8 @@ def _fresh_login_seen():
         main_mod._step_tabs_dir[0] = ""
         case_guard._MINE.st.update(on=False, ids=frozenset(), job="", bad=False)
         case_guard.FUSE.clear()
+        loop.SESSION_HOLDER.clear()
+        loop._holder_file[0] = ""
         case_guard._ON_USE[0] = None
         main_mod._job_tabs.pages = []
         pool._CURRENT.job = None

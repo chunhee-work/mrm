@@ -1892,3 +1892,100 @@ def test_the_photo_page_is_checked_before_a_save():
             mph.RealPhotos._save(object(), Target())
     finally:
         g.stop()
+
+
+# ---------- egm round 17 ----------
+
+LIVE_PAGE = {"urls": ["https://www.merimen.com.my/claims/index.cfm?CFID=1&RID=2"], "has_password": False}
+
+
+def test_a_chrome_that_holds_another_orgs_session_never_serves_this_org(tmp_path, fresh):
+    """egm r17: the Chrome owner can change without a re-login (a stopped user, a gate turned off). The worker records whose session
+    a Chrome holds; another org on it is never counted connected or logged in until that Chrome shows no logged-in tab."""
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on",
+                           "MERIMEN_RELOGIN": "on", "WORKER_SLOTS": "2"})
+
+    class Org(SessRepo):
+        def __init__(self, org):
+            super().__init__()
+            self.org = org
+
+        def wanted(self):
+            return [{"org_id": self.org, "account_key": "default", "status": "waiting_login", "wanted": "start", "port": 9222}]
+
+        def chrome_taken_by_other(self, org, port):
+            return False  # B dropped out: by the claim's rule A owns the Chrome now
+
+    b = Org("oB")
+    loop.sync_sessions(cfg, b, launch=lambda a: None, inspect=lambda p: LIVE_PAGE)
+    assert loop.SESSION_HOLDER == {9222: "oB"}
+    assert (tmp_path / "chrome_holder.json").exists()
+
+    asked = []
+    a = Org("oA")
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE, relogin=lambda org, port: asked.append(org))
+    assert a.sessions[-1][1]["detail"] == "shared_chrome" and a.sessions[-1][1]["status"] == "waiting_login" and asked == []
+
+    loop._holder_file[0] = ""  # a restart reads the file again
+    loop.SESSION_HOLDER.clear()
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE, relogin=lambda org, port: asked.append(org))
+    assert a.sessions[-1][1]["detail"] == "shared_chrome" and asked == []
+
+    # B's session ended (the login page): no account is live there, A logs in as usual and then holds the Chrome
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LOGIN_PAGE, relogin=lambda org, port: asked.append(org))
+    assert asked == ["oA"] and 9222 not in loop.SESSION_HOLDER
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE)
+    assert loop.SESSION_HOLDER == {9222: "oA"}
+
+
+def test_a_login_check_never_runs_on_a_chrome_holding_another_orgs_session(tmp_path, fresh):
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+    loop.load_holders(cfg)
+    loop.SESSION_HOLDER[9222] = "oB"
+
+    class VRepo:
+        finished = None
+
+        def claim_verify(self, skip=()):
+            return {"org_id": "oA"}
+
+        def chrome_taken_by_other(self, org, port):
+            return False
+
+        def chrome_used_by_other(self, org, port):
+            return False
+
+        def owner_email(self, org):
+            return None
+
+        def finish_verify(self, org, decision, **k):
+            VRepo.finished = decision
+
+    typed = []
+    loop._verify_wait.clear()
+    loop.verify_once(cfg, VRepo(), lambda user, password, port: typed.append(port), b"k" * 32)
+    assert typed == [] and VRepo.finished["reason"] == "shared_chrome"
+    loop._verify_wait.clear()
+
+
+def test_the_one_slot_loop_also_obeys_the_fuse(tmp_path):
+    from autopilot_worker import case_guard as g
+
+    cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "EXT_CONNECT": "on"})
+    seen = []
+
+    class Repo:
+        def claim(self, **k):
+            seen.append(k["ext_connect"])
+            return None
+
+    import autopilot_worker.loop as lp
+
+    orig = lp.housekeeping
+    lp.housekeeping = lambda *a, **k: None
+    try:
+        g.trip("case_mismatch")
+        lp.tick(cfg, Repo(), launch=None, inspect=None, namer=None, driver=None, download=None)
+    finally:
+        lp.housekeeping = orig
+    assert seen == [False]

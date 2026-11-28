@@ -421,6 +421,8 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
                 # here, owner or not. The check would meet the other org's live session and pass without testing this password (egm r7)
                 used = getattr(repo, "chrome_used_by_other", None)
                 taken = bool(used(org, port) if used else repo.chrome_taken_by_other(org, port))
+                load_holders(cfg)
+                taken = taken or holder_other(port, org)  # that Chrome still holds another org's session (egm r17)
             except Exception:  # noqa: BLE001  (not known: nothing is typed now, the check comes back later)
                 taken = True
         if taken:
@@ -445,6 +447,67 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
 # second time on the same profile only opens one more tab in the Chrome that is already there.
 _launched: dict[int, float] = {}
 LAUNCH_WAIT = 30.0
+
+# port -> the org whose Merimen session that Chrome holds (WORKER_SLOTS > 1, egm r17). Written when an org is found logged in there
+# with no holder yet; dropped only when that Chrome shows no logged-in tab. While it names another org, an org on that port is never
+# counted connected, logged in or login-checked there: the Chrome owner can change (a stopped user, a gate turned off) without any
+# re-login, and the session in that Chrome is still the other org's. Kept in <state>/chrome_holder.json across restarts.
+SESSION_HOLDER: dict[int, str] = {}
+_holder_file: list = [""]
+
+
+def _holder_path(cfg) -> str:
+    return os.path.join(cfg.state_dir, "chrome_holder.json")
+
+
+def load_holders(cfg) -> None:
+    path = _holder_path(cfg)
+    if _holder_file[0] == path:
+        return
+    _holder_file[0] = path
+    SESSION_HOLDER.clear()
+    try:
+        import json
+
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        SESSION_HOLDER.update({int(k): str(v) for k, v in dict(data).items() if v})
+    except FileNotFoundError:
+        pass
+    except Exception as e:  # noqa: BLE001  (unreadable: no holder is known, so the first org found logged in is recorded again)
+        print(f"chrome holder file unreadable ({type(e).__name__}): starting empty", file=sys.stderr, flush=True)
+
+
+def _save_holders() -> None:
+    path = _holder_file[0]
+    if not path:
+        return
+    try:
+        import json
+
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({str(k): v for k, v in SESSION_HOLDER.items()}, fh)
+        os.replace(tmp, path)
+    except Exception as e:  # noqa: BLE001
+        print(f"chrome holder file not saved ({type(e).__name__})", file=sys.stderr, flush=True)
+
+
+def holder_other(port, org) -> bool:
+    """True when the Chrome on this port holds another org's Merimen session (as far as this worker knows)."""
+    h = SESSION_HOLDER.get(port)
+    return bool(h) and h != org
+
+
+def _set_holder(port, org) -> None:
+    if SESSION_HOLDER.get(port) != org:
+        SESSION_HOLDER[port] = org
+        _save_holders()
+
+
+def _drop_holder(port) -> None:
+    if SESSION_HOLDER.pop(port, None) is not None:
+        _save_holders()
 
 
 # what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
@@ -485,6 +548,14 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         profile = profile_dir(cfg.state_dir, account)
         argv = chrome_argv(cfg.chrome_bin, port, profile)
         info = inspect(port)  # ask the debugging port first: a Chrome that answers is never started again
+        if getattr(cfg, "slots", 1) > 1:
+            load_holders(cfg)
+            if holder_other(port, org):
+                if info and page_block(info) is None:  # still logged in: that is the other org's session, never this org's
+                    repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
+                    note(org, "shared_chrome", now)
+                    continue
+                _drop_holder(port)  # no logged-in tab there: no account is live, this org may log in as usual
         if info is None and not running(profile):  # nor one that holds the profile but is slow to answer
             t = now()
             if port not in _launched or t - _launched[port] >= LAUNCH_WAIT:
@@ -512,6 +583,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         status = next_status(row["status"] or "idle", reason is None)
         if reason is None:
             seen_live.add(org)
+            if getattr(cfg, "slots", 1) > 1 and port not in SESSION_HOLDER:
+                _set_holder(port, org)  # the first org found logged in on this Chrome holds its session from now on
             # the keep-alive script clicks "Continue session" in the first Merimen tab it finds; with slots that can be a running
             # job's step tab, so it waits while the org has a Merimen step running (that step keeps the session in use anyway)
             if not (getattr(cfg, "slots", 1) > 1 and busy_orgs and org in set(busy_orgs())):
@@ -634,7 +707,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     relogin = housekeeping(cfg, repo, launch=launch, inspect=inspect, keep=keep, fetch_page=fetch_page, master=master, delete_blob=delete_blob,
                            now=now, relogin_fetch=relogin_fetch)
     _at("claim")
-    job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit)
+    # the fuse (a case_mismatch at any slot count) stops every later Merimen claim here too, until a restart (egm r17)
+    job = repo.claim(ext_connect=cfg.ext_connect and not case_guard.FUSE.is_set(), worker_id=cfg.worker_id, org_limit=cfg.org_limit)
     if not job:
         return None
     return run_job(cfg, repo, job, inspect=inspect, namer=namer, driver=driver, download=download, page_for=page_for, put_blob=put_blob,
