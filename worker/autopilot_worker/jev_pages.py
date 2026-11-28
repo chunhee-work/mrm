@@ -349,7 +349,7 @@ def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
 
 MAX_AF_PAGES = 6  # at most this many candidate pages get the at-fault plate question
 AF_YES = PRESENT  # live (15 cases): yes pages 0.91-0.97 (DCD4004 once 0.91), no pages 0.01-0.07; 0.9 would sit on the yes edge
-NOT_INSURANCE = {"vehicle_ownership_certificate", "police_report", "police_investigation_result", "police_sketch"}
+NOT_INSURANCE = {"vehicle_ownership_certificate", "police_report", "police_investigation_result", "police_sketch", "road_tax"}  # a road tax disc names the insurer too
 AF_ORDER = {"isearch_report": 0, "insurance_schedule_or_cover_note": 1}  # likeliest first; every other label after
 
 
@@ -362,11 +362,11 @@ def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool:
     at-fault vehicle's own insurance schedule (DCD4004), a rotated mySIKAP page (QAT110) or a phone screenshot (VBD9393) also do the job,
     and Jev types those with low confidence. "Not ours" alone is too weak (our own continuation page scores low, a misfiled schedule names
     another plate), so each candidate page (not ours, not an RC or police page) is asked one question: does it show the at-fault plate's insurance?
-    True = yes on a page (an ok ledger row "confirmed" records it). False = anything else: no candidate, no at-fault plate, the plate differs from
+    True = yes on a page. False = anything else: no candidate, no at-fault plate, the plate differs from
     the police's blamed plate, every asked page said no, or a question could not be asked; False keeps the old warning (warn-only: a false
     warning only makes a person look, a false "present" would hide a missing page)."""
-    plate = norm_plate((data.get("at_fault") or {}).get("plate"))
     blamed = norm_plate((data.get("police") or {}).get("blamed_plate"))
+    plate = norm_plate((data.get("at_fault") or {}).get("plate")) or blamed  # same fallback as create_spec.py and the case page
     if plate and blamed and blamed != plate:
         jev.log("isearch_check", case_id=cid, ok=False, error_class="skip_plate_mismatch", model=PAGE_MODEL)
         return False  # the reader's at-fault plate is not the plate the police blamed: a person must look, so the warning stays
@@ -375,14 +375,15 @@ def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool:
     if not plate or not cands:
         return False
     q = {"af": {"type": "noul", "instructions": (
-        "Does `page` show insurance details (insurer, policy or cover note number, or insurance period) for the vehicle `at_fault_plate`? "
+        "Does `page` show an insurance policy or cover note for the vehicle `at_fault_plate`, with a policy or cover note number or an insurance period? "
+        "An insurer's name alone is not enough. "
         "It may be an insurer's schedule, a vehicle look-up printout or a screenshot, and it may be rotated. "
         "Answer no if the page names a different vehicle. Ignore spaces and letter case in plate numbers.")}}
     for g in cands[:MAX_AF_PAGES]:
         sha, i = _locate(docs, g)
         key = (sha, "af:" + plate, i)  # same shape as the page-sort key: the page number INSIDE that PDF, so a re-run with other files still matches
         if key not in _cache:
-            skip = ("skip_budget" if now() - t0 > BUDGET_S - 5 else "skip_daily_cap" if _day["pages"] + 2 > _day["cap"] else None)  # +2 keeps the RC check's reserve
+            skip = ("skip_budget" if now() - t0 > BUDGET_S - 5 else "skip_daily_cap" if _day["pages"] + 1 > _day["cap"] else None)  # the RC check already ran (and counted) before this step
             img = None if skip else _page_jpg(docs, g, DPI)  # not RC_DPI: a full scanned page at 150 dpi was refused (HTTP 400, QAT110)
             if img is None:
                 jev.log("isearch_check", case_id=cid, ok=False, error_class=skip or "skip_render", model=PAGE_MODEL)
@@ -399,7 +400,6 @@ def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool:
                 return False
             _cache[key] = {"p": p}
         if _cache[key]["p"] >= AF_YES:
-            jev.log("isearch_check", case_id=cid, ok=True, error_class="confirmed", model=PAGE_MODEL)  # an audit row: this page stopped a warning
             return True
     return False
 

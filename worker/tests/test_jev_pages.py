@@ -198,6 +198,7 @@ def test_near_the_budget_the_plate_question_is_skipped():
 def test_a_failed_plate_question_keeps_the_isearch_warning():
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_fail=True)
     assert jp.run(jev, case, fetch) == WARN_IS  # could not confirm: the old warning stays (warn-only, safe direction)
+    assert any(r["purpose"] == "jev_isearch_check" and not r["ok"] for r in rows)  # the client wrote the failed row
 
 
 def test_a_later_page_can_say_yes_after_earlier_noes():
@@ -205,7 +206,6 @@ def test_a_later_page_can_say_yes_after_earlier_noes():
     jev, case, fake, rows, fetch = setup(pages, af_pages={5: 0.95})
     assert jp.run(jev, case, fetch) == []
     assert len([b for b in fake.sent if "af" in b["questions"]]) == 2
-    assert any(r["purpose"] == "jev_isearch_check" and r["ok"] and r["error_class"] == "confirmed" for r in rows)
 
 
 def test_reader_plate_not_the_blamed_plate_keeps_the_warning():
@@ -215,6 +215,25 @@ def test_reader_plate_not_the_blamed_plate_keeps_the_warning():
     d = dict(DATA, police={**DATA["police"], "blamed_plate": "abc-1"})  # same plate, other spelling: asked
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
     assert jp.run(jev, case, fetch) == []
+
+
+def test_no_at_fault_plate_falls_back_to_the_blamed_plate():
+    d = dict(DATA, at_fault={}, police={**DATA["police"], "blamed_plate": "ABC 1"})
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
+    assert jp.run(jev, case, fetch) == []
+
+
+def test_road_tax_and_sketch_pages_are_never_asked():
+    pages = NO_ISEARCH + [("disc", "road_tax", 0.9, 0.1), ("sketch", "police_sketch", 0.9, 0.1)]
+    jev, case, fake, rows, fetch = setup(pages, af_pages={4: 0.95, 5: 0.95})
+    assert jp.run(jev, case, fetch) == WARN_IS and not [b for b in fake.sent if "af" in b["questions"]]
+
+
+def test_an_odd_plate_answer_shape_keeps_every_line():
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], rc={"model": 0.02, "cc": 0.97, "date": 0.97})
+    post = fake.post
+    jev.post = lambda body, timeout: ["not a dict"] if "af" in body["questions"] else post(body, timeout)
+    assert jp.run(jev, case, fetch) == WARN_IS + ['Jev check: RC model "TOYOTA / WISH" not seen on the RC card by Jev']
 
 
 def test_the_switch_turns_off_only_the_plate_question():
