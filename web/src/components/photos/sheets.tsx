@@ -196,7 +196,7 @@ export function HelpSheet({ onClose, t }: { onClose: () => void; t: PT }) {
     [<><Kbd>Enter</Kbd><Kbd>Enter</Kbd></>, t("h.done")],
     [<><Kbd>⌘Z</Kbd><Kbd>Ctrl Z</Kbd></>, t("h.undo")],
     [<><Kbd>←</Kbd><Kbd>→</Kbd></>, t("h.case")],
-    [<Kbd>Space</Kbd>, t("h.part")],
+    [<Kbd>A</Kbd>, t("h.part")],
     [<Kbd>?</Kbd>, t("h.help")],
   ];
   const mark = "inline-flex h-6 items-center rounded-[2px] px-2 font-mono text-[11.5px] font-semibold";
