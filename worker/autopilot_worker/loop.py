@@ -571,9 +571,9 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 if now() - first < RELOGIN_BUSY_WAIT:
                     note(org, "relogin_waits_for_jobs", now)
                     continue  # its running jobs end first (a logged-out step ends quickly); no try is used
-            _busy_since.pop(org, None)
-            got = relogin(org, ports[org])
+            got = relogin(org, ports[org])  # a try that did not log in keeps the wait's start: the next try is not 10 min later (egm r8)
             if got in ("ok", "session_live"):
+                _busy_since.pop(org, None)
                 _lift(org)
                 with SESSION_LOCK:
                     RELOGIN_OK[org] = now()

@@ -269,7 +269,13 @@ def _one_slots_process(cfg: Config, *, hold: bool = True) -> bool:
     paths += [os.path.join(lock_dir, f"autopilot-worker-chrome-{int(p)}.lock") for p in sorted(set((cfg.accounts or {}).values()))]
     got = []
     for path in paths:
-        f = open(path, "a+")
+        try:
+            f = open(path, "a+")
+        except OSError as e:  # e.g. a lock file another user made in a shared temp folder: not "another worker"
+            for g in got:
+                g.close()
+            raise SystemExit(f"cannot open the worker lock file {path} ({type(e).__name__}): set WORKER_LOCK_DIR to a folder "
+                             "this user owns, or remove that file") from None
         try:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:

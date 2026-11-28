@@ -173,7 +173,9 @@ CHROME_USED_SQL = """
 SELECT EXISTS (
   SELECT 1 FROM worker_sessions s6
   WHERE s6.org_id <> %(org)s
-    AND (s6.port = %(port)s OR (s6.port IS NULL AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+    -- a row with no port yet (a fresh start: the session sync writes ports after the login check; a gate not ready) may be on this
+    -- Chrome: it counts, so the check waits until that row has its port (egm r8)
+    AND (s6.port = %(port)s OR s6.port IS NULL)
     AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked)
          OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
 )

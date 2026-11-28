@@ -219,6 +219,24 @@ def test_relogin_waits_while_a_merimen_job_of_the_org_runs_then_goes_ahead(tmp_p
     assert asked == ["o1"]
 
 
+
+def test_a_relogin_try_that_did_not_log_in_keeps_the_wait_over(tmp_path, fresh):
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on", "MERIMEN_RELOGIN": "on"})
+    t = [1000.0]
+    asked = []
+
+    def sync():
+        loop.sync_sessions(cfg, SessRepo(), launch=lambda a: None, inspect=lambda p: LOGIN_PAGE, now=lambda: t[0],
+                           relogin=lambda org, port: asked.append(org) or "cooldown", busy_orgs=lambda: {"o1"})
+
+    sync()
+    t[0] += loop.RELOGIN_BUSY_WAIT + 1
+    sync()
+    assert asked == ["o1"]  # the wait is over; this try was refused for now (cooldown)
+    t[0] += 61
+    sync()
+    assert asked == ["o1", "o1"]  # the next pass may try again: no new 10-minute wait
+
 def test_a_relogin_wait_ends_when_the_session_comes_back_so_a_later_logout_waits_again(tmp_path, fresh):
     cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on", "MERIMEN_RELOGIN": "on"})
     t = [1000.0]
@@ -285,6 +303,17 @@ def test_the_case_uploaded_first_goes_first_even_its_later_step():
     ]
     r = run([claim("w", 3), claim("w", 3), claim("w", 3)], seed=seed)
     assert [x[0][0] for x in r] == [3, 2, 1]
+
+
+@needs_pg
+def test_a_free_slot_takes_a_later_cases_job_while_the_earlier_case_waits_for_its_retry_time():
+    seed = ORGS_CASES + [
+        # user 1's case was uploaded first, but its job waits for a retry time; user 2's photo model can run now
+        "INSERT INTO jobs (id, case_id, step, state, not_before) VALUES (1,'c1','intake','queued', now() + interval '5 minutes'), "
+        "(2,'c3','photo_model','queued', NULL)",
+    ]
+    r = run([claim("w", 3)], seed=seed)
+    assert r[0][0][0] == 2
 
 
 @needs_pg
@@ -564,6 +593,22 @@ def test_only_one_slots_worker_per_state_folder(tmp_path):
         m._SLOTS_LOCK.clear()
     assert m._one_slots_process(cfg, hold=False) is True  # gone: free again
 
+
+
+def test_a_lock_file_that_cannot_be_opened_names_the_file_not_another_worker(tmp_path, monkeypatch):
+    import pytest as _pt
+
+    from autopilot_worker import __main__ as m
+
+    lock_dir = tmp_path / "locks"
+    lock_dir.mkdir()
+    (lock_dir / "autopilot-worker-chrome-9222.lock").mkdir()  # cannot be opened as a file
+    monkeypatch.setenv("WORKER_LOCK_DIR", str(lock_dir))
+    cfg = Config.from_env({"WORKER_STATE": str(tmp_path / "st"), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+    with _pt.raises(SystemExit) as e:
+        m._one_slots_process(cfg)
+    assert "cannot open the worker lock file" in str(e.value) and "another worker" not in str(e.value)
+    assert m._SLOTS_LOCK == []
 
 # ---------- review round 1 (egm) ----------
 
@@ -1295,3 +1340,7 @@ def test_chrome_used_sql_sees_any_other_user_on_the_port():
     pending = ["UPDATE merimen_credentials SET verify_state = 'queued' WHERE org_id = 'o2'"]  # o2's login is new, not checked yet
     r = run([q("o2"), q("o1"), q("o2", 9223)], seed=ORGS_CASES + READY + sessions() + pending)
     assert r == [[[True]], [[False]], [[False]]]  # o1 (checked) is on 9222; o2 is not counted yet; 9223 is free
+    # a fresh start: o1 (checked, logged in on 9222) has no port on its row yet, so the check of o2's new login waits for it
+    noport = ["UPDATE worker_sessions SET port = NULL WHERE org_id = 'o1'"]
+    r = run([q("o2")], seed=ORGS_CASES + READY + sessions() + pending + noport)
+    assert r == [[[True]]]
