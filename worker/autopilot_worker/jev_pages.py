@@ -298,10 +298,6 @@ def _present(results: list[dict | None], doc: str) -> bool:
     for r in results:
         if r and CANON.get(r["label"]) == doc and r["conf"] >= PRESENT and (doc not in OUR_SIDE or r["ours"] >= OURS_MIN):
             return True
-        # the at-fault party's own insurance schedule / cover note does the I-SEARCH job (playbook 01: JPJ SEARCH = 对方保单 = the at-fault
-        # party's insurance/I-SEARCH page). Jev calls it an insurance schedule; it counts when Jev says it is NOT our side (DCD4004, 2026-11-28).
-        if doc == "isearch" and r and r["label"] == "insurance_schedule_or_cover_note" and r["conf"] >= PRESENT and r["ours"] < OURS_MIN:
-            return True
     return False
 
 
@@ -316,6 +312,10 @@ def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
         for doc in NEEDED:
             if doc in listed or _present(results, doc):
                 continue
+            if doc == "isearch":
+                af = _at_fault_schedule(jev, data, results, docs, now, t0, cid)
+                if af is not False:  # True = the at-fault party's own schedule is here; None = could not ask, so no proof it is missing
+                    continue
             if doc == "our_policy" and not data.get("client_policy"):
                 continue  # the reader found no client insurance: that is not a blocker, nothing to compare
             if doc == "police_report" and not (data.get("police") or {}).get("client_report_no"):
@@ -339,6 +339,58 @@ def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
             seen.add(ln)
             lines.append(ln[:300])
     return lines[:MAX_LINES]  # missing documents first, then RC model, cc, date (the order they were added)
+
+
+MAX_AF_PAGES = 4  # at most this many candidate pages get the at-fault plate question
+NOT_INSURANCE = {"vehicle_ownership_certificate", "police_report", "police_investigation_result", "police_sketch"}
+AF_ORDER = {"isearch_report": 0, "insurance_schedule_or_cover_note": 1}  # likeliest first; every other label after
+
+
+def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool | None:
+    """Playbook 01: JPJ SEARCH = 对方保单 = the at-fault party's insurance/I-SEARCH page. The page is not always a clean ISM printout: the
+    at-fault vehicle's own insurance schedule (DCD4004), a rotated mySIKAP page (QAT110) or a phone screenshot (VBD9393) also do the job,
+    and Jev types those with low confidence. "Not ours" alone is too weak (our own continuation page scores low, a misfiled schedule names
+    another plate), so each candidate page (not ours, not an RC or police page) is asked one question: does it show the at-fault plate's insurance?
+    True = yes on a page; False = no candidate, no at-fault plate, or every asked page said no; None = a question could not be asked."""
+    plate = str((data.get("at_fault") or {}).get("plate") or "").strip()
+    cands = [i for i, r in enumerate(results) if r and r["label"] not in NOT_INSURANCE and r["ours"] < OURS_MIN]
+    cands.sort(key=lambda i: (AF_ORDER.get(results[i]["label"], 2), -results[i]["conf"]))
+    if not plate or not cands:
+        return False
+    q = {"af": {"type": "noul", "instructions": (
+        "Does `page` show insurance details (insurer, policy or cover note number, or insurance period) for the vehicle `at_fault_plate`? "
+        "It may be an insurer's schedule, a vehicle look-up printout or a screenshot, and it may be rotated. "
+        "Answer no if the page names a different vehicle. Ignore spaces and letter case in plate numbers.")}}
+    for g in cands[:MAX_AF_PAGES]:
+        key = (_sha_at(docs, g), "af:" + norm_model(plate), g)
+        if key not in _cache:
+            if now() - t0 > BUDGET_S - 5:
+                return None
+            img = _page_jpg(docs, g, DPI)
+            if img is None:
+                return None
+            ref, assets = _asset(img)
+            try:
+                ans = jev.ask({"page": ref, "at_fault_plate": plate}, q, purpose="isearch_check", case_id=cid, assets=assets, model=PAGE_MODEL).get("answers")
+            except JevError:
+                return None
+            p = _prob((ans if isinstance(ans, dict) else {}).get("af"))
+            if p is None:
+                return None
+            _day["pages"] += 1
+            _cache[key] = {"p": p}
+        if _cache[key]["p"] >= PRESENT:
+            return True
+    return False
+
+
+def _sha_at(docs, global_index: int) -> str:
+    n = global_index
+    for sha, d in docs:
+        if n < len(d):
+            return sha
+        n -= len(d)
+    return ""
 
 
 def _rc_lines(jev, data, docs, best, now, t0, cid) -> list[str]:
@@ -368,11 +420,15 @@ def _rc_lines(jev, data, docs, best, now, t0, cid) -> list[str]:
 
 
 def _rc_page(docs, global_index: int) -> bytes | None:
+    return _page_jpg(docs, global_index, RC_DPI)
+
+
+def _page_jpg(docs, global_index: int, dpi: int) -> bytes | None:
     n = global_index
     for _, d in docs:
         if n < len(d):
             try:
-                return _jpg(d, n, RC_DPI)
+                return _jpg(d, n, dpi)
             except Exception:  # noqa: BLE001
                 return None
         n -= len(d)

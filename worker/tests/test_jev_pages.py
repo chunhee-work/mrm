@@ -32,14 +32,19 @@ def page_key(raw, i):
 class Fake:
     """Answers by page image: kinds = {page_key: (label, conf, ours)}; rc = answers for the RC questions."""
 
-    def __init__(self, kinds, rc=None, fail=False):
+    def __init__(self, kinds, rc=None, fail=False, af=None, af_fail=False):
         self.kinds, self.rc, self.fail, self.sent = kinds, rc or {"model": 0.97, "cc": 0.97, "date": 0.97}, fail, []
+        self.af, self.af_fail = af or {}, af_fail  # af = {page_key: yes-probability for "is this the at-fault plate's schedule"}
 
     def post(self, body, timeout):
         self.sent.append(body)
         if self.fail:
             raise JevError("HTTP 500")
         a = next(iter(body["assets"].values()))["data_base64"]
+        if "af" in body["questions"]:
+            if self.af_fail:
+                raise JevError("HTTP 500")
+            return {"answers": {"af": {"noul": self.af.get(a, 0.05)}}}
         if "model" in body["questions"] or "cc" in body["questions"] or "date" in body["questions"]:
             return {"answers": {k: {"noul": v} for k, v in self.rc.items() if k in body["questions"]}}
         label, conf, ours = self.kinds.get(a, ("__none__", 0.95, 0.1))
@@ -55,6 +60,8 @@ def setup(pages, data=None, **kw):
     """pages = [(text, label, conf, ours)] in ONE pdf."""
     raw = pdf(*[p[0] for p in pages])
     kinds = {page_key(raw, i): (p[1], p[2], p[3]) for i, p in enumerate(pages)}
+    if "af_pages" in kw:  # {page index: yes-probability}
+        kw["af"] = {page_key(raw, i): v for i, v in kw.pop("af_pages").items()}
     fake = Fake(kinds, **kw)
     rows = []
     jev = Jev(fake.post, record=rows.append)
@@ -94,16 +101,56 @@ def test_other_party_pages_need_no_our_side_score_but_our_pages_do():
     assert jp.run(jev, case, fetch) == ["Jev check: no RC page found in the files"]
 
 
+NO_ISEARCH = [p for p in FULL if p[1] != "isearch"]  # 4 pages; index 4 is the next page added
+WARN_IS = ["Jev check: no I-SEARCH page found in the files"]
+
+
 def test_the_at_fault_insurance_schedule_counts_as_the_isearch_page():
     # DCD4004 (2026-11-28): no I-SEARCH printout, the at-fault party's own Allianz schedule is in its place (playbook 01: JPJ SEARCH = 对方保单)
-    other_ins = [p for p in FULL if p[1] != "isearch"] + [("their policy", "pol", 1.0, 0.18)]
-    jev, case, fake, rows, fetch = setup(other_ins)
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 0.95})
     assert jp.run(jev, case, fetch) == []
+    q = [b for b in fake.sent if "af" in b["questions"]]
+    assert len(q) == 1 and q[0]["state"]["at_fault_plate"] == "ABC1"
+    assert "jev_isearch_check" in {r["purpose"] for r in rows}
+
+
+def test_a_not_ours_schedule_for_another_plate_still_warns():
+    # our own continuation page scored "not ours", or a misfiled schedule: the plate question says no
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.3)], af_pages={4: 0.05})
+    assert jp.run(jev, case, fetch) == WARN_IS
+
+
+def test_a_low_confidence_lookup_page_is_asked_too():
+    # QAT110 (rotated mySIKAP, isearch 0.53) / VBD9393 (phone screenshot typed insurance 0.37): low type confidence, still the I-SEARCH page
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("other id", "other", 0.97, 0.09), ("rotated", "isearch", 0.53, 0.04)], af_pages={5: 0.9})
+    assert jp.run(jev, case, fetch) == []
+    asked = [b for b in fake.sent if "af" in b["questions"]]
+    assert len(asked) == 1  # the look-up page is asked first and says yes
+
+
+def test_only_not_ours_non_police_pages_are_asked_and_at_most_four():
+    pages = NO_ISEARCH + [("ours edge", "pol", 1.0, 0.5), ("their report", "rep", 1.0, 0.1), ("their rc", "rc", 1.0, 0.1)] + [(f"s{i}", "pol", 1.0, 0.1) for i in range(5)]
+    jev, case, fake, rows, fetch = setup(pages)
+    assert jp.run(jev, case, fetch) == WARN_IS
+    assert len([b for b in fake.sent if "af" in b["questions"]]) == 4
+
+
+def test_no_at_fault_plate_means_no_plate_question():
+    d = dict(DATA, at_fault={})
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
+    assert jp.run(jev, case, fetch) == WARN_IS  # police report_no is set, so the warning still applies
+    assert not [b for b in fake.sent if "af" in b["questions"]]
+
+
+def test_a_failed_plate_question_gives_no_isearch_warning():
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_fail=True)
+    assert jp.run(jev, case, fetch) == []  # could not check: no proof it is missing
 
 
 def test_our_own_insurance_schedule_is_not_an_isearch_page():
-    jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "isearch"])  # only OUR policy (ours 0.9)
-    assert jp.run(jev, case, fetch) == ["Jev check: no I-SEARCH page found in the files"]
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH)  # only OUR policy (ours 0.9): never asked
+    assert jp.run(jev, case, fetch) == WARN_IS
+    assert not [b for b in fake.sent if "af" in b["questions"]]
 
 
 def test_the_other_party_schedule_does_not_stand_in_for_our_policy():
