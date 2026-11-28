@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { getUserOrNull } from "@/lib/session";
 import { notDeleted } from "@/lib/case-delete";
 import { caseSlot, orgWorkshops } from "@/lib/ext/workshops";
-import { canSwitchWorkshop } from "@/lib/ext/workshop-rules";
+import { workshopState } from "@/lib/ext/workshop-rules";
 import { missingRelation } from "@/lib/ext/worker-gate";
 
 // GET /api/cases/:id/brief — what an open line on the Cases page shows under the job: the activity, the files and the
@@ -33,10 +33,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const onDesk = new Set([...deskNames].filter((n) => seen.get(n) === 1));
   // the workshop tables come with migration 0014: without them there is no choice to show
   const ws = await Promise.all([caseSlot(id), orgWorkshops(me.orgId)]).catch((e) => { if (missingRelation(e)) return null; throw e; });
-  const workshop = ws && {
-    slot: ws[0].slot,
-    locked: !canSwitchWorkshop({ status: c.status, merimenCaseId: c.merimenCaseId }) || (ws[0].locked && (ws[0].fixed || ws[1].some((w) => w.slot === ws[0].slot))),
-  };
+  const workshop = ws && workshopState(ws[0], ws[1], c.merimenCaseId, c.status);
   return NextResponse.json({
     events: ev.reverse().map((e) => ({ at: e.at.toISOString(), message: e.message })),
     files: files.map((f) => ({ id: f.id, name: f.name, size: Number(f.size), ...(onDesk.has(f.name.slice(0, 200)) ? { onDesk: true } : {}) })),

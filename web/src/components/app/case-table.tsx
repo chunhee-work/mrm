@@ -27,6 +27,7 @@ export type CaseRow = {
   firstFile?: string | null; // name of the first uploaded file, so a case without a plate can be told apart
   canDelete?: boolean; // plan #159: an open case that hit a problem on our side, nothing running: it can be deleted from the list
   inMerimen?: boolean; // made in Merimen: the delete pop-up says the Merimen case is not changed
+  wsAsk?: boolean; // the workshop waits for the user's Confirm: the case is not started in Merimen before it
   tpPlate?: string | null; // the other car (at fault), shown as [TDG1378] under the plate, as in Merimen's case list
   tpInsurer?: string | null; // the at-fault party's insurer: the one the claim goes to in Merimen
   wsSlot?: number; // the workshop (1..3) the case goes to

@@ -19,7 +19,7 @@ import { DESK_WAITS, systemBusy } from "@/lib/case-steps";
 import ProfileCard, { useServerCred, type Cred } from "./profile-card";
 import NewCasePick from "./new-case-pick";
 import NewCaseForm from "@/app/cases/new/form";
-import WorkshopPicker, { type WorkshopOpt } from "./workshop-picker";
+import { WorkshopChoice, type WorkshopOpt, type WorkshopState } from "./workshop-picker";
 import CaseLog from "./case-log";
 import CaseFiles, { type CaseFile } from "./case-files";
 import LoginAlert from "./login-alert";
@@ -34,7 +34,9 @@ const REFRESH_MS = 20_000;
 const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 // the user's turn first (on hold, then missing documents, then photos to name), then what is being read, then what the worker has; newest first inside
 const RANK: Record<Bucket, number> = { hold: 0, docs: 1, photos: 2, active: 3, closed: 4 };
-const yourTurn = (r: CaseRow) => r.status === "failed" || r.status === "pending_doc" || bucketOf(r) === "photos";
+/** a case the worker holds back until the user confirms its workshop (photos already named, so the line would say "with the worker") */
+const wsTurn = (r: CaseRow) => !!r.wsAsk && bucketOf(r) === "active";
+const yourTurn = (r: CaseRow) => r.status === "failed" || r.status === "pending_doc" || bucketOf(r) === "photos" || wsTurn(r); // the same cases whose line shows the Confirm button
 function sortCases(rows: CaseRow[]) {
   return [...rows].sort((a, b) => (yourTurn(a) ? 0 : 1) - (yourTurn(b) ? 0 : 1) || RANK[bucketOf(a)] - RANK[bucketOf(b)] || (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 }
@@ -57,6 +59,8 @@ function useAct() {
       const n = (r.pendingDoc ?? "").split("; ").filter((d) => d.trim()).length;
       return { kind: "here", say: n ? t("tray.act.docsN", { n: String(n) }) : t("tray.act.docsAny"), tone: "amber", icon: "upload" };
     }
+    // the workshop first: Phase A (made in Merimen while the photos are named) waits for this Confirm (owner 2026-11-29)
+    if (r.wsAsk && (b === "photos" || b === "active")) return { kind: "here", say: t("tray.act.ws"), tone: "amber", icon: "tick" };
     if (b === "photos") {
       if (!r.deskTotal || r.deskConfirm) return { kind: "here", say: r.deskTotal ? t("tray.act.photosN", { n: String(r.deskConfirm) }) : t("tray.act.addPhotos"), tone: "amber", icon: "photo" };
       return { kind: "here", say: t("tray.act.press"), tone: "amber", icon: "tick" };
@@ -271,7 +275,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
       )}
       {job}
       {deskOpen && desk}
-      <Brief r={r} workshops={workshops} onFiles={setFiles} filesInDesk={hasDesk} />
+      <Brief r={r} workshops={workshops} relist={ctl.relist} onFiles={setFiles} filesInDesk={hasDesk} />
       {r.canDelete && (
         <div className="flex justify-end">
           {/* a case the worker has not taken yet can still be deleted (same pop-up and rules as the case list) */}
@@ -293,15 +297,13 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
  */
 type ListCtl = { look: () => void; relist: () => void; onUpload: (busy: boolean) => void };
 
-type BriefData = { events: { at: string; message: string }[]; files: CaseFile[]; workshop: { slot: number; locked: boolean } | null };
+type BriefData = { events: { at: string; message: string }[]; files: CaseFile[]; workshop: WorkshopState | null };
 
 /** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
  * line opens and again when its status changes, so it follows the case without the user leaving the first page. */
-function Brief({ r, workshops, onFiles, filesInDesk }: { r: CaseRow; workshops: WorkshopOpt[]; onFiles: (f: CaseFile[]) => void; filesInDesk: boolean }) {
+function Brief({ r, workshops, relist, onFiles, filesInDesk }: { r: CaseRow; workshops: WorkshopOpt[]; relist: () => void; onFiles: (f: CaseFile[]) => void; filesInDesk: boolean }) {
   const { t } = useT();
   const [d, setD] = useState<BriefData | null>(null);
-  const [wsBusy, setWsBusy] = useState(false);
-  const [wsErr, setWsErr] = useState(false);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
@@ -315,20 +317,9 @@ function Brief({ r, workshops, onFiles, filesInDesk }: { r: CaseRow; workshops: 
     const id = window.setInterval(() => { if (!document.hidden && navigator.onLine) setTick((n) => n + 1); }, 10_000);
     return () => window.clearInterval(id);
   }, [reading]);
-  async function moveTo(slot: number) {
-    setWsBusy(true); setWsErr(false);
-    try {
-      const x = await fetch(`/api/cases/${r.id}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop: slot }) });
-      if (!x.ok && x.status !== 409) setWsErr(true); // 409 = too late: the read below shows it locked
-    } catch { setWsErr(true); }
-    setWsBusy(false);
-    setTick((n) => n + 1);
-  }
   useEffect(() => { if (d) onFiles(d.files); }, [d, onFiles]);
   if (!d) return null;
-  const slot = d.workshop?.slot ?? 1;
-  // as on the case page: a choice from two workshops on, or the one it has when that one is gone
-  const showWs = d.workshop && (workshops.length >= 2 || (workshops.length > 0 && !workshops.some((w) => w.slot === slot)));
+  const showWs = !!d.workshop?.shown;
   const live = reading;
   const shown = [...d.events].reverse().slice(0, 6);
   // the photo desk open above: the files are in its bar (documents) and in the desk itself (photos), not listed again here
@@ -337,12 +328,7 @@ function Brief({ r, workshops, onFiles, filesInDesk }: { r: CaseRow; workshops: 
   return (
     <div className="space-y-4" data-testid="home-brief">
       {showWs && (
-        <div className="grid gap-2" data-testid="home-ws">
-          <span className="label">{t("pf.caseWs")}</span>
-          <WorkshopPicker workshops={workshops} value={slot} onChange={(n) => void moveTo(n)} disabled={wsBusy || d.workshop!.locked} testid="home-ws-picker" always />
-          {d.workshop!.locked && <p className="text-[13.5px] text-mute">{t("pf.caseWsLocked")}</p>}
-          {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
-        </div>
+        <WorkshopChoice caseId={r.id} workshops={workshops} state={d.workshop!} onSaved={() => { setTick((n) => n + 1); relist(); }} testid="home-ws" /* the collapsed line stops asking too */ />
       )}
       {(d.events.length > 0 || filesHere) && (
         <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
@@ -418,7 +404,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
                     <Who r={r} team={team} />
                     <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 md:order-4 md:mt-0 md:col-start-4 md:row-start-1 ${on ? "" : "-rotate-90"}`} />
                   </div>
-                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r)} className="pointer-events-none relative my-3 pr-8 md:my-0 md:pr-0" />
+                  <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r) && !wsTurn(r)} className="pointer-events-none relative my-3 pr-8 md:my-0 md:pr-0" />
                   {/* while the line is open the job is right below it: the button would only say it twice.
                       A job for the user: a wide button under the steps (on wide screens across the step and action columns) */}
                   <div className={`pointer-events-none relative flex ${!on && act(r).kind ? "md:col-span-2 md:col-start-2 md:mt-3" : "md:justify-end"}`}>{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>

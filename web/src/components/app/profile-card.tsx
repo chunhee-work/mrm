@@ -60,6 +60,9 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   const configured = cred.keyOk;
   const { t, lang } = useT();
   const [names, setNames] = useState<string[]>(["", "", ""]); // workshop 1..3; "" = not used
+  // slots removed in this edit: "+ Add" does not reuse them, so remove-then-add saves as a removal plus a new workshop, not as a
+  // rename (a rename keeps the cases' Confirms; a removal takes them back, owner 2026-11-29)
+  const [removed, setRemoved] = useState<boolean[]>([false, false, false]);
   const [opened, setOpened] = useState<boolean[]>([true, false, false]); // rows the user opened with "add"
   const [manager, setManager] = useState("");
   const [adjuster, setAdjuster] = useState("");
@@ -87,7 +90,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
   }, [cred.verifyState, setCred]);
 
   // `c`: what to put in the boxes, the saved answer right after a save (the `cred` prop is still the old one then)
-  function fill(c: Cred = cred) { const n = ["", "", ""]; for (const w of c.workshops ?? []) if (w.slot >= 1 && w.slot <= 3) n[w.slot - 1] = w.name; if (!n[0] && c.workshop) n[0] = c.workshop; setNames(n); setOpened([true, false, false]); setManager(c.manager ?? ""); setAdjuster(c.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
+  function fill(c: Cred = cred) { const n = ["", "", ""]; for (const w of c.workshops ?? []) if (w.slot >= 1 && w.slot <= 3) n[w.slot - 1] = w.name; if (!n[0] && c.workshop) n[0] = c.workshop; setNames(n); setRemoved([false, false, false]); setOpened([true, false, false]); setManager(c.manager ?? ""); setAdjuster(c.adjuster ?? ""); setUser(""); setPass(""); setOk(false); setErr(null); setSure(false); }
   // the full form opens with what is saved (the workshop list outlives a deleted login), so a save never drops workshops the user cannot see
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (!compact) fill(); }, []);
@@ -148,12 +151,12 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
         {[0, 1, 2].filter((i) => i === 0 || opened[i] || names[i]).map((i) => (
           <div key={i} className="flex items-center gap-2">
             <label className="field min-w-0 flex-1"><span className="note text-mute">{t("pf.wsN", { n: String(i + 1) })}</span>
-              <input value={names[i]} onChange={(e) => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} maxLength={120} autoComplete="organization" className="input" data-testid={i === 0 ? "pf-workshop" : `pf-workshop-${i + 1}`} disabled={!configured} /></label>
-            {i > 0 && <button type="button" onClick={() => { setNames(names.map((x, j) => (j === i ? "" : x))); setOpened(opened.map((x, j) => (j === i ? false : x))); }} className="btn-quiet !h-11 self-end !text-mute" data-testid={`pf-workshop-rm-${i + 1}`} disabled={!configured}>{t("pf.wsRemove")}</button>}
+              <input value={names[i]} onChange={(e) => { setNames(names.map((x, j) => (j === i ? e.target.value : x))); if (i > 0 && !e.target.value && cred.workshops?.some((w) => w.slot === i + 1)) setRemoved(removed.map((x, j) => (j === i ? true : x))); }} maxLength={120} autoComplete="organization" className="input" data-testid={i === 0 ? "pf-workshop" : `pf-workshop-${i + 1}`} disabled={!configured} /></label>
+            {i > 0 && <button type="button" onClick={() => { setNames(names.map((x, j) => (j === i ? "" : x))); if (cred.workshops?.some((w) => w.slot === i + 1)) setRemoved(removed.map((x, j) => (j === i ? true : x))); setOpened(opened.map((x, j) => (j === i ? false : x))); }} className="btn-quiet !h-11 self-end !text-mute" data-testid={`pf-workshop-rm-${i + 1}`} disabled={!configured}>{t("pf.wsRemove")}</button>}
           </div>
         ))}
-        {[1, 2].some((i) => !opened[i] && !names[i]) && (
-          <div><button type="button" onClick={() => { const i = [1, 2].find((k) => !opened[k] && !names[k])!; setOpened(opened.map((x, j) => (j === i ? true : x))); }} className="btn-line !h-10 !px-4 !text-[14px]" data-testid="pf-workshop-add" disabled={!configured}>+ {t("pf.wsAdd")}</button></div>
+        {[1, 2].some((i) => !opened[i] && !names[i] && !removed[i]) && (
+          <div><button type="button" onClick={() => { const i = [1, 2].find((k) => !opened[k] && !names[k] && !removed[k])!; setOpened(opened.map((x, j) => (j === i ? true : x))); }} className="btn-line !h-10 !px-4 !text-[14px]" data-testid="pf-workshop-add" disabled={!configured}>+ {t("pf.wsAdd")}</button></div>
         )}
         {wsDup && <p role="alert" className="field-error" data-testid="pf-ws-dup">{t("pf.wsDup")}</p>}
       </div>
