@@ -15,9 +15,9 @@ Worker 只在 `MERIMEN_LOGIN=on` 时向 Merimen 提交登录，而且**只试一
 worker 或 Chrome 重启后，Chrome 回答了但没有任何标签页登录着 Merimen（没有 `/claims/…` 加 `CFID` 和 `RID` 的页面），worker 就用用户在网站上保存的登录**自己**再登录一次。没有人需要手动登录。默认关；还要 `MERIMEN_LOGIN=on`。代码在 `relogin.py` 和 `cdp.mjs login --relogin`。
 
 - 只在 worker **自己新开的一个标签页**里打字（打开 `https://www.merimen.com.my/claims/index.cfm`），别的标签页不导航、不打字、不关。没登录成功就把自己的标签页关掉（但绝不关最后一个标签页，那会关掉 Chrome 窗口）；超时被杀时 worker 按标签页 id 关掉它。
-- 只有保存的登录是 `ok` 且没被封、机构的 gate 是 ready（设置 + 同意书）、`EXT_CONNECT=on`、这个机构在 `WORKER_ACCOUNTS` 里有账号和端口、Chrome 回答、0 个已登录标签页时才会试。每个 tick 最多一次真正的尝试；被拒的机构把机会让给下一个。
-- 限制（全在 `merimen_cred_audit` 里，数据库时间）：每 10 分钟最多一次；24 小时最多 12 次**真的打字**的尝试；一次「没有明确回复」之后 24 小时不再试，只有**证明了密码**的成功（`relogin_ok` 或保存时的 `login_ok`）才提前解除，人手登录（`login_session_live`）或看到已连接都不算；连续两次没有明确回复（中间没有证明密码的成功）就按保存时的 `unknown` 处理（封、暂停、邮件）；自上次成功以来 6 小时内 6 次没找到登录页（什么都没打）就发一封邮件，会话 detail 显示 `relogin_failed`。
-- 孤儿尝试：一次 `relogin_try` 超过 3 分钟还没有结果行（结果没写进去，或 worker 中途死了），就一直不再试，没有 24 小时期限，直到之后出现这次尝试的结果行，或证明密码的成功（通常是用户重新保存），这时发一封邮件，会话 detail 显示 `relogin_stopped`。密钥不对时 detail 也显示 `relogin_stopped`，但那时什么都没打，也不发邮件。到达 24 小时 12 次上限时 detail 显示 `relogin_capped`。
+- 只有保存的登录是 `ok` 且没被封、机构的 gate 是 ready（设置 + 同意书）、`EXT_CONNECT=on`、这个机构在 `WORKER_ACCOUNTS` / `WORKER_ORG_ACCOUNTS` 里有账号和端口、Chrome 回答、0 个已登录标签页时才会试。每个 tick 最多一次真正的尝试；被拒的机构把机会让给下一个。
+- 限制（全在 `merimen_cred_audit` 里，数据库时间）：每 10 分钟最多一次；24 小时最多 12 次**真的打字**的尝试；一次「没有明确回复」之后发一封邮件，24 小时不再试，只有**证明了密码**的成功（`relogin_ok` 或保存时的 `login_ok`）才提前解除，人手登录（`login_session_live`）或看到已连接都不算；连续两次没有明确回复（中间没有证明密码的成功）就按保存时的 `unknown` 处理（封、暂停、邮件）；自上次成功以来 6 小时内 6 次没找到登录页（什么都没打）就发一封邮件，会话 detail 显示 `relogin_failed`。
+- 孤儿尝试：一次 `relogin_try` 超过 3 分钟还没有结果行（结果没写进去，或 worker 中途死了），就一直不再试，没有 24 小时期限。一发现孤儿就发一封邮件，会话 detail 显示 `relogin_stopped`；直到之后出现这次尝试的结果行，或证明密码的成功（通常是用户先在 Merimen 确认登录再重新保存），才解除。密钥不对时 detail 也显示 `relogin_stopped`，但那时什么都没打，也不发邮件。到达 24 小时 12 次上限时 detail 显示 `relogin_capped`。
 - **自动重新登录只要开过一次，就绝不要手动用 SQL 把保存时检查重新排队**（`verify_state='queued'`），关掉回退以后也一样：那会在所有限制之外再打一次密码（第一次没读到结果或 orphan 之后，登录行还是 `ok`）。要重试就让用户在网站上重新保存登录。
 - 密码不对 / 账号锁定：和保存时一样封住、暂停、发邮件，之后再也不打字，直到用户重新保存。锁定时邮件请用户先等 Merimen 解锁再保存。只有这次运行时登录还是 `ok` 才会改（用户刚好重新保存了就不动）。
 - 要验证码：不写 `otp`（网页会显示一个已经没人接的验证码框），写 `unknown` + 封住，审计 `relogin_otp`，发一封邮件请用户先确认登录在 Merimen 能用，再重新保存。
