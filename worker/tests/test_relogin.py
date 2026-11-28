@@ -219,7 +219,8 @@ def go(tmp_path, repo, page, *, mailer=None, now=lambda: 0.0, closed=None):
     crypto.open_secret = lambda master, org, row, which: "abuser" if which == "user" else "s3cret-pass"
     try:
         out = relogin.try_once(c, repo, "o1", 9222, fetch_page=fetch, master=b"k", now=now,
-                               close_target=lambda port, t: (closed if closed is not None else []).append(t))
+                               close_target=lambda port, t: (closed if closed is not None else []).append(t),
+                               close_kept=lambda port, t: (closed if closed is not None else []).append(t))
     finally:
         crypto.open_secret = orig
     return out, fetched, sent
@@ -440,6 +441,65 @@ def test_a_logged_in_tab_is_kept_while_its_write_is_pending(tmp_path):
 def test_the_booking_takes_the_advisory_lock_first():
     first, _ = relogin.booking_statements("o1")[0]
     assert "pg_advisory_xact_lock" in first
+
+
+class _Resp:
+    def __init__(self, body):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        return self.body
+
+
+@pytest.mark.parametrize("url,closes", [
+    ("https://www.merimen.com.my/claims/index.cfm", True),          # the session ended: a logged-out Merimen page
+    ("https://www.merimen.com.my/claims/index.cfm?x=1", True),
+    (LOGGED_IN, False),                                             # logged in again (a person or Merimen): left open
+    ("https://mail.example.test/inbox", False),                     # a person took the tab elsewhere: left open
+])
+def test_a_kept_tab_is_closed_only_while_it_is_a_logged_out_merimen_page(monkeypatch, url, closes):
+    import autopilot_worker.login_flow as lf
+
+    closed = []
+    monkeypatch.setattr(lf, "close_target", lambda port, t: closed.append(t))
+    body = json.dumps([{"id": "OTHER", "url": "https://www.merimen.com.my/claims/index.cfm"}, {"id": "K1", "url": url}]).encode()
+    assert lf.close_kept_tab(9222, "K1", opener=lambda *a, **k: _Resp(body)) is closes
+    assert closed == (["K1"] if closes else [])
+    assert lf.close_kept_tab(9222, "GONE", opener=lambda *a, **k: _Resp(body)) is False
+
+
+@pytest.mark.parametrize("flags,reason", [
+    ([True, True, True, True, True, False, True], "cred"),
+    ([False, True, True, True, True, False, True], "orphan"),
+    ([False, True, True, True, True, False, False], "cap"),
+    ([False, True, False, True, True, False, False], "streak"),
+    ([False, True, False, True, False, False, False], "unclear_block"),
+    ([False, True, False, False, False, False, False], "cooldown"),
+    ([False] * 7, "db_error"),
+])
+def test_read_refusal_full_order(flags, reason):
+    assert relogin.read_refusal([[], [], [flags]])["reason"] == reason
+
+
+def test_a_db_error_in_the_org_order_does_not_abort_the_tick(tmp_path):
+    class Broken(SessRepo):
+        def relogin_order(self, orgs):
+            raise RuntimeError("db away")
+
+    asked = []
+
+    def hook(org, port):
+        asked.append(org)
+        return "ok"
+
+    sync_sessions(cfg(tmp_path), Broken([row("o1"), row("o2")]), launch=lambda a: None, inspect=lambda p: LOGIN_PAGE, relogin=hook)
+    assert asked == ["o1"]
 
 
 def test_first_unclear_changes_nothing_and_mails_once(tmp_path):

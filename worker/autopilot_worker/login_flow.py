@@ -168,6 +168,29 @@ def close_target(port: int, target: str) -> None:
         pass
 
 
+def close_kept_tab(port: int, target: str, *, opener=None) -> bool:
+    """Close the tab a past successful re-login kept, but only while it is still a Merimen claims page that is not logged in
+    (its session ended). A logged-in tab, any other site, or a tab that is gone is left alone. The address is never logged."""
+    from urllib.request import urlopen
+
+    from .chrome import is_logged_in_url
+
+    opener = opener or urlopen
+    try:
+        with opener(f"http://127.0.0.1:{int(port)}/json/list", timeout=5) as r:
+            tabs = json.loads(r.read() or b"[]")
+    except Exception:  # noqa: BLE001
+        return False
+    for t in tabs if isinstance(tabs, list) else []:
+        if isinstance(t, dict) and str(t.get("id")) == str(target):
+            url = str(t.get("url") or "")
+            if url.startswith("https://www.merimen.com.my/claims/") and not is_logged_in_url(url):
+                close_target(port, str(target))
+                return True
+            return False
+    return False
+
+
 def relogin_fetch(script: str, *, popen=subprocess.Popen, timeout: float = 90, node: str = "node", environ=None, closer=close_target):
     """fetch_page(user, password, port) for a re-login: ONE run of `node cdp.mjs login --relogin`, login on stdin, a small env.
     A time-out kills the script; its own tab is then closed by id (D5). Same reading of the output as the save-time check."""

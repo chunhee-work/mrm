@@ -141,8 +141,9 @@ TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_crede
 
 
 def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running, relogin=None) -> None:
-    """relogin(org, port) -> None: MERIMEN_RELOGIN. Asked for at most ONE org per tick, only when that org's Chrome answers, no tab
-    of it is logged in, and its saved login is ok and not blocked (the gate is "ready"). Orgs tried longest ago go first."""
+    """relogin(org, port) -> outcome word: MERIMEN_RELOGIN. At most ONE real try per tick, only when that org's Chrome answers, no
+    tab of it is logged in, and its gate (settings + consent) is "ready". Whether the saved login is ok and not blocked is checked
+    inside the booking (the `cred` refusal), never here. Orgs tried longest ago go first."""
     want_relogin: list[tuple[str, int]] = []
     if cfg.ext_connect:
         repo.ensure_sessions()  # a ready org (login ok + consent) gets its row; with EXT_CONNECT off nothing is asked for
@@ -193,7 +194,11 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         # orgs tried longest ago first; a refused or throttled org hands the turn to the next one, so one stopped org never starves
         # the others. Still at most ONE real try per tick.
         ports = dict(want_relogin)
-        for org in repo.relogin_order([o for o, _ in want_relogin]):
+        try:
+            order = repo.relogin_order([o for o, _ in want_relogin])
+        except Exception:  # noqa: BLE001  (a DB error here must not abort the tick; the booking itself still decides)
+            order = [o for o, _ in want_relogin]
+        for org in order:
             if relogin(org, ports[org]) in TRIED:
                 break
 

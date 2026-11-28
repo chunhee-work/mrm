@@ -304,12 +304,14 @@ def log_line(org_id: str, reason: str, *, now=time.monotonic) -> None:
     print(f"relogin: {reason}", file=sys.stderr, flush=True)
 
 
-def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, now=time.monotonic, close_target=None) -> str | None:
+def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, now=time.monotonic, close_target=None, close_kept=None) -> str | None:
     """Book, then (only if booked) type once. None = not asked this time (asked too recently)."""
     from .crypto import open_secret
 
     if close_target is None:
         from .login_flow import close_target
+    if close_kept is None:
+        from .login_flow import close_kept_tab as close_kept
 
     t = now()
     if org_id in _asked and t - _asked[org_id] < ATTEMPT_EVERY:
@@ -365,7 +367,7 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
     old_tab = _own_tab.pop(org_id, None)
     if old_tab:  # the tab a past success kept: the session there has ended (0 logged-in tabs), so it is closed, not left to pile up
         try:
-            close_target(port, old_tab)
+            close_kept(port, old_tab)  # only while it is still a logged-out Merimen page; anything else is left open
         except Exception:  # noqa: BLE001
             pass
     try:
