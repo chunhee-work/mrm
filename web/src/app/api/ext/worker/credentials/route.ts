@@ -83,10 +83,14 @@ export async function POST(req: Request) {
     // owner 2026-11-29 (migration 0019): a removed workshop takes back the Confirm of the cases on it that are not in Merimen yet,
     // so they ask again (and a slot added back later does not bring old Confirms back). A rename keeps them: it is the same
     // workshop with its name corrected, and cases already confirmed must not stall.
-    if (gone.length) {
+    // A slot that is new in this save takes back any Confirm left on it too (one written by a Confirm that raced an earlier
+    // removal of that slot): a Confirm is never carried over to a different workshop under a reused number.
+    const added = profile.workshops.map((w) => w.slot).filter((n) => !have.some((h) => h.slot === n));
+    const retake = [...gone, ...added];
+    if (retake.length) {
       await db.execute(sql`UPDATE merimen_case_workshop cw SET confirmed_at = NULL, updated_at = now() FROM cases c
         WHERE c.id = cw.case_id AND c.org_id = ${me.orgId} AND c.merimen_caseid IS NULL AND cw.locked_at IS NULL AND cw.confirmed_at IS NOT NULL
-          AND cw.slot IN (${sql.join(gone.map((n) => sql`${n}`), sql`, `)})`);
+          AND cw.slot IN (${sql.join(retake.map((n) => sql`${n}`), sql`, `)})`);
     }
     // a second workshop is added (every not-done case, not only OPEN_STATUSES: a case already queued for the worker must not stop): the cases already on their way were made when there was nothing to choose (workshop 1), so they
     // count as confirmed and are not stopped (only on workshop 1: a case left on a removed slot still asks); only cases started from now on ask

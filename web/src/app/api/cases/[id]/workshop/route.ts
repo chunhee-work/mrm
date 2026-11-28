@@ -25,7 +25,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     .where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, me.orgId), notDeleted)).limit(1);
   if (!c) return NextResponse.json({ error: "not found" }, { status: 404 });
   const ws = await orgWorkshops(me.orgId);
-  if (!canSwitchWorkshop(c)) return NextResponse.json({ error: "too_late" }, { status: 409 });
+  // a finished case cannot be moved or confirmed either (workshopState shows it read-only)
+  if (!canSwitchWorkshop(c) || c.status === "done") return NextResponse.json({ error: "too_late" }, { status: 409 });
   const target = ws.find((w) => w.slot === slot);
   if (!target) return NextResponse.json({ error: "workshop_unknown" }, { status: 400 });
   try {
