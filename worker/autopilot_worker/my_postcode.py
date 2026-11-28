@@ -148,3 +148,13 @@ def guess_city(*, postcode: str, state: str, address: str) -> tuple[str, str, st
         if st and _key(name) == _key(st):
             return capital, st, "state"
     return "", st, ""
+
+
+def postcode_for(city: str, state: str = "") -> str:
+    """A town's main postcode (the first of its block, e.g. Dungun -> 23000) for a box Merimen requires and the bundle left empty;
+    "" when the town is not in the table or lies in another state."""
+    c = (city or "").strip().lower()
+    for lo, _hi, town, st in _RANGES:
+        if town.lower() == c and (not state or _key(st) == _key(state)):
+            return f"{lo:05d}"
+    return ""

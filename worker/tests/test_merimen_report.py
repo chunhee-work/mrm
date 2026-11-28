@@ -89,6 +89,16 @@ def test_a_body_type_that_says_only_car_takes_the_labour_type_from_the_model():
     assert D["veh"]["labour"] == "4 DR|SALOON" and any("unknown" in g for g in D["cityGuessed"])
 
 
+def test_an_empty_accident_postcode_takes_the_towns_main_postcode():
+    # DCD4004 (2026-11-28): place "KM 362.8 LPT2", city Dungun, no postcode; Merimen refused the empty sleAPcode
+    d = report_case()
+    d["police"].update(loss_city="Dungun", loss_state="Terengganu Darul Iman", loss_postcode="", place="KM 362.8 LPT2")
+    D = build_report(d, case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, today=TODAY)
+    assert D["lossPostcode"] == "23000" and "accident postcode 23000 (main postcode of Dungun)" in D["cityGuessed"]
+    from autopilot_worker.my_postcode import postcode_for
+    assert postcode_for("Kuala Terengganu") == "20000" and postcode_for("Dungun", "Selangor Darul Ehsan") == "" and postcode_for("Nowhere") == ""
+
+
 def test_guess_city_order():
     from autopilot_worker.my_postcode import guess_city
     assert guess_city(postcode="", state="", address="NO 3 JALAN BESAR, 20400 KUALA TERENGGANU") == ("Kuala Terengganu", "Terengganu Darul Iman", "address")
