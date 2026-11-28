@@ -2,7 +2,9 @@
 // command types the saved login ONCE into Merimen's own login page. The password is never written to stdout or a log.
 import { pathToFileURL } from "node:url";
 
-export const MERIMEN_START = "https://www.merimen.com.my/claims/index.cfm";
+// The login page as Merimen serves it to a fresh tab: without skip_browsertest=1 a new tab gets a browser-test page and no login
+// form (seen live 2026-11-28: two re-logins put back with nothing typed). Same address the mrm-bot harvest scripts use.
+export const MERIMEN_START = "https://www.merimen.com.my/claims/index.cfm?skip_browsertest=1";
 
 export function allowField(name) {
   return typeof name === "string" && /^[A-Za-z0-9_]{1,40}$/.test(name) && !/pass|pwd|token|cookie|secret|cfid|cftoken/i.test(name);

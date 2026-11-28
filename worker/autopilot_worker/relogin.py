@@ -411,7 +411,12 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
             _own_tab[org_id] = str(page["relogin_target"])
     elif page.get("relogin_target"):
         close_target(port, str(page["relogin_target"]))  # the worker and cdp.mjs may disagree on "logged in": a try that is not ok never keeps its tab
-    print(f"relogin: done_{out}", file=sys.stderr, flush=True)  # one line per real try, fixed words only
+    why = ""
+    if out == "put_back":  # which kind of put-back (fixed words, nothing from the page): helps find why nothing was typed
+        from .login_flow import page_result
+
+        why = " (" + ("offline" if page_result(page) == "offline" else "not_login_page") + ")"
+    print(f"relogin: done_{out}{why}", file=sys.stderr, flush=True)  # one line per real try, fixed words only
     return out
 
 
