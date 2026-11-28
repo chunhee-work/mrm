@@ -52,15 +52,17 @@ export async function POST(req: Request) {
     const names = { workshopName: profile.workshop, managerName: profile.manager, adjusterName: profile.adjuster };
     // workshops: the saved list replaces the old one. A workshop that open cases still use cannot be removed or renamed (409): move those
     // cases first. Cases the worker already made in Merimen (locked) do not count: their workshop is settled and they cannot be moved.
+    // Confirmed cases (migration 0019) cannot be moved either: they do not block, and after the removal they ask for a new pick +
+    // Confirm on their line (the worker waits for it), instead of leaving a workshop nobody can remove.
     const keep = profile.workshops.map((w) => w.slot);
     const have = await db.select({ slot: schema.merimenWorkshops.slot, name: schema.merimenWorkshops.name }).from(schema.merimenWorkshops).where(eq(schema.merimenWorkshops.orgId, me.orgId));
     const gone = [1, 2, 3].filter((n) => !keep.includes(n));
     const changed = [...gone, ...profile.workshops.filter((w) => have.some((h) => h.slot === w.slot && h.name !== w.name)).map((w) => w.slot)];
     const open = sql`c.deleted_at IS NULL AND c.merimen_caseid IS NULL AND c.status IN (${sql.join(OPEN_STATUSES.map((x) => sql`${x}`), sql`, `)})`;
     const inUse = async (slots: number[]) => {
-      // a case with no row is workshop 1; locked cases (the worker already used their workshop) do not count
+      // a case with no row is workshop 1; locked or confirmed cases do not count (see above)
       const r = await db.execute(sql`SELECT 1 FROM cases c LEFT JOIN merimen_case_workshop cw ON cw.case_id = c.id
-        WHERE c.org_id = ${me.orgId} AND cw.locked_at IS NULL AND ${open} AND COALESCE(cw.slot, 1) IN (${sql.join(slots.map((n) => sql`${n}`), sql`, `)}) LIMIT 1`);
+        WHERE c.org_id = ${me.orgId} AND cw.locked_at IS NULL AND cw.confirmed_at IS NULL AND ${open} AND COALESCE(cw.slot, 1) IN (${sql.join(slots.map((n) => sql`${n}`), sql`, `)}) LIMIT 1`);
       return ((r as unknown as { rows?: unknown[] }).rows ?? []).length > 0;
     };
     // renaming only matters when there is a choice: with one workshop an open case simply takes the corrected name
@@ -70,9 +72,31 @@ export async function POST(req: Request) {
       // the delete itself refuses a workshop an open case picked a moment ago; it runs before anything is saved
       await db.execute(sql`DELETE FROM merimen_workshops w WHERE w.org_id = ${me.orgId} AND w.slot IN (${sql.join(gone.map((n) => sql`${n}`), sql`, `)})
         AND NOT EXISTS (SELECT 1 FROM merimen_case_workshop cw JOIN cases c ON c.id = cw.case_id
-          WHERE c.org_id = w.org_id AND cw.slot = w.slot AND cw.locked_at IS NULL AND ${open})`);
+          WHERE c.org_id = w.org_id AND cw.slot = w.slot AND cw.locked_at IS NULL AND cw.confirmed_at IS NULL AND ${open})`);
       const left = await db.select({ slot: schema.merimenWorkshops.slot }).from(schema.merimenWorkshops).where(and(eq(schema.merimenWorkshops.orgId, me.orgId), inArray(schema.merimenWorkshops.slot, gone)));
       if (left.length) return NextResponse.json({ error: "workshop_in_use" }, { status: 409 });
+    }
+    // the Confirm changes run before the new names are saved: a stale Confirm is never valid on a re-added slot, even for a
+    // moment, and a save cut off after the upsert cannot skip the backfill (the next save already sees two workshops)
+    // owner 2026-11-29 (migration 0019): a removed workshop takes back the Confirm of the cases on it that are not in Merimen yet,
+    // so they ask again (and a slot added back later does not bring old Confirms back). A rename keeps them: it is the same
+    // workshop with its name corrected, and cases already confirmed must not stall.
+    // A slot that is new in this save takes back any Confirm left on it too (one written by a Confirm that raced an earlier
+    // removal of that slot): a Confirm is never carried over to a different workshop under a reused number.
+    const added = profile.workshops.map((w) => w.slot).filter((n) => !have.some((h) => h.slot === n));
+    const retake = [...gone, ...added];
+    if (retake.length) {
+      await db.execute(sql`UPDATE merimen_case_workshop cw SET confirmed_at = NULL, updated_at = now() FROM cases c
+        WHERE c.id = cw.case_id AND c.org_id = ${me.orgId} AND c.merimen_caseid IS NULL AND cw.locked_at IS NULL AND cw.confirmed_at IS NOT NULL
+          AND cw.slot IN (${sql.join(retake.map((n) => sql`${n}`), sql`, `)})`);
+    }
+    // a second workshop is added (every not-done case, not only OPEN_STATUSES: a case already queued for the worker must not stop): the cases already on their way were made when there was nothing to choose (workshop 1), so they
+    // count as confirmed and are not stopped (only on workshop 1: a case left on a removed slot still asks); only cases started from now on ask
+    if (have.length < 2 && profile.workshops.length >= 2) {
+      await db.execute(sql`INSERT INTO merimen_case_workshop (case_id, slot, confirmed_at)
+        SELECT c.id, 1, now() FROM cases c WHERE c.org_id = ${me.orgId} AND c.deleted_at IS NULL AND c.merimen_caseid IS NULL AND c.status <> 'done'
+        ON CONFLICT (case_id) DO UPDATE SET confirmed_at = now(), updated_at = now()
+        WHERE merimen_case_workshop.confirmed_at IS NULL AND merimen_case_workshop.locked_at IS NULL AND merimen_case_workshop.slot = 1`);
     }
     for (const w of profile.workshops) {
       await db.insert(schema.merimenWorkshops).values({ orgId: me.orgId, slot: w.slot, name: w.name })

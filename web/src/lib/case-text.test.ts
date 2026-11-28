@@ -117,6 +117,10 @@ test("D14 the workshop line is translated like the other activity lines; a text 
     assert.ok(text?.includes("{n}") && text.includes("{name}"), `${l} ev.workshop`);
   }
   assert.equal(eventKind("Workshop 2: Kedai Ah Seng"), "note"); // a note, as before: not a step that is done or failed
+  // the Confirm press (owner 2026-11-29) has its own line
+  assert.deepEqual(eventTr("Workshop confirmed 2: Kedai Ah Seng: Cheras"), { key: "ev.workshopOk", vars: { n: "2", name: "Kedai Ah Seng: Cheras" } });
+  assert.equal(eventKind("Workshop confirmed 2: Kedai Ah Seng"), "ok"); // a step done: green tick
+  for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)["ev.workshopOk"]?.includes("{name}"), `${l} ev.workshopOk`);
   // an event this file has no rule for (for example photos left out of a case) is never dropped: the log shows `raw`
   assert.deepEqual(eventTr("3 photos left out: too large"), { key: "", raw: "3 photos left out: too large" });
 });

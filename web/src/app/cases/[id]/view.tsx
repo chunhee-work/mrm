@@ -1,5 +1,5 @@
 "use client";
-import WorkshopPicker, { type WorkshopOpt } from "@/components/app/workshop-picker";
+import { WorkshopChoice, type WorkshopOpt, type WorkshopState } from "@/components/app/workshop-picker";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { needsUser } from "@/lib/ext/login-state";
@@ -41,8 +41,7 @@ export type CaseDetail = {
   cred?: Cred | null;
   credConfigured?: boolean;
   workshops?: WorkshopOpt[]; // the account's workshops (a choice is shown from two on)
-  workshopSlot?: number; // the one this case belongs to
-  workshopLocked?: boolean; // already made in Merimen: shown, not changeable
+  workshop?: WorkshopState; // the one this case belongs to; whether it still asks for Confirm or is fixed
   shots?: Shot[] | null; // null: flag off, table not there yet, or not the submitter
   sameCount?: number; // other cases of this org with the same plate (R2-U02)
   createdAt?: string;
@@ -65,7 +64,11 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   const pending = c.status === "pending_doc";
   // whose turn it is (owner 2026-11-27): the user's when the photo names wait for them, or the worker asks for them
   const photosOpen = c.desk != null && c.desk.total > 0 && !c.desk.doneAt;
-  const yourTurn = !working && !failed && !pending && (c.status === "waiting_user" || (photosOpen && ["naming", "phase_a"].includes(c.status)));
+  const photoTurn = !working && !failed && !pending && (c.status === "waiting_user" || (photosOpen && ["naming", "phase_a"].includes(c.status)));
+  // owner 2026-11-29: the worker does not make the case in Merimen before the workshop is confirmed, so that is the user's turn too
+  // (the same rule as the list's wsTurn); like the list's button, the banner names the workshop first (the desk button stays)
+  const wsTurn = !working && !failed && !pending && !!c.workshop?.needsConfirm && ["naming", "phase_a", "waiting_user"].includes(c.status);
+  const yourTurn = photoTurn || wsTurn;
   // poll while the case moves by itself (read, then the worker's steps); stop when it waits for a person or is done
   const moving = working || ["naming", "phase_a", "phase_b", "checking"].includes(c.status);
   // Fast only while something is in progress: the system is working, or "Read again" was pressed and its answer is still out.
@@ -85,18 +88,6 @@ export default function CaseView({ c }: { c: CaseDetail }) {
 
   // pending_doc is not retried here: the same files would give the same missing list (an add-documents flow comes later)
   const canRetry = c.status === "failed" && !userFixable(c.error);
-
-  const [wsBusy, setWsBusy] = useState(false);
-  const [wsErr, setWsErr] = useState(false);
-  async function moveTo(slot: number) {
-    setWsBusy(true); setWsErr(false);
-    try {
-      const r = await fetch(`/api/cases/${c.id}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop: slot }) });
-      if (!r.ok && r.status !== 409) setWsErr(true); // 409 = too late: the refresh below shows the case as locked
-    } catch { setWsErr(true); }
-    setWsBusy(false);
-    router.refresh();
-  }
 
   // "Read again": the answer only comes when the read is over, which can take minutes. Until then the page keeps looking at
   // the case itself (the fast poll above): once the server shows it as being read, the page follows the case, not the request.
@@ -145,7 +136,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   // where the case is and what comes next (owner 2026-11-27: after "Read" the page said nothing about what happens now,
   // whose turn it is, or what comes after). The system's turn says "nothing for you to do"; the user's turn has the button.
   const later = !working && !failed && !pending && c.status !== "done"; // read, and the work goes on after it
-  const nowKey = yourTurn ? "case.now.you" : ({ naming: "case.now.naming", phase_a: "case.now.phase_a", waiting_user: "case.now.phase_a", phase_b: "case.now.phase_b", checking: "case.now.checking" } as Record<string, string>)[c.status];
+  const nowKey = wsTurn ? "case.now.ws" : yourTurn ? "case.now.you" : ({ naming: "case.now.naming", phase_a: "case.now.phase_a", waiting_user: "case.now.phase_a", phase_b: "case.now.phase_b", checking: "case.now.checking" } as Record<string, string>)[c.status];
   const nextKey = yourTurn ? (c.status === "waiting_user" ? "case.next.phase_b" : "case.next.phase_a")
     : c.status === "naming" ? "case.next.you"
     : c.status === "phase_a" ? (c.desk?.doneAt ? "case.next.phase_b" : "case.next.you")
@@ -225,14 +216,14 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     return `${t("case.pp.confirmed", { when: whenOf(d.doneAt, lang) })} · ${t("case.pp.summary", { n: String(d.total), edited: String(d.edited) })}${lang === "zh" ? "。" : ". "}${t(next)}`;
   };
   // on the user's turn the banner already says "check the photo names" with the button: no second box saying it again
-  const DeskLink = () => ((deskShown && !yourTurn) || c.photoPlan) ? (
+  const DeskLink = () => ((deskShown && !photoTurn) || c.photoPlan) ? (
     <section aria-labelledby="case-photos" className="min-w-0">
       <h2 id="case-photos" className="label mb-3">{t("case.photoPlan")}</h2>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-[4px] border border-hair px-4 py-3">
         <p className="min-w-0 text-[14.5px] text-fg [text-wrap:pretty]" data-testid="photo-plan-line" suppressHydrationWarning>
           {c.desk ? deskStatus() : c.photoPlan ? t("case.photoPlan.dry", { upload: String(c.photoPlan.upload), relabel: String(c.photoPlan.relabel), reorder: String(c.photoPlan.reorder) }) : ""}
         </p>
-        {deskShown && !yourTurn && ( /* the banner above has the button on the user's turn */
+        {deskShown && !photoTurn && ( /* the banner above has the button on the user's turn */
           <Link href={`/cases/${c.id}/photos`} className="btn-primary" data-testid="desk-link">
             {c.desk!.confirm > 0 ? t("case.namePhotosN", { n: String(c.desk!.confirm) }) : c.desk!.doneAt ? t("case.namePhotosDone") : t("case.namePhotosPress")}
           </Link>
@@ -257,7 +248,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
           {!yourTurn && <p className="mt-1 text-[14px] text-mute">{t("case.idle")}</p>}
         </div>
       </div>
-      {yourTurn && deskBtn}
+      {photoTurn && deskBtn}
     </div>
   );
 
@@ -287,17 +278,14 @@ export default function CaseView({ c }: { c: CaseDetail }) {
   // the record of the case (activity, files): there when wanted, folded until then. With nothing about photos to show,
   // it sits in the free half next to the facts instead of under an empty space.
   const record = "grid min-w-0 grid-cols-1 gap-y-1 [&_summary]:mb-0 [&_summary]:min-h-11 [&_details[open]>summary]:mb-3";
-  const recordBeside = facts.length > 0 && !(deskShown && !yourTurn) && !c.photoPlan;
+  const recordBeside = facts.length > 0 && !(deskShown && !photoTurn) && !c.photoPlan;
   return shell(
     <>
       {Header()}
       <div className="border-b border-hair px-5 py-3 sm:px-8"><CaseSteps caseId={c.id} status={c.status} photos={c.desk?.total ?? c.photos} photosDone={!!c.desk?.doneAt} hint={false} /></div>
-      {((c.workshops?.length ?? 0) >= 2 || (!!c.workshops?.length && !c.workshops.some((w) => w.slot === (c.workshopSlot ?? 1)))) && (
-        <div className="grid gap-2 border-b border-hair px-5 py-3 sm:px-8" data-testid="case-ws">
-          <span className="label">{t("pf.caseWs")}</span>
-          <WorkshopPicker workshops={c.workshops!} value={c.workshopSlot ?? 1} onChange={(n) => void moveTo(n)} disabled={wsBusy || !!c.workshopLocked} testid="case-ws-picker" always />
-          {c.workshopLocked && <p className="text-[13.5px] text-mute">{t("pf.caseWsLocked")}</p>}
-          {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
+      {c.workshop?.shown && c.workshops && (
+        <div className="border-b border-hair px-5 py-3 sm:px-8">
+          <WorkshopChoice caseId={c.id} workshops={c.workshops} state={c.workshop} onSaved={() => router.refresh()} testid="case-ws" />
         </div>
       )}
       {(c.sameCount ?? 0) > 0 && (
@@ -329,7 +317,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
       )}
       {c.status === "done" && <ResultBlock carModel={c.carModel} totalRm={c.totalRm} sides={c.sides} />}
       <div className="grid grid-cols-1 gap-6 px-5 py-6 sm:px-8 sm:py-8">
-        {(facts.length > 0 || (deskShown && !yourTurn) || c.photoPlan) && (
+        {(facts.length > 0 || (deskShown && !photoTurn) || c.photoPlan) && (
           <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-2">
             {facts.length > 0 && <section aria-labelledby="case-found" className="min-w-0"><h2 id="case-found" className="label mb-3">{t("case.found")}</h2>{Facts()}</section>}
             {DeskLink()}
