@@ -97,7 +97,7 @@ def classify_login(*, url: str = "", text: str = "", has_password: bool = False,
 
 
 # Shown in the case log in both languages. The banner uses the same codes via i18n.
-EVENT_BAD = "Merimen 拒绝了登录（用户名或密码不对）。请在「连接」页重新填写。 / Merimen rejected the login (wrong user name or password). Enter it again on the Connection page."
+EVENT_BAD = "Merimen 拒绝了登录（用户名或密码不对）。请先确认用户名和密码在 Merimen 能用，再到「连接」页重新填写。 / Merimen rejected the login (wrong user name or password). Check that the user name and password work on Merimen, then enter them again on the Connection page."
 EVENT_LOCKED = "Merimen 已锁定此账号。请先等 Merimen 解锁（或请 Merimen 解锁），确认能登录后再到「连接」页更新登录信息；我们不会再自动尝试。 / Merimen locked this account. Wait until Merimen unlocks it (or ask Merimen to), check that the login works, then update it on the Connection page. We will not try again automatically."
 EVENT_OTP = "Merimen 需要验证码。请在连接页输入。 / Merimen needs a verification code. Enter it on the Connection page."
 EVENT_OK = "Merimen 登录已通过，暂停的工作会继续。 / Merimen login succeeded. Paused work will continue."
@@ -157,7 +157,7 @@ def login_email(kind: str) -> tuple[str, str]:
     elif kind == "unknown":
         body = "Merimen 没有明确回复这次登录。请先确认用户名和密码在 Merimen 能用，再打开连接页重新保存。我们不会再自动尝试。 / Merimen did not give a clear answer about this login. Check that the user name and password work on Merimen, then open the Connection page and save the login again. We will not try again automatically."
     else:
-        body = "Merimen 拒绝了保存的用户名或密码。请打开连接页重新填写。 / Merimen rejected the saved user name or password. Open the Connection page and enter it again."
+        body = "Merimen 拒绝了保存的用户名或密码。请先确认用户名和密码在 Merimen 能用，再打开连接页重新填写。 / Merimen rejected the saved user name or password. Check that the user name and password work on Merimen, then open the Connection page and enter them again."
     html = f"<p>{body}</p>"
     return subject, html
 
