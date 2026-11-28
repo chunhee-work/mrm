@@ -25,6 +25,13 @@ export function eventTr(message: string): Tr & { raw?: string } {
   const noDoc: Record<string, string> = { "RC": "ev.jevNoRc", "our insurance": "ev.jevNoIns", "I-SEARCH": "ev.jevNoIsearch", "our police report": "ev.jevNoReport", "Keputusan": "ev.jevNoKep" };
   if ((m = message.match(/^Jev check: no (RC|our insurance|I-SEARCH|our police report|Keputusan) page found in the files$/))) return { key: noDoc[m[1]] };
   if ((m = message.match(/^Jev check: RC (model|cc|registration date) "(.*)" not seen on the RC card by Jev$/))) return { key: m[1] === "model" ? "ev.jevRcModel" : m[1] === "cc" ? "ev.jevRcCc" : "ev.jevRcDate", vars: { v: m[2] } };
+  // The worker's practice-run summary (worker pipeline.py) lists every Merimen field it filled: the page says it in plain words.
+  // The full sentence stays in the database for us; the user sees what happened, how many photos are ready, and that nothing was saved.
+  if ((m = message.match(/^Phase ([AB]) dry-run only\. Merimen was not changed\.([\s\S]*)$/))) {
+    const photos = m[2].match(/Photos[^:]*: would upload (\d+)/)?.[1];
+    if (m[1] === "B") return { key: "ev.dryB" };
+    return photos && photos !== "0" ? { key: "ev.dryAPhotos", vars: { n: photos } } : { key: "ev.dryA" };
+  }
   return { key: "", raw: message };
 }
 
@@ -36,7 +43,7 @@ export function eventKind(message: string, live = false): EventKind {
   if (key === "ev.failed") return "fail";
   if (key === "ev.pending") return "wait";
   if (key === "ev.reading" || key === "ev.queued") return live ? "work" : "ok";
-  if (key === "ev.received" || key === "ev.receivedMore" || key === "ev.opened" || key === "ev.read") return "ok";
+  if (key === "ev.received" || key === "ev.receivedMore" || key === "ev.opened" || key === "ev.read" || key.startsWith("ev.dry")) return "ok";
   return "note";
 }
 
