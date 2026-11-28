@@ -65,7 +65,7 @@ const TAB = {
  * One case, no tab strip, no step bar (the line has one), the page address is left alone, keys work only while the focus is inside
  * the desk, and the photos scroll in a box of their own. `onDone` runs after 完成 went through, so the first page reads the case again.
  */
-export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial, embedded = false, onDone }: { orgId: string; tabs: DeskTab[]; initialId: string; initial?: CaseState; embedded?: boolean; onDone?: () => void }) {
+export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial, embedded = false, onDone, onFinished }: { orgId: string; tabs: DeskTab[]; initialId: string; initial?: CaseState; embedded?: boolean; onDone?: () => void; onFinished?: (said: string, status: string) => void }) {
   const { lang } = useT();
   const t = useMemo(() => photoT(lang), [lang]);
   const tRef = useRef(t); tRef.current = t;
@@ -173,6 +173,9 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
     if (dy < 0) window.scrollBy({ top: dy });
   }, [embedded, view]);
   const onDoneRef = useRef(onDone); onDoneRef.current = onDone; // the first page passes a new function each render
+  // embedded: 完成 went through. Owner 2026-11-28: "when i click done this auto close the window": the line closes the desk
+  // and shows the message itself (this desk, and its toast, are gone then)
+  const onFinishedRef = useRef(onFinished); onFinishedRef.current = onFinished;
   // embedded: the last press on the page was inside this desk (its keys follow it, its drops add photos)
   const active = useRef(false);
   useEffect(() => {
@@ -578,6 +581,7 @@ export default function NamingDesk({ orgId, tabs: firstTabs, initialId, initial,
         const what = tt(status === "phase_b" ? "doneToast.phase_b" : status === "pending_doc" ? "doneToast.pending_doc" : "doneToast.other", { plate: c.plate });
         say(embedded ? what : left ? what : `${what}. ${tt("allDoneToast")}`);
         onDoneRef.current?.();
+        if (embedded && caseRef.current === cid) onFinishedRef.current?.(what, status);
         return true;
       }
       const reason = r.body.reason as string | undefined;
