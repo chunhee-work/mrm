@@ -39,6 +39,9 @@ export const GET = photoRoute("cases.file", async ({ c, me, params }) => {
       "Content-Disposition": `${type ? "inline" : "attachment"}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(f.name)}`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
+      // a PDF or photo may show inside the Files window of our own page, never inside another site's
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
     },
   });
 });

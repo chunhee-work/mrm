@@ -17,7 +17,8 @@ const contentPolicy = [
   `connect-src 'self' blob: https://vercel.com https://*.vercel-storage.com${localStore ? ` ${localStore}` : ""}${dev ? " ws:" : ""}`,
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
-  `frame-src https://*.browserbase.com${dev ? " data:" : ""}`, // data: is the stand-in live view of local runs
+  // 'self': a case's own PDF opens inside the Files window (the file route lets only our own pages frame it)
+  `frame-src 'self' https://*.browserbase.com${dev ? " data:" : ""}`, // data: is the stand-in live view of local runs
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -26,7 +27,6 @@ const contentPolicy = [
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()" },
   // another site that opens one of our pages gets no handle on it, and cannot load our pages or files as its own resources
@@ -45,6 +45,8 @@ export default {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // no page of ours sits in a frame, except one uploaded case file inside the Files window of our own page (that route says SAMEORIGIN itself)
+      { source: "/((?!api/cases/[^/]+/files/[^/]+$).*)", headers: [{ key: "X-Frame-Options", value: "DENY" }] },
       // pages only: a file opened from /api (a PDF in the browser's own viewer) keeps the headers its route sets
       { source: "/((?!api/).*)", headers: [{ key: "Content-Security-Policy", value: contentPolicy }] },
     ];
