@@ -98,7 +98,7 @@ export async function deleteCase(orgId: string, userId: string, caseId: string):
   if (((Array.isArray(back) ? back : (back as { rows?: unknown[] }).rows ?? []) as unknown[]).length) return { ok: false, reason: "busy" };
   await db.update(schema.jobs).set({ state: "cancelled" }).where(and(eq(schema.jobs.caseId, caseId), inArray(schema.jobs.state, ["queued", "paused"]))).catch((e) => console.error("cancel jobs after delete failed", caseId, e));
   await db.insert(schema.auditLog).values({ orgId, userId, action: "case.delete", detail: caseId }).catch((e) => console.error("audit row for delete failed", caseId, e));
-  // Owner 2026-11-28: every case deleted here broke on our side, so its credit goes back (Merimen cases too). refundCase gives back
+  // Owner 2026-11-29 01:33 MYT: policy: a case deleted here is treated as broken on our side, so its credit goes back (Merimen cases too). refundCase gives back
   // only a debit not yet refunded, so a read that was already refunded when it failed, or a case never charged, gets nothing.
   const refunded = await refundCase(orgId, caseId, "deleted").catch((e) => { console.error("refund after delete failed", caseId, e); return false; }); // logged: the owner can give it back by hand
   return { ok: true, refunded };

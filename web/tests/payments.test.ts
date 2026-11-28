@@ -288,6 +288,24 @@ test("delete: a worker claim that commits while the delete waits makes it busy, 
   } finally { await claim.end(); }
 });
 
+test("delete: a new read result that lands while the delete waits is checked again (bad file now: not deleted)", async () => {
+  const { Client } = await import("pg");
+  const id = await mkCase("failed", { fault: null });
+  await db.update(schema.cases).set({ error: "Connection error." }).where(sql`${schema.cases.id} = ${id}`); // ours: deletable
+  const other = new Client({ connectionString: process.env.DATABASE_URL });
+  await other.connect();
+  try {
+    await other.query("BEGIN");
+    await other.query("SELECT 1 FROM cases WHERE id = $1 FOR UPDATE", [id]);
+    const del = deleteCase(org, "u1", id); // its first read sees "Connection error."; its UPDATE waits for the lock
+    await new Promise((r) => setTimeout(r, 300));
+    await other.query("UPDATE cases SET error = 'bad_file:fake.pdf|corrupt' WHERE id = $1", [id]);
+    await other.query("COMMIT");
+    assert.deepEqual(await del, { ok: false, reason: "not_allowed" });
+    assert.equal(await deletedAt(id), null);
+  } finally { await other.end(); }
+});
+
 test("delete: an open case with our failure line is hidden, files and the case row kept, one audit row", async () => {
   const cases = [
     ["waiting_user", "Worker error"], ["phase_a", "Worker error"], ["pending_doc", "Worker error"], ["naming", "Worker error"],
