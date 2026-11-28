@@ -251,7 +251,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
           </button>
         </div>
       )}
-      <Brief r={r} workshops={workshops} />
+      <Brief r={r} workshops={workshops} relist={ctl.relist} />
       {r.canDelete && (
         <div className="flex justify-end">
           {/* a case the worker has not taken yet can still be deleted (same pop-up and rules as the case list) */}
@@ -277,7 +277,7 @@ type BriefData = { events: { at: string; message: string }[]; files: { id: numbe
 
 /** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
  * line opens and again when its status changes, so it follows the case without the user leaving the first page. */
-function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
+function Brief({ r, workshops, relist }: { r: CaseRow; workshops: WorkshopOpt[]; relist: () => void }) {
   const { t } = useT();
   const [d, setD] = useState<BriefData | null>(null);
   const [tick, setTick] = useState(0);
@@ -301,7 +301,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
   return (
     <div className="space-y-4" data-testid="home-brief">
       {showWs && (
-        <WorkshopChoice caseId={r.id} workshops={workshops} state={d.workshop!} onSaved={() => setTick((n) => n + 1)} testid="home-ws" />
+        <WorkshopChoice caseId={r.id} workshops={workshops} state={d.workshop!} onSaved={() => { setTick((n) => n + 1); relist(); }} testid="home-ws" /* the collapsed line stops asking too */ />
       )}
       {(d.events.length > 0 || d.files.length > 0) && (
         <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
