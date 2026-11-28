@@ -319,7 +319,8 @@ def handle_job(job: dict, case: dict, photos: list[dict], *, gate: str, session:
 
 
 def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
-    """phase_b after the desk is done; a second phase_a only once writes are allowed and the first pass did not save."""
+    """phase_b after the desk is done; the first phase_a for a case the web read (its intake job closed by the web); a second phase_a
+    only once writes are allowed and the first pass did not save."""
     open_steps = {j["step"] for j in jobs if j["state"] in ("queued", "running")}
     out = []
     # one Phase B per Done press: due when the newest Done is later than the newest phase_b job, whatever state that job ended in.
@@ -339,7 +340,12 @@ def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:
         out.append("phase_b")
     # The web read the documents itself and closed the intake job (web scan-case.ts `closeIntakeJobs`, B15), so the worker's intake
     # step, which used to queue Phase A, never runs. A read case (status phase_a) that has never had a Phase A job gets one here.
-    if case.get("status") == "phase_a" and not case.get("merimen_caseid") and not any(j["step"] == "phase_a" for j in jobs):
+    # Not while an intake job is still open: the web sets phase_a before it closes the intake job, and a worker intake queues its own
+    # Phase A, so both paths together would make two.
+    if (
+        case.get("status") == "phase_a" and not case.get("merimen_caseid")
+        and not any(j["step"] == "phase_a" for j in jobs) and "intake" not in open_steps
+    ):
         out.append("phase_a")
         return out
     dry_done = any(j["step"] == "phase_a" and j["state"] == "done" for j in jobs)

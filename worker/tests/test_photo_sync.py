@@ -481,6 +481,8 @@ def test_a_case_read_by_the_web_gets_its_phase_a_job():
     assert followup_steps(dict(read, photos_done_at="x", photos_snapshot="s", done_epoch=5), intake_closed_by_web, writes=False) == ["phase_a"]
     for state in ("queued", "running", "done", "failed", "cancelled", "paused"):  # one Phase A only: any earlier job, whatever its end, blocks a new one
         assert followup_steps(read, intake_closed_by_web + [{"step": "phase_a", "state": state, "created_epoch": 2}], writes=False) == [], state
+    for state in ("queued", "running"):  # the worker's own intake will queue Phase A: never a second one
+        assert followup_steps(read, [{"step": "intake", "state": state, "created_epoch": 1}], writes=False) == [], state
     assert followup_steps(dict(read, merimen_caseid="M1"), intake_closed_by_web, writes=False) == []  # already in Merimen
     assert followup_steps(dict(read, status="pending_doc"), intake_closed_by_web, writes=False) == []  # documents missing: not yet
 
@@ -493,7 +495,7 @@ def test_followup_cases_skips_deleted_cases():
     class Db:
         def execute(self, sql, params=None):
             seen.append(sql)
-            return []
+            return [("c1", "o1", "phase_a", None, None, None, None)] if len(seen) == 1 else []
 
     PgRepo("x", db=Db()).followup_cases()
-    assert "deleted_at IS NULL" in seen[0]
+    assert len(seen) == 2 and all("deleted_at IS NULL" in q for q in seen)  # the cases and the jobs query both
