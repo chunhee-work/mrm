@@ -46,7 +46,7 @@ export function eventKind(message: string, live = false): EventKind {
   if (key === "ev.failed") return "fail";
   if (key === "ev.pending") return "wait";
   if (key === "ev.reading" || key === "ev.queued") return live ? "work" : "ok";
-  if (key === "ev.received" || key === "ev.receivedMore" || key === "ev.opened" || key === "ev.read") return "ok";
+  if (key === "ev.received" || key === "ev.receivedMore" || key === "ev.opened" || key === "ev.read" || key === "ev.workshopOk") return "ok";
   if (WORKER_KIND[key]) return WORKER_KIND[key];
   return "note";
 }
