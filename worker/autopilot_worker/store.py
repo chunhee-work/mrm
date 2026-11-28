@@ -7,7 +7,7 @@ import sys
 
 from .db import make_db
 from .gate import worker_gate
-from .jobs import CLAIM_SQL, CLAIM_SQL_NO_WORKSHOPS, RECLAIM_SQL, TOUCH_SQL, claim_params
+from .jobs import CLAIM_SQL, CLAIM_SQL_NO_WORKSHOPS, GIVE_BACK_SQL, RECLAIM_SQL, TOUCH_SQL, claim_params
 from .login_page import backoff_seconds
 from .pipeline import Outcome
 
@@ -80,8 +80,10 @@ def pause_statements(org_id: str, event: str, *, only_if_state: str | None = Non
     return [
         (
             """
+            -- queued jobs only: a running one (another slot of this worker) ends with its own outcome; a row paused under it would
+            -- be resumed later and run its step a second time (plan #150 I2). Until the login is ok again the claim takes none.
             UPDATE jobs SET state = 'paused', locked_by = NULL, locked_at = NULL
-            WHERE state IN ('queued', 'running') AND step IN ('phase_a', 'phase_b', 'checks')
+            WHERE state = 'queued' AND step IN ('phase_a', 'phase_b', 'checks')
               AND case_id IN (SELECT id FROM cases WHERE org_id = %(org)s)""" + guard,
             p,
         ),
@@ -190,6 +192,10 @@ class PgRepo:
 
         rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id, "port": int(port)})
         return bool(rows and rows[0][0])
+
+    def give_back(self, job_id: int, worker_id: str) -> None:
+        """Undo a claim of a job this process still has in a slot (plan #150 I2): queued again in 30 s, its try not counted."""
+        self.db.execute(GIVE_BACK_SQL, (int(job_id), worker_id))
 
     def touch_job(self, job_id: int, worker_id: str) -> bool:
         """Renew the lease. False means the job is no longer ours."""
@@ -340,7 +346,7 @@ class PgRepo:
             st.append((
                 """
                 UPDATE jobs SET state = 'paused', locked_by = NULL, locked_at = NULL
-                WHERE state IN ('queued', 'running') AND id <> %s AND step IN ('phase_a', 'phase_b', 'checks')
+                WHERE state = 'queued' AND id <> %s AND step IN ('phase_a', 'phase_b', 'checks')
                   AND case_id IN (SELECT id FROM cases WHERE org_id = %s)
                 """,
                 (job["id"], job["org_id"]),

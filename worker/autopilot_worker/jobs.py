@@ -179,4 +179,9 @@ RETURNING id
 """
 
 # The worker that holds a job renews the lease. A renewal for a job another worker has since taken matches nothing.
+# A claim of a job this process still has in a slot (it wrote its outcome and is still closing its tabs) is undone: queued again in
+# 30 s, its try not counted (plan #150 I2)
+GIVE_BACK_SQL = ("UPDATE jobs SET state = 'queued', locked_by = NULL, locked_at = NULL, attempts = GREATEST(attempts - 1, 0), "
+                 "not_before = now() + interval '30 seconds' WHERE id = %s AND state = 'running' AND locked_by = %s RETURNING id")
+
 TOUCH_SQL = "UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running' AND locked_by = %s RETURNING id"

@@ -419,7 +419,7 @@ def test_chrome_starts_without_slowing_background_tabs():
     from autopilot_worker.chrome import chrome_argv
 
     argv = chrome_argv("/usr/bin/chrome", 9222, "/var/lib/x/profile")
-    assert "--disable-background-timer-throttling" in argv and "--disable-renderer-backgrounding" in argv
+    assert {"--disable-background-timer-throttling", "--disable-renderer-backgrounding", "--disable-backgrounding-occluded-windows"} <= set(argv)
 
 
 def test_one_logout_dedupe_is_only_for_slots_and_ends_with_a_relogin(tmp_path):
@@ -678,7 +678,7 @@ def test_any_worker_refuses_to_start_beside_a_slots_worker(tmp_path):
     cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
     try:
         assert m._one_slots_process(cfg)
-        assert m._one_slots_process(cfg, hold=False) is False  # main() refuses a WORKER_SLOTS=1 start on that answer
+        assert m._one_slots_process(cfg, hold=False) is False  # the lock is taken: a second worker is refused
     finally:
         for f in m._SLOTS_LOCK:
             f.close()
@@ -924,7 +924,7 @@ def test_every_driver_attribute_has_a_threading_model():
 
     names = set(m._CdpDriver("s").__dict__)
     src = Path(m.__file__).read_text() + Path(m.__file__).with_name("loop.py").read_text() + Path(m.__file__).with_name("pipeline.py").read_text()
-    names |= set(_re.findall(r"\bdriver\.([a-z_]+) = ", src))
+    names |= set(_re.findall(r"\bdriver\.([a-z_][a-z0-9_]*) = ", src))
     assert names <= SHARED | PER_JOB, names - SHARED - PER_JOB
     assert not SHARED & PER_JOB
 
@@ -1042,3 +1042,45 @@ def test_two_workers_on_one_chrome_are_refused_even_with_different_state_folders
             f.close()
         m._SLOTS_LOCK.clear()
     assert m._one_slots_process(b, hold=False) is True
+
+
+def test_a_bad_login_never_pauses_a_job_another_slot_is_running():
+    # a row paused under a running job would be resumed later and run its Merimen step a second time (I2); the claim already
+    # takes no Merimen step while the login is blocked
+    from autopilot_worker.store import pause_statements
+
+    sql = pause_statements("o1", "bad login")[0][0]
+    assert "state = 'queued'" in sql and "'running'" not in sql
+    import inspect
+
+    from autopilot_worker import store
+
+    src = inspect.getsource(store.PgRepo.apply)
+    assert "WHERE state = 'queued' AND id <> %s" in src and "state IN ('queued', 'running') AND id <>" not in src
+
+
+def test_live_writes_with_several_jobs_per_org_and_no_slots_refuse_to_start(tmp_path):
+    from autopilot_worker import __main__ as m
+
+    base = {"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_WRITES": "on", "WORKER_SUBMIT": "on"}
+    with pytest.raises(SystemExit):
+        m.refuse_unsafe_start(Config.from_env({**base, "ORG_CONCURRENCY": "2"}))
+    m.refuse_unsafe_start(Config.from_env({**base, "ORG_CONCURRENCY": "2", "WORKER_SLOTS": "2"}))  # slots: one process, allowed
+    m.refuse_unsafe_start(Config.from_env({**base}))  # one job per org: as before
+    m.refuse_unsafe_start(Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "ORG_CONCURRENCY": "2"}))  # no writes
+
+
+def test_the_stop_waits_at_most_the_stop_seconds_for_a_running_job():
+    import threading as _t
+    import time as _time
+
+    from autopilot_worker.pool import JobPool
+
+    release = _t.Event()
+    pool = JobPool(2, lambda job, driver, extra: release.wait(5), make_driver=lambda: object())
+    pool.submit({"id": 1, "step": "phase_a"})
+    t0 = _time.monotonic()
+    assert pool.wait_idle(0.3) is False  # still running after the stop time: the process exits and cuts it off
+    assert _time.monotonic() - t0 < 1.0
+    release.set()
+    assert pool.wait_idle(2) is True

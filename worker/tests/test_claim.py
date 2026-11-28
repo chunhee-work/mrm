@@ -105,6 +105,17 @@ def test_a_job_this_worker_still_runs_keeps_its_row_after_a_long_db_outage():
 
 
 @needs_pg
+def test_a_claim_of_a_job_still_closing_in_a_slot_is_given_back_without_a_try():
+    from autopilot_worker.jobs import GIVE_BACK_SQL
+
+    seed = SEED[:2] + ["INSERT INTO jobs (id, case_id, step, state, attempts, locked_by, locked_at) VALUES (10,'c1','intake','running',2,'w', now())"]
+    sql, args = to_numbered(GIVE_BACK_SQL, (10, "w"))
+    r = run([{"sql": sql, "params": [str(a) for a in args]},
+             {"sql": "SELECT state, attempts, locked_by, not_before > now() FROM jobs WHERE id = 10"}], seed=seed)
+    assert r[1] == [["queued", 1, None, True]]
+
+
+@needs_pg
 def test_migration_0008_applies_twice_and_has_no_delete_grant():
     mig = (HERE.parent.parent / "web" / "drizzle" / "0008_case_screenshots.sql").read_text()
     again = [s for s in mig.split("--> statement-breakpoint") if s.strip()]

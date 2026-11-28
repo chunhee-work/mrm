@@ -759,10 +759,16 @@ def _page_provider(cfg: Config):
     return page_for
 
 
+def refuse_unsafe_start(cfg: Config) -> None:
+    """Live writes with ORG_CONCURRENCY above 1 and no slots: several worker processes could create for one org at once (the
+    in-process create lock does not reach them). Refused at start (plan #150, difference 6)."""
+    if cfg.live_writes and cfg.slots <= 1 and cfg.org_limit > 1:
+        raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1 without WORKER_SLOTS: set ORG_CONCURRENCY=1 (or use WORKER_SLOTS) and start again")
+
+
 def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
-    if cfg.live_writes and cfg.slots <= 1 and cfg.org_limit > 1:  # several processes creating for one org: refuse, as before
-        raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1 without WORKER_SLOTS: set ORG_CONCURRENCY=1 (or use WORKER_SLOTS) and start again")
+    refuse_unsafe_start(cfg)
     repo = PgRepo(cfg.database_url, cfg.db_transport)
     from . import relogin as relogin_mod
 
@@ -941,9 +947,10 @@ def main() -> None:
                     if not job:
                         break
                     if pool.has(job["id"]):
-                        # its lease ran out while it still runs here (Neon could not be reached for longer than the lease): the slot
-                        # thread keeps it and renews the lease again; it is never started a second time
-                        continue
+                        # its slot already wrote its outcome (back to the queue) and is still closing its tabs: never started a second
+                        # time here. The claim is undone with its try given back, and it is taken again in a later pass
+                        repo.give_back(job["id"], cfg.worker_id)
+                        break
                     pool.submit(job, relogin_ready=relogin is not None)
             except Exception as e:
                 print(tick_error_line(e), file=sys.stderr)
