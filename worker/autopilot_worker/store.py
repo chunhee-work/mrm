@@ -123,12 +123,12 @@ class PgRepo:
         )
         return int(rows[0][0]) if rows else 0
 
-    def put_back_last(self, case_id: str, step: str) -> bool:
-        """This step of the case was last put back because Merimen logged out (its newest event, within LOST_WINDOW): the run now
-        starting is the one that goes on from where that one stopped."""
+    def put_back_lately(self, case_id: str, step: str) -> bool:
+        """This step of the case was put back because Merimen logged out within LOST_WINDOW: the run now starting may be the one
+        that goes on from where that one stopped (a retry in between does not end it). Only makes the photo step stricter."""
         rows = self.db.execute(
-            "SELECT message LIKE %s FROM case_events WHERE case_id = %s AND step = %s AND at > now() - %s::interval ORDER BY at DESC, id DESC LIMIT 1",
-            (LOST_EVENT + "%", case_id, step, LOST_WINDOW),
+            "SELECT EXISTS (SELECT 1 FROM case_events WHERE case_id = %s AND step = %s AND message LIKE %s AND at > now() - %s::interval)",
+            (case_id, step, LOST_EVENT + "%", LOST_WINDOW),
         )
         return bool(rows and rows[0][0])
 
@@ -326,6 +326,7 @@ class PgRepo:
             if outcome.total_rm:  # the estimate is saved in Merimen either way
                 st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
         error = outcome.error or ("gave up after %d tries" % attempts if gave_up else None)
+        # a logout put-back that keeps the case number it wrote leaves the case's error as it was
         if outcome.case_status or outcome.merimen_caseid or outcome.pending_doc or outcome.done or error:
             st.append((
                 """
@@ -335,7 +336,7 @@ class PgRepo:
                   merimen_extid = COALESCE(%s, merimen_extid),
                   total_rm = COALESCE(%s, total_rm),
                   pending_doc = COALESCE(%s, pending_doc),
-                  error = %s,
+                  error = """ + ("COALESCE(%s, error)" if outcome.session_lost else "%s") + """,
                   done_at = CASE WHEN %s THEN now() ELSE done_at END
                 WHERE id = %s AND deleted_at IS NULL""" + final_sql,
                 (

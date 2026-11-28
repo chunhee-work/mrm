@@ -189,11 +189,11 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
     k = prefix_done(have, plan) if resumed else 0
     if k:
         return _resume(rep, case, plan, k, merimen, guard, writes)
-    if resumed and have and len(have) < len(plan):
-        # put back after a logout: fewer photos than the plan but not its clean start (a gap, a repeated caption, a name changed
-        # meanwhile) is never taken as "already has photos", a person looks (playbook 06)
+    if resumed and have and have != [p["name"] for p in plan]:
+        # put back after a logout: anything but the clean start or the whole list (a gap, a repeated caption, a name changed
+        # meanwhile, a photo stored twice) is never taken as "already has photos", a person looks (playbook 06)
         rep.action, rep.upload, rep.code, rep.snapshot = "refused", 0, "hand_fix", None
-        rep.note = f"Merimen has {len(have)} of {len(plan)} photos that are not the start of this list: fix by hand (playbook 06)"
+        rep.note = f"Merimen has {len(have)} photos that do not line up with this list of {len(plan)}: fix by hand (playbook 06)"
         return rep
     if have is not None and len(have) >= int(rules()["photoUpload"]["skipWhenMerimenHasPhotos"]):
         rep.action, rep.upload, rep.note = "none", 0, f"Merimen already has {len(have)} photos"

@@ -155,6 +155,18 @@ def _not_merimen(outcome: Outcome) -> bool:
     return bool(outcome.pending_doc) or err in ("documents", "concurrency_unsafe", "writes_off") or err.startswith("missing ")
 
 
+def _may_come_from_logout(job: dict, outcome: Outcome, seen_login: bool) -> bool:
+    """Which outcomes a logout can explain. Every retry the job does by itself (photos unreadable, no logged-in tab, the form did
+    not open, a dry run that failed, a worker error) and a worker error that ran out of tries. A stop meant for a person (Step 2,
+    the checks before submit, a case that cannot be entered, a Phase B photo write, a photo list to fix by hand) stays one, with a
+    single exception: Phase A's photo step that itself found the login form (an upload cut off by the logout)."""
+    if outcome.job_state not in ("failed", "requeue") or _not_merimen(outcome):
+        return False
+    if outcome.job_state == "requeue" or outcome.error == "worker error":
+        return True
+    return job["step"] == "phase_a" and outcome.error == "photos" and seen_login
+
+
 def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
     """The outcome of a job that Merimen logged out half way. Under the cap: put back without using a try, nothing it found is
     taken as the case's state (no status, error or follow-up job), what it did write (the case number, the photo and Step 2 logs)
@@ -184,12 +196,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
     """After a Merimen job that did not finish: was the session logged out meanwhile (a step found the login form in a page it
     opened, `seen_login`, or a fresh look at Chrome)? Then the put-back outcome, and the org is marked so the next tick books a
     re-login. A check that fails itself leaves the outcome as it was."""
-    if job["step"] not in PHASE_STEPS or outcome.job_state not in ("failed", "requeue") or not puts_back(cfg, relogin_ready) \
-            or _not_merimen(outcome):
-        return outcome
-    if job["step"] == "phase_b" and outcome.error == "photos":
-        # a relabel / reorder / final upload that broke half way: a person looks at Merimen's list, as before (matching by caption
-        # alone could give a photo the wrong name)
+    if job["step"] not in PHASE_STEPS or not puts_back(cfg, relogin_ready) or not _may_come_from_logout(job, outcome, seen_login):
         return outcome
     try:
         if not seen_login and session_alive(cfg, inspect, page_for, job["org_id"]):
@@ -257,7 +264,7 @@ LAUNCH_WAIT = 30.0
 
 
 # what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
-RELOGIN_REFUSED = ("streak", "orphan", "cap", "unclear_block", "cred", "key_mismatch")  # try_once said no; not asked again soon
+RELOGIN_SOON = (None, "pending", "db_error")  # try_once was not asked, or asks again within a minute: the forced mark stays
 TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending")
 
 
@@ -332,9 +339,9 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             order = [o for o, _ in want_relogin]
         for org in order:
             got = relogin(org, ports[org])
-            if got in ("ok", "session_live") or got in RELOGIN_REFUSED:
-                # done, or refused for a while (its own limits already said why): the mark goes, the tab decides again, so a person
-                # who logs in by hand is seen at once
+            if got not in RELOGIN_SOON:
+                # tried (done, put back, unclear) or refused for a while (cap, streak, cooldown...): the mark goes and the tab decides
+                # again, so a person who logs in by hand is seen at once; a job that meets the login form again is put back again
                 FORCE_RELOGIN.pop(org, None)
             if got in TRIED:
                 break
@@ -376,8 +383,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     _at("job")
     case = repo.load(job["case_id"])
     if isinstance(case, dict) and job["step"] in PHASE_STEPS and puts_back(cfg, relogin is not None):
-        try:  # this step was last put back after a logout: a partial photo list is then a cut-off upload, never "already has photos"
-            case["resumed_after_logout"] = repo.put_back_last(job["case_id"], job["step"])
+        try:  # this step was put back after a logout lately: a photo list that does not line up is never "already has photos"
+            case["resumed_after_logout"] = repo.put_back_lately(job["case_id"], job["step"])
         except Exception:  # noqa: BLE001
             pass
     login_seen.reset()

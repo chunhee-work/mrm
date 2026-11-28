@@ -112,12 +112,14 @@ def test_on_postgres_the_put_back_keeps_the_attempts_and_the_cap_counts_the_even
     PgRepo("", db=count).session_lost_count("c1")
     csql, cargs = to_numbered(*count.calls[0])
     last = Rec2()
-    PgRepo("", db=last).put_back_last("c1", "phase_b")
-    PgRepo("", db=last).put_back_last("c1", "phase_a")
+    PgRepo("", db=last).put_back_lately("c1", "phase_b")
+    PgRepo("", db=last).put_back_lately("c1", "phase_a")
     lsql, largs = to_numbered(*last.calls[0])
     lsql_a, largs_a = to_numbered(*last.calls[1])
-    r0 = run([*steps, {"sql": lsql, "params": largs}, {"sql": lsql_a, "params": largs_a}], seed=seed)
-    assert r0[len(steps)] == [[True]] and r0[len(steps) + 1] == []  # this step was put back; another step was not
+    r0 = run([*steps, {"sql": "INSERT INTO case_events (case_id, step, message) VALUES ('c1','phase_b','Phase B dry-run failed.')"},
+              {"sql": lsql, "params": largs}, {"sql": lsql_a, "params": largs_a}], seed=seed)
+    n0 = len(steps) + 1
+    assert r0[n0] == [[True]] and r0[n0 + 1] == [[False]]  # this step was put back (a retry since does not end it); another was not
     r = run([*steps,
              {"sql": "SELECT state, attempts, not_before > now() FROM jobs WHERE id = 100"},
              {"sql": "SELECT status, detail FROM worker_sessions WHERE org_id = 'o1'"},
@@ -187,6 +189,10 @@ def test_the_mark_stays_while_the_relogin_is_refused_and_goes_without_relogin(tm
     assert "o1" in FORCE_RELOGIN  # a try still on its way: the mark stays
     sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p: "cap")
     assert "o1" not in FORCE_RELOGIN  # refused for a while: the tab decides again (a hand login is seen at once)
+    for got in ("cooldown", "put_back"):
+        FORCE_RELOGIN["o1"] = time.monotonic()
+        sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p, g=got: g)
+        assert "o1" not in FORCE_RELOGIN
     FORCE_RELOGIN["o1"] = time.monotonic()
     sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=None)
     assert "o1" not in FORCE_RELOGIN
@@ -236,10 +242,22 @@ def test_phase_b_never_guesses_a_partial_list_even_after_a_put_back():
 def test_a_login_form_a_step_found_counts_although_the_old_tab_looks_fine(tmp_path):
     FORCE_RELOGIN.clear()
     on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
-    fail = Outcome("failed", case_status="waiting_user", error="docs", event="Phase A not saved.")
-    got = loop.check_session_after(on, CountRepo(), {**JOB, "step": "phase_a"}, fail, inspect=lambda p: LOGGED_IN, page_for=None, seen_login=True)
+    retry = Outcome("requeue", error="report", event="Phase A not saved")
+    got = loop.check_session_after(on, CountRepo(), {**JOB, "step": "phase_a"}, retry, inspect=lambda p: LOGGED_IN, page_for=None, seen_login=True)
     assert got.session_lost and "o1" in FORCE_RELOGIN
     FORCE_RELOGIN.clear()
+    # a Phase A upload cut off by the login form: put back; the same photo stop without the login form stays a hand fix
+    cut = Outcome("failed", case_status="waiting_user", error="photos", event="Phase A stopped. The photo step failed (not_logged_in).")
+    pa = {**JOB, "step": "phase_a"}
+    assert loop.check_session_after(on, CountRepo(), pa, cut, inspect=lambda p: LOGGED_IN, page_for=None, seen_login=True).session_lost
+    FORCE_RELOGIN.clear()
+    assert loop.check_session_after(on, CountRepo(), pa, cut, inspect=lambda p: LOGIN_PAGE, page_for=None) is cut
+    # stops meant for a person stay stops, whatever the session
+    for own in (Outcome("failed", case_status="waiting_user", error="step2", event="Phase B stopped. x"),
+                Outcome("failed", case_status="waiting_user", error="checks", event="Phase B: x"),
+                Outcome("failed", case_status="waiting_user", error="estimate", event="Phase B not saved. x")):
+        assert loop.check_session_after(on, CountRepo(), JOB, own, inspect=lambda p: LOGIN_PAGE, page_for=None, seen_login=True) is own
+    assert FORCE_RELOGIN == {}
 
 
 def test_a_phase_b_photo_write_that_broke_stays_a_hand_fix(tmp_path):
@@ -285,7 +303,7 @@ class BrokenCount:
 def test_check_after_the_job(tmp_path):
     FORCE_RELOGIN.clear()
     on = cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on")
-    fail = Outcome("failed", event="Worker error")
+    fail = Outcome("failed", error="worker error", event="Worker error")
     got = loop.check_session_after(on, CountRepo(), JOB, fail, inspect=lambda p: LOGIN_PAGE, page_for=None)
     assert got.session_lost and "o1" in FORCE_RELOGIN  # logged out: put back, the org marked for a re-login
     FORCE_RELOGIN.clear()

@@ -183,6 +183,17 @@ def test_a_create_only_save_stores_the_case_number_and_claims_no_upload():
     assert o2.case_status == "waiting_user" and o2.enqueue == []
 
 
+def test_a_case_made_by_a_run_that_was_cut_off_still_moves_on():
+    # the run that made the case was put back (Merimen logged out after the create); the next run finds the case number stored
+    made = DriveResult(ok=True, case_id="22322999", ext_id="9800111", partial=True)
+    o = run_phase("A", case(status="phase_a", merimen_caseid="22322999", photos_done_at="2026-11-27T10:00:00"), writes=True, driver=D(save=made))
+    assert "already exists" in o.event and o.case_status == "phase_b" and o.enqueue == ["phase_b"]
+    o = run_phase("A", case(status="phase_a", merimen_caseid="22322999"), writes=True, driver=D(save=made))
+    assert o.case_status == "waiting_user" and o.enqueue == []
+    o = run_phase("A", case(status="checking", merimen_caseid="22322999"), writes=True, driver=D(save=made))
+    assert o.case_status is None and o.enqueue == []  # a case further along keeps its status
+
+
 def test_a_refused_live_save_waits_for_the_user_with_merimens_reason():
     d = D(save=DriveResult(ok=False, fatal=True, error="form_rejected", line="form_rejected Merimen says: Handling Insurer must be indicated"))
     o = run_phase("A", case(), writes=True, driver=d)

@@ -217,7 +217,12 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
         photo_note = f" {rep.line()}" if rep and (rep.photos or not rep.ok) else ""
         tail = ""
         if existed:
-            return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}{photo_note}{tail}".strip()[:400], partial=True, photo_log=_log(rep))
+            # a case still in Phase A (the run that made it was cut off, e.g. Merimen logged out after the create): it moves on as
+            # after a first create; a case already further along keeps its status
+            moves = case.get("status") == "phase_a"
+            nxt = ("phase_b" if case.get("photos_done_at") else "waiting_user") if moves else None
+            return _o("done", event=f"The case already exists in Merimen, nothing was made again. {saved.line or ''}{photo_note}{tail}".strip()[:400],
+                      partial=True, photo_log=_log(rep), case_status=nxt, enqueue=(["phase_b"] if nxt == "phase_b" else []))
         return _o(
             "done", case_status=("phase_b" if case.get("photos_done_at") else "waiting_user"), partial=True,
             enqueue=(["phase_b"] if case.get("photos_done_at") else []),  # 完成 was already pressed: Phase B still gets its turn
