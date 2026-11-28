@@ -137,7 +137,7 @@ HOLD_KIND: dict[str, str] = {}
 # org -> times of its logouts found in jobs (put-backs and case-cap stops, all cases): ORG_CAP within ORG_WINDOW holds the org, so
 # one page that logs out every time (or a login-looking box Merimen shows while logged in) cannot spend the account's login tries
 # case after case. 3 h: a logout followed by a re-login cooldown and a long Phase B still falls inside it. The hard ceiling stays the
-# re-login's own 12 tries / 24 h
+# re-login's own limits: 12 tries that did not log in, 48 tries in all, per 24 h
 ORG_PUTBACKS: dict[str, list[float]] = {}
 ORG_CAP = 4
 ORG_WINDOW = 3 * 3600.0

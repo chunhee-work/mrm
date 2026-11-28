@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from . import learning, photo_sync, step2_run
@@ -169,6 +170,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
 
             if code == "unreadable" and login_seen.seen() and driver.relogin_ready:  # a Select Parts page met the login form
                 return _o("requeue", error="step2", event=f"Phase {phase} stopped. Merimen logged out on the Select Parts page")
+            _step2_print(e)
+            if _transient(e):  # the browser or network broke (NCH5773 2026-11-28: the box lost its network): ticking only adds ticks, so try again later
+                return _o("requeue", error="step2", stop_error="step2",
+                          event=f"Phase {phase} paused. The Select Parts page did not answer ({code}); trying again in a few minutes.")
             return _o("failed", case_status="waiting_user", error="step2",
                       event=f"Phase {phase} stopped. Parts and labour could not be ticked ({code}). Check the Select Parts page in Merimen."[:400])
         if s2 is not None and (s2.plan or not s2.ok):
@@ -273,6 +278,40 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
         require_snapshot=case.get("photos_snapshot") if desk is not None else None,
         stale_event="Phase B saved, but the names changed meanwhile. A new Phase B runs once 完成 is pressed on the new names" + suffix,
     )
+
+
+def _transient(e: Exception) -> bool:
+    """A broken browser call or network, not a page that said no: Playwright's own Error / TimeoutError (Step2Error is ours and has a code)
+    or an OSError (timeout, refused, reset). These are tried again with the job's normal tries; after the last one the case waits."""
+    if getattr(e, "code", None) or isinstance(e, (FileNotFoundError, PermissionError, IsADirectoryError, NotADirectoryError)):
+        return False  # a missing or locked file of ours is no network break: stop at once
+    if isinstance(e, (OSError, TimeoutError, ConnectionError)):
+        return True
+    if not type(e).__module__.startswith("playwright"):
+        return False
+    if type(e).__name__ in ("TimeoutError", "TargetClosedError"):
+        return True
+    # the base Error is also a script error inside the page (a changed layout): only a closed browser or a lost connection counts
+    return type(e).__name__ == "Error" and bool(_BROKE.search(str(e)))
+
+
+_BROKE = re.compile(r"has been closed|Target closed|Timeout \d+ms exceeded|net::ERR_|Execution context was destroyed|Connection closed|Browser closed", re.I)
+
+
+def _step2_print(e: Exception) -> None:
+    """One scrubbed stderr line, so the next stop on the Select Parts page shows why (it used to show only the class name)."""
+    try:
+        import os
+        import sys
+        import traceback
+
+        from .loop import _scrub
+
+        frames = traceback.extract_tb(e.__traceback__)[-3:]
+        where = " < ".join(f"{os.path.basename(f.filename)}:{f.lineno} {f.name}" for f in reversed(frames))
+        print(f"step2 {type(e).__name__} msg={_scrub(str(e))} at {where}"[:600], file=sys.stderr, flush=True)
+    except Exception:  # noqa: BLE001  (the log line never changes the outcome)
+        pass
 
 
 def _photo_error(phase: str, e: Exception) -> str:
