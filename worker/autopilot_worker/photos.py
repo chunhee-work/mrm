@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import contextlib
 import fcntl
 import sys
 import tempfile
@@ -77,6 +78,7 @@ def apply_name_rules(preds: list[Prediction], vehicle: str, final=None) -> list[
     """preds = one case's photos in shooting order (the Rear Lamp Inner/Outer rule looks at the whole case)."""
     final_, nr = _rules()
     final = final or final_
+    vehicle = (vehicle or "").strip()
     rows = []
     for p in preds:
         top = list(p.top) or ([p.model_name] if p.model_name else [])
@@ -86,7 +88,7 @@ def apply_name_rules(preds: list[Prediction], vehicle: str, final=None) -> list[
         name = next((n for n in (final(nr.FIX.get(t, t)) for t in top) if n), None) or nr.FIX.get(top[0], top[0])
         alts = [a for a in (final(nr.FIX.get(t, t)) for t in top[1:4]) if a and a != name][:2]
         rows.append({"name": name, "conf": 0.0 if p.confidence is None else p.confidence, "alts": alts})
-    nr.apply_case([r for r in rows if r], vehicle or "", final)
+    nr.apply_case([r for r in rows if r], vehicle, final)
     out = []
     for p, r in zip(preds, rows):
         if r is None:
@@ -162,6 +164,34 @@ def ensure_weights(model_dir: str, repo: str, token: str, revision: str = "") ->
             with open(_revision_file(model_dir), "w", encoding="utf-8") as fh:
                 fh.write(revision)
             return resolve_production(model_dir)
+
+
+_PREDICT_LOCK = threading.Lock()
+
+
+@contextlib.contextmanager
+def predict_slot(model_dir: str):
+    """One predict_case at a time: a thread lock for cases in this worker, a file lock for another worker process on the same folder."""
+    with _PREDICT_LOCK:
+        try:
+            os.makedirs(model_dir, exist_ok=True)
+            lk = open(os.path.join(model_dir, ".predict.lock"), "w")
+        except OSError as e:
+            raise ModelError("model missing") from e
+        with lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)
+            yield
+
+
+_ENV_KEEP = ("PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "DINOV2_HUB",
+             "TORCH_HOME", "XDG_CACHE_HOME", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
+
+
+def predict_env(base, extra: dict[str, str]) -> dict[str, str]:
+    """The environment for predict_case: what Python and torch need plus the predict settings; no secrets (it unpickles downloaded files)."""
+    env = {k: v for k, v in base.items() if k in _ENV_KEEP}
+    env.update(extra)
+    return env
 
 
 def predict_timeout(n: int) -> int:

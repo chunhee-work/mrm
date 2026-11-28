@@ -131,3 +131,32 @@ def test_revision_change_downloads_again(tmp_path, monkeypatch):
     ensure_weights(str(tmp_path), "o/r", "tok", "abc123")   # pinned and the folder is not at it: download once
     ensure_weights(str(tmp_path), "o/r", "tok", "abc123")
     assert calls == ["abc123"]
+
+
+def test_predict_env_has_no_secrets():
+    from autopilot_worker.photos import predict_env
+    env = predict_env({"PATH": "/bin", "HF_TOKEN": "x", "DATABASE_URL": "y", "MERIMEN_CRED_KEY": "z", "DINOV2_HUB": "/opt/h"},
+                      {"PROD": "1", "VEHICLE": "PROTON SAGA"})
+    assert env == {"PATH": "/bin", "DINOV2_HUB": "/opt/h", "PROD": "1", "VEHICLE": "PROTON SAGA"}
+
+
+def test_predict_slot_one_at_a_time(tmp_path):
+    import threading
+    import time
+    from autopilot_worker.photos import predict_slot
+    inside, most = [0], [0]
+
+    def run():
+        with predict_slot(str(tmp_path)):
+            inside[0] += 1
+            most[0] = max(most[0], inside[0])
+            time.sleep(0.02)
+            inside[0] -= 1
+    ts = [threading.Thread(target=run) for _ in range(4)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert most[0] == 1
+
+
+def test_vehicle_with_spaces_is_still_a_perodua():
+    assert apply_name_rules([P("Fender Inner LH")], "  PERODUA BEZZA", IDENT)[0].model_name == "Fender Inner LH"

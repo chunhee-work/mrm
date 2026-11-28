@@ -43,15 +43,15 @@ GROUPS = []   # each: dict(bb, head, hl (head labels), dim, ctx=[(Ctx, labels, c
 if AUTO:
     PROD = json.load(open(_rel(os.environ.get("PROD_FILE", "models/production.json"))))
     for g in PROD["groups"]:
-        b, h, hl, dim = load_backbone(torch.load(_rel(g["stage1"]), map_location="cpu")); cx = []
+        b, h, hl, dim = load_backbone(torch.load(_rel(g["stage1"]), map_location="cpu", weights_only=False)); cx = []
         for p in g.get("seq", []):
-            sk = torch.load(_rel(p), map_location="cpu"); c = Ctx(len(sk["labels"]), sk["win"], sk.get("dim", dim), dim)
+            sk = torch.load(_rel(p), map_location="cpu", weights_only=False); c = Ctx(len(sk["labels"]), sk["win"], sk.get("dim", dim), dim)
             c.load_state_dict(sk["ctx"]); cx.append((c.to(dev).eval(), sk["labels"], sk.get("crop", 0)))
         GROUPS.append(dict(bb=b, head=h, hl=hl, dim=dim, ctx=cx))
     CTX = [t for g in GROUPS for t in g["ctx"]]
     labels = sorted({n for g in GROUPS for n in ([l for _, ls, _ in g["ctx"] for l in ls] if g["ctx"] else g["hl"])}); _LI = {n: k for k, n in enumerate(labels)}
 else:
-    ck = torch.load(sys.argv[1], map_location="cpu"); labels = ck["labels"]
+    ck = torch.load(sys.argv[1], map_location="cpu", weights_only=False); labels = ck["labels"]
     bb = torch.hub.load(_HUB, "dinov2_vitb14", source="local", pretrained=False); model = nn.Sequential(bb, nn.Linear(768, len(labels)))
     model.load_state_dict(ck["state"]); model.to(dev).eval()
     # group models (batch 10): SEQ = comma list; default = seq_best.pt (whole photos) + seq_best_crop.pt (whole + crosshair zoom), averaged
@@ -59,7 +59,7 @@ else:
     SEQ = [p for p in SEQ.split(",") if p and p != "0" and os.path.exists(p)]   # SEQ=0 -> single-photo model only
     CTX = []
     for p in SEQ:
-        sk = torch.load(p, map_location="cpu"); c = Ctx(len(sk["labels"]), sk["win"], sk.get("dim", 768))
+        sk = torch.load(p, map_location="cpu", weights_only=False); c = Ctx(len(sk["labels"]), sk["win"], sk.get("dim", 768))
         c.load_state_dict(sk["ctx"]); CTX.append((c.to(dev).eval(), sk["labels"], sk.get("crop", 0)))
     if CTX:
         labels = sorted({n for _, ls, _ in CTX for n in ls}); _LI = {n: k for k, n in enumerate(labels)}
