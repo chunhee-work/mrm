@@ -127,7 +127,7 @@ def clear_login_notice(state_dir: str) -> None:
     """Remove an old hand-login notice: with re-login active nobody is asked to log in by hand."""
     try:
         os.remove(os.path.join(state_dir, "NEED_LOGIN"))
-    except FileNotFoundError:
+    except OSError:  # gone already, or not removable: never stop the tick for a notice
         pass
 
 
