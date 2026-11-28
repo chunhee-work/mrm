@@ -49,7 +49,7 @@ const allowed = (x: FlagRow) => x.ok && !customerFile({ status: x.status, error:
 /** The delete flag of each case id (the list): the SQL rule, minus a customer's own bad file. */
 export async function deletableIds(ids: string[]): Promise<Set<string>> {
   if (!ids.length) return new Set();
-  const r = await db.execute(sql`SELECT c.id, ${flagCols()} FROM cases c WHERE c.id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`);
+  const r = await db.execute(sql`SELECT c.id, ${flagCols()} FROM cases c WHERE c.status <> 'done' AND c.id IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`); // a done case is never deletable: its subqueries are skipped
   return new Set(rowsOf<FlagRow>(r).filter(allowed).map((x) => x.id));
 }
 
@@ -78,7 +78,8 @@ export async function deleteCase(orgId: string, userId: string, caseId: string):
   // A customer's bad file is checked first (its error texts are matched in TypeScript); the UPDATE then only goes through while the
   // status, error and the crash answer are still the ones checked, so a change in between cannot slip past it.
   const pre = rowsOf<FlagRow>(await db.execute(sql`SELECT c.id, ${flagCols()} FROM cases c WHERE c.id = ${caseId} AND c.org_id = ${orgId} AND c.deleted_at IS NULL`))[0];
-  if (pre?.ok && !allowed(pre)) return { ok: false, reason: "not_allowed" };
+  // Checked whatever `ok` says: a bad file with a job running at this read would otherwise pass once that job ends (review round 8).
+  if (pre && customerFile({ status: pre.status, error: pre.error, wasRead: pre.was_read, faulted: pre.faulted })) return { ok: false, reason: "not_allowed" };
   const res = await db.execute(sql`UPDATE cases c SET deleted_at = now()
     FROM (SELECT id, status, (case_data IS NOT NULL) AS was_read FROM cases WHERE id = ${caseId} AND org_id = ${orgId} FOR UPDATE) o
     WHERE c.id = o.id AND c.deleted_at IS NULL AND ${canDeleteSql(sql.raw("c"))} AND c.status = ${pre?.status ?? ""} AND c.error IS NOT DISTINCT FROM ${pre?.error ?? null} AND ${faultedSql(sql.raw("c"))} = ${pre?.faulted ?? false}

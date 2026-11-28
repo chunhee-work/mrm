@@ -402,6 +402,10 @@ test("delete: a customer's bad file is not our side, a zip with several cars or 
     assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "not_allowed" }, e); // "Replace files" is the action
     assert.equal(await deletedAt(id), null);
   }
+  // a job running at the first read does not skip the bad-file check: once that job ends the case would otherwise pass (review round 8)
+  const running = await failedWith("no PDF in this case");
+  await db.insert(schema.jobs).values({ caseId: running, step: "photo_model", state: "running" });
+  assert.deepEqual(await deleteCase(org, "u1", running), { ok: false, reason: "not_allowed" });
   for (const [e, fault] of [[`cars.zip: ${ZIP_WHY.multi}`, null], ["Connection error.", null], ["bad_file:fake.pdf|corrupt", "Worker error"]] as const)
     assert.deepEqual(await deleteCase(org, "u1", await failedWith(e, fault)), { ok: true, refunded: false }, e);
 });
@@ -418,7 +422,8 @@ test("delete: the list's flag is the same rule, one answer per case with many li
   assert.equal(rows.length, 3);
   assert.deepEqual(Object.fromEntries(rows.map((x) => [x.id, x.ok])), { [yes]: true, [no]: false, [busy]: false });
   const bad = await mkCase("failed", { fault: null }); await db.update(schema.cases).set({ error: "no PDF in this case" }).where(sql`${schema.cases.id} = ${bad}`);
-  assert.deepEqual([...await deletableIds([yes, no, busy, bad])], [yes]); // what the list shows: the rule minus a customer's bad file
+  const done = await mkCase("done"); // a crash line on a finished case: never deletable, and the list skips its checks
+  assert.deepEqual([...await deletableIds([yes, no, busy, bad, done])], [yes]); // what the list shows: the rule minus a customer's bad file
   // a Create pressed in Merimen with no case id back yet counts as in Merimen for the pop-up, until Merimen says nothing was made
   await db.insert(schema.caseEvents).values({ caseId: yes, step: "create_submitted", message: "Create pressed in Merimen" });
   assert.deepEqual([...await createPendingIds([yes, no])], [yes]);
