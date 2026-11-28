@@ -20,12 +20,14 @@ export const canDelete = (c: { status: string; faulted: boolean; running: boolea
   c.status !== "done" && c.status !== "reading" && !c.running && (c.status === "failed" || c.faulted);
 
 /**
- * SQL: the case (`c`, an alias of cases) has an unresolved crash: a crash line whose step's newest job did not go on (it ended failed or
- * cancelled). A crash that the retry got past (the same job, or a later one of that step, is done, queued, running or paused) is not
- * counted, so a case that crashed once and then carried on normally shows no delete icon.
+ * SQL: the case (`c`, an alias of cases) has an unresolved crash. A crash line belongs to the newest job of its step made at or before
+ * the line (the job that was running; jobs.id is serial). It is resolved when that job or a later one of the same step went on
+ * (done, queued, running or paused), so a case that crashed once and then carried on normally shows no delete icon, and a later
+ * unrelated stop of that step (a person stop, a cancel) does not bring an old, mended crash back.
  */
 export const faultedSql = (c = sql.raw("c")) => sql`EXISTS (SELECT 1 FROM case_events e WHERE e.case_id = ${c}.id AND e.message = ${FAULT_LINE}
-  AND COALESCE((SELECT j.state FROM jobs j WHERE j.case_id = ${c}.id AND j.step = e.step ORDER BY j.id DESC LIMIT 1), 'failed') NOT IN ('done', 'queued', 'running', 'paused'))`;
+  AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.case_id = ${c}.id AND j.step = e.step AND j.state IN ('done', 'queued', 'running', 'paused')
+    AND j.id >= COALESCE((SELECT max(k.id) FROM jobs k WHERE k.case_id = ${c}.id AND k.step = e.step AND k.created_at <= e.at), 0)))`;
 /** SQL: something works on the case now: a document read, or a worker job. */
 export const busySql = (c = sql.raw("c")) => sql`(${c}.status = 'reading' OR EXISTS (SELECT 1 FROM jobs j WHERE j.case_id = ${c}.id AND j.state = 'running'))`;
 /** SQL: the whole rule, one boolean per case, used by the list (no join, so no duplicate rows) and by deleteCase. */

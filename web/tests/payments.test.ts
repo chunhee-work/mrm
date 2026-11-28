@@ -328,6 +328,12 @@ test("delete: a crash the worker got past does not count; one its step never got
   // phase_b crashed and stopped; a later phase_a finishing does not mend phase_b
   assert.deepEqual(await deleteCase(org, "u1", await one([["phase_b", "failed"], ["phase_a", "done"]])), { ok: true, refunded: false });
   assert.deepEqual(await deleteCase(org, "u1", await one([["phase_b", "cancelled"]])), { ok: true, refunded: false });
+  // phase_b crashed, its retry finished, and a later phase_b run was cancelled (names edited): the old crash stays mended
+  const later = await mkCase("waiting_user", { fault: null });
+  await db.insert(schema.jobs).values({ caseId: later, step: "phase_b", state: "done" });
+  await db.insert(schema.caseEvents).values({ caseId: later, step: "phase_b", message: "Worker error" });
+  for (const state of ["cancelled", "failed"]) await db.insert(schema.jobs).values({ caseId: later, step: "phase_b", state });
+  assert.deepEqual(await deleteCase(org, "u1", later), { ok: false, reason: "not_allowed" });
   // a Merimen logout at its cap writes a longer line, not the crash line: not ours
   const lo = await mkCase("waiting_user", { fault: "Merimen logged out 3 times in a row. Worker error", job: "failed" });
   assert.deepEqual(await deleteCase(org, "u1", lo), { ok: false, reason: "not_allowed" });
