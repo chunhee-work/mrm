@@ -21,7 +21,7 @@ import NewCasePick from "./new-case-pick";
 import NewCaseForm from "@/app/cases/new/form";
 import { WorkshopChoice, type WorkshopOpt, type WorkshopState } from "./workshop-picker";
 import CaseLog from "./case-log";
-import CaseFiles from "./case-files";
+import CaseFiles, { type CaseFile } from "./case-files";
 import LoginAlert from "./login-alert";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
@@ -84,7 +84,7 @@ const repairerOf = (r: CaseRow, team: Team) => r.wsName || team.workshops.find((
 function Who({ r, team }: { r: CaseRow; team: Team }) {
   const { t } = useT();
   const plate = (
-    <p className="num truncate font-mono text-[16px] font-semibold tracking-[0.01em] text-fg" data-testid="home-case">
+    <p className="num max-w-full truncate font-mono text-[16px] font-semibold tracking-[0.01em] text-fg" data-testid="home-case">
       {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{r.firstFile || t("dash.noPlate")}</span>}
     </p>
   );
@@ -97,7 +97,8 @@ function Who({ r, team }: { r: CaseRow; team: Team }) {
   const have = (r.plate ? cells.filter(([, v]) => v) : []) as [string, string][];
   return (
     <div className="min-w-0">
-      <div className="flex min-w-0 items-baseline gap-2">{plate}{tp}</div>
+      {/* the plate is never cut for the other car's: in a narrow column [TP] goes to the next line */}
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">{plate}{tp}</div>
       {have.length > 0 && (
         <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-[13px] leading-snug" data-testid="home-who">
           {have.map(([k, v]) => <div key={k} className="contents"><dt className="text-mute">{t(`row.${k}`)}</dt><dd className="min-w-0 text-fg [overflow-wrap:anywhere]">{v}</dd></div>)}
@@ -210,9 +211,13 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
   // a line with nothing to drop into leaves the page-wide drop on
   const takesFiles = deskOpen; // the upload of a missing document is a picker only, so a page drop there still starts a new case
   useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
+  // the case's files, read by Brief below: while the desk is open its documents sit in the desk's bar (the photos are the desk itself)
+  const [files, setFiles] = useState<CaseFile[]>([]);
+  // beside the desk: the documents, and any uploaded picture the desk left out (too large, unreadable)
+  const docs = files.filter((f) => !f.onDesk);
   const desk = (
     <div className="overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
-      <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={ctl.relist} onFinished={(said, status) => { if (status === "pending_doc") return; setFinished(said); setDeskOpen(false); }}
+      <NamingDesk orgId={orgId} initialId={r.id} embedded barExtra={docs.length > 0 ? <CaseFiles caseId={r.id} files={files} only="docs" look="chip" testid="desk-files" /> : undefined} onDone={ctl.relist} onFinished={(said, status) => { if (status === "pending_doc") return; setFinished(said); setDeskOpen(false); }}
         tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
     </div>
   );
@@ -252,7 +257,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
           </button>
         </div>
       )}
-      <Brief r={r} workshops={workshops} relist={ctl.relist} />
+      <Brief r={r} workshops={workshops} relist={ctl.relist} onFiles={setFiles} filesInDesk={deskOpen} />
       {r.canDelete && (
         <div className="flex justify-end">
           {/* a case the worker has not taken yet can still be deleted (same pop-up and rules as the case list) */}
@@ -274,11 +279,11 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
  */
 type ListCtl = { look: () => void; relist: () => void; onUpload: (busy: boolean) => void };
 
-type BriefData = { events: { at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: WorkshopState | null };
+type BriefData = { events: { at: string; message: string }[]; files: CaseFile[]; workshop: WorkshopState | null };
 
 /** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
  * line opens and again when its status changes, so it follows the case without the user leaving the first page. */
-function Brief({ r, workshops, relist }: { r: CaseRow; workshops: WorkshopOpt[]; relist: () => void }) {
+function Brief({ r, workshops, relist, onFiles, filesInDesk }: { r: CaseRow; workshops: WorkshopOpt[]; relist: () => void; onFiles: (f: CaseFile[]) => void; filesInDesk: boolean }) {
   const { t } = useT();
   const [d, setD] = useState<BriefData | null>(null);
   const [tick, setTick] = useState(0);
@@ -294,17 +299,20 @@ function Brief({ r, workshops, relist }: { r: CaseRow; workshops: WorkshopOpt[];
     const id = window.setInterval(() => { if (!document.hidden && navigator.onLine) setTick((n) => n + 1); }, 10_000);
     return () => window.clearInterval(id);
   }, [reading]);
+  useEffect(() => { if (d) onFiles(d.files); }, [d, onFiles]);
   if (!d) return null;
   const showWs = !!d.workshop?.shown;
   const live = reading;
   const shown = [...d.events].reverse().slice(0, 6);
-  if (!showWs && !d.events.length && !d.files.length) return null; // nothing to show: no empty box
+  // the photo desk open above: the files are in its bar (documents) and in the desk itself (photos), not listed again here
+  const filesHere = !filesInDesk && d.files.length > 0;
+  if (!showWs && !d.events.length && !filesHere) return null; // nothing to show: no empty box
   return (
     <div className="space-y-4" data-testid="home-brief">
       {showWs && (
         <WorkshopChoice caseId={r.id} workshops={workshops} state={d.workshop!} onSaved={() => { setTick((n) => n + 1); relist(); }} testid="home-ws" /* the collapsed line stops asking too */ />
       )}
-      {(d.events.length > 0 || d.files.length > 0) && (
+      {(d.events.length > 0 || filesHere) && (
         <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
           {d.events.length > 0 && (
             <section className="min-w-0" data-testid="home-log">
@@ -312,7 +320,7 @@ function Brief({ r, workshops, relist }: { r: CaseRow; workshops: WorkshopOpt[];
               <CaseLog events={shown} live={live} />
             </section>
           )}
-          {d.files.length > 0 && (
+          {filesHere && (
             <section className="min-w-0"><CaseFiles caseId={r.id} files={d.files} testid="home-files" /></section>
           )}
         </div>

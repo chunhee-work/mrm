@@ -394,9 +394,8 @@ try {
     const shown = page.locator('[data-testid="files-pdf"], [data-testid="files-open-pdf"]');
     await shown.waitFor();
     assert.equal(await shown.getAttribute(await shown.getAttribute("data-testid") === "files-pdf" ? "src" : "href"), `/api/cases/${A}/files/${pdf}`);
-    await page.getByTestId("files-next").click(); // the next file is the photo
-    await page.getByTestId("files-image").waitFor();
-    await page.getByTestId("files-next").click(); // then the zip: no preview, a download
+    // documents come first, then the photos: after the PDF comes the zip (no preview, a download)
+    await page.getByTestId("files-next").click();
     await page.getByTestId("files-download").waitFor();
     await page.keyboard.press("Escape"); // Escape on a file goes back to the list first
     await page.getByTestId("files-item").first().waitFor();
