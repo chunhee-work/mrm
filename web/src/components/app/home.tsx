@@ -91,17 +91,20 @@ function Who({ r, team }: { r: CaseRow; team: Team }) {
   const tp = r.tpPlate ? <span className="num font-mono text-[14px] font-medium text-mute" data-testid="home-tp">[{r.tpPlate}]</span> : null;
   const insurer = r.tpInsurer ?? null; // the claimant's own insurer is not the one Merimen lists: left out until the at-fault one is read
   const repairer = repairerOf(r, team);
-  // Merimen's columns, labelled, in Merimen's order
-  const cells: [string, string | null][] = [["adjuster", team.adjuster], ["manager", team.manager], ["insurer", insurer], ["repairer", repairer]];
-  // documents not read yet (no plate): nothing of the case is known, so no line about it
-  const have = (r.plate ? cells.filter(([, v]) => v) : []) as [string, string][];
+  // owner 2026-11-29: what the case is about first (insurer, repairer), then who handles it (adjuster, manager) as a quieter
+  // second layer under a thin line. One grid, so the labels of both layers line up.
+  const known = (cells: [string, string | null][]) => (r.plate ? cells.filter(([, v]) => v) : []) as [string, string][]; // not read yet: nothing
+  const main = known([["insurer", insurer], ["repairer", repairer]]);
+  const team2 = known([["adjuster", team.adjuster], ["manager", team.manager]]);
   return (
     <div className="min-w-0">
       {/* the plate is never cut for the other car's: in a narrow column [TP] goes to the next line */}
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">{plate}{tp}</div>
-      {have.length > 0 && (
-        <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-[13px] leading-snug" data-testid="home-who">
-          {have.map(([k, v]) => <div key={k} className="contents"><dt className="text-mute">{t(`row.${k}`)}</dt><dd className="min-w-0 text-fg [overflow-wrap:anywhere]">{v}</dd></div>)}
+      {main.length + team2.length > 0 && (
+        <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 leading-snug" data-testid="home-who">
+          {main.map(([k, v]) => <div key={k} className="contents text-[13.5px]"><dt className="text-mute">{t(`row.${k}`)}</dt><dd className="min-w-0 font-medium text-fg [overflow-wrap:anywhere]">{v}</dd></div>)}
+          {main.length > 0 && team2.length > 0 && <div aria-hidden="true" className="col-span-2 my-1 border-t border-hairsoft" />}
+          {team2.map(([k, v]) => <div key={k} className="contents text-[12.5px]" data-testid="home-team"><dt className="text-mute/80">{t(`row.${k}`)}</dt><dd className="min-w-0 text-mute [overflow-wrap:anywhere]">{v}</dd></div>)}
         </dl>
       )}
     </div>
