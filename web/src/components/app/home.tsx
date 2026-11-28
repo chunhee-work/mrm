@@ -34,7 +34,7 @@ const REFRESH_MS = 20_000;
 const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 // the user's turn first (on hold, then missing documents, then photos to name), then what is being read, then what the worker has; newest first inside
 const RANK: Record<Bucket, number> = { hold: 0, docs: 1, photos: 2, active: 3, closed: 4 };
-const yourTurn = (r: CaseRow) => r.status === "failed" || r.status === "pending_doc" || bucketOf(r) === "photos" || !!r.wsAsk;
+const yourTurn = (r: CaseRow) => r.status === "failed" || r.status === "pending_doc" || bucketOf(r) === "photos" || (!!r.wsAsk && bucketOf(r) === "active"); // the same cases whose line shows the Confirm button
 function sortCases(rows: CaseRow[]) {
   return [...rows].sort((a, b) => (yourTurn(a) ? 0 : 1) - (yourTurn(b) ? 0 : 1) || RANK[bucketOf(a)] - RANK[bucketOf(b)] || (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 }

@@ -80,6 +80,23 @@ export async function POST(req: Request) {
       await db.insert(schema.merimenWorkshops).values({ orgId: me.orgId, slot: w.slot, name: w.name })
         .onConflictDoUpdate({ target: [schema.merimenWorkshops.orgId, schema.merimenWorkshops.slot], set: { name: w.name, updatedAt: new Date() } });
     }
+    // owner 2026-11-29 (migration 0019): a Confirm is for the workshop the user saw. A renamed or removed workshop takes back the
+    // Confirm of the cases on it that are not in Merimen yet, so they ask again instead of going to a workshop nobody confirmed.
+    const retake = [...new Set([...gone, ...changed])];
+    if (retake.length) {
+      await db.execute(sql`UPDATE merimen_case_workshop cw SET confirmed_at = NULL, updated_at = now() FROM cases c
+        WHERE c.id = cw.case_id AND c.org_id = ${me.orgId} AND c.merimen_caseid IS NULL AND cw.locked_at IS NULL AND cw.confirmed_at IS NOT NULL
+          AND cw.slot IN (${sql.join(retake.map((n) => sql`${n}`), sql`, `)})`);
+    }
+    // a second workshop is added: the cases already on their way were made when there was nothing to choose (workshop 1), so they
+    // count as confirmed and are not stopped; only cases started from now on ask
+    if (have.length < 2 && profile.workshops.length >= 2) {
+      await db.execute(sql`INSERT INTO merimen_case_workshop (case_id, slot, confirmed_at)
+        SELECT c.id, 1, now() FROM cases c WHERE c.org_id = ${me.orgId} AND c.deleted_at IS NULL AND c.merimen_caseid IS NULL AND c.status <> 'done'
+        ON CONFLICT (case_id) DO UPDATE SET confirmed_at = now(), updated_at = now()
+        WHERE merimen_case_workshop.confirmed_at IS NULL AND merimen_case_workshop.locked_at IS NULL
+          AND EXISTS (SELECT 1 FROM merimen_workshops w WHERE w.org_id = ${me.orgId} AND w.slot = merimen_case_workshop.slot)`);
+    }
     if (!row || (wantsLogin && username && password)) {
       const sealed = seal(key, me.orgId, username!, password!);
       const login = {

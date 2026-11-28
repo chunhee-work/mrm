@@ -83,12 +83,14 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
   // the workshop each case goes to (no row = workshop 1), the name the worker fixed it with once the case is in Merimen, and
   // (owner 2026-11-29) whether it still waits for the user's Confirm: the line then says so (the worker does not start it before)
   const ws = rows.length ? await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedAt: schema.merimenCaseWorkshop.lockedAt, lockedName: schema.merimenCaseWorkshop.lockedName, confirmedAt: schema.merimenCaseWorkshop.confirmedAt })
-    .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, rows.map((c) => c.id))).catch(() => []) : [];
-  const wsOf = new Map(ws.map((x) => [x.caseId, x]));
+    .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, rows.map((c) => c.id))).catch(() => null) : [];
+  const wsRead = ws !== null; // a read that failed asks nobody: it must not put every case on "Confirm the workshop"
+  const wsOf = new Map((ws ?? []).map((x) => [x.caseId, x]));
   const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
   // every row is of the signed-in user's organisation (the page reads one org), so one workshop list serves them all
   const list = rows.length ? await orgWorkshops(rows[0].orgId).catch(() => []) : [];
   const wsAsk = (c: (typeof rows)[number]) => {
+    if (!wsRead) return false;
     const x = wsOf.get(c.id);
     return workshopState({ slot: x?.slot ?? 1, locked: !!x?.lockedAt, fixed: !!x?.lockedAt && !!x?.lockedName, confirmed: !!x?.confirmedAt }, list, c.merimenCaseId, c.status).needsConfirm;
   };
