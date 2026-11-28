@@ -98,7 +98,7 @@ class Config:
     mailer: object | None = None
     worker_submit: bool = False
     merimen_relogin: bool = False  # MERIMEN_RELOGIN=on (needs MERIMEN_LOGIN=on): log in again by itself with the saved login (plan #133)
-    job_max_seconds: int = 3 * 3600  # WORKER_JOB_MAX_SECONDS: a job still running after this gets one warning line (pool.py)
+    job_max_seconds: int = 1800  # WORKER_JOB_MAX_SECONDS (30 min: a Phase A takes ~4 min, so a hung create shows within the hour): a job still running after this gets one warning line (pool.py)
     stop_seconds: int = 80  # WORKER_STOP_SECONDS: on stop, how long running jobs may still finish (below systemd's 90 s)
     slots: int = 1  # WORKER_SLOTS: jobs this process runs at the same time, each in its own thread and Merimen tab (plan #150)
     hf_revision: str = ""  # HF_MODEL_REVISION: the photo-model repo commit to use; empty = whatever is there at the first download
@@ -128,7 +128,7 @@ class Config:
             # unset: as many running jobs per org as there are slots, so one user's cases fill every slot (owner 2026-11-28)
             org_limit=max(1, int(e.get("ORG_CONCURRENCY") or _slots(e.get("WORKER_SLOTS")))),
             slots=_slots(e.get("WORKER_SLOTS")),
-            job_max_seconds=max(600, int(e.get("WORKER_JOB_MAX_SECONDS") or str(3 * 3600))),
+            job_max_seconds=max(600, int(e.get("WORKER_JOB_MAX_SECONDS") or "1800")),
             stop_seconds=min(STOP_MAX, max(0, int(e.get("WORKER_STOP_SECONDS") or "80"))),
             worker_id=(e.get("WORKER_ID") or "worker")[:40],
             state_dir=state,

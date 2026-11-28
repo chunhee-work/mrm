@@ -1,4 +1,5 @@
 """WORKER_SLOTS (plan #150): several cases at once, one tab each; the case uploaded first goes first; one Merimen login per Chrome."""
+import pathlib
 import threading
 import time
 
@@ -1084,3 +1085,133 @@ def test_the_stop_waits_at_most_the_stop_seconds_for_a_running_job():
     assert _time.monotonic() - t0 < 1.0
     release.set()
     assert pool.wait_idle(2) is True
+
+
+@needs_pg
+def test_a_login_blocked_or_a_port_lost_under_a_running_step_never_hands_the_chrome_over():
+    """egm r5 B1: the owner's saved login turns blocked, or its row loses the port, while its Merimen step still runs: the other org
+    on that Chrome still does not own it until the step ends."""
+    from autopilot_worker.db import to_numbered
+    from autopilot_worker.jobs import CHROME_TAKEN_SQL
+
+    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222})))  # noqa: E731
+    running = ["INSERT INTO jobs (id, case_id, step, state) VALUES (5,'c1','phase_a','running')"]
+    blocked = ["UPDATE merimen_credentials SET blocked = true WHERE org_id = 'o1'"]
+    no_port = ["UPDATE worker_sessions SET port = NULL WHERE org_id = 'o1'"]
+    for extra in (blocked, no_port, blocked + no_port):
+        r = run([q("o2")], seed=ORGS_CASES + READY + sessions() + running + extra)
+        assert r == [[[True]]], extra  # o1's step runs: o2 never gets this Chrome
+        r = run([q("o2")], seed=ORGS_CASES + READY + sessions() + extra)
+        assert r == [[[False]]], extra  # no step of o1 runs: as before, a blocked o1 (or one with no port) does not count
+
+
+def test_an_org_that_saw_no_sharer_yet_is_asked_again_before_its_relogin(tmp_path, fresh):
+    """egm r5 M1: on a fresh start the first org in the loop sees a sharer whose row has no port yet; the re-login is asked again
+    once every port is written, so the Chrome is never logged into the org that does not own it."""
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on",
+                           "MERIMEN_RELOGIN": "on", "WORKER_SLOTS": "2"})
+
+    class Later(SessRepo):
+        n = 0
+
+        def chrome_taken_by_other(self, org, port):
+            self.n += 1
+            return self.n > 1  # free in the loop (the sharer had no port), taken when asked again
+
+    asked = []
+    repo = Later()
+    loop.sync_sessions(cfg, repo, launch=lambda a: None, inspect=lambda p: LOGIN_PAGE, relogin=lambda org, port: asked.append(org))
+    assert asked == [] and repo.sessions[-1][1]["detail"] == "shared_chrome"
+
+
+def test_no_milestone_screenshot_after_a_tab_went_to_another_case():
+    from autopilot_worker import case_guard as g
+
+    src = (pathlib.Path(__file__).resolve().parents[1] / "autopilot_worker" / "__main__.py").read_text()
+    i = src.index("if own_only:")
+    assert src.index("case_guard.mismatched()", i) < src.index("own_open_step_tab()", i)  # checked before the tab is used
+    g.start("111", 9)
+    g._MINE.st["bad"] = True
+    assert g.mismatched()
+    g.start("111", 10)
+
+
+def test_a_phase_a_with_writes_off_lets_the_next_create_be_claimed(monkeypatch):
+    from autopilot_worker import pool as pl
+    from autopilot_worker.__main__ import _CdpDriver as RealDriver
+
+    monkeypatch.delenv("MERIMEN_DRYRUN", raising=False)
+    job = {"id": 1, "step": "phase_a", "create": True}
+    pl._CURRENT.job = job
+    try:
+        RealDriver.dry_run(RealDriver.__new__(RealDriver), "A", ())
+        assert job.get("create_done") is True
+    finally:
+        pl._CURRENT.job = None
+
+
+def test_session_tabs_reads_the_home_tab_and_only_step_tabs_left_is_logged_out(tmp_path, monkeypatch):
+    """egm r5 M3: the real page provider's session look, through a fake Playwright."""
+    import sys as _sys
+    import types
+
+    from autopilot_worker import __main__ as m
+
+    URL = "https://www.merimen.com.my/claims/index.cfm?CFID=1&CFTOKEN=2&USID=3&RID=4"
+
+    class Cdp:
+        def __init__(self, tid):
+            self.tid = tid
+
+        def send(self, name):
+            return {"targetInfo": {"targetId": self.tid}}
+
+        def detach(self):
+            pass
+
+    class Box:
+        def __init__(self, shown):
+            self.first = self
+            self.shown = shown
+
+        def is_visible(self):
+            return self.shown
+
+    class Page:
+        def __init__(self, tid, box=False):
+            self.url, self.tid, self.box, self.context = URL, tid, box, self
+
+        def new_cdp_session(self, pg):
+            return Cdp(pg.tid)
+
+        def locator(self, sel):
+            return Box(self.box)
+
+    tabs = []
+
+    class Browser:
+        @property
+        def contexts(self):
+            return [types.SimpleNamespace(pages=list(tabs))]
+
+    class PW:
+        chromium = types.SimpleNamespace(connect_over_cdp=lambda url: Browser())
+
+        def start(self):
+            return self
+
+        def stop(self):
+            pass
+
+    fake = types.ModuleType("playwright.sync_api")
+    fake.sync_playwright = lambda: PW()
+    monkeypatch.setitem(_sys.modules, "playwright", types.ModuleType("playwright"))
+    monkeypatch.setitem(_sys.modules, "playwright.sync_api", fake)
+    monkeypatch.setattr(m, "STEP_TABS", {"s"})
+    for slots, open_tabs, want in (("2", [Page("h"), Page("s", box=True)], [False]),  # the home tab decides, not a step tab's form
+                                   ("2", [Page("s")], [True]),  # only step tabs left: logged out
+                                   ("1", [Page("s", box=True)], [True]),  # one tab at slots 1: read as before
+                                   ("1", [Page("s")], [False])):
+        tabs[:] = open_tabs
+        cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "WORKER_SLOTS": slots})
+        assert m._page_provider(cfg).session_tabs("o1") == want, (slots, want)

@@ -533,6 +533,20 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
     for org in list(_busy_since):  # a wait whose org is no longer logged out ends here: a later logout starts a new 10-minute wait
         if org not in wanted:
             _busy_since.pop(org, None)
+    if relogin and want_relogin and getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
+        # asked again now that this pass wrote every org's port: an org that came first in the loop saw a sharer whose row had no
+        # port yet, and must not be logged into the Chrome its sharer owns (plan #150 I6)
+        kept = []
+        for org, port in want_relogin:
+            try:
+                if repo.chrome_taken_by_other(org, port):
+                    repo.set_session(org, status="waiting_login", wanted="start", account=account_for(org, cfg.accounts, cfg.org_accounts), port=port, detail="shared_chrome")
+                    note(org, "shared_chrome", now)
+                    continue
+            except Exception:  # noqa: BLE001  (not known: no login for it this pass)
+                continue
+            kept.append((org, port))
+        want_relogin = kept
     if relogin and want_relogin:
         # orgs tried longest ago first; a refused or throttled org hands the turn to the next one, so one stopped org never starves
         # the others. Still at most ONE real try per tick.

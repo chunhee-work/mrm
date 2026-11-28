@@ -142,6 +142,10 @@ class _CdpDriver(Driver):
             est = self._estimate()
             if est is not None:  # read-only: what the estimate details step would set (the parts are not ticked in a dry run)
                 return DriveResult(ok=True, line=est.read(self.case or {}).line())
+        if phase == "A":
+            from .pool import create_done
+
+            create_done()  # nothing is created with writes off: the next create may be claimed at once (egm r5)
         return DriveResult(ok=True)
 
     def _estimate(self):
@@ -689,6 +693,11 @@ def _page_provider(cfg: Config):
         """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address,
         no password box on the page); none or several = None, so the case waits instead of opening the form with a guessed session."""
         if own_only:  # a milestone screenshot with slots: only this job's own open step tab shows its case (GPR-150-4 G4)
+            from . import case_guard
+
+            if case_guard.mismatched():  # that tab went to another case: it no longer shows this one, so no shot (egm r5)
+                print(f"{threading.current_thread().name} screenshot skipped: a tab of this job went to another case", file=sys.stderr, flush=True)
+                return None
             own = own_open_step_tab()
             if own is None:
                 print(f"{threading.current_thread().name} screenshot skipped: no step tab of this job is open", file=sys.stderr, flush=True)

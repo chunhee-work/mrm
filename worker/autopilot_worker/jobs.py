@@ -28,9 +28,14 @@ WHERE j.state = 'queued'
       -- WORKER_ORG_ACCOUNTS), so a case is never written into another user's Merimen account
       AND (NOT %(one_chrome)s OR NOT EXISTS (
         SELECT 1 FROM worker_sessions s0
-        JOIN worker_sessions s6 ON s6.port = s0.port AND s6.org_id <> s0.org_id
-        JOIN merimen_credentials m6 ON m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked
+        JOIN worker_sessions s6 ON s6.org_id <> s0.org_id
         WHERE s0.org_id = c.org_id AND s0.port IS NOT NULL
+          -- another org on this Chrome: its row has this port, or it lost the port (gate) while a Merimen step of it still runs
+          AND (s6.port = s0.port OR (s6.port IS NULL AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+          -- that org takes part when its saved login is ok, or while a Merimen step of it runs (a login blocked under a running
+          -- step never hands the Chrome to another org before that step ends)
+          AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked)
+               OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
           -- the owner: an org with a Merimen step running now first (ownership never moves under running work), then the first
           -- non-deleted case first (an org without one comes last), ties by org id
           AND (NOT EXISTS (SELECT 1 FROM jobs jr6 JOIN cases jr6c ON jr6c.id = jr6.case_id WHERE jr6c.org_id = s6.org_id AND jr6.state = 'running' AND jr6.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id AND c7.deleted_at IS NULL), 'infinity'), s6.org_id)
@@ -143,7 +148,7 @@ CLAIM_SQL = _CLAIM_TEMPLATE.replace("{ws_gate}", "\n      ".join(WS_GATE.strip()
 CLAIM_SQL_NO_WORKSHOPS = _CLAIM_TEMPLATE.replace("{ws_gate}", "")
 
 
-# Another org with a verified Merimen login shares this org's Chrome port and has a Merimen step running (or, when neither or both
+# Another org with a verified Merimen login (or a Merimen step running) shares this org's Chrome port and has a Merimen step running (or, when neither or both
 # have one, its first non-deleted case came earlier): that org "owns" the
 # Chrome (one Chrome holds one Merimen login). Used by the claim (above, inline) and by the session sync (no re-login for this org,
 # so the Chrome is never switched to this org's Merimen account under the owner's running cases). %(org)s = this org, %(port)s =
@@ -151,8 +156,10 @@ CLAIM_SQL_NO_WORKSHOPS = _CLAIM_TEMPLATE.replace("{ws_gate}", "")
 CHROME_TAKEN_SQL = """
 SELECT EXISTS (
   SELECT 1 FROM worker_sessions s6
-  JOIN merimen_credentials m6 ON m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked
-  WHERE s6.port = %(port)s AND s6.org_id <> %(org)s
+  WHERE s6.org_id <> %(org)s
+    AND (s6.port = %(port)s OR (s6.port IS NULL AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+    AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state = 'ok' AND NOT m6.blocked)
+         OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
     AND (NOT EXISTS (SELECT 1 FROM jobs jr6 JOIN cases jr6c ON jr6c.id = jr6.case_id WHERE jr6c.org_id = s6.org_id AND jr6.state = 'running' AND jr6.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id AND c7.deleted_at IS NULL), 'infinity'), s6.org_id)
       < (NOT EXISTS (SELECT 1 FROM jobs jr8 JOIN cases jr8c ON jr8c.id = jr8.case_id WHERE jr8c.org_id = %(org)s AND jr8.state = 'running' AND jr8.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c8.created_at) FROM cases c8 WHERE c8.org_id = %(org)s AND c8.deleted_at IS NULL), 'infinity'), %(org)s::text)
 )
