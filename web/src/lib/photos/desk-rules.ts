@@ -49,9 +49,10 @@ export function visible(photos: Photo[], f: Filter): Photo[] {
   if (f === "confirm") return [...photos.filter(needsName), ...photos.filter((p) => isLow(p))];
   return photos;
 }
-/** Other names to offer: for photos under 90 %, without a name, or edited (so the suggestion is one press away). */
+/** Other names to offer, on every photo that has them, sure ones too (owner 2026-11-28: "this should not be removed").
+ *  An edited photo also offers the model's own name, so the suggestion is one press away. */
 export function altsOf(p: Photo): string[] {
-  if (isNaming(p) || !(isEdited(p) || isLow(p) || needsName(p))) return [];
+  if (isNaming(p)) return [];
   const cur = shownName(p);
   const out: string[] = [];
   for (const n of [p.modelName, ...p.alts]) if (n && n !== cur && !out.includes(n)) out.push(n);
