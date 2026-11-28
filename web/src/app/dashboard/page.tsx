@@ -1,4 +1,4 @@
-import { orgWorkshops } from "@/lib/ext/workshops";
+import { orgWorkshops, slotState } from "@/lib/ext/workshops";
 import { workshopState } from "@/lib/ext/workshop-rules";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/session";
@@ -94,8 +94,7 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
   const list = rows.length ? await orgWorkshops(rows[0].orgId).catch(() => []) : [];
   const wsAsk = (c: (typeof rows)[number]) => {
     if (!wsRead) return false;
-    const x = wsOf.get(c.id);
-    return workshopState({ slot: x?.slot ?? 1, locked: !!x?.lockedAt, fixed: !!x?.lockedAt && !!x?.lockedName, confirmed: !!x?.confirmedAt }, list, c.merimenCaseId, c.status).needsConfirm;
+    return workshopState(slotState(wsOf.get(c.id)), list, c.merimenCaseId, c.status).needsConfirm;
   };
   const total = new Map(todo.map((x) => [x.caseId, Number(x.total)]));
   return rows.map((c) => ({
