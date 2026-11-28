@@ -943,7 +943,10 @@ def test_no_hand_login_notice_while_relogin_is_active(tmp_path, info):
     import os
 
     c = cfg(tmp_path)
-    sync_sessions(c, SessRepo([row("o1")]), launch=lambda a: None, inspect=lambda p: info, relogin=lambda org, port: "ok")
-    assert not os.path.exists(os.path.join(c.state_dir, "NEED_LOGIN"))
+    notice = os.path.join(c.state_dir, "NEED_LOGIN")
     sync_sessions(c, SessRepo([row("o1")]), launch=lambda a: None, inspect=lambda p: info, relogin=None)
-    assert os.path.exists(os.path.join(c.state_dir, "NEED_LOGIN"))  # switch off: the old notice stays
+    assert os.path.exists(notice)  # switch off: the hand-login notice is written
+    sync_sessions(c, SessRepo([row("o1")]), launch=lambda a: None, inspect=lambda p: info, relogin=lambda org, port: "ok")
+    assert not os.path.exists(notice)  # round 24: switch on removes the old notice, so it never misleads
+    sync_sessions(c, SessRepo([row("o1")]), launch=lambda a: None, inspect=lambda p: info, relogin=lambda org, port: "ok")
+    assert not os.path.exists(notice)

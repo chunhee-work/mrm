@@ -9,7 +9,7 @@ import threading
 import time
 
 from .cdp_client import page_block
-from .chrome import chrome_argv, chrome_running, login_notice, next_status, profile_dir
+from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
 from .config import Config, account_for
 from .db import DbError
 from .pipeline import Driver, Outcome, followup_steps, handle_job
@@ -173,6 +173,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="not_logged_in")
             if not relogin:  # with re-login active nobody is asked to log in by hand (owner 2026-11-28)
                 login_notice(cfg.state_dir)
+            else:
+                clear_login_notice(cfg.state_dir)  # an old notice from before the switch would mislead
             continue
         reason = page_block(info)
         status = next_status(row["status"] or "idle", reason is None)
@@ -186,6 +188,8 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         else:
             if not relogin:  # with re-login active nobody is asked to log in by hand (owner 2026-11-28)
                 login_notice(cfg.state_dir)
+            else:
+                clear_login_notice(cfg.state_dir)  # an old notice from before the switch would mislead
             if relogin and reason == "not_logged_in":
                 want_relogin.append((org, port))
                 from .relogin import detail_for
