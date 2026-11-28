@@ -194,7 +194,8 @@ try {
     const APP = [
       ["dashboard", "/dashboard"], ["dashboard-open", "/dashboard?view=open"], ["dashboard-closed", "/dashboard?view=closed"], ["new-case", "/cases/new"], ["new-case-files", "/cases/new", choose([pdf, jpg(1), jpg(2)])],
       ...Object.entries(C).map(([k, id]) => [`case-${k}`, `/cases/${id}`]),
-      ["case-files-open", `/cases/${C.naming}`, async (p) => { await p.locator('[data-testid="case-files"] > summary').click(); await p.waitForTimeout(200); }, '[data-testid="case-files"]'], // the uploaded files are links (owner 2026-11-22)
+      ["case-files-open", `/cases/${C.naming}`, async (p) => { await p.getByTestId("case-files").click(); await p.waitForTimeout(300); }, '[data-testid="files-window"]'], // the Files window: the list, then a file inside it (owner 2026-11-29)
+      ["case-file-shown", `/cases/${C.naming}`, async (p) => { await p.getByTestId("case-files").click(); await p.getByTestId("files-item").first().click(); await p.waitForTimeout(300); }, '[data-testid="files-window"]'],
       ["desk", `/cases/${C.naming}/photos`], ["desk-finished", `/cases/${C.finished}/photos`],
       ["settings", "/settings"], ["billing", "/billing"], ["connection", "/connection"],
       ["menu-open", "/dashboard", async (p) => { const b = p.locator('[aria-controls="app-menu"]:visible, [aria-controls="account-menu"]:visible').first(); if (await b.count()) { await b.click(); await p.waitForTimeout(300); } }, "#app-menu, #account-menu"], // with the menu open only its own items can be reached

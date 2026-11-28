@@ -21,6 +21,7 @@ import NewCasePick from "./new-case-pick";
 import NewCaseForm from "@/app/cases/new/form";
 import WorkshopPicker, { type WorkshopOpt } from "./workshop-picker";
 import CaseLog from "./case-log";
+import CaseFiles from "./case-files";
 import LoginAlert from "./login-alert";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
@@ -302,19 +303,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
             </section>
           )}
           {d.files.length > 0 && (
-            <details className="group min-w-0" data-testid="home-files">
-              <summary className="label mb-3 flex min-h-11 cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.files")}<span className="note text-mute">· {d.files.length}</span></summary>
-              <ul className="rounded-[4px] border border-hair bg-panel">
-                {d.files.map((f) => (
-                  <li key={f.id} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 text-[14px] text-fg last:border-b-0">
-                    {/* opens the file itself in a new tab; the first page stays where it is */}
-                    <a href={`/api/cases/${r.id}/files/${f.id}`} target="_blank" rel="noopener" data-testid="home-file"
-                      className="min-w-0 py-3 font-medium underline decoration-hair2 underline-offset-4 transition-colors duration-150 [overflow-wrap:anywhere] hover:decoration-fg">{f.name}</a>
-                    <span className="num note shrink-0 text-mute">{f.size < 1e6 ? `${Math.max(1, Math.round(f.size / 1e3))} KB` : `${(f.size / 1e6).toFixed(1)} MB`}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
+            <section className="min-w-0"><CaseFiles caseId={r.id} files={d.files} testid="home-files" /></section>
           )}
         </div>
       )}

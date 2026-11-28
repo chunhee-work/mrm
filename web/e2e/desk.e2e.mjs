@@ -378,12 +378,31 @@ try {
     const url = (c, f) => `${BASE}/api/cases/${c}/files/${f}`;
 
     await page.goto(`${BASE}/cases/${A}`);
-    await page.getByTestId("case-files").locator("summary").click();
-    const link = page.getByTestId("file-open").filter({ hasText: "报告 report.pdf" });
-    assert.equal(await link.getAttribute("href"), `/api/cases/${A}/files/${pdf}`);
-    assert.equal(await link.getAttribute("target"), "_blank");
-    assert.equal(await page.getByTestId("file-open").count(), 5);
-    assert.ok((await link.boundingBox()).height >= 44, "a file row is tall enough for a finger");
+    // owner 2026-11-29: "Files" opens a window on the page; a file opens inside it, Back at the top left returns to the list
+    await page.getByTestId("case-files").click();
+    const win = page.getByTestId("files-window");
+    await win.waitFor();
+    assert.equal(await page.getByTestId("files-item").count(), 5);
+    assert.ok((await page.getByTestId("files-item").first().boundingBox()).height >= 44, "a file is big enough for a finger");
+    await page.getByTestId("files-item").filter({ hasText: "IMG_1.JPG" }).click();
+    assert.equal(await page.getByTestId("files-image").getAttribute("src"), `/api/cases/${A}/files/${jpg}`);
+    const back = await page.getByTestId("files-back").boundingBox(), box = await win.boundingBox();
+    assert.ok(back.x - box.x < 40 && back.y - box.y < 40, "Back sits at the top left of the window");
+    await page.getByTestId("files-back").click();
+    await page.getByTestId("files-item").filter({ hasText: "报告 report.pdf" }).click();
+    // inside the window where the browser has its own PDF viewer; otherwise (most phones, old headless) a button opens it
+    const shown = page.locator('[data-testid="files-pdf"], [data-testid="files-open-pdf"]');
+    await shown.waitFor();
+    assert.equal(await shown.getAttribute(await shown.getAttribute("data-testid") === "files-pdf" ? "src" : "href"), `/api/cases/${A}/files/${pdf}`);
+    await page.getByTestId("files-next").click(); // the next file is the photo
+    await page.getByTestId("files-image").waitFor();
+    await page.getByTestId("files-next").click(); // then the zip: no preview, a download
+    await page.getByTestId("files-download").waitFor();
+    await page.keyboard.press("Escape"); // Escape on a file goes back to the list first
+    await page.getByTestId("files-item").first().waitFor();
+    await page.getByTestId("files-close").click();
+    assert.equal(await win.isVisible(), false, "Close shuts the window");
+    assert.match(page.url(), new RegExp(`/cases/${A}$`), "the page stays where it was");
 
     let r = await ctx.request.get(url(A, pdf));
     assert.equal(r.status(), 200);
@@ -391,7 +410,10 @@ try {
     assert.match(r.headers()["content-disposition"], /^inline; filename="__ report\.pdf"; filename\*=UTF-8''%E6%8A%A5%E5%91%8A%20report\.pdf$/);
     assert.equal(r.headers()["cache-control"], "private, no-store");
     assert.equal(r.headers()["x-content-type-options"], "nosniff");
+    assert.equal(r.headers()["x-frame-options"], "SAMEORIGIN", "a file shows inside our own window only");
+    assert.equal(r.headers()["content-security-policy"], "frame-ancestors 'self'");
     assert.ok((await r.body()).equals(PDF));
+    assert.equal((await ctx.request.get(`${BASE}/cases/${A}`)).headers()["x-frame-options"], "DENY", "a page is never framed");
     r = await ctx.request.get(url(A, jpg));
     assert.equal(r.headers()["content-type"], "image/jpeg");
     // a zip, and anything the browser could run, is a download and never a page of ours
