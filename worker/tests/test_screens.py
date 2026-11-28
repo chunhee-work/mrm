@@ -264,3 +264,43 @@ def test_a_photo_that_cannot_be_downloaded_does_not_fail_the_photo_job():
     tick(cfg, repo, launch=lambda a: None, inspect=lambda p: None, namer=namer, driver=SavingDriver(), download=download)
     assert seen["local"] == ["/tmp/1-1.jpg", None]
     assert repo.applied and repo.applied[0].error != "worker error"
+
+
+def test_lease_keeper_beats_at_once():
+    import threading
+
+    beat = threading.Event()
+
+    class R:
+        def touch_job(self, job_id, worker): pass
+        def heartbeat(self, worker_id, model, chrome_ok): beat.set()
+
+    with LeaseKeeper(R(), 3, "w1", 900, "owner/model"):  # every = 30 s: only the first beat can come in time
+        assert beat.wait(2)
+
+
+def test_heartbeat_runs_during_photo_downloads():
+    import threading
+
+    from autopilot_worker import loop
+    loop._last_cleanup[0] = 1e12
+    cfg = Config.from_env({"PHOTO_WORKER": "on"})
+    repo = FakeRepo("photo_model")
+    n, more = [0], threading.Condition()
+
+    def beat(*a, **k):
+        with more:
+            n[0] += 1
+            more.notify_all()
+    repo.heartbeat = beat
+    repo.load = (lambda orig: (lambda cid: {**orig(cid), "photos": [{"id": 1, "blob_path": "b/1", "src_name": "1.jpg"}], "photo_count": 1}))(repo.load)
+    during = {}
+
+    def download(*a):
+        with more:  # tick's own heartbeat came first; the keeper's beat must come while this download runs
+            during["beat"] = more.wait_for(lambda: n[0] >= 2, timeout=2)
+        return "/tmp/1-1.jpg"
+
+    tick(cfg, repo, launch=lambda a: None, inspect=lambda p: None, driver=SavingDriver(), download=download,
+         namer=lambda ps, v: [{"id": 1, "failed": True, "name_error": "x"}])
+    assert during["beat"]

@@ -80,8 +80,10 @@ def _load_rules():
     saved = list(sys.path)
     try:
         sys.path.append(_PT)
-        if not os.path.isfile(os.path.join(_PT, "name_decisions.json")):  # name_map would quietly drop the owner's 名称对齐台 decisions
-            raise FileNotFoundError("name_decisions.json")
+        # name_map quietly drops the owner's 名称对齐台 decisions when the file is missing or broken: check it can be read
+        with open(os.path.join(_PT, "name_decisions.json"), encoding="utf-8") as fh:
+            if not isinstance(json.load(fh).get("map"), dict):
+                raise ValueError("name_decisions.json has no map")
         from name_map import final  # noqa: PLC0415
         import name_rules  # noqa: PLC0415
     except Exception as e:  # noqa: BLE001
