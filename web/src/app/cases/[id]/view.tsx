@@ -13,6 +13,7 @@ import ShotTimeline, { type Shot } from "@/components/app/shot-timeline";
 import NeedCard from "@/components/app/case-detail";
 import { failTr, userFixable } from "@/lib/case-text";
 import CaseLog from "@/components/app/case-log";
+import CaseFiles from "@/components/app/case-files";
 import BackLink from "@/components/app/back-link";
 import CaseSteps from "@/components/app/case-steps";
 import { whenOf } from "@/lib/fmt-when";
@@ -207,21 +208,8 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     </section>
   );
 
-  const Files = () => c.files.length ? (
-    <details className="group" data-testid="case-files">
-      <summary className="label mb-3 flex cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.files")}<span className="note text-mute">· {c.files.length}</span></summary>
-      <ul className="rounded-[4px] border border-hair">
-        {c.files.map((f) => (
-          <li key={f.id} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 text-[14px] text-fg last:border-b-0">
-            {/* a click opens the file itself in a new tab (PDF and photos show there, a zip downloads); the route checks the session every time */}
-            <a href={`/api/cases/${c.id}/files/${f.id}`} target="_blank" rel="noopener" data-testid="file-open"
-              className="min-w-0 py-3 font-medium underline decoration-hair2 underline-offset-4 transition-colors duration-150 [overflow-wrap:anywhere] hover:decoration-fg">{f.name}</a>
-            <span className="num note shrink-0 text-mute">{f.size < 1e6 ? `${Math.max(1, Math.round(f.size / 1e3))} KB` : `${(f.size / 1e6).toFixed(1)} MB`}</span>
-          </li>
-        ))}
-      </ul>
-    </details>
-  ) : null;
+  // a press opens a window over the page: the list first, a file inside the same window, Back at the top left
+  const Files = () => c.files.length ? <section><CaseFiles caseId={c.id} files={c.files} testid="case-files" /></section> : null;
 
   // the photo desk: ONE link and ONE status line, never an empty box (R3-B01, R3-U01)
   const deskShown = !working && !failed && c.desk != null && c.desk.total > 0 && !["done", "uploaded", "reading", "failed"].includes(c.status);

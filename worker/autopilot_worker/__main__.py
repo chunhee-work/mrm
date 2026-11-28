@@ -448,15 +448,11 @@ def main() -> None:
         """One photo to <state>/files/<case id>/<job id>/<photo id>-<name> (private). `name` is the uploaded file name: untrusted."""
         if not cfg.blob_token or not url:
             return None
-        from .blobstore import blob_request, local_file, write_private
-        import urllib.request
+        from .blobstore import blob_request, fetch_private, local_file
 
         target = local_file(files_root, case_id, job_id, item_id, name)
         req_url, headers = blob_request(url, cfg.blob_token)
-        req = urllib.request.Request(req_url, headers=headers)
-        with urllib.request.urlopen(req, timeout=60) as r:
-            write_private(target, r.read())
-        return target
+        return fetch_private(target, req_url, headers)  # tried 3 times; a file a former try of this job got is reused
 
     def forget_files(case_id, job_id) -> None:
         from .blobstore import remove_job_files
@@ -501,11 +497,14 @@ def main() -> None:
             print("jev page check off: PyMuPDF is not installed", flush=True)
 
     def _keep(port: int) -> None:
-        subprocess.run(
-            ["node", script, "continue"],
-            env={**os.environ, "CDP_PORT": str(port)},
-            timeout=20, capture_output=True, text=True,
-        )
+        try:
+            subprocess.run(
+                ["node", script, "continue"],
+                env={**os.environ, "CDP_PORT": str(port)},
+                timeout=20, capture_output=True, text=True,
+            )
+        except subprocess.TimeoutExpired:  # a slow tab: try again next tick, never stop the tick (claims and the lease reclaim follow)
+            print("keepalive: timeout", file=sys.stderr, flush=True)
 
     master = b""
     if os.environ.get("MERIMEN_CRED_KEY"):

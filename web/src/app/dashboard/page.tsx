@@ -10,6 +10,7 @@ import { bucketOf, VIEWS, type View } from "@/components/app/status";
 import { systemBusy } from "@/lib/case-steps";
 import { canDelete, notDeleted } from "@/lib/case-delete";
 import { healWaiting } from "./stuck-reads";
+import { merimenLine } from "./merimen-line";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a few waiting cases are read after the page is sent
@@ -78,6 +79,10 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     n: CONFIRM_COUNT,
     total: sql<number>`count(*)::int`,
   }).from(schema.casePhotos).where(inArray(schema.casePhotos.caseId, open)).groupBy(schema.casePhotos.caseId) : [];
+  // the workshop each case goes to (no row = workshop 1), and the name the worker fixed it with once the case is in Merimen
+  const ws = rows.length ? await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedName: schema.merimenCaseWorkshop.lockedName })
+    .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, rows.map((c) => c.id))).catch(() => []) : [];
+  const wsOf = new Map(ws.map((x) => [x.caseId, x]));
   const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
   const total = new Map(todo.map((x) => [x.caseId, Number(x.total)]));
   return rows.map((c) => ({
@@ -95,5 +100,8 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     status: c.status,
     pendingDoc: c.pendingDoc,
     totalRm: c.totalRm,
+    ...merimenLine(c.caseData),
+    wsSlot: wsOf.get(c.id)?.slot ?? 1,
+    wsName: wsOf.get(c.id)?.lockedName ?? null,
   }));
 }

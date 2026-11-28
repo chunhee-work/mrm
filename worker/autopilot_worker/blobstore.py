@@ -71,9 +71,34 @@ def write_private(path: str, data: bytes) -> None:
     case_dir = os.path.dirname(job_dir)
     for d in (os.path.dirname(case_dir), case_dir, job_dir):
         os.makedirs(d, mode=0o700, exist_ok=True)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    part = path + ".part"  # written whole, then renamed: a file that is there is always complete (a later try reuses it)
+    fd = os.open(part, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "wb") as f:
         f.write(data)
+    os.replace(part, path)
+
+
+RETRY_WAITS = (3, 10)  # a passing network blip on the worker box (seen 2026-11-28: one URLError failed a whole Phase A)
+
+
+def fetch_private(target: str, req_url: str, headers: dict, *, opener=None, timeout: float = 60, waits=RETRY_WAITS, sleep=time.sleep) -> str:
+    """One Blob file to `target`. A file already there (a former try of the same job) is used as it is. A failed read is tried
+    again after each wait in `waits`; the last failure is raised."""
+    if os.path.isfile(target) and os.path.getsize(target) > 0:
+        return target
+    import urllib.request
+
+    open_url = opener or urllib.request.urlopen
+    for wait in (*waits, None):
+        try:
+            with open_url(urllib.request.Request(req_url, headers=headers), timeout=timeout) as r:
+                write_private(target, r.read())
+            return target
+        except OSError:  # URLError, a time-out and a reset connection are all OSError
+            if wait is None:
+                raise
+            sleep(wait)
+    return target
 
 
 def remove_job_files(store_dir: str, case_id, job_id) -> None:
