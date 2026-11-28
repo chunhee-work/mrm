@@ -232,7 +232,11 @@ def _namer_factory(cfg: Config):
             raise ModelError("predict timed out") from e
         if proc.returncode != 0:
             raise ModelError("predict failed")
-        return names_for_photos(photos, apply_name_rules(parse_predict_stdout(proc.stdout), vehicle))
+        try:
+            preds = parse_predict_stdout(proc.stdout)
+        except ValueError as e:  # a garbled line: fall back to Claude now, not three more full runs
+            raise ModelError("predict failed") from e
+        return names_for_photos(photos, apply_name_rules(preds, vehicle))
 
     return namer
 

@@ -240,4 +240,60 @@ def test_download_error_hides_the_token(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "huggingface_hub", types.SimpleNamespace(snapshot_download=dl))
     with pytest.raises(ModelError) as e:
         ensure_weights(str(tmp_path), "o/r", "hf_SECRET")
-    assert str(e.value) == "model download failed" and "hf_SECRET" not in str(e.value)
+    assert str(e.value) == "model download failed" and e.value.__cause__ is None and e.value.__suppress_context__
+
+
+def test_new_revision_without_token_is_model_missing(tmp_path, monkeypatch):
+    import sys
+    import types
+    from autopilot_worker.photos import ensure_weights
+    _prod(tmp_path)
+    calls = []
+    monkeypatch.setitem(sys.modules, "huggingface_hub", types.SimpleNamespace(snapshot_download=lambda **kw: calls.append(1)))
+    with pytest.raises(ModelError, match="model missing"):
+        ensure_weights(str(tmp_path), "o/r", "", "newsha")
+    assert calls == []
+
+
+def test_empty_groups_is_model_missing(tmp_path):
+    d = tmp_path / "production"
+    d.mkdir()
+    (d / "production.json").write_text(json.dumps({"groups": []}))
+    with pytest.raises(ModelError, match="model missing"):
+        resolve_production(str(tmp_path))
+
+
+def test_namer_garbled_output_is_predict_failed(tmp_path, monkeypatch):
+    import subprocess
+    namer, _ = _namer(tmp_path, monkeypatch, run=lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, "{not json\n", ""))
+    with pytest.raises(ModelError, match="predict failed"):
+        namer([{"id": 1, "local": "/x/1-a.jpg"}], "PROTON SAGA")
+
+
+def test_load_rules_leaves_sys_path_alone():
+    import sys
+    from autopilot_worker.photos import load_rules
+    before = list(sys.path)
+    load_rules()
+    assert sys.path == before
+
+
+def test_case_vehicle_falls_back_to_the_registration_card():
+    from autopilot_worker.pipeline import case_vehicle
+    assert case_vehicle({"car_model": " PROTON SAGA "}) == "PROTON SAGA"
+    assert case_vehicle({"car_model": None, "case_data": {"client_vehicle": {"model": "PERODUA MYVI"}}}) == "PERODUA MYVI"
+    assert case_vehicle({}) == ""
+
+
+def test_rules_need_name_decisions(monkeypatch, tmp_path):
+    import autopilot_worker.photos as ph
+    monkeypatch.setattr(ph, "_PT", str(tmp_path))
+    with pytest.raises(ModelError, match="name rules missing"):
+        ph.load_rules()
+
+
+def test_rear_lamp_rule_reads_the_shared_playbook():
+    import sys
+    from autopilot_worker.photos import load_rules
+    _, nr = load_rules()
+    assert nr._LAMP_UNSURE == 0.59 and ["LAND", "ROVER"] in nr._TWO_WORD and nr._RULES_JSON

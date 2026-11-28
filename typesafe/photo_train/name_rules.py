@@ -4,6 +4,8 @@ worker (worker/autopilot_worker/photos.apply_name_rules). Add a new rule here, n
 rows: one dict per photo of a case, in shooting order: {"name": str, "conf": float, "alts": [str, ...]} (name and alts already
 through case_report's first pick). apply_case changes them in place and returns a list of log lines.
 """
+import json
+import os
 import re
 
 FIX = {"ENGINEVIEW": "Engine Compartment", "FRT GENERAL VIEW": "Front View"}   # old training spellings (case_report.py)
@@ -15,7 +17,17 @@ MODEL_BANS = [(r"\bViva\b", r"^Quarter Liner"),   # user 2026-10-29/30: Perodua 
 MODEL_SWAPS = [(r"^PERODUA\b", r"^Bonnet Latch Stud Plate", "Front Panel Assembly"),
                (r"^PERODUA\b", r"^Fender Inner (LH|RH)$", "Front Panel Assembly")]   # user 2026-11-04: only Perodua has Fender Inner
 
-_TWO_WORD = (["LAND", "ROVER"], ["GREAT", "WALL"], ["KING", "LONG"], ["DONG", "FENG"])
+# the badge brands and the Rear Lamp rule are also applied by the website (web/src/lib/photos/order-rules.ts) from
+# playbook/photo-rules.json; read them from that same file (the worker image has its copy in autopilot_worker/playbook/)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_RULES_JSON = next((p for p in (os.path.join(_HERE, "..", "..", "playbook", "photo-rules.json"),
+                                os.path.join(_HERE, "..", "..", "worker", "autopilot_worker", "playbook", "photo-rules.json"))
+                    if os.path.isfile(p)), None)
+if _RULES_JSON is None:
+    raise ImportError("playbook/photo-rules.json not found")
+_PR = json.load(open(_RULES_JSON, encoding="utf-8"))
+_TWO_WORD = [b.split() for b in _PR["badge"]["twoWordBrands"]]
+_LAMP_PLAIN, _LAMP_PAIR, _LAMP_UNSURE = _PR["rearLamp"]["plain"], _PR["rearLamp"]["pair"], float(_PR["rearLamp"]["unsure"])
 
 
 def brand_of(vehicle):
@@ -73,14 +85,14 @@ def apply_case(rows, vehicle, norm, save=None):
             r["name"] = r["name"].replace("(LOGO)", "(" + brand + ")")
         r["alts"] = list(dict.fromkeys(n for n in map(norm, r.get("alts", [])) if n))
     # user 2026-11-03: a car with Rear Lamp Inner also has Rear Lamp Outer (and the other way round) -> plain "Rear Lamp LH/RH" becomes the missing one
-    have = {m.group(1) for m in (re.match(r"Rear Lamp (Inner|Outer) (LH|RH)$", r["name"]) for r in rs_with_name(rows)) if m}
+    have = {m.group(1) for m in (re.match(_LAMP_PAIR, r["name"]) for r in rs_with_name(rows)) if m}
     if have:
         to = "Outer" if "Inner" in have else "Inner"
         changed = 0
         for r in rs_with_name(rows):
-            m = re.match(r"Rear Lamp (LH|RH)$", r["name"])
+            m = re.match(_LAMP_PLAIN, r["name"])
             if m:
-                r["name"], r["conf"] = f"Rear Lamp {to} {m.group(1)}", min(r.get("conf", 0), 0.59)
+                r["name"], r["conf"] = f"Rear Lamp {to} {m.group(1)}", min(r.get("conf", 0), _LAMP_UNSURE)
                 changed += 1
                 log.append(f"plain Rear Lamp -> Rear Lamp {to}")
         if changed:

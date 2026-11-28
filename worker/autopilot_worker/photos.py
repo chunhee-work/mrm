@@ -63,13 +63,17 @@ _PT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "types
 def load_rules():
     """(name_map.final, name_rules). They ship in the same image, so a failed import is a deploy bug: fail the job (the website then
     names the photos with Claude) instead of storing raw, unmerged or banned names."""
+    saved = list(sys.path)
     try:
-        if _PT not in sys.path:
-            sys.path.append(_PT)  # last: its ~40 scripts never shadow the worker's own imports
+        sys.path.append(_PT)
+        if not os.path.isfile(os.path.join(_PT, "name_decisions.json")):  # name_map would quietly drop the owner's 名称对齐台 decisions
+            raise FileNotFoundError("name_decisions.json")
         from name_map import final  # noqa: PLC0415
         import name_rules  # noqa: PLC0415
     except Exception as e:  # noqa: BLE001
         raise ModelError("name rules missing") from e
+    finally:  # name_map puts its folder first; put the path back so its ~40 scripts never shadow the worker's own imports
+        sys.path[:] = saved
     return final, name_rules
 
 
@@ -107,7 +111,9 @@ def resolve_production(model_dir: str) -> str:
         raise ModelError("model missing")
     try:
         cfg = json.load(open(src, encoding="utf-8"))
-        for g in cfg.get("groups", []):
+        if not cfg.get("groups"):
+            raise ModelError("model missing")
+        for g in cfg["groups"]:
             g["stage1"] = os.path.join(d, os.path.basename(g["stage1"]))
             g["seq"] = [os.path.join(d, os.path.basename(x)) for x in g.get("seq", [])]
             for f in [g["stage1"], *g["seq"]]:
@@ -161,8 +167,8 @@ def ensure_weights(model_dir: str, repo: str, token: str, revision: str = "") ->
             from huggingface_hub import snapshot_download  # noqa: PLC0415
             snapshot_download(repo_id=repo, allow_patterns=["production/*"], local_dir=model_dir, token=token,
                               revision=revision or None)
-        except Exception as e:  # noqa: BLE001  (the token is never printed)
-            raise ModelError("model download failed") from e
+        except Exception:  # noqa: BLE001
+            raise ModelError("model download failed") from None  # not chained: the error text can hold the token
         with open(_revision_file(model_dir), "w", encoding="utf-8") as fh:
             fh.write(revision)
         return resolve_production(model_dir)
