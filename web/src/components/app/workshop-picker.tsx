@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useT } from "@/components/lang-provider";
 
 export type WorkshopOpt = { slot: number; name: string };
@@ -40,11 +40,16 @@ export function WorkshopChoice({ caseId, workshops, state, onSaved, testid }: {
   const { t } = useT();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
-  async function send(slot: number, confirm: boolean) {
+  // the workshop the server last said it saved: shown and confirmed at once, so a slow or failed re-read can never make
+  // Confirm send the workshop the case had before the last press
+  const [slot, setSlot] = useState(state.slot);
+  useEffect(() => { setSlot(state.slot); }, [state.slot]);
+  async function send(to: number, confirm: boolean) {
     setBusy(true); setErr(false);
     try {
-      const r = await fetch(`/api/cases/${caseId}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(confirm ? { workshop: slot, confirm } : { workshop: slot }) });
-      if (!r.ok && r.status !== 409) setErr(true); // 409 = too late: the re-read shows it fixed
+      const r = await fetch(`/api/cases/${caseId}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(confirm ? { workshop: to, confirm } : { workshop: to }) });
+      if (r.ok) setSlot(to);
+      else if (r.status !== 409) setErr(true); // 409 = too late: the re-read shows it fixed
     } catch { setErr(true); }
     setBusy(false);
     onSaved();
@@ -53,11 +58,11 @@ export function WorkshopChoice({ caseId, workshops, state, onSaved, testid }: {
   return (
     <div className={`grid gap-2 ${ask ? "rounded-[4px] border border-amber/40 bg-ambertint p-3 sm:p-4" : ""}`} data-testid={testid} data-confirmed={state.confirmed ? "1" : "0"}>
       <span className="label">{t("pf.caseWs")}</span>
-      <WorkshopPicker workshops={workshops} value={state.slot} onChange={(n) => void send(n, false)} disabled={busy || state.locked} testid={`${testid}-picker`} always />
+      <WorkshopPicker workshops={workshops} value={slot} onChange={(n) => void send(n, false)} disabled={busy || state.locked} testid={`${testid}-picker`} always />
       {ask ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
-          <button type="button" className="btn-primary !min-h-[44px] !px-5 text-[15px]" disabled={busy || !workshops.some((w) => w.slot === state.slot)}
-            onClick={() => void send(state.slot, true)} data-testid={`${testid}-confirm`}>{t("pf.caseWsConfirm")}</button>
+          <button type="button" className="btn-primary !min-h-[44px] !px-5 text-[15px]" disabled={busy || !workshops.some((w) => w.slot === slot)}
+            onClick={() => void send(slot, true)} data-testid={`${testid}-confirm`}>{t("pf.caseWsConfirm")}</button>
           <p className="min-w-0 flex-1 basis-[240px] text-[13.5px] text-fg">{t("pf.caseWsAsk")}</p>
         </div>
       ) : state.locked && (
