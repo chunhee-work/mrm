@@ -94,7 +94,8 @@ export async function deleteCase(orgId: string, userId: string, caseId: string):
   // still reads the old snapshot and misses the job now running (review of plan #159). A new statement sees it: undo and say busy.
   // (A claim that starts after this point skips the case: it rechecks deleted_at on the row it locks.)
   const back = await db.execute(sql`UPDATE cases c SET deleted_at = NULL WHERE c.id = ${caseId} AND c.org_id = ${orgId} AND c.deleted_at IS NOT NULL
-    AND EXISTS (SELECT 1 FROM jobs j WHERE j.case_id = c.id AND j.state = 'running') RETURNING c.id`);
+    AND EXISTS (SELECT 1 FROM jobs j WHERE j.case_id = c.id AND j.state = 'running') RETURNING c.id`)
+    .catch((e) => { console.error("undo check after delete failed (case stays deleted)", caseId, e); return []; }); // the delete stands: cancel, audit and refund still run
   if (((Array.isArray(back) ? back : (back as { rows?: unknown[] }).rows ?? []) as unknown[]).length) return { ok: false, reason: "busy" };
   await db.update(schema.jobs).set({ state: "cancelled" }).where(and(eq(schema.jobs.caseId, caseId), inArray(schema.jobs.state, ["queued", "paused"]))).catch((e) => console.error("cancel jobs after delete failed", caseId, e));
   await db.insert(schema.auditLog).values({ orgId, userId, action: "case.delete", detail: caseId }).catch((e) => console.error("audit row for delete failed", caseId, e));
