@@ -77,7 +77,7 @@ def test_lease_expiry_requeues_and_gives_up_after_three_tries():
         "(11,'c1','photo_model','running',3,'dead', now() - interval '30 minutes'),"
         "(12,'c2','intake','running',1,'alive', now() - interval '1 minute')",
     ]
-    reclaim, rargs = to_numbered(RECLAIM_SQL, (3, 900))
+    reclaim, rargs = to_numbered(RECLAIM_SQL, (3, 900, ""))
     touch, targs = to_numbered(TOUCH_SQL, (12, "alive"))
     wrong, wargs = to_numbered(TOUCH_SQL, (12, "someone-else"))
     r = run([
@@ -89,6 +89,19 @@ def test_lease_expiry_requeues_and_gives_up_after_three_tries():
     assert sorted(x[0] for x in r[0]) == [10, 11]
     assert r[1] == [[12]] and r[2] == []  # only the holder can renew
     assert r[3] == [[10, "queued", None], [11, "failed", None], [12, "running", "alive"]]
+
+
+@needs_pg
+def test_a_job_this_worker_still_runs_keeps_its_row_after_a_long_db_outage():
+    """WORKER_SLOTS > 1 (plan #150 I2): the lease ran out only because the DB was away; the slot still runs the job."""
+    seed = SEED[:2] + [
+        "INSERT INTO jobs (id, case_id, step, state, attempts, locked_by, locked_at) VALUES "
+        "(10,'c1','intake','running',1,'w', now() - interval '30 minutes'),"
+        "(11,'c2','intake','running',3,'w', now() - interval '30 minutes')",
+    ]
+    reclaim, rargs = to_numbered(RECLAIM_SQL, (3, 900, "10,11"))
+    r = run([{"sql": reclaim, "params": [str(a) for a in rargs]}, {"sql": "SELECT id, state FROM jobs ORDER BY id"}], seed=seed)
+    assert r[0] == [] and r[1] == [[10, "running"], [11, "running"]]
 
 
 @needs_pg

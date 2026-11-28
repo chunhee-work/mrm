@@ -678,13 +678,19 @@ def test_a_tab_a_person_opened_from_the_home_tab_still_stops_the_pick(monkeypatc
     m.STEP_TABS.clear()
 
 
-def test_a_job_end_closes_the_popups_its_step_tabs_left_open(monkeypatch):
+def test_a_job_end_closes_the_popups_its_step_tabs_left_open_also_after_the_step_closed_its_tab(monkeypatch):
     from autopilot_worker import __main__ as m
 
     class Pg:
-        def __init__(self, tid, opener=None, ctx=None):
-            self.tid, self.opener, self.closed = tid, opener, False
-            self.context = ctx
+        def __init__(self, tid):
+            self.tid, self.opener, self.closed, self.handlers = tid, None, False, {}
+            self.context = self
+
+        def on(self, name, fn):
+            self.handlers[name] = fn
+
+        def new_page(self):
+            return Pg("s1")
 
         def is_closed(self):
             return self.closed
@@ -692,16 +698,104 @@ def test_a_job_end_closes_the_popups_its_step_tabs_left_open(monkeypatch):
         def close(self):
             self.closed = True
 
-    class Ctx:
-        pages: list = []
-
-    ctx = Ctx()
-    step, pop, other_job, hand = Pg("s1", ctx=ctx), Pg("p1", "s1", ctx), Pg("s2", ctx=ctx), Pg("h", "home", ctx)
-    ctx.pages = [step, pop, other_job, hand]
     monkeypatch.setattr(m, "_target_info", info)
-    m._job_tabs.pages = [("s1", step)]
+    m.STEP_TABS.clear()
+    m._job_tabs.pages = []
+    home = Pg("home")
+    step = m._StepContext(home).new_page()  # a step opens its tab (guarded) from the home tab's context
+    real = step._real if hasattr(step, "_real") else step
+    pop = Pg("p1")
+    real.handlers["popup"](pop)  # the step's upload opens a popup
+    grand = Pg("p2")
+    pop.handlers["popup"](grand)  # and that popup one more
+    real.close()  # the step closes its own tab, the popups stay
+    other = Pg("s2")
     assert m.end_job_tabs() == 2
-    assert step.closed and pop.closed and not other_job.closed and not hand.closed
+    assert pop.closed and grand.closed and not other.closed and not home.closed
+    m.STEP_TABS.clear()
+
+
+def test_the_home_tab_allows_only_reading_its_address_and_opening_a_new_tab():
+    from autopilot_worker import __main__ as m
+
+    home = m.HomeTab(FakePage("home"))
+    assert home.url and home.context.new_page()
+    for name in ("locator", "get_by_role", "keyboard", "mouse", "main_frame", "frames", "expect_navigation", "route"):
+        with pytest.raises(m.HomeTabWrite):
+            getattr(home, name)
+    for name in ("pages", "close"):
+        with pytest.raises(m.HomeTabWrite):
+            getattr(home.context, name)  # context.pages[i] would reach the home tab, context.close() every tab
+    assert not issubclass(m.HomeTabWrite, Exception)  # a step's `except Exception` never swallows it
+    m.STEP_TABS.clear()
+
+
+def test_a_finished_create_lets_the_next_create_be_claimed_while_its_phase_a_goes_on():
+    import threading as _th
+
+    from autopilot_worker import pool as pl
+
+    gate, inside = _th.Event(), _th.Event()
+
+    def run_one(job, driver, extra):
+        pl.create_done()  # the create let the lock go; the report, documents and photos follow
+        inside.set()
+        gate.wait(5)
+
+    pool = JobPool(2, run_one, make_driver=lambda: object())
+    pool.submit({"id": 1, "step": "phase_a", "create": True, "org_id": "o"})
+    assert inside.wait(5)
+    assert not pool.create_running()  # the claim may take the next create now
+    assert pool.busy_orgs() == {"o"}
+    gate.set()
+    assert pool.wait_idle(5)
+
+
+def test_a_checks_job_does_not_count_as_a_merimen_step():
+    import threading as _th
+
+    gate = _th.Event()
+    pool = JobPool(1, lambda job, d, e: gate.wait(5), make_driver=lambda: object())
+    pool.submit({"id": 1, "step": "checks", "org_id": "o"})
+    assert pool.busy_orgs() == set()  # it only waits: no keepalive pause, no re-login wait for it
+    assert pool.running_ids() == [1]
+    gate.set()
+    assert pool.wait_idle(5)
+
+
+def test_waiting_for_another_create_leaves_the_case_as_it_was_and_is_no_logout():
+    from autopilot_worker import loop
+    from autopilot_worker.pipeline import Outcome
+    from autopilot_worker.store import PgRepo
+
+    class Db:
+        def __init__(self):
+            self.sql = []
+
+        def batch(self, st, *a, **k):
+            self.sql += list(st)
+            return []
+
+    repo = PgRepo.__new__(PgRepo)
+    repo.db = Db()
+    busy = Outcome("requeue", error="create_busy", event="Waiting for another case to be created in Merimen first")
+    repo.apply({"id": 7, "case_id": "c", "org_id": "o", "attempts": 1, "step": "phase_a"}, busy)
+    assert not any(st.lstrip().startswith("UPDATE cases") for st, _ in repo.db.sql)  # the case's error is not overwritten
+    assert not loop._may_come_from_logout({"step": "phase_a"}, busy, seen_login=True)
+
+
+@needs_pg
+def test_the_chrome_owner_never_changes_while_its_merimen_step_runs():
+    from autopilot_worker.db import to_numbered
+    from autopilot_worker.jobs import CHROME_TAKEN_SQL
+
+    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222})))  # noqa: E731
+    seed = ["INSERT INTO organizations (id, name) VALUES ('o1', 'One'), ('o2', 'Two')",
+            "INSERT INTO cases (id, org_id, plate, status, created_at) VALUES ('c1','o1','A1','phase_a', now() - interval '1 day'),"
+            " ('c3','o2','B1','phase_a', now())",
+            "INSERT INTO jobs (id, case_id, step, state) VALUES (5,'c3','phase_b','running')"]
+    r = run([q("o1"), q("o2")], seed=seed + READY + sessions())
+    assert r == [[[True]], [[False]]]  # o1's case is older, but o2's step runs now: o2 keeps the Chrome until it ends
 
 
 def test_a_click_or_redirect_to_another_case_stops_the_next_action_and_ends_the_job():

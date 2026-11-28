@@ -13,7 +13,16 @@ import sys
 import threading
 import time
 
-MERIMEN_STEPS = ("phase_a", "checks", "phase_b")
+MERIMEN_STEPS = ("phase_a", "phase_b")  # the jobs that drive Merimen tabs; the `checks` job only waits (loop.PHASE_STEPS)
+_CURRENT = threading.local()  # the job this slot thread runs
+
+
+def create_done() -> None:
+    """Called by the create step once it let the create lock go: this slot's Phase A goes on with the report, documents and
+    photos, and the claim may take the next create beside it (no `no_create` for the whole Phase A)."""
+    job = getattr(_CURRENT, "job", None)
+    if job is not None:
+        job["create_done"] = True
 
 
 class JobPool:
@@ -63,7 +72,12 @@ class JobPool:
 
     def create_running(self) -> bool:
         """A claimed create (Phase A of a case with no Merimen case yet) is in a slot: no second one is claimed (plan #150)."""
-        return any(j.get("step") == "phase_a" and j.get("create") for j in self.running())
+        return any(j.get("step") == "phase_a" and j.get("create") and not j.get("create_done") for j in self.running())
+
+    def running_ids(self) -> list[int]:
+        """Jobs this process still runs: their lease is never taken back while they run (I2, a DB outage longer than the lease)."""
+        with self._lock:
+            return list(self._running)
 
     def busy_orgs(self) -> set[str]:
         """Orgs with a Merimen step running in this process: their re-login waits for it (loop.sync_sessions)."""
@@ -88,6 +102,7 @@ class JobPool:
             # one line at the start and the end of every job (job id and step only, no case or org): the rollout trial reads the
             # overlap of two jobs from these times
             print(f"{me} job {job.get('id')} {job.get('step')} start {time.strftime('%Y-%m-%dT%H:%M:%S')}", flush=True)
+            _CURRENT.job = job
             try:
                 if driver is None:
                     driver = self._make_driver()
@@ -101,6 +116,7 @@ class JobPool:
                     self._running.pop(int(job["id"]), None)
                     self._started.pop(int(job["id"]), None)
                     self._warned.discard(int(job["id"]))
+                _CURRENT.job = None
                 self._q.task_done()
 
     def wait_idle(self, timeout: float | None = None) -> bool:

@@ -19,6 +19,11 @@ class CaseMismatch(BaseException):
     for a person (failed, waiting_user, case_mismatch)."""
 
 
+class HomeTabWrite(BaseException):
+    """A step tried to move or change the logged-in home tab, which every job of the org depends on (WORKER_SLOTS > 1). A
+    BaseException for the same reason as CaseMismatch; run_job ends the job for a person (failed, waiting_user, home_tab_write)."""
+
+
 class _Mine(threading.local):
     """One state dict per job thread. It is changed in place, so a page guarded in this thread (and the Playwright event handlers
     of that page, whichever thread runs them) always sees this thread's current job."""

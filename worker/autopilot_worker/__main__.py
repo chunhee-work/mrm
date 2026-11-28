@@ -168,12 +168,18 @@ class _CdpDriver(Driver):
                 return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1 without WORKER_SLOTS; set it and restart the worker")
             # one live create at a time (plan #150, Grok G1); the report, documents and photos after it run side by side. The claim
             # takes no second create while one runs; one that still meets it waits at most CREATE_WAIT, then tries again later
-            if not _CREATE_LOCK.acquire(timeout=CREATE_WAIT):
+            # a Phase A that already has its Merimen case (a re-run from the report on) never waits for the lock
+            new = not (self.case or {}).get("merimen_caseid")
+            if new and not _CREATE_LOCK.acquire(timeout=CREATE_WAIT):
                 return DriveResult(ok=False, error="create_busy", line="Another case is still being created in Merimen; this one tries again shortly")
             try:
                 res = self._create(True)  # step 1 of Phase A
             finally:
-                _CREATE_LOCK.release()
+                if new:
+                    _CREATE_LOCK.release()
+                from .pool import create_done
+
+                create_done()  # the claim may take the next create now; this job's report, documents and photos run beside it
             if res.ok and (res.case_id or (self.case or {}).get("merimen_caseid")):
                 ok, retry, line = self._report(True, res.case_id, res.ext_id)  # step 2: the Adjuster Report (playbook order: before documents)
                 res.line = ((res.line + "; ") if res.line else "") + line
@@ -420,7 +426,26 @@ def _register_step_tab(pg) -> None:
         _save_step_tabs()
     if not hasattr(_job_tabs, "pages"):
         _job_tabs.pages = []
-    _job_tabs.pages.append((tid, pg))
+    mine = _job_tabs.pages
+    mine.append((tid, pg))
+    _follow_popups(pg, mine)
+
+
+def _follow_popups(pg, mine: list) -> None:
+    """Every popup the step tab opens (and their popups) joins this job's own tabs, so the job end closes it even when the step
+    already closed the tab that opened it. Only a list append in the event handler: no Chrome call there."""
+    on = getattr(pg, "on", None)
+    if on is None:
+        return
+
+    def popup(p):
+        mine.append(("", p))
+        _follow_popups(p, mine)
+
+    try:
+        on("popup", popup)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def own_open_step_tab():
@@ -440,20 +465,6 @@ def end_job_tabs() -> int:
     pages = getattr(_job_tabs, "pages", [])
     _job_tabs.pages = []
     closed = 0
-    own = {tid for tid, _pg in pages if tid}
-    for _tid, pg in pages:  # first the popups its step tabs opened and left open (a popup's chain leads to an own tab)
-        try:
-            if pg.is_closed():
-                continue
-            others = [(p, _target_info(p)) for p in pg.context.pages]
-            kids = _descendants([(str(t.get("targetId") or ""), str(t.get("openerId") or "")) for _p, t in others], own) - own
-            for p, t in others:
-                if str(t.get("targetId") or "") in kids and not p.is_closed():
-                    p.close()
-                    closed += 1
-        except Exception:  # noqa: BLE001
-            pass
-        break  # one context holds them all
     for tid, pg in pages:
         try:
             if not pg.is_closed():
@@ -508,11 +519,11 @@ class _StepContext:
         return guard_page(pg)  # it may only open this job's own Merimen case
 
     def __getattr__(self, name):
-        return getattr(self._ctx, name)
+        # only new_page: another tab of the context (context.pages[i]) or context.close() would reach the home tab or every tab
+        raise HomeTabWrite(f"the home tab's context only opens new tabs ({name})")
 
 
-class HomeTabWrite(RuntimeError):
-    pass
+from .case_guard import HomeTabWrite  # noqa: E402  (a BaseException: a step's `except Exception` never swallows it)
 
 
 class HomeTab:
@@ -520,16 +531,14 @@ class HomeTab:
     and it is read only. Every step reads only its address (`url`, the session marks) and opens its own tab from `context`; a
     call that would move or change the home tab (another job's steps depend on it) raises instead."""
 
-    _WRITES = frozenset({"goto", "reload", "go_back", "go_forward", "click", "dblclick", "fill", "type", "press", "check", "uncheck",
-                         "select_option", "set_input_files", "evaluate", "evaluate_handle", "set_content", "dispatch_event", "close",
-                         "bring_to_front", "tap", "hover", "focus"})
+    _READS = frozenset({"url", "is_closed"})  # an allowlist: everything else (goto, click, locator, keyboard, frames...) raises
 
     def __init__(self, page):
         self._page = page
         self.context = _StepContext(page.context)
 
     def __getattr__(self, name):
-        if name in HomeTab._WRITES:
+        if name not in HomeTab._READS:
             raise HomeTabWrite(f"the home tab is read only ({name})")
         return getattr(self._page, name)
 
@@ -867,7 +876,8 @@ def main() -> None:
             sweep_files()
             try:
                 relogin = housekeeping(cfg, repo, launch=_launch, inspect=_inspect, keep=_keep, fetch_page=fetch_page, master=master,
-                                       delete_blob=delete_blob if shots else None, relogin_fetch=relogin_fetch, busy_orgs=pool.busy_orgs)
+                                       delete_blob=delete_blob if shots else None, relogin_fetch=relogin_fetch, busy_orgs=pool.busy_orgs,
+                                       running_ids=pool.running_ids)
                 while pool.free() > 0 and not stopping.is_set():  # fill every free slot; the claim order puts the case uploaded first in front
                     # a create already claimed (not only one holding the lock: two creates of one batch would otherwise both be
                     # claimed in this one pass) means no second create now

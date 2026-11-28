@@ -171,8 +171,10 @@ class PgRepo:
             job["create"] = bool(r[5]) and r[2] == "phase_a"
         return job
 
-    def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = MAX_ATTEMPTS) -> int:
-        return len(self.db.execute(RECLAIM_SQL, (max_attempts, int(lease_seconds))))
+    def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = MAX_ATTEMPTS, running=()) -> int:
+        """running: ids this process still runs (slot threads); their rows are never put back or failed under them."""
+        keep = ",".join(str(int(i)) for i in running)
+        return len(self.db.execute(RECLAIM_SQL, (max_attempts, int(lease_seconds), keep)))
 
     def chrome_taken_by_other(self, org_id: str, port: int) -> bool:
         """jobs.CHROME_TAKEN_SQL: another org owns the Chrome port this org is given (WORKER_SLOTS > 1)."""
@@ -345,6 +347,8 @@ class PgRepo:
             if outcome.total_rm:  # the estimate is saved in Merimen either way
                 st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
         error = outcome.error or (((outcome.stop_error + ": " if outcome.stop_error else "") + "gave up after %d tries" % attempts) if gave_up else None)
+        if outcome.error == "create_busy" and state == "queued":
+            error = None  # waiting for another create is not a problem of this case: its error stays as it was (only the event)
         # a retry that ran out with a stop of its own (a photo list never readable) waits for a person like that stop does, so the
         # Done press can start Phase B (followup_steps wants waiting_user / phase_b; a first Phase A would else stay phase_a)
         status = outcome.case_status or ("waiting_user" if gave_up and outcome.stop_error else None)

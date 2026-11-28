@@ -72,12 +72,13 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 - `WORKER_SLOTS=1`（默认）：一次一单，和以前一样（只有这几点不同：按案子上传顺序领；同一案子不同时跑两个 job；启动时关掉上次开槽位留下的步骤标签页；记下的步骤标签页不算会话标签页；同一个 state 文件夹上已有 worker 在跑时拒绝启动）。`2` 到 `8`：一个 worker 进程同时跑这么多 job，每个 job 一个线程，自己的 Playwright 连接，每个 Merimen 步骤开自己的标签页（playbook 00「one tab per case」）。
 - 顺序：**先上传的案子先做**，包括它后面的步骤（`ORDER BY cases.created_at, cases.id, jobs.created_at, jobs.id`）。用户 1 先上传，用户 1 的案子先占满空位；用户 2 的照片模型可以用剩下的空位。
 - 同一个案子永远不会同时跑两个 job。
-- 一个 Chrome 只装一个 Merimen 登录（只在开槽位时检查）：几个有 Merimen 登录的机构共用同一个 Chrome 端口时，只有第一个案子最早的那个机构能跑 Merimen 步骤（还没有案子的机构排最后，时间一样按机构 id）；别的机构不会被自动登录到这个 Chrome（会话 `waiting_login`，detail `shared_chrome`），登录检查也跳过它（不输入密码、不算一次尝试），它的 Merimen 步骤一直排队，直到它有自己的 Chrome 配置（`WORKER_ACCOUNTS` + `WORKER_ORG_ACCOUNTS`）。不会把一个用户的案子写进另一个用户的 Merimen 账号。
-- 建新案子（Phase A 第 1 步）一次只建一个：正在建的时候不领另一个还没有 Merimen 案号的 Phase A（不占槽位干等）；万一撞上，最多等 10 分钟，然后放回队列 60 秒后再试（Merimen 里什么都还没做；这次不算一次尝试，时间线写「Waiting for another case to be created in Merimen first」）。同一个 job 不会在一个进程里同时跑两次（数据库断开后租约过期被重新领取时，正在跑的线程继续做）。之后的 Adjuster Report、文件、照片、Phase B 各案子同时跑。
+- 一个 Chrome 只装一个 Merimen 登录（只在开槽位时检查）：几个有 Merimen 登录的机构共用同一个 Chrome 端口时，只有拥有它的机构能跑 Merimen 步骤：现在正有 Merimen 步骤在跑的机构优先（跑着的时候归属不会换），都没有或都有时，第一个（未删除）案子最早的那个（还没有案子的排最后，时间一样按机构 id；做完的案子也算，所以实际上第一个机构一直拥有）；别的机构不会被自动登录到这个 Chrome（会话 `waiting_login`，detail `shared_chrome`），登录检查也跳过它（不输入密码、不算一次尝试），它的 Merimen 步骤一直排队，直到它有自己的 Chrome 配置（`WORKER_ACCOUNTS` + `WORKER_ORG_ACCOUNTS`）。不会把一个用户的案子写进另一个用户的 Merimen 账号。
+- 建新案子（Phase A 第 1 步，约 1 分钟）一次只建一个：一个案子还在建的时候不领另一个还没有 Merimen 案号的 Phase A（不占槽位干等）；它建完（锁放开）就可以领下一个，它自己的 Adjuster Report、文件、照片接着和下一个建案同时跑。已经有案号的 Phase A（从报告开始重跑）不排这个队。万一撞上锁，最多等 10 分钟，然后放回队列 60 秒后再试（Merimen 里什么都还没做；不算一次尝试，案子的 error 和状态不变，也不算登出，时间线只写「Waiting for another case to be created in Merimen first」）。
+- 这个进程还在跑的 job，租约过期（比如数据库断开超过 15 分钟）也不会被放回队列或改成 `failed`：放回租约的那一步跳过它们，正在跑的线程继续续租。同一个 job 也不会在一个进程里同时跑两次。
 - 每个 job 的标签页只能打开它自己的 Merimen 案子：地址里的 `caseid=` 不是这个案子的（已存的案号，或者建案时刚记下的案号），步骤在打开之前就停下；点击、表单提交或跳转落到别的案子上，这个标签页的下一个动作就停下；标签页和它的弹出窗口每次跳转都会被看着。stderr 写一行 `slot-N job <id> case_mismatch`，job 改为 `failed`，案子 `waiting_user`、error `case_mismatch`，等人看（适配器里的 `except Exception` 吞不掉它）。还没有案号的建案步骤不检查。
-- 主标签页只读：步骤只能读它的地址和 context；goto、click、fill、reload、evaluate 等写操作直接报错。
-- 会话标签页：开槽位时，记下的步骤标签页和由它们一层层弹出的窗口不算；其它标签页都算（人从主标签页点开的弹出窗口也算，两个就是 `several_tabs`）。`WORKER_SLOTS=1` 时弹出窗口照旧算标签页。只剩步骤标签页 = 已登出。job 结束时连它的步骤标签页留下的弹出窗口一起关掉。
-- 有 Merimen 步骤在跑的机构不跑 keepalive（步骤自己就让会话保持活跃），keepalive 不会连到步骤标签页。
+- 主标签页只读（白名单）：步骤只能读 `url`、`is_closed`，以及用 `context.new_page()` 开自己的标签页；其它一切（goto、click、locator、keyboard、frames、`context.pages`、`context.close` …）都报 `home_tab_write`，job 改为 `failed`，案子 `waiting_user`，等人看。
+- 会话标签页：开槽位时，记下的步骤标签页和由它们一层层弹出的窗口不算；其它标签页都算（人从主标签页点开的弹出窗口也算，两个就是 `several_tabs`）。`WORKER_SLOTS=1` 时弹出窗口照旧算标签页。只剩步骤标签页 = 已登出。步骤标签页弹出的窗口（和它们再弹出的）都记在这个 job 名下，job 结束时一起关掉，步骤自己先关了标签页也一样。
+- 有 Merimen 步骤（Phase A、Phase B；`checks` 只是在等，不算）在跑的机构不跑 keepalive（步骤自己就让会话保持活跃），keepalive 不会连到步骤标签页。一个卡住的步骤会让这个机构的 keepalive 一直停着，看 `still running` 那一行。
 - 开槽位时每个 job 在 stdout 写两行：`slot-N job <id> <step> start <时间>` 和 `slot-N job <id> <step> end <时间> after <秒> s`，试运行看两个案子是否同时在跑就看这两行。
 - 截图（开槽位）：只截 job 自己还开着的标签页（显示的就是这个案子）；没有开着的就不截，stderr 写一行 `screenshot skipped`。从不截主标签页、从不截别的 job 的标签页。
 - 照片模型（DINOv2 在 CPU 上）一次只跑一个。
@@ -85,10 +86,10 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 - 一个 job 跑超过 `WORKER_JOB_MAX_SECONDS`（默认 3 小时）：只在 stderr 写一行提醒（`slot job … still running`），它继续占着自己的槽位和租约，不会被切断、也不会被再跑一次（Merimen 里的步骤可能会做两次）。其它槽位照常干活。卡住的是建案（`phase_a`，案子还没有 Merimen 案号）时，新的建案都会等它：先在 Merimen worklist 按车牌搜（「按过 Next」标记会让重跑停下等人），再重启 worker；重启是安全的。
 - 从日志里的 job id 找到案子（只在 Neon 里查，日志不写案子和机构）：`SELECT j.id, j.step, c.id AS case_id, c.org_id, c.plate FROM jobs j JOIN cases c ON c.id = j.case_id WHERE j.id = <job id>;`
 - driver 的每个属性都要写进 `pool.SHARED`（所有槽位共用，线程安全）或 `pool.PER_JOB`（每个 job 重新设置）；有新属性没写进去，测试会失败。
-- 停止（SIGTERM）：不再领新 job，正在跑的最多再等 `WORKER_STOP_SECONDS`（默认 80 秒，最多 85 秒，从收到信号算起），还没完的随进程结束，租约到期回到队列。管进程的工具给的停止时间要比它长：systemd 默认 90 秒够；pm2 要加 `--kill-timeout 90000`；`kill` 只发 TERM，然后等 90 秒再看。
+- 停止（SIGTERM）：不再领新 job，正在跑的最多再等 `WORKER_STOP_SECONDS`（默认 80 秒，最多 85 秒，从收到信号算起），还没完的被切断，随进程结束，租约到期（900 秒）回到队列，再跑时从已经保存的地方接着做（建案靠「按过 Next」标记，绝不建第二个；报告重新填；文件跳过 Merimen 已有的）。Phase A 要几分钟，所以想不切断，就在每个槽位日志最后一行都是 `end` 时再重启。管进程的工具给的停止时间要比它长：systemd 默认 90 秒够；pm2 要加 `--kill-timeout 90000`；`kill` 只发 TERM，然后等 90 秒再看。
 - 每个槽位多一个 Playwright 连接（node 进程）和一个 Chrome 标签页。先开 2，看机器内存（Chrome + worker 的 RSS）再开 3；最多 8。启动时 stdout 打印 `worker slots: N, jobs per org: M`；`ORG_CONCURRENCY` 如果在 env 里写成 1，同一个用户还是一次一单，要删掉这一行。
 - 一个 state 文件夹只跑一个 worker 进程（同一个案子不同时跑两个 job，这一点只在一个进程里保证）：每个 worker（不管开不开槽位）启动时锁住 `<state>/worker_slots.lock`，第二个就拒绝启动（不然它启动时会关掉第一个的步骤标签页）；进程结束（包括被 kill）锁自动放开。不开槽位、`ORG_CONCURRENCY` 大于 1 的多进程写入照旧拒绝（`concurrency_unsafe`）。
-- 步骤开的标签页 id 记在 `<state>/step_tabs.json`；job 结束时关掉自己的；重启时按 id 关掉上次留下的（`WORKER_SLOTS=1` 也关，回滚之后不会因为旧标签页变成 `several_tabs`；另一个开槽位的 worker 还在跑时不关；Chrome 里已经没有的 id 直接删掉），从不关主标签页、从不关窗口的最后一个标签页。
+- 步骤开的标签页 id 记在 `<state>/step_tabs.json`；job 结束时关掉自己的；重启时按 id 关掉上次留下的（`WORKER_SLOTS=1` 也关，回滚之后不会因为旧标签页变成 `several_tabs`；Chrome 里已经没有的 id 直接删掉），从不关主标签页、从不关窗口的最后一个标签页。
 
 「稍后再试」（Merimen 读不到、没有已登录标签页、表单打不开等）：job 放回队列时写 `jobs.not_before = now() + backoff_seconds(attempts)`，到时间才会再被领取。顺序是：第 1 次 → 等 30 秒 → 第 2 次 → 等 2 分钟 → 第 3 次 → 等 10 分钟 → 第 4 次；**第 4 次还是不行才改为 `failed`**：时间线多一行「Stopped after 4 tries …」，案子的 `error` 写上原因，案子状态不变。另外两种情况仍是第 3 次被领取为止：worker 自己出错（前两次按上面的等待放回，第 3 次改为 `failed`）和租约过期（放回时不等待）。三种情况共用同一个 `attempts` 计数（每被领取一次加一）。不需要迁移（`not_before` 来自 0007）。
 

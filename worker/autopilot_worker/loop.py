@@ -240,6 +240,8 @@ def _may_come_from_logout(job: dict, outcome: Outcome, seen_login: bool) -> bool
     single exception: Phase A's photo step that itself found the login form (an upload cut off by the logout)."""
     if outcome.job_state not in ("failed", "requeue") or _not_merimen(outcome):
         return False
+    if outcome.error == "create_busy":  # it waited for the create lock and never opened Merimen: no logout can explain it
+        return False
     if outcome.job_state == "requeue" or outcome.error == "worker error":
         return True
     return job["step"] == "phase_a" and outcome.error == "photos" and seen_login and "(not_logged_in)" in (outcome.event or "")
@@ -549,7 +551,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 break
 
 
-def housekeeping(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, fetch_page=None, master: bytes = b"", delete_blob=None, now=time.monotonic, relogin_fetch=None, busy_orgs=None):
+def housekeeping(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, fetch_page=None, master: bytes = b"", delete_blob=None, now=time.monotonic, relogin_fetch=None, busy_orgs=None, running_ids=None):
     """Everything of one pass except the job: heartbeat, login check, reclaim, cleanup, session sync (and re-login), follow-up jobs.
     Main thread only. Returns the re-login function (None when re-login is off). `busy_orgs()` -> orgs with a job running in this
     process (WORKER_SLOTS > 1): their re-login waits a while (plan #150)."""
@@ -559,7 +561,7 @@ def housekeeping(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _por
         _at("claim_verify")
         verify_once(cfg, repo, fetch_page, master, now=now)
     _at("reclaim_stale")
-    repo.reclaim_stale(cfg.lease_seconds)
+    repo.reclaim_stale(cfg.lease_seconds, **({"running": running_ids()} if running_ids else {}))
     _at("cleanup")
     maybe_cleanup(cfg, repo, delete_blob)
     _at("session_sync")
@@ -677,10 +679,14 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
             for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
                 shoot(step)
         except case_guard.CaseMismatch:
-            # a step tab was about to open ANOTHER Merimen case: stopped before that page opened. Never retried by itself
+            # a step tab went (or was about to go) to ANOTHER Merimen case. Never retried by itself
             outcome = Outcome("failed", case_status="waiting_user", error="case_mismatch",
-                              event="Stopped: a step tried to open another Merimen case. Nothing was changed there; a person checks this case")
+                              event="Stopped: a step tab reached another Merimen case. A person checks this case and that one in Merimen")
             shoot("failed")
+        except case_guard.HomeTabWrite as e:
+            print(f"{threading.current_thread().name} job {job.get('id')} home_tab_write: {e}", file=sys.stderr, flush=True)
+            outcome = Outcome("failed", case_status="waiting_user", error="home_tab_write",
+                              event="Stopped: a step tried to change the logged-in Merimen tab. Nothing was done on it; a person checks this case")
         except Exception as e:  # noqa: BLE001
             _print_error(job, e)
             outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
