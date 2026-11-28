@@ -1,6 +1,6 @@
 "use client";
 import { useT } from "@/components/lang-provider";
-import { docKey, eventKind, eventTr, type EventKind } from "@/lib/case-text";
+import { docKey, eventKind, eventTr, isWorkerStop, type EventKind } from "@/lib/case-text";
 import { logWhen } from "@/lib/fmt-when";
 
 type Ev = { at: string; message: string };
@@ -52,14 +52,17 @@ function Mark({ kind }: { kind: EventKind }) {
 }
 
 /** The activity of one case as a timeline, newest first: one line down the side, a round status mark per step. `live`: the case is still being read. */
-export default function CaseLog({ events, live }: { events: Ev[]; live: boolean }) {
+/** `waiting`: the case waits for the user; then its newest worker stop keeps the amber question mark, every older stop is a plain note. */
+export default function CaseLog({ events, live, waiting = false }: { events: Ev[]; live: boolean; waiting?: boolean }) {
   const { t, lang } = useT();
+  let stopSeen = false;
   const rows = events.map((e, i) => {
     const tr = eventTr(e.message);
-    const text = tr.key ? t(tr.key, tr.key === "ev.pending" ? { docs: (tr.vars?.docs ?? "").split("; ").map((d) => t(`doc.${docKey(d)}`)).join("; ") } : tr.vars) : tr.raw ?? e.message;
-    const kind = eventKind(e.message, live && i === 0);
-    const [head, ...rest] = text.split("\n");
-    return { ...e, head, sub: rest.join(" "), kind, word: t(`ev.s.${kind}`) };
+    const head = tr.key ? t(tr.key, tr.key === "ev.pending" ? { docs: (tr.vars?.docs ?? "").split("; ").map((d) => t(`doc.${docKey(d)}`)).join("; ") } : tr.vars) : tr.raw ?? e.message;
+    const sub = (tr.sub ?? []).map((f) => t(f.key, f.vars)).filter(Boolean).join(" · ");
+    let kind = eventKind(e.message, live && i === 0);
+    if (isWorkerStop(e.message)) { kind = waiting && !stopSeen ? "wait" : "note"; stopSeen = true; }
+    return { ...e, head, sub, kind, word: t(`ev.s.${kind}`) };
   });
   return (
     <ol className="relative" data-testid="log-list">
@@ -69,7 +72,7 @@ export default function CaseLog({ events, live }: { events: Ev[]; live: boolean 
           <Mark kind={r.kind} />
           <span className="min-w-0 flex-1 text-[14px] leading-[20px] text-fg">
             <span className="sr-only">{r.word}: </span>
-            {/* a line may carry a short detail after "\n" (the practice-run line): shown under it, small and grey */}
+            {/* a worker line: a short title, and under it its few facts, small and grey (the full sentence stays in the database) */}
             <span className={`[overflow-wrap:anywhere] ${r.kind === "fail" || r.kind === "wait" || r.kind === "work" ? "font-semibold" : ""}`}>{r.head}</span>
             {r.sub && <span className="block text-[13px] leading-[18px] text-mute [overflow-wrap:anywhere]" data-testid="log-sub">{r.sub}</span>}
           </span>
