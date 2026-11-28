@@ -22,7 +22,7 @@
 - 密码不对 / 账号锁定：和保存时一样封住、暂停、发邮件，之后再也不打字，直到用户重新保存。锁定时邮件请用户先等 Merimen 解锁再保存。只有这次运行时登录还是 `ok`、而且还是这次打的那个密码（`password_nonce` 没变）才会改（用户刚好重新保存了就不动）。
 - 要验证码：不写 `otp`（网页会显示一个已经没人接的验证码框），写 `unknown` + 封住 + 暂停（和保存时的 unknown 一样），审计 `relogin_otp`，发一封邮件请用户先确认登录在 Merimen 能用，再重新保存。
 - 子进程只拿一小份环境变量（没有 `MERIMEN_CRED_KEY`、`DATABASE_URL`）。日志只有固定的词，没有地址、页面文字、用户名或密码。
-- **任务做到一半被登出**（2026-11-28）：Phase A / Phase B / checks 没做完时，worker 再看一次 Chrome（有没有已登录的 claims 地址；带登录标记的标签页是不是全都显示密码框）。被登出了，这个任务就放回队列，**不占重试次数**（`attempts` 退回一次），时间线写一行 `Merimen logged out during …`，`worker_sessions` 改成 `expired`；只在 `MERIMEN_RELOGIN` 打开时这样做（关着时任务照旧处理、照旧请用户登录）；这个机构还会被标记，下一个 tick 即使旧标签页地址还带着 `CFID`/`RID` 也会预约一次重新登录（上面的所有限制照旧）。登录回来后任务从停下的地方接着做；照片只在 Merimen 里正好是清单开头那几张（标题在清单里不重复）时补传剩下的。缺文件、缺字段这类和登录无关的停止不会被改成放回。标记 20 分钟后自动失效。同一个案件 6 小时内最多放回 5 次，第 6 次任务失败、案件等人处理。代码在 `loop.check_session_after`、`photo_sync.prefix_done`。
+- **任务做到一半被登出**（2026-11-28）：Phase A / Phase B / checks 没做完时，worker 再看一次 Chrome（有没有已登录的 claims 地址；带登录标记的标签页是不是全都显示密码框）。被登出了，这个任务就放回队列，**不占重试次数**（`attempts` 退回一次），时间线写一行 `Merimen logged out during …`，`worker_sessions` 改成 `expired`；只在 `MERIMEN_RELOGIN` 打开时这样做（关着时任务照旧处理、照旧请用户登录）；这个机构还会被标记，下一个 tick 即使旧标签页地址还带着 `CFID`/`RID` 也会预约一次重新登录（上面的所有限制照旧）。登录回来后任务从停下的地方接着做；照片只在放回后的那次运行里、Merimen 里正好是清单开头那几张（标题在清单里不重复；Phase B 只在没有 Phase A 清单时）才补传剩下的，其它不完整的情况 Phase A 停下等人工处理。重新登录被拒（cap、streak 等）时标记立即清掉。缺文件、缺字段这类和登录无关的停止不会被改成放回。标记 20 分钟后自动失效。同一个案件 6 小时内最多放回 5 次，第 6 次任务失败、案件等人处理。代码在 `loop.check_session_after`、`photo_sync.prefix_done`。
 - 一个机构只能由一个 worker 进程负责（别给同一个机构再开一个 worker），否则保存时检查和自动重新登录之间没有先后保证。
 - 回退：`MERIMEN_RELOGIN=off` 再重启 worker。回退以后上面那条 SQL 禁令仍然有效；已写下的封锁（blocked）、暂停和审计记录也都保留。
 

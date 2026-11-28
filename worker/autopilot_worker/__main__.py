@@ -291,8 +291,8 @@ def _page_provider(cfg: Config):
     def _login_box(pg) -> bool:
         """The page shows a password box (Merimen's login form): a tab whose address still has the session marks of a session that
         is gone. A page that cannot be asked counts as no box (the address decides)."""
-        try:
-            return bool(pg.evaluate("() => !!document.querySelector('input[type=password]')"))
+        try:  # answers at once (no waiting for the box to appear); a visible box only, as the login form shows it
+            return pg.locator("input[type=password]").first.is_visible()
         except Exception:
             return False
 
@@ -309,7 +309,9 @@ def _page_provider(cfg: Config):
             if browser is None:
                 return None
             if strict:
-                found = [pg for pg in _session_pages(browser) if not _login_box(pg)]
+                found = _session_pages(browser)
+                if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
+                    found = [pg for pg in found if not _login_box(pg)]
                 return found[0] if len(found) == 1 else None
             return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
         except Exception:

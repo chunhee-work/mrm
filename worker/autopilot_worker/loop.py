@@ -16,7 +16,7 @@ from .config import Config, account_for
 from .db import DbError
 from .pipeline import Driver, Outcome, followup_steps, handle_job
 from .screens import CODE_TO_STEP, Screenshotter, cleanup, milestones_after
-from .store import PgRepo
+from .store import LOST_EVENT, LOST_WINDOW, PgRepo
 
 
 class LeaseKeeper:
@@ -102,9 +102,7 @@ def _print_error(job: dict, e: BaseException) -> None:
 
 # ---- Merimen logged out during a job (owner 2026-11-28: "will the worker notice, log in and go on?") ----
 PHASE_STEPS = ("phase_a", "phase_b", "checks")
-LOST_EVENT = "Merimen logged out during"  # the event every put-back writes; the cap counts these (store.session_lost_count)
-LOST_CAP = 5  # put-backs for one case in LOST_WINDOW; the next one takes the normal failure path
-LOST_WINDOW = "6 hours"
+LOST_CAP = 5  # put-backs for one case in LOST_WINDOW (store.LOST_EVENT, store.LOST_WINDOW); the next one fails and the case waits
 _PHASE_NAME = {"phase_a": "Phase A", "phase_b": "Phase B", "checks": "the checks"}
 FORCE_TTL = 1200.0  # a mark nobody could act on (re-login refused, a person logged in) ends after 20 min: the address decides again
 # org -> when a job found its session logged out: the next sync_sessions books a re-login even if a tab address still carries the
@@ -124,8 +122,8 @@ def _forced(org_id: str, now) -> bool:
 
 def session_alive(cfg: Config, inspect, page_for, org_id: str) -> bool:
     """A fresh look after a job that did not finish: a tab whose address is a logged-in claims page, and (when the page provider can
-    look inside, `page_for.session_tabs`) at least one such tab shows no password box. Chrome not answering counts as logged out
-    (the job cannot go on either). Two logged-in tabs are NOT logged out."""
+    look inside, `page_for.session_tabs`) at least one such tab shows no password box. Chrome not answering is unknown: the job's
+    own outcome stands. Two logged-in tabs are NOT logged out."""
     account = account_for(org_id, cfg.accounts, cfg.org_accounts)
     if not account:
         return True  # no Chrome for this org: nothing to say about a login
@@ -173,11 +171,17 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
     )
 
 
-def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspect, page_for, now=time.monotonic) -> Outcome:
-    """After a Merimen job that did not finish: was the session logged out meanwhile? Then the put-back outcome (and, with re-login
-    on, the org is marked so the next tick books one). A check that fails itself leaves the outcome as it was."""
-    # only with re-login on: without it nobody logs in again, the job keeps its own outcome and the usual login notice asks the user
-    if job["step"] not in PHASE_STEPS or outcome.job_state not in ("failed", "requeue") or not (cfg.ext_connect and cfg.merimen_relogin) \
+def puts_back(cfg: Config, relogin_ready: bool = True) -> bool:
+    """A logout half way is put back only when the worker can really log in again: EXT_CONNECT, MERIMEN_RELOGIN and the re-login
+    itself built (MERIMEN_LOGIN, the key, the login page). Without it nobody logs in, the job keeps its own outcome and the usual
+    login notice asks the user."""
+    return bool(cfg.ext_connect and cfg.merimen_relogin and relogin_ready)
+
+
+def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspect, page_for, now=time.monotonic, relogin_ready: bool = True) -> Outcome:
+    """After a Merimen job that did not finish: was the session logged out meanwhile? Then the put-back outcome, and the org is
+    marked so the next tick books a re-login. A check that fails itself leaves the outcome as it was."""
+    if job["step"] not in PHASE_STEPS or outcome.job_state not in ("failed", "requeue") or not puts_back(cfg, relogin_ready) \
             or _not_merimen(outcome):
         return outcome
     try:
@@ -246,6 +250,7 @@ LAUNCH_WAIT = 30.0
 
 
 # what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
+RELOGIN_REFUSED = ("streak", "orphan", "cap", "unclear_block", "cred", "key_mismatch")  # try_once said no; not asked again soon
 TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending")
 
 
@@ -320,7 +325,9 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             order = [o for o, _ in want_relogin]
         for org in order:
             got = relogin(org, ports[org])
-            if got in ("ok", "session_live"):
+            if got in ("ok", "session_live") or got in RELOGIN_REFUSED:
+                # done, or refused for a while (its own limits already said why): the mark goes, the tab decides again, so a person
+                # who logs in by hand is seen at once
                 FORCE_RELOGIN.pop(org, None)
             if got in TRIED:
                 break
@@ -361,7 +368,7 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         return None
     _at("job")
     case = repo.load(job["case_id"])
-    if isinstance(case, dict) and job["step"] in PHASE_STEPS and cfg.merimen_relogin:
+    if isinstance(case, dict) and job["step"] in PHASE_STEPS and puts_back(cfg, relogin is not None):
         try:  # put back after a logout lately: a partial photo list in Merimen is then a cut-off upload, never "already has photos"
             case["resumed_after_logout"] = repo.session_lost_count(job["case_id"]) > 0
         except Exception:  # noqa: BLE001
@@ -432,7 +439,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             except Exception:  # noqa: BLE001  (the hourly sweep takes what is left)
                 pass
     _at("session_check")
-    outcome = check_session_after(cfg, repo, job, outcome, inspect=inspect, page_for=page_for or getattr(driver, "page_for", None), now=now)
+    outcome = check_session_after(cfg, repo, job, outcome, inspect=inspect, page_for=page_for or getattr(driver, "page_for", None), now=now,
+                                  relogin_ready=relogin is not None)
     _at("apply")
     repo.apply(job, outcome)
     return job["step"]

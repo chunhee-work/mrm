@@ -175,8 +175,9 @@ def _resume(rep: PhotoReport, case: dict, plan: list[dict], k: int, merimen: Mer
 
 
 def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhotos, guard: Guard = lambda: True) -> PhotoReport:
-    """Upload with the names the model gave (the adjuster may be slow). A case that already has a photo in Merimen is skipped,
-    unless those photos are exactly the start of this list (an upload that was cut off): then only the rest is uploaded."""
+    """Upload with the names the model gave (the adjuster may be slow). A case that already has a photo in Merimen is skipped.
+    Only after a logout put-back (`resumed_after_logout`): photos that are exactly the start of this list (an upload that was cut
+    off) get the rest uploaded, and any other partial list stops for a hand fix."""
     plan = plan_rows(rows)
     rep = PhotoReport("A", "live" if writes else "dry", "upload", upload=len(plan), photos=plan)
     if not plan:
@@ -184,13 +185,13 @@ def phase_a(case: dict, rows: list[dict], *, writes: bool, merimen: MerimenPhoto
         return rep
     have = _read_labels(merimen, case)
     rep.merimen_count = None if have is None else len(have)
-    k = prefix_done(have, plan)
+    resumed = bool(case.get("resumed_after_logout"))
+    k = prefix_done(have, plan) if resumed else 0
     if k:
         return _resume(rep, case, plan, k, merimen, guard, writes)
-    names = {p["name"] for p in plan}
-    if case.get("resumed_after_logout") and have and len(have) < len(plan) and all(h in names for h in have):
-        # the job was put back after a logout: fewer photos than the plan, all with this plan's captions, but not its clean start (a
-        # cut-off upload with a gap, or a repeated caption) is never taken as "already has photos", a person looks (playbook 06)
+    if resumed and have and len(have) < len(plan):
+        # put back after a logout: fewer photos than the plan but not its clean start (a gap, a repeated caption, a name changed
+        # meanwhile) is never taken as "already has photos", a person looks (playbook 06)
         rep.action, rep.upload, rep.code, rep.snapshot = "refused", 0, "hand_fix", None
         rep.note = f"Merimen has {len(have)} of {len(plan)} photos that are not the start of this list: fix by hand (playbook 06)"
         return rep
@@ -259,14 +260,9 @@ def phase_b(
         rep.action, rep.note, rep.code, rep.snapshot = "unreadable", "could not read the photos in Merimen", "unreadable", None
         return rep
     # 2a an upload of these final names was cut off (logged out half way): Merimen holds exactly their start, only the rest goes up
-    # Not when Merimen holds exactly the Phase A list (the usual relabel case of step 4). When the captions could also be the start of
-    # the Phase A upload, they only count as this upload's start when the same files sit there in both lists (captions alone do not say
-    # which photo carries which).
-    pa = phase_a_photos or []
-    pa_names = [x["name"] for x in pa]
-    k = 0 if have == pa_names else prefix_done(have, new)
-    if k and have == pa_names[:k] and [x.get("src") for x in new[:k]] != [x.get("src") for x in pa[:k]]:
-        k = 0
+    # Only after a logout put-back, and only when there is no Phase A list: Phase B uploads only into an empty Merimen (step 2), so
+    # photos that came from Phase A are always matched by step 3/4 (captions alone do not say which photo carries which).
+    k = prefix_done(have, new) if case.get("resumed_after_logout") and not phase_a_photos else 0
     if k:
         return _resume(rep, case, new, k, merimen, guard, writes)
     # 2 nothing in Merimen yet (Done was pressed before Phase A reached the upload): upload with the final names and order

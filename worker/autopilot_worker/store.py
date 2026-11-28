@@ -11,6 +11,9 @@ from .jobs import CLAIM_SQL, RECLAIM_SQL, TOUCH_SQL, claim_params
 from .login_page import backoff_seconds
 from .pipeline import Outcome
 
+LOST_EVENT = "Merimen logged out during"  # the event every logout put-back writes (loop.session_lost_outcome); the cap counts these
+LOST_WINDOW = "6 hours"
+
 MAX_ATTEMPTS = 3  # a lease that ran out (jobs.RECLAIM_SQL) or a worker error (loop.py): the third claim is the last
 # "Try again later" (Outcome "requeue"): try 1 -> wait 30 s -> try 2 -> wait 2 min -> try 3 -> wait 10 min -> try 4 -> failed.
 # jobs.attempts counts every claim of the job, whatever ended it, so the three waits are backoff_seconds(1), (2), (3).
@@ -113,10 +116,10 @@ class PgRepo:
         )
 
     def session_lost_count(self, case_id: str) -> int:
-        """Put-backs because Merimen logged out (loop.LOST_EVENT) for this case in the last 6 hours (loop.LOST_CAP)."""
+        """Put-backs because Merimen logged out (LOST_EVENT) for this case in the last LOST_WINDOW (the cap is loop.LOST_CAP)."""
         rows = self.db.execute(
-            "SELECT count(*) FROM case_events WHERE case_id = %s AND message LIKE %s AND at > now() - interval '6 hours'",
-            (case_id, "Merimen logged out during%"),
+            "SELECT count(*) FROM case_events WHERE case_id = %s AND message LIKE %s AND at > now() - %s::interval",
+            (case_id, LOST_EVENT + "%", LOST_WINDOW),
         )
         return int(rows[0][0]) if rows else 0
 

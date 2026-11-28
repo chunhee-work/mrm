@@ -176,8 +176,11 @@ def test_a_marked_session_gets_a_relogin_although_a_tab_address_looks_logged_in(
 def test_the_mark_stays_while_the_relogin_is_refused_and_goes_without_relogin(tmp_path):
     FORCE_RELOGIN.clear()
     FORCE_RELOGIN["o1"] = time.monotonic()
+    sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p: "pending")
+    assert "o1" in FORCE_RELOGIN  # a try still on its way: the mark stays
     sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=lambda o, p: "cap")
-    assert "o1" in FORCE_RELOGIN
+    assert "o1" not in FORCE_RELOGIN  # refused for a while: the tab decides again (a hand login is seen at once)
+    FORCE_RELOGIN["o1"] = time.monotonic()
     sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None, inspect=lambda p: LOGGED_IN, relogin=None)
     assert "o1" not in FORCE_RELOGIN
     FORCE_RELOGIN.clear()
@@ -185,6 +188,7 @@ def test_the_mark_stays_while_the_relogin_is_refused_and_goes_without_relogin(tm
 
 # ---------- going on: photos ----------
 
+RESUMED = {"merimen_caseid": "1", "resumed_after_logout": True}
 TEN = rows(*[(i, f"{i}.jpg", f"Part {i}", None) for i in range(1, 11)])
 
 
@@ -199,9 +203,13 @@ def test_prefix_done_only_for_an_exact_start():
 
 def test_phase_a_uploads_only_the_rest_of_a_cut_off_upload():
     m = Fake(held=["Part 1", "Part 2", "Part 3"])
-    rep = ps.phase_a({"merimen_caseid": "1"}, TEN, writes=True, merimen=m)
+    rep = ps.phase_a(RESUMED, TEN, writes=True, merimen=m)
     assert rep.ok and rep.upload == 7 and m.writes == ["upload:7:1"]
     assert "cut off" in rep.note
+    # never without a logout put-back: photos already in Merimen are skipped as before (they may be someone else's)
+    m = Fake(held=["Part 1"])
+    rep = ps.phase_a({"merimen_caseid": "1"}, TEN, writes=True, merimen=m)
+    assert rep.action == "none" and m.writes == []
 
 
 def test_phase_a_still_skips_photos_that_are_not_its_start():
@@ -213,14 +221,14 @@ def test_phase_a_still_skips_photos_that_are_not_its_start():
 def test_phase_b_uploads_only_the_rest_of_a_cut_off_final_upload():
     final = rows(*[(i, f"{i}.jpg", f"Part {i}", f"Final {i}") for i in range(1, 6)])
     m = Fake(held=["Final 1", "Final 2"])
-    rep = ps.phase_b({"merimen_caseid": "1"}, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=[], writes=True, merimen=m)
+    rep = ps.phase_b(RESUMED, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=[], writes=True, merimen=m)
     assert rep.ok and rep.upload == 3 and m.writes == ["upload:3:1"]
 
 
 def test_phase_b_with_photos_that_do_not_line_up_is_still_refused():
     final = rows(*[(i, f"{i}.jpg", f"Part {i}", f"Final {i}") for i in range(1, 6)])
     m = Fake(held=["Final 2", "Final 1"])
-    rep = ps.phase_b({"merimen_caseid": "1"}, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=[], writes=True, merimen=m)
+    rep = ps.phase_b(RESUMED, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=[], writes=True, merimen=m)
     assert not rep.ok and m.writes == []
 
 
@@ -258,6 +266,9 @@ def test_check_after_the_job(tmp_path):
     off = cfg(tmp_path)
     assert loop.check_session_after(off, CountRepo(), JOB, fail, inspect=lambda p: LOGIN_PAGE, page_for=None) is fail
     assert FORCE_RELOGIN == {}
+    # re-login switched on but not built (no key, no login page): nobody would log in, so nothing is put back
+    assert loop.check_session_after(on, CountRepo(), JOB, fail, inspect=lambda p: LOGIN_PAGE, page_for=None, relogin_ready=False) is fail
+    assert FORCE_RELOGIN == {}
     # a wait before the step ran (gate, session, Done not pressed) is not a cut-off job
     for wait in (Outcome("requeue"), Outcome("requeue", event="Waiting for you to log in on the worker Chrome")):
         assert loop.check_session_after(on, CountRepo(), JOB, wait, inspect=lambda p: LOGIN_PAGE, page_for=None) is wait
@@ -273,6 +284,9 @@ def test_phase_a_refuses_a_cut_off_upload_with_a_gap():
     m = Fake(held=["Part 1", "Part 3"])
     rep = ps.phase_a({"merimen_caseid": "1", "resumed_after_logout": True}, TEN, writes=True, merimen=m)
     assert not rep.ok and rep.code == "hand_fix" and m.writes == []
+    # a name changed while the job waited: still a partial list, still a hand fix
+    rep = ps.phase_a(RESUMED, TEN, writes=True, merimen=Fake(held=["Part 1", "Old name"]))
+    assert not rep.ok and rep.code == "hand_fix"
     # not after a logout: the owner's rule stands, a case that already has photos is skipped
     rep = ps.phase_a({"merimen_caseid": "1"}, TEN, writes=True, merimen=Fake(held=["Part 1", "Part 3"]))
     assert rep.ok and rep.action == "none"
@@ -283,7 +297,7 @@ def test_phase_b_does_not_resume_over_a_short_phase_a_list_with_other_files():
     final = rows((1, "y.jpg", "Rear Bumper", "Front Bumper"), (2, "x.jpg", "Front Bumper", "Rear Bumper"), (3, "z.jpg", "Side", "Side"))
     pa = [{"name": "Front Bumper", "src": "x.jpg"}, {"name": "Rear Bumper", "src": "y.jpg"}, {"name": "Side", "src": "z.jpg"}]
     m = Fake(held=["Front Bumper", "Rear Bumper"])
-    ps.phase_b({"merimen_caseid": "1"}, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=pa, writes=True, merimen=m)
+    ps.phase_b(RESUMED, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=pa, writes=True, merimen=m)
     assert not any(w.startswith("upload") for w in m.writes)
 
 
@@ -319,5 +333,5 @@ def test_phase_b_does_not_resume_over_the_phase_a_list():
     final = rows(*[(i, f"{i}.jpg", f"Part {i}", None) for i in range(1, 4)])
     pa = [{"name": "Part 1", "src": "1.jpg"}, {"name": "Part 2", "src": "2.jpg"}]
     m = Fake(held=["Part 1", "Part 2"])
-    ps.phase_b({"merimen_caseid": "1"}, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=pa, writes=True, merimen=m)
+    ps.phase_b(RESUMED, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=pa, writes=True, merimen=m)
     assert not any(w.startswith("upload") for w in m.writes)
