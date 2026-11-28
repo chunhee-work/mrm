@@ -196,6 +196,8 @@ class MerimenReport:
         T("slePoliceRef", D["police"]); T("slePOLICERPTDT", D["policeDate"]); cur.evaluate(_HOUR, {"n": "slePOLICERPTTM", "hh": D["policeTimeBand"]})
         T("vaCDPOLICESTATION", D["policeStation"])
         res.notes.append("police station and PIAM IPD code (Browse)" if D.get("stationGuessed") else "PIAM IPD code (Browse)")
+        for g in D.get("cityGuessed") or []:  # a city the bundle did not give, filled from the address or postcode (my_postcode)
+            res.notes.append(g)
         SV("ddlbFault", "Third Party"); SV("ddlbDAMTYPE", D.get("damType") or "Collision"); w(1200)
         SV("ddlbCollType", D.get("collType") or "Private"); w(800)
         cat = D["lossDescCat"]
@@ -283,7 +285,9 @@ class MerimenReport:
             if src.get("state"):
                 SV(st, "^" + re.escape(src["state"]) + "$|" + re.escape(src["state"])); w(500)
             if src.get("city"):
-                SV(city, "^" + re.escape(src["city"]) + "$|" + re.escape(src["city"])); w(400)
+                if not SV(city, "^" + re.escape(src["city"]) + "$|" + re.escape(src["city"])) and src.get("cityGuessed"):
+                    res.notes.append(f"city {src['city'][:30]} is not in Merimen's list")
+                w(400)
         SV("ddlbLossState", "^" + re.escape(D["lossState"]) + "$|" + re.escape(D["lossState"])); w(600)
         SV("ddlbLOSSCITY", "^" + re.escape(D["lossCity"]) + "$|" + re.escape(D["lossCity"])); w(500)
         T("sleIPostCode", ins["postcode"]); T("sleDPostCode", idr["postcode"] or ins["postcode"]); T("sleCLMPostCode", clm["postcode"])

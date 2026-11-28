@@ -53,3 +53,15 @@ def test_tick_records_the_step_that_failed(fail_at, step):
     with pytest.raises(DbError) as e:
         tick(cfg, Boom(fail_at), launch=lambda a: None, inspect=lambda p: None, namer=None, driver=None, download=lambda *a: None)
     assert tick_error_line(e.value) == f"tick DbError step={step} code=- msg=database unreachable"
+
+
+def test_a_job_error_says_where_it_broke_but_never_values():
+    from autopilot_worker.loop import job_error_line
+    token = "y" * 30
+    try:
+        {"a": 1}["postgresql://u:pw@host/db " + token]
+    except KeyError as e:
+        line = job_error_line({"id": 67, "step": "phase_b", "attempts": 3}, e)
+    assert line.startswith("job 67 phase_b attempt 3 KeyError msg=")
+    assert "test_tick_log.py:" in line and "test_a_job_error_says_where_it_broke_but_never_values" in line
+    assert "pw@host" not in line and token not in line

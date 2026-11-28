@@ -106,7 +106,8 @@ class PgRepo:
         self.db.execute(
             "INSERT INTO llm_calls (request_id, user_id, org_id, case_id, purpose, model, input_tokens, output_tokens, latency_ms, ok, error_class) "
             "SELECT %s, c.created_by, c.org_id, %s, %s, %s, %s::bigint, %s::bigint, %s::int, %s::boolean, %s FROM (SELECT 1) one LEFT JOIN cases c ON c.id = %s::text "
-            "ON CONFLICT (request_id) DO NOTHING",
+            # no conflict target: "ON CONFLICT (request_id)" needs SELECT on that column, and the worker role has INSERT only (0016)
+            "ON CONFLICT DO NOTHING",
             (row["request_id"], row.get("case_id"), row["purpose"], row["model"], row["input_tokens"], row["output_tokens"],
              row.get("latency_ms"), bool(row["ok"]), row.get("error_class"), row.get("case_id")),
         )
