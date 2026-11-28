@@ -78,11 +78,11 @@ function Who({ r }: { r: CaseRow }) {
   );
 }
 
-function ActIcon({ icon }: { icon: "retry" | "upload" | "photo" | "tick" }) {
+function ActIcon({ icon, white = false }: { icon: "retry" | "upload" | "photo" | "tick"; white?: boolean }) {
   if (icon === "upload") return <Upload className="h-4 w-4 shrink-0" />;
   if (icon === "photo") return <Photo className="h-4 w-4 shrink-0" />;
   if (icon === "tick") return <Tick className="h-4 w-4 shrink-0" />;
-  return <span aria-hidden="true" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#dc2626] text-[11px] font-bold leading-none text-white">!</span>;
+  return <span aria-hidden="true" className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold leading-none ${white ? "bg-white text-[#b91c1c]" : "bg-[#dc2626] text-white"}`}>!</span>;
 }
 
 /**
@@ -92,11 +92,12 @@ function ActIcon({ icon }: { icon: "retry" | "upload" | "photo" | "tick" }) {
 function ActButton({ r, onHere }: { r: CaseRow; onHere: () => void }) {
   const a = useAct()(r);
   if (a.kind === null) return <span className="pointer-events-none flex min-w-0 items-center gap-2 text-[14px] text-mute">{a.busy ? <Working className="shrink-0 text-scan" /> : <span aria-hidden="true" className="h-[9px] w-[9px] shrink-0 rounded-full bg-mute" />}<span className="truncate">{a.say}</span></span>;
+  // owner 2026-11-28: "CTA button more bigger and more like CTA button ... the whole middle": a solid button across the line
   const look = a.tone === "red"
-    ? "border-[#dc2626]/60 bg-[#fef2f2] text-[#991b1b] hover:bg-[#fee2e2]"
-    : "border-amber/70 bg-ambertint text-fg hover:border-amber hover:bg-amber/20";
-  const cls = `pointer-events-auto relative z-10 inline-flex h-9 min-w-0 max-w-full items-center gap-2 rounded-full border px-3.5 text-[14px] font-semibold transition-colors duration-150 ${look}`;
-  return <button type="button" onClick={onHere} className={cls} data-testid="home-act" data-act="here"><ActIcon icon={a.icon} /><span className="truncate">{a.say}</span></button>;
+    ? "bg-[#b91c1c] text-white shadow-[0_6px_16px_-6px_rgba(185,28,28,0.55)] hover:bg-[#991b1b]"
+    : "bg-[#b45309] text-white shadow-[0_6px_16px_-6px_rgba(180,83,9,0.55)] hover:bg-[#92400e]";
+  const cls = `pointer-events-auto relative z-10 inline-flex h-12 w-full min-w-0 items-center justify-center gap-2.5 rounded-[6px] px-5 text-[16px] font-semibold transition-[background-color,transform] duration-150 active:translate-y-px ${look}`;
+  return <button type="button" onClick={onHere} className={cls} data-testid="home-act" data-act="here"><ActIcon icon={a.icon} white /><span className="truncate">{a.say}</span><span aria-hidden="true" className="ml-0.5 shrink-0 text-[18px] leading-none">→</span></button>;
 }
 
 function Empty({ needle, blocked = false }: { needle: string; blocked?: boolean }) {
@@ -163,8 +164,15 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
   useEffect(() => { if (!sent) return; const id = window.setTimeout(() => setSent(false), 4000); return () => window.clearTimeout(id); }, [sent]);
   // a document is uploaded right here, with the same picker, limits and progress as the case page (one component, NeedCard)
   // the photo desk, in this line: the job of step 2, and on the way while documents are still missing.
-  // Once shown it stays while the line is open: after 完成 the case moves to step 3, and the desk keeps its message and its undo.
+  // Once shown it stays while the line is open, until 完成: then it closes by itself (owner 2026-11-28) and the line keeps the
+  // desk's message, with "See photo names" to open it again (完成 is taken back there with the Finished button). A document still
+  // missing (pending_doc): the desk stays, its message is the only one there.
   const [deskOpen, setDeskOpen] = useState(bucketOf(r) === "photos");
+  // 完成 pressed in the desk: the desk closes by itself and its message stays here (owner 2026-11-28)
+  const [finished, setFinished] = useState("");
+  const reopen = useRef<HTMLButtonElement>(null);
+  // the press was inside the desk that is gone now: the keyboard carries on from the button that opens it again
+  useEffect(() => { if (finished) reopen.current?.focus(); }, [finished]);
   // documents being read (or a read that failed): the desk waits, as on the case page
   // keyed on the step, not the row object (a new one comes with every refresh): a desk the user closed stays closed
   const bucket = bucketOf(r);
@@ -175,7 +183,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
   useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
   const desk = (
     <div className="overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
-      <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={ctl.relist}
+      <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={ctl.relist} onFinished={(said, status) => { if (status === "pending_doc") return; setFinished(said); setDeskOpen(false); }}
         tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
     </div>
   );
@@ -190,6 +198,8 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
     : deskOpen ? desk
     : null;
   const reading = r.status === "uploaded" || r.status === "reading";
+  // past the photo step (or 完成 just pressed, before the list is read again) the names are done
+  const named = !!finished || !!r.photosDone || bucket !== "photos";
   return (
     <div id={`more-${r.id}`} className="space-y-4 border-t border-hairsoft bg-panel2/60 px-4 pb-4 pt-3 lg:px-5" data-testid="home-more">
       {/* documents being read: say so here, nothing to press (owner 2026-11-27: everything stays on the first page) */}
@@ -200,6 +210,19 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
         </div>
       )}
       {job}
+      {/* the names stay one press away once the desk is closed: open it again to look them over (owner 2026-11-28) */}
+      {!deskOpen && !sent && (r.deskTotal ?? 0) > 0 && !DESK_WAITS.includes(r.status) && r.status !== "pending_doc" && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[4px] border border-hair bg-panel px-4 py-3" data-testid="home-names">
+          <span aria-hidden="true" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${named ? "bg-go/10 text-go" : "bg-ambertint text-fg"}`}>{named ? <Tick className="h-4 w-4" /> : <Photo className="h-4 w-4" />}</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-fg">{t("tray.names.title")} <span className="num ml-1 font-mono text-[13px] font-medium text-mute">{r.deskTotal}</span></p>
+            <p className="mt-0.5 text-[14px] text-mute" data-testid="home-names-say">{finished || t(named ? "tray.names.done" : "tray.names.todo")}</p>
+          </div>
+          <button ref={reopen} type="button" onClick={() => { setFinished(""); setDeskOpen(true); }} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-[6px] border border-fg/25 bg-panel px-4 text-[15px] font-semibold text-fg transition-colors duration-150 hover:border-fg hover:bg-panel2 max-sm:w-full max-sm:justify-center" data-testid="home-names-open">
+            <Photo className="h-4 w-4 shrink-0" />{t("tray.names.open")}
+          </button>
+        </div>
+      )}
       <Brief r={r} workshops={workshops} />
       {r.canDelete && (
         <div className="flex justify-end">
@@ -209,6 +232,8 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
         </div>
       )}
       <ConfirmDelete row={ask ? { id: r.id, plate: r.plate || r.firstFile || "" } : null} onClose={() => setAsk(false)} onGone={() => router.refresh()} onStale={() => router.refresh()} />
+      {/* always there, so the desk's message is read out when it lands in the "Photo names" card */}
+      <p role="status" className="sr-only">{finished}</p>
     </div>
   );
 }
@@ -327,6 +352,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
     if (top < 0 || top > window.innerHeight * 0.6) el.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [open]);
   // wide screens: vehicle | steps | action | arrow. The step and action tracks give way before the vehicle no. does.
+  const act = useAct();
   const COLS = "xl:grid xl:grid-cols-[minmax(150px,1fr)_260px_220px_20px] xl:items-center xl:gap-x-6";
   return (
     <section aria-labelledby="open-title" className="sheet overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-open">
@@ -349,11 +375,12 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
                   />
                   <div className="pointer-events-none relative flex items-start justify-between gap-3 xl:contents">
                     <Who r={r} />
-                    <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 xl:order-4 xl:mt-0 ${on ? "" : "-rotate-90"}`} />
+                    <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 xl:order-4 xl:mt-0 xl:col-start-4 xl:row-start-1 ${on ? "" : "-rotate-90"}`} />
                   </div>
                   <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r)} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
-                  {/* while the line is open the job is right below it: the button would only say it twice */}
-                  <div className="pointer-events-none relative flex xl:justify-end">{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
+                  {/* while the line is open the job is right below it: the button would only say it twice.
+                      A job for the user: a wide button under the steps (on wide screens across the step and action columns) */}
+                  <div className={`pointer-events-none relative flex ${!on && act(r).kind ? "xl:col-span-2 xl:col-start-2 xl:mt-3" : "xl:justify-end"}`}>{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
                 </div>
                 {on && <More r={r} orgId={orgId} onDesk={onDesk} workshops={workshops} ctl={ctl} />}
               </li>
