@@ -35,10 +35,10 @@ export default function ConfirmDelete({ row, onClose, onGone, onStale }: { row: 
   return (
     <dialog ref={ref} onClose={() => { if (!busy) onClose(); }} onCancel={(e) => { if (busy) e.preventDefault(); }} onClick={(e) => { if (e.target === ref.current && !busy) onClose(); }}
       aria-label={title} data-testid="del-dialog"
-      // Owner 2026-11-29: the pop-up sits in the middle of the whole screen. The dialog fills the screen and centres its card with flex,
+      // Owner 2026-11-29: the pop-up sits in the middle of the whole screen, phone too. The dialog fills the screen and centres its card with flex,
       // so it does not depend on each browser's own dialog margins (Safari left it at the top). A click on the dim area outside closes it.
-      className="fixed inset-0 m-0 h-full max-h-none w-full max-w-none items-center justify-center bg-transparent p-4 text-fg backdrop:bg-black/40 open:flex max-sm:items-end max-sm:p-0">
-      <div className="w-[min(440px,calc(100vw-32px))] rounded-[6px] border border-hair bg-white p-5 shadow-xl max-sm:w-full max-sm:rounded-b-none" data-testid="del-card">
+      className="fixed inset-0 m-0 h-full max-h-none w-full max-w-none items-center justify-center bg-transparent p-4 text-fg backdrop:bg-black/40 open:flex">
+      <div className="max-h-full w-[min(440px,calc(100vw-32px))] overflow-y-auto rounded-[6px] border border-hair bg-white p-5 shadow-xl" data-testid="del-card">
         <h3 className="mb-2 text-[20px] font-semibold leading-tight text-fg [overflow-wrap:anywhere]">{title}</h3>
         {open && <p className="mb-5 text-[15px] leading-snug text-mute [text-wrap:pretty]" data-testid="del-body">{t(row?.inMerimen ? "del.bodyMerimen" : "del.body")}</p>}
         {err && <p role="alert" className="mb-4 text-[14px] font-semibold text-amber" data-testid="del-error">{err}</p>}
