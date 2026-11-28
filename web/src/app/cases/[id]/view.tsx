@@ -200,7 +200,7 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     // always open (owner 2026-11-27: "must be always showing, not I open then only show"); the 5 newest, then "Show all"
     <section aria-labelledby="case-log-title" data-testid="case-log">
       <h2 id="case-log-title" className="label mb-3 flex items-center gap-2">{t("case.log")}<span className="note text-mute">· {c.events.length}</span></h2>
-      <CaseLog events={shownLog} live={working} />
+      <CaseLog events={shownLog} live={working} waiting={c.status === "waiting_user"} />
       {newest.length > LOG_SHORT && (
         <button type="button" className="btn-quiet mt-2 !text-[15px] !font-medium !text-mute hover:!text-fg" data-testid="log-more" onClick={() => setAllLog((v) => !v)}>{allLog ? t("case.showLess") : t("case.showAll")}</button>
       )}
