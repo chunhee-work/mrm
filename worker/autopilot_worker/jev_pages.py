@@ -150,7 +150,7 @@ def rc_questions(data: dict) -> tuple[dict, dict]:
 
 
 # ---- day cap and per-PDF cache (in this process only; nothing is stored)
-_day = {"d": "", "pages": 0}
+_day = {"d": "", "pages": 0, "cap": DAILY_PAGES}  # cap = this run's daily cap, for the helpers
 _cache: dict[tuple, dict] = {}  # (pdf sha, plate, page index) -> a parsed page; only good answers are kept
 
 
@@ -190,6 +190,7 @@ def _asset(jpg: bytes) -> tuple[str, dict]:
 def run(jev: Jev, case: dict, fetch: Callable[[str], bytes | None], *, env=None, now=time.monotonic, today=lambda: time.strftime("%Y-%m-%d")) -> list[str]:
     """The Activity lines (stored English, at most MAX_LINES) for one case. [] on anything but a clean, complete pass."""
     env = env or {}
+    _day["cap"] = _daily_cap(env)
     cid = case.get("id")
     try:
         return _run(jev, case, fetch, env, now, today(), cid)
@@ -341,9 +342,14 @@ def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
     return lines[:MAX_LINES]  # missing documents first, then RC model, cc, date (the order they were added)
 
 
-MAX_AF_PAGES = 4  # at most this many candidate pages get the at-fault plate question
+MAX_AF_PAGES = 6  # at most this many candidate pages get the at-fault plate question
+AF_YES = PRESENT  # live (15 cases): yes pages 0.91-0.97 (DCD4004 once 0.91), no pages 0.01-0.07; 0.9 would sit on the yes edge
 NOT_INSURANCE = {"vehicle_ownership_certificate", "police_report", "police_investigation_result", "police_sketch"}
 AF_ORDER = {"isearch_report": 0, "insurance_schedule_or_cover_note": 1}  # likeliest first; every other label after
+
+
+def norm_plate(v) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(v or "").upper())
 
 
 def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool | None:
@@ -352,9 +358,9 @@ def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool | None:
     and Jev types those with low confidence. "Not ours" alone is too weak (our own continuation page scores low, a misfiled schedule names
     another plate), so each candidate page (not ours, not an RC or police page) is asked one question: does it show the at-fault plate's insurance?
     True = yes on a page; False = no candidate, no at-fault plate, or every asked page said no; None = a question could not be asked."""
-    plate = str((data.get("at_fault") or {}).get("plate") or "").strip()
-    cands = [i for i, r in enumerate(results) if r and r["label"] not in NOT_INSURANCE and r["ours"] < OURS_MIN]
-    cands.sort(key=lambda i: (AF_ORDER.get(results[i]["label"], 2), -results[i]["conf"]))
+    plate = norm_plate((data.get("at_fault") or {}).get("plate"))
+    cands = [g for g, r in enumerate(results) if r and r["label"] not in NOT_INSURANCE and r["ours"] < OURS_MIN]
+    cands.sort(key=lambda g: (AF_ORDER.get(results[g]["label"], 2), results[g]["ours"], -results[g]["conf"]))  # the least "ours" first
     if not plate or not cands:
         return False
     q = {"af": {"type": "noul", "instructions": (
@@ -362,35 +368,38 @@ def _at_fault_schedule(jev, data, results, docs, now, t0, cid) -> bool | None:
         "It may be an insurer's schedule, a vehicle look-up printout or a screenshot, and it may be rotated. "
         "Answer no if the page names a different vehicle. Ignore spaces and letter case in plate numbers.")}}
     for g in cands[:MAX_AF_PAGES]:
-        key = (_sha_at(docs, g), "af:" + norm_model(plate), g)
+        sha, i = _locate(docs, g)
+        key = (sha, "af:" + plate, i)  # same shape as the page-sort key: the page number INSIDE that PDF, so a re-run with other files still matches
         if key not in _cache:
-            if now() - t0 > BUDGET_S - 5:
-                return None
-            img = _page_jpg(docs, g, DPI)
+            skip = ("skip_budget" if now() - t0 > BUDGET_S - 5 else "skip_daily_cap" if _day["pages"] + 2 > _day["cap"] else None)  # +2 keeps the RC check's reserve
+            img = None if skip else _page_jpg(docs, g, DPI)  # not RC_DPI: a full scanned page at 150 dpi was refused (HTTP 400, QAT110)
             if img is None:
+                jev.log("isearch_check", case_id=cid, ok=False, error_class=skip or "skip_render", model=PAGE_MODEL)
                 return None
             ref, assets = _asset(img)
+            _day["pages"] += 1  # a sent call counts against the day, answered or not
             try:
                 ans = jev.ask({"page": ref, "at_fault_plate": plate}, q, purpose="isearch_check", case_id=cid, assets=assets, model=PAGE_MODEL).get("answers")
             except JevError:
-                return None
+                return None  # Jev.ask already wrote the failed row
             p = _prob((ans if isinstance(ans, dict) else {}).get("af"))
             if p is None:
+                jev.log("isearch_check", case_id=cid, ok=False, error_class="bad_answer", model=PAGE_MODEL)
                 return None
-            _day["pages"] += 1
             _cache[key] = {"p": p}
-        if _cache[key]["p"] >= PRESENT:
+        if _cache[key]["p"] >= AF_YES:
             return True
     return False
 
 
-def _sha_at(docs, global_index: int) -> str:
+def _locate(docs, global_index: int) -> tuple[str, int]:
+    """(pdf sha, page number inside that pdf) for a page's position across all the case's files."""
     n = global_index
     for sha, d in docs:
         if n < len(d):
-            return sha
+            return sha, n
         n -= len(d)
-    return ""
+    return "", -1
 
 
 def _rc_lines(jev, data, docs, best, now, t0, cid) -> list[str]:

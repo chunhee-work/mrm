@@ -24,9 +24,9 @@ def pdf(*texts, password=None):
     return d.tobytes(encryption=fitz.PDF_ENCRYPT_AES_256, user_pw=password, owner_pw=password) if password else d.tobytes()
 
 
-def page_key(raw, i):
+def page_key(raw, i, dpi=jp.DPI):
     d = fitz.open(stream=raw, filetype="pdf")
-    return base64.b64encode(jp._jpg(d, i)).decode()
+    return base64.b64encode(jp._jpg(d, i, dpi)).decode()
 
 
 class Fake:
@@ -75,7 +75,7 @@ FULL = [("rc page", "rc", 0.97, 0.97), ("policy", "pol", 0.96, 0.9), ("isearch",
 @pytest.fixture(autouse=True)
 def fresh():
     jp._cache.clear()
-    jp._day.update(d="", pages=0)
+    jp._day.update(d="", pages=0, cap=jp.DAILY_PAGES)
 
 
 def test_everything_agrees_is_quiet_and_one_row_per_call():
@@ -128,11 +128,46 @@ def test_a_low_confidence_lookup_page_is_asked_too():
     assert len(asked) == 1  # the look-up page is asked first and says yes
 
 
-def test_only_not_ours_non_police_pages_are_asked_and_at_most_four():
-    pages = NO_ISEARCH + [("ours edge", "pol", 1.0, 0.5), ("their report", "rep", 1.0, 0.1), ("their rc", "rc", 1.0, 0.1)] + [(f"s{i}", "pol", 1.0, 0.1) for i in range(5)]
+def test_only_not_ours_non_police_pages_are_asked_and_at_most_six():
+    pages = NO_ISEARCH + [("ours edge", "pol", 1.0, 0.5), ("their report", "rep", 1.0, 0.1), ("their rc", "rc", 1.0, 0.1)] + [(f"s{i}", "pol", 1.0, 0.1) for i in range(8)]
     jev, case, fake, rows, fetch = setup(pages)
     assert jp.run(jev, case, fetch) == WARN_IS
-    assert len([b for b in fake.sent if "af" in b["questions"]]) == 4
+    assert len([b for b in fake.sent if "af" in b["questions"]]) == 6
+
+
+def test_a_maybe_yes_is_not_enough():
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 0.6})
+    assert jp.run(jev, case, fetch) == WARN_IS  # needs 0.7
+
+
+def test_plate_answers_are_cached_by_page_inside_the_pdf():
+    # run 1: [X (2 pages), A]; run 2: [A] only. A's page must keep its own answer, not X's position.
+    a = pdf("rc page", "policy", "report", "keputusan", "their policy")
+    x = pdf("x1", "x2")
+    kinds = {page_key(a, i): v for i, v in enumerate([("rc", 0.97, 0.97), ("pol", 0.96, 0.9), ("rep", 0.95, 0.9), ("kep", 0.95, 0.8), ("pol", 1.0, 0.18)])}
+    kinds.update({page_key(x, i): ("other", 0.9, 0.9) for i in range(2)})
+    fake = Fake(kinds, af={page_key(a, 4): 0.95})
+    jev = Jev(fake.post, record=lambda r: None)
+    raws = {"ux": x, "ua": a}
+    c1 = {"id": "c1", "plate": "WXY1234", "case_data": DATA, "files": [{"id": 1, "kind": "pdf", "url": "ux"}, {"id": 2, "kind": "pdf", "url": "ua"}]}
+    assert jp.run(jev, c1, raws.get) == []
+    c2 = dict(c1, files=[{"id": 2, "kind": "pdf", "url": "ua"}])
+    n = len(fake.sent)
+    assert jp.run(jev, c2, raws.get) == [] and len(fake.sent) == n + 1  # page sort cached; only the RC check is asked again
+
+
+def test_spaces_in_the_at_fault_plate_do_not_matter():
+    d = dict(DATA, at_fault={"plate": "abc 1"})
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
+    assert jp.run(jev, case, fetch) == []
+    assert [b for b in fake.sent if "af" in b["questions"]][0]["state"]["at_fault_plate"] == "ABC1"
+
+
+def test_the_daily_cap_stops_the_plate_question_quietly():
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 0.95})
+    out = jp.run(jev, case, fetch, env={"JEV_PAGES_DAILY": "6"})  # 5 pages + the RC reserve fill the day
+    assert out == [] and not [b for b in fake.sent if "af" in b["questions"]]
+    assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "skip_daily_cap" for r in rows)
 
 
 def test_no_at_fault_plate_means_no_plate_question():
@@ -140,6 +175,20 @@ def test_no_at_fault_plate_means_no_plate_question():
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
     assert jp.run(jev, case, fetch) == WARN_IS  # police report_no is set, so the warning still applies
     assert not [b for b in fake.sent if "af" in b["questions"]]
+
+
+def test_an_unreadable_plate_answer_gives_no_isearch_warning_and_a_ledger_row():
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 7.0})
+    assert jp.run(jev, case, fetch) == []
+    assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "bad_answer" for r in rows)
+
+
+def test_near_the_budget_the_plate_question_is_skipped():
+    t = iter([0.0] + [56.0] * 100)
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 0.95})
+    assert jp.run(jev, case, fetch, now=lambda: next(t)) == []
+    assert not [b for b in fake.sent if "af" in b["questions"]]
+    assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "skip_budget" for r in rows)
 
 
 def test_a_failed_plate_question_gives_no_isearch_warning():
