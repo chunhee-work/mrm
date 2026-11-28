@@ -168,10 +168,10 @@ class _CdpDriver(Driver):
                 res.line = ((res.line + "; ") if res.line else "") + d.line()
                 if d.code == "not_logged_in" and self.relogin_ready:  # logged out during the documents: again after a re-login (owner 2026-11-28)
                     return DriveResult(ok=False, error="docs", line=res.line, case_id=res.case_id, ext_id=res.ext_id)
-                if d.code == "docs_partial" and (self.case or {}).get("resumed_after_logout"):
+                if d.code == "docs_partial" and (self.relogin_ready or (self.case or {}).get("resumed_after_logout")):
                     # an upload cut off by the logout left some of the documents: never guess which, a person looks (playbook 06)
                     return DriveResult(ok=False, fatal=True, error="docs", case_id=res.case_id, ext_id=res.ext_id,
-                                       line=(res.line + ". The document upload was cut off by a logout: check the documents in Merimen by hand")[:380])
+                                       line=(res.line + ". Only some of the documents are in Merimen (an upload cut off, e.g. by a logout): check them in Merimen by hand")[:380])
             return res
         if phase == "B":
             est = self._estimate()
@@ -287,7 +287,11 @@ def _page_provider(cfg: Config):
             from playwright.sync_api import sync_playwright
 
             pw = sync_playwright().start()
-            state[port] = (pw, pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}"))
+            try:
+                state[port] = (pw, pw.chromium.connect_over_cdp(f"http://127.0.0.1:{port}"))
+            except Exception:
+                pw.stop()  # a connect that fails leaves no driver process behind
+                raise
         return port, state[port][1]
 
     def _drop(org_id: str) -> None:
@@ -307,6 +311,28 @@ def _page_provider(cfg: Config):
         except Exception:
             return False
 
+    def _relogin_tab(org_id: str, pages: list) -> list:
+        """Of several logged-in tabs, the one the worker's last successful re-login opened (relogin._own_tab, by Chrome target id);
+        all of them when it is not among them (the case then waits, as before)."""
+        from . import relogin
+
+        own = relogin._own_tab.get(org_id)
+        if not own:
+            return pages
+        mine = []
+        for pg in pages:
+            try:
+                s = pg.context.new_cdp_session(pg)
+                try:
+                    info = s.send("Target.getTargetInfo")
+                finally:
+                    s.detach()
+                if str((info.get("targetInfo") or {}).get("targetId")) == str(own):
+                    mine.append(pg)
+            except Exception:
+                pass
+        return mine if len(mine) == 1 else pages
+
     def _session_pages(browser) -> list:
         from .merimen_create import session_query
 
@@ -323,6 +349,8 @@ def _page_provider(cfg: Config):
                 found = _session_pages(browser)
                 if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
                     found = [pg for pg in found if not _login_box(pg)]
+                if len(found) > 1:  # a forced re-login logs in from its own tab while the old one still has its address: that one
+                    found = _relogin_tab(org_id, found)
                 return found[0] if len(found) == 1 else None
             return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
         except Exception:

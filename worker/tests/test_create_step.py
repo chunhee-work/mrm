@@ -332,5 +332,7 @@ def test_live_save_tries_the_documents_again_after_a_logout(monkeypatch):
     d.case = {"id": "c1", "resumed_after_logout": True}
     r = d.save("A", ())
     assert not r.ok and r.fatal and r.error == "docs" and "by hand" in r.line
-    d.case = {"id": "c1"}  # without a put-back the old behaviour stands (the line says it, the phase goes on)
+    d.case = {"id": "c1"}  # re-login ready: a partial set is never passed on either (an ordinary retry of a cut-off upload)
+    assert d.save("A", ()).fatal
+    d.relogin_ready = False  # re-login off and no put-back: the old behaviour stands (the line says it, the phase goes on)
     assert d.save("A", ()).ok

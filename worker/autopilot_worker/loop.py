@@ -105,7 +105,10 @@ def _print_error(job: dict, e: BaseException) -> None:
 PHASE_STEPS = ("phase_a", "phase_b")  # the jobs that drive Merimen (Phase B runs its own checks); the `checks` job only waits
 LOST_CAP = 5  # put-backs for one case in LOST_WINDOW (store.LOST_EVENT, store.LOST_WINDOW); the next one fails and the case waits
 _PHASE_NAME = {"phase_a": "Phase A", "phase_b": "Phase B", "checks": "the checks"}
-FORCE_TTL = 1200.0  # a mark nobody could act on (re-login refused, a person logged in) ends after 20 min: the address decides again
+# a mark nobody could act on (re-login refused, a person logged in by hand) ends after 10 min: the address decides again. Until
+# then the org is not "connected" on purpose: a stale tab with the old address cannot be told from a hand login, and counting it
+# as connected would end a failed re-login streak and book more password tries
+FORCE_TTL = 600.0
 # org -> when a job found its session logged out: the next sync_sessions books a re-login even if a tab address still carries the
 # session marks (a page that shows a password box at an old address). Cleared when a re-login is ok or finds the session live.
 FORCE_RELOGIN: dict[str, float] = {}
@@ -194,6 +197,12 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
     )
 
 
+def held(org_id: str, now=time.monotonic) -> bool:
+    """The org's last forced re-login was refused or failed less than HOLD_SECONDS ago."""
+    t = RELOGIN_HELD.get(org_id)
+    return t is not None and now() - t < HOLD_SECONDS
+
+
 def puts_back(cfg: Config, relogin_ready: bool = True) -> bool:
     """A logout half way is put back only when the worker can really log in again: EXT_CONNECT, MERIMEN_RELOGIN and the re-login
     itself built (MERIMEN_LOGIN, the key, the login page). Without it nobody logs in, the job keeps its own outcome and the usual
@@ -208,8 +217,7 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
     re-login. A check that fails itself leaves the outcome as it was."""
     if job["step"] not in PHASE_STEPS or not puts_back(cfg, relogin_ready) or not _may_come_from_logout(job, outcome, seen_login):
         return outcome
-    held = RELOGIN_HELD.get(job["org_id"])
-    if held is not None and now() - held < HOLD_SECONDS:
+    if held(job["org_id"], now):
         return outcome  # the last forced re-login was refused: never loop into more password tries
     try:
         if not seen_login and session_alive(cfg, inspect, page_for, job["org_id"]):
@@ -448,7 +456,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             driver.workshop = lambda lock: repo.claim_workshop_for_case(job["case_id"]) if lock else repo.peek_workshop_for_case(job["case_id"])
             # asked before every photo write in Merimen: Done must still be pressed on the same version of the names
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
-            driver.relogin_ready = puts_back(cfg, relogin is not None)
+            # while the org is held the old stops stand (a person looks), exactly as with re-login off
+            driver.relogin_ready = puts_back(cfg, relogin is not None) and not held(job["org_id"], now)
             with LeaseKeeper(repo, job["id"], cfg.worker_id, cfg.lease_seconds):
                 outcome = handle_job(
                     job, case, case["photos"], gate=gate, session=session,

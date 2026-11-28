@@ -299,6 +299,13 @@ def test_a_refused_relogin_holds_further_put_backs(tmp_path):
     loop.RELOGIN_HELD.clear()
 
 
+def test_the_hold_runs_out():
+    loop.RELOGIN_HELD["o1"] = 100.0
+    assert loop.held("o1", lambda: 100.0 + loop.HOLD_SECONDS - 1)
+    assert not loop.held("o1", lambda: 100.0 + loop.HOLD_SECONDS)
+    assert not loop.held("o2", lambda: 0.0)
+
+
 def test_the_put_back_line_keeps_what_the_job_said():
     got = session_lost_outcome(JOB, Outcome("requeue", error="step2", event="Phase B stopped. the Merimen catalogue could not be read"), count=0)
     assert got.event.startswith(loop.LOST_EVENT) and "catalogue could not be read" in got.event
