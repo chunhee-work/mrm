@@ -156,7 +156,7 @@ class TryRepo:
         self.mails.append(("booked", kind))
         return bool(self.mailed)
 
-    def _audit(self, org, action):
+    def audit(self, org, action):
         self.audits.append(action)
 
     def finish_relogin(self, org, statements):
@@ -186,7 +186,7 @@ def actions(repo):
     return acts
 
 
-def go(tmp_path, repo, page, *, probe=None, mailer=None, now=lambda: 0.0):
+def go(tmp_path, repo, page, *, mailer=None, now=lambda: 0.0, closed=None):
     sent = []
     c = cfg(tmp_path)
     object.__setattr__(c, "mailer", mailer or (lambda to, subject, html: sent.append((to, subject, html))))
@@ -200,7 +200,8 @@ def go(tmp_path, repo, page, *, probe=None, mailer=None, now=lambda: 0.0):
     orig = crypto.open_secret
     crypto.open_secret = lambda master, org, row, which: "abuser" if which == "user" else "s3cret-pass"
     try:
-        out = relogin.try_once(c, repo, "o1", 9222, fetch_page=fetch, master=b"k", inspect=lambda port: probe, now=now)
+        out = relogin.try_once(c, repo, "o1", 9222, fetch_page=fetch, master=b"k", now=now,
+                               close_target=lambda port, t: (closed if closed is not None else []).append(t))
     finally:
         crypto.open_secret = orig
     return out, fetched, sent
@@ -240,27 +241,58 @@ def test_put_back_and_session_live_type_nothing_and_do_not_count_as_typed(tmp_pa
     assert actions(repo) == ["relogin_put_back", "relogin_put_back", "login_session_live"]
 
 
-def test_unknown_with_a_logged_in_tab_on_the_probe_is_ok(tmp_path):
+def test_unknown_is_never_credited_from_another_tab(tmp_path):
+    # cdp.mjs looks at its OWN tab before saying unknown; the worker never probes other tabs (a person may be logged in there)
     repo = TryRepo()
-    out, _, sent = go(tmp_path, repo, UNREAD, probe={"urls": [LOGGED_IN]})
-    assert out == "ok" and actions(repo) == ["relogin_typed", "relogin_ok"] and sent == []
+    out, _, _ = go(tmp_path, repo, UNREAD)
+    assert out == "unclear" and "relogin_ok" not in actions(repo)
+
+
+def test_a_try_that_is_not_ok_closes_its_own_tab_by_id(tmp_path):
+    closed = []
+    go(tmp_path, TryRepo(), {**BAD_PAGE, "relogin_target": "T9"}, closed=closed)
+    assert closed == ["T9"]
+    relogin.reset()
+    closed2 = []
+    go(tmp_path, TryRepo(), {**OK_PAGE, "relogin_target": "T9"}, closed=closed2)
+    assert closed2 == []  # logged in: the tab stays, it holds the session
+
+
+def test_a_lost_outcome_write_blocks_new_tries_until_it_is_written(tmp_path):
+    class Flaky(TryRepo):
+        fail = True
+
+        def finish_relogin(self, org, statements):
+            if self.fail:
+                raise RuntimeError("db away")
+            return super().finish_relogin(org, statements)
+
+    repo = Flaky()
+    out, fetched, _ = go(tmp_path, repo, BAD_PAGE, now=lambda: 0.0)
+    assert out == "pending" and len(fetched) == 1
+    out, fetched, _ = go(tmp_path, repo, BAD_PAGE, now=lambda: 100.0)
+    assert out == "pending" and fetched == []  # still not written: nothing is booked or typed
+    repo.fail = False
+    out, fetched, sent = go(tmp_path, repo, OK_PAGE, now=lambda: 200.0)
+    assert ("block", "bad_credentials", "login_bad_credentials") in actions(repo)  # the old outcome was written first
+    assert len(fetched) == 1  # and only then a new booking (the fake repo books again)
 
 
 def test_first_unclear_changes_nothing_and_mails_once(tmp_path):
     repo = TryRepo(unclear=0)
-    out, _, sent = go(tmp_path, repo, UNREAD, probe={"urls": []})
+    out, _, sent = go(tmp_path, repo, UNREAD)
     assert out == "unclear"
     assert actions(repo) == ["relogin_typed", "relogin_unclear", ("mail", "relogin_mailed_relogin_unclear")]
     assert not any("UPDATE merimen_credentials" in s for b in repo.batches for s, _ in b)
     assert len(sent) == 1 and "24" in sent[0][2]
     relogin.reset()
     repo2 = TryRepo(unclear=0, mailed=0)  # already mailed in this episode
-    assert go(tmp_path, repo2, UNREAD, probe=None)[2] == []
+    assert go(tmp_path, repo2, UNREAD)[2] == []
 
 
 def test_second_unclear_in_a_row_stops_like_the_save_time_unknown(tmp_path):
     repo = TryRepo(unclear=1)
-    out, _, sent = go(tmp_path, repo, UNREAD, probe=None)
+    out, _, sent = go(tmp_path, repo, UNREAD)
     assert out == "unclear_stop"
     assert ("block", "unknown", "relogin_unclear_stop") in actions(repo)
     assert len(sent) == 1 and "Merimen did not give a clear answer" in sent[0][2]
@@ -372,7 +404,7 @@ def test_a_timed_out_relogin_closes_only_its_own_tab():
 
     fetch = relogin_fetch("cdp.mjs", popen=popen, environ={"PATH": "/bin", "MERIMEN_CRED_KEY": "k"}, closer=lambda port, t: closed.append((port, t)))
     page = fetch("abuser", "s3cret", 9222)
-    assert page == {"result": "unknown", "submitted": True} and closed == [(9222, "T7")]
+    assert page == {"result": "unknown", "submitted": True, "relogin_target": "T7"} and closed == [(9222, "T7")]
     argv, k = procs[0].args
     assert argv[-2:] == ["login", "--relogin"] and "MERIMEN_CRED_KEY" not in k["env"]
     assert "s3cret" not in " ".join(argv)
@@ -382,7 +414,7 @@ def test_a_relogin_that_ends_in_time_closes_nothing_from_python():
     closed = []
     fetch = relogin_fetch("cdp.mjs", popen=lambda argv, **k: FakeProc(json.dumps({"relogin_target": "T7"}) + "\n" + json.dumps({"result": "not_login_page", "submitted": False}) + "\n", hang=False),
                           environ={}, closer=lambda port, t: closed.append(t))
-    assert fetch("a", "b", 9222) == {"result": "not_login_page", "submitted": False} and closed == []
+    assert fetch("a", "b", 9222) == {"result": "not_login_page", "submitted": False, "relogin_target": "T7"} and closed == []
 
 
 # ---------- the SQL on a real Postgres ----------
@@ -414,7 +446,8 @@ def test_pg_first_booking_goes_and_a_second_is_the_cooldown():
 
 @needs_pg
 def test_pg_cap_counts_typed_tries_only():
-    (b,), _ = book([audit("relogin_put_back", f"{i + 20} minutes") for i in range(5)] + [audit("relogin_try", f"{i + 20} minutes") for i in range(20)])
+    (b,), _ = book([audit("relogin_try", f"{i * 30 + 21} minutes") for i in range(20)] + [audit("relogin_put_back", f"{i * 30 + 20} minutes") for i in range(20)]
+                   + [audit("session_seen_connected", f"{i * 30 + 19} minutes") for i in range(20)])
     assert b["booked"]  # 20 tries but nothing typed: put-backs never use up the cap
     (b,), _ = book([audit("relogin_typed", f"{i + 20} minutes") for i in range(12)])
     assert b["reason"] == "cap"
@@ -537,7 +570,7 @@ def test_end_to_end_restart_relogin_connected(tmp_path):
     crypto.open_secret = lambda *a: "x"
     try:
         def hook(org, port):
-            relogin.try_once(c, trepo, org, port, fetch_page=fetch, master=b"k", inspect=lambda p: tabs, now=lambda: 0.0)
+            relogin.try_once(c, trepo, org, port, fetch_page=fetch, master=b"k", now=lambda: 0.0, close_target=lambda *a: None)
 
         sync_sessions(c, repo, launch=lambda a: None, inspect=lambda p: tabs, relogin=hook)
         assert fetched == [9222] and repo.sessions[-1][1]["status"] == "waiting_login"
@@ -547,3 +580,19 @@ def test_end_to_end_restart_relogin_connected(tmp_path):
         crypto.open_secret = orig
     assert fetched == [9222]  # typed once, no manual step
     assert repo.sessions[-1][1]["status"] == "connected" and repo.sessions[-1][1]["detail"] is None
+
+
+@needs_pg
+def test_pg_a_try_without_an_outcome_blocks_like_unclear():
+    (b,), _ = book([audit("relogin_try", "20 minutes")])
+    assert b["reason"] == "unclear"  # typed or not, nobody wrote what happened: never type again for 24 h
+    (b,), _ = book([audit("relogin_try", "20 minutes"), audit("relogin_put_back", "19 minutes")])
+    assert b["booked"]
+    (b,), _ = book([audit("relogin_try", "20 minutes"), audit("relogin_typed", "19 minutes"), audit("relogin_ok", "19 minutes")])
+    assert b["booked"]
+
+
+@needs_pg
+def test_pg_a_hand_login_does_not_lift_the_unclear_block():
+    (b,), _ = book([audit("relogin_unclear", "2 hours"), audit("login_session_live", "1 hour"), audit("session_seen_connected", "1 hour")])
+    assert b["reason"] == "unclear"  # neither tested the saved password

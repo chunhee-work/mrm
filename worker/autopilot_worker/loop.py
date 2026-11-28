@@ -173,7 +173,10 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         if reason is None:
             keep(port)
             if relogin and row.get("status") != "connected":
-                repo.seen_connected(org)  # ends an open re-login episode, however Chrome was fixed
+                repo.seen_connected(org)  # ends an open put-back streak, however Chrome was fixed
+                from .relogin import clear_detail
+
+                clear_detail(org)
         else:
             login_notice(cfg.state_dir)
             if relogin and reason == "not_logged_in":
@@ -204,7 +207,11 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         from .relogin import try_once
 
         def relogin(org: str, port: int) -> None:
-            try_once(cfg, repo, org, port, fetch_page=relogin_fetch, master=master, inspect=inspect, now=now)
+            try_once(cfg, repo, org, port, fetch_page=relogin_fetch, master=master, now=now)
+
+        from .relogin import retry_pending
+
+        retry_pending(cfg, repo)  # a try whose outcome write failed is written before anything else
 
     sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep, now=now, relogin=relogin)
     _at("followup_cases")

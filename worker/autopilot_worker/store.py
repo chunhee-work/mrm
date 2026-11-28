@@ -66,6 +66,35 @@ RETURNING org_id
 """
 
 
+def pause_statements(org_id: str, event: str, *, only_if_state: str | None = None) -> list[tuple[str, object]]:
+    """Pause the org's Merimen jobs and move its open cases to waiting_user with one case event. Shared by the save-time check
+    (store.finish_verify) and the re-login (relogin.py). only_if_state: run only while the login row is in that state AND blocked,
+    so a re-login whose guarded block did not change the row (the user saved again meanwhile) pauses nothing."""
+    p = {"org": org_id, "event": str(event)[:400], "state": only_if_state}
+    guard = (" AND EXISTS (SELECT 1 FROM merimen_credentials WHERE org_id = %(org)s AND verify_state = %(state)s AND blocked)"
+             if only_if_state else "")
+    return [
+        (
+            """
+            UPDATE jobs SET state = 'paused', locked_by = NULL, locked_at = NULL
+            WHERE state IN ('queued', 'running') AND step IN ('phase_a', 'phase_b', 'checks')
+              AND case_id IN (SELECT id FROM cases WHERE org_id = %(org)s)""" + guard,
+            p,
+        ),
+        (
+            """
+            WITH moved AS (
+              UPDATE cases SET status = 'waiting_user'
+              WHERE org_id = %(org)s AND deleted_at IS NULL AND status IN ('phase_a', 'phase_b', 'checking')""" + guard + """
+              RETURNING id
+            )
+            INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %(event)s FROM moved
+            """,
+            p,
+        ),
+    ]
+
+
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
@@ -651,25 +680,7 @@ class PgRepo:
         if not live:
             st.append(("INSERT INTO merimen_cred_audit (org_id, action) VALUES (%s, %s)", (org_id, "login_" + str(decision["verify_state"])[:40])))
         if decision.get("pause"):
-            st.append((
-                """
-                UPDATE jobs SET state = 'paused', locked_by = NULL, locked_at = NULL
-                WHERE state IN ('queued', 'running') AND step IN ('phase_a', 'phase_b', 'checks')
-                  AND case_id IN (SELECT id FROM cases WHERE org_id = %s)
-                """,
-                (org_id,),
-            ))
-            st.append((
-                """
-                WITH moved AS (
-                  UPDATE cases SET status = 'waiting_user'
-                  WHERE org_id = %s AND deleted_at IS NULL AND status IN ('phase_a', 'phase_b', 'checking')
-                  RETURNING id
-                )
-                INSERT INTO case_events (case_id, step, message) SELECT id, 'login', %s FROM moved
-                """,
-                (org_id, event),
-            ))
+            st.extend(pause_statements(org_id, event))
         if decision.get("resume"):
             st.append((
                 """
@@ -744,6 +755,10 @@ class PgRepo:
         from .relogin import seen_connected_statement
 
         self._audit_sql(*seen_connected_statement(org_id))
+
+    def audit(self, org_id: str, action: str) -> None:
+        """Public form of _audit for other modules (relogin.py): one fixed-string row that nothing depends on."""
+        self._audit(org_id, action)
 
     def _audit_sql(self, sql: str, params) -> None:
         try:

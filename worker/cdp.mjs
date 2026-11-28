@@ -280,7 +280,7 @@ export async function runLogin({ port, cred, tabs = listTabs, attach = attachTab
 // {"relogin_target": id} first, so a caller that has to kill this script can still close that tab. The tab is closed again unless
 // the try ended logged in. Other tabs are never navigated, typed into or closed. No address is printed except the read-back the
 // worker classifies (never logged by it).
-export const RELOGIN_DEADLINE_MS = 75000; // the worker kills the script at 90 s; this ends it (and closes the tab) first
+export const RELOGIN_DEADLINE_MS = 70000; // the whole run; the worker kills the script at 90 s, so this ends it (and closes the tab) first
 export const RELOGIN_LOAD_MS = 15000;
 
 async function openTab(port, url, ms = 5000) {
@@ -299,29 +299,43 @@ function endedLoggedIn(out) {
 export async function runRelogin({ port, cred, open = openTab, close = closeTab, tabs = listTabs, attach = attachTab, wait = (ms) => new Promise((r) => setTimeout(r, ms)), now = Date.now, emit = () => {}, deadlineMs = RELOGIN_DEADLINE_MS }) {
   const OFFLINE = { offline: true, submitted: false };
   if (!cred || !cred.username || !cred.password) return OFFLINE;
-  let target;
-  try {
-    target = await open(port, MERIMEN_START);
-  } catch {
-    return OFFLINE;
-  }
-  if (!target || !target.id) return OFFLINE;
-  const id = String(target.id);
-  emit({ relogin_target: id });
-  const own = async (p, ms) => ((await tabs(p, ms)) || []).filter((t) => t && String(t.id) === id);
   let marked = false;
-  let stopped = false; // set when the deadline fired: the try underneath stops at its next wait, nothing more is read or typed
-  const mark = (o) => { if (o && o.submitted === true) marked = true; emit(o); };
+  let stopped = false; // set when the deadline fired: the try underneath stops at its next wait and never types after it
+  let id = null;
+  const mark = (o) => {
+    if (stopped) throw new Error("stopped"); // the deadline already fired: never write the mark, never type
+    if (o && o.submitted === true) marked = true;
+    emit(o);
+  };
   const pause = async (ms) => {
     if (stopped) throw new Error("stopped");
     await wait(ms);
     if (stopped) throw new Error("stopped");
   };
-  let out;
-  try {
+  const own = async (p, ms) => ((await tabs(p, ms)) || []).filter((t) => t && id !== null && String(t.id) === id);
+  const whole = async () => { // ONE deadline over everything: open, load, the try and the look at the own tab (G5, D5)
+    let before = null;
+    try { before = new Set(((await tabs(port, 3000)) || []).map((t) => t && String(t.id))); } catch { before = null; }
+    let target;
+    try {
+      target = await open(port, MERIMEN_START);
+    } catch {
+      // the tab may have been made although the answer was lost: close only a NEW tab at the start page, never one that was there
+      if (before) {
+        try {
+          for (const t of (await tabs(port, 3000)) || []) {
+            if (t && !before.has(String(t.id)) && String(t.url || "").split("?")[0] === MERIMEN_START) await close(port, String(t.id));
+          }
+        } catch { /* nothing more to do: nothing was typed */ }
+      }
+      return OFFLINE;
+    }
+    if (!target || !target.id) return OFFLINE;
+    id = String(target.id);
+    emit({ relogin_target: id });
     const t0 = now();
     for (;;) { // read only: wait until the new tab has loaded
-      await wait(500);
+      await pause(500);
       let ready = null;
       try {
         const t = (await own(port, 2000))[0];
@@ -332,12 +346,32 @@ export async function runRelogin({ port, cred, open = openTab, close = closeTab,
       } catch { ready = null; }
       if (ready === "complete" || now() - t0 >= RELOGIN_LOAD_MS) break;
     }
-    out = await within(runLogin({ port, cred, tabs: own, attach, wait: pause, now, emit: mark }), deadlineMs);
+    let out = await runLogin({ port, cred, tabs: own, attach, wait: pause, now, emit: mark });
+    if (out && out.result === "unknown" && out.submitted === true) {
+      // one read-only look at THIS tab only: the read-back may have missed a login that went through (never another tab)
+      try {
+        const t = (await own(port, 2000))[0];
+        if (t && isLoggedInUrl(t.url || "") && t.webSocketDebuggerUrl) {
+          const a = await attach(t, { openMs: 2000, evalMs: 3000 });
+          try {
+            const seen = JSON.parse(await a.eval(LOGIN_SIGNALS));
+            if (seen && typeof seen.href === "string" && isLoggedInUrl(seen.href) && !seen.hasPassword) {
+              out = { submitted: true, url: seen.href, text: String(seen.text || ""), has_password: false, has_otp: !!seen.hasOtp };
+            }
+          } finally { a.close(); }
+        }
+      } catch { /* stays unknown */ }
+    }
+    return out;
+  };
+  let out;
+  try {
+    out = await within(whole(), deadlineMs);
   } catch {
     stopped = true;
     out = marked ? { result: "unknown", submitted: true } : OFFLINE;
   }
-  if (!endedLoggedIn(out)) {
+  if (id !== null && !endedLoggedIn(out)) {
     try { await close(port, id); } catch { /* the worker closes it by id if it is still there */ }
   }
   return out;

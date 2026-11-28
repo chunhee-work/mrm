@@ -20,6 +20,26 @@ _OFFLINE = {"offline": True, "submitted": False}
 _SENT_UNREAD = {"result": RESULT_UNKNOWN, "submitted": True}
 
 
+def page_result(page: dict) -> str:
+    """One reading of what `cdp.mjs login` printed, shared by the save-time check and the re-login:
+    session_live / not_login_page / offline (nothing typed), or a classify_login result (the form was sent)."""
+    if page.get("submitted") is not True:
+        if page.get("result") == RESULT_SESSION_LIVE and page.get("submitted") is False:
+            return RESULT_SESSION_LIVE
+        return RESULT_NOT_LOGIN_PAGE if page.get("result") == RESULT_NOT_LOGIN_PAGE else "offline"
+    if page.get("offline") or page.get("result"):  # sent, and the answer was not read
+        return RESULT_UNKNOWN
+    try:
+        return classify_login(
+            url=page.get("url") or "",
+            text=page.get("text") or "",
+            has_password=bool(page.get("has_password")),
+            has_otp=bool(page.get("has_otp")),
+        )
+    except Exception:  # noqa: BLE001
+        return RESULT_UNKNOWN
+
+
 def run_verify(row: dict, master: bytes, fetch_page) -> dict:
     """fetch_page(username, password) is called once. A thrown fetch is an unknown page, not a second try."""
     try:
@@ -28,25 +48,16 @@ def run_verify(row: dict, master: bytes, fetch_page) -> dict:
     except Exception:  # noqa: BLE001  (wrong key or a damaged row: Merimen was never asked, so this is not a rejected password)
         return release_verify("key_mismatch")
     try:
-        page = fetch_page(user, password)
-        if page.get("submitted") is not True:
-            if page.get("result") == RESULT_SESSION_LIVE and page.get("submitted") is False:
-                # a person is logged in on the worker Chrome: the same outcome a successful login had (ok, no block, no mail, paused
-                # work goes on), but no password try was made; store.finish_verify gives the try back and audits login_session_live
-                return {**finish_verify(RESULT_OK), "session_live": True}
-            # nothing was typed, and nothing else is concluded from a page that was only looked at: never "bad password"
-            return release_verify(RESULT_NOT_LOGIN_PAGE if page.get("result") == RESULT_NOT_LOGIN_PAGE else "offline")
-        if page.get("offline") or page.get("result"):  # sent, and the answer was not read
-            result = RESULT_UNKNOWN
-        else:
-            result = classify_login(
-                url=page.get("url") or "",
-                text=page.get("text") or "",
-                has_password=bool(page.get("has_password")),
-                has_otp=bool(page.get("has_otp")),
-            )
+        result = page_result(fetch_page(user, password))
     except Exception:  # noqa: BLE001
         result = RESULT_UNKNOWN
+    if result == RESULT_SESSION_LIVE:
+        # a person is logged in on the worker Chrome: the same outcome a successful login had (ok, no block, no mail, paused
+        # work goes on), but no password try was made; store.finish_verify gives the try back and audits login_session_live
+        return {**finish_verify(RESULT_OK), "session_live": True}
+    if result in (RESULT_NOT_LOGIN_PAGE, "offline"):
+        # nothing was typed, and nothing else is concluded from a page that was only looked at: never "bad password"
+        return release_verify(result)
     return finish_verify(result)
 
 
@@ -98,20 +109,20 @@ def run_script(argv: list[str], payload: str, env: dict, timeout: float, popen=s
         return out, True
 
 
-def script_fetch(script: str, *, popen=subprocess.Popen, timeout: float = 90, node: str = "node"):
+def script_fetch(script: str, *, popen=subprocess.Popen, timeout: float = 90, node: str = "node", args=("login",), env_for=None, on_timeout=None):
     """fetch_page(user, password, port) for the loop: ONE run of `node cdp.mjs login` against the Chrome on `port`, the login on
     stdin. A time-out or a script that cannot start is never followed by a second run. What it printed before it stopped decides:
     no "submitted" mark = offline (nothing typed), mark = unknown (maybe sent). A timed-out script whose output cannot be read is
     unknown too, never put back."""
 
     def fetch_page(user: str, password: str, port: int) -> dict:
+        env = env_for(port) if env_for else {**os.environ, "CDP_PORT": str(int(port))}
         try:
-            out, timed_out = run_script(
-                [node, script, "login"], json.dumps({"username": user, "password": password}),
-                {**os.environ, "CDP_PORT": str(int(port))}, timeout, popen,
-            )
+            out, timed_out = run_script([node, script, *args], json.dumps({"username": user, "password": password}), env, timeout, popen)
         except OSError:  # node is not installed or cannot start: nothing ran
             return dict(_OFFLINE)
+        if timed_out and on_timeout:
+            on_timeout(port, out)
         if out is None:
             return dict(_SENT_UNREAD)
         return read_login_output(out)
@@ -161,20 +172,35 @@ def relogin_fetch(script: str, *, popen=subprocess.Popen, timeout: float = 90, n
     """fetch_page(user, password, port) for a re-login: ONE run of `node cdp.mjs login --relogin`, login on stdin, a small env.
     A time-out kills the script; its own tab is then closed by id (D5). Same reading of the output as the save-time check."""
 
+    seen: dict = {}
+
+    def capture(popen_):
+        # keeps the raw output so the tab id can be read; nothing here is logged
+        def run(*a, **k):
+            proc = popen_(*a, **k)
+            real = proc.communicate
+
+            def communicate(*ca, **ck):
+                out, err = real(*ca, **ck)
+                seen["out"] = (seen.get("out") or "") + (out or "")
+                return out, err
+
+            proc.communicate = communicate
+            return proc
+        return run
+
+    def timed_out(port, out):
+        target = relogin_target(out) or relogin_target(seen.get("out"))
+        if target:
+            closer(port, target)
+
+    inner = script_fetch(script, popen=capture(popen), timeout=timeout, node=node, args=("login", "--relogin"),
+                         env_for=lambda port: relogin_env(os.environ if environ is None else environ, port), on_timeout=timed_out)
+
     def fetch_page(user: str, password: str, port: int) -> dict:
-        try:
-            out, timed_out = run_script(
-                [node, script, "login", "--relogin"], json.dumps({"username": user, "password": password}),
-                relogin_env(os.environ if environ is None else environ, port), timeout, popen,
-            )
-        except OSError:
-            return dict(_OFFLINE)
-        if timed_out:
-            target = relogin_target(out)
-            if target:
-                closer(port, target)
-        if out is None:
-            return dict(_SENT_UNREAD)
-        return read_login_output(out)
+        seen.clear()
+        page = inner(user, password, port)
+        target = relogin_target(seen.get("out"))
+        return {**page, "relogin_target": target} if target else page
 
     return fetch_page

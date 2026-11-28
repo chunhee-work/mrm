@@ -580,3 +580,38 @@ test("end to end --relogin: own tab opened at Merimen's start page, typed once, 
     chrome.server.close();
   }
 });
+
+test("relogin: an unread answer is checked once on the OWN tab; a logged-in own tab comes back as a read page and stays open", async () => {
+  const r = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", new Error("gone"), seen({ href: LIVE_URL, hasPassword: false })] });
+  let calls = 0;
+  r.deps.tabs = async () => { calls += 1; return calls > 2 ? [{ id: "N1", type: "page", url: LIVE_URL, webSocketDebuggerUrl: "ws://n1" }] : [{ id: "N1", type: "page", url: LOGIN_URL, webSocketDebuggerUrl: "ws://n1" }]; };
+  r.deps.now = (() => { let t = 0; return () => (t += 20000); })(); // the 15 s watch ends at once
+  const out = await runRelogin(r.deps);
+  assert.equal(out.url, LIVE_URL);
+  assert.deepEqual(r.log.closed, []);
+});
+
+test("relogin: a tab made although the open answer was lost is closed; tabs that were there are not", async () => {
+  const log = { closed: [] };
+  let made = false;
+  const deps = {
+    port: 9222, cred: { username: "abuser", password: "s3cret" },
+    tabs: async () => [{ id: "OLD", type: "page", url: LOGIN_URL }, ...(made ? [{ id: "NEW", type: "page", url: LOGIN_URL }] : [])],
+    open: async () => { made = true; throw new Error("slow answer"); },
+    close: async (_p, id) => { log.closed.push(id); },
+    attach: async () => { throw new Error("never"); },
+    wait: async () => {}, now: () => 0, emit: () => {},
+  };
+  assert.deepEqual(await runRelogin(deps), { offline: true, submitted: false });
+  assert.deepEqual(log.closed, ["NEW"]);
+});
+
+test("relogin: once the deadline fired nothing is typed any more", async () => {
+  const r = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", SAME] });
+  r.deps.wait = () => new Promise((res) => setTimeout(res, 30)); // the load wait outlives the deadline
+  r.deps.deadlineMs = 10;
+  assert.deepEqual(await runRelogin(r.deps), { offline: true, submitted: false });
+  await new Promise((res) => setTimeout(res, 100));
+  assert.equal(typing(r.hlog), 0);
+  assert.deepEqual(r.log.closed, ["N1"]);
+});
