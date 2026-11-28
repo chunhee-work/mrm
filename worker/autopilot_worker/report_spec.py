@@ -11,7 +11,7 @@ import re
 from datetime import date
 
 from .create_spec import SpecError, date_dmy, hour_of, insurer_of, is_company, _s
-from .my_postcode import guess_city
+from .my_postcode import guess_city, postcode_for
 
 DEFAULT_PHONE = "0123456789"  # user rule 2026-08-17: never NOPHONE, a valid MY mobile placeholder
 
@@ -146,9 +146,13 @@ def _person(p: dict | None, today: date) -> dict:
     guessed = ""
     if not city and (addr or postcode):  # owner 2026-11-28: never stop on a missing city; the guess is said on the case
         city, state, guessed = guess_city(postcode=postcode, state=state, address=addr)
+    pc_guessed = ""
+    if not postcode and city:  # Merimen requires the postcode too: the town's main one, said on the case
+        postcode = postcode_for(city, state)
+        pc_guessed = postcode and f"postcode {postcode} (main postcode of {city})"
     return {"name": _s(p.get("name")).upper(), "nric": nric, "idType": "Passport" if passport else "NRIC", "dob": dob, "gender": gender,
             "addr": addr or "-", "state": state, "city": city,
-            "postcode": postcode, "phone": phone(_s(p.get("phone"))), "cityGuessed": guessed}
+            "postcode": postcode, "phone": phone(_s(p.get("phone"))), "cityGuessed": guessed, "pcGuessed": pc_guessed}
 
 
 def build_report(case_data: dict | None, *, case_id: str, ext_id: str, workshop: dict | None, photo_names: list[str], extras: dict | None = None,
@@ -184,6 +188,12 @@ def build_report(case_data: dict | None, *, case_id: str, ext_id: str, workshop:
         ("at-fault driver", ins_driver), ("insured", insured), ("claimant", claimant), ("claimant driver", clm_driver)) if p.get("cityGuessed")]
     if loss_guessed:
         guessed.append(f"accident city {loss_city} (from the {loss_guessed})")
+    if not loss_pc and loss_city:  # DCD4004: "KM 362.8 LPT2", Dungun, no postcode; Merimen refuses an empty sleAPcode
+        loss_pc = postcode_for(loss_city, loss_state)
+        if loss_pc:
+            guessed.append(f"accident postcode {loss_pc} (main postcode of {loss_city})")
+    guessed += [f"{who} {p['pcGuessed']}" for who, p in (
+        ("at-fault driver", ins_driver), ("claimant", claimant), ("claimant driver", clm_driver)) if p.get("pcGuessed")]
     miss = [k for k, v in (
         ("police report no", _s(police.get("report_no")).replace(" ", "")),
         ("police report date", date_dmy(_s(police.get("report_datetime"))) or date_dmy(_s(police.get("accident_datetime")))),
