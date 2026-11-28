@@ -151,7 +151,7 @@ def test_tick_without_the_switch_never_builds_a_relogin(tmp_path, monkeypatch):
 
 class TryRepo:
     def __init__(self, booking=None, unclear=0, changed=1, mailed=1):
-        self.booking = booking or {"booked": True, "reason": None, "streak_first": False}
+        self.booking = booking or {"booked": True, "reason": None, "streak_first": False, "try_id": 1}
         self.unclear, self.changed, self.mailed = unclear, changed, mailed
         self.batches, self.audits, self.mails, self.beats = [], [], [], 0
 
@@ -169,6 +169,9 @@ class TryRepo:
 
     def relogin_unclear_in_a_row(self, org):
         return self.unclear
+
+    def outcome_written(self, org, try_id):
+        return False  # like production: the replay always asks first
 
     def book_mail(self, org, kind):
         self.mails.append(("booked", kind))

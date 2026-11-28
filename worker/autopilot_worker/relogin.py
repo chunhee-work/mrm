@@ -188,7 +188,7 @@ def relogin_email(kind: str) -> tuple[str, str]:
     """Subject and HTML for the four new kinds (orphan reuses the save-time "unknown" text). No user name, no password, no address."""
     subject = "Merimen 自动登录 / Merimen automatic login"
     if kind == "relogin_failed":
-        body = "已经连续 6 次没有找到 Merimen 登录页，什么都没有输入。请检查工作电脑上的 Chrome。 / 6 tries in a row found no Merimen login page; nothing was typed. Please check the Chrome on the worker computer."
+        body = "6 小时内已经 6 次没有找到 Merimen 登录页（或 Chrome 没有回应），什么都没有输入。请检查工作电脑上的 Chrome。 / 6 tries within 6 hours found no Merimen login page (or Chrome did not answer); nothing was typed. Please check the Chrome on the worker computer."
     elif kind == "relogin_unclear":
         body = "Merimen 没有明确回复这次自动登录。24 小时内我们不会再试。如果密码改过，请在「连接」页重新保存。 / Merimen gave no clear answer to the automatic login. We will not try again for 24 hours. If the password changed, save it again on the Connection page."
     elif kind == "orphan":
