@@ -268,6 +268,33 @@ def test_phase_b_select_parts_that_meets_the_login_form_is_a_retry_with_relogin_
     assert o.job_state == "requeue" and o.error == "step2" and o.case_status is None
 
 
+def test_phase_b_a_browser_or_network_break_on_select_parts_is_tried_again_and_logged(capsys):
+    class PwError(Exception):
+        pass
+
+    PwError.__name__ = "Error"
+    PwError.__module__ = "playwright._impl._errors"
+
+    for err in (PwError("Target page, context or browser has been closed"), TimeoutError("timed out"), OSError(110, "Connection timed out")):
+        class Broke(FakeStep2):
+            def apply(self, case, plan, err=err):
+                raise err
+
+        o = run_phase("B", case_b(), writes=True, driver=D(Broke(), Fake(held=[])))
+        assert o.job_state == "requeue" and o.error == "step2" and o.stop_error == "step2" and o.case_status is None
+        assert "trying again" in o.event
+    assert "step2 Error msg=Target page" in capsys.readouterr().err
+
+
+def test_phase_b_a_page_that_said_no_still_stops_for_a_person():
+    class Broke(FakeStep2):
+        def apply(self, case, plan):
+            raise ValueError("bad row")
+
+    o = run_phase("B", case_b(), writes=True, driver=D(Broke(), Fake(held=[])))
+    assert o.job_state == "failed" and o.case_status == "waiting_user" and "(ValueError)" in o.event
+
+
 # ---------- the real reviewer (HTTP faked) ----------
 def test_the_anthropic_reviewer_sends_the_playbook_as_the_cached_system_prompt_and_parses_the_json():
     from autopilot_worker.step2_ai import AnthropicStep2Reviewer, from_env
