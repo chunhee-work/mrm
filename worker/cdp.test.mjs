@@ -606,6 +606,21 @@ test("relogin: a tab made although the open answer was lost is closed; tabs that
   assert.deepEqual(log.closed, ["NEW"]);
 });
 
+test("relogin: a lost open answer never closes a new tab that is not exactly the start page (a person's logged-in tab)", async () => {
+  const log = { closed: [] };
+  let made = false;
+  const deps = {
+    port: 9222, cred: { username: "abuser", password: "s3cret" },
+    tabs: async () => (made ? [{ id: "PERSON", type: "page", url: LIVE_URL }, { id: "Q", type: "page", url: LOGIN_URL + "?fusebox=x" }] : []),
+    open: async () => { made = true; throw new Error("slow answer"); },
+    close: async (_p, id) => { log.closed.push(id); },
+    attach: async () => { throw new Error("never"); },
+    wait: async () => {}, now: () => 0, emit: () => {},
+  };
+  assert.deepEqual(await runRelogin(deps), { offline: true, submitted: false });
+  assert.deepEqual(log.closed, []);
+});
+
 test("relogin: once the deadline fired nothing is typed any more", async () => {
   const r = reloginDeps({ answers: ["complete", PROBE_LOGIN, "sent", SAME] });
   r.deps.wait = () => new Promise((res) => setTimeout(res, 30)); // the load wait outlives the deadline

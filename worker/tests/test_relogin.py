@@ -159,7 +159,7 @@ class TryRepo:
         return self.booking
 
     def relogin_cred(self, org):
-        return {"org_id": org}
+        return {"org_id": org, "password_nonce": "N0"}
 
     def heartbeat(self, *a, **k):
         self.beats += 1
@@ -350,6 +350,35 @@ def test_a_key_mismatch_types_nothing_and_writes_its_own_row(tmp_path):
     finally:
         crypto.open_secret = orig
     assert out == "key_mismatch" and fetched == [] and actions(repo) == ["relogin_key_mismatch"]
+    assert relogin.detail_for("o1") == "relogin_stopped"
+
+
+def test_a_saved_login_without_its_nonce_is_never_typed(tmp_path):
+    class NoNonce(TryRepo):
+        def relogin_cred(self, org):
+            return {"org_id": org}
+
+    repo = NoNonce()
+    out, fetched, _ = go(tmp_path, repo, BAD_PAGE)
+    assert out == "key_mismatch" and fetched == [] and actions(repo) == ["relogin_key_mismatch"]
+
+
+def test_a_login_that_stopped_being_ok_after_the_booking_is_not_a_put_back(tmp_path):
+    class Gone(TryRepo):
+        def relogin_cred(self, org):
+            return None
+
+    repo = Gone()
+    out, fetched, _ = go(tmp_path, repo, OK_PAGE)
+    assert out == "cred" and fetched == [] and actions(repo) == ["relogin_cred_gone"]  # not counted in the put-back streak
+
+
+def test_the_tab_a_success_kept_is_closed_before_the_next_try(tmp_path):
+    closed = []
+    go(tmp_path, TryRepo(), {**OK_PAGE, "relogin_target": "T1"}, closed=closed, now=lambda: 0.0)
+    assert closed == []
+    go(tmp_path, TryRepo(), {**BAD_PAGE, "relogin_target": "T2"}, closed=closed, now=lambda: 1000.0)
+    assert closed == ["T1", "T2"]
 
 
 def test_an_orphan_refusal_sets_the_detail_and_mails_once(tmp_path):
@@ -632,6 +661,19 @@ def test_pg_mail_booking_once_per_episode_and_again_after_a_success():
     assert r == [[[1]], []]
     r = run(steps([st]), seed=SEED + [audit("relogin_mailed_relogin_unclear", "2 hours"), audit("relogin_ok", "1 hour")])
     assert r == [[[1]]]
+
+
+@needs_pg
+def test_pg_orphan_mail_episode_ends_only_on_a_proven_success():
+    st = relogin.mail_booking_statement("o1", "orphan")
+    assert run(steps([st]), seed=SEED + [audit("relogin_mailed_orphan", "2 hours"), audit("login_session_live", "1 hour")]) == [[]]
+    assert run(steps([st]), seed=SEED + [audit("relogin_mailed_orphan", "2 hours"), audit("login_ok", "1 hour")]) == [[[1]]]
+
+
+@needs_pg
+def test_pg_a_cred_gone_row_ends_the_orphan():
+    (b,), _ = book([audit("relogin_try", "20 minutes"), audit("relogin_cred_gone", "19 minutes")])
+    assert b["booked"]
 
 
 @needs_pg

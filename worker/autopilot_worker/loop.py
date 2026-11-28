@@ -137,7 +137,7 @@ LAUNCH_WAIT = 30.0
 
 
 # what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
-TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending", "unknown")
+TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending")
 
 
 def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running, relogin=None) -> None:

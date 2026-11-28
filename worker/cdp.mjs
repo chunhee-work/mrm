@@ -324,7 +324,7 @@ export async function runRelogin({ port, cred, open = openTab, close = closeTab,
       if (before) {
         try {
           for (const t of (await tabs(port, 3000)) || []) {
-            if (t && !before.has(String(t.id)) && String(t.url || "").split("?")[0] === MERIMEN_START) await close(port, String(t.id));
+            if (t && !before.has(String(t.id)) && String(t.url || "") === MERIMEN_START) await close(port, String(t.id));
           }
         } catch { /* nothing more to do: nothing was typed */ }
       }
