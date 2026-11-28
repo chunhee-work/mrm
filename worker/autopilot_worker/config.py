@@ -17,6 +17,18 @@ def _transport(raw: str | None) -> str:
     return v
 
 
+SLOTS_MAX = 8
+STOP_MAX = 85  # WORKER_STOP_SECONDS never reaches systemd's 90 s stop timeout
+
+
+def _slots(raw: str | None) -> int:
+    """WORKER_SLOTS: 1 (default, one job at a time as before) to SLOTS_MAX. Each slot holds one Playwright connection (~60 MB)."""
+    v = (raw or "1").strip()
+    if not v.isdigit() or not 1 <= int(v) <= SLOTS_MAX:
+        raise ValueError(f"WORKER_SLOTS must be 1 to {SLOTS_MAX}")
+    return int(v)
+
+
 def parse_accounts(spec: str) -> dict[str, int]:
     """`default:9222,sinar:9223` -> {account: port}. Empty is one profile on 9222."""
     out: dict[str, int] = {}
@@ -86,6 +98,9 @@ class Config:
     mailer: object | None = None
     worker_submit: bool = False
     merimen_relogin: bool = False  # MERIMEN_RELOGIN=on (needs MERIMEN_LOGIN=on): log in again by itself with the saved login (plan #133)
+    job_max_seconds: int = 1800  # WORKER_JOB_MAX_SECONDS (30 min: a Phase A takes ~4 min, so a hung create shows within the hour): a job still running after this gets one warning line (pool.py)
+    stop_seconds: int = 80  # WORKER_STOP_SECONDS: on stop, how long running jobs may still finish (below systemd's 90 s)
+    slots: int = 1  # WORKER_SLOTS: jobs this process runs at the same time, each in its own thread and Merimen tab (plan #150)
     hf_revision: str = ""  # HF_MODEL_REVISION: the photo-model repo commit to use; empty = whatever is there at the first download
     merimen_dryrun: bool = False  # MERIMEN_DRYRUN=on: fill Merimen's create form, never save. While it is on nothing is written anywhere in Merimen
 
@@ -110,7 +125,11 @@ class Config:
             photo_worker=_on(e, "PHOTO_WORKER"),
             merimen_writes=_on(e, "MERIMEN_WRITES"),
             merimen_login=_on(e, "MERIMEN_LOGIN"),
-            org_limit=max(1, int(e.get("ORG_CONCURRENCY") or "1")),
+            # unset: as many running jobs per org as there are slots, so one user's cases fill every slot (owner 2026-11-28)
+            org_limit=max(1, int(e.get("ORG_CONCURRENCY") or _slots(e.get("WORKER_SLOTS")))),
+            slots=_slots(e.get("WORKER_SLOTS")),
+            job_max_seconds=max(600, int(e.get("WORKER_JOB_MAX_SECONDS") or "1800")),
+            stop_seconds=min(STOP_MAX, max(0, int(e.get("WORKER_STOP_SECONDS") or "80"))),
             worker_id=(e.get("WORKER_ID") or "worker")[:40],
             state_dir=state,
             accounts=parse_accounts(e.get("WORKER_ACCOUNTS", "")),

@@ -215,6 +215,8 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             # "checks": Merimen was saved, but a check the owner set before submitting failed: the list waits for a person
             lead = f"Phase {phase}:" if saved.error == "checks" else f"Phase {phase} not saved."
             return _o("failed", case_status="waiting_user", error=saved.error or "save", event=f"{lead} {saved.line}"[:400])
+        if saved.error == "create_busy":  # another case's create held the one-at-a-time lock: nothing was done, try again soon
+            return _o("requeue", error="create_busy", event="Waiting for another case to be created in Merimen first")
         why = f". {saved.line}" if saved.line and saved.error in ("docs", "estimate") else ""  # the case exists: say what is left
         return _o("failed" if saved.fatal else "requeue", error=saved.error or "save", event=f"Phase {phase} not saved{why}"[:400])
     if phase == "A" and saved.partial:

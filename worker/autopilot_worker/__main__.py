@@ -7,14 +7,29 @@ import os
 import subprocess
 from dataclasses import replace
 import sys
+import threading
 import time
 
 from .config import Config, account_for
 from .pipeline import Driver
-from .loop import tick, tick_error_line
+from .loop import _at, housekeeping, run_job, tick, tick_error_line
 from .photos import (ModelError, apply_name_rules, ensure_weights, names_for_photos, parse_predict_stdout, predict_command,
                      load_rules, predict_env, predict_slot, predict_timeout)
 from .store import PgRepo
+
+
+# Making a NEW case in Merimen (duplicate warnings, the workshop popup, the "Next pressed" mark) runs one at a time in this process,
+# also with WORKER_SLOTS > 1. Every later step works on its own case by its Merimen case id, in its own tab.
+_CREATE_LOCK = __import__("threading").Lock()
+CREATE_WAIT = 600.0  # a create that finds another still running after this long goes back to the queue (nothing done in Merimen yet)
+
+
+def _live_create(case) -> bool:
+    """save("A") would really create in Merimen (the same switches save() reads). Off: no create runs, so `no_create` may end now."""
+    if os.environ.get("MERIMEN_WRITES") != "on" or os.environ.get("WORKER_SUBMIT") != "on" or os.environ.get("MERIMEN_DRYRUN") == "on":
+        return False
+    only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
+    return not (only and str((case or {}).get("id")) != only)
 
 
 class _CdpDriver(Driver):
@@ -118,6 +133,9 @@ class _CdpDriver(Driver):
         # MERIMEN_DRYRUN=on fills Merimen's create form without saving it. While it is on nothing is ever saved (see save).
         if phase == "A" and os.environ.get("MERIMEN_DRYRUN") == "on":
             res = self._create(False)
+            from .pool import create_done
+
+            create_done()  # the form was only filled, never saved: the next create may be claimed beside the rest of this one
             if res.ok:
                 if (self.case or {}).get("merimen_caseid"):  # the case exists: its report can be filled and read back (never saved here)
                     ok, retry, line = self._report(False, None, None)
@@ -132,6 +150,10 @@ class _CdpDriver(Driver):
             est = self._estimate()
             if est is not None:  # read-only: what the estimate details step would set (the parts are not ticked in a dry run)
                 return DriveResult(ok=True, line=est.read(self.case or {}).line())
+        if phase == "A" and not _live_create(self.case):
+            from .pool import create_done
+
+            create_done()  # save() creates nothing (writes off, or another case is the supervised one): the next create may be claimed
         return DriveResult(ok=True)
 
     def _estimate(self):
@@ -157,9 +179,23 @@ class _CdpDriver(Driver):
             only = os.environ.get("MERIMEN_CREATE_ONLY_CASE") or ""
             if only and str((self.case or {}).get("id")) != only:  # the supervised first live create: every other case is left alone
                 return DriveResult(ok=False, error="step_not_ported")
-            if int(os.environ.get("ORG_CONCURRENCY") or "1") > 1:  # the supported setup is ONE create at a time: refuse before anything opens
-                return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1; set it and restart the worker")
-            res = self._create(True)  # step 1 of Phase A
+            if int(os.environ.get("ORG_CONCURRENCY") or "1") > 1 and int(os.environ.get("WORKER_SLOTS") or "1") <= 1:
+                # several worker PROCESSES may each create for one org: refused as before (the lock below only holds inside one process)
+                return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1 without WORKER_SLOTS; set it and restart the worker")
+            # one live create at a time (plan #150, Grok G1); the report, documents and photos after it run side by side. The claim
+            # takes no second create while one runs; one that still meets it waits at most CREATE_WAIT, then tries again later
+            # a Phase A that already has its Merimen case (a re-run from the report on) never waits for the lock
+            new = not (self.case or {}).get("merimen_caseid")
+            if new and not _CREATE_LOCK.acquire(timeout=CREATE_WAIT):
+                return DriveResult(ok=False, error="create_busy", line="Another case is still being created in Merimen; this one tries again shortly")
+            try:
+                res = self._create(True)  # step 1 of Phase A
+            finally:
+                if new:
+                    _CREATE_LOCK.release()
+                from .pool import create_done
+
+                create_done()  # the claim may take the next create now; this job's report, documents and photos run beside it
             if res.ok and (res.case_id or (self.case or {}).get("merimen_caseid")):
                 ok, retry, line = self._report(True, res.case_id, res.ext_id)  # step 2: the Adjuster Report (playbook order: before documents)
                 res.line = ((res.line + "; ") if res.line else "") + line
@@ -212,6 +248,80 @@ class _CdpDriver(Driver):
             return DriveResult(ok=False, error="step_not_ported", total_rm=f"{total:.2f}",
                                line=f"{r.line()} All checks passed (total RM{total:,.2f}). Ready to submit in Merimen by hand.")
         return DriveResult(ok=False, error="step_not_ported")
+
+
+_SLOTS_LOCK: list = []  # the open lock file, held for the life of the process
+
+
+def _one_slots_process(cfg: Config, *, hold: bool = True) -> bool:
+    """ONE worker process per state folder AND per Chrome port, in every mode (GPR-150-4 G7, egm round 3): a second one would
+    close the first one's step tabs at its start, and its own create lock and tab rules would not see the first one's jobs.
+    The lock files: `<state>/worker_slots.lock`, and `<WORKER_LOCK_DIR or the temp folder>/autopilot-worker-chrome-<port>.lock` for
+    each Chrome port this worker uses (so two workers with different WORKER_STATE on one Chrome are refused too).
+    hold: the locks are kept for the life of the process and a second worker refuses to start; they end with the process, also on
+    a kill. Not hold: only asks (False while another worker holds one); nothing is kept."""
+    import fcntl
+    import tempfile
+
+    os.makedirs(cfg.state_dir or ".", exist_ok=True)
+    lock_dir = os.environ.get("WORKER_LOCK_DIR") or tempfile.gettempdir()
+    paths = [os.path.join(cfg.state_dir or ".", "worker_slots.lock")]
+    paths += [os.path.join(lock_dir, f"autopilot-worker-chrome-{int(p)}.lock") for p in sorted(set((cfg.accounts or {}).values()))]
+    got = []
+    for path in paths:
+        try:
+            f = open(path, "a+")
+        except OSError as e:  # e.g. a lock file another user made in a shared temp folder: not "another worker"
+            for g in got:
+                g.close()
+            raise SystemExit(f"cannot open the worker lock file {path} ({type(e).__name__}): set WORKER_LOCK_DIR to a folder "
+                             "this user owns, or remove that file") from None
+        try:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            f.close()
+            for g in got:
+                g.close()
+            if not hold:
+                return False
+            raise SystemExit(f"another worker is running on this machine with the same WORKER_STATE or the same Chrome port (it holds "
+                             f"{path}): only one is supported; stop it first")
+        got.append(f)
+    if hold:
+        _SLOTS_LOCK.extend(got)
+    else:
+        for g in got:
+            g.close()  # closing the files lets the locks go
+    return True
+
+
+def _close_left_step_tabs(cfg: Config) -> None:
+    """At start (every mode): the step tabs a killed job of the last run left open are closed by their recorded ids. Only those
+    ids; a tab the worker did not open itself is never closed here."""
+    from .login_flow import close_target
+
+    ids = load_step_tabs(cfg.state_dir)
+    for port in sorted(set(cfg.accounts.values())):
+        for tid in ids:
+            close_target(port, tid)  # a tab that is gone (or on another Chrome) is a no-op; never the last tab of a window
+    # ids Chrome no longer has are forgotten; one close_target would not close (the window's last tab) stays, so it never counts as
+    # the home tab
+    _forget_gone_step_tabs(cfg)
+
+
+def _forget_gone_step_tabs(cfg: Config, opener=None) -> None:
+    from urllib.request import urlopen
+
+    alive: set[str] = set()
+    for port in sorted(set(cfg.accounts.values())):
+        try:
+            with (opener or urlopen)(f"http://127.0.0.1:{int(port)}/json/list", timeout=5) as r:
+                alive |= {str(t.get("id")) for t in json.loads(r.read() or b"[]") if isinstance(t, dict)}
+        except Exception:  # noqa: BLE001  (Chrome did not answer: keep every id, nothing is lost)
+            return
+    with _STEP_TABS_LOCK:
+        STEP_TABS.intersection_update(alive)
+    _save_step_tabs()
 
 
 def _namer_factory(cfg: Config):
@@ -270,7 +380,9 @@ def _inspect(port: int):
             tabs = json.load(r)
     except Exception:
         return None
-    urls = [t.get("url") or "" for t in tabs if t.get("type") == "page"]
+    with _STEP_TABS_LOCK:  # a job's step tab that loaded before a logout must not make the session look alive (plan #150)
+        mine = set(STEP_TABS)
+    urls = [t.get("url") or "" for t in tabs if t.get("type") == "page" and str(t.get("id") or "") not in mine]
     return {"urls": urls, "has_password": False}
 
 
@@ -300,10 +412,267 @@ def pick_merimen_page(pages):
     return next((pg for pg in merimen if is_logged_in_url(pg.url or "")), merimen[0] if merimen else None)
 
 
+# Chrome target ids of the tabs the worker's own steps opened (base.context.new_page()). With WORKER_SLOTS > 1 several jobs have a
+# step tab open at once, all with the session marks in their address: the strict pick leaves them (and popups) out, so the home tab
+# is still "exactly one" (plan #150). Shared by all job threads.
+STEP_TABS: set[str] = set()
+_STEP_TABS_LOCK = __import__("threading").Lock()
+
+
+def _target_info(pg) -> dict:
+    """Chrome's own info for a page (targetId, openerId). {} when it cannot be asked."""
+    try:
+        s = pg.context.new_cdp_session(pg)
+        try:
+            return dict(s.send("Target.getTargetInfo").get("targetInfo") or {})
+        finally:
+            s.detach()
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+STEP_TABS_FILE = "step_tabs.json"
+_step_tabs_dir: list[str] = [""]  # the state folder: the ids survive a restart of the worker (Chrome keeps its tabs and their ids)
+_job_tabs = __import__("threading").local()  # per job thread: the step tabs this job opened, closed when the job ends
+
+
+def _save_step_tabs() -> None:
+    d = _step_tabs_dir[0]
+    if not d:
+        return
+    try:
+        path = os.path.join(d, STEP_TABS_FILE)
+        with _STEP_TABS_LOCK:  # one writer at a time: the copy, the temporary file and the rename
+            tmp = path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(sorted(STEP_TABS), f)
+            os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def load_step_tabs(state_dir: str) -> list[str]:
+    """At start: the step tab ids the last run recorded. Kept in STEP_TABS (the strict pick still leaves them out) and returned, so
+    the ones Chrome still has open can be closed (a job killed by a restart leaves its tab behind)."""
+    _step_tabs_dir[0] = state_dir or ""
+    try:
+        with open(os.path.join(state_dir, STEP_TABS_FILE)) as f:
+            got = [str(x) for x in json.load(f) if isinstance(x, (str, int))]
+    except FileNotFoundError:
+        return []
+    except (OSError, ValueError, TypeError):
+        print("step tabs file unreadable: started without it", file=sys.stderr, flush=True)
+        return []
+    with _STEP_TABS_LOCK:
+        STEP_TABS.update(got)
+    return got
+
+
+SLOW_CLAIM_S = 2.0
+
+
+def fill_slots(cfg, repo, pool, stopping, *, relogin_ready: bool, skip_orgs) -> None:
+    """One pass of the slots main loop: claim a job for every free slot, the case uploaded first in front (the claim order)."""
+    while pool.free() > 0 and not stopping.is_set():
+        # a create already claimed (not only one holding the lock: two creates of one batch would otherwise both be claimed in this
+        # one pass) means no second create now
+        _at("claim")  # a failed claim logs `tick … step=claim`, not the last housekeeping step
+        t0 = time.monotonic()
+        # after a case_mismatch or home_tab_write the fuse is set: no Merimen step is claimed again until a restart (egm r16)
+        job = repo.claim(ext_connect=cfg.ext_connect and not case_guard.FUSE.is_set(), worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=skip_orgs(),
+                         one_chrome=True, no_create=pool.create_running() or _CREATE_LOCK.locked())
+        took = time.monotonic() - t0
+        if took > SLOW_CLAIM_S:  # the claim's cost grows with the queue: a slow one shows here long before a DB timeout (egm r15)
+            print(f"slow claim {took:.1f} s", file=sys.stderr, flush=True)
+        if not job:
+            return
+        if pool.has(job["id"]) or stopping.is_set():
+            # its slot already wrote its outcome (back to the queue) and is still closing its tabs: never started a second time here.
+            # Or the stop signal came while the claim ran: nothing new starts after it (egm r6). The claim is undone with its try
+            # given back, and it is taken again in a later pass
+            repo.give_back(job["id"], cfg.worker_id)
+            return
+        pool.submit(job, relogin_ready=relogin_ready)
+
+
+def _register_step_tab(pg) -> None:
+    if not hasattr(_job_tabs, "pages"):
+        _job_tabs.pages = []
+    mine = _job_tabs.pages
+    mine.append(["", pg])
+    _follow_popups(pg, mine)
+    record_job_tabs()
+
+
+def record_job_tabs() -> None:
+    """Record the Chrome ids of this job's tabs that have none yet (its popups, a tab whose id could not be read when it opened),
+    in STEP_TABS and the file, so a kill of the worker never leaves one behind that counts as a second home tab (several_tabs).
+    Runs in the job's own thread: at each new step tab and before each use of a step tab (case_guard.on_use)."""
+    added = False
+    for entry in getattr(_job_tabs, "pages", []):
+        if entry[0]:
+            continue
+        try:
+            if entry[1].is_closed():
+                continue
+        except AttributeError:
+            pass
+        except Exception:  # noqa: BLE001
+            continue
+        tid = str(_target_info(entry[1]).get("targetId") or "")
+        if tid:
+            entry[0] = tid
+            with _STEP_TABS_LOCK:  # dropped again when the job ends (end_job_tabs) or at the next start (_close_left_step_tabs)
+                STEP_TABS.add(tid)
+            added = True
+    if added:
+        _save_step_tabs()
+
+
+def _follow_popups(pg, mine: list) -> None:
+    """Every popup the step tab opens (and their popups) joins this job's own tabs, so the job end closes it even when the step
+    already closed the tab that opened it. Only a list append in the event handler: no Chrome call there."""
+    on = getattr(pg, "on", None)
+    if on is None:
+        return
+
+    def popup(p):
+        mine.append(["", p])  # its id is read later in the job's thread (record_job_tabs)
+        _follow_popups(p, mine)
+
+    try:
+        on("popup", popup)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def own_open_step_tab():
+    """The newest step tab this job thread opened that is still open, or None."""
+    for _tid, pg in reversed(getattr(_job_tabs, "pages", [])):
+        try:
+            if not pg.is_closed():
+                return pg
+        except Exception:  # noqa: BLE001
+            continue
+    return None
+
+
+def end_job_tabs() -> int:
+    """After a job (its thread): close the step tabs it opened that are still open (a step that raised half way), and forget them.
+    Only this job's own tabs; never the home tab, another job's tab or a tab opened by hand. Returns how many were closed."""
+    pages = getattr(_job_tabs, "pages", [])
+    _job_tabs.pages = []
+    closed = 0
+    for tid, pg in pages:
+        try:
+            if not pg.is_closed():
+                others = getattr(getattr(pg, "context", None), "pages", None)
+                if isinstance(others, list) and len(others) <= 1:
+                    continue  # never Chrome's last tab (closing it closes the window, CLAUDE.md): it stays recorded, closed at a later start
+                pg.close()
+                closed += 1
+        except Exception:  # noqa: BLE001
+            pass
+        if tid:
+            with _STEP_TABS_LOCK:
+                STEP_TABS.discard(tid)
+    if pages:
+        _save_step_tabs()
+    return closed
+
+
+def _descendants(pairs, roots: set) -> set:
+    """Target ids whose opener chain leads to one of roots (a popup a step tab opened, a popup of that popup...)."""
+    out = set(roots)
+    grew = True
+    while grew:
+        grew = False
+        for tid, opener in pairs:
+            if tid and tid not in out and opener and opener in out:
+                out.add(tid)
+                grew = True
+    return out
+
+
+def not_step_tabs(pages, info=_target_info, *, chain: bool = True) -> list:
+    """The session tabs that are not a step tab of this worker (a recorded id). chain (WORKER_SLOTS > 1): nor a tab whose opener
+    chain leads to a step tab (its popups). Any other tab counts, also one a person opened from the home tab or from a link
+    (GPR-150-4 G5): two of them stop the strict pick with several_tabs, as #147 does. Off (WORKER_SLOTS=1): popups count, as before."""
+    infos = [(pg, str((t := info(pg)).get("targetId") or ""), str(t.get("openerId") or "")) for pg in pages]
+    with _STEP_TABS_LOCK:
+        mine = set(STEP_TABS)
+    if chain:
+        mine = _descendants([(tid, op) for _pg, tid, op in infos], mine)
+    return [pg for pg, tid, _op in infos if not (tid and tid in mine)]
+
+
+class _StepContext:
+    """The home tab's browser context as a step sees it: every tab it opens is recorded as a step tab."""
+
+    def __init__(self, ctx):
+        self._ctx = ctx
+
+    def new_page(self, *a, **k):
+        from .case_guard import guard_page
+
+        pg = self._ctx.new_page(*a, **k)
+        _register_step_tab(pg)
+        return guard_page(pg, context=self)  # it may only open this job's own Merimen case; its context is this one
+
+    def __getattr__(self, name):
+        # only new_page: another tab of the context (context.pages[i]) or context.close() would reach the home tab or every tab
+        raise HomeTabWrite(f"the home tab's context only opens new tabs ({name})")
+
+
+from . import case_guard  # noqa: E402
+from .case_guard import HomeTabWrite  # noqa: E402  (a BaseException: a step's `except Exception` never swallows it)
+
+
+class HomeTab:
+    """The logged-in home tab handed to a step (WORKER_SLOTS > 1): the same page, but tabs opened from its context are recorded,
+    and it is read only. Every step reads only its address (`url`, the session marks) and opens its own tab from `context`; a
+    call that would move or change the home tab (another job's steps depend on it) raises instead."""
+
+    _READS = frozenset({"url", "is_closed"})  # an allowlist: everything else (goto, click, locator, keyboard, frames...) raises
+
+    def __init__(self, page):
+        self._page = page
+        self.context = _StepContext(page.context)
+
+    def __getattr__(self, name):
+        if name not in HomeTab._READS:
+            raise HomeTabWrite(f"the home tab is read only ({name})")
+        return getattr(self._page, name)
+
+
 def _page_provider(cfg: Config):
     """The Merimen tab of the worker Chrome for an org, through Playwright over the local debugging port.
-    Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time."""
-    state: dict = {}
+    Playwright is only imported when screenshots are on. A connection that breaks is dropped and made again next time.
+    Playwright's sync objects belong to the thread that made them: each thread (the main loop, each job slot) keeps its own connection."""
+    import threading
+
+    local = threading.local()
+    slots = max(1, int(getattr(cfg, "slots", 1) or 1))
+
+    class _State:
+        def _d(self) -> dict:
+            if not hasattr(local, "d"):
+                local.d = {}
+            return local.d
+
+        def __contains__(self, k):
+            return k in self._d()
+
+        def __getitem__(self, k):
+            return self._d()[k]
+
+        def __setitem__(self, k, v):
+            self._d()[k] = v
+
+        def pop(self, k, default=None):
+            return self._d().pop(k, default)
+
+    state = _State()
 
     def _browser(org_id: str):
         account = account_for(org_id, cfg.accounts, cfg.org_accounts)
@@ -365,9 +734,19 @@ def _page_provider(cfg: Config):
 
         return [pg for ctx in browser.contexts for pg in ctx.pages if session_query(pg.url or "")]
 
-    def page_for(org_id: str, strict: bool = False):
+    def page_for(org_id: str, strict: bool = False, own_only: bool = False):
         """strict (the create step): exactly ONE tab that is a logged-in claims page (https, www.merimen.com.my, /claims/, session marks in the address,
         no password box on the page); none or several = None, so the case waits instead of opening the form with a guessed session."""
+        if own_only:  # a milestone screenshot with slots: only this job's own open step tab shows its case (GPR-150-4 G4)
+            from . import case_guard
+
+            if case_guard.mismatched():  # that tab went to another case: it no longer shows this one, so no shot (egm r5)
+                print(f"{threading.current_thread().name} screenshot skipped: a tab of this job went to another case", file=sys.stderr, flush=True)
+                return None
+            own = own_open_step_tab()
+            if own is None:
+                print(f"{threading.current_thread().name} screenshot skipped: no step tab of this job is open", file=sys.stderr, flush=True)
+            return own
         try:
             _port, browser = _browser(org_id)
             if browser is None:
@@ -378,6 +757,13 @@ def _page_provider(cfg: Config):
                     from . import login_seen
 
                     login_seen.mark()  # Merimen is open but no tab has the session marks: logged out (as merimen_docs does)
+                if slots > 1 and found:
+                    # another job's step tab (or a popup it opened) is never the home tab, even when it is the only one left; any
+                    # other tab still counts, also a popup a person opened (GPR-150-4 G5)
+                    found = not_step_tabs(found)
+                elif len(found) > 1:
+                    # WORKER_SLOTS=1: only a step tab id the last slots run left is left out; popups count as before #150
+                    found = not_step_tabs(found, chain=False)
                 if len(found) > 1:  # only then is a page asked (a stale login-form tab beside the new one); one tab is used as before
                     found = [pg for pg in found if not _login_box(pg)]
                     if not found:  # every tab with the session marks shows the login form: logged out
@@ -390,19 +776,35 @@ def _page_provider(cfg: Config):
                     from .loop import note
 
                     note(org_id, "several_tabs")
-                return found[0] if len(found) == 1 else None
-            return pick_merimen_page([pg for ctx in browser.contexts for pg in ctx.pages])
+                if len(found) != 1:
+                    return None
+                return HomeTab(found[0]) if slots > 1 else found[0]
+            pages = [pg for ctx in browser.contexts for pg in ctx.pages]
+            if slots > 1:  # another job's step tab may show ANOTHER case: a screenshot comes from this job's own open step tab
+                own = own_open_step_tab()  # (it shows this case), else from the home tab, never from another job's tab (plan #150)
+                if own is not None:
+                    return own
+                pages = not_step_tabs([pg for pg in pages if "merimen.com.my" in (pg.url or "")])
+            return pick_merimen_page(pages)
         except Exception:
             _drop(org_id)
         return None
 
     def session_tabs(org_id: str):
-        """One bool per tab with session marks in its address: True = that page shows a password box. None when Chrome cannot be asked."""
+        """One bool per tab with session marks in its address: True = that page shows a password box. None when Chrome cannot be asked.
+        WORKER_SLOTS > 1: the home tab decides (a step tab that loaded before a logout can still show a form); step tabs only
+        when no other session tab is left."""
         try:
             _port, browser = _browser(org_id)
             if browser is None:
                 return None
-            return [_login_box(pg) for pg in _session_pages(browser)]
+            pages = _session_pages(browser)
+            if slots > 1 and pages:
+                home = not_step_tabs(pages)
+                if not home:  # only step tabs still have the session marks: the home tab lost them, so the session is gone
+                    return [True]
+                pages = home
+            return [_login_box(pg) for pg in pages]
         except Exception:
             _drop(org_id)
             return None
@@ -411,11 +813,18 @@ def _page_provider(cfg: Config):
     return page_for
 
 
+def refuse_unsafe_start(cfg: Config) -> None:
+    """Live writes with ORG_CONCURRENCY above 1 and no slots: several worker processes could create for one org at once (the
+    in-process create lock does not reach them). Refused at start (plan #150, difference 6)."""
+    if cfg.live_writes and cfg.slots <= 1 and cfg.org_limit > 1:
+        raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1 without WORKER_SLOTS: set ORG_CONCURRENCY=1 (or use WORKER_SLOTS) and start again")
+
+
 def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
-    if cfg.live_writes and cfg.org_limit > 1:  # one create at a time is the supported setup: refuse to start, change no case
-        raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1: set ORG_CONCURRENCY=1 and start again")
+    refuse_unsafe_start(cfg)
     repo = PgRepo(cfg.database_url, cfg.db_transport)
+    repo.set_ports(cfg.accounts, cfg.org_accounts)  # a portless session row counts only on the Chrome the config gives it
     from . import relogin as relogin_mod
 
     relogin_mod.load_own_tabs(cfg.state_dir)  # which logged-in tab the last re-login opened survives a restart
@@ -430,7 +839,7 @@ def main() -> None:
 
     import threading
 
-    _rec_lock = threading.Lock()  # page calls run in a small pool; one ledger write at a time on the shared connection
+    _rec_lock = threading.Lock()  # page calls run in a small pool; one ledger write at a time from this pool
 
     def _record_jev(row: dict) -> None:
         try:
@@ -441,6 +850,13 @@ def main() -> None:
 
     driver.jev = jev_mod.from_env(dict(os.environ), _record_jev)  # None with JEV=0 or without TYPESAFE_API_KEY: the code rules alone
     namer = _namer_factory(cfg)
+    if cfg.slots > 1:
+        _photo_lock = threading.Lock()
+        _one_namer = namer
+
+        def namer(photos, vehicle):  # noqa: F811  one photo model at a time: each run loads DINOv2 on the CPU (the box's RAM)
+            with _photo_lock:
+                return _one_namer(photos, vehicle)
 
     files_root = os.path.join(cfg.state_dir, "files")  # downloads live here only while their job runs
 
@@ -537,6 +953,56 @@ def main() -> None:
             serve(port, {"id": cfg.worker_id, "model": cfg.hf_repo, "chrome": True})
         except OSError:
             pass
+
+    # one worker per state folder, in every mode (GPR-150-4 G7): the lock is taken first (a second worker stops here), then the
+    # step tabs a killed run left open are closed by their ids (also after a roll back to WORKER_SLOTS=1)
+    _one_slots_process(cfg)
+    _close_left_step_tabs(cfg)
+    if cfg.slots > 1:
+        from . import case_guard
+        from .pool import JobPool, slot_driver
+
+        case_guard.on_use(record_job_tabs)  # a popup's tab id is recorded at the step's next use of its tab
+
+        import signal
+
+        from .loop import paused_orgs
+
+        def _run(job, slot_drv, extra):
+            try:
+                run_job(cfg, repo, job, inspect=_inspect, namer=namer, driver=slot_drv, download=download, page_for=page_for if shots else None,
+                        put_blob=put_blob if shots else None, side_check=side_check, forget_files=forget_files, relogin_ready=extra.get("relogin_ready", False))
+            finally:
+                end_job_tabs()  # a step that raised half way leaves no tab behind
+
+        pool = JobPool(cfg.slots, _run, make_driver=lambda: slot_driver(driver), warn_seconds=cfg.job_max_seconds)
+        stopping = threading.Event()
+
+        stop_at: list[float] = []
+
+        def _stop(_sig, _frm):
+            if not stop_at:
+                stop_at.append(time.monotonic())  # the stop time counts from the signal, not from the end of the current pass
+            stopping.set()
+
+        signal.signal(signal.SIGTERM, _stop)
+        signal.signal(signal.SIGINT, _stop)
+        print(f"worker slots: {cfg.slots}, jobs per org: {cfg.org_limit}", flush=True)
+        while not stopping.is_set():
+            sweep_files()
+            try:
+                relogin = housekeeping(cfg, repo, launch=_launch, inspect=_inspect, keep=_keep, fetch_page=fetch_page, master=master,
+                                       delete_blob=delete_blob if shots else None, relogin_fetch=relogin_fetch, busy_orgs=pool.busy_orgs,
+                                       running_ids=pool.running_ids)
+                fill_slots(cfg, repo, pool, stopping, relogin_ready=relogin is not None, skip_orgs=paused_orgs)
+            except Exception as e:
+                print(tick_error_line(e), file=sys.stderr)
+            stopping.wait(cfg.poll_seconds)
+        # stop: nothing new is claimed; the running jobs get WORKER_STOP_SECONDS to end (each closes its own tab and writes its outcome).
+        # One still running after that is cut off with the process: its lease gives it back to the queue, as after any restart
+        left = pool.wait_idle(max(0.0, cfg.stop_seconds - (time.monotonic() - (stop_at[0] if stop_at else time.monotonic()))))
+        print(f"worker stopped: {'all jobs ended' if left else 'jobs still running were cut off'}", flush=True)
+        return
 
     while True:
         sweep_files()

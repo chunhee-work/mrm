@@ -7,7 +7,7 @@ import sys
 
 from .db import make_db
 from .gate import worker_gate
-from .jobs import CLAIM_SQL, CLAIM_SQL_NO_WORKSHOPS, RECLAIM_SQL, TOUCH_SQL, claim_params
+from .jobs import CLAIM_SQL, CLAIM_SQL_NO_WORKSHOPS, GIVE_BACK_SQL, RECLAIM_SQL, TOUCH_SQL, claim_params
 from .login_page import backoff_seconds
 from .pipeline import Outcome
 
@@ -80,8 +80,10 @@ def pause_statements(org_id: str, event: str, *, only_if_state: str | None = Non
     return [
         (
             """
+            -- queued jobs only: a running one (another slot of this worker) ends with its own outcome; a row paused under it would
+            -- be resumed later and run its step a second time (plan #150 I2). Until the login is ok again the claim takes none.
             UPDATE jobs SET state = 'paused', locked_by = NULL, locked_at = NULL
-            WHERE state IN ('queued', 'running') AND step IN ('phase_a', 'phase_b', 'checks')
+            WHERE state = 'queued' AND step IN ('phase_a', 'phase_b', 'checks')
               AND case_id IN (SELECT id FROM cases WHERE org_id = %(org)s)""" + guard,
             p,
         ),
@@ -102,6 +104,12 @@ def pause_statements(org_id: str, event: str, *, only_if_state: str | None = Non
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
+        self.ports = {"one_port": True, "org_ports": ""}  # jobs.port_map of the config; set by the worker at start (set_ports)
+
+    def set_ports(self, accounts: dict, org_accounts: dict) -> None:
+        from .jobs import port_map
+
+        self.ports = port_map(accounts, org_accounts)
 
     def record_llm_call(self, row: dict) -> None:
         """One llm_calls row for a Jev (TypeSafe) call: the same ledger the web app writes, so /admin/cost can show it. cost_usd stays NULL
@@ -161,22 +169,52 @@ class PgRepo:
             return worker_gate(env_on=True, enabled=False, consent_reference=None, consented=False)
         return worker_gate(env_on=True, enabled=bool(row[0]), consent_reference=row[1], consented=bool(row[2]))
 
-    def claim(self, *, ext_connect: bool, worker_id: str, org_limit: int = 1):
+    def claim(self, *, ext_connect: bool, worker_id: str, org_limit: int = 1, skip_orgs=(), one_chrome: bool = False, no_create: bool = False):
+        params = claim_params(ext_connect, org_limit, worker_id, skip_orgs, one_chrome, no_create, getattr(self, "ports", None))
         try:
-            rows = self.db.execute(CLAIM_SQL, claim_params(ext_connect, org_limit, worker_id))
+            rows = self.db.execute(CLAIM_SQL, params)
         except Exception as e:  # migration 0019/0014 not applied: claim as before (nothing can be confirmed without it)
             # only a missing table or column of the workshop gate itself; anything else (a permission, another object) stays an error
             if not (_missing_workshops(e)
                     and any(n in str(e) for n in ("merimen_case_workshop", "merimen_workshops", "confirmed_at"))):
                 raise
-            rows = self.db.execute(CLAIM_SQL_NO_WORKSHOPS, claim_params(ext_connect, org_limit, worker_id))
+            rows = self.db.execute(CLAIM_SQL_NO_WORKSHOPS, params)
         if not rows:
             return None
         r = rows[0]
-        return {"id": r[0], "case_id": r[1], "step": r[2], "attempts": r[3], "org_id": r[4]}
+        job = {"id": r[0], "case_id": r[1], "step": r[2], "attempts": r[3], "org_id": r[4]}
+        if len(r) > 5:  # a Phase A of a case with no Merimen case yet makes the case: one at a time (WORKER_SLOTS > 1)
+            job["create"] = bool(r[5]) and r[2] == "phase_a"
+        return job
 
-    def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = MAX_ATTEMPTS) -> int:
-        return len(self.db.execute(RECLAIM_SQL, (max_attempts, int(lease_seconds))))
+    def reclaim_stale(self, lease_seconds: int = 900, max_attempts: int = MAX_ATTEMPTS, running=()) -> int:
+        """running: ids this process still runs (slot threads); their rows are never put back or failed under them."""
+        keep = ",".join(str(int(i)) for i in running)
+        return len(self.db.execute(RECLAIM_SQL, (max_attempts, int(lease_seconds), keep)))
+
+    def chrome_taken_by_other(self, org_id: str, port: int) -> bool:
+        """jobs.CHROME_TAKEN_SQL: another org owns the Chrome port this org is given (WORKER_SLOTS > 1)."""
+        from .jobs import CHROME_TAKEN_SQL
+
+        rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id, "port": int(port), **getattr(self, "ports", {"one_port": True, "org_ports": ""})})
+        return bool(rows and rows[0][0])
+
+    def login_orgs(self) -> list[str]:
+        """Every org whose Merimen login may have been typed into a worker Chrome: any session row or any saved login, also stopped
+        or blocked ones (WORKER_SLOTS > 1, the session holder: egm r20)."""
+        rows = self.db.execute("SELECT org_id FROM worker_sessions UNION SELECT org_id FROM merimen_credentials")
+        return [str(r[0]) for r in rows if r and r[0]]
+
+    def chrome_used_by_other(self, org_id: str, port: int) -> bool:
+        """jobs.CHROME_USED_SQL: another org already takes part on this Chrome port, owner or not (WORKER_SLOTS > 1)."""
+        from .jobs import CHROME_USED_SQL
+
+        rows = self.db.execute(CHROME_USED_SQL, {"org": org_id, "port": int(port), **getattr(self, "ports", {"one_port": True, "org_ports": ""})})
+        return bool(rows and rows[0][0])
+
+    def give_back(self, job_id: int, worker_id: str) -> None:
+        """Undo a claim of a job this process still has in a slot (plan #150 I2): queued again in 30 s, its try not counted."""
+        self.db.execute(GIVE_BACK_SQL, (int(job_id), worker_id))
 
     def touch_job(self, job_id: int, worker_id: str) -> bool:
         """Renew the lease. False means the job is no longer ours."""
@@ -287,7 +325,8 @@ class PgRepo:
         if outcome.job_state == "requeue":
             # put back with a wait (jobs.not_before, migration 0007), and only so many times: `attempts` is the number of claims so far
             attempts = int(job.get("attempts") or 1)
-            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS and not outcome.session_lost
+            busy = outcome.error == "create_busy"  # only waited for another case's create: never a try (WORKER_SLOTS > 1)
+            gave_up = attempts >= REQUEUE_MAX_ATTEMPTS and not outcome.session_lost and not busy
             state = "failed" if gave_up else "queued"
         if outcome.session_lost and state == "queued":
             # Merimen logged out half way: the claim's try is given back, and the session waits for the re-login before the next claim
@@ -299,6 +338,12 @@ class PgRepo:
             st.append((
                 "UPDATE worker_sessions SET status = 'expired', detail = 'not_logged_in' WHERE org_id = %s AND status = 'connected'",
                 (job["org_id"],),
+            ))
+        elif outcome.error == "create_busy" and state == "queued":
+            st.append((
+                "UPDATE jobs SET state = 'queued', locked_by = NULL, locked_at = NULL, attempts = GREATEST(attempts - 1, 0), "
+                "not_before = now() + interval '60 seconds' WHERE id = %s AND state = 'running'",
+                (job["id"],),
             ))
         elif outcome.job_state == "hold":
             st.append(("UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running'", (job["id"],)))
@@ -320,7 +365,7 @@ class PgRepo:
             st.append((
                 """
                 UPDATE jobs SET state = 'paused', locked_by = NULL, locked_at = NULL
-                WHERE state IN ('queued', 'running') AND id <> %s AND step IN ('phase_a', 'phase_b', 'checks')
+                WHERE state = 'queued' AND id <> %s AND step IN ('phase_a', 'phase_b', 'checks')
                   AND case_id IN (SELECT id FROM cases WHERE org_id = %s)
                 """,
                 (job["id"], job["org_id"]),
@@ -335,6 +380,8 @@ class PgRepo:
             if outcome.total_rm:  # the estimate is saved in Merimen either way
                 st.append(("UPDATE cases SET total_rm = %s WHERE id = %s", (outcome.total_rm, job["case_id"])))
         error = outcome.error or (((outcome.stop_error + ": " if outcome.stop_error else "") + "gave up after %d tries" % attempts) if gave_up else None)
+        if outcome.error == "create_busy" and state == "queued":
+            error = None  # waiting for another create is not a problem of this case: its error stays as it was (only the event)
         # a retry that ran out with a stop of its own (a photo list never readable) waits for a person like that stop does, so the
         # Done press can start Phase B (followup_steps wants waiting_user / phase_b; a first Phase A would else stay phase_a)
         status = outcome.case_status or ("waiting_user" if gave_up and outcome.stop_error else None)

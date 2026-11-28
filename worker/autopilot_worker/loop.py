@@ -10,7 +10,7 @@ import time
 import traceback
 from dataclasses import replace
 
-from . import login_seen
+from . import case_guard, login_seen
 from .cdp_client import page_block
 from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
 from .config import Config, account_for
@@ -67,7 +67,29 @@ VERIFY_WAIT_MAX = 60
 
 
 # Which part of tick() was running, for the one log line when a tick fails (2026-11-27: the box only logged "tick DbError").
-STEP = {"name": "start"}
+class _Step(threading.local):
+    """Per thread: with WORKER_SLOTS > 1 each job thread logs its own place, the main thread its own."""
+
+    def __init__(self):
+        self.name = "start"
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+
+STEP = _Step()
+
+# FORCE_RELOGIN, RELOGIN_HELD, HELD_PAUSED, HOLD_KIND, ORG_PUTBACKS are read and changed by the main thread (sync_sessions) and,
+# with WORKER_SLOTS > 1, by job threads (check_session_after). Each read-change-write of them (_forced, held, _hold, _lift, the org
+# cap count) holds this lock; no Chrome look, login or database call is ever made while holding it (plan #150).
+SESSION_LOCK = threading.RLock()
+# org -> when the main thread first wanted to re-login it while a job of that org still ran in this process. The re-login waits for
+# those jobs (a step cut off half way by a new login is worse than a short wait), at most RELOGIN_BUSY_WAIT seconds.
+_busy_since: dict[str, float] = {}
+RELOGIN_BUSY_WAIT = 600.0
 
 
 def _at(name: str) -> None:
@@ -109,7 +131,8 @@ def job_error_line(job: dict, e: BaseException) -> str:
 
 def _print_error(job: dict, e: BaseException) -> None:
     try:
-        print(job_error_line(job, e), file=sys.stderr, flush=True)
+        slot = threading.current_thread().name
+        print((f"[{slot}] " if slot.startswith("slot-") else "") + job_error_line(job, e), file=sys.stderr, flush=True)
     except Exception:  # noqa: BLE001  (the log line never changes the outcome)
         pass
 
@@ -142,6 +165,19 @@ HOLD_KIND: dict[str, str] = {}
 ORG_PUTBACKS: dict[str, list[float]] = {}
 ORG_CAP = 4
 ORG_WINDOW = 3 * 3600.0
+SAME_LOGOUT = 120.0
+RELOGIN_OK: dict[str, float] = {}  # org -> when its last re-login worked (ok / session_live): a logout after it is a new one
+
+
+def paused_orgs(now=time.monotonic) -> list[str]:
+    """Orgs whose Merimen steps are not claimed right now (WORKER_SLOTS > 1): a job found their session logged out (a re-login is on
+    its way) or they are held after a job met the login form. Without this, free slots would take more of their cases into the same
+    logout before the next session sync marks them not connected. Only reads: the force mark's timeout is left to sync_sessions."""
+    with SESSION_LOCK:
+        t = now()
+        out = {o for o, at in FORCE_RELOGIN.items() if t - at < FORCE_TTL}
+        out |= {o for o in HELD_PAUSED if o in RELOGIN_HELD and t - RELOGIN_HELD[o] < HOLD_SECONDS}
+        return sorted(out)
 
 
 _noted: dict[tuple[str, str], float] = {}
@@ -161,6 +197,11 @@ def note(org_id: str, word: str, now=time.monotonic) -> None:
 
 
 def _forced(org_id: str, now) -> bool:
+    with SESSION_LOCK:
+        return _forced_locked(org_id, now)
+
+
+def _forced_locked(org_id: str, now) -> bool:
     t = FORCE_RELOGIN.get(org_id)
     if t is None:
         return False
@@ -197,6 +238,11 @@ def session_alive(cfg: Config, inspect, page_for, org_id: str) -> bool:
     return True
 
 
+def _case_mismatch() -> Outcome:
+    return Outcome("failed", case_status="waiting_user", error="case_mismatch",
+                   event="Stopped: a step tab reached another Merimen case. A person checks this case and that one in Merimen")
+
+
 def _not_merimen(outcome: Outcome) -> bool:
     """Stops that do not depend on the session (a missing document or field, a setting): never turned into a put-back."""
     err = outcome.error or ""
@@ -211,6 +257,8 @@ def _may_come_from_logout(job: dict, outcome: Outcome, seen_login: bool) -> bool
     the checks before submit, a case that cannot be entered, a Phase B photo write, a photo list to fix by hand) stays one, with a
     single exception: Phase A's photo step that itself found the login form (an upload cut off by the logout)."""
     if outcome.job_state not in ("failed", "requeue") or _not_merimen(outcome):
+        return False
+    if outcome.error == "create_busy":  # it waited for the create lock and never opened Merimen: no logout can explain it
         return False
     if outcome.job_state == "requeue" or outcome.error == "worker error":
         return True
@@ -243,6 +291,11 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
 def held(org_id: str, now=time.monotonic) -> bool:
     """The org's last re-login was refused or failed, its force mark timed out, or it was put back ORG_CAP times in ORG_WINDOW,
     less than HOLD_SECONDS ago."""
+    with SESSION_LOCK:
+        return _held_locked(org_id, now)
+
+
+def _held_locked(org_id: str, now) -> bool:
     t = RELOGIN_HELD.get(org_id)
     if t is not None and now() - t < HOLD_SECONDS:
         return True
@@ -252,6 +305,11 @@ def held(org_id: str, now=time.monotonic) -> bool:
 
 
 def _hold(org_id: str, now, word: str) -> None:
+    with SESSION_LOCK:
+        _hold_locked(org_id, now, word)
+
+
+def _hold_locked(org_id: str, now, word: str) -> None:
     # a refusal while already held does not make the hold longer: it ends HOLD_SECONDS after it began (or with a re-login that
     # works). Only the org cap, the stronger hold, starts its own full time
     if word == "held_org_cap" or not held(org_id, now):
@@ -263,6 +321,11 @@ def _hold(org_id: str, now, word: str) -> None:
 
 def _lift(org_id: str) -> None:
     """A re-login worked: the hold ends, except the org cap's (it ends only with its time)."""
+    with SESSION_LOCK:
+        _lift_locked(org_id)
+
+
+def _lift_locked(org_id: str) -> None:
     if HOLD_KIND.get(org_id) != "held_org_cap":
         HELD_PAUSED.discard(org_id)
         RELOGIN_HELD.pop(org_id, None)
@@ -287,7 +350,8 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
     if held(org, now):
         try:
             if seen_login or not session_alive(cfg, inspect, page_for, org):
-                HELD_PAUSED.add(org)  # logged out while held: the org waits (not connected) until the hold ends, nothing typed
+                with SESSION_LOCK:
+                    HELD_PAUSED.add(org)  # logged out while held: the org waits (not connected) until the hold ends, nothing typed
                 note(org, "not_put_back_held", now)
         except Exception:  # noqa: BLE001
             pass
@@ -298,15 +362,22 @@ def check_session_after(cfg: Config, repo, job: dict, outcome: Outcome, *, inspe
         got = session_lost_outcome(job, outcome, count=repo.session_lost_count(job["case_id"]))
     except Exception:  # noqa: BLE001
         return outcome
-    times = [t for t in ORG_PUTBACKS.get(org, []) if now() - t < ORG_WINDOW]
-    if len(times) >= ORG_CAP:
-        # this org was logged out ORG_CAP times within ORG_WINDOW (3 h, any cases): stop putting back, keep the job's own outcome
-        ORG_PUTBACKS[org] = times
-        _hold(org, now, "held_org_cap")
-        HELD_PAUSED.add(org)
-        return outcome
-    ORG_PUTBACKS[org] = times + [now()]  # the case cap's stop counts too: it also books a re-login
-    FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
+    with SESSION_LOCK:
+        times = [t for t in ORG_PUTBACKS.get(org, []) if now() - t < ORG_WINDOW]
+        # Several jobs that find the SAME logout (WORKER_SLOTS > 1, they run side by side) count once: a logout found within
+        # SAME_LOGOUT of the last one, with no re-login that worked since, is that one. Decided BEFORE the cap, so a second job that
+        # meets the logout the first one just counted never pushes the org over the cap
+        same = bool(getattr(cfg, "slots", 1) > 1 and times and now() - times[-1] < SAME_LOGOUT
+                    and RELOGIN_OK.get(org, float("-inf")) < times[-1])
+        if not same and len(times) >= ORG_CAP:
+            # this org was logged out ORG_CAP times within ORG_WINDOW (3 h, any cases): stop putting back, keep the job's own outcome
+            ORG_PUTBACKS[org] = times
+            _hold_locked(org, now, "held_org_cap")
+            HELD_PAUSED.add(org)
+            return outcome
+        # the case cap's stop counts too: it also books a re-login
+        ORG_PUTBACKS[org] = times if same else times + [now()]
+        FORCE_RELOGIN[job["org_id"]] = now()  # logged out: book a re-login, also at the cap (only the job stops there, not the login)
     note(job["org_id"], "put_back" if got.job_state != "failed" else "cap_reached", now)
     return got
 
@@ -344,7 +415,23 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
         decision = release_verify("no_account")
     else:
         port = cfg.accounts[account]
-        decision = run_verify(claimed, master, lambda user, password: fetch_page(user, password, port))
+        taken = False
+        if getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
+            try:  # another org is already on this Chrome (one Merimen login per Chrome, plan #150): a new login is never checked
+                # here, owner or not. The check would meet the other org's live session and pass without testing this password (egm r7)
+                used = getattr(repo, "chrome_used_by_other", None)
+                taken = bool(used(org, port) if used else repo.chrome_taken_by_other(org, port))
+                load_holders(cfg)
+                taken = taken or holder_other(port, org)  # that Chrome still holds another org's session (egm r17)
+                if not taken and port not in SESSION_HOLDER:  # no record, and another org's login may sit there (egm r20)
+                    others = others_on_port(cfg, repo, org, port)
+                    taken = True if others is None else others
+            except Exception:  # noqa: BLE001  (not known: nothing is typed now, the check comes back later)
+                taken = True
+        if taken:
+            decision = release_verify("shared_chrome")
+        else:
+            decision = run_verify(claimed, master, lambda user, password: fetch_page(user, password, port))
     if decision.get("release"):
         reason = str(decision.get("reason") or "offline")
         before = _verify_wait.get(org) or {"n": 0, "reason": None}
@@ -364,16 +451,113 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
 _launched: dict[int, float] = {}
 LAUNCH_WAIT = 30.0
 
+# port -> the org whose Merimen session that Chrome holds (WORKER_SLOTS > 1, egm r17). Written when an org is found logged in there
+# with no holder yet, and only when no other org's login can have been typed into that Chrome (no other org with a session row or
+# a saved login maps to that port, egm r20). Never dropped by the worker: a Chrome's tab addresses do not prove that no account is
+# live there (a step tab left open, a page without the session marks), so the way to move a Chrome to another org is giving that org
+# its own Chrome profile. While it names another org, an org on that port is never counted connected, logged in or login-checked
+# there. With no record and another org that can have been logged in, nobody is recorded and every org on that port waits
+# (`shared_chrome`): fail-closed. Kept in <state>/chrome_holder.json across restarts.
+SESSION_HOLDER: dict[int, str] = {}
+_holder_file: list = [""]
+
+
+def _holder_path(cfg) -> str:
+    return os.path.join(cfg.state_dir, "chrome_holder.json")
+
+
+def load_holders(cfg) -> None:
+    path = _holder_path(cfg)
+    if _holder_file[0] == path:
+        return
+    _holder_file[0] = path
+    SESSION_HOLDER.clear()
+    try:
+        import json
+
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        SESSION_HOLDER.update({int(k): str(v) for k, v in dict(data).items() if v})
+    except FileNotFoundError:
+        pass
+    except Exception as e:  # noqa: BLE001  (unreadable: no holder is known, so the first org found logged in is recorded again)
+        print(f"chrome holder file unreadable ({type(e).__name__}): starting empty", file=sys.stderr, flush=True)
+
+
+def _save_holders() -> None:
+    path = _holder_file[0]
+    if not path:
+        return
+    try:
+        import json
+
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({str(k): v for k, v in SESSION_HOLDER.items()}, fh)
+        os.replace(tmp, path)
+    except Exception as e:  # noqa: BLE001
+        print(f"chrome holder file not saved ({type(e).__name__})", file=sys.stderr, flush=True)
+
+
+def forget_holders(cfg) -> None:
+    """WORKER_SLOTS=1: the record is not kept up to date there (I6 is off), so it is removed: a later start with slots > 1 records
+    the first org found logged in again, as on a first start (egm r18)."""
+    path = _holder_path(cfg)
+    if _holder_file[0] == "1slot:" + path:
+        return
+    _holder_file[0] = "1slot:" + path
+    SESSION_HOLDER.clear()
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except Exception as e:  # noqa: BLE001
+        print(f"chrome holder file not removed ({type(e).__name__})", file=sys.stderr, flush=True)
+
+
+def holder_other(port, org) -> bool:
+    """True when the Chrome on this port holds another org's Merimen session (as far as this worker knows)."""
+    h = SESSION_HOLDER.get(port)
+    return bool(h) and h != org
+
+
+def _set_holder(port, org) -> None:
+    if SESSION_HOLDER.get(port) != org:
+        SESSION_HOLDER[port] = org
+        _save_holders()
+
+
+def others_on_port(cfg, repo, org, port) -> bool | None:
+    """True when another org's login can have been typed into the Chrome on this port (any session row or saved login of an org
+    that maps to it); None when not known this pass (a DB error)."""
+    get = getattr(repo, "login_orgs", None)
+    if get is None:
+        return False
+    try:
+        orgs = get()
+    except Exception:  # noqa: BLE001
+        return None
+    for o in orgs:
+        if o == org:
+            continue
+        acc = account_for(o, cfg.accounts, cfg.org_accounts)
+        if acc and cfg.accounts.get(acc) == port:
+            return True
+    return False
+
 
 # what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
 TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending")
 
 
-def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running, relogin=None) -> None:
+def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running, relogin=None, busy_orgs=None) -> None:
     """relogin(org, port) -> outcome word: MERIMEN_RELOGIN. At most ONE real try per tick, only when that org's Chrome answers, no
     tab of it is logged in, and its gate (settings + consent) is "ready". Whether the saved login is ok and not blocked is checked
     inside the booking (the `cred` refusal), never here. Orgs tried longest ago go first."""
     want_relogin: list[tuple[str, int]] = []
+    seen_live: set[str] = set()  # orgs found logged in this pass
+    if getattr(cfg, "slots", 1) <= 1:
+        forget_holders(cfg)
     if cfg.ext_connect:
         repo.ensure_sessions()  # a ready org (login ok + consent) gets its row; with EXT_CONNECT off nothing is asked for
     for row in repo.wanted():
@@ -390,9 +574,35 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             )
             continue
         port = cfg.accounts[account]
+        if getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
+            try:
+                taken = repo.chrome_taken_by_other(org, port)
+            except Exception:  # noqa: BLE001  (not known: this org is left as it is this pass, no login, no status written)
+                continue
+            if taken:  # one Chrome holds one Merimen login: never log it in as this org, never count it connected (plan #150)
+                repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
+                note(org, "shared_chrome", now)
+                continue
         profile = profile_dir(cfg.state_dir, account)
         argv = chrome_argv(cfg.chrome_bin, port, profile)
         info = inspect(port)  # ask the debugging port first: a Chrome that answers is never started again
+        if getattr(cfg, "slots", 1) > 1:
+            load_holders(cfg)
+            if holder_other(port, org):
+                # that Chrome holds the other org's session: never this org's, whatever its tab addresses say (egm r20)
+                repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
+                note(org, "shared_chrome", now)
+                continue
+            if port not in SESSION_HOLDER:
+                others = others_on_port(cfg, repo, org, port)
+                if others is None:
+                    continue  # not known this pass: this org is left as it is, no login, no status written
+                if others:
+                    # no record, and another org's login may sit in that Chrome (e.g. typed in at 1 slot): whose session it is
+                    # cannot be read, so nobody is counted connected or logged in there until each org has its own Chrome
+                    repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
+                    note(org, "shared_chrome", now)
+                    continue
         if info is None and not running(profile):  # nor one that holds the profile but is slow to answer
             t = now()
             if port not in _launched or t - _launched[port] >= LAUNCH_WAIT:
@@ -415,10 +625,17 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             if relogin and reason is None:
                 reason = "not_logged_in"  # a job found this session logged out: book a re-login whatever the tab address says
             elif not relogin:
-                FORCE_RELOGIN.pop(org, None)  # without re-login nobody acts on the mark: the address decides, as before
+                with SESSION_LOCK:
+                    FORCE_RELOGIN.pop(org, None)  # without re-login nobody acts on the mark: the address decides, as before
         status = next_status(row["status"] or "idle", reason is None)
         if reason is None:
-            keep(port)
+            seen_live.add(org)
+            if getattr(cfg, "slots", 1) > 1 and port not in SESSION_HOLDER:
+                _set_holder(port, org)  # the first org found logged in on this Chrome holds its session from now on
+            # the keep-alive script clicks "Continue session" in the first Merimen tab it finds; with slots that can be a running
+            # job's step tab, so it waits while the org has a Merimen step running (that step keeps the session in use anyway)
+            if not (getattr(cfg, "slots", 1) > 1 and busy_orgs and org in set(busy_orgs())):
+                keep(port)
             if relogin and row.get("status") != "connected" and not held(org, now):
                 # ends an open put-back streak, however Chrome was fixed. Not while held: a stale tab that counts as connected then
                 # must not end a failed re-login streak (that would book more password tries)
@@ -437,6 +654,27 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
 
                 reason = detail_for(org) or reason
         repo.set_session(org, status=status, wanted="start", account=account, port=port, detail=reason)
+    # a wait ends when its org was seen logged in this pass, or has no Merimen step running any more: a later logout starts a new
+    # 10-minute wait. An org this pass did not reach (its Chrome did not answer in time, its gate was not ready for a moment, a read
+    # failed) keeps its wait, so a busy Chrome that misses one answer never pushes the re-login back again (egm r12)
+    busy_now = set(busy_orgs() if busy_orgs else ())
+    for org in list(_busy_since):
+        if org in seen_live or org not in busy_now:
+            _busy_since.pop(org, None)
+    if relogin and want_relogin and getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
+        # asked again now that this pass wrote every org's port: an org that came first in the loop saw a sharer whose row had no
+        # port yet, and must not be logged into the Chrome its sharer owns (plan #150 I6)
+        kept = []
+        for org, port in want_relogin:
+            try:
+                if repo.chrome_taken_by_other(org, port):
+                    repo.set_session(org, status="waiting_login", wanted="start", account=account_for(org, cfg.accounts, cfg.org_accounts), port=port, detail="shared_chrome")
+                    note(org, "shared_chrome", now)
+                    continue
+            except Exception:  # noqa: BLE001  (not known: no login for it this pass)
+                continue
+            kept.append((org, port))
+        want_relogin = kept
     if relogin and want_relogin:
         # orgs tried longest ago first; a refused or throttled org hands the turn to the next one, so one stopped org never starves
         # the others. Still at most ONE real try per tick.
@@ -445,10 +683,22 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             order = repo.relogin_order([o for o, _ in want_relogin])
         except Exception:  # noqa: BLE001  (a DB error here must not abort the tick; the booking itself still decides)
             order = [o for o, _ in want_relogin]
+        busy = busy_now
+        for org in order:  # every logged-out org with a running step starts its 10-minute wait now, also one not reached below (egm r6)
+            if org in busy:
+                _busy_since.setdefault(org, now())
         for org in order:
-            got = relogin(org, ports[org])
+            if org in busy:
+                first = _busy_since.setdefault(org, now())
+                if now() - first < RELOGIN_BUSY_WAIT:
+                    note(org, "relogin_waits_for_jobs", now)
+                    continue  # its running jobs end first (a logged-out step ends quickly); no try is used
+            got = relogin(org, ports[org])  # a try that did not log in keeps the wait's start: the next try is not 10 min later (egm r8)
             if got in ("ok", "session_live"):
+                _busy_since.pop(org, None)
                 _lift(org)
+                with SESSION_LOCK:
+                    RELOGIN_OK[org] = now()
             # short waits, nothing typed: no hold. `cred` (the saved login is not ok, or could not be read) holds: a held org that still
             # meets the login form books the usual re-login, so a passing read error only costs one more booking, and one that works lifts it
             elif got not in (None, "pending", "db_error", "cooldown", "put_back"):
@@ -458,19 +708,23 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             if got in ("ok", "session_live"):
                 # logged in again: the mark goes. Any other answer (refused, put back, cooldown) keeps it until FORCE_TTL: a stale tab
                 # must not count as connected meanwhile, which would end a failed streak and book more password tries
-                FORCE_RELOGIN.pop(org, None)
+                with SESSION_LOCK:
+                    FORCE_RELOGIN.pop(org, None)
             if got in TRIED:
                 break
 
 
-def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic, forget_files=None, relogin_fetch=None) -> str | None:
+def housekeeping(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, fetch_page=None, master: bytes = b"", delete_blob=None, now=time.monotonic, relogin_fetch=None, busy_orgs=None, running_ids=None):
+    """Everything of one pass except the job: heartbeat, login check, reclaim, cleanup, session sync (and re-login), follow-up jobs.
+    Main thread only. Returns the re-login function (None when re-login is off). `busy_orgs()` -> orgs with a job running in this
+    process (WORKER_SLOTS > 1): their re-login waits a while (plan #150)."""
     _at("heartbeat")
     repo.heartbeat(cfg.worker_id, cfg.hf_repo, chrome_ok=True)
     if cfg.merimen_login and fetch_page and master:
         _at("claim_verify")
         verify_once(cfg, repo, fetch_page, master, now=now)
     _at("reclaim_stale")
-    repo.reclaim_stale(cfg.lease_seconds)
+    repo.reclaim_stale(cfg.lease_seconds, **({"running": running_ids()} if running_ids else {}))
     _at("cleanup")
     maybe_cleanup(cfg, repo, delete_blob)
     _at("session_sync")
@@ -485,17 +739,33 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
 
         retry_pending(cfg, repo)  # a try whose outcome write failed is written before anything else
 
-    sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep, now=now, relogin=relogin)
+    sync_sessions(cfg, repo, launch=launch, inspect=inspect, keep=keep, now=now, relogin=relogin, busy_orgs=busy_orgs)
     _at("followup_cases")
     for case, jobs in repo.followup_cases():
         if repo.gate(case["org_id"], env_on=cfg.ext_connect) != "ready":
             continue
         for step in followup_steps(case, jobs, writes=cfg.live_writes):
             repo.enqueue(case["id"], step)
+    return relogin
+
+
+def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic, forget_files=None, relogin_fetch=None) -> str | None:
+    """One pass with one job at a time (WORKER_SLOTS=1, the default): housekeeping, then claim one job and run it here."""
+    relogin = housekeeping(cfg, repo, launch=launch, inspect=inspect, keep=keep, fetch_page=fetch_page, master=master, delete_blob=delete_blob,
+                           now=now, relogin_fetch=relogin_fetch)
     _at("claim")
-    job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit)
+    # the fuse (a case_mismatch at any slot count) stops every later Merimen claim here too, until a restart (egm r17)
+    job = repo.claim(ext_connect=cfg.ext_connect and not case_guard.FUSE.is_set(), worker_id=cfg.worker_id, org_limit=cfg.org_limit)
     if not job:
         return None
+    return run_job(cfg, repo, job, inspect=inspect, namer=namer, driver=driver, download=download, page_for=page_for, put_blob=put_blob,
+                   side_check=side_check, now=now, forget_files=forget_files, relogin_ready=relogin is not None)
+
+
+def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Driver, download, page_for=None, put_blob=None, side_check=None, now=time.monotonic, forget_files=None, relogin_ready: bool = False) -> str:
+    """Run one claimed job to its end and write its outcome. With WORKER_SLOTS > 1 this runs in the job's own thread, with its own
+    repo, driver copy and Playwright connection (pool.py); the module state it shares with the main thread is changed under SESSION_LOCK."""
+    relogin = True if relogin_ready else None
     _at("job")
     case = repo.load(job["case_id"])
     if isinstance(case, dict) and job["step"] in PHASE_STEPS and hasattr(repo, "was_put_back"):
@@ -506,7 +776,11 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         except Exception:  # noqa: BLE001  (not known: the stricter way, a partial list stops for a person)
             case["resumed_after_logout"] = True
     login_seen.reset()
-    shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
+    case_guard.start(case.get("merimen_caseid"), job["id"])
+    shot_page = page_for or (lambda _o: None)
+    if getattr(cfg, "slots", 1) > 1 and page_for:  # never the home tab or another job's tab: only this job's own step tab
+        shot_page = lambda o: page_for(o, own_only=True)  # noqa: E731
+    shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=shot_page, put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
 
     def shoot(step: str) -> None:
@@ -550,7 +824,11 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
             # the create-case step (Phase A) reads these: the user's manager/adjuster, and the case's workshop (True locks it, False only looks)
             driver.profile = lambda: repo.profile_for(job["org_id"])
             driver.marks = lambda: repo.create_marks(job["case_id"])
-            driver.record = lambda cid, eid: repo.record_merimen_id(job["case_id"], cid, eid)
+            def _record(cid, eid):
+                case_guard.add(cid)  # from now on this job's step tabs may open only this new case
+                return repo.record_merimen_id(job["case_id"], cid, eid)
+
+            driver.record = _record
             driver.workshop = lambda lock: repo.claim_workshop_for_case(job["case_id"]) if lock else repo.peek_workshop_for_case(job["case_id"])
             # asked before every photo write in Merimen: Done must still be pressed on the same version of the names
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
@@ -565,14 +843,31 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
                     outcome.extra_events = list(side_check(case))[:4]
                 except Exception:  # noqa: BLE001
                     pass
+            if case_guard.mismatched():  # a click, redirect or popup of this job landed on another case (GPR-150-4 G3)
+                raise case_guard.CaseMismatch("case_mismatch")
             for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
                 shoot(step)
+        except case_guard.CaseMismatch:
+            # a step tab went (or was about to go) to ANOTHER Merimen case. Never retried by itself
+            case_guard.trip("case_mismatch")
+            outcome = _case_mismatch()
+            shoot("failed")
+        except case_guard.HomeTabWrite as e:
+            print(f"{threading.current_thread().name} job {job.get('id')} home_tab_write: {e}", file=sys.stderr, flush=True)
+            case_guard.trip("home_tab_write")
+            outcome = Outcome("failed", case_status="waiting_user", error="home_tab_write",
+                              event="Stopped: a step tried to change the logged-in Merimen tab. Nothing was done on it; a person checks this case")
         except Exception as e:  # noqa: BLE001
             _print_error(job, e)
-            outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event=WORKER_ERROR)
+            if case_guard.mismatched():  # the step failed AFTER a click or redirect took its tab to another case: that case decides
+                case_guard.trip("case_mismatch")
+                outcome = _case_mismatch()
+            else:
+                outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event=WORKER_ERROR)
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
+        case_guard.stop()
         keeper.__exit__(None, None, None)
         if forget_files:  # the job is over, done or failed: its own downloaded files leave this machine
             try:

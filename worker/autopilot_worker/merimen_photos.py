@@ -6,7 +6,9 @@ Reads (labels, verify) are always safe. upload / relabel / reorder only run when
 from __future__ import annotations
 
 import re
+import threading
 
+from . import case_guard
 from .merimen_create import CLAIMS, redact
 from .merimen_docs import DocError, MerimenPage
 from .photo_sync import NotPorted
@@ -14,6 +16,9 @@ from .photo_sync import NotPorted
 UPLOAD_PAGE = ("fusebox=SVCdoc&fuseaction=dsp_docupload&domainid=1&objid={cid}&corole=4&docclassid=2&maxno=250&picwidth=&picheight=&picfixort="
                "&BCO_FLAGMODE=ADD&BCOREAD=&BCOCONTROL=&SHOWLABEL=0&DEFAULTSEL=&nolayout=1")
 BATCH = 250
+# one Relabel/Reorder page at a time in this process (WORKER_SLOTS > 1): parallel relabel windows close each other's popups
+# (tools/batch/phase_b.py, batch 8). Reads and uploads are not held back.
+RELABEL_LOCK = threading.Lock()
 LABEL_RX = re.compile(r"\d+ \d\d/\d\d/\d\d \d\d:\d\d (.+?) Load JPG")
 
 
@@ -120,6 +125,7 @@ class RealPhotos:
                 popup = None
             if popup:
                 self.mp.tabs.append(popup)  # closed with the others, also when the step stops
+                case_guard.note_popup()  # its tab id is recorded now: the steps below act on the popup, not on the step tab
             target = popup or tab
             target.wait_for_timeout(self.mp.ms(2500))
             count = target.evaluate("()=>document.querySelectorAll('input[name^=ONM]').length")
@@ -133,6 +139,7 @@ class RealPhotos:
         raise DocError("no_photo_page")
 
     def _save(self, target) -> None:
+        case_guard.check(getattr(target, "url", "") or "")  # still this case's page right before the save
         target.evaluate("()=>{var b=[...document.querySelectorAll('input[type=button],button,input[type=submit]')].find(e=>/^\\s*Save\\s*$/i.test(e.value||e.innerText||''));if(b)b.click();}")
         target.wait_for_timeout(self.mp.ms(4500))
         for _ in range(3):
@@ -143,8 +150,13 @@ class RealPhotos:
 
     def relabel(self, case: dict, mapping: dict[str, list[str]]) -> None:
         cid, ext = self._ids(case)
+        with RELABEL_LOCK:
+            self._relabel_locked(cid, ext, mapping)
+
+    def _relabel_locked(self, cid: str, ext: str, mapping) -> None:
         try:
             target, _n = self._relabel_page(cid, ext)
+            case_guard.check(getattr(target, "url", "") or "")  # the popup is this case's photo page before anything is changed (egm r16)
             r = target.evaluate(
                 """(J)=>{const onm=[...document.querySelectorAll('input[name^=ONM]')];const bad=[];
                 for(const k in J){const e=onm[+k-1];if(!e){bad.push(k+':missing');continue;}if(e.value.trim()!==J[k][0]){bad.push(k+':differs');continue;}}
@@ -161,8 +173,13 @@ class RealPhotos:
 
     def reorder(self, case: dict, mapping: dict[str, list]) -> None:
         cid, ext = self._ids(case)
+        with RELABEL_LOCK:
+            self._reorder_locked(cid, ext, mapping)
+
+    def _reorder_locked(self, cid: str, ext: str, mapping) -> None:
         try:
             target, _n = self._relabel_page(cid, ext)
+            case_guard.check(getattr(target, "url", "") or "")  # the popup is this case's photo page before anything is changed (egm r16)
             r = target.evaluate(
                 """(J)=>{const rows=[...document.querySelectorAll('input[name^=ONM]')].map(o=>{const tr=o.closest('tr');return {o,sdo:tr.querySelector('input[name^=SDO]')}});const bad=[];
                 rows.forEach((x,i)=>{const k=String(i+1);if(!J[k]){bad.push(k+':no map');return;}if(x.o.value.trim()!==J[k][0])bad.push(k+':name');if(!x.sdo||+x.sdo.value!==i+1)bad.push(k+':order');});

@@ -65,11 +65,38 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 
 ## 队列
 
-领取见上一节。同一机构同时运行的 Merimen job 数量由 `ORG_CONCURRENCY` 限制（默认 1）。密码错误不退避、不重试。
+领取见上一节。同一机构同时运行的 job 数量由 `ORG_CONCURRENCY` 限制（不设时等于 `WORKER_SLOTS`）。密码错误不退避、不重试。队列没有上限。
+
+### 同时做几单（`WORKER_SLOTS`，计划 #150）
+
+- `WORKER_SLOTS=1`（默认）：一次一单，和以前一样（只有这几点不同：按案子上传顺序领；同一案子不同时跑两个 job；启动时关掉上次开槽位留下的步骤标签页；记下的步骤标签页不算会话标签页；同一个 state 文件夹或同一个 Chrome 上已有 worker 在跑时拒绝启动；打开写入且 `ORG_CONCURRENCY` 大于 1 时拒绝启动；会话同步找已登录地址时不算记下的步骤标签页；worker 自己启动的 Chrome 带三个后台不降速参数；保存的登录被判错误时只暂停排队中的 job）。`2` 到 `8`：一个 worker 进程同时跑这么多 job，每个 job 一个线程，自己的 Playwright 连接，每个 Merimen 步骤开自己的标签页（playbook 00「one tab per case」）。
+- 顺序：**先上传的案子先做**，包括它后面的步骤（`ORDER BY cases.created_at, cases.id, jobs.created_at, jobs.id`）。用户 1 先上传，用户 1 的案子先占满空位；用户 2 的照片模型可以用剩下的空位。
+- 同一个案子永远不会同时跑两个 job。
+- 一个 Chrome 只装一个 Merimen 登录（只在开槽位时检查）：几个有 Merimen 登录的机构共用同一个 Chrome 端口时，只有拥有它的机构能跑 Merimen 步骤：现在正有 Merimen 步骤在跑的机构优先（跑着的时候归属不会换，就算它保存的登录在这期间被锁、或者会话行丢了端口也一样），都没有或都有时，第一个（未删除）案子最早的那个（还没有案子的排最后，时间一样按机构 id；做完的案子也算，所以实际上第一个机构一直拥有）；别的机构不会被自动登录到这个 Chrome（会话 `waiting_login`，detail `shared_chrome`），登录检查也跳过它（不输入密码、不算一次尝试；只要这个 Chrome 上已经有别的机构，不管谁拥有，新保存的登录都不在这里检查，免得碰上别人还活着的会话就算通过；别的机构的会话行还没写端口时（刚启动，端口在登录检查之后才写），只要配置会把它放到这个 Chrome（只有这一个 Chrome，或者 `WORKER_ORG_ACCOUNTS` 把它对到这个端口）就算在这个 Chrome 上，等它有了端口再说；用别的 Chrome 的机构不会挡住这里；领 job 和会话同步对「没有端口但有 Merimen 步骤在跑」的机构也用同一条配置规则）；会话已停止（stopped）的机构会话行还留着旧端口，但只在它还有 Merimen 步骤在跑时才算在这个 Chrome 上，跑完就把 Chrome 让出来），它的 Merimen 步骤一直排队，直到它有自己的 Chrome 配置（`WORKER_ACCOUNTS` + `WORKER_ORG_ACCOUNTS`）。不会把一个用户的案子写进另一个用户的 Merimen 账号。
+- 建新案子（Phase A 第 1 步，约 1 分钟）一次只建一个：一个案子还在建的时候不领另一个还没有 Merimen 案号的 Phase A（不占槽位干等）；它建完（锁放开）就可以领下一个，它自己的 Adjuster Report、文件、照片接着和下一个建案同时跑。已经有案号的 Phase A（从报告开始重跑）不排这个队。万一撞上锁，最多等 10 分钟，然后放回队列 60 秒后再试（Merimen 里什么都还没做；不算一次尝试，案子的 error 和状态不变，也不算登出，时间线只写「Waiting for another case to be created in Merimen first」）。
+- 这个进程还在跑的 job，租约过期（比如数据库断开超过 15 分钟）也不会被放回队列或改成 `failed`：放回租约的那一步跳过它们，正在跑的线程继续续租。保存的登录被判为错误时，只暂停这个机构排队中的 job，不暂停正在跑的（它按自己的结果收尾；登录被锁期间本来就领不到 Merimen 步骤），不然恢复后会再跑一次。同一个 job 也不会在一个进程里同时跑两次：它的槽位已经写完结果、还在关标签页时又被领到，就马上放回队列（30 秒后，不算一次尝试）。
+- 每个 job 的标签页只能打开它自己的 Merimen 案子：地址里的 `caseid=`（文件、照片、Relabel/Reorder 页面是 `fuseaction=dsp_doc…` 加 `objid=`）不是这个案子的（已存的案号，或者建案时刚记下的案号），步骤在打开之前就停下；点击、表单提交或跳转落到别的案子上，这个标签页的下一个页面级动作（`page.click`、`page.locator(...)`、等待）就停下；步骤手里已经拿着的 locator 或弹出窗口里的动作会先做完再停。标签页和它的弹出窗口每次跳转都会被看着：落到别的案子上，就算步骤之后报了普通错误（超时），job 也按 `case_mismatch` 结束，不会重试。stderr 写一行 `slot-N job <id> case_mismatch`，job 改为 `failed`，案子 `waiting_user`、error `case_mismatch`，等人看（适配器里的 `except Exception` 吞不掉它）。还没有案号的建案步骤不检查。
+- 谁的登录在这个 Chrome 里（egm r17，`WORKER_SLOTS` > 1）：worker 在状态文件夹的 `chrome_holder.json` 里记下每个端口当前登录的是哪个用户（第一个在那里被看到已登录、并且可以跑的用户）。记录是别的用户时，这个端口上的用户不算已连接、不重新登录、不检查新登录（`shared_chrome`），就算它现在是 Chrome 的主人也一样。记录一旦写下，worker 不会自己清掉（egm r20）：标签页的地址不能证明 Chrome 里没有还活着的登录（比如一个关不掉的步骤标签页，或者地址里没有登录标记的页面）。要把一个 Chrome 换给别的用户，就给那个用户配自己的 Chrome profile（`WORKER_ACCOUNTS` + `WORKER_ORG_ACCOUNTS`）。没有记录时，只有在没有别的用户可能登录过这个 Chrome（没有别的用户有会话记录或保存的登录、并且对应到这个端口）时才写记录；否则这个端口上谁都不算已连接、不重新登录、不检查新登录（`shared_chrome`），先保证不会写进别人的账号。`WORKER_SLOTS=1` 时这个记录不更新，所以 1 个槽的 worker 第一轮就把文件删掉；以后再开多个槽，会像第一次启动一样重新记录。
+- 保险丝（egm r16）：这个进程里第一次出现 `case_mismatch` 或 `home_tab_write` 之后，worker 不再领任何 Merimen 步骤（领 job 时当作 `EXT_CONNECT` 关），stderr 写一次 `merimen fuse: <原因>`，直到有人重启 worker。别的 job 正在跑的步骤会跑完。步骤自己驱动的弹出窗口（上传文件、Relabel/Reorder 页面）在选文件、开始上传、改名和保存之前都会再查一次地址。
+- Relabel/Reorder 页面整个进程一次只开一个（`merimen_photos.RELABEL_LOCK`）：同时开的改名窗口会互相关掉对方的弹窗（手工流程 batch 8 出过）。读照片、上传不受影响。这个页面的弹出窗口一拿到就记下它的标签页 id（上传文件的弹窗、建案时找工作坊的弹窗也一样），所以中途停掉 worker 也不会留下一个认不出的标签页。
+- 主标签页只读（白名单）：步骤只能读 `url`、`is_closed`，以及用 `context.new_page()` 开自己的标签页；其它一切（goto、click、locator、keyboard、frames、`context.pages`、`context.close` …）都报 `home_tab_write`，job 改为 `failed`，案子 `waiting_user`，等人看。
+- 会话标签页：开槽位时，记下的步骤标签页和由它们一层层弹出的窗口不算；其它标签页都算（人从主标签页点开的弹出窗口也算，两个就是 `several_tabs`）。`WORKER_SLOTS=1` 时弹出窗口照旧算标签页。只剩步骤标签页 = 已登出。步骤标签页弹出的窗口（和它们再弹出的）都记在这个 job 名下，job 结束时一起关掉，步骤自己先关了标签页也一样；它们的 id 在步骤下一次用标签页时读出来，也写进 `step_tabs.json`（worker 被 kill 也不会留下一个被当成主标签页的弹出窗口）。
+- 有 Merimen 步骤（Phase A、Phase B；`checks` 只是在等，不算）在跑的机构不跑 worker 自己的 keepalive（`cdp.mjs continue`，步骤自己就让会话保持活跃），所以它不会点到步骤标签页。`~/mrm-bot/keepalive.mjs`（CLAUDE.md：必须一直开着）也只按看得见的「Continue Session」按钮，点到步骤标签页上也只是保持会话，不会把标签页带去别的地方，照旧开着。一个卡住的步骤会让这个机构的 keepalive 一直停着，看 `still running` 那一行。
+- 开槽位时每个 job 在 stdout 写两行：`slot-N job <id> <step> start <时间>` 和 `slot-N job <id> <step> end <时间> after <秒> s`，试运行看两个案子是否同时在跑就看这两行。
+- 截图（开槽位）：只截 job 自己还开着的标签页（显示的就是这个案子）；没有开着的、或者这个 job 的标签页跳到过别的案子，就不截，stderr 写一行 `screenshot skipped`。从不截主标签页、从不截别的 job 的标签页。
+- 照片模型（DINOv2 在 CPU 上）一次只跑一个。
+- job 里发现 Merimen 登出：这个机构不再领新的 Merimen 步骤，等重新登录；重新登录等这个机构正在跑的 Merimen 步骤结束，最多等 10 分钟（`session_lost: relogin_waits_for_jobs`）；某一轮看到会话自己恢复了、步骤都结束了、或者重新登录成功，这次等待就作废（某一轮没连上这个 Chrome、gate 一时没准备好、读数据库失败，等待照样算下去，不会重新开始），下次登出重新等 10 分钟；等完之后一次没登上的尝试（冷却、放回等）不会重新开始 10 分钟，下一轮可以再试。几个 job 同时撞到同一次登出（2 分钟内、中间没有成功的重新登录）只算一次登出。
+- 一个 job 跑超过 `WORKER_JOB_MAX_SECONDS`（默认 30 分钟，最少 600 秒）：只在 stderr 写一行提醒（`slot job … still running after <上限> s`，写的是上限，不是已经跑了多久；APC bot 每小时 grep 一次），它继续占着自己的槽位和租约，不会被切断、也不会被再跑一次（Merimen 里的步骤可能会做两次）。其它槽位照常干活。领一次 job 超过 2 秒，stderr 写一行 `slow claim <秒数> s`（排队的 job 越多领得越慢，比数据库超时早很多就能看到，也在每小时的 grep 里）。job 结束时关自己的标签页，但绝不关 Chrome 的最后一个标签页（关了整个窗口就没了）：那个标签页留着、继续记着，下次启动时它不是最后一个了再关。卡住的是建案（`phase_a`，案子还没有 Merimen 案号）时，新的建案都会等它：没有别的 job 在建案时重启 worker；重启是安全的（「按过 Next」标记会让重跑停下等人，不会建第二个）。
+- 从日志里的 job id 找到案子（只在 Neon 里查，日志不写案子和机构）：`SELECT j.id, j.step, c.id AS case_id, c.org_id, c.plate FROM jobs j JOIN cases c ON c.id = j.case_id WHERE j.id = <job id>;`
+- driver 的每个属性都要写进 `pool.SHARED`（所有槽位共用，线程安全）或 `pool.PER_JOB`（每个 job 重新设置）；有新属性没写进去，测试会失败。
+- 停止（SIGTERM）：不再领新 job（收到信号时正在领的那个也马上放回队列，不开始），正在跑的最多再等 `WORKER_STOP_SECONDS`（默认 80 秒，最多 85 秒，从收到信号算起），还没完的被切断，随进程结束，租约到期（900 秒）回到队列，再跑时从已经保存的地方接着做（建案靠「按过 Next」标记，绝不建第二个；报告重新填；文件和照片跳过 Merimen 已有的，读不全清单就停下等人，不会传两次）。停止信号如果在重新登录那一步（最多一分钟）里到，要等那一步做完才算，所以可能超过 85 秒，管进程的工具会直接 kill，结果一样是切断。Phase A 要几分钟，所以想不切断，就在每个槽位日志最后一行都是 `end` 时再重启。管进程的工具给的停止时间要比它长：systemd 默认 90 秒够；pm2 要加 `--kill-timeout 90000`；`kill` 只发 TERM，然后等 90 秒再看。
+- 每个槽位多一个 Playwright 连接（node 进程）和一个 Chrome 标签页。先开 2，看机器内存（Chrome + worker 的 RSS）再开 3；最多 8。启动时 stdout 打印 `worker slots: N, jobs per org: M`；env 里只要有写了数字的 `ORG_CONCURRENCY` 这一行，它就盖过默认值（空的 `ORG_CONCURRENCY=` 不算）：写成 1，同一个用户还是一次一单。开槽位之前把这一行删掉，启动行要显示 `jobs per org: N`（N = 槽位数）。
+- 一个 state 文件夹只跑一个 worker 进程（同一个案子不同时跑两个 job，这一点只在一个进程里保证）：每个 worker（不管开不开槽位）启动时锁住 `<state>/worker_slots.lock`，再按它用的每个 Chrome 端口锁住 `autopilot-worker-chrome-<port>.lock`（在 `WORKER_LOCK_DIR`，默认临时文件夹；同一台机器上的所有 worker 要看到同一个文件夹，不要开 systemd 的 `PrivateTmp`；用容器（Docker、Fly）时，除非这个文件夹是共享挂载，否则不支持开槽位），第二个（同一个 state 文件夹或同一个 Chrome）就拒绝启动，报错里写出被占住的那个锁文件（不然它启动时会关掉第一个的步骤标签页）；进程结束（包括被 kill）锁自动放开；锁文件本身打不开（例如临时文件夹里有别的用户建的同名文件）时，启动报 `cannot open the worker lock file …`，不是「另一个 worker 在跑」，把 `WORKER_LOCK_DIR` 设到这个用户自己的文件夹。不开槽位、打开写入且 `ORG_CONCURRENCY` 大于 1：启动时就拒绝（每个 job 的 `concurrency_unsafe` 还留着当第二道保险）。
+- 步骤开的标签页 id 记在 `<state>/step_tabs.json`；job 结束时关掉自己的；重启时按 id 关掉上次留下的（`WORKER_SLOTS=1` 也关，回滚之后不会因为旧标签页变成 `several_tabs`；Chrome 里已经没有的 id 直接删掉），从不关主标签页、从不关窗口的最后一个标签页。
 
 「稍后再试」（Merimen 读不到、没有已登录标签页、表单打不开等）：job 放回队列时写 `jobs.not_before = now() + backoff_seconds(attempts)`，到时间才会再被领取。顺序是：第 1 次 → 等 30 秒 → 第 2 次 → 等 2 分钟 → 第 3 次 → 等 10 分钟 → 第 4 次；**第 4 次还是不行才改为 `failed`**：时间线多一行「Stopped after 4 tries …」，案子的 `error` 写上原因，案子状态不变。另外两种情况仍是第 3 次被领取为止：worker 自己出错（前两次按上面的等待放回，第 3 次改为 `failed`）和租约过期（放回时不等待）。三种情况共用同一个 `attempts` 计数（每被领取一次加一）。不需要迁移（`not_before` 来自 0007）。
 
-一个 worker 可以开多份 Chrome 配置（`WORKER_ACCOUNTS=default:9222,b:9223`），一份配置一个 Merimen 登录。多台机器共用同一个 Neon，各领各的 job。
+一个 worker 可以开多份 Chrome 配置（`WORKER_ACCOUNTS=default:9222,b:9223`），一份配置一个 Merimen 登录。多台机器共用同一个 Neon，各领各的 job，但只在每台都是 `WORKER_SLOTS=1` 时；开槽位时只跑一台机器（同一个案子不同时跑两个、一次只建一个案子，这两条只在一个进程里保证，没有自动检查）。
 
 ## Chrome
 
@@ -131,7 +158,7 @@ Worker 用本机 Chrome 里已登录的 Merimen 标签页（Playwright 连本机
 
 **已知限制（建案子）**：
 - 选择器没在真实网站上验证过，APC bot 的演练就是验证；演练通过标准写在 `/mnt/project-files/merimen-login/APC-BOT-ADDENDUM-3-create-case.md`，没过标准不开写入开关。
-- 一次只建一个：真保存时 `ORG_CONCURRENCY` 必须是 1（大于 1 直接拒绝，错误码 `concurrency_unsafe`）。「按过 Next」标记用事务里的 advisory lock 加条件写入，第二个 worker 拿不到标记就到不了 Next。
+- 一次只建一个：同一个 worker 进程里建案子这一步用锁排队（`WORKER_SLOTS` 大于 1 也一样，计划 #150）。「按过 Next」标记用事务里的 advisory lock 加条件写入，第二个 worker 拿不到标记就到不了 Next。
 - Next 之前不会去 worklist 搜重复；Merimen 只在 1 天内有进行中的案子时才弹重复警告。出现 `create_unclear` / `duplicate_warning` / `unexpected_dialog` 都要先在 worklist 搜车牌。
 - 「预计费用」固定选 `10,000 - 12,500`（和主人的脚本一样）；创建时还不知道撞击方向，损失描述先用中性文字。
 - 点 OK 只点保险公司 API 提示和积分框（有白名单）；任何别的框、任何在问问题的框都不点，案子停下。

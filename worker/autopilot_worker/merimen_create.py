@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass, field
 from urllib.parse import urlencode, parse_qs, urlparse
 
+from . import case_guard
 from .create_spec import Spec, fmt_ic
 from .pick_model import pick
 
@@ -248,6 +249,7 @@ class MerimenCreate:
                 with cur.expect_popup(timeout=8000) as pi:
                     cur.locator("#MTRworkshopbtn").click(force=True, timeout=6000)
                 pop = pi.value
+                case_guard.note_popup()  # the create works in this popup: record its tab id now
                 pop.on("dialog", self._dialog)
             except Exception:  # noqa: BLE001
                 rep.problems.append("workshop_popup")

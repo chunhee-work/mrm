@@ -12,6 +12,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
+from . import case_guard
 from .merimen_create import CLAIMS, redact, session_query
 
 DOC_VIEW = "fusebox=MTRdoc&fuseaction=dsp_docview&domainid=1&objid={cid}&extid={ext}&corole=4"
@@ -74,6 +75,13 @@ def shrink(path: str) -> str:
     os.makedirs(folder, mode=0o700, exist_ok=True)
     os.chmod(folder, 0o700)
     dest = os.path.join(folder, os.path.basename(path))
+    from .mupdf import LOCK
+
+    with LOCK:  # PyMuPDF is not thread-safe: one slot renders at a time (WORKER_SLOTS > 1)
+        return _shrink(fitz, path, dest)
+
+
+def _shrink(fitz, path: str, dest: str) -> str:
     src = fitz.open(path)
     try:
         for dpi in DPIS:
@@ -236,12 +244,14 @@ def _upload_one(mp: MerimenPage, case_id: str, ext_id: str, path: str, label: st
         with tab.expect_popup(timeout=mp.ms(8000)) as info:
             tab.get_by_role("button", name=re.compile("Upload Documents", re.I)).first.click(force=True, timeout=mp.ms(6000))
         popup = info.value
+        case_guard.note_popup()  # the step works in this popup: record its tab id now, not at the next use of the step tab
     except Exception as e:  # noqa: BLE001
         mp.close_tab(tab)
         raise DocError("no_upload_popup") from e
     try:
         popup.on("dialog", lambda d: d.accept())
         popup.wait_for_timeout(mp.ms(2000))
+        case_guard.check(getattr(popup, "url", "") or "")  # the popup is this case's upload page, checked before anything is put in it (egm r16)
         popup.locator("input[type=file]").first.set_input_files(path)
         popup.wait_for_timeout(mp.ms(2500))
         ok = popup.evaluate(
@@ -253,6 +263,7 @@ def _upload_one(mp: MerimenPage, case_id: str, ext_id: str, path: str, label: st
         )
         if not ok:
             raise DocError("upload_form_unexpected")  # no "Other" type or no description box: never upload with an empty type (silent failure)
+        case_guard.check(getattr(popup, "url", "") or "")  # still this case's page right before the upload starts
         try:
             popup.get_by_role("button", name=re.compile("Start upload", re.I)).first.click(force=True, timeout=mp.ms(3000))
         except Exception:  # noqa: BLE001

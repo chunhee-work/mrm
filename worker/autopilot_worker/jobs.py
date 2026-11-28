@@ -12,6 +12,42 @@ JOIN cases c ON c.id = j.case_id
 WHERE j.state = 'queued'
   AND c.deleted_at IS NULL -- a case the user deleted (migration 0015) is never picked up
   AND (j.not_before IS NULL OR j.not_before <= now())
+  -- never two jobs of one case at the same time (WORKER_SLOTS > 1, plan #150). Race-free inside one worker process (it claims
+  -- one job at a time), several processes with slots are not a supported setup (README)
+  AND NOT EXISTS (SELECT 1 FROM jobs j5 WHERE j5.case_id = j.case_id AND j5.state = 'running')
+  -- a create (Phase A of a case with no Merimen case yet) runs one at a time in this process: while one runs, no other is taken, so
+  -- no slot sits waiting for it (WORKER_SLOTS > 1, GPR-150-3 G2)
+  AND NOT (%(no_create)s AND j.step = 'phase_a' AND c.merimen_caseid IS NULL)
+  AND (
+    j.step NOT IN ('phase_a', 'checks', 'phase_b')
+    OR (
+      -- an org whose Merimen work this process holds back (a logout found in a job, a re-login on its way): no new Merimen step
+      NOT (c.org_id = ANY(string_to_array(%(skip_orgs)s, ',')))
+      -- one Chrome holds ONE Merimen login (one_chrome = WORKER_SLOTS > 1, this worker's own Chrome). When several orgs with a saved login share a Chrome port, only the org whose first case
+      -- came first uses it, the others' Merimen steps wait until they have their own Chrome profile (WORKER_ACCOUNTS +
+      -- WORKER_ORG_ACCOUNTS), so a case is never written into another user's Merimen account
+      AND (NOT %(one_chrome)s OR NOT EXISTS (
+        SELECT 1 FROM worker_sessions s0
+        JOIN worker_sessions s6 ON s6.org_id <> s0.org_id
+        WHERE s0.org_id = c.org_id AND s0.port IS NOT NULL
+          -- another org on this Chrome: its row has this port, or it lost the port (gate) while a Merimen step of it still runs
+          -- (only when the config gives that org this Chrome: one_port = the only Chrome, org_ports = 'org:port' pairs, egm r12)
+          AND (s6.port = s0.port OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || s0.port::text) = ANY(string_to_array(%(org_ports)s, ',')))
+               AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+          -- a stopped user takes part only while a Merimen step of it still runs (its row keeps the old port for good, egm r13)
+          AND (s6.status IS DISTINCT FROM 'stopped' OR EXISTS (SELECT 1 FROM jobs jt6 JOIN cases jt6c ON jt6c.id = jt6.case_id WHERE jt6c.org_id = s6.org_id AND jt6.state = 'running' AND jt6.step IN ('phase_a', 'phase_b')))
+          -- that org takes part when its saved login is ok or still being checked (an owner that saves its login again keeps its
+          -- place, so the other org never takes over a Chrome that holds the owner's session, egm r10), or while a Merimen step of it
+          -- runs (a login blocked under a running step never hands the Chrome to another org before that step ends)
+          AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
+               OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
+          -- the owner: an org with a Merimen step running now first (ownership never moves under running work), then the first
+          -- non-deleted case first (an org without one comes last), ties by org id
+          AND (NOT EXISTS (SELECT 1 FROM jobs jr6 JOIN cases jr6c ON jr6c.id = jr6.case_id WHERE jr6c.org_id = s6.org_id AND jr6.state = 'running' AND jr6.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id AND c7.deleted_at IS NULL), 'infinity'), s6.org_id)
+            < (NOT EXISTS (SELECT 1 FROM jobs jr8 JOIN cases jr8c ON jr8c.id = jr8.case_id WHERE jr8c.org_id = c.org_id AND jr8.state = 'running' AND jr8.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c8.created_at) FROM cases c8 WHERE c8.org_id = c.org_id AND c8.deleted_at IS NULL), 'infinity'), c.org_id)
+      ))
+    )
+  )
   AND (
     SELECT count(*)::int FROM jobs j2
     JOIN cases c2 ON c2.id = j2.case_id
@@ -76,11 +112,14 @@ WHERE j.state = 'queued'
       AND EXISTS (SELECT 1 FROM ext_consents k WHERE k.org_id = c.org_id)
     )
   )
-ORDER BY j.created_at
+-- the case uploaded first goes first, with all its later steps: each claim takes the earliest claimable case, so user 1's cases go
+-- first, and with free slots another user's case can start while user 1's case waits on a Chrome or the create lock (owner 2026-11-28)
+ORDER BY c.created_at, c.id, j.created_at, j.id
 FOR NO KEY UPDATE OF j, c SKIP LOCKED
 LIMIT 1
 )
-RETURNING id, case_id, step, attempts, (SELECT c3.org_id FROM cases c3 WHERE c3.id = jobs.case_id)
+RETURNING id, case_id, step, attempts, (SELECT c3.org_id FROM cases c3 WHERE c3.id = jobs.case_id),
+  (SELECT c9.merimen_caseid IS NULL FROM cases c9 WHERE c9.id = jobs.case_id)
 """
 
 WS_GATE = """-- owner 2026-11-29: with two or more workshops the user confirms the case's workshop once (migration 0019) before Phase A.
@@ -115,8 +154,59 @@ CLAIM_SQL = _CLAIM_TEMPLATE.replace("{ws_gate}", "\n      ".join(WS_GATE.strip()
 CLAIM_SQL_NO_WORKSHOPS = _CLAIM_TEMPLATE.replace("{ws_gate}", "")
 
 
-def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker") -> dict:
-    return {"merimen": ext_connect, "org_limit": int(org_limit), "worker": worker_id}
+# Another org with a verified Merimen login (or a Merimen step running) shares this org's Chrome port and has a Merimen step running (or, when neither or both
+# have one, its first non-deleted case came earlier): that org "owns" the
+# Chrome (one Chrome holds one Merimen login). Used by the claim (above, inline) and by the session sync (no re-login for this org,
+# so the Chrome is never switched to this org's Merimen account under the owner's running cases). %(org)s = this org, %(port)s =
+# the Chrome port this pass gives it (from the config, not the stored row, which can still be NULL).
+CHROME_TAKEN_SQL = """
+SELECT EXISTS (
+  SELECT 1 FROM worker_sessions s6
+  WHERE s6.org_id <> %(org)s
+    AND (s6.port = %(port)s OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || %(port)s::text) = ANY(string_to_array(%(org_ports)s, ',')))
+         AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+    AND (s6.status IS DISTINCT FROM 'stopped' OR EXISTS (SELECT 1 FROM jobs jt6 JOIN cases jt6c ON jt6c.id = jt6.case_id WHERE jt6c.org_id = s6.org_id AND jt6.state = 'running' AND jt6.step IN ('phase_a', 'phase_b')))
+    AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
+         OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
+    AND (NOT EXISTS (SELECT 1 FROM jobs jr6 JOIN cases jr6c ON jr6c.id = jr6.case_id WHERE jr6c.org_id = s6.org_id AND jr6.state = 'running' AND jr6.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id AND c7.deleted_at IS NULL), 'infinity'), s6.org_id)
+      < (NOT EXISTS (SELECT 1 FROM jobs jr8 JOIN cases jr8c ON jr8c.id = jr8.case_id WHERE jr8c.org_id = %(org)s AND jr8.state = 'running' AND jr8.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c8.created_at) FROM cases c8 WHERE c8.org_id = %(org)s AND c8.deleted_at IS NULL), 'infinity'), %(org)s::text)
+)
+"""
+
+
+# Another org already takes part on this Chrome port (its session row has the port and its saved login is ok, or a Merimen step of
+# it runs). A NEW saved login is never checked on such a Chrome (WORKER_SLOTS > 1): the check would find the other org's live session
+# and pass without testing this password, and this org could then become the owner of a Chrome that holds the other's account.
+CHROME_USED_SQL = """
+SELECT EXISTS (
+  SELECT 1 FROM worker_sessions s6
+  WHERE s6.org_id <> %(org)s
+    -- a row with no port yet (a fresh start: the session sync writes ports after the login check; a gate not ready) counts when the
+    -- config would give that org THIS Chrome (one_port = the only Chrome, where every org goes; org_ports = 'org:port' pairs), so
+    -- the check waits until that row has its port (egm r8), and a portless user of another Chrome never blocks this one (egm r11)
+    AND (s6.port = %(port)s OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || %(port)s::text) = ANY(string_to_array(%(org_ports)s, ',')))))
+    AND (s6.status IS DISTINCT FROM 'stopped' OR EXISTS (SELECT 1 FROM jobs jt6 JOIN cases jt6c ON jt6c.id = jt6.case_id WHERE jt6c.org_id = s6.org_id AND jt6.state = 'running' AND jt6.step IN ('phase_a', 'phase_b')))
+    AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
+         OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
+)
+"""
+
+
+def port_map(accounts: dict, org_accounts: dict) -> dict:
+    """The config's Chrome per org, for the ownership SQL's rows that have no port yet (egm r11, r12): one_port = there is one
+    Chrome profile (every org goes to it), org_ports = 'org:port' for each org WORKER_ORG_ACCOUNTS maps to a known profile."""
+    pairs = [f"{o}:{int(accounts[a])}" for o, a in (org_accounts or {}).items() if a in (accounts or {}) and "," not in str(o)]
+    return {"one_port": len(accounts or {}) <= 1, "org_ports": ",".join(pairs)}
+
+
+def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker", skip_orgs=(), one_chrome: bool = False,
+                 no_create: bool = False, ports: dict | None = None) -> dict:
+    """skip_orgs: orgs whose Merimen steps are not taken now (loop.paused_orgs). Org ids never hold a comma (they are generated ids).
+    one_chrome (WORKER_SLOTS > 1): the one-login-per-Chrome-port rule; off, the claim is as before #150 for Merimen steps.
+    no_create: a create is running in this process, so no other Phase A of a case without a Merimen case is taken now."""
+    skip = ",".join(str(o) for o in skip_orgs if o and "," not in str(o))
+    return {"merimen": ext_connect, "org_limit": int(org_limit), "worker": worker_id, "skip_orgs": skip, "one_chrome": bool(one_chrome),
+            "no_create": bool(no_create), **(ports or {"one_port": True, "org_ports": ""})}
 
 
 # The case line the worker writes when it crashed on a job (our fault). The web app's delete rule matches it exactly
@@ -129,6 +219,8 @@ RECLAIM_SQL = """
 WITH moved AS (
 UPDATE jobs SET state = CASE WHEN attempts >= %s THEN 'failed' ELSE 'queued' END, locked_by = NULL, locked_at = NULL
 WHERE state = 'running' AND (locked_at IS NULL OR locked_at < now() - (%s || ' seconds')::interval)
+  -- a job this worker process still runs keeps its row, however long the DB was away (WORKER_SLOTS > 1, plan #150 I2)
+  AND NOT (id::text = ANY(string_to_array(%s, ',')))
 RETURNING id, case_id, step, state
 ), lost AS (
 INSERT INTO case_events (case_id, step, message) SELECT case_id, step, '""" + WORKER_ERROR + """' FROM moved WHERE state = 'failed'
@@ -137,4 +229,9 @@ SELECT id FROM moved
 """
 
 # The worker that holds a job renews the lease. A renewal for a job another worker has since taken matches nothing.
+# A claim of a job this process still has in a slot (it wrote its outcome and is still closing its tabs) is undone: queued again in
+# 30 s, its try not counted (plan #150 I2)
+GIVE_BACK_SQL = ("UPDATE jobs SET state = 'queued', locked_by = NULL, locked_at = NULL, attempts = GREATEST(attempts - 1, 0), "
+                 "not_before = now() + interval '30 seconds' WHERE id = %s AND state = 'running' AND locked_by = %s RETURNING id")
+
 TOUCH_SQL = "UPDATE jobs SET locked_at = now() WHERE id = %s AND state = 'running' AND locked_by = %s RETURNING id"

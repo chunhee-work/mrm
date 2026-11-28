@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import time
@@ -114,7 +115,7 @@ class HttpDb:
                     self._sleep(0.5 * (n + 1))
                     continue
                 raise DbError(str(detail.get("message") or f"http {e.code}"), detail.get("code")) from None
-            except (urllib.error.URLError, TimeoutError, OSError):
+            except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException, ValueError):  # also a cut-off or broken body
                 if n + 1 < attempts:
                     self._sleep(0.5 * (n + 1))
                     continue
