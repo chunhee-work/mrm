@@ -13,11 +13,11 @@ export async function orgWorkshops(orgId: string): Promise<Workshop[]> {
 }
 
 /** The workshop a case belongs to (1 when nothing was chosen) and whether the worker already fixed it. */
-export async function caseSlot(caseId: string): Promise<{ slot: number; locked: boolean; fixed: boolean }> {
+export async function caseSlot(caseId: string): Promise<{ slot: number; locked: boolean; fixed: boolean; confirmed: boolean }> {
   try {
-    const [r] = await db.select({ slot: schema.merimenCaseWorkshop.slot, lockedAt: schema.merimenCaseWorkshop.lockedAt, lockedName: schema.merimenCaseWorkshop.lockedName }).from(schema.merimenCaseWorkshop).where(eq(schema.merimenCaseWorkshop.caseId, caseId)).limit(1);
-    return { slot: r?.slot ?? 1, locked: !!r?.lockedAt, fixed: !!r?.lockedAt && !!r?.lockedName };
-  } catch (e) { if (missingRelation(e)) return { slot: 1, locked: false, fixed: false }; throw e; }
+    const [r] = await db.select({ slot: schema.merimenCaseWorkshop.slot, lockedAt: schema.merimenCaseWorkshop.lockedAt, lockedName: schema.merimenCaseWorkshop.lockedName, confirmedAt: schema.merimenCaseWorkshop.confirmedAt }).from(schema.merimenCaseWorkshop).where(eq(schema.merimenCaseWorkshop.caseId, caseId)).limit(1);
+    return { slot: r?.slot ?? 1, locked: !!r?.lockedAt, fixed: !!r?.lockedAt && !!r?.lockedName, confirmed: !!r?.confirmedAt };
+  } catch (e) { if (missingRelation(e)) return { slot: 1, locked: false, fixed: false, confirmed: false }; throw e; }
 }
 
 /**

@@ -1,5 +1,5 @@
 "use client";
-import WorkshopPicker, { type WorkshopOpt } from "@/components/app/workshop-picker";
+import { WorkshopChoice, type WorkshopOpt, type WorkshopState } from "@/components/app/workshop-picker";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { needsUser } from "@/lib/ext/login-state";
@@ -40,8 +40,7 @@ export type CaseDetail = {
   cred?: Cred | null;
   credConfigured?: boolean;
   workshops?: WorkshopOpt[]; // the account's workshops (a choice is shown from two on)
-  workshopSlot?: number; // the one this case belongs to
-  workshopLocked?: boolean; // already made in Merimen: shown, not changeable
+  workshop?: WorkshopState; // the one this case belongs to; whether it still asks for Confirm or is fixed
   shots?: Shot[] | null; // null: flag off, table not there yet, or not the submitter
   sameCount?: number; // other cases of this org with the same plate (R2-U02)
   createdAt?: string;
@@ -84,18 +83,6 @@ export default function CaseView({ c }: { c: CaseDetail }) {
 
   // pending_doc is not retried here: the same files would give the same missing list (an add-documents flow comes later)
   const canRetry = c.status === "failed" && !userFixable(c.error);
-
-  const [wsBusy, setWsBusy] = useState(false);
-  const [wsErr, setWsErr] = useState(false);
-  async function moveTo(slot: number) {
-    setWsBusy(true); setWsErr(false);
-    try {
-      const r = await fetch(`/api/cases/${c.id}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop: slot }) });
-      if (!r.ok && r.status !== 409) setWsErr(true); // 409 = too late: the refresh below shows the case as locked
-    } catch { setWsErr(true); }
-    setWsBusy(false);
-    router.refresh();
-  }
 
   // "Read again": the answer only comes when the read is over, which can take minutes. Until then the page keeps looking at
   // the case itself (the fast poll above): once the server shows it as being read, the page follows the case, not the request.
@@ -304,12 +291,9 @@ export default function CaseView({ c }: { c: CaseDetail }) {
     <>
       {Header()}
       <div className="border-b border-hair px-5 py-3 sm:px-8"><CaseSteps caseId={c.id} status={c.status} photos={c.desk?.total ?? c.photos} photosDone={!!c.desk?.doneAt} hint={false} /></div>
-      {((c.workshops?.length ?? 0) >= 2 || (!!c.workshops?.length && !c.workshops.some((w) => w.slot === (c.workshopSlot ?? 1)))) && (
-        <div className="grid gap-2 border-b border-hair px-5 py-3 sm:px-8" data-testid="case-ws">
-          <span className="label">{t("pf.caseWs")}</span>
-          <WorkshopPicker workshops={c.workshops!} value={c.workshopSlot ?? 1} onChange={(n) => void moveTo(n)} disabled={wsBusy || !!c.workshopLocked} testid="case-ws-picker" always />
-          {c.workshopLocked && <p className="text-[13.5px] text-mute">{t("pf.caseWsLocked")}</p>}
-          {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
+      {c.workshop && ((c.workshops?.length ?? 0) >= 2 || (!!c.workshops?.length && !c.workshops.some((w) => w.slot === c.workshop!.slot))) && (
+        <div className="border-b border-hair px-5 py-3 sm:px-8">
+          <WorkshopChoice caseId={c.id} workshops={c.workshops!} state={c.workshop} onSaved={() => router.refresh()} testid="case-ws" />
         </div>
       )}
       {(c.sameCount ?? 0) > 0 && (

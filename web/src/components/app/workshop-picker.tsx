@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useT } from "@/components/lang-provider";
 
 export type WorkshopOpt = { slot: number; name: string };
@@ -22,6 +23,47 @@ export default function WorkshopPicker({ workshops, value, onChange, disabled = 
           </button>
         );
       })}
+    </div>
+  );
+}
+
+export type WorkshopState = { slot: number; locked: boolean; confirmed: boolean; needsConfirm: boolean };
+
+/**
+ * The workshop block of a case (case page and the open line on the first page). Owner 2026-11-29: the workshop is picked once
+ * and confirmed with one press; the case is started in Merimen only after that, and the workshop cannot be changed any more.
+ * `onSaved` re-reads the case so the block follows what the server holds.
+ */
+export function WorkshopChoice({ caseId, workshops, state, onSaved, testid }: {
+  caseId: string; workshops: WorkshopOpt[]; state: WorkshopState; onSaved: () => void; testid: string;
+}) {
+  const { t } = useT();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+  async function send(slot: number, confirm: boolean) {
+    setBusy(true); setErr(false);
+    try {
+      const r = await fetch(`/api/cases/${caseId}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(confirm ? { workshop: slot, confirm } : { workshop: slot }) });
+      if (!r.ok && r.status !== 409) setErr(true); // 409 = too late: the re-read shows it fixed
+    } catch { setErr(true); }
+    setBusy(false);
+    onSaved();
+  }
+  const ask = state.needsConfirm;
+  return (
+    <div className={`grid gap-2 ${ask ? "rounded-[4px] border border-amber/40 bg-ambertint p-3 sm:p-4" : ""}`} data-testid={testid} data-confirmed={state.confirmed ? "1" : "0"}>
+      <span className="label">{t("pf.caseWs")}</span>
+      <WorkshopPicker workshops={workshops} value={state.slot} onChange={(n) => void send(n, false)} disabled={busy || state.locked} testid={`${testid}-picker`} always />
+      {ask ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+          <button type="button" className="btn-primary !min-h-[44px] !px-5 text-[15px]" disabled={busy || !workshops.some((w) => w.slot === state.slot)}
+            onClick={() => void send(state.slot, true)} data-testid={`${testid}-confirm`}>{t("pf.caseWsConfirm")}</button>
+          <p className="min-w-0 flex-1 basis-[240px] text-[13.5px] text-fg">{t("pf.caseWsAsk")}</p>
+        </div>
+      ) : state.locked && (
+        <p className="text-[13.5px] text-mute">{t(state.confirmed ? "pf.caseWsConfirmed" : "pf.caseWsLocked")}</p>
+      )}
+      {err && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
     </div>
   );
 }

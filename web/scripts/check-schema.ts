@@ -2,7 +2,7 @@
 // 0010 (cases.photos_snapshot, cases.photos_arranged_at, tables photo_upload_log, step2_log, photo_learning); `select *` on cases fails without them.
 // Runs before `next build`. No DATABASE_URL (a plain local build): nothing to check. Apply migrations first: `npm run db:migrate`.
 const url = process.env.DATABASE_URL;
-const NEED_COLUMNS = [["cases", "photos_snapshot"], ["cases", "photos_arranged_at"], ["cases", "deleted_at"]] as const;
+const NEED_COLUMNS = [["cases", "photos_snapshot"], ["cases", "photos_arranged_at"], ["cases", "deleted_at"], ["merimen_case_workshop", "confirmed_at"]] as const;
 const NEED_TABLES = ["photo_upload_log", "step2_log", "photo_learning"];
 
 async function run(q: string): Promise<{ rows: Record<string, string>[] }> {
@@ -17,7 +17,7 @@ async function run(q: string): Promise<{ rows: Record<string, string>[] }> {
 }
 
 export async function missing(): Promise<string[]> {
-  const cols = await run(`SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('cases','case_files')`);
+  const cols = await run(`SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('cases','case_files','merimen_case_workshop')`);
   const tabs = await run(`SELECT table_name AS t FROM information_schema.tables WHERE table_schema = 'public'`);
   const have = new Set(cols.rows.map((r) => `${r.t}.${r.c}`));
   const tables = new Set(tabs.rows.map((r) => r.t));
@@ -34,7 +34,7 @@ if (process.argv[1]?.endsWith("check-schema.ts")) {
     console.log("check-schema: no DATABASE_URL, skipped"); process.exit(0);
   }
   missing().then((m) => {
-    if (m.length) { console.error(`check-schema: the database is missing ${m.join(", ")} (cases.photos_snapshot, photos_arranged_at and the three photo tables come from 0010_photo_sync.sql; cases.deleted_at from 0015_case_soft_delete.sql). Apply the migrations, then build again.`); process.exit(1); }
+    if (m.length) { console.error(`check-schema: the database is missing ${m.join(", ")} (cases.photos_snapshot, photos_arranged_at and the three photo tables come from 0010_photo_sync.sql; cases.deleted_at from 0015_case_soft_delete.sql; merimen_case_workshop.confirmed_at from 0019_workshop_confirm.sql). Apply the migrations, then build again.`); process.exit(1); }
     console.log("check-schema: ok");
     process.exit(0);
   }, (e) => { console.error("check-schema: could not read the schema:", e instanceof Error ? e.message : e); process.exit(1); });

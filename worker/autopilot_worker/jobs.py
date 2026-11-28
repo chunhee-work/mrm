@@ -24,6 +24,15 @@ WHERE j.state = 'queued'
       %(merimen)s
       AND j.step = 'phase_a'
       AND c.status IN ('phase_a', 'waiting_user')
+      -- owner 2026-11-29: with two or more workshops the user confirms the case's workshop first (migration 0019),
+      -- a workshop the worker already locked (the case was made) needs nothing more
+      AND (
+        EXISTS (
+          SELECT 1 FROM merimen_case_workshop cw
+          WHERE cw.case_id = c.id AND (cw.confirmed_at IS NOT NULL OR cw.locked_at IS NOT NULL)
+        )
+        OR (SELECT count(*) FROM merimen_workshops w WHERE w.org_id = c.org_id) < 2
+      )
       AND EXISTS (
         SELECT 1 FROM merimen_credentials mc
         WHERE mc.org_id = c.org_id AND mc.verify_state = 'ok' AND NOT mc.blocked

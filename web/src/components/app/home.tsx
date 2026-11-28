@@ -19,7 +19,7 @@ import { DESK_WAITS, systemBusy } from "@/lib/case-steps";
 import ProfileCard, { useServerCred, type Cred } from "./profile-card";
 import NewCasePick from "./new-case-pick";
 import NewCaseForm from "@/app/cases/new/form";
-import WorkshopPicker, { type WorkshopOpt } from "./workshop-picker";
+import { WorkshopChoice, type WorkshopOpt, type WorkshopState } from "./workshop-picker";
 import CaseLog from "./case-log";
 import LoginAlert from "./login-alert";
 
@@ -245,15 +245,13 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
  */
 type ListCtl = { look: () => void; relist: () => void; onUpload: (busy: boolean) => void };
 
-type BriefData = { events: { at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: { slot: number; locked: boolean } | null };
+type BriefData = { events: { at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: WorkshopState | null };
 
 /** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
  * line opens and again when its status changes, so it follows the case without the user leaving the first page. */
 function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
   const { t } = useT();
   const [d, setD] = useState<BriefData | null>(null);
-  const [wsBusy, setWsBusy] = useState(false);
-  const [wsErr, setWsErr] = useState(false);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
@@ -267,15 +265,6 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
     const id = window.setInterval(() => { if (!document.hidden && navigator.onLine) setTick((n) => n + 1); }, 10_000);
     return () => window.clearInterval(id);
   }, [reading]);
-  async function moveTo(slot: number) {
-    setWsBusy(true); setWsErr(false);
-    try {
-      const x = await fetch(`/api/cases/${r.id}/workshop`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ workshop: slot }) });
-      if (!x.ok && x.status !== 409) setWsErr(true); // 409 = too late: the read below shows it locked
-    } catch { setWsErr(true); }
-    setWsBusy(false);
-    setTick((n) => n + 1);
-  }
   if (!d) return null;
   const slot = d.workshop?.slot ?? 1;
   // as on the case page: a choice from two workshops on, or the one it has when that one is gone
@@ -286,12 +275,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
   return (
     <div className="space-y-4" data-testid="home-brief">
       {showWs && (
-        <div className="grid gap-2" data-testid="home-ws">
-          <span className="label">{t("pf.caseWs")}</span>
-          <WorkshopPicker workshops={workshops} value={slot} onChange={(n) => void moveTo(n)} disabled={wsBusy || d.workshop!.locked} testid="home-ws-picker" always />
-          {d.workshop!.locked && <p className="text-[13.5px] text-mute">{t("pf.caseWsLocked")}</p>}
-          {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
-        </div>
+        <WorkshopChoice caseId={r.id} workshops={workshops} state={d.workshop!} onSaved={() => setTick((n) => n + 1)} testid="home-ws" />
       )}
       {(d.events.length > 0 || d.files.length > 0) && (
         <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
