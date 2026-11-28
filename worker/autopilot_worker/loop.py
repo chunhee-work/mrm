@@ -103,12 +103,12 @@ def _print_error(job: dict, e: BaseException) -> None:
 
 # ---- Merimen logged out during a job (owner 2026-11-28: "will the worker notice, log in and go on?") ----
 PHASE_STEPS = ("phase_a", "phase_b")  # the jobs that drive Merimen (Phase B runs its own checks); the `checks` job only waits
-LOST_CAP = 5  # put-backs for one case in LOST_WINDOW (store.LOST_EVENT, store.LOST_WINDOW); the next one fails and the case waits
+LOST_CAP = 3  # put-backs for one case in LOST_WINDOW (store.LOST_EVENT, store.LOST_WINDOW); the next one fails and the case waits
 _PHASE_NAME = {"phase_a": "Phase A", "phase_b": "Phase B", "checks": "the checks"}
-# a mark nobody could act on (re-login refused, a person logged in by hand) ends after 10 min: the address decides again. Until
-# then the org is not "connected" on purpose: a stale tab with the old address cannot be told from a hand login, and counting it
-# as connected would end a failed re-login streak and book more password tries
-FORCE_TTL = 600.0
+# a mark that no re-login cleared within 15 min ends, and the org is then HELD (RELOGIN_HELD): the address decides again, but no
+# logout is put back for HOLD_SECONDS, so a stale tab that now counts as connected can never loop into more forced password tries.
+# Until then the org is not "connected" on purpose: a stale tab with the old address cannot be told from a hand login
+FORCE_TTL = 900.0
 # org -> when a job found its session logged out: the next sync_sessions books a re-login even if a tab address still carries the
 # session marks (a page that shows a password box at an old address). Cleared when a re-login is ok or finds the session live.
 FORCE_RELOGIN: dict[str, float] = {}
@@ -124,6 +124,7 @@ def _forced(org_id: str, now) -> bool:
         return False
     if now() - t >= FORCE_TTL:
         FORCE_RELOGIN.pop(org_id, None)
+        RELOGIN_HELD[org_id] = now()  # no re-login fixed it in time: the old stops stand for a while (a person looks)
         return False
     return True
 
@@ -407,8 +408,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
         return None
     _at("job")
     case = repo.load(job["case_id"])
-    if isinstance(case, dict) and job["step"] in PHASE_STEPS and puts_back(cfg, relogin is not None) and not held(job["org_id"], now) \
-            and hasattr(repo, "was_put_back"):
+    if isinstance(case, dict) and job["step"] in PHASE_STEPS and hasattr(repo, "was_put_back"):
+        # asked whatever the re-login state (also while the org is held or re-login is off): this only makes the checks stricter
         try:  # this job was put back after a logout: a photo list that does not line up is never "already has photos"
             case["resumed_after_logout"] = repo.was_put_back(job)
         except Exception:  # noqa: BLE001  (not known: the stricter way, a partial list stops for a person)

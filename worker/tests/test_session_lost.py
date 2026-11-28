@@ -438,6 +438,9 @@ def test_the_mark_runs_out_after_its_time(tmp_path):
     sync_sessions(cfg(tmp_path), SessRepo([row()]), launch=lambda a: None,
                   inspect=lambda p: LOGGED_IN, now=lambda: loop.FORCE_TTL + 1, relogin=lambda o, p: asked.append(o) or "ok")
     assert asked == [] and "o1" not in FORCE_RELOGIN
+    # no re-login cleared it in time: the org is held, so a stale tab that now counts as connected never books forced tries
+    assert loop.held("o1", now=lambda: loop.FORCE_TTL + 2)
+    loop.RELOGIN_HELD.clear()
 
 
 def test_prefix_done_refuses_a_start_whose_captions_repeat():
@@ -455,3 +458,57 @@ def test_phase_b_does_not_resume_over_the_phase_a_list():
     m = Fake(held=["Part 1", "Part 2"])
     ps.phase_b(RESUMED, final, [], stored_snapshot=snapshot_of(final, []), phase_a_photos=pa, writes=True, merimen=m)
     assert not any(w.startswith("upload") for w in m.writes)
+
+
+# ---------- review round 11 ----------
+
+class HeldRepo:
+    """A put-back Phase A job that runs again while its org is held (or re-login is off): the case must still be told."""
+    def __init__(self):
+        self.case, self.applied = None, []
+
+    def heartbeat(self, *a, **k): pass
+    def reclaim_stale(self, *a): return 0
+    def ensure_sessions(self): pass
+    def wanted(self): return []
+    def followup_cases(self): return []
+    def claim(self, **k): return {"id": 7, "case_id": "c1", "step": "phase_a", "attempts": 1, "org_id": "o1"}
+    def gate(self, org, env_on): return "off"
+    def session_status(self, org): return "idle"
+    def was_put_back(self, job): return True
+    def apply(self, job, outcome): self.applied.append(outcome)
+
+    def load(self, case_id):
+        self.case = {"id": "c1", "org_id": "o1", "status": "phase_a", "plate": "A1", "case_data": {}, "photos": [], "files": []}
+        return self.case
+
+
+def test_a_put_back_job_is_told_so_also_while_its_org_is_held(tmp_path):
+    from autopilot_worker.pipeline import Driver
+
+    loop._last_cleanup[0] = 1e12
+    loop.RELOGIN_HELD["o1"] = time.monotonic()
+    try:
+        repo = HeldRepo()
+        loop.tick(cfg(tmp_path, MERIMEN_RELOGIN="on", MERIMEN_LOGIN="on"), repo, launch=lambda a: None, inspect=lambda p: None,
+                  namer=None, driver=Driver(), download=lambda *a: None)
+        # a partial photo list or document set then stops for a person instead of counting as "already in Merimen"
+        assert repo.case["resumed_after_logout"] is True
+    finally:
+        loop.RELOGIN_HELD.clear()
+
+
+def test_the_relogin_tab_survives_a_worker_restart(tmp_path):
+    from autopilot_worker import relogin
+
+    relogin.reset()
+    relogin._own_tab["o1"] = "T9"
+    relogin.save_own_tabs(str(tmp_path))
+    relogin.reset()
+    relogin.load_own_tabs(str(tmp_path))
+    assert relogin._own_tab == {"o1": "T9"}
+    (tmp_path / relogin.OWN_TABS_FILE).write_text("not json")
+    relogin.reset()
+    relogin.load_own_tabs(str(tmp_path))  # a broken file = none known, never a crash
+    assert relogin._own_tab == {}
+    relogin.load_own_tabs(None)

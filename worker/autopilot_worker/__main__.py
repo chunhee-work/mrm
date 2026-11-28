@@ -377,6 +377,9 @@ def main() -> None:
     if cfg.live_writes and cfg.org_limit > 1:  # one create at a time is the supported setup: refuse to start, change no case
         raise SystemExit("MERIMEN_WRITES and WORKER_SUBMIT are on but ORG_CONCURRENCY is above 1: set ORG_CONCURRENCY=1 and start again")
     repo = PgRepo(cfg.database_url, cfg.db_transport)
+    from . import relogin as relogin_mod
+
+    relogin_mod.load_own_tabs(cfg.state_dir)  # which logged-in tab the last re-login opened survives a restart
     script = os.path.join(os.path.dirname(__file__), "..", "cdp.mjs")
     page_for = _page_provider(cfg)
     driver = _CdpDriver(script, page_for=page_for)
