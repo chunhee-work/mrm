@@ -292,6 +292,16 @@ async function closeTab(port, id, ms = 5000) {
   await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(String(id))}`, { signal: AbortSignal.timeout(ms) });
 }
 
+// Close a tab only while another page tab stays open: closing the last tab would close the Chrome window (never allowed).
+export async function closeIfNotLast(port, id, { close = closeTab, tabs = listTabs } = {}) {
+  let list;
+  try { list = (await tabs(port, 3000)) || []; } catch { return false; }
+  const others = list.filter((t) => t && t.type === "page" && String(t.id) !== String(id));
+  if (!others.length) return false;
+  await close(port, id);
+  return true;
+}
+
 function endedLoggedIn(out) {
   return !!out && (out.result === "session_live" || (out.submitted === true && !out.result && !out.has_password && isLoggedInUrl(out.url || "")));
 }
@@ -324,7 +334,7 @@ export async function runRelogin({ port, cred, open = openTab, close = closeTab,
       if (before) {
         try {
           for (const t of (await tabs(port, 3000)) || []) {
-            if (t && !before.has(String(t.id)) && String(t.url || "") === MERIMEN_START) await close(port, String(t.id));
+            if (t && !before.has(String(t.id)) && String(t.url || "") === MERIMEN_START) await closeIfNotLast(port, String(t.id), { close, tabs });
           }
         } catch { /* nothing more to do: nothing was typed */ }
       }
@@ -372,7 +382,7 @@ export async function runRelogin({ port, cred, open = openTab, close = closeTab,
     out = marked ? { result: "unknown", submitted: true } : OFFLINE;
   }
   if (id !== null && !endedLoggedIn(out)) {
-    try { await close(port, id); } catch { /* the worker closes it by id if it is still there */ }
+    try { await closeIfNotLast(port, id, { close, tabs }); } catch { /* the worker closes it by id if it is still there */ }
   }
   return out;
 }

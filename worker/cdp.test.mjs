@@ -22,7 +22,7 @@ import vm from "node:vm";
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { isMerimenOrigin, pickMerimenTab, LOGIN_PROBE, LOGIN_SIGNALS, loginFillExpression, runLogin, runRelogin, AFTER_SUBMIT_MS } from "./cdp.mjs";
+import { isMerimenOrigin, pickMerimenTab, LOGIN_PROBE, LOGIN_SIGNALS, loginFillExpression, runLogin, runRelogin, closeIfNotLast, AFTER_SUBMIT_MS } from "./cdp.mjs";
 
 const LOGIN_URL = "https://www.merimen.com.my/claims/index.cfm";
 const LIVE_URL = "https://www.merimen.com.my/claims/index.cfm?fusebox=MTRroot&fuseaction=dsp_home&CFID=11&CFTOKEN=22&USID=33&RID=44";
@@ -619,6 +619,17 @@ test("relogin: a lost open answer never closes a new tab that is not exactly the
   };
   assert.deepEqual(await runRelogin(deps), { offline: true, submitted: false });
   assert.deepEqual(log.closed, []);
+});
+
+test("relogin: the last page tab is never closed (that would close the Chrome window)", async () => {
+  const closed = [];
+  const one = async () => [{ id: "OWN", type: "page", url: LOGIN_URL }];
+  assert.equal(await closeIfNotLast(9222, "OWN", { tabs: one, close: async (_p, id) => closed.push(id) }), false);
+  const two = async () => [{ id: "OWN", type: "page", url: LOGIN_URL }, { id: "X", type: "page", url: LIVE_URL }];
+  assert.equal(await closeIfNotLast(9222, "OWN", { tabs: two, close: async (_p, id) => closed.push(id) }), true);
+  const bg = async () => [{ id: "OWN", type: "page", url: LOGIN_URL }, { id: "SW", type: "service_worker", url: "x" }];
+  assert.equal(await closeIfNotLast(9222, "OWN", { tabs: bg, close: async (_p, id) => closed.push(id) }), false);
+  assert.deepEqual(closed, ["OWN"]);
 });
 
 test("relogin: once the deadline fired nothing is typed any more", async () => {

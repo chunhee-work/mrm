@@ -156,13 +156,22 @@ def relogin_target(stdout) -> str | None:
     return None
 
 
-def close_target(port: int, target: str) -> None:
-    """Close ONE tab by its id (the re-login's own). Never any other tab."""
+def close_target(port: int, target: str, *, opener=None) -> None:
+    """Close ONE tab by its id (the re-login's own). Never any other tab, and never the last page tab: closing it would close
+    the Chrome window."""
     from urllib.parse import quote
     from urllib.request import urlopen
 
+    opener = opener or urlopen
     try:
-        with urlopen(f"http://127.0.0.1:{int(port)}/json/close/{quote(target, safe='')}", timeout=5):
+        with opener(f"http://127.0.0.1:{int(port)}/json/list", timeout=5) as r:
+            tabs = json.loads(r.read() or b"[]")
+        if not any(isinstance(t, dict) and t.get("type") == "page" and str(t.get("id")) != str(target) for t in tabs):
+            return
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        with opener(f"http://127.0.0.1:{int(port)}/json/close/{quote(target, safe='')}", timeout=5):
             pass
     except Exception:  # noqa: BLE001
         pass

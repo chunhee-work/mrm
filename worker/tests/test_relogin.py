@@ -477,6 +477,24 @@ def test_a_kept_tab_is_closed_only_while_it_is_a_logged_out_merimen_page(monkeyp
     assert lf.close_kept_tab(9222, "GONE", opener=lambda *a, **k: _Resp(body)) is False
 
 
+def test_close_target_never_closes_the_last_page_tab():
+    import autopilot_worker.login_flow as lf
+
+    calls = []
+
+    def opener(body):
+        def o(url, timeout=5):
+            calls.append("close" if "/close/" in url else "list")
+            return _Resp(body)
+        return o
+
+    lf.close_target(9222, "T", opener=opener(json.dumps([{"id": "T", "type": "page"}]).encode()))
+    assert calls == ["list"]  # the only page tab: left open, the window stays
+    calls.clear()
+    lf.close_target(9222, "T", opener=opener(json.dumps([{"id": "T", "type": "page"}, {"id": "P", "type": "page"}]).encode()))
+    assert calls == ["list", "close"]
+
+
 @pytest.mark.parametrize("flags,reason", [
     ([True, True, True, True, True, False, True], "cred"),
     ([False, True, True, True, True, False, True], "orphan"),
