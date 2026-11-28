@@ -284,8 +284,8 @@ def _one_slots_process(cfg: Config, *, hold: bool = True) -> bool:
                 g.close()
             if not hold:
                 return False
-            raise SystemExit("another worker is running on this machine with the same WORKER_STATE or the same Chrome port: "
-                             "only one is supported; stop it first")
+            raise SystemExit(f"another worker is running on this machine with the same WORKER_STATE or the same Chrome port (it holds "
+                             f"{path}): only one is supported; stop it first")
         got.append(f)
     if hold:
         _SLOTS_LOCK.extend(got)
@@ -812,6 +812,7 @@ def main() -> None:
     cfg = replace(Config.from_env(), mailer=_mail)
     refuse_unsafe_start(cfg)
     repo = PgRepo(cfg.database_url, cfg.db_transport)
+    repo.set_ports(cfg.accounts, cfg.org_accounts)  # a portless session row counts only on the Chrome the config gives it
     from . import relogin as relogin_mod
 
     relogin_mod.load_own_tabs(cfg.state_dir)  # which logged-in tab the last re-login opened survives a restart

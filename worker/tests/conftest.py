@@ -7,6 +7,14 @@ import pytest  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
+def _own_lock_dir(tmp_path, monkeypatch):
+    """The per-Chrome lock files of a test go to its own folder, never the machine's temp folder (a test run on the worker machine
+    must not hold or leave the live worker's lock file, egm r12)."""
+    (tmp_path / "_worker_locks").mkdir(exist_ok=True)
+    monkeypatch.setenv("WORKER_LOCK_DIR", str(tmp_path / "_worker_locks"))
+
+
+@pytest.fixture(autouse=True)
 def _fresh_login_seen():
     """The "a step met the login form" mark is per job (loop.tick resets it): every test starts without it. The slots module state
     (#150) is reset too, so a test that fails half way never leaks it into the next one (egm r11)."""

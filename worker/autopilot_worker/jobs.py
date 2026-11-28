@@ -31,7 +31,9 @@ WHERE j.state = 'queued'
         JOIN worker_sessions s6 ON s6.org_id <> s0.org_id
         WHERE s0.org_id = c.org_id AND s0.port IS NOT NULL
           -- another org on this Chrome: its row has this port, or it lost the port (gate) while a Merimen step of it still runs
-          AND (s6.port = s0.port OR (s6.port IS NULL AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+          -- (only when the config gives that org this Chrome: one_port = the only Chrome, org_ports = 'org:port' pairs, egm r12)
+          AND (s6.port = s0.port OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || s0.port::text) = ANY(string_to_array(%(org_ports)s, ',')))
+               AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
           -- that org takes part when its saved login is ok or still being checked (an owner that saves its login again keeps its
           -- place, so the other org never takes over a Chrome that holds the owner's session, egm r10), or while a Merimen step of it
           -- runs (a login blocked under a running step never hands the Chrome to another org before that step ends)
@@ -158,7 +160,8 @@ CHROME_TAKEN_SQL = """
 SELECT EXISTS (
   SELECT 1 FROM worker_sessions s6
   WHERE s6.org_id <> %(org)s
-    AND (s6.port = %(port)s OR (s6.port IS NULL AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
+    AND (s6.port = %(port)s OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || %(port)s::text) = ANY(string_to_array(%(org_ports)s, ',')))
+         AND EXISTS (SELECT 1 FROM jobs jn6 JOIN cases jn6c ON jn6c.id = jn6.case_id WHERE jn6c.org_id = s6.org_id AND jn6.state = 'running' AND jn6.step IN ('phase_a', 'phase_b'))))
     AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
          OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
     AND (NOT EXISTS (SELECT 1 FROM jobs jr6 JOIN cases jr6c ON jr6c.id = jr6.case_id WHERE jr6c.org_id = s6.org_id AND jr6.state = 'running' AND jr6.step IN ('phase_a', 'phase_b')), coalesce((SELECT min(c7.created_at) FROM cases c7 WHERE c7.org_id = s6.org_id AND c7.deleted_at IS NULL), 'infinity'), s6.org_id)
@@ -175,23 +178,30 @@ SELECT EXISTS (
   SELECT 1 FROM worker_sessions s6
   WHERE s6.org_id <> %(org)s
     -- a row with no port yet (a fresh start: the session sync writes ports after the login check; a gate not ready) counts when the
-    -- config would give that org THIS Chrome (here = orgs mapped to this port, any_here = the only Chrome, where every org goes), so
+    -- config would give that org THIS Chrome (one_port = the only Chrome, where every org goes; org_ports = 'org:port' pairs), so
     -- the check waits until that row has its port (egm r8), and a portless user of another Chrome never blocks this one (egm r11)
-    AND (s6.port = %(port)s OR (s6.port IS NULL AND (%(any_here)s OR s6.org_id = ANY(string_to_array(%(here)s, ',')))))
+    AND (s6.port = %(port)s OR (s6.port IS NULL AND (%(one_port)s OR (s6.org_id || ':' || %(port)s::text) = ANY(string_to_array(%(org_ports)s, ',')))))
     AND (EXISTS (SELECT 1 FROM merimen_credentials m6 WHERE m6.org_id = s6.org_id AND m6.verify_state IN ('ok', 'queued', 'checking', 'otp', 'otp_submitted') AND NOT m6.blocked)
          OR EXISTS (SELECT 1 FROM jobs jb6 JOIN cases jb6c ON jb6c.id = jb6.case_id WHERE jb6c.org_id = s6.org_id AND jb6.state = 'running' AND jb6.step IN ('phase_a', 'phase_b')))
 )
 """
 
 
+def port_map(accounts: dict, org_accounts: dict) -> dict:
+    """The config's Chrome per org, for the ownership SQL's rows that have no port yet (egm r11, r12): one_port = there is one
+    Chrome profile (every org goes to it), org_ports = 'org:port' for each org WORKER_ORG_ACCOUNTS maps to a known profile."""
+    pairs = [f"{o}:{int(accounts[a])}" for o, a in (org_accounts or {}).items() if a in (accounts or {}) and "," not in str(o)]
+    return {"one_port": len(accounts or {}) <= 1, "org_ports": ",".join(pairs)}
+
+
 def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker", skip_orgs=(), one_chrome: bool = False,
-                 no_create: bool = False) -> dict:
+                 no_create: bool = False, ports: dict | None = None) -> dict:
     """skip_orgs: orgs whose Merimen steps are not taken now (loop.paused_orgs). Org ids never hold a comma (they are generated ids).
     one_chrome (WORKER_SLOTS > 1): the one-login-per-Chrome-port rule; off, the claim is as before #150 for Merimen steps.
     no_create: a create is running in this process, so no other Phase A of a case without a Merimen case is taken now."""
     skip = ",".join(str(o) for o in skip_orgs if o and "," not in str(o))
     return {"merimen": ext_connect, "org_limit": int(org_limit), "worker": worker_id, "skip_orgs": skip, "one_chrome": bool(one_chrome),
-            "no_create": bool(no_create)}
+            "no_create": bool(no_create), **(ports or {"one_port": True, "org_ports": ""})}
 
 
 # The case line the worker writes when it crashed on a job (our fault). The web app's delete rule matches it exactly

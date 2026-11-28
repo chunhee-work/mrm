@@ -420,11 +420,7 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
             try:  # another org is already on this Chrome (one Merimen login per Chrome, plan #150): a new login is never checked
                 # here, owner or not. The check would meet the other org's live session and pass without testing this password (egm r7)
                 used = getattr(repo, "chrome_used_by_other", None)
-                if used:  # a portless row counts only when the config gives that org this Chrome (egm r11)
-                    here = [o for o, a in cfg.org_accounts.items() if cfg.accounts.get(a) == port]
-                    taken = bool(used(org, port, here=here, any_here=len(cfg.accounts) == 1))
-                else:
-                    taken = bool(repo.chrome_taken_by_other(org, port))
+                taken = bool(used(org, port) if used else repo.chrome_taken_by_other(org, port))
             except Exception:  # noqa: BLE001  (not known: nothing is typed now, the check comes back later)
                 taken = True
         if taken:
@@ -460,6 +456,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
     tab of it is logged in, and its gate (settings + consent) is "ready". Whether the saved login is ok and not blocked is checked
     inside the booking (the `cred` refusal), never here. Orgs tried longest ago go first."""
     want_relogin: list[tuple[str, int]] = []
+    seen_live: set[str] = set()  # orgs found logged in this pass
     if cfg.ext_connect:
         repo.ensure_sessions()  # a ready org (login ok + consent) gets its row; with EXT_CONNECT off nothing is asked for
     for row in repo.wanted():
@@ -514,6 +511,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                     FORCE_RELOGIN.pop(org, None)  # without re-login nobody acts on the mark: the address decides, as before
         status = next_status(row["status"] or "idle", reason is None)
         if reason is None:
+            seen_live.add(org)
             # the keep-alive script clicks "Continue session" in the first Merimen tab it finds; with slots that can be a running
             # job's step tab, so it waits while the org has a Merimen step running (that step keeps the session in use anyway)
             if not (getattr(cfg, "slots", 1) > 1 and busy_orgs and org in set(busy_orgs())):
@@ -536,9 +534,12 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
 
                 reason = detail_for(org) or reason
         repo.set_session(org, status=status, wanted="start", account=account, port=port, detail=reason)
-    wanted = {o for o, _ in want_relogin}
-    for org in list(_busy_since):  # a wait whose org is no longer logged out ends here: a later logout starts a new 10-minute wait
-        if org not in wanted:
+    # a wait ends when its org was seen logged in this pass, or has no Merimen step running any more: a later logout starts a new
+    # 10-minute wait. An org this pass did not reach (its Chrome did not answer in time, its gate was not ready for a moment, a read
+    # failed) keeps its wait, so a busy Chrome that misses one answer never pushes the re-login back again (egm r12)
+    busy_now = set(busy_orgs() if busy_orgs else ())
+    for org in list(_busy_since):
+        if org in seen_live or org not in busy_now:
             _busy_since.pop(org, None)
     if relogin and want_relogin and getattr(cfg, "slots", 1) > 1 and hasattr(repo, "chrome_taken_by_other"):
         # asked again now that this pass wrote every org's port: an org that came first in the loop saw a sharer whose row had no
@@ -562,10 +563,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             order = repo.relogin_order([o for o, _ in want_relogin])
         except Exception:  # noqa: BLE001  (a DB error here must not abort the tick; the booking itself still decides)
             order = [o for o, _ in want_relogin]
-        busy = set(busy_orgs() if busy_orgs else ())
-        for org in list(_busy_since):
-            if org not in busy:
-                _busy_since.pop(org, None)
+        busy = busy_now
         for org in order:  # every logged-out org with a running step starts its 10-minute wait now, also one not reached below (egm r6)
             if org in busy:
                 _busy_since.setdefault(org, now())

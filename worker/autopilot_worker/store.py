@@ -104,6 +104,12 @@ def pause_statements(org_id: str, event: str, *, only_if_state: str | None = Non
 class PgRepo:
     def __init__(self, url: str, transport: str = "http", db=None):
         self.db = db or make_db(url, transport)
+        self.ports = {"one_port": True, "org_ports": ""}  # jobs.port_map of the config; set by the worker at start (set_ports)
+
+    def set_ports(self, accounts: dict, org_accounts: dict) -> None:
+        from .jobs import port_map
+
+        self.ports = port_map(accounts, org_accounts)
 
     def record_llm_call(self, row: dict) -> None:
         """One llm_calls row for a Jev (TypeSafe) call: the same ledger the web app writes, so /admin/cost can show it. cost_usd stays NULL
@@ -164,7 +170,7 @@ class PgRepo:
         return worker_gate(env_on=True, enabled=bool(row[0]), consent_reference=row[1], consented=bool(row[2]))
 
     def claim(self, *, ext_connect: bool, worker_id: str, org_limit: int = 1, skip_orgs=(), one_chrome: bool = False, no_create: bool = False):
-        params = claim_params(ext_connect, org_limit, worker_id, skip_orgs, one_chrome, no_create)
+        params = claim_params(ext_connect, org_limit, worker_id, skip_orgs, one_chrome, no_create, getattr(self, "ports", None))
         try:
             rows = self.db.execute(CLAIM_SQL, params)
         except Exception as e:  # migration 0019/0014 not applied: claim as before (nothing can be confirmed without it)
@@ -190,16 +196,14 @@ class PgRepo:
         """jobs.CHROME_TAKEN_SQL: another org owns the Chrome port this org is given (WORKER_SLOTS > 1)."""
         from .jobs import CHROME_TAKEN_SQL
 
-        rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id, "port": int(port)})
+        rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id, "port": int(port), **getattr(self, "ports", {"one_port": True, "org_ports": ""})})
         return bool(rows and rows[0][0])
 
-    def chrome_used_by_other(self, org_id: str, port: int, here=(), any_here: bool = True) -> bool:
-        """jobs.CHROME_USED_SQL: another org already takes part on this Chrome port, owner or not (WORKER_SLOTS > 1). here: the orgs
-        the config maps to this port; any_here: this is the only Chrome (every org goes to it). Both only matter for a row with no port."""
+    def chrome_used_by_other(self, org_id: str, port: int) -> bool:
+        """jobs.CHROME_USED_SQL: another org already takes part on this Chrome port, owner or not (WORKER_SLOTS > 1)."""
         from .jobs import CHROME_USED_SQL
 
-        here_s = ",".join(str(o) for o in here if o and "," not in str(o))
-        rows = self.db.execute(CHROME_USED_SQL, {"org": org_id, "port": int(port), "here": here_s, "any_here": bool(any_here)})
+        rows = self.db.execute(CHROME_USED_SQL, {"org": org_id, "port": int(port), **getattr(self, "ports", {"one_port": True, "org_ports": ""})})
         return bool(rows and rows[0][0])
 
     def give_back(self, job_id: int, worker_id: str) -> None:

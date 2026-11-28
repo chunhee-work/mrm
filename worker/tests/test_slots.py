@@ -257,6 +257,28 @@ def test_a_relogin_wait_ends_when_the_session_comes_back_so_a_later_logout_waits
     assert asked == []
 
 
+def test_a_pass_that_did_not_reach_the_chrome_keeps_the_relogin_wait(tmp_path, fresh):
+    """egm r12: a busy Chrome that misses one answer (or a gate not ready for a moment) does not restart the 10-minute wait, so the
+    re-login is never pushed back again and again."""
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on", "MERIMEN_RELOGIN": "on"})
+    t = [1000.0]
+    asked = []
+    page = [LOGIN_PAGE]
+
+    def sync():
+        loop.sync_sessions(cfg, SessRepo(), launch=lambda a: None, inspect=lambda p: page[0], now=lambda: t[0], running=lambda p: True,
+                           relogin=lambda org, port: asked.append(org), busy_orgs=lambda: {"o1"})
+
+    sync()  # logged out while a job runs: the wait starts
+    page[0] = None
+    t[0] += loop.RELOGIN_BUSY_WAIT - 60
+    sync()  # the Chrome did not answer this pass
+    page[0] = LOGIN_PAGE
+    t[0] += 61
+    sync()  # past 10 minutes from the first pass: the re-login goes ahead
+    assert asked == ["o1"]
+
+
 def test_without_slots_the_relogin_never_waits(tmp_path, fresh):
     cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on", "MERIMEN_RELOGIN": "on"})
     asked = []
@@ -511,7 +533,7 @@ def test_chrome_taken_sql_matches_the_claim_rule():
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CHROME_TAKEN_SQL
 
-    q = lambda org, port=9222: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": port})))  # noqa: E731
+    q = lambda org, port=9222: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": port, "one_port": True, "org_ports": ""})))  # noqa: E731
     r = run([q("o1"), q("o2")], seed=ORGS_CASES + READY + sessions())
     assert r == [[[False]], [[True]]]
     r = run([q("o2", 9223)], seed=ORGS_CASES + READY + sessions(9222, 9223))
@@ -523,7 +545,7 @@ def test_an_org_without_a_live_case_never_owns_the_chrome():
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CHROME_TAKEN_SQL
 
-    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222})))  # noqa: E731
+    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222, "one_port": True, "org_ports": ""})))  # noqa: E731
     seed = ["INSERT INTO organizations (id, name) VALUES ('o1', 'One'), ('o2', 'Two')",
             "INSERT INTO cases (id, org_id, plate, status, created_at) VALUES ('c3','o2','B1','phase_a', now())"]
     r = run([q("o1"), q("o2")], seed=seed + READY + sessions())
@@ -711,8 +733,9 @@ def test_only_one_slots_worker_per_state_folder(tmp_path):
     cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
     try:
         assert m._one_slots_process(cfg) is True
-        with _pt.raises(SystemExit):
+        with _pt.raises(SystemExit) as e:
             m._one_slots_process(cfg)  # a second slots worker refuses to start
+        assert "worker_slots.lock" in str(e.value)  # it names the lock file the other worker holds (egm r12)
         assert m._one_slots_process(cfg, hold=False) is False  # a WORKER_SLOTS=1 start leaves the running worker's tabs alone
     finally:
         for f in m._SLOTS_LOCK:
@@ -1026,7 +1049,7 @@ def test_the_chrome_owner_never_changes_while_its_merimen_step_runs():
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CHROME_TAKEN_SQL
 
-    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222})))  # noqa: E731
+    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222, "one_port": True, "org_ports": ""})))  # noqa: E731
     seed = ["INSERT INTO organizations (id, name) VALUES ('o1', 'One'), ('o2', 'Two')",
             "INSERT INTO cases (id, org_id, plate, status, created_at) VALUES ('c1','o1','A1','phase_a', now() - interval '1 day'),"
             " ('c3','o2','B1','phase_a', now())",
@@ -1266,7 +1289,7 @@ def test_a_login_blocked_or_a_port_lost_under_a_running_step_never_hands_the_chr
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CHROME_TAKEN_SQL
 
-    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222})))  # noqa: E731
+    q = lambda org: dict(zip(("sql", "params"), to_numbered(CHROME_TAKEN_SQL, {"org": org, "port": 9222, "one_port": True, "org_ports": ""})))  # noqa: E731
     running = ["INSERT INTO jobs (id, case_id, step, state) VALUES (5,'c1','phase_a','running')"]
     blocked = ["UPDATE merimen_credentials SET blocked = true WHERE org_id = 'o1'"]
     no_port = ["UPDATE worker_sessions SET port = NULL WHERE org_id = 'o1'"]
@@ -1442,7 +1465,7 @@ def test_a_new_login_is_never_checked_on_a_chrome_another_user_is_on_even_as_own
         def chrome_taken_by_other(self, org, port):
             return False  # o2 would be the owner by first case
 
-        def chrome_used_by_other(self, org, port, here=(), any_here=True):
+        def chrome_used_by_other(self, org, port):
             return True  # o1 is on that Chrome
 
         def owner_email(self, org):
@@ -1463,8 +1486,8 @@ def test_chrome_used_sql_sees_any_other_user_on_the_port():
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CHROME_USED_SQL
 
-    q = lambda org, port=9222, here="", any_here=True: dict(zip(("sql", "params"), to_numbered(  # noqa: E731
-        CHROME_USED_SQL, {"org": org, "port": port, "here": here, "any_here": any_here})))
+    q = lambda org, port=9222, org_ports="", one_port=True: dict(zip(("sql", "params"), to_numbered(  # noqa: E731
+        CHROME_USED_SQL, {"org": org, "port": port, "org_ports": org_ports, "one_port": one_port})))
     pending = ["UPDATE merimen_credentials SET verify_state = 'queued' WHERE org_id = 'o2'"]  # o2's login is new, not checked yet
     r = run([q("o2"), q("o1"), q("o2", 9223)], seed=ORGS_CASES + READY + sessions() + pending)
     assert r == [[[True]], [[True]], [[False]]]  # o1 (checked) is on 9222; o2's login is still being checked, it counts too; 9223 is free
@@ -1473,39 +1496,31 @@ def test_chrome_used_sql_sees_any_other_user_on_the_port():
     r = run([q("o2")], seed=ORGS_CASES + READY + sessions() + pending + noport)
     assert r == [[[True]]]
     # several Chromes: a portless o1 counts only on the Chrome the config gives it, never on another user's own Chrome (egm r11)
-    r = run([q("o2", 9223, here="o2", any_here=False), q("o2", 9222, here="o1", any_here=False)],
+    r = run([q("o2", 9223, org_ports="o1:9222,o2:9223", one_port=False), q("o2", 9222, org_ports="o1:9222,o2:9222", one_port=False)],
             seed=ORGS_CASES + READY + sessions() + pending + noport)
     assert r == [[[False]], [[True]]]
 
 
-def test_the_login_check_tells_the_store_which_users_the_config_puts_on_this_chrome(tmp_path, fresh):
-    """egm r11: with several Chrome profiles a portless row of another user counts only on the Chrome the config gives that user, so
-    the check passes the users mapped to this port and says this is not the only Chrome."""
-    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2",
-                           "WORKER_ACCOUNTS": "a:9222,b:9223", "WORKER_ORG_ACCOUNTS": "o1:a,o2:b,o3:b"})
+def test_the_config_port_map_names_each_mapped_user_and_whether_there_is_one_chrome():
+    """egm r11/r12: the ownership queries count a portless row only on the Chrome the config gives that user."""
+    from autopilot_worker.jobs import port_map
+    from autopilot_worker.store import PgRepo
+
+    assert port_map({"a": 9222}, {}) == {"one_port": True, "org_ports": ""}
+    assert port_map({"a": 9222, "b": 9223}, {"o1": "a", "o2": "b", "o3": "gone"}) == {"one_port": False, "org_ports": "o1:9222,o2:9223"}
     seen = []
 
-    class VRepo:
-        def claim_verify(self, skip=()):
-            return {"org_id": "o2"}
+    class Db:
+        def execute(self, sql, params):
+            seen.append(params)
+            return [] if "SKIP LOCKED" in sql else [[False]]
 
-        def chrome_taken_by_other(self, org, port):
-            return False
-
-        def chrome_used_by_other(self, org, port, here=(), any_here=True):
-            seen.append((org, port, sorted(here), any_here))
-            return True
-
-        def owner_email(self, org):
-            return None
-
-        def finish_verify(self, org, decision, **k):
-            pass
-
-    loop._verify_wait.clear()
-    loop.verify_once(cfg, VRepo(), lambda user, password, port: None, b"k" * 32)
-    assert seen == [("o2", 9223, ["o2", "o3"], False)]
-    loop._verify_wait.clear()
+    repo = PgRepo("", db=Db())
+    repo.set_ports({"a": 9222, "b": 9223}, {"o2": "b"})
+    repo.chrome_used_by_other("o1", 9222)
+    repo.chrome_taken_by_other("o1", 9222)
+    repo.claim(ext_connect=True, worker_id="w", one_chrome=True)
+    assert all(p["one_port"] is False and p["org_ports"] == "o2:9223" for p in seen) and len(seen) == 3
 
 
 def test_the_slots_main_loop_fills_free_slots_and_gives_back_a_claim_it_cannot_start(tmp_path):
@@ -1569,3 +1584,22 @@ def test_the_slots_main_loop_fills_free_slots_and_gives_back_a_claim_it_cannot_s
     pool, repo = Pool(2), Repo([9, 10], stop=stop)
     m.fill_slots(cfg, repo, pool, stop, relogin_ready=False, skip_orgs=list)
     assert repo.given == [9] and pool.started == []
+
+
+
+@needs_pg
+def test_a_portless_user_with_a_running_step_owns_only_the_chrome_the_config_gives_it():
+    """egm r12: user 1 lost its port (gate) while its Phase A runs. It still owns its own Chrome, but never user 2's own Chrome."""
+    from autopilot_worker.db import to_numbered
+    from autopilot_worker.jobs import CHROME_TAKEN_SQL
+
+    q = lambda org, port, org_ports="", one_port=True: dict(zip(("sql", "params"), to_numbered(  # noqa: E731
+        CHROME_TAKEN_SQL, {"org": org, "port": port, "org_ports": org_ports, "one_port": one_port})))
+    seed = ORGS_CASES + READY + sessions() + [
+        "UPDATE worker_sessions SET port = NULL WHERE org_id = 'o1'",
+        "UPDATE worker_sessions SET port = 9223 WHERE org_id = 'o2'",
+        "INSERT INTO jobs (case_id, step, state, locked_by, locked_at) VALUES ('c1', 'phase_a', 'running', 'w', now())",
+    ]
+    two = "o1:9222,o2:9223"
+    r = run([q("o2", 9223, two, False), q("o2", 9222, two, False), q("o2", 9223)], seed=seed)
+    assert r == [[[False]], [[True]], [[True]]]  # not on o2's own Chrome; on o1's Chrome yes; one Chrome: every portless runner counts
