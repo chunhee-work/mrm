@@ -19,7 +19,7 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(REPO, "typesafe"))
 PLATE = re.compile(r"^[A-Z]{1,3}\d{1,4}[A-Z]?$")
 DPI, THREADS, CHECK = 100, 6, 0.7
-# documents step 1 needs; own=True -> the page must also be on OUR side (ours >= 0.5)
+# documents step 1 needs; own=True -> the page must also be on OUR side (ours >= 0.5). I-search: see the at-fault hint in main()
 NEED = {"RC": (["vehicle_ownership_certificate"], True),
         "our insurance": (["insurance_schedule_or_cover_note"], True),
         "our police report": (["police_report"], True),
@@ -83,7 +83,13 @@ def main():
         miss = []
         for name, (types, own) in NEED.items():
             if not any(p["doc_type"] in types and (not own or (p["ours"] or 0) >= 0.5) for p in P):
-                miss.append(name)
+                # playbook 01: the at-fault party's own schedule, a rotated mySIKAP page or a screenshot can be the I-SEARCH page. Not proof
+                # (no plate check here), so it only changes the hint: open those other-side pages and look for the at-fault plate's insurance.
+                cand = sorted((p for p in P if name == "I-search" and p["ours"] is not None and p["ours"] < 0.5 and p["doc_type"]
+                               not in ("vehicle_ownership_certificate", "police_report", "police_investigation_result", "police_sketch", "road_tax")),
+                              key=lambda p: ({"isearch_report": 0, "insurance_schedule_or_cover_note": 1}.get(p["doc_type"], 2), p["ours"], -(p["conf"] or 0)))
+                other = [f'{p["pdf"]} p{p["page"]}' for p in cand[:6]]  # same order and cap as the worker's plate question
+                miss.append(f"I-search (maybe at {', '.join(other)}: check for the at-fault plate's insurance)" if other else name)
         c["maybe_missing"] = {"draft": True, "items": miss,
                               "note": "DRAFT hint only. Open the pages (and every needs_check page) before any '<PLATE> pending' line."}
         c["blamed_pages"] = [f'{p["pdf"]} p{p["page"]}' for p in P if (p["blamed"] or 0) >= 0.5]
