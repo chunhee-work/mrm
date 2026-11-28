@@ -36,17 +36,25 @@ UNCLEAR_IN_A_ROW = 2  # the second one stops like a rejection (G2)
 SUCCESS_ACTIONS = ("relogin_ok", "login_session_live", "login_ok", "session_seen_connected")
 EPISODE_ACTIONS = ("relogin_put_back", "relogin_unclear", "relogin_capped")
 MAIL_KINDS = ("relogin_failed", "relogin_unclear", "otp", "orphan")
+PROVEN_ACTIONS = ("relogin_ok", "login_ok")
+
+
+def _sql_list(actions) -> str:
+    """The action names as a SQL list. Every action list in the SQL below is built from the tuples, so they cannot drift."""
+    return "(" + ",".join("'" + a + "'" for a in actions) + ")"
+
+
 
 # the time of the last success for this org; every "since the last success" count uses it
 _LAST_OK = (
     "coalesce((SELECT max(at) FROM merimen_cred_audit WHERE org_id = %(org)s AND action IN "
-    "('relogin_ok','login_session_live','login_ok','session_seen_connected')), '-infinity'::timestamp)"
+    f"{_sql_list(SUCCESS_ACTIONS)}), '-infinity'::timestamp)"
 )
 # only a login that TESTED the saved password lifts an unclear block (G1 + critic): a person logged in by hand (login_session_live)
 # or a tab seen connected says nothing about whether the saved password works
 _LAST_PROVEN = (
     "coalesce((SELECT max(at) FROM merimen_cred_audit WHERE org_id = %(org)s AND action IN "
-    "('relogin_ok','login_ok')), '-infinity'::timestamp)"
+    f"{_sql_list(PROVEN_ACTIONS)}), '-infinity'::timestamp)"
 )
 _COOLDOWN = f"EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_try' AND at > now() - interval '{COOLDOWN}')"
 _CAPPED = f"(SELECT count(*) FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_typed' AND at > now() - interval '24 hours') >= {CAP}"
@@ -64,7 +72,7 @@ _ORPHAN = (
     "AND t.at < now() - interval '3 minutes' "
     f"AND t.at > {_LAST_PROVEN} "
     "AND NOT EXISTS (SELECT 1 FROM merimen_cred_audit o WHERE o.org_id = t.org_id "
-    "AND o.action IN ('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch','relogin_cred_gone','relogin_cred_unread') AND o.id > t.id))"
+    f"AND o.action IN {_sql_list(OUTCOME_ACTIONS)} AND o.id > t.id))"
 )
 _STREAK = (
     f"(SELECT count(*) FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_put_back' AND at > now() - interval '{STREAK_WINDOW}' "
@@ -113,7 +121,7 @@ def seen_connected_statement(org_id: str) -> tuple[str, object]:
     p = {"org": org_id}
     return (
         "INSERT INTO merimen_cred_audit (org_id, action) SELECT %(org)s, 'session_seen_connected' "
-        f"WHERE EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action IN ('relogin_put_back','relogin_unclear','relogin_capped') "
+        f"WHERE EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action IN {_sql_list(EPISODE_ACTIONS)} "
         f"AND at > {_LAST_OK})",
         p,
     )
@@ -123,7 +131,7 @@ def outcome_written_statement(org_id: str, try_id) -> tuple[str, object]:
     return (
         # not login_session_live: the save-time check writes it too, and must not make a kept outcome look written (loop review r7)
         "SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND id > %(tid)s::int AND action IN "
-        "('relogin_put_back','relogin_typed','relogin_key_mismatch','relogin_cred_gone','relogin_cred_unread') LIMIT 1",
+        f"{_sql_list(a for a in OUTCOME_ACTIONS if a != 'login_session_live')} LIMIT 1",
         {"org": org_id, "tid": str(int(try_id))},
     )
 
@@ -142,7 +150,7 @@ def mail_booking_statement(org_id: str, kind: str) -> tuple[str, object]:
     # list, login_session_live included). So the same orphan is mailed once, and a later new orphan is mailed again (loop review 20).
     after_outcome = (
         " AND id > (SELECT coalesce(max(id), 0) FROM merimen_cred_audit WHERE org_id = %(org)s AND action IN "
-        "('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch','relogin_cred_gone','relogin_cred_unread'))"
+        f"{_sql_list(OUTCOME_ACTIONS)})"
         if kind == "orphan" else ""
     )
     return (

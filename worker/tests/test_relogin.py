@@ -923,3 +923,15 @@ def test_the_screenshot_page_prefers_a_logged_in_merimen_tab():
     assert pick_merimen_page([other, login]) is login
     assert pick_merimen_page([other]) is None
     assert pick_merimen_page([]) is None
+
+
+def test_the_sql_action_lists_come_from_the_tuples():
+    # one source for each list (loop review round 21): the SQL is built from these tuples, so they cannot drift
+    lst = relogin._sql_list
+    assert lst(relogin.OUTCOME_ACTIONS) in relogin._ORPHAN
+    assert lst(relogin.OUTCOME_ACTIONS) in relogin.mail_booking_statement("o1", "orphan")[0]
+    assert lst(relogin.SUCCESS_ACTIONS) in relogin._LAST_OK
+    assert lst(relogin.PROVEN_ACTIONS) in relogin._LAST_PROVEN
+    assert lst(relogin.EPISODE_ACTIONS) in relogin.seen_connected_statement("o1")[0]
+    written = relogin.outcome_written_statement("o1", 1)[0]
+    assert lst(a for a in relogin.OUTCOME_ACTIONS if a != "login_session_live") in written and "login_session_live" not in written
