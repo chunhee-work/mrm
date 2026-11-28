@@ -151,7 +151,7 @@ export default function ProfileCard({ cred, setCred, onSaved, compact, look = "s
         {[0, 1, 2].filter((i) => i === 0 || opened[i] || names[i]).map((i) => (
           <div key={i} className="flex items-center gap-2">
             <label className="field min-w-0 flex-1"><span className="note text-mute">{t("pf.wsN", { n: String(i + 1) })}</span>
-              <input value={names[i]} onChange={(e) => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} maxLength={120} autoComplete="organization" className="input" data-testid={i === 0 ? "pf-workshop" : `pf-workshop-${i + 1}`} disabled={!configured} /></label>
+              <input value={names[i]} onChange={(e) => { setNames(names.map((x, j) => (j === i ? e.target.value : x))); if (i > 0 && !e.target.value && cred.workshops?.some((w) => w.slot === i + 1)) setRemoved(removed.map((x, j) => (j === i ? true : x))); }} maxLength={120} autoComplete="organization" className="input" data-testid={i === 0 ? "pf-workshop" : `pf-workshop-${i + 1}`} disabled={!configured} /></label>
             {i > 0 && <button type="button" onClick={() => { setNames(names.map((x, j) => (j === i ? "" : x))); if (cred.workshops?.some((w) => w.slot === i + 1)) setRemoved(removed.map((x, j) => (j === i ? true : x))); setOpened(opened.map((x, j) => (j === i ? false : x))); }} className="btn-quiet !h-11 self-end !text-mute" data-testid={`pf-workshop-rm-${i + 1}`} disabled={!configured}>{t("pf.wsRemove")}</button>}
           </div>
         ))}
