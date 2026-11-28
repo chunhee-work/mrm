@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventTr, eventKind, docKey, failTr, userFixable, ZIP_WHY, badFileName, zipRefunded } from "./case-text";
+import { eventTr, eventKind, isWorkerStop, docKey, failTr, userFixable, ZIP_WHY, badFileName, zipRefunded } from "./case-text";
 import { DICTS } from "./i18n";
 
 test("B09 events: every stored sentence maps to a key that exists in EN, 中文 and BM", () => {
@@ -129,20 +129,90 @@ test("photos left out of a case are said in the page language, one line per reas
   assert.equal(eventKind("Photos left out: 3 (HEIC)"), "note"); // a note: the case itself went on
 });
 
-test("Phase A practice run: the long worker sentence with Merimen field names becomes one short plain line", () => {
-  const long = "Phase A dry-run only. Merimen was not changed. Photos, dry run (Merimen not changed): would upload 78 · relabel 0 · reorder 0 Create form filled and checked, not saved (ddlbInsurer=Allianz General Insurance Company (Malaysia) Berhad; ddlbINSCOID=HQ; ddlbPOLCOVER=Comprehensive; ddlb3INSCOID=Zurich Ge";
-  assert.deepEqual(eventTr(long), { key: "ev.dryAPhotos", vars: { n: "78" } });
-  assert.deepEqual(eventTr("Phase A dry-run only. Merimen was not changed. Create form filled and checked, not saved (Allianz)"), { key: "ev.dryA" });
-  // a documents line also says "would upload": only the photos count is used
-  assert.deepEqual(eventTr("Phase A dry-run only. Merimen was not changed. Documents (dry run): would upload 5 Create form filled"), { key: "ev.dryA" });
-  assert.deepEqual(eventTr("Phase B dry-run only. Merimen was not changed. Step 2 plan: 12 parts"), { key: "ev.dryB" });
-  assert.deepEqual(eventTr("Phase A dry-run only. Merimen was not changed."), { key: "ev.dryA" });
-  assert.equal(eventKind(long), "ok");
-  for (const key of ["ev.dryAPhotos", "ev.dryA", "ev.dryB"]) for (const l of ["en", "zh", "ms"] as const) {
-    const s = (DICTS[l] as Record<string, string>)[key];
-    assert.ok(s && !/ddlb|=/.test(s), `${l} ${key}`);
-    assert.equal(s.split("\n").length, 2, `${l} ${key}: a short title, then one grey detail line`);
+// real worker sentences from production (2026-11-28), and what the case page shows for each
+const W = {
+  dry: "Phase A dry-run only. Merimen was not changed. Photos, dry run (Merimen not changed): would upload 78 · relabel 0 · reorder 0 Create form filled and checked, not saved (ddlbInsurer=Allianz General Insurance Company (Malaysia) Berhad; ddlbINSCOID=HQ; ddlbPOLCOVER=Comprehensive; ddlb3INSCOID=Zurich Ge",
+  rejected: "Phase A not saved. check by hand: the manager and adjuster, and the claimant insurer and policy; Adjuster Report not saved: report_rejected empty required boxes: sleAPcode Merimen says:  | Please note the treads unit is in mm. | INFORMATION FOR CALCULATING ESTIMATES | Terms of Use & Contact Information. check by hand: PIAM IPD code (Browse); labour type 5 DR HATCH (from the model)",
+  exists: "The case already exists in Merimen, nothing was made again. check by hand: the manager and adjuster, and the claimant insurer and policy; Adjuster Report saved: check by hand: PIAM IPD code (Browse); accident postcode 23000 (main postcode of Dungun); labour type 5 DR HATCH (from the model); Documents uploaded: 1 Photos: upload 0 · relabel 0 · reorder 0",
+  bodyType: "Phase A not saved. check by hand: the manager and adjuster, and the claimant insurer and policy; Adjuster Report not filled: labour_type_unknown (the RC body type does not say hatchback, saloon or MPV: MOTOKAR)",
+  missing: "Phase A not saved. check by hand: the claimant insurer and policy stored on the case, and the manager and adjuster; Adjuster Report not filled: missing_data (at-fault city)",
+  mismatch: "Phase B stopped. Photos not touched: after the upload Merimen has 85 photos and 33 mismatches (plan 78)",
+  login: "Merimen 拒绝了登录（用户名或密码不对）。请在「连接」页重新填写。 / Merimen rejected the login (wrong user name or password). Enter it again on the Connection page.",
+};
+const show = (m: string, l: "en" | "zh" | "ms" = "en") => {
+  const tr = eventTr(m);
+  const d = DICTS[l] as Record<string, string>;
+  const fill = (k: string, v?: Record<string, string>) => (d[k] ?? "").replace(/\{(\w+)\?([^|}]*)\|([^}]*)\}/g, (_, n, a, b) => (v?.[n] === "1" ? a : b)).replace(/\{(\w+)\}/g, (_, n) => v?.[n] ?? "");
+  return { head: tr.key ? fill(tr.key, tr.vars) : tr.raw ?? m, sub: (tr.sub ?? []).map((f) => fill(f.key, f.vars)).join(" · "), key: tr.key };
+};
+
+test("worker lines: a short title and at most three short grey facts, never field names or codes (owner 2026-11-28)", () => {
+  assert.deepEqual(show(W.dry), { key: "ev.w.dryA", head: "Practice run done, nothing saved", sub: "Form checked · 78 photos ready" });
+  assert.deepEqual(show(W.rejected), { key: "ev.w.notSaved", head: "Stopped, not saved in Merimen", sub: "Adjuster Report: a box is empty · Some fields to check" });
+  assert.deepEqual(show(W.exists), { key: "ev.w.exists", head: "Case already in Merimen, not made again", sub: "Adjuster Report saved · 1 document uploaded · Some fields to check" });
+  assert.deepEqual(show(W.bodyType), { key: "ev.w.notSaved", head: "Stopped, not saved in Merimen", sub: "Adjuster Report: body type not clear on the RC · Some fields to check" });
+  assert.equal(show(W.missing).sub, "Adjuster Report: at-fault city missing · Some fields to check");
+  assert.deepEqual(show(W.mismatch), { key: "ev.w.stopped", head: "Stopped, needs a look in Merimen", sub: "Photos: 33 of 85 in Merimen do not match" });
+  assert.deepEqual(show(W.login), { key: "ev.w.bi", head: "Merimen rejected the login (wrong user name or password).", sub: "Enter it again on the Connection page." });
+  assert.deepEqual(show(W.login, "zh"), { key: "ev.w.bi", head: "Merimen 拒绝了登录（用户名或密码不对）。", sub: "请在「连接」页重新填写。" });
+  for (const m of Object.values(W)) for (const l of ["en", "zh", "ms"] as const) {
+    const { head, sub } = show(m, l);
+    assert.ok(head && head.length <= 70, `${l} title too long: ${head}`);
+    assert.ok(sub.length <= 110, `${l} facts too long: ${sub}`);
+    assert.ok(!/ddlb|sleAP|_unknown|report_rejected|missing_data|\{|\}/.test(head + sub), `${l} ${head} / ${sub}`);
   }
-  // a dry run that failed keeps its own words (it says why)
-  assert.equal(eventTr("Phase A dry-run failed. x").key, "");
+  // a waiting line gets the question mark, a finished one the tick
+  assert.equal(eventKind(W.rejected), "wait");
+  assert.ok(isWorkerStop(W.rejected) && !isWorkerStop(W.exists) && !isWorkerStop("Pending: x"));
+  assert.equal(eventKind(W.exists), "ok");
+  assert.equal(eventKind(W.dry), "ok");
+});
+
+test("worker lines: the other sentences the worker writes get a short title too", () => {
+  const cases: [string, string][] = [
+    ["Case created in Merimen. Adjuster Report saved; Documents uploaded: 3. Photos: upload 78 · relabel 0 · reorder 0", "ev.w.created"],
+    ["Phase A saved. Photos: upload 2 · relabel 1 · reorder 0", "ev.w.saved"],
+    ["Phase B: Parts and labour: 12 parts · 1 manual · labour N 3 R 2. Estimate details set: conditions on 12 part rows, misc 2.", "ev.w.saved"],
+    ["Checking. Parts and labour: 9 parts · 0 manual · labour N 2 R 1", "ev.w.checking"],
+    ["Phase B stopped. Parts and labour could not be ticked (Timeout). Check the Select Parts page in Merimen.", "ev.w.stopped"],
+    ["Phase A dry-run failed. no case data", "ev.w.dryFailed"],
+    ["Phase A blocked: insurer, plate", "ev.w.blocked"],
+    ["Phase B checked. Merimen was not changed.", "ev.w.checked"],
+    ["Merimen logged out during Phase A. Logging in again, then it goes on from where it stopped. (Phase A stopped)", "ev.w.relogin"],
+    ["Merimen logged out 3 times in 30 minutes: Phase A is not tried again by itself. Phase A not saved", "ev.w.logoutStop"],
+    ["Phase B saved, but the names changed meanwhile. A new Phase B runs once 完成 is pressed on the new names", "ev.w.namesChanged"],
+  ];
+  for (const [m, key] of cases) {
+    assert.equal(eventTr(m).key, key, m);
+    for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)[key], `${l} ${key}`);
+    for (const f of eventTr(m).sub ?? []) for (const l of ["en", "zh", "ms"] as const) assert.ok((DICTS[l] as Record<string, string>)[f.key], `${l} ${f.key}`);
+  }
+  assert.equal(show(cases[0][0]).sub, "Adjuster Report saved · 3 documents uploaded · 78 photos uploaded");
+  assert.equal(show(cases[2][0]).sub, "12 parts ticked · Estimate details set");
+  assert.equal(show(cases[4][0]).sub, "Parts and labour not ticked · Some fields to check");
+  // a failed practice run, a short worker line and the web's own lines are as before
+  assert.equal(eventTr("Worker error").key, "ev.w.error");
+  assert.equal(eventTr("Reading documents").key, "ev.reading");
+});
+
+test("any other long line shows its first sentence only", () => {
+  const long = "Something new happened in Merimen today. " + "x".repeat(200);
+  assert.deepEqual(eventTr(long), { key: "", raw: "Something new happened in Merimen today." });
+  const noStop = "y".repeat(300);
+  assert.equal((eventTr(noStop).raw ?? "").length, 100);
+});
+
+test("worker lines: review findings (a stop is never shown as done, a practice run never as ticked)", () => {
+  const toFix = "Phase B: Estimate details saved. Not submitted, 1 to fix: total RM4,500.00 is below RM6,000";
+  assert.deepEqual(show(toFix), { key: "ev.w.toFix", head: "Saved, not submitted: some items to fix", sub: "1 to fix before submit" });
+  assert.equal(eventKind(toFix), "wait");
+  const dryB = "Phase B dry-run only. Merimen was not changed. Parts and labour, dry run (Merimen not changed): would 12 parts · 0 manual · labour N 2 R 1 Estimate details would set: conditions on 12 part rows, misc 1.";
+  assert.deepEqual(show(dryB), { key: "ev.w.dryB", head: "Practice run done, nothing saved", sub: "12 parts planned" });
+  const relabel = "Phase B checked. Merimen was not saved (photos were relabelled).";
+  assert.deepEqual(show(relabel), { key: "ev.w.checkedPhotos", head: "Checked, photos renamed in Merimen", sub: "" });
+  const gaveUp = "Stopped after 3 tries (it waited 30 s, 2 min and 10 min in between). It will not be tried again by itself.";
+  assert.deepEqual(show(gaveUp), { key: "ev.w.gaveUp", head: "Stopped after a few tries, needs you", sub: "Tried 3 times" });
+  assert.equal(eventKind("Phase A blocked: insurer"), "fail");
+  const locked = "Merimen 已锁定此账号。请先等 Merimen 解锁（或请 Merimen 解锁），确认能登录后再到「连接」页更新登录信息；我们不会再自动尝试。 / Merimen locked this account. Wait until Merimen unlocks it (or ask Merimen to), check that the login works, then update it on the Connection page. We will not try again automatically.";
+  for (const l of ["en", "zh", "ms"] as const) assert.ok(show(locked, l).sub.length <= 100, show(locked, l).sub);
 });

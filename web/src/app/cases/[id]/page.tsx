@@ -42,7 +42,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const [c] = await db.select().from(schema.cases).where(and(eq(schema.cases.id, id), eq(schema.cases.orgId, orgId), notDeleted)).limit(1);
   if (!c) notFound();
-  const events = await db.select().from(schema.caseEvents).where(eq(schema.caseEvents.caseId, id)).orderBy(asc(schema.caseEvents.at)).limit(100);
+  // the newest 100, oldest first; rows written in one transaction share `at`, so the id keeps their order
+  const events = (await db.select().from(schema.caseEvents).where(eq(schema.caseEvents.caseId, id)).orderBy(desc(schema.caseEvents.at), desc(schema.caseEvents.id)).limit(100)).reverse();
   const files = await db.select({ id: schema.caseFiles.id, name: schema.caseFiles.originalName, kind: schema.caseFiles.kind, size: schema.caseFiles.size }).from(schema.caseFiles).where(eq(schema.caseFiles.caseId, id)).orderBy(asc(schema.caseFiles.id)).limit(400);
   const [ph] = await db.select({ n: sql<number>`count(*)::int`, todo: sql<number>`count(*) filter (where final_name is null and (name_state <> 'named' or confidence is null or confidence < 0.9))::int` }).from(schema.casePhotos).where(eq(schema.casePhotos.caseId, id));
   // Self-heal, so no case waits forever: a dead read is started again (max 3 reads per case), and a case that never

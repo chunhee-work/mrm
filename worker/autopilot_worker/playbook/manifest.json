@@ -1,12 +1,12 @@
 {
- "version": "46469a939fab",
+ "version": "1ffc458488cd",
  "files": {
   "01-read-documents.md": "1a0e816ad4580472518f9f04cd966de36c1445388f1f7558b057679b556c4423",
-  "03-photo-naming.md": "9297c61e933372ae4ab2eaf8100181651f4af7a7314c340f69bfc73104945f55",
+  "03-photo-naming.md": "209f08eb49a941e057b85ef4462a82cf8da0967dbfc2d2085c66bd6f19a7bc4e",
   "06-upload-docs-and-photos.md": "17dd308cd606904f3e83629b16ea3c7b72391cf3fe96dadfd8e67378cd8dc5e4",
   "07-select-parts-and-labour.md": "d91f6b416ece1a653818cf52d193e6d95109ed9282087d9988389c90643e87fd",
   "08-estimate-details.md": "b6603eb5ba47bb5da99188d712f706296b47c6f27dd6818e23644154b1d408df",
-  "10-car-models.md": "394faebad4816997d017f8041816efeea2c145d90569c85ac43836eaac2b2eaf",
+  "10-car-models.md": "cae48549e85e5b5fe534de00fd5864bc310c5f0cc1cf0fddf75089d83594a9de",
   "11-car-logos.md": "67b05a71a018bed9c3371c94aa5ba8c03602541ab84bb955d9ec675b012556f5",
   "names.json": "d64c76f5958f6e1f1fc7a7e37f9d1af5f65705789878e8862561b7346ce17567",
   "photo-rules.json": "8947553ea5e4fd0c2f585eb948d95de9f0ae12400ecc813b60d69deff05a2a52",

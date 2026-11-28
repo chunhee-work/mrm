@@ -8,8 +8,9 @@ import CaseTable, { type CaseRow } from "@/components/app/case-table";
 import Home, { type HomeCounts } from "@/components/app/home";
 import { bucketOf, VIEWS, type View } from "@/components/app/status";
 import { systemBusy } from "@/lib/case-steps";
-import { canDelete, notDeleted } from "@/lib/case-delete";
+import { canDeleteSql, notDeleted } from "@/lib/case-delete";
 import { healWaiting } from "./stuck-reads";
+import { merimenLine } from "./merimen-line";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // a few waiting cases are read after the page is sent
@@ -78,6 +79,13 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     n: CONFIRM_COUNT,
     total: sql<number>`count(*)::int`,
   }).from(schema.casePhotos).where(inArray(schema.casePhotos.caseId, open)).groupBy(schema.casePhotos.caseId) : [];
+  // the workshop each case goes to (no row = workshop 1), and the name the worker fixed it with once the case is in Merimen
+  const ws = rows.length ? await db.select({ caseId: schema.merimenCaseWorkshop.caseId, slot: schema.merimenCaseWorkshop.slot, lockedName: schema.merimenCaseWorkshop.lockedName })
+    .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, rows.map((c) => c.id))).catch(() => []) : [];
+  const wsOf = new Map(ws.map((x) => [x.caseId, x]));
+  // plan #159: the delete icon only on an open case that hit a problem on our side (one EXISTS rule per case, shared with deleteCase)
+  const del = rows.length ? await db.execute(sql`SELECT c.id, ${canDeleteSql()} AS ok FROM cases c WHERE c.id IN (${sql.join(rows.map((c) => sql`${c.id}`), sql`, `)})`).catch((e) => { console.error("delete flags failed", e); return []; }) : []; // a failure hides the icons, not the list
+  const deletable = new Set(((Array.isArray(del) ? del : (del as { rows?: unknown[] }).rows ?? []) as { id: string; ok: boolean }[]).filter((x) => x.ok).map((x) => x.id));
   const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
   const total = new Map(todo.map((x) => [x.caseId, Number(x.total)]));
   return rows.map((c) => ({
@@ -88,12 +96,16 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     createdAt: c.createdAt.toISOString(),
     firstFile: first.get(c.id) ?? null,
     id: c.id,
-    canDelete: canDelete(c),
+    canDelete: deletable.has(c.id),
+    inMerimen: !!c.merimenCaseId,
     plate: c.plate,
     carModel: c.carModel,
     insurer: c.insurer,
     status: c.status,
     pendingDoc: c.pendingDoc,
     totalRm: c.totalRm,
+    ...merimenLine(c.caseData),
+    wsSlot: wsOf.get(c.id)?.slot ?? 1,
+    wsName: wsOf.get(c.id)?.lockedName ?? null,
   }));
 }

@@ -21,6 +21,7 @@ import NewCasePick from "./new-case-pick";
 import NewCaseForm from "@/app/cases/new/form";
 import WorkshopPicker, { type WorkshopOpt } from "./workshop-picker";
 import CaseLog from "./case-log";
+import CaseFiles, { type CaseFile } from "./case-files";
 import LoginAlert from "./login-alert";
 
 // the photo desk is big: it is loaded only when a line with photos to name is opened
@@ -65,24 +66,52 @@ function useAct() {
 }
 // the case is being worked on by the system right now (not waiting for the user): its step breathes
 
-/** The vehicle no. (or the first file's name while the documents are unread), and the car under it. */
-function Who({ r }: { r: CaseRow }) {
+/** What every line shows of the account, the same for each case: who handles it in Merimen and the workshops. */
+export type Team = { adjuster: string | null; manager: string | null; workshops: { slot: number; name: string }[] };
+
+/** The workshop a case goes to: the name the worker fixed once it is in Merimen, else the name its slot has now. */
+const repairerOf = (r: CaseRow, team: Team) => r.wsName || team.workshops.find((w) => w.slot === (r.wsSlot ?? 1))?.name || null;
+
+/**
+ * The vehicle no. (or the first file's name while the documents are unread) and, as in Merimen's case list (owner 2026-11-29),
+ * the other car's plate in [brackets] beside it, then adjuster, manager, insurer and repairer. No file reference and no person's
+ * name: only what tells the cases apart at a glance. Anything not known yet is left out, never a dash.
+ */
+function Who({ r, team }: { r: CaseRow; team: Team }) {
   const { t } = useT();
+  const plate = (
+    <p className="num max-w-full truncate font-mono text-[16px] font-semibold tracking-[0.01em] text-fg" data-testid="home-case">
+      {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{r.firstFile || t("dash.noPlate")}</span>}
+    </p>
+  );
+  const tp = r.tpPlate ? <span className="num font-mono text-[14px] font-medium text-mute" data-testid="home-tp">[{r.tpPlate}]</span> : null;
+  const insurer = r.tpInsurer ?? null; // the claimant's own insurer is not the one Merimen lists: left out until the at-fault one is read
+  const repairer = repairerOf(r, team);
+  // owner 2026-11-29: what the case is about first (insurer, repairer), then who handles it (adjuster, manager) as a quieter
+  // second layer under a thin line. One grid, so the labels of both layers line up.
+  const known = (cells: [string, string | null][]) => (r.plate ? cells.filter(([, v]) => v) : []) as [string, string][]; // not read yet: nothing
+  const main = known([["insurer", insurer], ["repairer", repairer]]);
+  const team2 = known([["adjuster", team.adjuster], ["manager", team.manager]]);
   return (
     <div className="min-w-0">
-      <p className="num truncate font-mono text-[16px] font-semibold tracking-[0.01em] text-fg" data-testid="home-case">
-        {r.plate || <span className="font-sans text-[15px] font-normal text-mute">{r.firstFile || t("dash.noPlate")}</span>}
-      </p>
-      <p className="mt-0.5 truncate text-[13.5px] leading-snug text-mute">{[r.carModel, r.insurer].filter(Boolean).join(" · ") || " "}</p>
+      {/* the plate is never cut for the other car's: in a narrow column [TP] goes to the next line */}
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">{plate}{tp}</div>
+      {main.length + team2.length > 0 && (
+        <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 leading-snug" data-testid="home-who">
+          {main.map(([k, v]) => <div key={k} className="contents text-[13.5px]"><dt className="text-mute">{t(`row.${k}`)}</dt><dd className="min-w-0 font-medium text-fg [overflow-wrap:anywhere]">{v}</dd></div>)}
+          {main.length > 0 && team2.length > 0 && <div aria-hidden="true" className="col-span-2 my-1 border-t border-hairsoft" />}
+          {team2.map(([k, v]) => <div key={k} className="contents text-[12.5px]" data-testid="home-team"><dt className="text-mute/80">{t(`row.${k}`)}</dt><dd className="min-w-0 text-mute [overflow-wrap:anywhere]">{v}</dd></div>)}
+        </dl>
+      )}
     </div>
   );
 }
 
-function ActIcon({ icon }: { icon: "retry" | "upload" | "photo" | "tick" }) {
+function ActIcon({ icon, white = false }: { icon: "retry" | "upload" | "photo" | "tick"; white?: boolean }) {
   if (icon === "upload") return <Upload className="h-4 w-4 shrink-0" />;
   if (icon === "photo") return <Photo className="h-4 w-4 shrink-0" />;
   if (icon === "tick") return <Tick className="h-4 w-4 shrink-0" />;
-  return <span aria-hidden="true" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#dc2626] text-[11px] font-bold leading-none text-white">!</span>;
+  return <span aria-hidden="true" className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold leading-none ${white ? "bg-white text-[#b91c1c]" : "bg-[#dc2626] text-white"}`}>!</span>;
 }
 
 /**
@@ -92,11 +121,12 @@ function ActIcon({ icon }: { icon: "retry" | "upload" | "photo" | "tick" }) {
 function ActButton({ r, onHere }: { r: CaseRow; onHere: () => void }) {
   const a = useAct()(r);
   if (a.kind === null) return <span className="pointer-events-none flex min-w-0 items-center gap-2 text-[14px] text-mute">{a.busy ? <Working className="shrink-0 text-scan" /> : <span aria-hidden="true" className="h-[9px] w-[9px] shrink-0 rounded-full bg-mute" />}<span className="truncate">{a.say}</span></span>;
+  // owner 2026-11-28: "CTA button more bigger and more like CTA button ... the whole middle": a solid button across the line
   const look = a.tone === "red"
-    ? "border-[#dc2626]/60 bg-[#fef2f2] text-[#991b1b] hover:bg-[#fee2e2]"
-    : "border-amber/70 bg-ambertint text-fg hover:border-amber hover:bg-amber/20";
-  const cls = `pointer-events-auto relative z-10 inline-flex h-9 min-w-0 max-w-full items-center gap-2 rounded-full border px-3.5 text-[14px] font-semibold transition-colors duration-150 ${look}`;
-  return <button type="button" onClick={onHere} className={cls} data-testid="home-act" data-act="here"><ActIcon icon={a.icon} /><span className="truncate">{a.say}</span></button>;
+    ? "bg-[#b91c1c] text-white shadow-[0_6px_16px_-6px_rgba(185,28,28,0.55)] hover:bg-[#991b1b]"
+    : "bg-[#b45309] text-white shadow-[0_6px_16px_-6px_rgba(180,83,9,0.55)] hover:bg-[#92400e]";
+  const cls = `pointer-events-auto relative z-10 inline-flex h-12 w-full min-w-0 items-center justify-center gap-2.5 rounded-[6px] px-5 text-[16px] font-semibold transition-[background-color,transform] duration-150 active:translate-y-px ${look}`;
+  return <button type="button" onClick={onHere} className={cls} data-testid="home-act" data-act="here"><ActIcon icon={a.icon} white /><span className="truncate">{a.say}</span><span aria-hidden="true" className="ml-0.5 shrink-0 text-[18px] leading-none">→</span></button>;
 }
 
 function Empty({ needle, blocked = false }: { needle: string; blocked?: boolean }) {
@@ -153,6 +183,30 @@ function RetryHere({ r, look, relist }: { r: CaseRow; look: () => void; relist: 
   );
 }
 
+/** The photo desk as a window over the page (owner 2026-11-29: "a new pop out window", like the Files window). */
+function DeskWindow({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const { t } = useT();
+  const dlg = useRef<HTMLDialogElement>(null);
+  // no close() on unmount: it would fire onClose (and in development the effect runs twice); a removed dialog leaves the top layer by itself
+  useEffect(() => { const d = dlg.current; if (d && !d.open) d.showModal(); }, []);
+  return (
+    <dialog ref={dlg} aria-label={title} data-testid="desk-window"
+      // a window inside it (Files) closing must not close this one
+      onClose={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      // Escape belongs to the desk (it clears a selection, closes its own lists): only the × closes the window
+      onCancel={(e) => e.preventDefault()}
+      className="h-[min(94dvh,1100px)] w-[min(97vw,1280px)] max-w-none overflow-hidden rounded-[6px] bg-panel2 p-0 text-fg backdrop:bg-black/60 max-sm:!m-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-screen max-sm:max-w-none max-sm:rounded-none">
+      <div className="flex h-full flex-col">
+        <div className="flex min-h-14 shrink-0 items-center gap-3 border-b border-hair bg-panel px-4">
+          <p className="min-w-0 flex-1 truncate text-[16px] font-semibold">{title}</p>
+          <button type="button" onClick={() => dlg.current?.close()} aria-label={t("shots.close")} data-testid="desk-window-close" className="grid h-11 w-11 shrink-0 place-items-center rounded-[3px] text-[24px] leading-none text-mute hover:bg-panel2 hover:text-fg">×</button>
+        </div>
+        <div className="app-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 sm:p-4" data-desk-scroll data-testid="home-desk">{children}</div>
+      </div>
+    </dialog>
+  );
+}
+
 /** What opens under a line when it is pressed: the job itself when it can be done here, then the facts, then the way into the full case page. */
 function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string; onDesk: (on: boolean) => void; workshops: WorkshopOpt[]; ctl: ListCtl }) {
   const { t } = useT();
@@ -162,33 +216,49 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
   // "Received" stays a moment after the upload (the case has moved on by then), then the card is back to what the case needs
   useEffect(() => { if (!sent) return; const id = window.setTimeout(() => setSent(false), 4000); return () => window.clearTimeout(id); }, [sent]);
   // a document is uploaded right here, with the same picker, limits and progress as the case page (one component, NeedCard)
-  // the photo desk, in this line: the job of step 2, and on the way while documents are still missing.
-  // Once shown it stays while the line is open: after 完成 the case moves to step 3, and the desk keeps its message and its undo.
+  // the photo desk: the job of step 2. Owner 2026-11-29: it is a window over the page (like the Files window), never a part
+  // that drops down under the line. It opens by itself when the line is opened for naming, and stays open after 完成 (the
+  // 完成 button turns green with a tick, as on the desk page); the line keeps a "Photo names" card to open it again.
+  // It waits only while documents are being read or one is missing.
+  const hasDesk = (r.deskTotal ?? 0) > 0;
   const [deskOpen, setDeskOpen] = useState(bucketOf(r) === "photos");
-  // documents being read (or a read that failed): the desk waits, as on the case page
-  // keyed on the step, not the row object (a new one comes with every refresh): a desk the user closed stays closed
+  // 完成 pressed in the desk: its message, read out below and shown on the card
+  const [finished, setFinished] = useState("");
   const bucket = bucketOf(r);
   useEffect(() => { if (bucket === "photos") setDeskOpen(true); else if (DESK_WAITS.includes(r.status)) setDeskOpen(false); }, [bucket, r.status]);
-  // while a line shows the photo desk, a dropped file goes to the desk and does not start a new case (the page-wide drop is off);
-  // a line with nothing to drop into leaves the page-wide drop on
-  const takesFiles = deskOpen; // the upload of a missing document is a picker only, so a page drop there still starts a new case
+  // while the desk is open, a dropped file goes to the desk and does not start a new case (the page-wide drop is off)
+  const takesFiles = deskOpen;
   useEffect(() => { if (!takesFiles) return; onDesk(true); return () => onDesk(false); }, [onDesk, takesFiles]);
+  // the case's files, read by Brief below: they sit in the desk's bar (the Files button), not in a second list
+  const [files, setFiles] = useState<CaseFile[]>([]);
+  const plate = r.plate || t("dash.noPlate");
   const desk = (
-    <div className="overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-desk">
-      <NamingDesk orgId={orgId} initialId={r.id} embedded onDone={ctl.relist}
-        tabs={[{ id: r.id, plate: r.plate || t("dash.noPlate"), carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
+    <DeskWindow title={t("desk.window", { plate })} onClose={() => setDeskOpen(false)}>
+      <NamingDesk orgId={orgId} initialId={r.id} embedded barExtra={files.length > 0 ? <CaseFiles caseId={r.id} files={files} look="chip" testid="desk-files" /> : undefined} onDone={ctl.relist} onFinished={(said, status) => { if (status === "pending_doc") return; setFinished(said); }}
+        tabs={[{ id: r.id, plate, carModel: r.carModel, done: !!r.photosDone, photos: r.deskTotal ?? 0, at: r.createdAt ?? "", dup: false, edited: 0 }]} />
+    </DeskWindow>
+  );
+  const named = !!finished || !!r.photosDone || bucket !== "photos";
+  const namesCard = hasDesk && !sent && !DESK_WAITS.includes(r.status) && r.status !== "pending_doc" && (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[4px] border border-hair bg-panel px-4 py-3" data-testid="home-names">
+      <span aria-hidden="true" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${named ? "bg-go/10 text-go" : "bg-ambertint text-fg"}`}>{named ? <Tick className="h-4 w-4" /> : <Photo className="h-4 w-4" />}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-semibold text-fg">{t("tray.names.title")} <span className="num ml-1 font-mono text-[13px] font-medium text-mute">{r.deskTotal}</span></p>
+        <p className="mt-0.5 text-[14px] text-mute" data-testid="home-names-say">{finished || t(named ? "tray.names.done" : "tray.names.todo")}</p>
+      </div>
+      <button type="button" onClick={() => setDeskOpen(true)} aria-haspopup="dialog" className="inline-flex h-11 shrink-0 items-center gap-2 rounded-[6px] border border-fg/25 bg-panel px-4 text-[15px] font-semibold text-fg transition-colors duration-150 hover:border-fg hover:bg-panel2 max-sm:w-full max-sm:justify-center" data-testid="home-names-open">
+        <Photo className="h-4 w-4 shrink-0" />{t("tray.names.open")}
+      </button>
     </div>
   );
   const job = sent || r.status === "pending_doc" || (r.status === "failed" && userFixable(r.error ?? null))
     ? (
       <>
         <ul className="overflow-hidden rounded-[4px]"><NeedCard row={r} orgId={orgId} sent={sent ? "files" : undefined} onSent={() => setSent(true)} onBusy={ctl.onUpload} onPhotos={() => { if (!DESK_WAITS.includes(r.status)) setDeskOpen((v) => !v); }} /></ul>
-        {deskOpen && desk}
       </>
     )
     : r.status === "failed" ? <RetryHere r={r} look={ctl.look} relist={ctl.relist} />
-    : deskOpen ? desk
-    : null;
+    : namesCard || null;
   const reading = r.status === "uploaded" || r.status === "reading";
   return (
     <div id={`more-${r.id}`} className="space-y-4 border-t border-hairsoft bg-panel2/60 px-4 pb-4 pt-3 lg:px-5" data-testid="home-more">
@@ -200,7 +270,8 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
         </div>
       )}
       {job}
-      <Brief r={r} workshops={workshops} />
+      {deskOpen && desk}
+      <Brief r={r} workshops={workshops} onFiles={setFiles} filesInDesk={hasDesk} />
       {r.canDelete && (
         <div className="flex justify-end">
           {/* a case the worker has not taken yet can still be deleted (same pop-up and rules as the case list) */}
@@ -208,7 +279,9 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
             className="btn-quiet !min-h-[40px] !gap-1.5 !px-3 text-[14px] text-mute hover:text-fg"><Bin />{t("del.btn")}</button>
         </div>
       )}
-      <ConfirmDelete row={ask ? { id: r.id, plate: r.plate || r.firstFile || "" } : null} onClose={() => setAsk(false)} onGone={() => router.refresh()} onStale={() => router.refresh()} />
+      <ConfirmDelete row={ask ? { id: r.id, plate: r.plate || r.firstFile || "", inMerimen: !!r.inMerimen } : null} onClose={() => setAsk(false)} onGone={() => router.refresh()} onStale={() => router.refresh()} />
+      {/* always there, so the desk's message is read out when it is said (the desk stays, its 完成 button turns green) */}
+      <p role="status" className="sr-only">{finished}</p>
     </div>
   );
 }
@@ -220,11 +293,11 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
  */
 type ListCtl = { look: () => void; relist: () => void; onUpload: (busy: boolean) => void };
 
-type BriefData = { events: { at: string; message: string }[]; files: { id: number; name: string; size: number }[]; workshop: { slot: number; locked: boolean } | null };
+type BriefData = { events: { at: string; message: string }[]; files: CaseFile[]; workshop: { slot: number; locked: boolean } | null };
 
 /** The rest of what the case page shows, in the open line: the workshop choice, the activity and the files. Read when the
  * line opens and again when its status changes, so it follows the case without the user leaving the first page. */
-function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
+function Brief({ r, workshops, onFiles, filesInDesk }: { r: CaseRow; workshops: WorkshopOpt[]; onFiles: (f: CaseFile[]) => void; filesInDesk: boolean }) {
   const { t } = useT();
   const [d, setD] = useState<BriefData | null>(null);
   const [wsBusy, setWsBusy] = useState(false);
@@ -251,13 +324,16 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
     setWsBusy(false);
     setTick((n) => n + 1);
   }
+  useEffect(() => { if (d) onFiles(d.files); }, [d, onFiles]);
   if (!d) return null;
   const slot = d.workshop?.slot ?? 1;
   // as on the case page: a choice from two workshops on, or the one it has when that one is gone
   const showWs = d.workshop && (workshops.length >= 2 || (workshops.length > 0 && !workshops.some((w) => w.slot === slot)));
   const live = reading;
   const shown = [...d.events].reverse().slice(0, 6);
-  if (!showWs && !d.events.length && !d.files.length) return null; // nothing to show: no empty box
+  // the photo desk open above: the files are in its bar (documents) and in the desk itself (photos), not listed again here
+  const filesHere = !filesInDesk && d.files.length > 0;
+  if (!showWs && !d.events.length && !filesHere) return null; // nothing to show: no empty box
   return (
     <div className="space-y-4" data-testid="home-brief">
       {showWs && (
@@ -268,7 +344,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
           {wsErr && <p role="alert" className="field-error">{t("pf.caseWsFail")}</p>}
         </div>
       )}
-      {(d.events.length > 0 || d.files.length > 0) && (
+      {(d.events.length > 0 || filesHere) && (
         <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
           {d.events.length > 0 && (
             <section className="min-w-0" data-testid="home-log">
@@ -276,20 +352,8 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
               <CaseLog events={shown} live={live} />
             </section>
           )}
-          {d.files.length > 0 && (
-            <details className="group min-w-0" data-testid="home-files">
-              <summary className="label mb-3 flex min-h-11 cursor-pointer list-none items-center gap-2"><span aria-hidden="true" className="inline-block text-mute transition-transform group-open:rotate-90">▸</span>{t("case.files")}<span className="note text-mute">· {d.files.length}</span></summary>
-              <ul className="rounded-[4px] border border-hair bg-panel">
-                {d.files.map((f) => (
-                  <li key={f.id} className="flex items-baseline justify-between gap-4 border-b border-hair px-4 text-[14px] text-fg last:border-b-0">
-                    {/* opens the file itself in a new tab; the first page stays where it is */}
-                    <a href={`/api/cases/${r.id}/files/${f.id}`} target="_blank" rel="noopener" data-testid="home-file"
-                      className="min-w-0 py-3 font-medium underline decoration-hair2 underline-offset-4 transition-colors duration-150 [overflow-wrap:anywhere] hover:decoration-fg">{f.name}</a>
-                    <span className="num note shrink-0 text-mute">{f.size < 1e6 ? `${Math.max(1, Math.round(f.size / 1e3))} KB` : `${(f.size / 1e6).toFixed(1)} MB`}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
+          {filesHere && (
+            <section className="min-w-0"><CaseFiles caseId={r.id} files={d.files} testid="home-files" /></section>
           )}
         </div>
       )}
@@ -298,7 +362,7 @@ function Brief({ r, workshops }: { r: CaseRow; workshops: WorkshopOpt[] }) {
 }
 
 /** One line per case, the step names once over the step column. A press on the line opens its details right under it. */
-function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, workshops, openId, ctl }: { rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void; blocked: boolean; workshops: WorkshopOpt[]; openId?: string; ctl: ListCtl }) {
+function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, workshops, openId, ctl, team }: { team: Team; rows: CaseRow[]; all: CaseRow[]; needle: string; orgId: string; total: number; onDesk: (on: boolean) => void; blocked: boolean; workshops: WorkshopOpt[]; openId?: string; ctl: ListCtl }) {
   const { t } = useT();
   // ?open=<id> (from the case table): that line starts open, so a case is never shown on another page
   const [open, setOpen] = useState<string | null>(openId && all.some((x) => x.id === openId) ? openId : null);
@@ -327,6 +391,7 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
     if (top < 0 || top > window.innerHeight * 0.6) el.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [open]);
   // wide screens: vehicle | steps | action | arrow. The step and action tracks give way before the vehicle no. does.
+  const act = useAct();
   const COLS = "xl:grid xl:grid-cols-[minmax(150px,1fr)_260px_220px_20px] xl:items-center xl:gap-x-6";
   return (
     <section aria-labelledby="open-title" className="sheet overflow-clip rounded-[4px] border border-hair bg-panel" data-testid="home-open">
@@ -348,12 +413,13 @@ function StepTable({ rows: found, all, needle, orgId, total, onDesk, blocked, wo
                     className="absolute inset-0 z-0 w-full rounded-none outline-offset-[-2px]" data-testid="home-row"
                   />
                   <div className="pointer-events-none relative flex items-start justify-between gap-3 xl:contents">
-                    <Who r={r} />
-                    <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 xl:order-4 xl:mt-0 ${on ? "" : "-rotate-90"}`} />
+                    <Who r={r} team={team} />
+                    <Chevron className={`mt-1 shrink-0 text-mute transition-transform duration-200 xl:order-4 xl:mt-0 xl:col-start-4 xl:row-start-1 ${on ? "" : "-rotate-90"}`} />
                   </div>
                   <StepDots status={r.status} photos={r.deskTotal ?? 0} photosDone={!!r.photosDone} busy={systemBusy(r)} className="pointer-events-none relative my-3 pr-8 xl:my-0 xl:pr-0" />
-                  {/* while the line is open the job is right below it: the button would only say it twice */}
-                  <div className="pointer-events-none relative flex xl:justify-end">{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
+                  {/* while the line is open the job is right below it: the button would only say it twice.
+                      A job for the user: a wide button under the steps (on wide screens across the step and action columns) */}
+                  <div className={`pointer-events-none relative flex ${!on && act(r).kind ? "xl:col-span-2 xl:col-start-2 xl:mt-3" : "xl:justify-end"}`}>{!on && <ActButton r={r} onHere={() => toggle(r.id)} />}</div>
                 </div>
                 {on && <More r={r} orgId={orgId} onDesk={onDesk} workshops={workshops} ctl={ctl} />}
               </li>
@@ -498,7 +564,7 @@ export default function Home({ name, counts, cases, busy = false, waiting = fals
   // Typing in the search narrows this list at once; closed cases have their own list (Closed cases).
   const needle = squash(q);
   const shown = sortCases(cases).filter((r) => !needle || squash(r.plate || r.firstFile || "").includes(needle)); // the plate, or the file name a line shows while it has none
-  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={onDesk} blocked={blocked} workshops={workshops} openId={openId} ctl={ctl} />;
+  const table = <StepTable rows={shown} all={cases} needle={needle} orgId={orgId} total={OPEN_BUCKETS.reduce((n, b) => n + counts[b], 0)} onDesk={onDesk} blocked={blocked} workshops={workshops} openId={openId} ctl={ctl} team={{ adjuster: cred.adjuster, manager: cred.manager, workshops: cred.workshops }} />;
 
   // the order of the page the adjusters know: welcome and search, the buttons side by side, then the open cases
   return (

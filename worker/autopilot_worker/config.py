@@ -101,6 +101,7 @@ class Config:
     job_max_seconds: int = 3 * 3600  # WORKER_JOB_MAX_SECONDS: a job still running after this gets one warning line (pool.py)
     stop_seconds: int = 80  # WORKER_STOP_SECONDS: on stop, how long running jobs may still finish (below systemd's 90 s)
     slots: int = 1  # WORKER_SLOTS: jobs this process runs at the same time, each in its own thread and Merimen tab (plan #150)
+    hf_revision: str = ""  # HF_MODEL_REVISION: the photo-model repo commit to use; empty = whatever is there at the first download
     merimen_dryrun: bool = False  # MERIMEN_DRYRUN=on: fill Merimen's create form, never save. While it is on nothing is written anywhere in Merimen
 
     @property
@@ -137,6 +138,7 @@ class Config:
             pred_bs=max(1, int(e.get("PRED_BS") or "4")),
             poll_seconds=float(e.get("POLL_SECONDS") or "2"),
             model_dir=e.get("PHOTO_MODEL_DIR") or os.path.join(state, "photo-model"),
+            hf_revision=(e.get("HF_MODEL_REVISION") or "").strip(),
             db_transport=_transport(e.get("DB_TRANSPORT")),
             lease_seconds=max(60, int(e.get("JOB_LEASE_SECONDS") or "900")),
             worker_ui=_on(e, "WORKER_UI"),
