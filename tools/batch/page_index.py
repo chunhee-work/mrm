@@ -82,7 +82,8 @@ def main():
                              "png_path": p["png_path"]} for p in P if (p["conf"] or 0) < CHECK]
         miss = []
         for name, (types, own) in NEED.items():
-            if not any(p["doc_type"] in types and (not own or (p["ours"] or 0) >= 0.5) for p in P):
+            other_ins = name == "I-search" and any(p["doc_type"] == "insurance_schedule_or_cover_note" and (p["conf"] or 0) >= CHECK and p["ours"] is not None and p["ours"] < 0.5 for p in P)  # the at-fault party's insurance schedule = the I-SEARCH page (playbook 01)
+            if not other_ins and not any(p["doc_type"] in types and (not own or (p["ours"] or 0) >= 0.5) for p in P):
                 miss.append(name)
         c["maybe_missing"] = {"draft": True, "items": miss,
                               "note": "DRAFT hint only. Open the pages (and every needs_check page) before any '<PLATE> pending' line."}

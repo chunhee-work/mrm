@@ -298,6 +298,10 @@ def _present(results: list[dict | None], doc: str) -> bool:
     for r in results:
         if r and CANON.get(r["label"]) == doc and r["conf"] >= PRESENT and (doc not in OUR_SIDE or r["ours"] >= OURS_MIN):
             return True
+        # the at-fault party's own insurance schedule / cover note does the I-SEARCH job (playbook 01: JPJ SEARCH = 对方保单 = the at-fault
+        # party's insurance/I-SEARCH page). Jev calls it an insurance schedule; it counts when Jev says it is NOT our side (DCD4004, 2026-11-28).
+        if doc == "isearch" and r and r["label"] == "insurance_schedule_or_cover_note" and r["conf"] >= PRESENT and r["ours"] < OURS_MIN:
+            return True
     return False
 
 

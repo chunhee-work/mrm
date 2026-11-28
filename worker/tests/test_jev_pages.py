@@ -94,6 +94,23 @@ def test_other_party_pages_need_no_our_side_score_but_our_pages_do():
     assert jp.run(jev, case, fetch) == ["Jev check: no RC page found in the files"]
 
 
+def test_the_at_fault_insurance_schedule_counts_as_the_isearch_page():
+    # DCD4004 (2026-11-28): no I-SEARCH printout, the at-fault party's own Allianz schedule is in its place (playbook 01: JPJ SEARCH = 对方保单)
+    other_ins = [p for p in FULL if p[1] != "isearch"] + [("their policy", "pol", 1.0, 0.18)]
+    jev, case, fake, rows, fetch = setup(other_ins)
+    assert jp.run(jev, case, fetch) == []
+
+
+def test_our_own_insurance_schedule_is_not_an_isearch_page():
+    jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "isearch"])  # only OUR policy (ours 0.9)
+    assert jp.run(jev, case, fetch) == ["Jev check: no I-SEARCH page found in the files"]
+
+
+def test_the_other_party_schedule_does_not_stand_in_for_our_policy():
+    jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "pol"] + [("their policy", "pol", 1.0, 0.18)])
+    assert jp.run(jev, case, fetch) == ["Jev check: no our insurance page found in the files"]
+
+
 def test_no_client_insurance_found_by_the_reader_is_not_a_warning():
     d = dict(DATA, client_policy=None)
     jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "pol"], d)
