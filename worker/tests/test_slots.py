@@ -247,11 +247,11 @@ def sessions(p1=9222, p2=9222):
             f"('o2','default',{p2},'connected','start')"]
 
 
-def mclaim(worker, limit=3):
+def mclaim(worker, limit=3, no_create=False):
     from autopilot_worker.db import to_numbered
     from autopilot_worker.jobs import CLAIM_SQL, claim_params
 
-    sql, args = to_numbered(CLAIM_SQL, claim_params(True, limit, worker, one_chrome=True))
+    sql, args = to_numbered(CLAIM_SQL, claim_params(True, limit, worker, one_chrome=True, no_create=no_create))
     return {"sql": sql, "params": args}
 
 
@@ -484,3 +484,61 @@ def test_an_unreadable_step_tabs_file_starts_empty(tmp_path, capsys):
     assert m.load_step_tabs(str(tmp_path)) == []
     assert "step tabs file unreadable" in capsys.readouterr().err
     m._step_tabs_dir[0] = ""
+
+
+@needs_pg
+def test_while_a_create_runs_no_second_create_is_claimed_but_later_steps_are():
+    seed = ORGS_CASES + READY + sessions() + [
+        "UPDATE cases SET merimen_caseid = '123456' WHERE id = 'c2'",  # c2 is made already: its Phase A is no create
+        "INSERT INTO jobs (id, case_id, step, state) VALUES (2,'c1','phase_a','queued'), (3,'c2','phase_a','queued')",
+    ]
+    r = run([mclaim("w", no_create=True), mclaim("w", no_create=True)], seed=seed)
+    assert r[0][0][0] == 3 and r[1] == []  # c1 (no Merimen case yet) waits for the running create
+    r = run([mclaim("w")], seed=seed)
+    assert r[0][0][0] == 2  # no create running: the case uploaded first goes first, as before
+
+
+# ---------- a step tab opens only its own job's Merimen case (GPR-150-3 G1) ----------
+
+def test_a_step_tab_may_open_only_its_own_case():
+    import pytest as _pt
+
+    from autopilot_worker import case_guard as g
+
+    class Tab:
+        url = ""
+
+        def goto(self, url, **k):
+            self.url = url
+
+    t = g.guard_page(Tab())
+    g.start("111")
+    t.goto("https://www.merimen.com.my/claims/index.cfm?fusebox=MTRadjuster&caseid=111&extid=9")
+    with _pt.raises(g.CaseMismatch):
+        t.goto("https://www.merimen.com.my/claims/index.cfm?fusebox=MTRadjuster&caseid=222&extid=9")
+    assert "caseid=111" in t.url  # the other case was never opened
+    g.start(None)  # the create: no case id yet, nothing to mix up
+    t.goto("https://www.merimen.com.my/claims/index.cfm?caseid=222")
+    g.add("333")  # the create recorded its new case: only that one from now on
+    with _pt.raises(g.CaseMismatch):
+        t.goto("https://www.merimen.com.my/claims/index.cfm?caseid=222")
+    g.stop()
+    t.goto("https://www.merimen.com.my/claims/index.cfm?caseid=222")  # outside a job: unchecked
+
+
+def test_only_one_slots_worker_per_state_folder(tmp_path):
+    import pytest as _pt
+
+    from autopilot_worker import __main__ as m
+
+    cfg = Config.from_env({"WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+    try:
+        assert m._one_slots_process(cfg) is True
+        with _pt.raises(SystemExit):
+            m._one_slots_process(cfg)  # a second slots worker refuses to start
+        assert m._one_slots_process(cfg, hold=False) is False  # a WORKER_SLOTS=1 start leaves the running worker's tabs alone
+    finally:
+        for f in m._SLOTS_LOCK:
+            f.close()
+        m._SLOTS_LOCK.clear()
+    assert m._one_slots_process(cfg, hold=False) is True  # gone: free again

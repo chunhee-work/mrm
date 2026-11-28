@@ -19,6 +19,7 @@ from .store import PgRepo
 # Making a NEW case in Merimen (duplicate warnings, the workshop popup, the "Next pressed" mark) runs one at a time in this process,
 # also with WORKER_SLOTS > 1. Every later step works on its own case by its Merimen case id, in its own tab.
 _CREATE_LOCK = __import__("threading").Lock()
+CREATE_WAIT = 600.0  # a create that finds another still running after this long goes back to the queue (nothing done in Merimen yet)
 
 
 class _CdpDriver(Driver):
@@ -164,8 +165,14 @@ class _CdpDriver(Driver):
             if int(os.environ.get("ORG_CONCURRENCY") or "1") > 1 and int(os.environ.get("WORKER_SLOTS") or "1") <= 1:
                 # several worker PROCESSES may each create for one org: refused as before (the lock below only holds inside one process)
                 return DriveResult(ok=False, fatal=True, error="concurrency_unsafe", line="Creating cases in Merimen needs ORG_CONCURRENCY=1 without WORKER_SLOTS; set it and restart the worker")
-            with _CREATE_LOCK:  # one live create at a time (plan #150, Grok G1); the report, documents and photos after it run side by side
+            # one live create at a time (plan #150, Grok G1); the report, documents and photos after it run side by side. The claim
+            # takes no second create while one runs; one that still meets it waits at most CREATE_WAIT, then tries again later
+            if not _CREATE_LOCK.acquire(timeout=CREATE_WAIT):
+                return DriveResult(ok=False, error="create_busy", line="Another case is still being created in Merimen; this one tries again shortly")
+            try:
                 res = self._create(True)  # step 1 of Phase A
+            finally:
+                _CREATE_LOCK.release()
             if res.ok and (res.case_id or (self.case or {}).get("merimen_caseid")):
                 ok, retry, line = self._report(True, res.case_id, res.ext_id)  # step 2: the Adjuster Report (playbook order: before documents)
                 res.line = ((res.line + "; ") if res.line else "") + line
@@ -220,8 +227,33 @@ class _CdpDriver(Driver):
         return DriveResult(ok=False, error="step_not_ported")
 
 
+_SLOTS_LOCK: list = []  # the open lock file, held for the life of the process
+
+
+def _one_slots_process(cfg: Config, *, hold: bool = True) -> bool:
+    """WORKER_SLOTS > 1 is supported for ONE worker process per state folder (its Chrome, its create lock, its step tabs).
+    hold: a second one refuses to start (plan #150 DPR-150-3 D1 / GPR-150-3 G6); the lock ends with the process, also on a kill.
+    Not hold (WORKER_SLOTS=1): False while a slots worker runs, so its tabs are left alone; the lock is not kept."""
+    import fcntl
+
+    os.makedirs(cfg.state_dir or ".", exist_ok=True)
+    f = open(os.path.join(cfg.state_dir or ".", "worker_slots.lock"), "a+")
+    try:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.close()
+        if not hold:
+            return False
+        raise SystemExit("another worker with WORKER_SLOTS above 1 is running on this machine (same WORKER_STATE): only one is supported; stop it first")
+    if hold:
+        _SLOTS_LOCK.append(f)
+    else:
+        f.close()  # closing the file lets the lock go
+    return True
+
+
 def _close_left_step_tabs(cfg: Config) -> None:
-    """At start (WORKER_SLOTS > 1): the step tabs a killed job of the last run left open are closed by their recorded ids. Only those
+    """At start (every mode): the step tabs a killed job of the last run left open are closed by their recorded ids. Only those
     ids; a tab the worker did not open itself is never closed here."""
     from .login_flow import close_target
 
@@ -387,6 +419,17 @@ def _register_step_tab(pg) -> None:
     _job_tabs.pages.append((tid, pg))
 
 
+def own_open_step_tab():
+    """The newest step tab this job thread opened that is still open, or None."""
+    for _tid, pg in reversed(getattr(_job_tabs, "pages", [])):
+        try:
+            if not pg.is_closed():
+                return pg
+        except Exception:  # noqa: BLE001
+            continue
+    return None
+
+
 def end_job_tabs() -> int:
     """After a job (its thread): close the step tabs it opened that are still open (a step that raised half way), and forget them.
     Only this job's own tabs; never the home tab, another job's tab or a tab opened by hand. Returns how many were closed."""
@@ -427,9 +470,11 @@ class _StepContext:
         self._ctx = ctx
 
     def new_page(self, *a, **k):
+        from .case_guard import guard_page
+
         pg = self._ctx.new_page(*a, **k)
         _register_step_tab(pg)
-        return pg
+        return guard_page(pg)  # it may only open this job's own Merimen case
 
     def __getattr__(self, name):
         return getattr(self._ctx, name)
@@ -568,7 +613,10 @@ def _page_provider(cfg: Config):
                     return None
                 return HomeTab(found[0]) if slots > 1 else found[0]
             pages = [pg for ctx in browser.contexts for pg in ctx.pages]
-            if slots > 1:  # another job's step tab may show ANOTHER case: a screenshot only ever comes from the home tab (plan #150)
+            if slots > 1:  # another job's step tab may show ANOTHER case: a screenshot comes from this job's own open step tab
+                own = own_open_step_tab()  # (it shows this case), else from the home tab, never from another job's tab (plan #150)
+                if own is not None:
+                    return own
                 pages = not_step_tabs([pg for pg in pages if "merimen.com.my" in (pg.url or "")])
             return pick_merimen_page(pages)
         except Exception:
@@ -730,6 +778,10 @@ def main() -> None:
         except OSError:
             pass
 
+    # step tabs a killed slots run left open are closed by their ids in every mode (also after a roll back to WORKER_SLOTS=1), but
+    # never while another slots worker runs (they are its tabs). With slots this process takes the one-process lock first
+    if _one_slots_process(cfg, hold=cfg.slots > 1):
+        _close_left_step_tabs(cfg)
     if cfg.slots > 1:
         from .pool import JobPool, slot_driver
 
@@ -744,7 +796,6 @@ def main() -> None:
             finally:
                 end_job_tabs()  # a step that raised half way leaves no tab behind
 
-        _close_left_step_tabs(cfg)
         pool = JobPool(cfg.slots, _run, make_driver=lambda: slot_driver(driver), warn_seconds=cfg.job_max_seconds)
         stopping = threading.Event()
 
@@ -761,7 +812,7 @@ def main() -> None:
                                        delete_blob=delete_blob if shots else None, relogin_fetch=relogin_fetch, busy_orgs=pool.busy_orgs)
                 while pool.free() > 0 and not stopping.is_set():  # fill every free slot; the claim order puts the case uploaded first in front
                     job = repo.claim(ext_connect=cfg.ext_connect, worker_id=cfg.worker_id, org_limit=cfg.org_limit, skip_orgs=paused_orgs(),
-                                     one_chrome=True)
+                                     one_chrome=True, no_create=_CREATE_LOCK.locked())
                     if not job:
                         break
                     pool.submit(job, relogin_ready=relogin is not None)

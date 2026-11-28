@@ -15,6 +15,9 @@ WHERE j.state = 'queued'
   -- never two jobs of one case at the same time (WORKER_SLOTS > 1, plan #150). Race-free inside one worker process (it claims
   -- one job at a time), several processes with slots are not a supported setup (README)
   AND NOT EXISTS (SELECT 1 FROM jobs j5 WHERE j5.case_id = j.case_id AND j5.state = 'running')
+  -- a create (Phase A of a case with no Merimen case yet) runs one at a time in this process: while one runs, no other is taken, so
+  -- no slot sits waiting for it (WORKER_SLOTS > 1, GPR-150-3 G2)
+  AND NOT (%(no_create)s AND j.step = 'phase_a' AND c.merimen_caseid IS NULL)
   AND (
     j.step NOT IN ('phase_a', 'checks', 'phase_b')
     OR (
@@ -122,11 +125,14 @@ SELECT EXISTS (
 """
 
 
-def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker", skip_orgs=(), one_chrome: bool = False) -> dict:
+def claim_params(ext_connect: bool, org_limit: int = 1, worker_id: str = "worker", skip_orgs=(), one_chrome: bool = False,
+                 no_create: bool = False) -> dict:
     """skip_orgs: orgs whose Merimen steps are not taken now (loop.paused_orgs). Org ids never hold a comma (they are generated ids).
-    one_chrome (WORKER_SLOTS > 1): the one-login-per-Chrome-port rule; off, the claim is as before #150 for Merimen steps."""
+    one_chrome (WORKER_SLOTS > 1): the one-login-per-Chrome-port rule; off, the claim is as before #150 for Merimen steps.
+    no_create: a create is running in this process, so no other Phase A of a case without a Merimen case is taken now."""
     skip = ",".join(str(o) for o in skip_orgs if o and "," not in str(o))
-    return {"merimen": ext_connect, "org_limit": int(org_limit), "worker": worker_id, "skip_orgs": skip, "one_chrome": bool(one_chrome)}
+    return {"merimen": ext_connect, "org_limit": int(org_limit), "worker": worker_id, "skip_orgs": skip, "one_chrome": bool(one_chrome),
+            "no_create": bool(no_create)}
 
 
 # A running job whose lease ran out goes back to the queue (or to failed after too many tries). One statement.

@@ -10,7 +10,7 @@ import time
 import traceback
 from dataclasses import replace
 
-from . import login_seen
+from . import case_guard, login_seen
 from .cdp_client import page_block
 from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
 from .config import Config, account_for
@@ -596,6 +596,7 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
         except Exception:  # noqa: BLE001  (not known: the stricter way, a partial list stops for a person)
             case["resumed_after_logout"] = True
     login_seen.reset()
+    case_guard.start(case.get("merimen_caseid"))
     shooter = Screenshotter(repo, enabled=bool(cfg.worker_ui and page_for and put_blob), page_for=page_for or (lambda _o: None), put=put_blob or (lambda *_: None))
     emitted: set[str] = set()
 
@@ -634,7 +635,11 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
             # the create-case step (Phase A) reads these: the user's manager/adjuster, and the case's workshop (True locks it, False only looks)
             driver.profile = lambda: repo.profile_for(job["org_id"])
             driver.marks = lambda: repo.create_marks(job["case_id"])
-            driver.record = lambda cid, eid: repo.record_merimen_id(job["case_id"], cid, eid)
+            def _record(cid, eid):
+                case_guard.add(cid)  # from now on this job's step tabs may open only this new case
+                return repo.record_merimen_id(job["case_id"], cid, eid)
+
+            driver.record = _record
             driver.workshop = lambda lock: repo.claim_workshop_for_case(job["case_id"]) if lock else repo.peek_workshop_for_case(job["case_id"])
             # asked before every photo write in Merimen: Done must still be pressed on the same version of the names
             driver.guard = lambda: repo.still_final(job["case_id"], case.get("photos_snapshot")) if job["step"] == "phase_b" else True
@@ -658,6 +663,7 @@ def run_job(cfg: Config, repo: PgRepo, job: dict, *, inspect, namer, driver: Dri
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
     finally:
+        case_guard.stop()
         if forget_files:  # the job is over, done or failed: its own downloaded files leave this machine
             try:
                 forget_files(job["case_id"], job["id"])
