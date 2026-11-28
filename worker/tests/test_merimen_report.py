@@ -50,13 +50,36 @@ def test_report_stops_instead_of_guessing():
         build_report(d, case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, extras={}, today=TODAY)
     assert e.value.code == "colour_unknown"
     d = report_case()
-    d["police"]["loss_city"] = ""
+    d["police"].update(loss_city="", loss_state="", loss_postcode="", place="")  # nothing to tell the city from
     with pytest.raises(SpecError) as e:
         build_report(d, case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, today=TODAY)
     assert e.value.code == "missing_data" and "accident city" in e.value.detail
     with pytest.raises(SpecError) as e:
         build_report(report_case(), case_id="1234", ext_id="", workshop=WS, photo_names=NAMES, today=TODAY)
     assert e.value.code == "no_case"
+
+
+def test_a_missing_city_comes_from_the_postcode_and_is_said():
+    # DCD4004 (2026-11-28): the at-fault address had postcode 21300 and no city; owner: never stop on it
+    d = report_case()
+    d["at_fault"]["driver"].update(city="", postcode="", state="Terengganu Darul Iman",
+                                   address="LOT 20673K TAMAN PERMINT PERDANA KG BATIN SEBERANG TAKIR, 21300 TERENGGANU")
+    d["police"].update(loss_city="", loss_postcode="25050")
+    D = build_report(d, case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, today=TODAY)
+    assert D["insDriver"]["city"] == "Kuala Terengganu" and D["insDriver"]["postcode"] == "21300"
+    assert D["lossCity"] == "Kuantan"
+    assert "at-fault driver city Kuala Terengganu (from the postcode)" in D["cityGuessed"]
+    assert any(g.startswith("accident city Kuantan") for g in D["cityGuessed"])
+    full = build_report(report_case(), case_id="1234", ext_id="5678", workshop=WS, photo_names=NAMES, today=TODAY)
+    assert full["cityGuessed"] == [] and full["insDriver"]["city"] == "Kemaman"  # a city the bundle gives is never replaced
+
+
+def test_guess_city_order():
+    from autopilot_worker.my_postcode import guess_city
+    assert guess_city(postcode="", state="", address="NO 3 JALAN BESAR, 20400 KUALA TERENGGANU") == ("Kuala Terengganu", "Terengganu Darul Iman", "address")
+    assert guess_city(postcode="21600", state="Terengganu Darul Iman", address="KG X") == ("Marang", "Terengganu Darul Iman", "postcode")
+    assert guess_city(postcode="25000", state="Terengganu Darul Iman", address="KG X") == ("Kuala Terengganu", "Terengganu Darul Iman", "state")
+    assert guess_city(postcode="", state="", address="KG X") == ("", "", "")
 
 
 def test_helpers():

@@ -11,6 +11,7 @@ import re
 from datetime import date
 
 from .create_spec import SpecError, date_dmy, hour_of, insurer_of, is_company, _s
+from .my_postcode import guess_city
 
 DEFAULT_PHONE = "0123456789"  # user rule 2026-08-17: never NOPHONE, a valid MY mobile placeholder
 
@@ -118,9 +119,14 @@ def _person(p: dict | None, today: date) -> dict:
     dob = dob or ndob
     gender = gender if gender in ("Male", "Female") else ngender
     passport = bool(re.search(r"[A-Za-z]", nric)) and not is_company(_s(p.get("name")))
+    addr, state, city = _s(p.get("address")), state_name(_s(p.get("state"))), city_name(_s(p.get("city")))
+    postcode = (re.search(r"\b\d{5}\b", _s(p.get("postcode"))) or re.search(r"\b\d{5}\b", addr) or [""])[0]
+    guessed = ""
+    if not city and (addr or postcode):  # owner 2026-11-28: never stop on a missing city; the guess is said on the case
+        city, state, guessed = guess_city(postcode=postcode, state=state, address=addr)
     return {"name": _s(p.get("name")).upper(), "nric": nric, "idType": "Passport" if passport else "NRIC", "dob": dob, "gender": gender,
-            "addr": _s(p.get("address")) or "-", "state": state_name(_s(p.get("state"))), "city": city_name(_s(p.get("city"))),
-            "postcode": (re.search(r"\b\d{5}\b", _s(p.get("postcode"))) or [""])[0], "phone": phone(_s(p.get("phone")))}
+            "addr": addr or "-", "state": state, "city": city,
+            "postcode": postcode, "phone": phone(_s(p.get("phone"))), "cityGuessed": guessed}
 
 
 def build_report(case_data: dict | None, *, case_id: str, ext_id: str, workshop: dict | None, photo_names: list[str], extras: dict | None = None,
@@ -145,11 +151,22 @@ def build_report(case_data: dict | None, *, case_id: str, ext_id: str, workshop:
     for k in ("addr", "state", "city", "postcode"):  # playbook 04: the insured's address = the at-fault party's (same as the insured driver)
         if insured[k] in ("", "-"):
             insured[k] = ins_driver[k]
+            if k == "city":
+                insured["cityGuessed"] = ins_driver["cityGuessed"]
+    loss_state, loss_city = state_name(_s(police.get("loss_state"))), city_name(_s(police.get("loss_city")))
+    loss_pc = (re.search(r"\b\d{5}\b", _s(police.get("loss_postcode"))) or [""])[0]
+    loss_guessed = ""
+    if not loss_city and (loss_pc or _s(police.get("place"))):
+        loss_city, loss_state, loss_guessed = guess_city(postcode=loss_pc, state=loss_state, address=_s(police.get("place")))
+    guessed = [f"{who} city {p['city']} (from the {p['cityGuessed']})" for who, p in (
+        ("at-fault driver", ins_driver), ("insured", insured), ("claimant", claimant), ("claimant driver", clm_driver)) if p.get("cityGuessed")]
+    if loss_guessed:
+        guessed.append(f"accident city {loss_city} (from the {loss_guessed})")
     miss = [k for k, v in (
         ("police report no", _s(police.get("report_no")).replace(" ", "")),
         ("police report date", date_dmy(_s(police.get("report_datetime"))) or date_dmy(_s(police.get("accident_datetime")))),
         ("accident place", _s(police.get("place"))),
-        ("accident state", state_name(_s(police.get("loss_state")))), ("accident city", _s(police.get("loss_city"))),
+        ("accident state", loss_state), ("accident city", loss_city),
         ("at-fault driver name", ins_driver["name"]), ("at-fault driver NRIC", ins_driver["nric"]),
         ("claimant name", claimant["name"]), ("claimant NRIC", claimant["nric"]),
         ("claimant state", claimant["state"]), ("claimant city", claimant["city"]),
@@ -194,8 +211,8 @@ def build_report(case_data: dict | None, *, case_id: str, ext_id: str, workshop:
         "collType": "Motor Cycle" if re.search(r"motor\s*cycle|motosikal", _s(d.get("notes")), re.I) else "Private",
         "lossDescCat": "Motor Collision" if takaful_my else LOSS[impact], "impact": impact,
         "lossSelect": "Collision" if takaful_my else "",
-        "accPlace": _s(police.get("place")), "lossState": state_name(_s(police.get("loss_state"))), "lossCity": city_name(_s(police.get("loss_city"))),
-        "lossPostcode": (re.search(r"\b\d{5}\b", _s(police.get("loss_postcode"))) or [""])[0],
+        "accPlace": _s(police.get("place")), "lossState": loss_state, "lossCity": loss_city,
+        "lossPostcode": loss_pc, "cityGuessed": guessed,
         "isCompanyInsured": is_company(insured["name"]),
         "insured": insured,
         "insDriver": {**ins_driver, "exp": driving_exp(ins_driver["dob"], today)},

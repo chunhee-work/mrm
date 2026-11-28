@@ -282,3 +282,21 @@ def test_sync_sessions_creates_rows_only_with_ext_connect_on():
 def test_no_worker_accounts_env_means_one_default_profile():
     from autopilot_worker.config import account_for, parse_accounts
     assert account_for("any-org", parse_accounts(""), {}) == "default"
+
+
+@needs_pg
+def test_the_jev_ledger_row_goes_in_with_insert_only_rights():
+    # 2026-11-28 "jev ledger skipped: DbError": ON CONFLICT (request_id) needs SELECT on llm_calls, the worker role has INSERT only (0016)
+    rec = Rec()
+    PgRepo("", db=rec).record_llm_call({"request_id": "r1", "case_id": "c1", "purpose": "jev_insurer", "model": "jev-latest",
+                                        "input_tokens": 10, "output_tokens": 2, "latency_ms": 900, "ok": True, "error_class": None})
+    text, args = to_numbered(*rec.calls[0])
+    seed = SEED[:2] + [
+        "CREATE ROLE autopilot_worker",
+        'GRANT INSERT ON "llm_calls" TO autopilot_worker',
+        'GRANT USAGE, SELECT ON SEQUENCE "llm_calls_id_seq" TO autopilot_worker',
+        'GRANT SELECT ON "cases" TO autopilot_worker',
+    ]
+    r = run([{"sql": "SET ROLE autopilot_worker"}, {"sql": text, "params": args}, {"sql": text, "params": args},
+             {"sql": "RESET ROLE"}, {"sql": "SELECT count(*), max(org_id) FROM llm_calls"}], seed=seed)
+    assert r[-1] == [[1, "o1"]]

@@ -7,6 +7,7 @@ import re
 import sys
 import threading
 import time
+import traceback
 
 from .cdp_client import page_block
 from .chrome import chrome_argv, chrome_running, clear_login_notice, login_notice, next_status, profile_dir
@@ -80,6 +81,22 @@ def tick_error_line(e: BaseException, step: str | None = None) -> str:
         code = getattr(e, "code", None) or "-"
         return f"tick DbError{where} code={code} msg={_scrub(str(e))}"
     return f"tick {type(e).__name__}{where}"
+
+
+def job_error_line(job: dict, e: BaseException) -> str:
+    """`job 67 phase_b attempt 3 KeyError msg=... at pipeline.py:150 run_phase < loop.py:290 tick`. The message is scrubbed like
+    tick_error_line (no parameters, links or tokens) and the place is file:line + function only, never local values."""
+    frames = traceback.extract_tb(e.__traceback__)[-4:]
+    where = " < ".join(f"{os.path.basename(f.filename)}:{f.lineno} {f.name}" for f in reversed(frames))
+    code = f" code={getattr(e, 'code', None)}" if getattr(e, "code", None) else ""
+    return f"job {job.get('id')} {job.get('step')} attempt {job.get('attempts')} {type(e).__name__}{code} msg={_scrub(str(e))} at {where}"[:600]
+
+
+def _print_error(job: dict, e: BaseException) -> None:
+    try:
+        print(job_error_line(job, e), file=sys.stderr, flush=True)
+    except Exception:  # noqa: BLE001  (the log line never changes the outcome)
+        pass
 
 
 def maybe_cleanup(cfg: Config, repo: PgRepo, delete, *, every: float = 3600.0, now=time.monotonic) -> int:
@@ -298,7 +315,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
                         pass
             for step in milestones_after(job["step"], outcome, saved=cfg.live_writes):
                 shoot(step)
-        except Exception:
+        except Exception as e:  # noqa: BLE001
+            _print_error(job, e)
             outcome = Outcome("requeue" if job["attempts"] < 3 else "failed", error="worker error", event="Worker error")
             if job["step"] in ("phase_a", "phase_b", "checks"):
                 shoot("failed")
