@@ -1931,11 +1931,10 @@ def test_a_chrome_that_holds_another_orgs_session_never_serves_this_org(tmp_path
     loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE, relogin=lambda org, port: asked.append(org))
     assert a.sessions[-1][1]["detail"] == "shared_chrome" and asked == []
 
-    # B's session ended (the login page): no account is live there, A logs in as usual and then holds the Chrome
+    # egm r20: no logged-in address does not prove that no account is live (a step tab left open, a page without the marks):
+    # the record stays, A still waits and nothing is typed
     loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LOGIN_PAGE, relogin=lambda org, port: asked.append(org))
-    assert asked == ["oA"] and 9222 not in loop.SESSION_HOLDER
-    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE)
-    assert loop.SESSION_HOLDER == {9222: "oA"}
+    assert asked == [] and loop.SESSION_HOLDER == {9222: "oB"} and a.sessions[-1][1]["detail"] == "shared_chrome"
 
 
 def test_a_login_check_never_runs_on_a_chrome_holding_another_orgs_session(tmp_path, fresh):
@@ -2024,3 +2023,121 @@ def test_one_slot_forgets_the_session_holder(tmp_path, fresh):
     cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true"})
     loop.sync_sessions(cfg, SessRepo(), launch=lambda a: None, inspect=lambda p: LIVE_PAGE)
     assert not (tmp_path / "chrome_holder.json").exists() and loop.SESSION_HOLDER == {}
+
+
+# ---------- egm round 20 ----------
+
+class _PortOrgs(SessRepo):
+    def __init__(self, org, logins):
+        super().__init__()
+        self.org, self.logins = org, logins
+
+    def wanted(self):
+        return [{"org_id": self.org, "account_key": "default", "status": "waiting_login", "wanted": "start", "port": 9222}]
+
+    def chrome_taken_by_other(self, org, port):
+        return False
+
+    def login_orgs(self):
+        return self.logins
+
+
+def _slots_cfg(tmp_path):
+    return Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "MERIMEN_LOGIN": "on",
+                            "MERIMEN_RELOGIN": "on", "WORKER_SLOTS": "2"})
+
+
+def test_no_holder_and_another_login_on_that_chrome_records_nobody(tmp_path, fresh):
+    """egm r20: after a 1-slot spell (no record) the Chrome may hold any user's session; with another org that can have been
+    logged in there, nobody is recorded or counted connected, even the Chrome owner, and nothing is typed."""
+    cfg = _slots_cfg(tmp_path)
+    asked = []
+    a = _PortOrgs("oA", ["oA", "oB"])
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE, relogin=lambda org, port: asked.append(org))
+    assert loop.SESSION_HOLDER == {} and a.sessions[-1][1]["detail"] == "shared_chrome" and asked == []
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LOGIN_PAGE, relogin=lambda org, port: asked.append(org))
+    assert loop.SESSION_HOLDER == {} and a.sessions[-1][1]["detail"] == "shared_chrome" and asked == []
+
+
+def test_no_holder_and_only_this_org_records_it(tmp_path, fresh):
+    cfg = _slots_cfg(tmp_path)
+    a = _PortOrgs("oA", ["oA"])
+    loop.sync_sessions(cfg, a, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE)
+    assert loop.SESSION_HOLDER == {9222: "oA"} and a.sessions[-1][1]["status"] == "connected"
+
+
+def test_an_org_of_another_chrome_does_not_block_the_record(tmp_path, fresh):
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2",
+                           "WORKER_ACCOUNTS": "a:9222,b:9223", "WORKER_ORG_ACCOUNTS": "oA:a,oB:b"})
+
+    class R(_PortOrgs):
+        def wanted(self):
+            return [{"org_id": "oA", "account_key": "a", "status": "waiting_login", "wanted": "start", "port": 9222}]
+
+    loop.sync_sessions(cfg, R("oA", ["oA", "oB"]), launch=lambda a_: None, inspect=lambda p: LIVE_PAGE)
+    assert loop.SESSION_HOLDER == {9222: "oA"}
+
+
+def test_an_unknown_login_list_leaves_the_org_as_it_is(tmp_path, fresh):
+    cfg = _slots_cfg(tmp_path)
+
+    class R(_PortOrgs):
+        def login_orgs(self):
+            raise RuntimeError("db down")
+
+    r = R("oA", [])
+    loop.sync_sessions(cfg, r, launch=lambda a_: None, inspect=lambda p: LIVE_PAGE)
+    assert loop.SESSION_HOLDER == {} and r.sessions == []
+
+
+def test_a_login_check_with_no_holder_and_another_login_types_nothing(tmp_path, fresh):
+    cfg = Config.from_env({"EXT_CONNECT": "on", "WORKER_STATE": str(tmp_path), "CHROME_BIN": "/usr/bin/true", "WORKER_SLOTS": "2"})
+
+    class VRepo:
+        finished = None
+
+        def claim_verify(self, skip=()):
+            return {"org_id": "oA"}
+
+        def chrome_taken_by_other(self, org, port):
+            return False
+
+        def chrome_used_by_other(self, org, port):
+            return False
+
+        def login_orgs(self):
+            return ["oA", "oB"]
+
+        def owner_email(self, org):
+            return None
+
+        def finish_verify(self, org, decision, **k):
+            VRepo.finished = decision
+
+    typed = []
+    loop._verify_wait.clear()
+    loop.verify_once(cfg, VRepo(), lambda user, password, port: typed.append(port), b"k" * 32)
+    assert typed == [] and VRepo.finished["reason"] == "shared_chrome"
+    loop._verify_wait.clear()
+
+
+@needs_pg
+def test_the_login_orgs_query_lists_every_session_row_and_saved_login():
+    from autopilot_worker.store import PgRepo
+
+    import re as _re
+    seen = []
+
+    class Db:
+        def execute(self, sql, params=None):
+            seen.append(sql)
+            return []
+
+    PgRepo("", db=Db()).login_orgs()
+    sql = seen[0]
+    seed = ["INSERT INTO organizations (id, name) VALUES ('o1', 'One'), ('o2', 'Two'), ('o3', 'Three')",
+            "INSERT INTO worker_sessions (org_id, status, wanted) VALUES ('o1', 'stopped', 'none')",
+            "INSERT INTO merimen_credentials (org_id, username_hint, wrapped_dek, dek_nonce, username_ct, username_nonce, password_ct, "
+            "password_nonce, verify_state, blocked) VALUES ('o2','h','x','x','x','x','x','x','bad', true)"]
+    r = run([{"sql": sql}], seed=seed)
+    assert sorted(x[0] for x in r[0]) == ["o1", "o2"] and not _re.search(r"%\(", sql)

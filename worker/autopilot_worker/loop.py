@@ -423,6 +423,9 @@ def verify_once(cfg: Config, repo: PgRepo, fetch_page, master: bytes, *, now=tim
                 taken = bool(used(org, port) if used else repo.chrome_taken_by_other(org, port))
                 load_holders(cfg)
                 taken = taken or holder_other(port, org)  # that Chrome still holds another org's session (egm r17)
+                if not taken and port not in SESSION_HOLDER:  # no record, and another org's login may sit there (egm r20)
+                    others = others_on_port(cfg, repo, org, port)
+                    taken = True if others is None else others
             except Exception:  # noqa: BLE001  (not known: nothing is typed now, the check comes back later)
                 taken = True
         if taken:
@@ -449,9 +452,12 @@ _launched: dict[int, float] = {}
 LAUNCH_WAIT = 30.0
 
 # port -> the org whose Merimen session that Chrome holds (WORKER_SLOTS > 1, egm r17). Written when an org is found logged in there
-# with no holder yet; dropped only when that Chrome shows no logged-in tab. While it names another org, an org on that port is never
-# counted connected, logged in or login-checked there: the Chrome owner can change (a stopped user, a gate turned off) without any
-# re-login, and the session in that Chrome is still the other org's. Kept in <state>/chrome_holder.json across restarts.
+# with no holder yet, and only when no other org's login can have been typed into that Chrome (no other org with a session row or
+# a saved login maps to that port, egm r20). Never dropped by the worker: a Chrome's tab addresses do not prove that no account is
+# live there (a step tab left open, a page without the session marks), so the way to move a Chrome to another org is giving that org
+# its own Chrome profile. While it names another org, an org on that port is never counted connected, logged in or login-checked
+# there. With no record and another org that can have been logged in, nobody is recorded and every org on that port waits
+# (`shared_chrome`): fail-closed. Kept in <state>/chrome_holder.json across restarts.
 SESSION_HOLDER: dict[int, str] = {}
 _holder_file: list = [""]
 
@@ -521,9 +527,23 @@ def _set_holder(port, org) -> None:
         _save_holders()
 
 
-def _drop_holder(port) -> None:
-    if SESSION_HOLDER.pop(port, None) is not None:
-        _save_holders()
+def others_on_port(cfg, repo, org, port) -> bool | None:
+    """True when another org's login can have been typed into the Chrome on this port (any session row or saved login of an org
+    that maps to it); None when not known this pass (a DB error)."""
+    get = getattr(repo, "login_orgs", None)
+    if get is None:
+        return False
+    try:
+        orgs = get()
+    except Exception:  # noqa: BLE001
+        return None
+    for o in orgs:
+        if o == org:
+            continue
+        acc = account_for(o, cfg.accounts, cfg.org_accounts)
+        if acc and cfg.accounts.get(acc) == port:
+            return True
+    return False
 
 
 # what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
@@ -569,13 +589,20 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
         if getattr(cfg, "slots", 1) > 1:
             load_holders(cfg)
             if holder_other(port, org):
-                if not info or page_block(info) is None:
-                    # still logged in, or Chrome did not answer this pass (not known: never read as logged out, egm r18): that is
-                    # the other org's session, never this org's
+                # that Chrome holds the other org's session: never this org's, whatever its tab addresses say (egm r20)
+                repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
+                note(org, "shared_chrome", now)
+                continue
+            if port not in SESSION_HOLDER:
+                others = others_on_port(cfg, repo, org, port)
+                if others is None:
+                    continue  # not known this pass: this org is left as it is, no login, no status written
+                if others:
+                    # no record, and another org's login may sit in that Chrome (e.g. typed in at 1 slot): whose session it is
+                    # cannot be read, so nobody is counted connected or logged in there until each org has its own Chrome
                     repo.set_session(org, status="waiting_login", wanted="start", account=account, port=port, detail="shared_chrome")
                     note(org, "shared_chrome", now)
                     continue
-                _drop_holder(port)  # Chrome answered with no logged-in tab: no account is live, this org may log in as usual
         if info is None and not running(profile):  # nor one that holds the profile but is slow to answer
             t = now()
             if port not in _launched or t - _launched[port] >= LAUNCH_WAIT:

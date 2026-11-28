@@ -199,6 +199,12 @@ class PgRepo:
         rows = self.db.execute(CHROME_TAKEN_SQL, {"org": org_id, "port": int(port), **getattr(self, "ports", {"one_port": True, "org_ports": ""})})
         return bool(rows and rows[0][0])
 
+    def login_orgs(self) -> list[str]:
+        """Every org whose Merimen login may have been typed into a worker Chrome: any session row or any saved login, also stopped
+        or blocked ones (WORKER_SLOTS > 1, the session holder: egm r20)."""
+        rows = self.db.execute("SELECT org_id FROM worker_sessions UNION SELECT org_id FROM merimen_credentials")
+        return [str(r[0]) for r in rows if r and r[0]]
+
     def chrome_used_by_other(self, org_id: str, port: int) -> bool:
         """jobs.CHROME_USED_SQL: another org already takes part on this Chrome port, owner or not (WORKER_SLOTS > 1)."""
         from .jobs import CHROME_USED_SQL
