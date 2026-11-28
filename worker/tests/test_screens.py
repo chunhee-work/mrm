@@ -165,6 +165,26 @@ def test_lease_keeper_renews_while_running():
         assert hit.wait(2)
 
 
+def test_lease_keeper_keeps_the_heartbeat_fresh():
+    # the website calls the worker gone after 90 s without a heartbeat; a long photo_model job must not look offline
+    import threading
+
+    beat = threading.Event()
+
+    class R:
+        def touch_job(self, job_id, worker): pass
+
+        def heartbeat(self, worker_id, model, chrome_ok):
+            assert (worker_id, model, chrome_ok) == ("w1", "owner/model", True)
+            beat.set()
+
+    k = LeaseKeeper(R(), 3, "w1", 900, "owner/model")
+    assert k.every == 30.0
+    k.every = 0.01
+    with k:
+        assert beat.wait(2)
+
+
 class FakeRepo(Repo):
     def __init__(self, step, created_by="userA"):
         super().__init__()
@@ -220,3 +240,67 @@ def test_tick_takes_nothing_on_the_login_page_and_nothing_when_the_flag_is_off()
     assert repo.rows == [] and puts == []
     repo, puts = run_tick(Page(), flag="")
     assert repo.rows == [] and puts == []
+
+
+def test_a_photo_that_cannot_be_downloaded_does_not_fail_the_photo_job():
+    # 2026-11-28: a Blob error used to end the whole job as "worker error" with every photo left pending (nobody named them)
+    from autopilot_worker import loop
+    loop._last_cleanup[0] = 1e12
+    cfg = Config.from_env({"PHOTO_WORKER": "on"})
+    repo = FakeRepo("photo_model")
+    photos = [{"id": 1, "blob_path": "b/1", "src_name": "1.jpg"}, {"id": 2, "blob_path": "b/2", "src_name": "2.jpg"}]
+    repo.load = (lambda orig: (lambda cid: {**orig(cid), "photos": photos, "photo_count": 2}))(repo.load)
+    seen = {}
+
+    def download(url, name, case_id, job_id, item_id):
+        if item_id == 2:
+            raise OSError("blob 500")
+        return f"/tmp/{item_id}-{name}"
+
+    def namer(ps, vehicle):
+        seen["local"] = [p.get("local") for p in ps]
+        return [{"id": p["id"], "failed": not p.get("local"), "name_error": "worker: no prediction"} for p in ps]
+
+    tick(cfg, repo, launch=lambda a: None, inspect=lambda p: None, namer=namer, driver=SavingDriver(), download=download)
+    assert seen["local"] == ["/tmp/1-1.jpg", None]
+    assert repo.applied and repo.applied[0].error != "worker error"
+
+
+def test_lease_keeper_beats_at_once():
+    import threading
+
+    beat = threading.Event()
+
+    class R:
+        def touch_job(self, job_id, worker): pass
+        def heartbeat(self, worker_id, model, chrome_ok): beat.set()
+
+    with LeaseKeeper(R(), 3, "w1", 900, "owner/model"):  # every = 30 s: only the first beat can come in time
+        assert beat.wait(2)
+
+
+def test_heartbeat_runs_during_photo_downloads():
+    import threading
+
+    from autopilot_worker import loop
+    loop._last_cleanup[0] = 1e12
+    cfg = Config.from_env({"PHOTO_WORKER": "on"})
+    repo = FakeRepo("photo_model")
+    n, more = [0], threading.Condition()
+
+    def beat(*a, **k):
+        with more:
+            n[0] += 1
+            more.notify_all()
+    repo.heartbeat = beat
+    repo.load = (lambda orig: (lambda cid: {**orig(cid), "photos": [{"id": 1, "blob_path": "b/1", "src_name": "1.jpg"}], "photo_count": 1}))(repo.load)
+    during = {}
+
+    def download(*a):
+        with more:  # tick's own heartbeat came first; the keeper's beat must come while this download runs
+            during["beat"] = more.wait_for(lambda: n[0] >= 2, timeout=2)
+        return "/tmp/1-1.jpg"
+
+    tick(cfg, repo, launch=lambda a: None, inspect=lambda p: None, driver=SavingDriver(), download=download,
+         namer=lambda ps, v: [{"id": 1, "failed": True, "name_error": "x"}])
+    assert during["beat"]

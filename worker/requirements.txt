@@ -4,3 +4,6 @@ pytest==8.4.2
 playwright==1.49.1
 pillow==11.0.0
 pymupdf==1.24.14  # Jev page check (JEV_PAGES=1); AGPL, used only on our own worker box, not redistributed
+# photo model (predict_case.py): torch is installed from the CPU index in the Dockerfile (no GPU); these two from PyPI
+numpy==2.2.6
+huggingface_hub==0.36.2  # downloads production/ from the private model repo once (photos.ensure_weights)

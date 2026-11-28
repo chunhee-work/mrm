@@ -5,7 +5,15 @@
 # other tools/, .git, any .env) is not.
 *
 !worker
-!typesafe/photo_train
+# only the photo_train files the worker runs (predict_case and the naming rules); the rest of that folder is training data,
+# weights and the owner's case lists (see .gitignore) and never goes into the image
+!typesafe/photo_train/predict_case.py
+!typesafe/photo_train/zones.py
+!typesafe/photo_train/build_priors.py
+!typesafe/photo_train/name_map.py
+!typesafe/photo_train/build_dataset.py
+!typesafe/photo_train/name_rules.py
+!typesafe/photo_train/name_decisions.json
 !tools/price_lookup.py
 !tools/merimen-part-prices-data.md
 # local secrets, caches and tests: not needed to run the worker

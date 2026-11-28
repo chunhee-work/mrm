@@ -333,11 +333,18 @@ def handle_job(job: dict, case: dict, photos: list[dict], *, gate: str, session:
         if not photo_worker:
             return Outcome("done", event="Photo model off")
         try:
-            rows = namer(photos, (case.get("car_model") or "")[:120])
+            rows = namer(photos, case_vehicle(case))
         except ModelError as e:
             return Outcome("failed", photo_fail=f"worker: {str(e)[:160]}", event="Photo model failed")
         return Outcome("done", photo_rows=rows, event="Photos named by the on-site model")
     return Outcome("failed", error="unknown step", event="Unknown job")
+
+
+def case_vehicle(case: dict) -> str:
+    """The car model the naming rules use: the case's car_model, else the registration card's model in case_data (the same
+    fallback as the website's finalizeNaming, web/src/lib/photos/server.ts)."""
+    cv = (case.get("case_data") or {}).get("client_vehicle") or {}
+    return str(case.get("car_model") or (cv.get("model") if isinstance(cv, dict) else "") or "").strip()[:120]
 
 
 def followup_steps(case: dict, jobs: list[dict], *, writes: bool) -> list[str]:

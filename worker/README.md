@@ -87,6 +87,13 @@ HTTP 方式下没有长连接，所以：领取 job 是**一条** `UPDATE … WH
 
 `PHOTO_WORKER=on` 时网站不再把照片发给 Claude，由 worker 写入 `model_name`、`confidence`、`alts`、`name_state`。模型进程起不来、或照片被标成 `worker:` 失败时，才退回 Claude（`PHOTO_WORKER_FALLBACK=off` 可关掉）。权重在私有仓库 `chunhee00/mrm-photo-model` 的 `production/`，用 `predict_case.py auto` 加载。这台机器没有 GPU，`PRED_BS` 默认 4。
 
+照片模型怎么跑起来（2026-11-28 修好；之前 worker 没装 torch、也没有权重，每次都 `predict failed` 退回 Claude）：
+
+- 依赖：CPU 版 torch（`pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0`）、`numpy`、`huggingface_hub`（`requirements.txt`）。DINOv2 的模型代码放在 `DINOV2_HUB`（Docker 镜像里是 `/opt/dinov2_hub`，固定 commit 7764ea0；不用 Docker 时自己下载到那里，或放在 `~/.cache/torch/hub/facebookresearch_dinov2_main`）。
+- 权重：第一次起名时用 `HF_TOKEN` 从 `HF_MODEL_REPO`（默认 `chunhee00/mrm-photo-model`）下载 `production/` 到 `PHOTO_MODEL_DIR`（默认 `<WORKER_STATE>/photo-model`），之后不再下载。设了 `HF_MODEL_REVISION`（模型仓库的 commit）时，文件夹不是这个版本就重新下载一次：换模型 = 改这个设置再重启，不用手动删文件夹。`production.json` 里的 `models/…` 路径会改写成这个文件夹里的文件（`production.resolved.json`），缺任何一个文件就是 `model missing`。下载和改写有文件锁，几个案件同时起名也只下载一次。
+- 名字：模型的名字先过店里的命名规则再写入。规则只有一份：`typesafe/photo_train/name_rules.py`（店主 Mac 上的 `naming.py build` 也用它；新规则只加在那里，具体规则见那个文件和 playbook 10/11）。规则加载不了就算这一步失败（网站改由 Claude 起名），不会存没处理过的名字。
+- `predict_case.py` 和店主 Mac 上的生产版一样（含 2026-11-19 照片不跳边规则，没有 Jev）。同一时间只跑一个 `predict_case`（两个 ViT-L + ViT-B 进程会抢 CPU、内存翻倍）。超时按照片数算：`max(600, 300 + 8×张数)` 秒；超时也算失败，网站改由 Claude 起名。
+
 ## 运行
 
 单机：
