@@ -88,7 +88,7 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
   const wsOf = new Map((ws ?? []).map((x) => [x.caseId, x]));
   // plan #159: the delete icon only on an open case that hit a problem on our side (one EXISTS rule per case, shared with deleteCase)
   const deletable = await deletableIds(rows.map((c) => c.id)).catch((e) => { console.error("delete flags failed", e); return new Set<string>(); }); // a failure hides the icons, not the list
-  const pendingCreate = await createPendingIds(rows.filter((c) => deletable.has(c.id) && !c.merimenCaseId).map((c) => c.id)).catch(() => new Set<string>()); // only rows that show the icon
+  const pendingCreate = await createPendingIds(rows.filter((c) => deletable.has(c.id) && !c.merimenCaseId).map((c) => c.id)).catch((e) => { console.error("merimen pending flags failed", e); return new Set<string>(); }); // only rows that show the icon
   const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
   // every row is of the signed-in user's organisation (the page reads one org), so one workshop list serves them all
   const list = rows.length ? await orgWorkshops(rows[0].orgId).catch(() => []) : [];

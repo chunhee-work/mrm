@@ -451,6 +451,21 @@ test("delete: the credit goes back for every case deleted here (our side broke i
   } finally { delete process.env.CREDITS_ENFORCE; }
 });
 
+test("refund: two refunds of one case at the same moment give the credit back once (read failure and delete)", async () => {
+  process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
+  try {
+    const { refundCase } = await import("../src/lib/payments/case-credit");
+    await db.insert(schema.creditsLedger).values({ orgId: org, delta: 1000, reason: "grant" });
+    const before = await creditBalance(org);
+    for (let i = 0; i < 5; i++) {
+      const id = await mkCase("failed", { fault: null }); assert.ok(await debitCase(org, id));
+      const r = await Promise.all([refundCase(org, id, "failed"), refundCase(org, id, "deleted"), refundCase(org, id, "deleted")]);
+      assert.equal(r.filter(Boolean).length, 1, `round ${i}`);
+      assert.equal(await creditBalance(org), before);
+    }
+  } finally { delete process.env.CREDITS_ENFORCE; }
+});
+
 // ---- the files of a deleted case are removed after 7 days (lib/purge-deleted-cases) ----
 const mkDeleted = async (daysAgo: number | null) => {
   const id = randomUUID();
