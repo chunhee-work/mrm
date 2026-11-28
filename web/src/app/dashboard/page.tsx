@@ -9,7 +9,7 @@ import CaseTable, { type CaseRow } from "@/components/app/case-table";
 import Home, { type HomeCounts } from "@/components/app/home";
 import { bucketOf, VIEWS, type View } from "@/components/app/status";
 import { systemBusy } from "@/lib/case-steps";
-import { canDelete, notDeleted } from "@/lib/case-delete";
+import { canDeleteSql, notDeleted } from "@/lib/case-delete";
 import { healWaiting } from "./stuck-reads";
 import { merimenLine } from "./merimen-line";
 
@@ -86,6 +86,9 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     .from(schema.merimenCaseWorkshop).where(inArray(schema.merimenCaseWorkshop.caseId, rows.map((c) => c.id))).catch(() => null) : [];
   const wsRead = ws !== null; // a read that failed asks nobody: it must not put every case on "Confirm the workshop"
   const wsOf = new Map((ws ?? []).map((x) => [x.caseId, x]));
+  // plan #159: the delete icon only on an open case that hit a problem on our side (one EXISTS rule per case, shared with deleteCase)
+  const del = rows.length ? await db.execute(sql`SELECT c.id, ${canDeleteSql()} AS ok FROM cases c WHERE c.id IN (${sql.join(rows.map((c) => sql`${c.id}`), sql`, `)})`).catch((e) => { console.error("delete flags failed", e); return []; }) : []; // a failure hides the icons, not the list
+  const deletable = new Set(((Array.isArray(del) ? del : (del as { rows?: unknown[] }).rows ?? []) as { id: string; ok: boolean }[]).filter((x) => x.ok).map((x) => x.id));
   const confirm = new Map(todo.map((x) => [x.caseId, Number(x.n)]));
   // every row is of the signed-in user's organisation (the page reads one org), so one workshop list serves them all
   const list = rows.length ? await orgWorkshops(rows[0].orgId).catch(() => []) : [];
@@ -103,7 +106,8 @@ async function caseRows(rows: (typeof schema.cases.$inferSelect)[]): Promise<Cas
     createdAt: c.createdAt.toISOString(),
     firstFile: first.get(c.id) ?? null,
     id: c.id,
-    canDelete: canDelete(c),
+    canDelete: deletable.has(c.id),
+    inMerimen: !!c.merimenCaseId,
     plate: c.plate,
     carModel: c.carModel,
     insurer: c.insurer,
