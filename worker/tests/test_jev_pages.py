@@ -505,3 +505,25 @@ def test_odd_case_data_shapes_do_not_lose_the_lines():
     d = dict(DATA, police="oops", at_fault=["x"], missing="none")
     jev, case, fake, rows, fetch = setup([p for p in FULL if p[1] != "rep"], d)
     assert jp.run(jev, case, fetch) == []  # no client report number known: not warned, and nothing crashed
+
+
+def test_four_missing_lines_already_means_no_plate_question():
+    # rc, our insurance, our police report and Keputusan all missing: the I-SEARCH line would be cut at 4, so nothing is asked
+    jev, case, fake, rows, fetch = setup([("their policy", "pol", 1.0, 0.18)], af_pages={0: 0.95})
+    out = jp.run(jev, case, fetch)
+    assert len(out) == 4 and WARN_IS[0] not in out
+    assert not [b for b in fake.sent if "af" in b["questions"]]
+
+
+def test_a_page_that_cannot_be_drawn_keeps_the_warning_and_writes_a_row(monkeypatch):
+    jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], af_pages={4: 0.95})
+    monkeypatch.setattr(jp, "_page_jpg", lambda docs, g, dpi: None)
+    assert jp.run(jev, case, fetch) == WARN_IS
+    assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "skip_render" for r in rows)
+
+
+def test_inside_one_type_the_least_ours_page_is_asked_first():
+    pages = NO_ISEARCH + [("ours-ish", "pol", 1.0, 0.4), ("theirs", "pol", 1.0, 0.02)]
+    jev, case, fake, rows, fetch = setup(pages, af_pages={5: 0.95})
+    assert jp.run(jev, case, fetch) == []
+    assert len([b for b in fake.sent if "af" in b["questions"]]) == 1  # page 5 (ours 0.02) first, and it says yes

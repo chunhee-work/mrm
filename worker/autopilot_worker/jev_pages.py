@@ -348,7 +348,7 @@ def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
 
 
 MAX_AF_PAGES = 6  # at most this many candidate pages get the at-fault plate question
-AF_YES = PRESENT  # live, 4 cases / 4 yes pages + 6 no pages: yes 0.85-0.98, no 0.00-0.09 (see the design note); 0.9 sat on the yes edge
+AF_YES = PRESENT  # live, question v5: 5 true yes pages (4 at 0.85-0.98, 1 missed at 0.11), 20 no pages 0.00-0.24 (see the design note); 0.9 sat on the yes edge
 NOT_INSURANCE = {"vehicle_ownership_certificate", "police_report", "police_investigation_result", "police_sketch", "road_tax"}  # a road tax disc names the insurer too
 AF_ORDER = {"isearch_report": 0, "insurance_schedule_or_cover_note": 1}  # likeliest first; every other label after
 
