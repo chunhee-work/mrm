@@ -212,6 +212,7 @@ def test_reader_plate_not_the_blamed_plate_keeps_the_warning():
     d = dict(DATA, police={**DATA["police"], "blamed_plate": "BGN 9963"}, at_fault={"plate": "WUH8189"})
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
     assert jp.run(jev, case, fetch) == WARN_IS and not [b for b in fake.sent if "af" in b["questions"]]
+    assert any(r["purpose"] == "jev_isearch_check" and r["error_class"] == "skip_plate_mismatch" for r in rows)
     d = dict(DATA, police={**DATA["police"], "blamed_plate": "abc-1"})  # same plate, other spelling: asked
     jev, case, fake, rows, fetch = setup(NO_ISEARCH + [("their policy", "pol", 1.0, 0.18)], d, af_pages={4: 0.95})
     assert jp.run(jev, case, fetch) == []

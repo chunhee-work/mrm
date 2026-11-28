@@ -331,7 +331,7 @@ def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
                 continue
             if doc in ("keputusan", "isearch") and not (data.get("at_fault") or {}).get("plate") and not (data.get("police") or {}).get("report_no"):
                 continue
-            if doc == "isearch" and _day.get("af_on", True):
+            if doc == "isearch" and _day.get("af_on", True) and len(out) < MAX_LINES:  # 4 lines already: the I-SEARCH line would be cut anyway
                 try:
                     if _at_fault_schedule(jev, data, results, docs, now, t0, cid):
                         continue  # a page shows the at-fault plate's insurance; anything else (no, could not ask) keeps the old warning
@@ -348,7 +348,7 @@ def _lines(jev, case, results, docs, *, complete, now, t0, cid) -> list[str]:
 
 
 MAX_AF_PAGES = 6  # at most this many candidate pages get the at-fault plate question
-AF_YES = PRESENT  # live (15 cases): yes pages 0.91-0.97 (DCD4004 once 0.91), no pages 0.01-0.07; 0.9 would sit on the yes edge
+AF_YES = PRESENT  # live, 4 cases / 4 yes pages + 6 no pages: yes 0.85-0.98, no 0.00-0.09 (see the design note); 0.9 sat on the yes edge
 NOT_INSURANCE = {"vehicle_ownership_certificate", "police_report", "police_investigation_result", "police_sketch", "road_tax"}  # a road tax disc names the insurer too
 AF_ORDER = {"isearch_report": 0, "insurance_schedule_or_cover_note": 1}  # likeliest first; every other label after
 
