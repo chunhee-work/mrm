@@ -250,41 +250,107 @@ test("owner-only free code: sent only for allow-listed email", async () => {
   delete process.env.OWNER_FREE_EMAILS; delete process.env.LEMONSQUEEZY_OWNER_CODE;
 });
 
-// ---- a user deletes a case from the list (soft delete, lib/case-delete) ----
-const mkCase = async (status: string, o: { orgId?: string; merimen?: string } = {}) => {
+// ---- a user deletes a case from the list (soft delete, lib/case-delete; plan #159: only an open case with a problem on our side) ----
+// `fault`: a failure line our side wrote on phase_b (no phase_b job, so the crash is unresolved); `job`: the state of the case's intake job (done by default)
+const mkCase = async (status: string, o: { orgId?: string; merimen?: string; fault?: string | null; job?: string } = {}) => {
   const id = randomUUID();
   await db.insert(schema.cases).values({ id, orgId: o.orgId ?? org, plate: "DEL1234", status, merimenCaseId: o.merimen ?? null });
-  await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: "queued" });
+  await db.insert(schema.jobs).values({ caseId: id, step: "intake", state: o.job ?? "done" });
+  const fault = o.fault === undefined ? "Worker error" : o.fault;
+  if (fault) await db.insert(schema.caseEvents).values({ caseId: id, step: "phase_b", message: fault });
   return id;
 };
 const deletedAt = async (id: string) => (await db.select({ d: schema.cases.deletedAt }).from(schema.cases).where(sql`${schema.cases.id} = ${id}`))[0]?.d ?? null;
 
-test("delete: a case the worker has not taken is hidden, its job cancelled, files and the case row kept, one audit row", async () => {
-  for (const st of ["uploaded", "naming", "pending_doc", "failed"]) {
-    const id = await mkCase(st);
-    assert.deepEqual(await deleteCase(org, "u1", id), { ok: true, refunded: false }); // charging is off: nothing to give back
+test("delete rule in TypeScript: open, our fault, nothing working on it", async () => {
+  const { canDelete, FAULT_LINE } = await import("../src/lib/case-delete");
+  assert.equal(FAULT_LINE, "Worker error"); // the exact line worker/loop.py writes
+  assert.equal(canDelete({ status: "failed", faulted: false, running: false }), true);
+  assert.equal(canDelete({ status: "waiting_user", faulted: true, running: false }), true);
+  assert.equal(canDelete({ status: "waiting_user", faulted: false, running: false }), false);
+  assert.equal(canDelete({ status: "done", faulted: true, running: false }), false);
+  assert.equal(canDelete({ status: "reading", faulted: true, running: false }), false);
+  assert.equal(canDelete({ status: "failed", faulted: true, running: true }), false);
+});
+
+test("delete: an open case with our failure line is hidden, files and the case row kept, one audit row", async () => {
+  const cases = [
+    ["waiting_user", "Worker error"], ["phase_a", "Worker error"], ["pending_doc", "Worker error"], ["naming", "Worker error"],
+    ["failed", null], ["uploaded", "Worker error"],
+  ] as const;
+  for (const [st, fault] of cases) {
+    const id = await mkCase(st, { fault });
+    assert.deepEqual(await deleteCase(org, "u1", id), { ok: true, refunded: false }, st); // charging is off: nothing to give back
     assert.ok(await deletedAt(id), st);
-    assert.equal((await db.select().from(schema.jobs).where(sql`${schema.jobs.caseId} = ${id}`))[0].state, "cancelled");
     assert.equal((await db.select().from(schema.auditLog).where(sql`${schema.auditLog.detail} = ${id}`)).length, 1);
     assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "not_found" }); // a second press finds nothing
   }
 });
 
-test("delete: reading, the worker's steps, a case made in Merimen and a done case are refused and stay", async () => {
-  for (const st of ["reading", "phase_a", "waiting_user", "phase_b", "checking", "done"]) {
-    const id = await mkCase(st);
-    assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "busy" }, st);
-    assert.equal(await deletedAt(id), null);
-  }
-  const made = await mkCase("failed", { merimen: "M123" });
-  assert.deepEqual(await deleteCase(org, "u1", made), { ok: false, reason: "busy" });
+test("delete: a case made in Merimen with our error (DCD4004) is hidden here only", async () => {
+  // DCD4004 in production: waiting_user, made in Merimen, phase_b failed after 3 tries with two "Worker error" lines, later jobs done
+  const id = await mkCase("waiting_user", { merimen: "M4004" });
+  for (const [step, state] of [["phase_a", "failed"], ["phase_b", "failed"], ["phase_a", "done"]]) await db.insert(schema.jobs).values({ caseId: id, step, state });
+  await db.insert(schema.caseEvents).values([{ caseId: id, step: "phase_b", message: "Worker error" }, { caseId: id, step: "phase_a", message: "The case already exists in Merimen, nothing was made again." }]);
+  assert.deepEqual(await deleteCase(org, "u1", id), { ok: true, refunded: false });
+  const [c] = await db.select().from(schema.cases).where(sql`${schema.cases.id} = ${id}`);
+  assert.equal(c.merimenCaseId, "M4004"); // nothing about the Merimen link changes
 });
 
-test("delete: a case with a running job is refused", async () => {
-  const id = await mkCase("pending_doc");
-  await db.update(schema.jobs).set({ state: "running" }).where(sql`${schema.jobs.caseId} = ${id}`);
-  assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "busy" });
-  assert.equal(await deletedAt(id), null);
+test("delete: no problem of ours, or a done case, is refused as not_allowed and stays", async () => {
+  for (const st of ["uploaded", "naming", "pending_doc", "waiting_user", "phase_a", "checking"]) {
+    const id = await mkCase(st, { fault: null });
+    assert.deepEqual(await deleteCase(org, "u1", id), { ok: false, reason: "not_allowed" }, st);
+    assert.equal(await deletedAt(id), null);
+  }
+  // person stops, login waits that ran out of tries, a customer's bad file: jobs may be failed, but no crash line of ours
+  for (const fault of ["Phase A not saved. check by hand: the manager", "Stopped after 3 tries (it waited 30 s, 2 min and 10 min in between). It will not be tried again by itself.", "Scan failed"]) {
+    const stop = await mkCase("waiting_user", { fault, job: "failed" });
+    assert.deepEqual(await deleteCase(org, "u1", stop), { ok: false, reason: "not_allowed" }, fault);
+  }
+  // finished work is never deleted, even after an old error
+  const done = await mkCase("done", { fault: "Worker error", merimen: "M1" });
+  assert.deepEqual(await deleteCase(org, "u1", done), { ok: false, reason: "not_allowed" });
+  assert.equal(await deletedAt(done), null);
+});
+
+test("delete: a crash the worker got past does not count; one its step never got past does", async () => {
+  const one = async (jobs: [string, string][], st = "waiting_user") => {
+    const id = await mkCase(st, { fault: null });
+    for (const [step, state] of jobs) await db.insert(schema.jobs).values({ caseId: id, step, state });
+    await db.insert(schema.caseEvents).values({ caseId: id, step: "phase_b", message: "Worker error" });
+    return id;
+  };
+  // the same phase_b job crashed once, was retried and finished; or its retry is still waiting: a normal case
+  for (const state of ["done", "queued", "paused"]) assert.deepEqual(await deleteCase(org, "u1", await one([["phase_b", state]])), { ok: false, reason: "not_allowed" }, state);
+  // an older phase_b failed, a later phase_b finished
+  assert.deepEqual(await deleteCase(org, "u1", await one([["phase_b", "failed"], ["phase_b", "done"]])), { ok: false, reason: "not_allowed" });
+  // phase_b crashed and stopped; a later phase_a finishing does not mend phase_b
+  assert.deepEqual(await deleteCase(org, "u1", await one([["phase_b", "failed"], ["phase_a", "done"]])), { ok: true, refunded: false });
+  assert.deepEqual(await deleteCase(org, "u1", await one([["phase_b", "cancelled"]])), { ok: true, refunded: false });
+  // phase_b crashed, its retry finished, and a later phase_b run was cancelled (names edited): the old crash stays mended
+  const later = await mkCase("waiting_user", { fault: null });
+  await db.insert(schema.jobs).values({ caseId: later, step: "phase_b", state: "done" });
+  await db.insert(schema.caseEvents).values({ caseId: later, step: "phase_b", message: "Worker error" });
+  for (const state of ["cancelled", "failed"]) await db.insert(schema.jobs).values({ caseId: later, step: "phase_b", state });
+  assert.deepEqual(await deleteCase(org, "u1", later), { ok: false, reason: "not_allowed" });
+  // a Merimen logout at its cap writes a longer line, not the crash line: not ours
+  const lo = await mkCase("waiting_user", { fault: "Merimen logged out 3 times in a row. Worker error", job: "failed" });
+  assert.deepEqual(await deleteCase(org, "u1", lo), { ok: false, reason: "not_allowed" });
+});
+
+test("delete: a read or a running job on the case is refused as busy; queued and paused jobs are cancelled with the delete", async () => {
+  const running = await mkCase("failed", { job: "running" });
+  assert.deepEqual(await deleteCase(org, "u1", running), { ok: false, reason: "busy" });
+  assert.equal(await deletedAt(running), null);
+  const reading = await mkCase("reading");
+  assert.deepEqual(await deleteCase(org, "u1", reading), { ok: false, reason: "busy" });
+  assert.equal(await deletedAt(reading), null);
+  for (const job of ["queued", "paused"]) {
+    const id = await mkCase("waiting_user", { job });
+    assert.deepEqual(await deleteCase(org, "u1", id), { ok: true, refunded: false }, job);
+    assert.equal((await db.select().from(schema.jobs).where(sql`${schema.jobs.caseId} = ${id}`))[0].state, "cancelled");
+  }
 });
 
 test("delete: another organisation's case looks like no case at all", async () => {
@@ -293,7 +359,20 @@ test("delete: another organisation's case looks like no case at all", async () =
   assert.equal(await deletedAt(id), null);
 });
 
-test("delete: the credit goes back for an unread case only, and not twice for a case already refunded", async () => {
+test("delete: the list's flag is the same rule, one answer per case with many lines and jobs", async () => {
+  const { canDeleteSql } = await import("../src/lib/case-delete");
+  const yes = await mkCase("waiting_user");
+  await db.insert(schema.caseEvents).values([{ caseId: yes, step: "x", message: "Worker error" }, { caseId: yes, step: "x", message: "Worker error" }]);
+  await db.insert(schema.jobs).values([{ caseId: yes, step: "phase_a", state: "failed" }, { caseId: yes, step: "phase_b", state: "done" }]);
+  const no = await mkCase("waiting_user", { fault: null });
+  const busy = await mkCase("waiting_user", { job: "running" });
+  const r = await db.execute(sql`SELECT c.id, ${canDeleteSql()} AS ok FROM cases c WHERE c.id IN (${yes}, ${no}, ${busy})`);
+  const rows = ((r as { rows?: unknown[] }).rows ?? r) as { id: string; ok: boolean }[];
+  assert.equal(rows.length, 3);
+  assert.deepEqual(Object.fromEntries(rows.map((x) => [x.id, x.ok])), { [yes]: true, [no]: false, [busy]: false });
+});
+
+test("delete: the credit goes back only for an unread case, never twice, never for a Merimen case", async () => {
   process.env.CREDITS_ENFORCE = "on"; delete process.env.CREDITS_EXEMPT_ORGS;
   try {
     await db.insert(schema.creditsLedger).values({ orgId: org, delta: 5000, reason: "grant" });
@@ -315,6 +394,9 @@ test("delete: the credit goes back for an unread case only, and not twice for a 
     assert.ok(await refundCase(org, b, "failed")); // the worker already gave it back
     assert.deepEqual(await deleteCase(org, "u1", b), { ok: true, refunded: false });
     assert.equal(await creditBalance(org), 5000);
+    const m = await mkCase("waiting_user", { merimen: "M9" }); assert.ok(await debitCase(org, m));
+    assert.deepEqual(await deleteCase(org, "u1", m), { ok: true, refunded: false });
+    assert.equal(await creditBalance(org), 4000);
   } finally { delete process.env.CREDITS_ENFORCE; }
 });
 

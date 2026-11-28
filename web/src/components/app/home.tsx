@@ -261,7 +261,7 @@ function More({ r, orgId, onDesk, workshops, ctl }: { r: CaseRow; orgId: string;
             className="btn-quiet !min-h-[40px] !gap-1.5 !px-3 text-[14px] text-mute hover:text-fg"><Bin />{t("del.btn")}</button>
         </div>
       )}
-      <ConfirmDelete row={ask ? { id: r.id, plate: r.plate || r.firstFile || "" } : null} onClose={() => setAsk(false)} onGone={() => router.refresh()} onStale={() => router.refresh()} />
+      <ConfirmDelete row={ask ? { id: r.id, plate: r.plate || r.firstFile || "", inMerimen: !!r.inMerimen } : null} onClose={() => setAsk(false)} onGone={() => router.refresh()} onStale={() => router.refresh()} />
       {/* always there, so the desk's message is read out when it lands in the "Photo names" card */}
       <p role="status" className="sr-only">{finished}</p>
     </div>
