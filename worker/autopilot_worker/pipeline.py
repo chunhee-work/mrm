@@ -162,6 +162,10 @@ def run_phase(phase: str, case: dict, *, writes: bool, driver: Driver) -> Outcom
             s2 = None
         except Exception as e:  # noqa: BLE001  (the real Select Parts page broke: ticking only adds ticks, a person looks before it runs again)
             code = getattr(e, "code", None) or type(e).__name__
+            from . import login_seen
+
+            if code == "unreadable" and login_seen.seen() and driver.relogin_ready:  # a Select Parts page met the login form
+                return _o("requeue", error="step2", event=f"Phase {phase} stopped. Merimen logged out on the Select Parts page")
             return _o("failed", case_status="waiting_user", error="step2",
                       event=f"Phase {phase} stopped. Parts and labour could not be ticked ({code}). Check the Select Parts page in Merimen."[:400])
         if s2 is not None and (s2.plan or not s2.ok):

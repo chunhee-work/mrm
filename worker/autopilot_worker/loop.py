@@ -171,6 +171,11 @@ def _may_come_from_logout(job: dict, outcome: Outcome, seen_login: bool) -> bool
     return job["step"] == "phase_a" and outcome.error == "photos" and seen_login and "(not_logged_in)" in (outcome.event or "")
 
 
+def _where(event: str) -> str:
+    """Where the job stopped, without its "check by hand" advice (the worker goes on by itself)."""
+    return re.split(r"\.?\s*Check (?:the|them)\b", event, maxsplit=1)[0].strip()
+
+
 def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
     """The outcome of a job that Merimen logged out half way. Under the cap: put back without using a try, nothing it found is
     taken as the case's state (no status, error or follow-up job), what it did write (the case number, the photo and Step 2 logs)
@@ -185,7 +190,7 @@ def session_lost_outcome(job: dict, outcome: Outcome, *, count: int) -> Outcome:
         outcome, job_state="requeue", session_lost=True, case_status=None, error=None, enqueue=[], done=False, pending_doc=None,
         require_snapshot=None, stale_event=None, invalidate=False, verify_state=None,
         event=(f"{LOST_EVENT} {phase}. Logging in again, then it goes on from where it stopped."
-               + (f" ({outcome.event})" if outcome.event else ""))[:400],
+               + (f" ({_where(outcome.event)})" if outcome.event else ""))[:400],
     )
 
 
@@ -348,7 +353,7 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
             got = relogin(org, ports[org])
             if got in ("ok", "session_live"):
                 RELOGIN_HELD.pop(org, None)
-            elif got not in (None, "pending", "db_error"):
+            elif got not in (None, "pending", "db_error", "cooldown", "put_back"):  # short waits, nothing typed: no hold
                 # refused or failed: no more put-backs for this org for a while, so a stale tab that later counts as connected never
                 # books more password tries by itself (the refusal already mailed / showed why)
                 RELOGIN_HELD[org] = now()

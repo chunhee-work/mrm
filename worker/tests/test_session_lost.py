@@ -304,6 +304,12 @@ def test_the_put_back_line_keeps_what_the_job_said():
     assert got.event.startswith(loop.LOST_EVENT) and "catalogue could not be read" in got.event
 
 
+def test_the_put_back_line_drops_the_hand_fix_advice():
+    ev = "Phase A stopped. The photo step failed (not_logged_in). Check the photo list in Merimen by hand before anything is run again."
+    got = session_lost_outcome({**JOB, "step": "phase_a"}, Outcome("failed", error="photos", event=ev), count=0)
+    assert "(not_logged_in)" in got.event and "by hand" not in got.event
+
+
 def test_login_seen_marks_and_resets():
     from autopilot_worker import login_seen
 
