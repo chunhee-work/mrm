@@ -71,7 +71,8 @@ def pause_statements(org_id: str, event: str, *, only_if_state: str | None = Non
     (store.finish_verify) and the re-login (relogin.py). only_if_state: run only while the login row is in that state AND blocked,
     so a re-login whose guarded block did not change the row (the user saved again meanwhile) pauses nothing."""
     p = {"org": org_id, "event": str(event)[:400], "state": only_if_state}
-    guard = (" AND EXISTS (SELECT 1 FROM merimen_credentials WHERE org_id = %(org)s AND verify_state = %(state)s AND blocked)"
+    # updated_at = now(): the row was blocked by THIS transaction (now() is the transaction's start), not by an earlier check
+    guard = (" AND EXISTS (SELECT 1 FROM merimen_credentials WHERE org_id = %(org)s AND verify_state = %(state)s AND blocked AND updated_at = now())"
              if only_if_state else "")
     return [
         (
@@ -765,6 +766,11 @@ class PgRepo:
             self.db.execute(sql, params)
         except Exception as e:  # noqa: BLE001
             print("relogin audit row skipped:", type(e).__name__, file=sys.stderr, flush=True)
+
+    def outcome_written(self, org_id: str, try_id) -> bool:
+        from .relogin import outcome_written_statement
+
+        return bool(self.db.execute(*outcome_written_statement(org_id, try_id)))
 
     def relogin_unclear_in_a_row(self, org_id: str) -> int:
         from .relogin import unclear_count_statement

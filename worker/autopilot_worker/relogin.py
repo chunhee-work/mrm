@@ -35,7 +35,7 @@ UNCLEAR_IN_A_ROW = 2  # the second one stops like a rejection (G2)
 
 SUCCESS_ACTIONS = ("relogin_ok", "login_session_live", "login_ok", "session_seen_connected")
 EPISODE_ACTIONS = ("relogin_put_back", "relogin_unclear", "relogin_capped")
-MAIL_KINDS = ("relogin_failed", "relogin_unclear", "otp")
+MAIL_KINDS = ("relogin_failed", "relogin_unclear", "otp", "orphan")
 
 # the time of the last success for this org; every "since the last success" count uses it
 _LAST_OK = (
@@ -56,14 +56,16 @@ _UNCLEAR = (
 )
 # a try whose outcome was never written (the DB call after the typing failed, or the worker died): it may have been a rejected
 # password, so it blocks like an unclear answer (code review: a lost outcome write must never lead to the same password again)
+# It does NOT end after 24 h: only a password-proving success (relogin_ok, or the save-time login_ok after the user saves again) ends
+# it, because the lost answer may have been a rejection (loop review round 1).
+OUTCOME_ACTIONS = ("relogin_put_back", "relogin_typed", "login_session_live", "relogin_key_mismatch")
 _ORPHAN = (
     "EXISTS (SELECT 1 FROM merimen_cred_audit t WHERE t.org_id = %(org)s AND t.action = 'relogin_try' "
-    "AND t.at > now() - interval '24 hours' AND t.at < now() - interval '3 minutes' "
+    "AND t.at < now() - interval '3 minutes' "
     f"AND t.at > {_LAST_PROVEN} "
     "AND NOT EXISTS (SELECT 1 FROM merimen_cred_audit o WHERE o.org_id = t.org_id "
-    "AND o.action IN ('relogin_put_back','relogin_typed','login_session_live') AND o.at >= t.at))"
+    "AND o.action IN ('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch') AND o.id > t.id))"
 )
-_UNCLEAR = f"({_UNCLEAR} OR {_ORPHAN})"
 _STREAK = (
     f"(SELECT count(*) FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_put_back' AND at > now() - interval '{STREAK_WINDOW}' "
     f"AND at > {_LAST_OK}) >= {STREAK}"
@@ -78,26 +80,29 @@ def booking_statements(org_id: str) -> list[tuple[str, object]]:
         ("SELECT pg_advisory_xact_lock(hashtext(%(key)s))", p),
         (
             f"INSERT INTO merimen_cred_audit (org_id, action) SELECT %(org)s, 'relogin_try' "
-            f"WHERE {_CRED_OK} AND NOT {_COOLDOWN} AND NOT {_CAPPED} AND NOT {_UNCLEAR} AND NOT {_STREAK} RETURNING 1",
+            f"WHERE {_CRED_OK} AND NOT {_COOLDOWN} AND NOT {_CAPPED} AND NOT {_UNCLEAR} AND NOT {_ORPHAN} AND NOT {_STREAK} RETURNING id",
             p,
         ),
         (
             f"SELECT NOT {_CRED_OK}, {_COOLDOWN}, {_CAPPED}, {_UNCLEAR}, {_STREAK}, "
-            f"EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_mailed_relogin_failed' AND at > {_LAST_OK})",
+            f"EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action = 'relogin_mailed_relogin_failed' AND at > {_LAST_OK}), "
+            f"{_ORPHAN}",
             p,
         ),
     ]
 
 
 def read_refusal(res: list) -> dict:
-    """What the booking batch answered. A booked row wins; otherwise the first true reason in this order: cred, cap, streak, unclear, cooldown."""
+    """What the booking batch answered. A booked row wins (with its id); otherwise the first true reason in this order:
+    cred, orphan, cap, streak, unclear, cooldown."""
     booked = bool(res and len(res) > 1 and res[1])
     if booked:
-        return {"booked": True, "reason": None, "streak_first": False}
-    flags = list(res[2][0]) if res and len(res) > 2 and res[2] else [False] * 6
-    names = ("cred", "cooldown", "cap", "unclear", "streak")
+        return {"booked": True, "reason": None, "streak_first": False, "try_id": res[1][0][0]}
+    flags = list(res[2][0]) if res and len(res) > 2 and res[2] else [False] * 7
+    flags += [False] * (7 - len(flags))
+    names = ("cred", "cooldown", "cap", "unclear", "streak", "_mailed", "orphan")
     # the cooldown hides the others most of the time; the cap and the streak are still reported, so their session detail stays on
-    for name in ("cred", "cap", "streak", "unclear", "cooldown"):
+    for name in ("cred", "orphan", "cap", "streak", "unclear", "cooldown"):
         if flags[names.index(name)]:
             return {"booked": False, "reason": name, "streak_first": name == "streak" and not flags[5]}
     return {"booked": False, "reason": "db_error", "streak_first": False}
@@ -110,6 +115,14 @@ def seen_connected_statement(org_id: str) -> tuple[str, object]:
         f"WHERE EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action IN ('relogin_put_back','relogin_unclear','relogin_capped') "
         f"AND at > {_LAST_OK})",
         p,
+    )
+
+
+def outcome_written_statement(org_id: str, try_id) -> tuple[str, object]:
+    return (
+        "SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND id > %(tid)s::int AND action IN "
+        "('relogin_put_back','relogin_typed','login_session_live','relogin_key_mismatch') LIMIT 1",
+        {"org": org_id, "tid": str(int(try_id))},
     )
 
 
@@ -140,10 +153,12 @@ def _pause(org_id: str, state: str, event: str) -> list[tuple[str, object]]:
     return pause_statements(org_id, event, only_if_state=state)
 
 
-def block_statement(org_id: str, state: str, action: str, mail_kind: str | None) -> tuple[str, object]:
+def block_statement(org_id: str, state: str, action: str, mail_kind: str | None, seen_nonce: str | None = None) -> tuple[str, object]:
     """Guarded stop (G5): only a row that is still 'ok' and not blocked changes. One statement answers (changed, mailed).
     A user who saved the login again during the run is left alone: no pause, no mail."""
-    p = {"org": org_id, "state": state, "action": action, "mailed": "relogin_mailed_" + (mail_kind or "none")}
+    # seen_nonce: the password this try typed. A row whose password was saved again since then is never blocked for it (loop review).
+    p = {"org": org_id, "state": state, "action": action, "mailed": "relogin_mailed_" + (mail_kind or "none"), "seen": seen_nonce}
+    same_password = " AND password_nonce = %(seen)s" if seen_nonce else ""
     mail = (
         "m AS (INSERT INTO merimen_cred_audit (org_id, action) SELECT org_id, %(mailed)s FROM upd "
         f"WHERE NOT EXISTS (SELECT 1 FROM merimen_cred_audit WHERE org_id = %(org)s AND action = %(mailed)s AND at > {_LAST_OK}) RETURNING 1)"
@@ -153,7 +168,7 @@ def block_statement(org_id: str, state: str, action: str, mail_kind: str | None)
     return (
         f"""WITH upd AS (
               UPDATE merimen_credentials SET verify_state = %(state)s, blocked = true, updated_at = now()
-              WHERE org_id = %(org)s AND verify_state = 'ok' AND NOT blocked RETURNING org_id
+              WHERE org_id = %(org)s AND verify_state = 'ok' AND NOT blocked{same_password} RETURNING org_id
             ),
             a AS (INSERT INTO merimen_cred_audit (org_id, action) SELECT org_id, %(action)s FROM upd RETURNING 1),
             {mail}
@@ -173,6 +188,8 @@ def relogin_email(kind: str) -> tuple[str, str]:
         body = "已经连续 6 次没有找到 Merimen 登录页，什么都没有输入。请检查工作电脑上的 Chrome。 / 6 tries in a row found no Merimen login page; nothing was typed. Please check the Chrome on the worker computer."
     elif kind == "relogin_unclear":
         body = "Merimen 没有明确回复这次自动登录。24 小时内我们不会再试。如果密码改过，请在「连接」页重新保存。 / Merimen gave no clear answer to the automatic login. We will not try again for 24 hours. If the password changed, save it again on the Connection page."
+    elif kind == "orphan":
+        return login_email("unknown")
     elif kind == "otp":
         body = "Merimen 要求输入验证码，自动登录已停止，没有再输入任何东西。请打开「连接」页重新保存登录。 / Merimen asked for a code. The automatic login stopped and nothing more was typed. Open the Connection page and save the login again."
     else:
@@ -205,7 +222,7 @@ def outcome_of(page: dict) -> str:
     return "ok" if result == RESULT_OK else result
 
 
-def finish(repo, org_id: str, page: dict, *, email_to=None, poster=None) -> str:
+def finish(repo, org_id: str, page: dict, *, email_to=None, poster=None, seen_nonce: str | None = None) -> str:
     """Write what this one re-login did. Returns the outcome word (for the one log line)."""
     out = outcome_of(page)
     if out == "put_back":
@@ -222,7 +239,7 @@ def finish(repo, org_id: str, page: dict, *, email_to=None, poster=None) -> str:
         # Another tab is never taken as proof: a person may have logged in there while this password failed.
         if repo.relogin_unclear_in_a_row(org_id) + 1 >= UNCLEAR_IN_A_ROW:
             # the second unclear answer with no success between: stop like the save-time "unknown" (blocked, paused, existing mail)
-            res = repo.finish_relogin(org_id, _audit(org_id, "relogin_typed") + [block_statement(org_id, RESULT_UNKNOWN, "relogin_unclear_stop", None)]
+            res = repo.finish_relogin(org_id, _audit(org_id, "relogin_typed") + [block_statement(org_id, RESULT_UNKNOWN, "relogin_unclear_stop", None, seen_nonce)]
                                       + _pause(org_id, RESULT_UNKNOWN, EVENT_RELOGIN_UNKNOWN))
             if _changed(res, 1):
                 _send(poster, email_to, login_email("unknown"))
@@ -233,13 +250,13 @@ def finish(repo, org_id: str, page: dict, *, email_to=None, poster=None) -> str:
         return "unclear"
     if out in (RESULT_BAD, RESULT_LOCKED):
         event = EVENT_BAD if out == RESULT_BAD else EVENT_LOCKED
-        res = repo.finish_relogin(org_id, _audit(org_id, "relogin_typed") + [block_statement(org_id, out, "login_" + out, None)] + _pause(org_id, out, event))
+        res = repo.finish_relogin(org_id, _audit(org_id, "relogin_typed") + [block_statement(org_id, out, "login_" + out, None, seen_nonce)] + _pause(org_id, out, event))
         if _changed(res, 1):
             _send(poster, email_to, login_email(out))
         return out
     if out == RESULT_OTP:
         # never 'otp': the web would show a code box for a tab that is already closed (G3). unknown + blocked, audit relogin_otp.
-        res = repo.finish_relogin(org_id, _audit(org_id, "relogin_typed") + [block_statement(org_id, RESULT_UNKNOWN, "relogin_otp", "otp")]
+        res = repo.finish_relogin(org_id, _audit(org_id, "relogin_typed") + [block_statement(org_id, RESULT_UNKNOWN, "relogin_otp", "otp", seen_nonce)]
                                   + _pause(org_id, RESULT_UNKNOWN, EVENT_RELOGIN_OTP))
         if res and len(res) > 1 and res[1] and int(res[1][0][1] or 0) > 0:
             _send(poster, email_to, relogin_email("otp"))
@@ -309,6 +326,10 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
             _detail[org_id] = "relogin_failed"
             if booking.get("streak_first") and repo.book_mail(org_id, "relogin_failed"):
                 _send(cfg.mailer, lambda: repo.owner_email(org_id), relogin_email("relogin_failed"))
+        elif reason == "orphan":
+            _detail[org_id] = "relogin_stopped"
+            if repo.book_mail(org_id, "orphan"):
+                _send(cfg.mailer, lambda: repo.owner_email(org_id), relogin_email("orphan"))
         elif reason == "cap":
             if _detail.get(org_id) != "relogin_capped":
                 repo.audit(org_id, "relogin_capped")
@@ -322,10 +343,10 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
     try:
         user = open_secret(master, org_id, row, "user")
         password = open_secret(master, org_id, row, "pass")
-    except Exception:  # noqa: BLE001  (wrong key: Merimen was never asked)
-        repo.finish_relogin(org_id, _audit(org_id, "relogin_put_back"))
+    except Exception:  # noqa: BLE001  (wrong key: Merimen was never asked; not a put-back, so no "no login page" mail)
+        repo.finish_relogin(org_id, _audit(org_id, "relogin_key_mismatch"))
         log_line(org_id, "key_mismatch", now=now)
-        return "put_back"
+        return "key_mismatch"
     try:
         page = fetch_page(user, password, port)
     except Exception:  # noqa: BLE001  (a thrown fetch may have typed: unknown, never put back)
@@ -335,10 +356,11 @@ def try_once(cfg, repo, org_id: str, port: int, *, fetch_page, master: bytes, no
         repo.heartbeat(cfg.worker_id, cfg.hf_repo, chrome_ok=True)  # the try can take 90 s; the web must not call the worker gone (G6)
     except Exception:  # noqa: BLE001
         pass
+    nonce = row.get("password_nonce")
     try:
-        out = finish(repo, org_id, page, email_to=lambda: repo.owner_email(org_id), poster=cfg.mailer)
+        out = finish(repo, org_id, page, email_to=lambda: repo.owner_email(org_id), poster=cfg.mailer, seen_nonce=nonce)
     except Exception:  # noqa: BLE001  (the outcome must still be written: kept here and written again before any new try)
-        _pending[org_id] = page
+        _pending[org_id] = {"page": page, "try_id": booking.get("try_id"), "nonce": nonce}
         log_line(org_id, "outcome_pending", now=now)
         out = "pending"
     if out in ("ok", "session_live"):
@@ -355,9 +377,15 @@ _pending: dict[str, dict] = {}
 
 
 def retry_pending(cfg, repo) -> None:
-    for org_id, page in list(_pending.items()):
+    """Write a kept outcome once. If the first write did commit (only its answer was lost), an outcome row after the try's id is
+    already there and nothing is written twice. The block is guarded on the password this try typed, so a login saved again
+    meanwhile is never blocked for the old one."""
+    for org_id, kept in list(_pending.items()):
         try:
-            finish(repo, org_id, page, email_to=lambda o=org_id: repo.owner_email(o), poster=cfg.mailer)
+            if kept.get("try_id") is not None and repo.outcome_written(org_id, kept["try_id"]):
+                _pending.pop(org_id, None)
+                continue
+            finish(repo, org_id, kept["page"], email_to=lambda o=org_id: repo.owner_email(o), poster=cfg.mailer, seen_nonce=kept.get("nonce"))
         except Exception:  # noqa: BLE001
             continue
         _pending.pop(org_id, None)

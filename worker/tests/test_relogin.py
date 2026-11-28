@@ -97,8 +97,26 @@ def test_no_relogin_without_the_hook(tmp_path):
 
 def test_at_most_one_org_per_tick_in_the_repos_order(tmp_path):
     asked = []
-    sync(tmp_path, SessRepo([row("o1"), row("o2")]), LOGIN_PAGE, asked)
-    assert asked == [("o2", 9222)]
+
+    def hook(org, port):
+        asked.append(org)
+        return "ok"
+
+    sync_sessions(cfg(tmp_path), SessRepo([row("o1"), row("o2")]), launch=lambda a: None, inspect=lambda p: LOGIN_PAGE, relogin=hook)
+    assert asked == ["o2"]  # the repo's order; one real try per tick
+
+
+@pytest.mark.parametrize("refused", ["cooldown", "cap", "streak", "orphan", "cred", "db_error", "key_mismatch", None])
+def test_a_refused_org_hands_the_turn_to_the_next(tmp_path, refused):
+    # loop review round 1: an org that is refused (nothing typed) must not take the tick's only try from the others
+    asked = []
+
+    def hook(org, port):
+        asked.append(org)
+        return refused if org == "o2" else "ok"
+
+    sync_sessions(cfg(tmp_path), SessRepo([row("o1"), row("o2")]), launch=lambda a: None, inspect=lambda p: LOGIN_PAGE, relogin=hook)
+    assert asked == ["o2", "o1"]
 
 
 def test_seen_connected_is_written_when_the_org_turns_connected(tmp_path):
@@ -215,7 +233,7 @@ UNREAD = {"result": "unknown", "submitted": True}
 
 
 def test_refused_booking_never_types(tmp_path, capsys):
-    for reason in ("cooldown", "cap", "unclear", "streak", "cred", "db_error"):
+    for reason in ("cooldown", "cap", "unclear", "streak", "cred", "db_error", "orphan"):
         relogin.reset()
         repo = TryRepo(booking={"booked": False, "reason": reason, "streak_first": False})
         out, fetched, sent = go(tmp_path, repo, OK_PAGE)
@@ -276,6 +294,72 @@ def test_a_lost_outcome_write_blocks_new_tries_until_it_is_written(tmp_path):
     out, fetched, sent = go(tmp_path, repo, OK_PAGE, now=lambda: 200.0)
     assert ("block", "bad_credentials", "login_bad_credentials") in actions(repo)  # the old outcome was written first
     assert len(fetched) == 1  # and only then a new booking (the fake repo books again)
+
+
+def test_a_replayed_outcome_that_already_committed_is_not_written_twice(tmp_path):
+    # loop review round 1: the first write committed and only its answer was lost; the replay must see that and write nothing
+    class LostAnswer(TryRepo):
+        lose = True
+        written = False
+
+        def finish_relogin(self, org, statements):
+            out = super().finish_relogin(org, statements)
+            if self.lose:
+                self.lose, self.written = False, True
+                raise RuntimeError("answer lost")
+            return out
+
+        def outcome_written(self, org, try_id):
+            assert try_id == 41
+            return self.written
+
+    repo = LostAnswer(booking={"booked": True, "reason": None, "streak_first": False, "try_id": 41})
+    out, fetched, _ = go(tmp_path, repo, BAD_PAGE, now=lambda: 0.0)
+    assert out == "pending" and len(repo.batches) == 1
+    out, fetched, _ = go(tmp_path, repo, OK_PAGE, now=lambda: 100.0)
+    assert out == "ok" and len(fetched) == 1
+    assert len(repo.batches) == 2 and actions(repo)[-2:] == ["relogin_typed", "relogin_ok"]  # no second block for the old try
+
+
+def test_the_block_is_tied_to_the_password_that_was_typed(tmp_path):
+    class Nonce(TryRepo):
+        def relogin_cred(self, org):
+            return {"org_id": org, "password_nonce": "N1"}
+
+    repo = Nonce()
+    go(tmp_path, repo, BAD_PAGE)
+    blocks = [p for b in repo.batches for s, p in b if "WITH upd AS" in s]
+    assert blocks and all(p["seen"] == "N1" for p in blocks)
+    assert all("password_nonce = %(seen)s" in s for b in repo.batches for s, _ in b if "WITH upd AS" in s)
+
+
+def test_a_key_mismatch_types_nothing_and_writes_its_own_row(tmp_path):
+    repo = TryRepo()
+    c = cfg(tmp_path)
+    object.__setattr__(c, "mailer", lambda *a: None)
+    fetched = []
+    import autopilot_worker.crypto as crypto
+    orig = crypto.open_secret
+
+    def boom(*a):
+        raise ValueError("wrong key")
+
+    crypto.open_secret = boom
+    try:
+        out = relogin.try_once(c, repo, "o1", 9222, fetch_page=lambda *a: fetched.append(a), master=b"k", now=lambda: 0.0, close_target=lambda *a: None)
+    finally:
+        crypto.open_secret = orig
+    assert out == "key_mismatch" and fetched == [] and actions(repo) == ["relogin_key_mismatch"]
+
+
+def test_an_orphan_refusal_sets_the_detail_and_mails_once(tmp_path):
+    repo = TryRepo(booking={"booked": False, "reason": "orphan", "streak_first": False})
+    out, fetched, sent = go(tmp_path, repo, OK_PAGE)
+    assert out == "orphan" and fetched == [] and relogin.detail_for("o1") == "relogin_stopped"
+    assert repo.mails == [("booked", "orphan")] and len(sent) == 1
+    relogin.reset()
+    repo2 = TryRepo(booking={"booked": False, "reason": "orphan", "streak_first": False}, mailed=0)
+    assert go(tmp_path, repo2, OK_PAGE)[2] == []  # mail already booked in this episode
 
 
 def test_first_unclear_changes_nothing_and_mails_once(tmp_path):
@@ -511,11 +595,34 @@ def test_pg_pause_runs_only_after_this_runs_block():
         "INSERT INTO jobs (id, case_id, step, state) VALUES (1,'c1','phase_a','queued')",
     ]
     pause = relogin._pause("o1", "bad_credentials", "bad")
-    r = run(steps(pause) + [{"sql": "SELECT state FROM jobs"}], seed=org_seed)
-    assert r[-1] == [["queued"]]  # the row is still ok: no pause
-    r = run(steps([relogin.block_statement("o1", "bad_credentials", "login_bad_credentials", None)] + pause)
-            + [{"sql": "SELECT state FROM jobs"}, {"sql": "SELECT status FROM cases"}], seed=org_seed)
+    block = relogin.block_statement("o1", "bad_credentials", "login_bad_credentials", None)
+    tx = lambda sts: [{"sql": "BEGIN"}] + steps(sts) + [{"sql": "COMMIT"}]  # noqa: E731  (db.batch: one transaction)
+    look = [{"sql": "SELECT state FROM jobs"}, {"sql": "SELECT status FROM cases"}]
+    r = run(tx(pause) + look, seed=org_seed)
+    assert r[-2] == [["queued"]]  # the row is still ok: no pause
+    r = run(tx([block] + pause) + look, seed=org_seed)
     assert r[-2] == [["paused"]] and r[-1] == [["waiting_user"]]
+    # blocked by an EARLIER transaction (an old check): this run did not block it, so it pauses nothing (loop review round 1)
+    r = run(tx([block]) + tx(pause) + look, seed=org_seed)
+    assert r[-2] == [["queued"]] and r[-1] == [["phase_a"]]
+
+
+@needs_pg
+def test_pg_block_skips_a_password_saved_again_since_the_try():
+    look = {"sql": "SELECT verify_state, blocked FROM merimen_credentials"}
+    r = run(steps([relogin.block_statement("o1", "bad_credentials", "login_bad_credentials", None, "OLD")]) + [look], seed=SEED)
+    assert r[-1] == [["ok", False]]  # the row now holds another password (nonce 'f'): left alone
+    r = run(steps([relogin.block_statement("o1", "bad_credentials", "login_bad_credentials", None, "f")]) + [look], seed=SEED)
+    assert r[-1] == [["bad_credentials", True]]
+
+
+@needs_pg
+def test_pg_outcome_written_looks_only_after_the_try():
+    seed = SEED + [audit("relogin_typed", "30 minutes"), audit("relogin_try", "20 minutes")]
+    r = run([{"sql": "SELECT max(id) FROM merimen_cred_audit"}], seed=seed)
+    tid = r[0][0][0]
+    assert run(steps([relogin.outcome_written_statement("o1", tid)]), seed=seed)[0] == []  # the older typed row does not count
+    assert run(steps([relogin.outcome_written_statement("o1", tid)]), seed=seed + [audit("relogin_typed", "19 minutes")])[0] == [[1]]
 
 
 @needs_pg
@@ -585,7 +692,15 @@ def test_end_to_end_restart_relogin_connected(tmp_path):
 @needs_pg
 def test_pg_a_try_without_an_outcome_blocks_like_unclear():
     (b,), _ = book([audit("relogin_try", "20 minutes")])
-    assert b["reason"] == "unclear"  # typed or not, nobody wrote what happened: never type again for 24 h
+    assert b["reason"] == "orphan"  # typed or not, nobody wrote what happened: never type again until a proven success
+    (b,), _ = book([audit("relogin_try", "30 hours")])
+    assert b["reason"] == "orphan"  # no 24 h end: the lost answer may have been a rejection (loop review round 1)
+    (b,), _ = book([audit("relogin_try", "30 hours"), audit("login_session_live", "1 hour"), audit("session_seen_connected", "1 hour")])
+    assert b["booked"]  # an outcome row after the try: it is no orphan
+    (b,), _ = book([audit("relogin_try", "30 hours"), audit("login_ok", "1 hour")])
+    assert b["booked"]  # the user saved again and the save-time check proved the password
+    (b,), _ = book([audit("relogin_try", "20 minutes"), audit("relogin_key_mismatch", "19 minutes")])
+    assert b["booked"]
     (b,), _ = book([audit("relogin_try", "20 minutes"), audit("relogin_put_back", "19 minutes")])
     assert b["booked"]
     (b,), _ = book([audit("relogin_try", "20 minutes"), audit("relogin_typed", "19 minutes"), audit("relogin_ok", "19 minutes")])

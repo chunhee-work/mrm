@@ -136,6 +136,10 @@ _launched: dict[int, float] = {}
 LAUNCH_WAIT = 30.0
 
 
+# what relogin(org, port) returns when it really ran a try (anything else: refused, throttled, pending, nothing typed or opened)
+TRIED = ("ok", "session_live", "put_back", "unclear", "unclear_stop", "bad_credentials", "locked", "otp", "pending", "unknown")
+
+
 def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _port: None, now=time.monotonic, running=chrome_running, relogin=None) -> None:
     """relogin(org, port) -> None: MERIMEN_RELOGIN. Asked for at most ONE org per tick, only when that org's Chrome answers, no tab
     of it is logged in, and its saved login is ok and not blocked (the gate is "ready"). Orgs tried longest ago go first."""
@@ -186,9 +190,12 @@ def sync_sessions(cfg: Config, repo: PgRepo, *, launch, inspect, keep=lambda _po
                 reason = detail_for(org) or reason
         repo.set_session(org, status=status, wanted="start", account=account, port=port, detail=reason)
     if relogin and want_relogin:
+        # orgs tried longest ago first; a refused or throttled org hands the turn to the next one, so one stopped org never starves
+        # the others. Still at most ONE real try per tick.
         ports = dict(want_relogin)
-        for org in repo.relogin_order([o for o, _ in want_relogin])[:1]:
-            relogin(org, ports[org])
+        for org in repo.relogin_order([o for o, _ in want_relogin]):
+            if relogin(org, ports[org]) in TRIED:
+                break
 
 
 def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, download, keep=lambda _port: None, fetch_page=None, master: bytes = b"", page_for=None, put_blob=None, delete_blob=None, side_check=None, now=time.monotonic, forget_files=None, relogin_fetch=None) -> str | None:
@@ -206,8 +213,8 @@ def tick(cfg: Config, repo: PgRepo, *, launch, inspect, namer, driver: Driver, d
     if cfg.merimen_relogin and cfg.merimen_login and relogin_fetch and master:
         from .relogin import try_once
 
-        def relogin(org: str, port: int) -> None:
-            try_once(cfg, repo, org, port, fetch_page=relogin_fetch, master=master, now=now)
+        def relogin(org: str, port: int):
+            return try_once(cfg, repo, org, port, fetch_page=relogin_fetch, master=master, now=now)
 
         from .relogin import retry_pending
 
